@@ -20,7 +20,7 @@
 
 /// .bss
 /* 4A1F10 */ static struct un_804A1F10_t {
-    DynamicModelDesc** x0;
+    DiscU32* x0; /* DynamicModelDesc*[] in IfAll */
     HSD_GObj* x4[4];
     GXColor x14[4];
     unsigned char x24[4];
@@ -202,11 +202,11 @@ void un_802FE260(void)
                            "Stc_rarwmdls", 0);
     for (i = 0; i < 4; i++) {
         gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
-        jobj = HSD_JObjLoadJoint(un_804A1F10.x0[0]->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, DP(DynamicModelDesc, un_804A1F10.x0[0].v)->joint));
         gobj->user_data = (void*) &un_804DDBA8[i];
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, fn_802FDA4C, 11, 0);
-        gm_8016895C(jobj, un_804A1F10.x0[0], 0);
+        gm_8016895C(jobj, DP(DynamicModelDesc, un_804A1F10.x0[0].v), 0);
         HSD_GObj_SetupProc(gobj, fn_802FDA78, 17);
         HSD_JObjReqAnimAll(jobj, 0.0);
         HSD_JObjAnimAll(jobj);

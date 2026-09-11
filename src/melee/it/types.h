@@ -77,7 +77,26 @@ struct Item_DynamicBones {
 };
 ASSERT_SIZE(struct Item_DynamicBones, 0x1C);
 
-struct ItemAttr {
+/* Disc -> native copies (DiscItECB lives in forward.h). */
+static inline itECB itECB_FromDisc(const DiscItECB* d)
+{
+    itECB e = { d->top, d->bottom, d->right, d->left };
+    return e;
+}
+
+static inline Vec2 Vec2_FromDisc(const DiscVec2* d)
+{
+    Vec2 v = { d->x, d->y };
+    return v;
+}
+
+static inline Vec3 Vec3_FromDisc(const DiscVec3* d)
+{
+    Vec3 v = { d->x, d->y, d->z };
+    return v;
+}
+
+struct DISC_STRUCT ItemAttr {
     u8 x0_is_heavy : 1; // 0x0, bit 0x80, is heavy item (crate)
     u8 x0_78 : 4; // Should be enum (Item_UnkKinds?) for type of action char
                   // takes when using - 0: throwable, 2: Swingable, 3:
@@ -99,10 +118,10 @@ struct ItemAttr {
     f32 x18;
     f32 x1C_damage_mul; // collision related? referenced on taking damage @
                         // 80270f90
-    itECB x20;
-    Vec2 x30_unk;        // 0x34
-    Vec2 x38_grab_range; // 0x38
-    itECB x40;
+    DiscItECB x20;
+    DiscVec2 x30_unk;        // 0x34
+    DiscVec2 x38_grab_range; // 0x38
+    DiscItECB x40;
     f32 x50;       // 0x50
     f32 x54;       // 0x54
     f32 x58;       // 0x58
@@ -125,41 +144,45 @@ struct ItemAttr {
     s32 x7C; // 0x7c
     s32 x80; // 0x80
 };
+DISC_ASSERT_SIZE(struct ItemAttr, 0x84);
 
 /// @sz{8}
-struct ItemDynamics {
+struct DISC_STRUCT ItemDynamics {
     /// @todo Combine with ftDynamics? Can see in it_8027163C that this struct
     /// does not work perfectly
     /// @at{0} @sz{4}
     int count;
 
     /// @at{4} @sz{4}
-    BoneDynamicsDesc* dyn_descs;
+    DISC_PTR(BoneDynamicsDesc) dyn_descs;
 };
+DISC_ASSERT_SIZE(struct ItemDynamics, 0x8);
 
 /// @sz{10}
-struct ItemStateDesc {
+struct DISC_STRUCT ItemStateDesc {
     /// @at{0} @sz{4}
-    HSD_AnimJoint* x0_anim_joint;
+    DISC_PTR(HSD_AnimJoint) x0_anim_joint;
 
     /// @at{0} @sz{4}
-    HSD_MatAnimJoint* x4_matanim_joint;
+    DISC_PTR(HSD_MatAnimJoint) x4_matanim_joint;
 
     /// @at{0} @sz{4}
-    HSD_ShapeAnimJoint* x8_parameters;
+    DISC_PTR(HSD_ShapeAnimJoint) x8_parameters;
 
     /// @at{0} @sz{4}
-    UNK_T xC_script;
+    DISC_PTR(void) xC_script;
 };
+DISC_ASSERT_SIZE(struct ItemStateDesc, 0x10);
 
-struct ItemStateArray {
+struct DISC_STRUCT ItemStateArray {
     struct ItemStateDesc x0_itemStateDesc[8];
 };
+DISC_ASSERT_SIZE(struct ItemStateArray, 0x80);
 
 /// @sz{10}
-struct ItemModelDesc {
+struct DISC_STRUCT ItemModelDesc {
     /// @at{0} @sz{4}
-    HSD_Joint* x0_joint;
+    DISC_PTR(HSD_Joint) x0_joint;
 
     /// @at{4} @sz{4}
     u32 x4_bone_count;
@@ -170,30 +193,34 @@ struct ItemModelDesc {
     /// @at{C} @sz{4}
     u8 xC_bit_field;
 };
+DISC_ASSERT_SIZE(struct ItemModelDesc, 0x10);
 
 // Mirrors HurtCapsule[a_offset..scale] but with a leading bone_id where
 // HurtCapsule has its state field. Stored inline in Article::x8_hurtbones,
 // then copied into Item::xACC_itemHurtbox by it_8027163C.
-typedef struct {
+typedef struct DISC_STRUCT {
     enum_t bone_id;
-    Vec3 a_offset;
-    Vec3 b_offset;
+    DiscVec3 a_offset;
+    DiscVec3 b_offset;
     f32 scale;
 } ItHurtBoneDesc;
+DISC_ASSERT_SIZE(ItHurtBoneDesc, 0x20);
 
-typedef struct {
+typedef struct DISC_STRUCT {
     s32 count;
-    ItHurtBoneDesc* descs;
+    DISC_PTR(ItHurtBoneDesc) descs;
 } ItHurtBoneList;
+DISC_ASSERT_SIZE(ItHurtBoneList, 0x8);
 
-struct Article {
-    ItemAttr* x0_common_attr;
-    void* x4_specialAttributes;
-    ItHurtBoneList* x8_hurtbones;
-    ItemStateArray* xC_itemStates;
-    ItemModelDesc* x10_modelDesc;
-    ItemDynamics* x14_dynamics;
+struct DISC_STRUCT Article {
+    DISC_PTR(ItemAttr) x0_common_attr;
+    DISC_PTR(void) x4_specialAttributes;
+    DISC_PTR(ItHurtBoneList) x8_hurtbones;
+    DISC_PTR(ItemStateArray) xC_itemStates;
+    DISC_PTR(ItemModelDesc) x10_modelDesc;
+    DISC_PTR(ItemDynamics) x14_dynamics;
 };
+DISC_ASSERT_SIZE(struct Article, 0x18);
 
 typedef struct it_266F_ItemVars {
     u16 x0;
@@ -706,7 +733,7 @@ struct SpawnItem {
     /* +48 */ GroundOrAir x48_ground_or_air;
 };
 
-struct ItemCommonData {
+struct DISC_STRUCT ItemCommonData {
     s32 x0;
     u32 x4;
     u32 x8;
@@ -774,15 +801,7 @@ struct ItemCommonData {
     f32 x158;
     f32 x15C;
 };
-
-struct Item_r13_Data {
-    ItemCommonData* item_common;
-    void** common_items;
-    void** adventure_items;
-    void** pokeball_items;
-    s32 x10;
-    s32 x14;
-};
+DISC_ASSERT_SIZE(struct ItemCommonData, 0x160);
 
 // Per-fighter ECB/position record. Populated by ftCo_80098634 (one entry per
 // fighter); read by it_80271B60 to detect item/fighter ECB overlap.

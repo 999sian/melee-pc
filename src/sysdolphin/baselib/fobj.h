@@ -50,16 +50,17 @@ struct HSD_FObj {
     f32 d1;
 };
 
-typedef struct _HSD_FObjDesc {
-    struct _HSD_FObjDesc* next;
+typedef struct DISC_STRUCT _HSD_FObjDesc {
+    DISC_PTR(struct _HSD_FObjDesc) next;
     u32 length;
     f32 startframe;
     u8 type;
     u8 frac_value;
     u8 frac_slope;
     u8 dummy0;
-    u8* ad;
+    DISC_PTR(u8) ad; /* packed big-endian keyframe stream */
 } HSD_FObjDesc;
+DISC_ASSERT_SIZE(HSD_FObjDesc, 0x14);
 
 union HSD_ObjData {
     f32 fv;

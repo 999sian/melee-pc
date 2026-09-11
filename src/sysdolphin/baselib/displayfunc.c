@@ -483,15 +483,15 @@ void HSD_JObjDisp(HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask,
         if (union_type_dobj(jobj)) {
             HSD_JObjDispDObj(jobj, vmtx, trsp_mask, rendermode);
         } else if (union_type_ptcl(jobj) && sptcl_callback != NULL) {
-            HSD_SList* sp;
-            for (sp = jobj->u.ptcl; sp != NULL; sp = sp->next) {
-                if ((((u32) sp->data) & 0x80000000) != 0) {
-                    u32 bank = JOBJ_PTCL_BANK_MASK & ((u32) sp->data);
-                    u32 offset = (((u32) sp->data) >> JOBJ_PTCL_OFFSET_SHIFT) &
+            HSD_DiscSList* sp;
+            for (sp = jobj->u.ptcl; sp != NULL; sp = DP(HSD_DiscSList, sp->next)) {
+                if ((sp->data & 0x80000000) != 0) {
+                    u32 bank = JOBJ_PTCL_BANK_MASK & sp->data;
+                    u32 offset = (sp->data >> JOBJ_PTCL_OFFSET_SHIFT) &
                                  JOBJ_PTCL_OFFSET_MASK;
                     (*sptcl_callback)(0, bank, offset, jobj);
                 }
-                sp->data = (void*) ((u32) sp->data & JOBJ_PTCL_ACTIVE);
+                sp->data = sp->data & JOBJ_PTCL_ACTIVE;
             }
         }
     }

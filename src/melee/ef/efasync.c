@@ -1273,20 +1273,20 @@ void efAsync_LoadAsync(int index)
 
 void efAsync_OnLoad(HSD_Archive* archive, u8* data, u32 length, int index)
 {
-    EF_DAT_Entry* result;
+    struct EF_DataTable* result;
 
     lbArchive_InitializeDAT(archive, data, length);
     result = HSD_ArchiveGetPublicAddress(
         archive, efAsync_DatEntries[index].effDataTable_name);
-    if ((u32) result->ef_DAT_file | (u32) result->effDataTable_name) {
-        psInitDataBankLocate((HSD_Archive*) result->ef_DAT_file,
-                             (HSD_Archive*) result->effDataTable_name, NULL);
+    if (result->ptcl_bank | result->tex_bank) {
+        psInitDataBankLocate(DP(HSD_Archive, result->ptcl_bank),
+                             DP(HSD_Archive, result->tex_bank), NULL);
     }
 }
 
 void efAsync_LoadSync(int idx)
 {
-    EF_DAT_Entry* spC;
+    struct EF_DataTable* spC;
     EF_DAT_Entry* lookup;
     lookup = &efAsync_DatEntries[idx];
 
@@ -1302,16 +1302,16 @@ void efAsync_LoadSync(int idx)
     {
         bool chk = lbArchive_80017040(NULL, lookup->ef_DAT_file, &spC,
                                       lookup->effDataTable_name, 0);
-        if ((u32) spC->ef_DAT_file | (u32) spC->effDataTable_name) {
+        if (spC->ptcl_bank | spC->tex_bank) {
             if (chk) {
-                psInitDataBankLoad(idx, (void*) spC->ef_DAT_file,
-                                   (void*) spC->effDataTable_name, NULL, NULL);
+                psInitDataBankLoad(idx, DP(void, spC->ptcl_bank),
+                                   DP(void, spC->tex_bank), NULL, NULL);
             } else {
-                psInitDataBank(idx, (void*) spC->ef_DAT_file,
-                               (void*) spC->effDataTable_name, NULL, NULL);
+                psInitDataBank(idx, DP(void, spC->ptcl_bank),
+                               DP(void, spC->tex_bank), NULL, NULL);
             }
         }
-        lookup->data = &spC->data;
+        lookup->data = spC->descs;
     }
 }
 

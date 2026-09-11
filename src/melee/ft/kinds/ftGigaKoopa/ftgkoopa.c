@@ -325,10 +325,10 @@ void ftGk_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
     ftData* ftdata = fp->ft_data;
-    void** items = ftdata->x48_items;
+    DiscU32* items = DP(DiscU32, ftdata->x48_items);
 
     ftKp_Init_OnLoadForGKoopa(fp);
-    it_8026B3F8(items[0], It_Kind_Koopa_Flame);
+    it_8026B3F8(DP(Article, items[0].v), It_Kind_Koopa_Flame);
 
     fp->x2226_b1 = true;
     fp->x222A_b0 = true;

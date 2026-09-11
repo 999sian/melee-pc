@@ -88,8 +88,7 @@ Item_GObj* it_802C3BAC(Item_GObj* gobj, Vec* vec, float facing_dir, float arg3)
     n = Item_80268B18(&si);
     if (n != NULL) {
         Item* i = GET_ITEM(n);
-        ItZeldaDinFire_ItemVars* attrs =
-            i->xC4_article_data->x4_specialAttributes;
+        ItZeldaDinFire_ItemVars* attrs = DP(ItZeldaDinFire_ItemVars, i->xC4_article_data->x4_specialAttributes);
         i->xDAC_itcmd_var0 = i->xDB0_itcmd_var1 = i->xDB4_itcmd_var2 =
             i->xDB8_itcmd_var3 = 0;
         it_80275158(n, attrs->x0);
@@ -168,8 +167,7 @@ void it_802C3D74(Item_GObj* gobj)
 static inline void itZeldadinfire_UnkMotion0_Anim_inline(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ItZeldaDinFire_ItemVars* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    ItZeldaDinFire_ItemVars* attrs = DP(ItZeldaDinFire_ItemVars, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* jobj = GET_JOBJ(gobj);
     if (ip->xDD4_itemVar.zeldadinfire.xDF4) {
         efLib_DestroyAll(gobj);
@@ -185,8 +183,7 @@ bool itZeldadinfire_UnkMotion0_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    ItZeldaDinFire_ItemVars* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    ItZeldaDinFire_ItemVars* attrs = DP(ItZeldaDinFire_ItemVars, ip->xC4_article_data->x4_specialAttributes);
     Vec v;
     if (ip->xDD4_itemVar.zeldadinfire.xDDC == 0) {
         ip->xDD4_itemVar.zeldadinfire.xDD8 += 1.0f;
@@ -214,8 +211,7 @@ bool itZeldadinfire_UnkMotion1_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    ItZeldaDinFire_ItemVars* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    ItZeldaDinFire_ItemVars* attrs = DP(ItZeldaDinFire_ItemVars, ip->xC4_article_data->x4_specialAttributes);
     Vec v;
     v.x = v.y = v.z = ip->xDD4_itemVar.zeldadinfire.xDD8 *
                           ((attrs->xC - attrs->x8) / attrs->x4) +
@@ -241,8 +237,7 @@ bool itZeldadinfire_UnkMotion1_Anim(Item_GObj* gobj)
 void itZeldadinfire_UnkMotion0_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ItZeldaDinFire_ItemVars* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    ItZeldaDinFire_ItemVars* attrs = DP(ItZeldaDinFire_ItemVars, ip->xC4_article_data->x4_specialAttributes);
     int pad;
     float f1;
     float f2;

@@ -43,7 +43,7 @@ void ftMh_BackDisappear_Coll(HSD_GObj* gobj) {}
 void ftMh_MS_372_801542E0(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     Fighter_ChangeMotionState(gobj, ftMh_MS_Wait1_1, 0, fp->cur_anim_frame, 1,
                               0, 0);
     ftAnim_SetAnimRate(gobj, da->x110_pos.y);
@@ -104,7 +104,7 @@ void ftMh_Wait1_1_Phys(HSD_GObj* gobj)
 {
     /// @todo #GET_FIGHTER doesn't fit the stack.
     Fighter* fp = gobj->user_data;
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     float len;
     float speed;
     Vec3 sp28_pos;
@@ -171,7 +171,7 @@ void ftMh_Grab_Coll(HSD_GObj* gobj) {}
 void ftMh_MS_374_801546D8(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     Fighter_ChangeMotionState(gobj, ftMh_MS_Fail, 0, 0, 1, 0, 0);
     ftAnim_8006EBA4(gobj);
     fp->mv.mh.unk0.xC.x = da->x30_pos2.x;
@@ -197,7 +197,7 @@ void ftMh_Fail_IASA(HSD_GObj* gobj)
 void ftMh_Fail_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     ftBossLib_8015BE40(gobj, &fp->mv.mh.unk0.xC, &fp->mv.mh.unk0.x18, da->x2C,
                        da->x28);
@@ -208,7 +208,7 @@ void ftMh_Fail_Coll(HSD_GObj* gobj) {}
 void ftMh_MS_381_8015483C(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     Fighter_ChangeMotionState(gobj, ftMh_MS_Cancel, 0, 0, 1, 0, 0);
     ftAnim_8006EBA4(gobj);
     fp->mv.mh.unk0.x24 = da->x120;
@@ -245,7 +245,7 @@ void ftMh_Cancel_IASA(HSD_GObj* gobj)
 void ftMh_Cancel_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     ftBossLib_8015BE40(gobj, &fp->mv.mh.unk0.xC, &fp->mv.mh.unk0.x18, da->x2C,
                        da->x28);

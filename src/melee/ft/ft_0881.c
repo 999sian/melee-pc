@@ -213,7 +213,7 @@ void ft_80088998(Fighter* fp)
 void ft_800889F4(Fighter* fp, FtSFXArr* sfx)
 {
     if (sfx != NULL) {
-        ft_800881D8(fp, sfx->sfx_ids[HSD_Randi(sfx->num)], 0x7F, 0x40);
+        ft_800881D8(fp, DP(DiscS32, sfx->sfx_ids)[HSD_Randi(sfx->num)].v, 0x7F, 0x40);
     }
 }
 
@@ -351,7 +351,7 @@ static f32 ft_80089118(StaleMoveTable* table, int move_id, int arg2)
             return var_f1;
         }
         if (move_id == table->StaleMoves[var_r8].move_id) {
-            var_f1 -= Fighter_804D6548[i];
+            var_f1 -= Fighter_804D6548[i].v;
         }
         var_r8 = var_r8 != 0 ? var_r8 - 1 : 9;
     }

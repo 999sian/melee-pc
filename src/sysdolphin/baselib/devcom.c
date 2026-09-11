@@ -4,6 +4,20 @@
 #include "devcom.static.h"
 #include "synth.h"
 
+#ifdef TARGET_PC
+/* DVD and ARQ completions arrive on aurora worker threads. On GameCube they
+ * ran in interrupt context, i.e. atomically against every
+ * OSDisableInterrupts section and against each other; without that, e.g. an
+ * ARQ end callback can push dvdDC onto the free list before
+ * HSD_DevComDVDCallback has unlinked it from devComStatus. Hold the
+ * (recursive) interrupt mutex for the whole callback to restore that. */
+#define DEVCOM_CB_ENTER() BOOL cb_intr = OSDisableInterrupts()
+#define DEVCOM_CB_LEAVE() OSRestoreInterrupts(cb_intr)
+#else
+#define DEVCOM_CB_ENTER() (void) 0
+#define DEVCOM_CB_LEAVE() (void) 0
+#endif
+
 bool HSD_DevComIsBusy(int idx)
 {
     return (bool) devComStatus[idx];
@@ -42,6 +56,7 @@ cleanup:
 static void HSD_DevComStdCallback(ARQRequest* request)
 {
     int i;
+    DEVCOM_CB_ENTER();
 
     if (request == &devComARQR[0][0]) {
         i = 0;
@@ -54,6 +69,7 @@ static void HSD_DevComStdCallback(ARQRequest* request)
     devComRelayBufFlag[i] = false;
     HSD_DevComDVDWakeUp();
     HSD_DevComARAMWakeUp();
+    DEVCOM_CB_LEAVE();
 }
 
 static inline void HSD_DevComARAMCallback_inline(HSD_DevCom* devcom)
@@ -68,6 +84,7 @@ static void HSD_DevComARAMCallback(ARQRequest* request)
 {
     int i;
     void* buf;
+    DEVCOM_CB_ENTER();
 
     if (aramDC->type == 0x1A) {
         if (request == &devComARQR[0][0]) {
@@ -88,6 +105,7 @@ static void HSD_DevComARAMCallback(ARQRequest* request)
     HSD_DevComUnlink(aramDC);
     HSD_DevComARAMCallback_inline(aramDC);
     HSD_DevComStdCallback(request);
+    DEVCOM_CB_LEAVE();
 }
 
 static inline int getRelayBufIdx(void)
@@ -201,6 +219,7 @@ void HSD_DevComARAMWakeUp(void)
 static void HSD_DevComDVDStdCallback(ARQRequest* request)
 {
     int i;
+    DEVCOM_CB_ENTER();
     if (request == &devComARQR[0][0]) {
         i = 0;
     } else if (request == &devComARQR[1][0]) {
@@ -211,11 +230,13 @@ static void HSD_DevComDVDStdCallback(ARQRequest* request)
     devComRelayBufFlag[i] = false;
     HSD_DevComDVDWakeUp();
     HSD_DevComARAMWakeUp();
+    DEVCOM_CB_LEAVE();
 }
 
 static void HSD_DevComDVDARAMEndCallback(ARQRequest* request)
 {
     int i;
+    DEVCOM_CB_ENTER();
 
     HSD_DevComDVDStdCallback(request);
 
@@ -232,12 +253,14 @@ static void HSD_DevComDVDARAMEndCallback(ARQRequest* request)
     }
     HSD_DevComARAMCallback_inline(HSD_DevCom_804D77FC[i]);
     HSD_DevCom_804D77FC[i] = NULL;
+    DEVCOM_CB_LEAVE();
 }
 
 static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
 {
     HSD_DevCom* dc;
     bool enabled;
+    DEVCOM_CB_ENTER();
 
     if (result == -1) {
         HSD_DevCom_804D7804 = 1;
@@ -248,6 +271,7 @@ static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
         dvdDC->size -= 0x80000;
         HSD_DevCom_804D77F5 = 0;
         HSD_DevComDVDWakeUp();
+        DEVCOM_CB_LEAVE();
         return;
     }
     if (dvdDC->callback != NULL && HSD_DevCom_804D7804 == 0) {
@@ -262,6 +286,7 @@ static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
     OSRestoreInterrupts(enabled);
     HSD_DevCom_804D77F5 = 0;
     HSD_DevComDVDWakeUp();
+    DEVCOM_CB_LEAVE();
 }
 
 static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
@@ -269,6 +294,7 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
     HSD_DevCom* dc;
     s32 enabled;
     u16 type;
+    DEVCOM_CB_ENTER();
 
     PAD_STACK(8);
 
@@ -317,6 +343,7 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
             HSD_DevComDVDWakeUp();
         }
     }
+    DEVCOM_CB_LEAVE();
 }
 
 void HSD_DevComDVDWakeUp(void)

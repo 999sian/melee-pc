@@ -14,7 +14,7 @@ struct ftCaptain_FighterVars {
     u8 _[FIGHTERVARS_SIZE - 8];
 };
 
-struct ftCaptain_DatAttrs {
+struct DISC_STRUCT ftCaptain_DatAttrs {
     /* +0 */ float specialn_stick_range_y_neg;
     /* +4 */ float specialn_stick_range_y_pos;
     /* +8 */ float specialn_angle_diff;
@@ -51,6 +51,7 @@ struct ftCaptain_DatAttrs {
     /* +84 */ float speciallw_ground_traction;
     /* +88 */ float speciallw_air_landing_traction;
 };
+DISC_ASSERT_SIZE(struct ftCaptain_DatAttrs, 0x8C);
 
 union ftCaptain_MotionVars {
     struct ftCaptainSpecialSVars {

@@ -27,11 +27,16 @@ struct HSD_Fog {
     /* 0x1C */ HSD_AObj* aobj;
 };
 
-struct HSD_FogAdjDesc {
+typedef struct DISC_STRUCT {
+    f32 m[4][4];
+} DiscMtx44;
+
+struct DISC_STRUCT HSD_FogAdjDesc {
     /* 0x00 */ u16 center;
     /* 0x02 */ u16 width;
-    /* 0x04 */ Mtx44 mtx;
+    /* 0x04 */ DiscMtx44 mtx;
 };
+DISC_ASSERT_SIZE(HSD_FogAdjDesc, 0x44);
 
 struct HSD_FogInfo {
     HSD_ObjInfo parent;
@@ -41,13 +46,14 @@ struct HSD_FogAdjInfo {
     HSD_ObjInfo parent;
 };
 
-struct HSD_FogDesc {
+struct DISC_STRUCT HSD_FogDesc {
     /* 0x00 */ u32 type;
-    /* 0x04 */ HSD_FogAdjDesc* fogadjdesc;
+    /* 0x04 */ DISC_PTR(HSD_FogAdjDesc) fogadjdesc;
     /* 0x08 */ f32 start;
     /* 0x0C */ f32 end;
     /* 0x10 */ GXColor color;
 };
+DISC_ASSERT_SIZE(HSD_FogDesc, 0x14);
 
 void HSD_FogSet(HSD_Fog*);
 HSD_FogAdj* HSD_FogAdjLoadDesc(HSD_FogAdjDesc*);

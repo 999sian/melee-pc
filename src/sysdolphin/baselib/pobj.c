@@ -19,6 +19,7 @@
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
 #include <dolphin/os.h>
+#include <pc/pc.h>
 
 static void PObjInfoInit(void);
 
@@ -88,7 +89,7 @@ void HSD_PObjAddAnim(HSD_PObj* pobj, HSD_ShapeAnim* shapeanim)
     if (st->aobj) {
         HSD_AObjRemove(st->aobj);
     }
-    st->aobj = HSD_AObjLoadDesc(shapeanim->aobjdesc);
+    st->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, shapeanim->aobjdesc));
 }
 
 void HSD_PObjAddAnimAll(HSD_PObj* pobj, HSD_ShapeAnim* shapeanim)
@@ -100,7 +101,7 @@ void HSD_PObjAddAnimAll(HSD_PObj* pobj, HSD_ShapeAnim* shapeanim)
         return;
     }
 
-    for (po = pobj, sa = shapeanim; po != NULL; po = po->next, sa = next_p(sa))
+    for (po = pobj, sa = shapeanim; po != NULL; po = po->next, sa = next_dp(HSD_ShapeAnim, sa))
     {
         HSD_PObjAddAnim(po, sa);
     }
@@ -199,7 +200,7 @@ static void HSD_EnvelopeListFree(HSD_SList* list)
     }
 }
 
-static HSD_SList* loadEnvelopeDesc(HSD_EnvelopeDesc** edesc_p)
+static HSD_SList* loadEnvelopeDesc(DiscU32* edesc_p)
 {
     HSD_SList* list = NULL;
     HSD_SList** list_p = &list;
@@ -208,10 +209,10 @@ static HSD_SList* loadEnvelopeDesc(HSD_EnvelopeDesc** edesc_p)
         return NULL;
     }
 
-    while (*edesc_p) {
+    while (edesc_p->v) {
         HSD_Envelope* envelope = NULL;
         HSD_Envelope** env_p = &envelope;
-        HSD_EnvelopeDesc* edesc = *edesc_p;
+        HSD_EnvelopeDesc* edesc = DP(HSD_EnvelopeDesc, edesc_p->v);
 
         while (edesc->joint) {
             *env_p = HSD_EnvelopeAlloc();
@@ -260,11 +261,11 @@ static HSD_ShapeSet* loadShapeSetDesc(HSD_ShapeSetDesc* sdesc)
     shape_set->flags = sdesc->flags;
     shape_set->nb_shape = sdesc->nb_shape;
     shape_set->nb_vertex_index = sdesc->nb_vertex_index;
-    shape_set->vertex_desc = sdesc->vertex_desc;
-    shape_set->vertex_idx_list = sdesc->vertex_idx_list;
+    shape_set->vertex_desc = DP(HSD_VtxDescList, sdesc->vertex_desc);
+    shape_set->vertex_idx_list = DP(DiscU32, sdesc->vertex_idx_list);
     shape_set->nb_normal_index = sdesc->nb_normal_index;
-    shape_set->normal_desc = sdesc->normal_desc;
-    shape_set->normal_idx_list = sdesc->normal_idx_list;
+    shape_set->normal_desc = DP(HSD_VtxDescList, sdesc->normal_desc);
+    shape_set->normal_idx_list = DP(DiscU32, sdesc->normal_idx_list);
     if (shape_set->flags & SHAPESET_ADDITIVE) {
         shape_set->blend.bp =
             (f32*) HSD_MemAlloc(shape_set->nb_shape * sizeof(f32));
@@ -280,18 +281,19 @@ static HSD_ShapeSet* loadShapeSetDesc(HSD_ShapeSetDesc* sdesc)
 
 static s32 PObjLoad(HSD_PObj* pobj, HSD_PObjDesc* desc)
 {
-    pobj->next = HSD_PObjLoadDesc(desc->next);
-    pobj->verts = desc->verts;
+    pobj->next = HSD_PObjLoadDesc(DP(HSD_PObjDesc, desc->next));
+    pobj->verts = DP(HSD_VtxDescList, desc->verts);
     pobj->flags = desc->flags;
     pobj->n_display = desc->n_display;
-    pobj->display = desc->display;
+    pobj->display = DP(u8, desc->display);
+    pc_vtx_array_scan(desc);
     switch (pobj_type(pobj)) {
     case POBJ_SHAPEANIM:
-        pobj->u.shape_set = loadShapeSetDesc(desc->u.shape_set);
+        pobj->u.shape_set = loadShapeSetDesc(DP(HSD_ShapeSetDesc, desc->u.shape_set));
         break;
 
     case POBJ_ENVELOPE:
-        pobj->u.envelope_list = loadEnvelopeDesc(desc->u.envelope_p);
+        pobj->u.envelope_list = loadEnvelopeDesc(DP(DiscU32, desc->u.envelope_p));
         break;
 
     case POBJ_SKIN:
@@ -314,7 +316,7 @@ HSD_PObj* HSD_PObjLoadDesc(HSD_PObjDesc* pobjdesc)
         HSD_ClassInfo* info;
 
         if (!pobjdesc->class_name ||
-            !(info = hsdSearchClassInfo(pobjdesc->class_name)))
+            !(info = hsdSearchClassInfo(DP(char, pobjdesc->class_name))))
         {
             pobj = HSD_PObjAlloc();
         } else {
@@ -371,15 +373,15 @@ void HSD_PObjFree(HSD_PObj* pobj)
     }
 }
 
-static void resolveEnvelope(HSD_SList* list, HSD_EnvelopeDesc** edesc_p)
+static void resolveEnvelope(HSD_SList* list, DiscU32* edesc_p)
 {
     if (list == NULL || edesc_p == NULL) {
         return;
     }
 
-    for (; list && *edesc_p; list = list->next, edesc_p++) {
+    for (; list && edesc_p->v; list = list->next, edesc_p++) {
         HSD_Envelope* env = list->data;
-        HSD_EnvelopeDesc* edesc = *edesc_p;
+        HSD_EnvelopeDesc* edesc = DP(HSD_EnvelopeDesc, edesc_p->v);
 
         while (env && edesc->joint) {
             HSD_JObjUnrefThis(env->jobj);
@@ -400,13 +402,13 @@ void HSD_PObjResolveRefs(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
 
     switch (pobj_type(pobj)) {
     case POBJ_ENVELOPE:
-        resolveEnvelope(pobj->u.envelope_list, pdesc->u.envelope_p);
+        resolveEnvelope(pobj->u.envelope_list, DP(DiscU32, pdesc->u.envelope_p));
         break;
 
     case POBJ_SKIN:
         HSD_JObjUnrefThis(pobj->u.jobj);
         pobj->u.jobj = NULL;
-        if (pdesc->u.joint != NULL) {
+        if (pdesc->u.joint != 0) {
             pobj->u.jobj = HSD_IDGetData((u32) pdesc->u.joint, NULL);
             HSD_ASSERT(0x2FB, pobj->u.jobj);
             HSD_JObjRefThis(pobj->u.jobj);
@@ -421,7 +423,7 @@ void HSD_PObjResolveRefs(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
 void HSD_PObjResolveRefsAll(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
 {
     for (; pobj != NULL && pdesc != NULL;
-         pobj = pobj->next, pdesc = pdesc->next)
+         pobj = pobj->next, pdesc = DP(HSD_PObjDesc, pdesc->next))
     {
         HSD_PObjResolveRefs(pobj, pdesc);
     }
@@ -441,7 +443,9 @@ static void setupArrayDesc(HSD_VtxDescList* desc_list)
     if (prev_vtxdesclist_array != desc_list) {
         for (desc = desc_list; desc->attr != GX_VA_NULL; desc++) {
             if (desc->attr_type != GX_DIRECT) {
-                GXSETARRAY(desc->attr, desc->vertex, 0, desc->stride, false);
+                GXSETARRAY(desc->attr, DP(void, desc->vertex),
+                           pc_vtx_array_size(DP(void, desc->vertex)),
+                           desc->stride, false);
             }
         }
         prev_vtxdesclist_array = desc_list;
@@ -488,7 +492,9 @@ static void setupShapeAnimArrayDesc(HSD_VtxDescList* desc_list)
             case GX_VA_NBT:
                 break;
             default:
-                GXSETARRAY(desc->attr, desc->vertex, 0, desc->stride, false);
+                GXSETARRAY(desc->attr, DP(void, desc->vertex),
+                           pc_vtx_array_size(DP(void, desc->vertex)),
+                           desc->stride, false);
             }
         }
     }
@@ -530,6 +536,7 @@ static void setupShapeAnimVtxDesc(HSD_PObj* pobj)
     prev_vtxdesc = NULL;
 }
 
+/* Vertex arrays are raw big-endian GX data: decode through Disc* wrappers. */
 static inline void decode_u8_xyz(void* src_base, f32 dst[3], int scale)
 {
     u8* src = src_base;
@@ -548,24 +555,33 @@ static inline void decode_s8_xyz(void* src_base, f32 dst[3], int scale)
 
 static inline void decode_u16_xyz(void* src_base, f32 dst[3], int scale)
 {
-    u16* src = src_base;
-    dst[0] = (f32) src[0] / scale;
-    dst[1] = (f32) src[1] / scale;
-    dst[2] = (f32) src[2] / scale;
+    DiscU16* src = src_base;
+    dst[0] = (f32) src[0].v / scale;
+    dst[1] = (f32) src[1].v / scale;
+    dst[2] = (f32) src[2].v / scale;
 }
 
 static inline void decode_s16_xyz(void* src_base, f32 dst[3], int scale)
 {
-    s16* src = src_base;
-    dst[0] = (f32) src[0] / scale;
-    dst[1] = (f32) src[1] / scale;
-    dst[2] = (f32) src[2] / scale;
+    DiscS16* src = src_base;
+    dst[0] = (f32) src[0].v / scale;
+    dst[1] = (f32) src[1].v / scale;
+    dst[2] = (f32) src[2].v / scale;
+}
+
+static inline void decode_f32(void* src_base, f32* dst, int n)
+{
+    DiscF32* src = src_base;
+    int i;
+    for (i = 0; i < n; i++) {
+        dst[i] = src[i].v;
+    }
 }
 
 static void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, int shape_id,
                                  int arrayidx, f32 dst[3])
 {
-    u8* index_array = shape_set->vertex_idx_list[shape_id];
+    u8* index_array = DP(u8, shape_set->vertex_idx_list[shape_id].v);
     int idx;
     void* src_base;
 
@@ -581,7 +597,7 @@ static void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, int shape_id,
                idx * shape_set->vertex_desc->stride;
 
     if (shape_set->vertex_desc->comp_type == GX_F32) {
-        memcpy(dst, src_base, sizeof(f32[3]));
+        decode_f32(src_base, dst, 3);
     } else {
         int decimal_point = 1 << shape_set->vertex_desc->frac;
         switch (shape_set->vertex_desc->comp_type) {
@@ -610,7 +626,7 @@ static void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, int shape_id,
 static void get_shape_normal_xyz(HSD_ShapeSet* shape_set, int shape_id,
                                  int arrayidx, float dst[3])
 {
-    u8* index_array = shape_set->normal_idx_list[shape_id];
+    u8* index_array = DP(u8, shape_set->normal_idx_list[shape_id].v);
     int idx;
     void* src_base;
 
@@ -626,7 +642,7 @@ static void get_shape_normal_xyz(HSD_ShapeSet* shape_set, int shape_id,
                idx * shape_set->normal_desc->stride;
 
     if (shape_set->normal_desc->comp_type == GX_F32) {
-        memcpy(dst, src_base, sizeof(f32[3]));
+        decode_f32(src_base, dst, 3);
     } else {
         int decimal_point = 1 << shape_set->normal_desc->frac;
         switch (shape_set->normal_desc->comp_type) {
@@ -652,7 +668,7 @@ static void get_shape_normal_xyz(HSD_ShapeSet* shape_set, int shape_id,
 static void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, int shape_id,
                               int arrayidx, float* dst)
 {
-    u8* index_array = shape_set->normal_idx_list[shape_id];
+    u8* index_array = DP(u8, shape_set->normal_idx_list[shape_id].v);
     int i, idx;
     void* src_base;
 
@@ -671,7 +687,7 @@ static void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, int shape_id,
                idx * shape_set->normal_desc->stride;
 
     if (shape_set->normal_desc->comp_type == GX_F32) {
-        memcpy(dst, src_base, sizeof(f32[9]));
+        decode_f32(src_base, dst, 9);
     } else {
         int decimal_point = 1 << shape_set->normal_desc->frac;
         switch (shape_set->normal_desc->comp_type) {
@@ -687,12 +703,12 @@ static void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, int shape_id,
             break;
         case GX_U16:
             for (i = 0; i < 9; i++) {
-                dst[i] = (float) ((u16*) src_base)[i] / decimal_point;
+                dst[i] = (float) ((DiscU16*) src_base)[i].v / decimal_point;
             }
             break;
         case GX_S16:
             for (i = 0; i < 9; i++) {
-                dst[i] = (float) ((s16*) src_base)[i] / decimal_point;
+                dst[i] = (float) ((DiscS16*) src_base)[i].v / decimal_point;
             }
             break;
         default:

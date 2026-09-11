@@ -520,11 +520,12 @@ static inline void fn_80252548_inline(MnInfoData* data, HSD_GObj* gobj)
         {
             StaticModelDesc* model = &mnInfo_804A0958;
 
-            jobj = HSD_JObjLoadJoint(model->joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
-            HSD_JObjAddAnimAll(jobj, model->animjoint, model->matanim_joint,
-                               model->shapeanim_joint);
+            HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model->animjoint),
+                               DP(HSD_MatAnimJoint, model->matanim_joint),
+                               DP(HSD_ShapeAnimJoint, model->shapeanim_joint));
         }
         HSD_JObjReqAnimAll(jobj, 0.0f);
         mnInfo_802522B8(gobj);
@@ -572,7 +573,6 @@ s32 mnInfo_80252758(void)
     StaticModelDesc* model = &mnInfo_804A0958;
     MnInfoDataLayout* layout = (MnInfoDataLayout*) mnInfo_803EFC08;
     char* top_joint = layout->top_joint;
-    HSD_AnimJoint** animjoint = &model->animjoint;
     PAD_STACK(8);
 
     mn_804D6BC8.cooldown = 5;
@@ -581,11 +581,17 @@ s32 mnInfo_80252758(void)
     mn_804A04F0.hovered_selection = 0;
 
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(archive, (void**) &model->joint, top_joint,
-                           animjoint, layout->top_animjoint,
-                           &model->matanim_joint, layout->top_matanim_joint,
-                           &model->shapeanim_joint,
-                           layout->top_shapeanim_joint, 0);
+    {
+        void* dp_[4];
+        lbArchive_LoadSections(archive, &dp_[0], top_joint, &dp_[1],
+                               layout->top_animjoint, &dp_[2],
+                               layout->top_matanim_joint, &dp_[3],
+                               layout->top_shapeanim_joint, 0);
+        DP_SET(model->joint, dp_[0]);
+        DP_SET(model->animjoint, dp_[1]);
+        DP_SET(model->matanim_joint, dp_[2]);
+        DP_SET(model->shapeanim_joint, dp_[3]);
+    }
 
     mnInfo_80251AFC();
 

@@ -23,18 +23,20 @@ static u8 AXDriver_804C5A20[2][0x10]; // unknown type
 /* 4D778C */ static int AXDriver_804D778C;
 /* 4D7790 */ static HSD_SM* AXDriver_804D7790;
 /* 4D7794 */ static HSD_SM* AXDriver_804D7794;
+/* The .sem image is loaded verbatim and stays big-endian; the tables below
+ * point into it. Pointer slots are relocated to absolute host addresses. */
 /* 4D7798 */ static void* AXDriver_804D7798;
 /* 4D779C */ static u32 AXDriver_804D779C;
 /* 4D77A0 */ static s32 AXDriver_804D77A0;
 /* 4D77A4 */ static void* AXDriver_804D77A4;
 /* 4D77A8 */ static s32 AXDriver_804D77A8;
-/* 4D77AC */ static void* AXDriver_804D77AC;
+/* 4D77AC */ static DiscU32* AXDriver_804D77AC;
 /* 4D77B0 */ static s32 AXDriver_804D77B0;
-/* 4D77B4 */ static u32* AXDriver_804D77B4;
+/* 4D77B4 */ static DiscU32* AXDriver_804D77B4;
 /* 4D77B8 */ static s32 AXDriver_804D77B8;
-/* 4D77BC */ static u32** AXDriver_804D77BC;
+/* 4D77BC */ static DiscU32* AXDriver_804D77BC; ///< pointer slots to cmd streams
 /* 4D77C0 */ static s32 AXDriver_804D77C0;
-/* 4D77C4 */ static void* AXDriver_804D77C4;
+/* 4D77C4 */ static DiscU32* AXDriver_804D77C4;
 /* 4D77C8 */ static int AXDriver_804D77C8;
 /* 4D77CC */ static u32 AXDriver_804D77CC;
 /* 4D77D0 */ static int AXDriver_804D77D0;

@@ -343,25 +343,27 @@ static StaffRollExtraData gm_803DBFD8_extra = {
 };
 
 /* 3DD0C8 */ static HSD_WObjDesc gm_803DD0C8 = {
-    NULL,
+    0,
     { 0.0F, 0.0F, 2.9F },
-    NULL,
+    0,
 };
 /* 3DD0DC */ static HSD_WObjDesc gm_803DD0DC = {
-    NULL,
+    0,
     { 0.0F, 0.0F, -80.0F },
-    NULL,
+    0,
 };
+/* eyepos/interest are DP_SET in gm_801AC880: disc slots can't hold link-time
+ * addresses. */
 /* 3DD0F0 */ static HSD_CameraDescPerspective gm_803DD0F0 = {
-    NULL,
+    0,
     0,
     1,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
-    &gm_803DD0C8,
-    &gm_803DD0DC,
+    0,
+    0,
     0.0F,
-    NULL,
+    0,
     1.0F,
     10000.0F,
     80.0F,
@@ -1223,18 +1225,25 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         &gm_804D6844, "ScGamRegStaffrollNames_scene_modelset", 0);
     {
         gobj = GObj_Create(17, 19, 0);
-        cobj = HSD_CObjLoadDesc(gm_804D6840->cameras[0].desc);
+        cobj = HSD_CObjLoadDesc(
+            DP(HSD_CObjDesc, DP(struct SceneCameraDesc, gm_804D6840->cameras)->desc));
         gm_804D6830 = cobj;
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
         GObj_SetupGXLinkMax(gobj, fn_801AA854, 5);
         gobj->gxlink_prios = 0x189;
-        HSD_CObjAddAnim(cobj, gm_804D6840->cameras[0].anims[0]);
+        HSD_CObjAddAnim(
+            cobj, (HSD_CameraAnim*) (uintptr_t) DP(
+                      DiscU32, DP(struct SceneCameraDesc, gm_804D6840->cameras)->anims)[0]
+                      .v);
         HSD_CObjReqAnim(cobj, 0.0F);
         HSD_GObj_SetupProc(gobj, fn_801AA7F8, 0);
     }
     {
         HSD_GObj* gobj = GObj_Create(19, 20, 0);
-        HSD_CObj* cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &gm_803DD0F0);
+        HSD_CObj* cobj;
+        DP_SET(gm_803DD0F0.eyepos, &gm_803DD0C8);
+        DP_SET(gm_803DD0F0.interest, &gm_803DD0DC);
+        cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &gm_803DD0F0);
         gm_804D6834 = cobj;
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
         GObj_SetupGXLinkMax(gobj, fn_801AAA28, 8);
@@ -1243,7 +1252,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
     {
         HSD_LObj* lobj;
         HSD_GObj* gobj = GObj_Create(gx_link, 3, 0);
-        lobj = lb_80011AC4(gm_804D6840->lights);
+        lobj = lb_80011AC4(DP(DiscU32, gm_804D6840->lights));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_LightKind, lobj);
         GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0, 0);
         HSD_LObjReqAnimAll(lobj, 0.0F);
@@ -1252,21 +1261,29 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
     {
         HSD_Fog* fog;
         HSD_GObj* gobj = GObj_Create(0xA, 3, 0);
-        fog = HSD_FogLoadDesc(gm_804D6840->fogs[0].desc);
+        fog = HSD_FogLoadDesc(
+            DP(HSD_FogDesc, DP(struct SceneFogDesc, gm_804D6840->fogs)->desc));
         gm_804D6838 = fog;
         HSD_GObjObject_80390A70(gobj, HSD_GObj_FogKind, fog);
         GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 3, 0);
-        HSD_Fog_8037DE7C(fog, gm_804D6840->fogs[0].anims[0]->aobjdesc);
+        HSD_Fog_8037DE7C(
+            fog, DP(HSD_AObjDesc,
+                    ((HSD_CameraAnim*) (uintptr_t) DP(
+                         DiscU32, DP(struct SceneFogDesc, gm_804D6840->fogs)->anims)[0]
+                         .v)
+                        ->aobjdesc));
         HSD_FogReqAnim(fog, 0.0F);
         HSD_GObj_SetupProc(gobj, fn_801AC67C, 0);
     }
     {
         HSD_GObj* gobj = GObj_Create(3, 5, 0);
-        HSD_JObj* jobj = HSD_JObjLoadJoint(gm_804D6840->models[1]->joint);
+        DynamicModelDesc* model =
+            (DynamicModelDesc*) (uintptr_t) DP(DiscU32, gm_804D6840->models)[1].v;
+        HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         gm_804D682C = jobj;
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 3, 0);
-        gm_8016895C(jobj, gm_804D6840->models[1], 0);
+        gm_8016895C(jobj, model, 0);
         HSD_JObjReqAnimAll(jobj, 0.0F);
         {
             if (lbLang_IsSettingUS()) {
@@ -1281,7 +1298,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         HSD_JObj* temp_jobj;
         HSD_GObj* gobj = GObj_Create(14, 15, 0);
         HSD_JObj* jobj;
-        jobj = HSD_JObjLoadJoint(gm_804D6844[0]->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, gm_804D6844[0]->joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, NULL, 9, 0);
         gm_8016895C(jobj, gm_804D6844[0], 0);
@@ -1289,7 +1306,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         {
             /// @todo Length of #gm_804D6844 is 10
             for (i = 1; i < 10; i++) {
-                temp_jobj = HSD_JObjLoadJoint(gm_804D6844[i]->joint);
+                temp_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, gm_804D6844[i]->joint));
                 gm_8016895C(temp_jobj, gm_804D6844[i], 0);
                 HSD_JObjReqAnimAll(temp_jobj, 0.0F);
                 while (temp_jobj->child != NULL) {
@@ -1301,10 +1318,12 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
     }
     {
         final_gobj = GObj_Create(14, 15, 0);
-        jobj = HSD_JObjLoadJoint(gm_804D6840->models[0]->joint);
+        DynamicModelDesc* model =
+            (DynamicModelDesc*) (uintptr_t) DP(DiscU32, gm_804D6840->models)[0].v;
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         HSD_GObjObject_80390A70(final_gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(final_gobj, HSD_GObj_JObjCallback, gx_link, 0);
-        gm_8016895C(jobj, gm_804D6840->models[0], 0);
+        gm_8016895C(jobj, model, 0);
         lb_80011E24(jobj, jobj_arr, ARRAY_SIZE(jobj_arr), 20, -1);
         HSD_JObjReqAnimAll(jobj_arr[0], 0.0F);
         HSD_JObjReqAnimAll(jobj_arr[1], 0.0F);

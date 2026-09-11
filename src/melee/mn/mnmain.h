@@ -118,7 +118,7 @@ typedef struct _MenuInputState {
 /* 4D6BB4 */ extern u8 mn_804D6BB4;
 /* 4D6BB5 */ extern u8 mn_804D6BB5;
 /* 4D6BB8 */ extern HSD_Archive* mn_804D6BB8;
-/* 4D6BBC */ extern LightList** MenMain_lights;
+/* 4D6BBC */ extern DiscU32* MenMain_lights; /* LightList*[] */
 /* 4D6BC0 */ extern HSD_FogDesc* MenMain_fog;
 /* 4D6BC4 */ extern HSD_CObjDesc* MenMain_cam;
 /* 4D6BC8 */ extern MenuInputState mn_804D6BC8;

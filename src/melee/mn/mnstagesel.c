@@ -133,12 +133,14 @@ void mnStageSel_80259C28(void)
 skip_randomize:
 
     gobj = GObj_Create(HSD_GOBJ_CLASS_FIGHTER, 5, 0x80);
-    jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->xB0);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnStageSel_804D6C98->xB0));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x87);
     HSD_GObj_SetupProc(gobj, mn_8022EAE0, 0);
-    HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->xB4,
-                       mnStageSel_804D6C98->xB8, mnStageSel_804D6C98->xBC);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, mnStageSel_804D6C98->xB4),
+                       DP(HSD_MatAnimJoint,
+                          mnStageSel_804D6C98->xB8), DP(HSD_ShapeAnimJoint,
+                          mnStageSel_804D6C98->xBC));
     HSD_JObjReqAnimAll(gobj->hsd_obj, 0.0F);
     HSD_JObjAnimAll(gobj->hsd_obj);
     mnStageSel_804D6CAF = 1;
@@ -204,13 +206,16 @@ void mnStageSel_80259ED8(int id)
     u8 _[4];
 
     gobj = GObj_Create(HSD_GOBJ_CLASS_FIGHTER, 5, 0x80);
-    jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x30.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnStageSel_804D6C98->x30.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x84);
     HSD_GObj_SetupProc(gobj, mn_8022EAE0, 1);
-    HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x30.animjoint,
-                       mnStageSel_804D6C98->x30.matanim_joint,
-                       mnStageSel_804D6C98->x30.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj,
+                       DP(HSD_AnimJoint, mnStageSel_804D6C98->x30.animjoint),
+                       DP(HSD_MatAnimJoint,
+                          mnStageSel_804D6C98->x30.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          mnStageSel_804D6C98->x30.shapeanim_joint));
     jobj = GET_JOBJ(gobj);
     temp_r3_2 = HSD_MemAlloc(sizeof(struct StageSelUserData));
     GObj_InitUserData(gobj, 4, HSD_Free, temp_r3_2);
@@ -372,26 +377,32 @@ static inline void make_stage_icon(HSD_JObj** out)
     HSD_GObj* gobj;
     HSD_JObj* jobj;
     gobj = GObj_Create(4, 5, 0x80);
-    jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x40.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnStageSel_804D6C98->x40.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x83);
     HSD_GObj_SetupProc(gobj, mn_8022EAE0, 3);
-    HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x40.animjoint,
-                       mnStageSel_804D6C98->x40.matanim_joint,
-                       mnStageSel_804D6C98->x40.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj,
+                       DP(HSD_AnimJoint, mnStageSel_804D6C98->x40.animjoint),
+                       DP(HSD_MatAnimJoint,
+                          mnStageSel_804D6C98->x40.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          mnStageSel_804D6C98->x40.shapeanim_joint));
     *out = GET_JOBJ(gobj);
 }
 
 static inline void attach_menu_model(HSD_GObj* gobj)
 {
     HSD_JObj* jobj;
-    jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->xA0.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnStageSel_804D6C98->xA0.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
     HSD_GObj_SetupProc(gobj, mn_8022EAE0, 0);
-    HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->xA0.animjoint,
-                       mnStageSel_804D6C98->xA0.matanim_joint,
-                       mnStageSel_804D6C98->xA0.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj,
+                       DP(HSD_AnimJoint, mnStageSel_804D6C98->xA0.animjoint),
+                       DP(HSD_MatAnimJoint,
+                          mnStageSel_804D6C98->xA0.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          mnStageSel_804D6C98->xA0.shapeanim_joint));
 }
 
 static inline void make_bg_model(HSD_JObj** out)
@@ -399,13 +410,16 @@ static inline void make_bg_model(HSD_JObj** out)
     HSD_GObj* gobj;
     HSD_JObj* jobj;
     gobj = GObj_Create(4, 5, 0x80);
-    jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x50.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnStageSel_804D6C98->x50.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x82);
     HSD_GObj_SetupProc(gobj, mn_8022EAE0, 0);
-    HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x50.animjoint,
-                       mnStageSel_804D6C98->x50.matanim_joint,
-                       mnStageSel_804D6C98->x50.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj,
+                       DP(HSD_AnimJoint, mnStageSel_804D6C98->x50.animjoint),
+                       DP(HSD_MatAnimJoint,
+                          mnStageSel_804D6C98->x50.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          mnStageSel_804D6C98->x50.shapeanim_joint));
     *out = gobj->hsd_obj;
 }
 
@@ -414,13 +428,16 @@ static inline void make_icon_root(HSD_JObj** icons)
     HSD_GObj* gobj;
     HSD_JObj* jobj;
     gobj = GObj_Create(4, 5, 0x80);
-    jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x90.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnStageSel_804D6C98->x90.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x82);
     HSD_GObj_SetupProc(gobj, mn_8022EAE0, 4);
-    HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x90.animjoint,
-                       mnStageSel_804D6C98->x90.matanim_joint,
-                       mnStageSel_804D6C98->x90.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj,
+                       DP(HSD_AnimJoint, mnStageSel_804D6C98->x90.animjoint),
+                       DP(HSD_MatAnimJoint,
+                          mnStageSel_804D6C98->x90.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          mnStageSel_804D6C98->x90.shapeanim_joint));
     icons[0] = GET_JOBJ(gobj)->child;
     HSD_JObjReqAnimAll(icons[0], 0.0F);
     HSD_JObjAnimAll(icons[0]);
@@ -439,11 +456,11 @@ void mnStageSel_Scene_OnEnter(void* arg0)
     Vec3 spCC;
 
     int i;
-    struct {
-        HSD_CObjDesc* unk0;
-        HSD_LightDesc* unk4;
-        HSD_LightDesc* unk8;
-        HSD_FogDesc* unkC;
+    struct DISC_STRUCT {
+        DISC_PTR(HSD_CObjDesc) unk0;
+        DISC_PTR(HSD_LightDesc) unk4;
+        DISC_PTR(HSD_LightDesc) unk8;
+        DISC_PTR(HSD_FogDesc) unkC;
         struct mnStageSel_804D6C98_t x10;
     }* temp_r3;
 
@@ -459,7 +476,7 @@ void mnStageSel_Scene_OnEnter(void* arg0)
         }
         temp_r3 = HSD_ArchiveGetPublicAddress(mnStageSel_804D6C94,
                                               "MnSelectStageDataTable");
-        MenMain_cam = temp_r3->unk0;
+        MenMain_cam = DP(HSD_CObjDesc, temp_r3->unk0);
         mnStageSel_804D6C98 = &temp_r3->x10;
         mnStageSel_804D6CAF = 0;
         mnStageSel_804D6CA0 = 0;
@@ -483,8 +500,8 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             HSD_LObj* lobj1;
             HSD_LObj* lobj2;
             gobj = GObj_Create(3, 4, 0x80);
-            lobj1 = HSD_LObjLoadDesc(temp_r3->unk4);
-            lobj2 = HSD_LObjLoadDesc(temp_r3->unk8);
+            lobj1 = HSD_LObjLoadDesc(DP(HSD_LightDesc, temp_r3->unk4));
+            lobj2 = HSD_LObjLoadDesc(DP(HSD_LightDesc, temp_r3->unk8));
             HSD_LObjSetNext(lobj1, lobj2);
             HSD_GObjObject_80390A70(gobj, (u8) HSD_GObj_LightKind, lobj1);
             GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0, 0x80);
@@ -492,7 +509,7 @@ void mnStageSel_Scene_OnEnter(void* arg0)
 
         {
             HSD_GObj* gobj = GObj_Create(0xE, 0xF, 0);
-            HSD_Fog* fog = HSD_FogLoadDesc(temp_r3->unkC);
+            HSD_Fog* fog = HSD_FogLoadDesc(DP(HSD_FogDesc, temp_r3->unkC));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_FogKind, fog);
             GObj_SetupGXLink(gobj, fn_8025A974, 0, 0x80);
         }
@@ -578,13 +595,18 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             HSD_GObj* gobj = GObj_Create(4, 5, 0x80);
             s32 temp_r22_7;
             HSD_JObj* temp_r23_3;
-            jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x20.joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                        mnStageSel_804D6C98->x20.joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x83);
             HSD_GObj_SetupProc(gobj, mn_8022EAE0, 3);
-            HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x20.animjoint,
-                               mnStageSel_804D6C98->x20.matanim_joint,
-                               mnStageSel_804D6C98->x20.shapeanim_joint);
+            HSD_JObjAddAnimAll(jobj,
+                               DP(HSD_AnimJoint,
+                                  mnStageSel_804D6C98->x20.animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  mnStageSel_804D6C98->x20.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  mnStageSel_804D6C98->x20.shapeanim_joint));
             temp_r23_3 = gobj->hsd_obj;
             lb_8000C1C0(temp_r23_3, spDC[i]);
             mnStageSel_803F06D0[i + 13].x0 = temp_r23_3;
@@ -606,13 +628,18 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             HSD_JObj* jobj;
             HSD_GObj* gobj = GObj_Create(4, 5, 0x80);
             HSD_JObj* temp_r22_8;
-            jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x10.joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                        mnStageSel_804D6C98->x10.joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x83);
             HSD_GObj_SetupProc(gobj, mn_8022EAE0, 3);
-            HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x10.animjoint,
-                               mnStageSel_804D6C98->x10.matanim_joint,
-                               mnStageSel_804D6C98->x10.shapeanim_joint);
+            HSD_JObjAddAnimAll(jobj,
+                               DP(HSD_AnimJoint,
+                                  mnStageSel_804D6C98->x10.animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  mnStageSel_804D6C98->x10.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  mnStageSel_804D6C98->x10.shapeanim_joint));
             temp_r22_8 = gobj->hsd_obj;
             lb_8000C1C0(temp_r22_8, spDC[0x10]);
             do_anim(temp_r22_8, 2);
@@ -625,14 +652,17 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             HSD_GObj* gobj = GObj_Create(4, 5, 0x80);
             s32 temp_r22_9;
             HSD_JObj* temp_r23_6;
-            jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x0.joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                        mnStageSel_804D6C98->x0.joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x83);
             HSD_GObj_SetupProc(gobj, mn_8022EAE0, 3);
-            animjoint = mnStageSel_804D6C98->x0.animjoint;
+            animjoint = DP(HSD_AnimJoint, mnStageSel_804D6C98->x0.animjoint);
             HSD_JObjAddAnimAll(jobj, animjoint,
-                               mnStageSel_804D6C98->x0.matanim_joint,
-                               mnStageSel_804D6C98->x0.shapeanim_joint);
+                               DP(HSD_MatAnimJoint,
+                                  mnStageSel_804D6C98->x0.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  mnStageSel_804D6C98->x0.shapeanim_joint));
 
             temp_r23_6 = gobj->hsd_obj;
             lb_8000C1C0(temp_r23_6, spDC[i]);
@@ -655,13 +685,18 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             HSD_JObj* jobj;
             HSD_GObj* gobj;
             gobj = GObj_Create(4, 5, 0x80);
-            jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x80.joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                        mnStageSel_804D6C98->x80.joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x86);
             HSD_GObj_SetupProc(gobj, mn_8022EAE0, 2);
-            HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x80.animjoint,
-                               mnStageSel_804D6C98->x80.matanim_joint,
-                               mnStageSel_804D6C98->x80.shapeanim_joint);
+            HSD_JObjAddAnimAll(jobj,
+                               DP(HSD_AnimJoint,
+                                  mnStageSel_804D6C98->x80.animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  mnStageSel_804D6C98->x80.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  mnStageSel_804D6C98->x80.shapeanim_joint));
 
             {
                 HSD_JObj* jobj2;
@@ -680,13 +715,18 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             HSD_JObj* jobj;
             HSD_GObj* gobj;
             gobj = GObj_Create(HSD_GOBJ_CLASS_FIGHTER, 5, 0x80);
-            jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x30.joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                        mnStageSel_804D6C98->x30.joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x84);
             HSD_GObj_SetupProc(gobj, mn_8022EAE0, 1);
-            HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x30.animjoint,
-                               mnStageSel_804D6C98->x30.matanim_joint,
-                               mnStageSel_804D6C98->x30.shapeanim_joint);
+            HSD_JObjAddAnimAll(jobj,
+                               DP(HSD_AnimJoint,
+                                  mnStageSel_804D6C98->x30.animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  mnStageSel_804D6C98->x30.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  mnStageSel_804D6C98->x30.shapeanim_joint));
             {
                 struct StageSelUserData* userdata;
                 HSD_JObj* jobj = GET_JOBJ(gobj);
@@ -702,13 +742,18 @@ void mnStageSel_Scene_OnEnter(void* arg0)
         {
             HSD_JObj* jobj;
             HSD_GObj* gobj = GObj_Create(4, 5, 0x80);
-            jobj = HSD_JObjLoadJoint(mnStageSel_804D6C98->x60.joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                        mnStageSel_804D6C98->x60.joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x81);
             HSD_GObj_SetupProc(gobj, mn_8022EAE0, 1);
-            HSD_JObjAddAnimAll(jobj, mnStageSel_804D6C98->x60.animjoint,
-                               mnStageSel_804D6C98->x60.matanim_joint,
-                               mnStageSel_804D6C98->x60.shapeanim_joint);
+            HSD_JObjAddAnimAll(jobj,
+                               DP(HSD_AnimJoint,
+                                  mnStageSel_804D6C98->x60.animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  mnStageSel_804D6C98->x60.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  mnStageSel_804D6C98->x60.shapeanim_joint));
 
             {
                 HSD_GObj* g;
@@ -735,14 +780,19 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             HSD_JObj* jobj;
             HSD_GObj* gobj = GObj_Create(4, 5, 0x80);
             HSD_JObj* temp_r3_15 =
-                HSD_JObjLoadJoint(mnStageSel_804D6C98->x70.joint);
+                HSD_JObjLoadJoint(DP(HSD_Joint,
+                                     mnStageSel_804D6C98->x70.joint));
             s32* temp_r3_16;
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, temp_r3_15);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x85);
             HSD_GObj_SetupProc(gobj, mn_8022EAE0, 1);
-            HSD_JObjAddAnimAll(temp_r3_15, mnStageSel_804D6C98->x70.animjoint,
-                               mnStageSel_804D6C98->x70.matanim_joint,
-                               mnStageSel_804D6C98->x70.shapeanim_joint);
+            HSD_JObjAddAnimAll(temp_r3_15,
+                               DP(HSD_AnimJoint,
+                                  mnStageSel_804D6C98->x70.animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  mnStageSel_804D6C98->x70.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  mnStageSel_804D6C98->x70.shapeanim_joint));
             jobj = gobj->hsd_obj;
             temp_r3_16 = HSD_MemAlloc(sizeof(*temp_r3_16));
             GObj_InitUserData(gobj, 4, HSD_Free, temp_r3_16);

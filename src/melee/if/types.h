@@ -121,7 +121,7 @@ typedef struct ifMagnifyPlayer {
 } ifMagnifyPlayer;
 
 struct ifMagnify {
-    DynamicModelDesc* model_desc; // ifMagnify_802fc3c0 accesses 0x804A1DE0
+    DiscU32* model_desc; /* DynamicModelDesc*[] "lupe" */
     int x4;
     int x8;
     int xC;

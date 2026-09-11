@@ -106,10 +106,11 @@ void un_803205F4(void)
     PAD_STACK(16);
 
     gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint(un_804D7010->models[1]->joint);
+    jobj = HSD_JObjLoadJoint(
+        DP(HSD_Joint, vi_SceneModel(un_804D7010, 1)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
-    gm_8016895C(jobj, un_804D7010->models[1], 0);
+    gm_8016895C(jobj, vi_SceneModel(un_804D7010, 1), 0);
     HSD_JObjReqAnimAll(jobj, 251.0f);
     HSD_GObj_SetupProc(gobj, mn_8022EAE0, 0);
 
@@ -159,14 +160,15 @@ void un_803207C4(void)
     HSD_GObj* gobj;
     s32 i = 0;
 
-    while (un_804D7010->models[i] != NULL) {
+    while (vi_SceneModel(un_804D7010, i) != NULL) {
         if (i != 1) {
+            DynamicModelDesc* model = vi_SceneModel(un_804D7010, i);
             gobj = GET_EVENTDATA();
-            jobj = HSD_JObjLoadJoint(un_804D7010->models[i]->joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
             new_var = gobj;
             HSD_GObjObject_80390A70(new_var, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(new_var, HSD_GObj_JObjCallback, 0xB, 0);
-            gm_8016895C(jobj, un_804D7010->models[i], 0);
+            gm_8016895C(jobj, model, 0);
             HSD_JObjReqAnimAll(jobj, 0.0f);
             HSD_JObjAnimAll(jobj);
             if (i == 0) {
@@ -232,12 +234,11 @@ static inline void un_80320A40_SetupCamera(void)
     HSD_CObj* cobj;
 
     gobj = GObj_Create(0x13, 0x14, 0);
-    cobj =
-        lb_80013B14((HSD_CameraDescPerspective*) un_804D7010->cameras->desc);
+    cobj = lb_80013B14(vi_SceneCamDesc(un_804D7010));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, (void (*)(HSD_GObj*, int))(Event) un_803208F0,
                         8);
-    HSD_CObjAddAnim(cobj, un_804D7010->cameras->anims[0]);
+    HSD_CObjAddAnim(cobj, vi_SceneCamAnim(un_804D7010, 0));
     HSD_CObjReqAnim(cobj, 0.0f);
     HSD_CObjAnim(cobj);
     HSD_GObj_SetupProc(gobj, un_80320984, 0);
@@ -270,7 +271,8 @@ static inline void un_80320A40_SetupStand(void)
 
     gobj = GObj_Create(0xE, 0xF, 0);
     un_804D7034 = gobj;
-    jobj = HSD_JObjLoadJoint(un_804D7014->models[0]->joint);
+    jobj = HSD_JObjLoadJoint(
+        DP(HSD_Joint, vi_SceneModel(un_804D7014, 0)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
     HSD_GObj_SetupProc(gobj, un_803204C0, 0x17);
@@ -331,10 +333,11 @@ void vi1201v2_Scene_OnEnter(void* arg)
     un_80320A40_SetupStand();
 
     fog_gobj = GObj_Create(0xB, 3, 0);
-    fog = HSD_FogLoadDesc(un_804D7010->fogs->desc);
+    fog = HSD_FogLoadDesc(vi_SceneFogDesc(un_804D7010));
     HSD_GObjObject_80390A70(fog_gobj, HSD_GObj_FogKind, fog);
     GObj_SetupGXLink(fog_gobj, HSD_GObj_FogCallback, 0, 0);
-    HSD_Fog_8037DE7C(fog, un_804D7010->fogs->anims[0]->aobjdesc);
+    HSD_Fog_8037DE7C(
+        fog, DP(HSD_AObjDesc, vi_SceneFogAnim(un_804D7010, 0)->aobjdesc));
     HSD_FogReqAnim(fog, 0.0f);
     HSD_FogInterpretAnim(fog);
     HSD_GObj_SetupProc(fog_gobj, fn_80320A1C, 0x17);
@@ -342,7 +345,7 @@ void vi1201v2_Scene_OnEnter(void* arg)
     un_804D702C = 0;
 
     light_gobj = GObj_Create(0xB, 3, 0);
-    lobj = lb_80011AC4(un_804D7010->lights);
+    lobj = lb_80011AC4(DP(DiscU32, un_804D7010->lights));
     HSD_GObjObject_80390A70(light_gobj, HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(light_gobj, HSD_GObj_LObjCallback, 0, 0);
 

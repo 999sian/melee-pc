@@ -45,8 +45,8 @@ static bool itFushigibana_UnkMotion1_Anim_inline2(Item_GObj* gobj)
 void itFushigibana_Logic29_Spawned(Item_GObj* gobj)
 {
     Item* item = GET_ITEM(gobj);
-    itFushigibanaAttributes* attrs =
-        item->xC4_article_data->x4_specialAttributes;
+    itFushigibanaAttributes* attrs = DP(
+        itFushigibanaAttributes, item->xC4_article_data->x4_specialAttributes);
     it_80279CDC(gobj, attrs->x0);
     Item_8026AE84(item, 0x272f, 0x7f, 0x40);
     it_80275158(gobj, attrs->x4);
@@ -97,8 +97,8 @@ void it_802D718C(Item_GObj* gobj)
 bool itFushigibana_UnkMotion1_Anim(Item_GObj* gobj)
 {
     Item* item = GET_ITEM(gobj);
-    itFushigibanaAttributes* attrs =
-        item->xC4_article_data->x4_specialAttributes;
+    itFushigibanaAttributes* attrs = DP(
+        itFushigibanaAttributes, item->xC4_article_data->x4_specialAttributes);
     if (it_80272C6C(gobj) == 0) {
         itFushigibana_UnkMotion1_Anim_inline1(gobj);
     }

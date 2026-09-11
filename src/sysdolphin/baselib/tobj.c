@@ -48,7 +48,7 @@ void HSD_TObjRemoveAnimAll(HSD_TObj* tobj)
 static HSD_TexAnim* lookupTextureAnim(s32 id, HSD_TexAnim* texanim)
 {
     HSD_TexAnim* ta;
-    for (ta = texanim; ta; ta = ta->next) {
+    for (ta = texanim; ta; ta = DP(HSD_TexAnim, ta->next)) {
         if (ta->id == (GXTexMapID) id) {
             return ta;
         }
@@ -66,8 +66,8 @@ void HSD_TObjAddAnim(HSD_TObj* tobj, HSD_TexAnim* texanim)
             if (tobj->aobj != NULL) {
                 HSD_AObjRemove(tobj->aobj);
             }
-            tobj->aobj = HSD_AObjLoadDesc(ta->aobjdesc);
-            tobj->imagetbl = ta->imagetbl;
+            tobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, ta->aobjdesc));
+            tobj->imagetbl = DP(DiscU32, ta->imagetbl);
 
             if (tobj->tluttbl != NULL) {
                 for (i = 0; tobj->tluttbl[i]; i++) {
@@ -80,7 +80,7 @@ void HSD_TObjAddAnim(HSD_TObj* tobj, HSD_TexAnim* texanim)
                 tobj->tluttbl = (HSD_Tlut**) HSD_MemAlloc(
                     (s32) sizeof(HSD_Tlut*) * (ta->n_tluttbl + 1));
                 for (i = 0; i < ta->n_tluttbl; i++) {
-                    tobj->tluttbl[i] = HSD_TlutLoadDesc(ta->tluttbl[i]);
+                    tobj->tluttbl[i] = HSD_TlutLoadDesc(DP(HSD_TlutDesc, DP(DiscU32, ta->tluttbl)[i].v));
                 }
                 tobj->tluttbl[i] = NULL;
             } else {
@@ -145,8 +145,8 @@ static void TObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
         int n;
         HSD_ASSERT(276, tobj->imagetbl);
         n = (int) val->fv;
-        if (tobj->imagetbl[n]) {
-            tobj->imagedesc = tobj->imagetbl[n];
+        if (tobj->imagetbl[n].v) {
+            tobj->imagedesc = DP(HSD_ImageDesc, tobj->imagetbl[n].v);
         }
     } break;
     case HSD_A_T_TCLT: {
@@ -250,15 +250,15 @@ void HSD_TObjAnimAll(HSD_TObj* tobj)
 
 static int TObjLoad(HSD_TObj* tobj, HSD_TObjDesc* td)
 {
-    tobj->next = HSD_TObjLoadDesc(td->next);
+    tobj->next = HSD_TObjLoadDesc(DP(HSD_TObjDesc, td->next));
     tobj->id = td->id;
     tobj->src = td->src;
     tobj->mtxid = GX_IDENTITY;
     tobj->rotate.x = td->rotate.x;
     tobj->rotate.y = td->rotate.y;
     tobj->rotate.z = td->rotate.z;
-    tobj->scale = td->scale;
-    tobj->translate = td->translate;
+    DISC_VEC3_GET(tobj->scale, td->scale);
+    DISC_VEC3_GET(tobj->translate, td->translate);
     tobj->wrap_s = td->wrap_s;
     tobj->wrap_t = td->wrap_t;
     tobj->repeat_s = td->repeat_s;
@@ -266,13 +266,13 @@ static int TObjLoad(HSD_TObj* tobj, HSD_TObjDesc* td)
     tobj->flags = td->blend_flags;
     tobj->blending = td->blending;
     tobj->magFilt = td->magFilt;
-    tobj->imagedesc = td->imagedesc;
-    tobj->tlut = HSD_TlutLoadDesc(td->tlutdesc);
-    tobj->lod = td->lod;
+    tobj->imagedesc = DP(HSD_ImageDesc, td->imagedesc);
+    tobj->tlut = HSD_TlutLoadDesc(DP(HSD_TlutDesc, td->tlutdesc));
+    tobj->lod = DP(HSD_TexLODDesc, td->lod);
     tobj->aobj = NULL;
     tobj->flags |= TEX_MTX_DIRTY;
     tobj->tlut_no = (u8) -1;
-    tobj->tev = HSD_TObjTevLoadDesc(td->tev);
+    tobj->tev = HSD_TObjTevLoadDesc(DP(HSD_TObjTevDesc, td->tev));
 
     return 0;
 }
@@ -283,7 +283,7 @@ HSD_TObj* HSD_TObjLoadDesc(HSD_TObjDesc* td)
         HSD_TObj* tobj;
         HSD_ClassInfo* info;
 
-        if (!td->class_name || !(info = hsdSearchClassInfo(td->class_name))) {
+        if (!td->class_name || !(info = hsdSearchClassInfo(DP(char, td->class_name)))) {
             tobj = HSD_TObjAlloc();
         } else {
             tobj = hsdNew(info);
@@ -300,7 +300,10 @@ HSD_Tlut* HSD_TlutLoadDesc(HSD_TlutDesc* tlutdesc)
 {
     if (tlutdesc != NULL) {
         HSD_Tlut* tlut = HSD_TlutAlloc();
-        memcpy(tlut, tlutdesc, sizeof(HSD_Tlut));
+        tlut->lut = DP(void, tlutdesc->lut);
+        tlut->fmt = tlutdesc->fmt;
+        tlut->tlut_name = tlutdesc->tlut_name;
+        tlut->n_entries = tlutdesc->n_entries;
         return tlut;
     }
     return NULL;
@@ -310,7 +313,9 @@ HSD_TObjTev* HSD_TObjTevLoadDesc(HSD_TObjTevDesc* tevdesc)
 {
     if (tevdesc != NULL) {
         HSD_TObjTev* new = HSD_TObjTevAlloc();
-        memcpy(new, tevdesc, sizeof(HSD_TObjTev));
+        /* all-u8 prefix is layout-identical; only `active` needs swapping */
+        memcpy(new, tevdesc, offsetof(HSD_TObjTev, active));
+        new->active = tevdesc->active;
         return new;
     }
     return NULL;
@@ -1209,7 +1214,7 @@ void HSD_TObjSetup(HSD_TObj* tobj)
                 tlut->tlut_name = GX_TLUT0;
             }
 
-            GXInitTexObjCI(&texobj, imagedesc->image_ptr, imagedesc->width,
+            GXInitTexObjCI(&texobj, DP(void, imagedesc->image_ptr), imagedesc->width,
                            imagedesc->height, imagedesc->format, tobj->wrap_s,
                            tobj->wrap_t,
                            imagedesc->mipmap ? GX_TRUE : GX_FALSE,
@@ -1227,7 +1232,7 @@ void HSD_TObjSetup(HSD_TObj* tobj)
         case GX_TF_RGB5A3:
         case GX_TF_RGBA8:
         case GX_TF_CMPR:
-            GXInitTexObj(&texobj, imagedesc->image_ptr, imagedesc->width,
+            GXInitTexObj(&texobj, DP(void, imagedesc->image_ptr), imagedesc->width,
                          imagedesc->height, imagedesc->format, tobj->wrap_s,
                          tobj->wrap_t, imagedesc->mipmap ? GX_TRUE : GX_FALSE);
             break;
@@ -1575,7 +1580,7 @@ void HSD_ImageDescCopyFromEFB(HSD_ImageDesc* idesc, u16 origx, u16 origy,
     if (clear) {
         HSD_StateSetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
     }
-    GXCopyTex(idesc->image_ptr, clear);
+    GXCopyTex(DP(void, idesc->image_ptr), clear);
     if (sync) {
         GXPixModeSync();
         GXInvalidateTexAll();

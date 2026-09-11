@@ -1362,7 +1362,7 @@ void ftCommon_8007EFC8(HSD_GObj* gobj, void (*arg1)(HSD_GObj*))
     }
     dst->x221E_b4 = src->x221E_b4;
     if (src->x197C != NULL) {
-        it_8026B9A8(src->x197C, dst_gobj, dst->ft_data->x8->x12);
+        it_8026B9A8(src->x197C, dst_gobj, DP(struct ftData_x8, dst->ft_data->x8)->x12);
         it_802950D4(src->x197C, false);
         ftCommon_8007F948(dst_gobj, src->x197C, src->x2014);
         ftCommon_8007FA00(gobj);
@@ -1370,7 +1370,7 @@ void ftCommon_8007EFC8(HSD_GObj* gobj, void (*arg1)(HSD_GObj*))
         dst->x197C = NULL;
     }
     if (src->x1980 != NULL) {
-        it_8026B9A8(src->x1980, dst_gobj, dst->ft_data->x8->x12);
+        it_8026B9A8(src->x1980, dst_gobj, DP(struct ftData_x8, dst->ft_data->x8)->x12);
         ftCommon_8007FE84(dst_gobj, src->x1980, src->x2018, src->x2024);
         ftCommon_8007FDA0(gobj);
     } else {
@@ -1384,7 +1384,7 @@ void ftCommon_8007EFC8(HSD_GObj* gobj, void (*arg1)(HSD_GObj*))
         dst->item_gobj = src->item_gobj;
         dst->x221E_b3 = src->x221E_b3;
         ftpickupitem_80094818(dst_gobj, 1);
-        it_8026B9A8(src->item_gobj, dst_gobj, dst->ft_data->x8->x10);
+        it_8026B9A8(src->item_gobj, dst_gobj, DP(struct ftData_x8, dst->ft_data->x8)->x10);
     }
     un_80322314();
     ftCo_800BFD04(gobj);
@@ -1434,7 +1434,7 @@ float ftCommon_GetModelScale(Fighter* fp)
 void ftCommon_8007F6A4(Fighter* fp, HSD_JObj* jobj)
 {
     Vec3 scale;
-    float val = 1.0f / fp->ft_data->x0->model_scaling;
+    float val = 1.0f / DP(struct ftCo_DatAttrs, fp->ft_data->x0)->model_scaling;
     scale.z = val;
     scale.y = val;
     scale.x = val;
@@ -1529,11 +1529,11 @@ void ftCommon_8007F9B4(HSD_GObj* gobj)
 void ftCommon_8007FA00(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    Vec3* vec = &fp->co_attrs.x114;
+    DiscVec3* vec = &fp->co_attrs.x114;
 
     u8 _[8];
 
-    it_80294EB0(fp->x197C, &vec[1], &vec[0]);
+    it_80294EB0(fp->x197C, (Vec3*) &vec[1], (Vec3*) &vec[0]);
     it_80294E78(fp->x197C, fp->x34_scale.y * vec[2].x);
 }
 
@@ -1560,7 +1560,7 @@ void ftCommon_8007FA58(Fighter_GObj* gobj, Item_GObj* arg1)
     vec = ftCo_803B74A0;
     it_8026BD0C(arg1);
     Item_8026ABD8(arg1, &vec, 0);
-    Item_8026AB54(arg1, gobj, fp->ft_data->x8->x12);
+    Item_8026AB54(arg1, gobj, DP(struct ftData_x8, fp->ft_data->x8)->x12);
     ftCommon_8007F948(gobj, arg1, it_8026B54C(arg1));
     ftCo_800D105C(gobj);
     ft_80081C88(gobj, fp->x34_scale.y);
@@ -1589,7 +1589,7 @@ void ftCommon_8007FC7C(HSD_GObj* gobj, float arg8)
         fp->x2024 = sp20 + arg8;
         ftCommon_8007FDA0(gobj);
     } else {
-        item_gobj = it_8029A748(gobj, &fp->cur_pos, fp->ft_data->x8->x12,
+        item_gobj = it_8029A748(gobj, &fp->cur_pos, DP(struct ftData_x8, fp->ft_data->x8)->x12,
                                 fp->facing_dir);
         if (item_gobj != NULL) {
             ftCommon_8007FE84(gobj, item_gobj, sp20, arg8);
@@ -1613,7 +1613,7 @@ void ftCommon_8007FDA0(HSD_GObj* gobj)
     Vec3 sp20;
     Fighter* fp;
     float temp_f1;
-    Vec3* temp_r30;
+    DiscVec3* temp_r30;
     float phi_f31;
 
     u8 _[16];
@@ -1623,8 +1623,9 @@ void ftCommon_8007FDA0(HSD_GObj* gobj)
     phi_f31 = my_fminf(p_ftCommonData->x710 * fp->x2024 + p_ftCommonData->x708,
                        p_ftCommonData->x70C);
     temp_f1 = 1.0f / phi_f31;
-    sp20 = *temp_r30;
-    sp20.x *= temp_f1;
+    sp20.x = temp_r30->x;
+    sp20.y = temp_r30->y;
+    sp20.z = temp_r30->z;
     sp20.y *= temp_f1;
     sp20.z *= temp_f1;
     it_8029A8F4(fp->x1980, &sp20);
@@ -1702,7 +1703,7 @@ void ftCommon_80080174(Fighter* fp)
 {
     float phi_f2;
     float phi_f3;
-    Vec3* v;
+    DiscVec3* v;
 
     u8 _[16];
 
@@ -1735,7 +1736,7 @@ void ftCommon_8008021C(HSD_GObj* gobj)
         fp->dmg.x18BC += shift.y;
     }
     if (fp->x2224_b5) {
-        Vec2* temp_r3 = &Fighter_GrabMashShake->x0[fp->x1A52];
+        DiscVec2* temp_r3 = &DP(DiscVec2, Fighter_GrabMashShake->x0)[fp->x1A52];
         shift.x = temp_r3->x;
         shift.y = temp_r3->y;
         result = &shift;

@@ -21,20 +21,22 @@ struct HSD_Rvalue {
     HSD_JObj* jobj;
 };
 
-struct HSD_RvalueList {
+struct DISC_STRUCT HSD_RvalueList {
     u32 flags;
-    HSD_Joint* joint;
+    DISC_PTR(HSD_Joint) joint;
 };
+DISC_ASSERT_SIZE(HSD_RvalueList, 0x8);
 
 struct HSD_IKHint {
     f32 bone_length;
     f32 rotate_x;
 };
 
-struct HSD_IKHintDesc {
+struct DISC_STRUCT HSD_IKHintDesc {
     f32 bone_length;
     f32 rotate_x;
 };
+DISC_ASSERT_SIZE(HSD_IKHintDesc, 0x8);
 
 struct HSD_Exp {
     union {
@@ -46,15 +48,17 @@ struct HSD_Exp {
     u8 is_bytecode;
 };
 
-struct HSD_ExpDesc {
-    f32 (*func)(void*);
-    HSD_RvalueList* rvalue;
+struct DISC_STRUCT HSD_ExpDesc {
+    DISC_PTR(void) func; /* f32 (*)(void*); never valid on disc */
+    DISC_PTR(HSD_RvalueList) rvalue;
 };
+DISC_ASSERT_SIZE(HSD_ExpDesc, 0x8);
 
-struct HSD_ByteCodeExpDesc {
-    u8* bytecode;
-    HSD_RvalueList* rvalue;
+struct DISC_STRUCT HSD_ByteCodeExpDesc {
+    DISC_PTR(u8) bytecode; /* big-endian bytecode stream */
+    DISC_PTR(HSD_RvalueList) rvalue;
 };
+DISC_ASSERT_SIZE(HSD_ByteCodeExpDesc, 0x8);
 
 struct HSD_RObj {
     HSD_RObj* next;
@@ -68,23 +72,25 @@ struct HSD_RObj {
     HSD_AObj* aobj;
 };
 
-struct HSD_RObjDesc {
-    HSD_RObjDesc* next;
+struct DISC_STRUCT HSD_RObjDesc {
+    DISC_PTR(HSD_RObjDesc) next;
     u32 flags; // 0x04
-    union {
+    union DISC_STRUCT {
         u32 i;
-        HSD_ExpDesc* exp;
-        HSD_ByteCodeExpDesc* bcexp;
-        HSD_IKHintDesc* ik_hint;
-        HSD_Joint* joint;
+        DISC_PTR(HSD_ExpDesc) exp;
+        DISC_PTR(HSD_ByteCodeExpDesc) bcexp;
+        DISC_PTR(HSD_IKHintDesc) ik_hint;
+        DISC_PTR(HSD_Joint) joint;
         f32 limit;
     } u;
 };
+DISC_ASSERT_SIZE(HSD_RObjDesc, 0xC);
 
-struct HSD_RObjAnimJoint {
-    HSD_RObjAnimJoint* next;
-    HSD_AObjDesc* aobjdesc;
+struct DISC_STRUCT HSD_RObjAnimJoint {
+    DISC_PTR(HSD_RObjAnimJoint) next;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
 };
+DISC_ASSERT_SIZE(HSD_RObjAnimJoint, 0x8);
 
 void _HSD_RObjForgetMemory(void* low, void* high);
 void HSD_RObjInitAllocData(void);

@@ -8,7 +8,7 @@
 
 #include <dolphin/gx.h>
 
-/* 011AC4 */ HSD_LObj* lb_80011AC4(LightList**);
+/* 011AC4 */ HSD_LObj* lb_80011AC4(DiscU32* list); /* LightList*[] slots, 0-terminated */
 /* 011B74 */ void lb_80011B74(HSD_DObj* dobj, u32 flags);
 /* 011C18 */ void lb_80011C18(HSD_JObj* jobj, u32 flags);
 /* 011E24 */ int lb_80011E24(HSD_JObj*, HSD_JObj**, ...);

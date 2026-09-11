@@ -23,16 +23,16 @@ struct ftMario_FighterVars {
     u8 _[FIGHTERVARS_SIZE - 0x18];
 };
 
-typedef struct ftMario_DatAttrs {
-    struct ftMario_SpecialS_DatAttrs {
+typedef struct DISC_STRUCT ftMario_DatAttrs {
+    struct DISC_STRUCT ftMario_SpecialS_DatAttrs {
         float vel_x_decay;
-        Vec2 vel;
+        DiscVec2 vel;
         float grav;
         float terminal_vel;
         ItemKind cape_kind;
     } specials;
 
-    struct ftMario_SpecialHi_DatAttrs {
+    struct DISC_STRUCT ftMario_SpecialHi_DatAttrs {
         float freefall_mobility;
         float landing_lag;
         float reverse_stick_range;
@@ -43,7 +43,7 @@ typedef struct ftMario_DatAttrs {
         float vel_mul;
     } specialhi;
 
-    struct ftMario_SpecialLw_DatAttrs {
+    struct DISC_STRUCT ftMario_SpecialLw_DatAttrs {
         float vel_y;
         float momentum_x;
         float air_momentum_x;
@@ -58,8 +58,9 @@ typedef struct ftMario_DatAttrs {
 
     ReflectDesc cape_reflection;
 } ftMario_DatAttrs;
+DISC_ASSERT_SIZE(ftMario_DatAttrs, 0x84);
 
-typedef struct ftMario_SpecialLw_ECB {
+typedef struct DISC_STRUCT ftMario_SpecialLw_ECB {
     u8 x0_str_arr[3];
     u8 x3_balign;
     u32 x4;
@@ -68,6 +69,7 @@ typedef struct ftMario_SpecialLw_ECB {
     u32 x10;
     u32 x14;
 } ftMario_SpecialLw_ECB;
+DISC_ASSERT_SIZE(ftMario_SpecialLw_ECB, 0x18);
 
 typedef struct ftMarioSpecialS {
     /// 0x2340 - bool to check if reflect bubble should be enabled

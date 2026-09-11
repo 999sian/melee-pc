@@ -83,7 +83,7 @@ void fn_801A1134(void)
         lbArchive_80016DBC("GmPause", &scene, "ScGamPause_scene_data", 0);
     gobj = GObj_Create(0xEU, 2U, 0U);
     lbl_804D6704 = gobj;
-    jobj = HSD_JObjLoadJoint(scene->models[0]->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_SCENE_MODEL(scene, 0)->joint));
     lbl_80479B10.background = jobj;
     lb_80011E24(jobj, &lbl_80479B10.analog_stick, 1, -1);
     lb_80011E24(jobj, &lbl_80479B10.lras, 9, -1);
@@ -92,7 +92,7 @@ void fn_801A1134(void)
     lbl_80479B10.analog_stick = HSD_JObjGetChild(lbl_80479B10.analog_stick);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xBU, 0U);
-    gm_8016895C(jobj, scene->models[0], 0);
+    gm_8016895C(jobj, GM_SCENE_MODEL(scene, 0), 0);
     HSD_JObjReqAnimAll(jobj, 1.0f);
     HSD_JObjAnimAll(jobj);
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);

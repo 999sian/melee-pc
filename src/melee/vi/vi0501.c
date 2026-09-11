@@ -198,31 +198,30 @@ void vi0501_Scene_OnEnter(void* arg)
     un_804D6F78 =
         lbArchive_LoadSymbols(viGetCharAnimByIndex(char_index), NULL);
     fog_gobj = GObj_Create(0xB, 3, 0);
-    fog = HSD_FogLoadDesc(un_804D6F70->fogs->desc);
+    fog = HSD_FogLoadDesc(vi_SceneFogDesc(un_804D6F70));
     HSD_GObjObject_80390A70(fog_gobj, HSD_GObj_FogKind, fog);
     GObj_SetupGXLink(fog_gobj, HSD_GObj_FogCallback, 0, 0);
     erase_colors_vi0501 = fog->color;
     light_gobj = GObj_Create(0xB, 3, 0);
-    lobj = lb_80011AC4(un_804D6F70->lights);
+    lobj = lb_80011AC4(DP(DiscU32, un_804D6F70->lights));
     HSD_GObjObject_80390A70(light_gobj, HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(light_gobj, HSD_GObj_LObjCallback, 0, 0);
     camera_gobj = GObj_Create(0x13, 0x14, 0);
-    cobj =
-        lb_80013B14((HSD_CameraDescPerspective*) un_804D6F70->cameras->desc);
+    cobj = lb_80013B14(vi_SceneCamDesc(un_804D6F70));
     HSD_GObjObject_80390A70(camera_gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(camera_gobj, vi_8031DC80, 5);
-    HSD_CObjAddAnim(cobj, un_804D6F70->cameras->anims[0]);
+    HSD_CObjAddAnim(cobj, vi_SceneCamAnim(un_804D6F70, 0));
     HSD_CObjReqAnim(cobj, 0.0F);
     HSD_CObjAnim(cobj);
     HSD_GObj_SetupProc(camera_gobj, fn_8031DD14, 0);
-    for (i = 0; un_804D6F70->models[i] != NULL; i++) {
+    for (i = 0; vi_SceneModel(un_804D6F70, i) != NULL; i++) {
+        DynamicModelDesc* model = vi_SceneModel(un_804D6F70, i);
         model_gobj = GObj_Create(0xE, 0xF, 0);
-        jobj = HSD_JObjLoadJoint(un_804D6F70->models[i]->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         new_var = jobj;
         HSD_GObjObject_80390A70(model_gobj, HSD_GObj_JObjKind, new_var);
         GObj_SetupGXLink(model_gobj, HSD_GObj_JObjCallback, 9, 0);
-        gm_8016895C(jobj, un_804D6F70->models[i],
-                    (un_804D6F70->models[i] != NULL) * 0);
+        gm_8016895C(jobj, model, 0);
         HSD_JObjReqAnimAll(new_var, 0.0F);
         HSD_JObjAnimAll(jobj);
         HSD_GObj_SetupProc(model_gobj, mn_8022EAE0, 0x17);

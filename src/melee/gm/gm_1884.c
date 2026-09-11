@@ -853,7 +853,7 @@ void fn_80189B88(void)
     HSD_GObj_SetupProc(GObj_Create(0xE, 2, 0), (HSD_GObjEvent) fn_801891F4,
                        0x15);
     gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint((*lbl_804D662C)->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*lbl_804D662C)->joint));
     gm_80473814.gobj = gobj;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);

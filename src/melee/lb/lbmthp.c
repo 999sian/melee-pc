@@ -92,7 +92,7 @@ struct lbl_803BAFE8_t {
 /* 01F294 */ static s32 fn_8001F294(void);
 /* 4333E0 */ static THPDecComp MoviePlayer;
 
-static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
+static void fn_8001E910(int arg0, int arg1, void* arg2, bool cancelflag)
 {
     THPDecComp* streamPlayer = &MoviePlayer;
     s32 tick_diff;
@@ -410,7 +410,7 @@ s32 fn_8001F13C(THPDecComp* streamPlayer)
                              streamPlayer->curr_file_offset);
             HSD_DevComRequest(
                 streamPlayer->file_entrynum, streamPlayer->curr_file_offset,
-                streamPlayer->frame_buffers[streamPlayer->unk_8C],
+                (uintptr_t) streamPlayer->frame_buffers[streamPlayer->unk_8C],
                 ALIGN_32(streamPlayer->currPackedSize), 0x21, 1, fn_8001E910,
                 NULL);
             streamPlayer->unk_74++;
@@ -589,14 +589,15 @@ void lbMthp_8001F614(int arg0)
 /* 3BAFE8 */ static HSD_ImageDesc lbl_803BAFE8 = {
     0, 0x280, 0x1E0, 6, 0, 0, 0,
 };
-/* 4D3834 */ HSD_SObjDesc lbl_804D3834 = { &lbl_803BAFE8 };
+/* 4D3834 */ HSD_SObjDesc lbl_804D3834 = { 0 };
 
 HSD_SObj* lbMthp_8001F624(HSD_GObj* gobj, int width, int height)
 {
     HSD_SObj* sobj;
-    lbl_803BAFE8.image_ptr = NULL;
+    DP_SET(lbl_803BAFE8.image_ptr, NULL);
     lbl_803BAFE8.width = width;
     lbl_803BAFE8.height = height;
+    DP_SET(lbl_804D3834.image, &lbl_803BAFE8);
     sobj = HSD_SObjLib_803A477C(gobj, &lbl_804D3834, 0, 0, 0x80, 0);
     sobj->x40 |= 0x10;
     return sobj;

@@ -22,7 +22,7 @@ struct ftMasterhand_FighterVars {
     /* 0x2258 */ s32 x2258;
 };
 
-struct ftMasterHand_SpecialAttrs {
+struct DISC_STRUCT ftMasterHand_SpecialAttrs {
     s32 x0;
     s32 x4;
     s32 x8;
@@ -35,12 +35,12 @@ struct ftMasterHand_SpecialAttrs {
     s32 x24;
     float x28;
     float x2C;
-    Vec2 x30_pos2;
+    DiscVec2 x30_pos2;
     float x38;
     float x3C;
-    Vec3 x40_pos;
+    DiscVec3 x40_pos;
     float x4C;
-    Vec2 x50;
+    DiscVec2 x50;
     float x58;
     float x5C;
     float x60;
@@ -53,20 +53,20 @@ struct ftMasterHand_SpecialAttrs {
     s32 x7C;
     float x80;
     s32 x84;
-    Vec2 x88_pos;
+    DiscVec2 x88_pos;
     s32 x90;
     s32 x94;
     float x98;
     float x9C;
     s32 xA0;
     float xA4;
-    Vec2 xA8_pos;
+    DiscVec2 xA8_pos;
     s32 xB0;
     s32 xB4;
     float xB8;
-    Vec2 xBC_pos;
-    Vec2 xC4_pos;
-    Vec2 xCC_pos;
+    DiscVec2 xBC_pos;
+    DiscVec2 xC4_pos;
+    DiscVec2 xCC_pos;
     float xD4;
     float xD8;
     float xDC;
@@ -82,13 +82,13 @@ struct ftMasterHand_SpecialAttrs {
     float x104;
     float x108;
     float x10C;
-    Vec2 x110_pos;
-    Vec2 x118_pos;
+    DiscVec2 x110_pos;
+    DiscVec2 x118_pos;
     float x120;
-    Vec2 x124_pos;
-    Vec2 x12C_pos;
-    Vec2 x134_pos;
-    Vec2 x13C_pos;
+    DiscVec2 x124_pos;
+    DiscVec2 x12C_pos;
+    DiscVec2 x134_pos;
+    DiscVec2 x13C_pos;
     s32 x144;
     s32 x148;
     float x14C;
@@ -104,6 +104,7 @@ struct ftMasterHand_SpecialAttrs {
     s32 x174;
     float x178;
 };
+DISC_ASSERT_SIZE(struct ftMasterHand_SpecialAttrs, 0x17C);
 
 union ftMasterHand_MotionVars {
     struct ftMasterHand_Unk0Vars {

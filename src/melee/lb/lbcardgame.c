@@ -251,13 +251,15 @@ void lb_8001CF18(void)
     if (_p(x64) != NULL) {
         HSD_JObj* jobj;
         HSD_GObj* gobj = GObj_Create(0x18, 0x3D, 0);
-        HSD_CObj* cobj = HSD_CObjLoadDesc(_p(x64)->cameras[0].desc);
+        struct SceneCameraDesc* cams = DP(struct SceneCameraDesc, _p(x64)->cameras);
+        HSD_CObj* cobj = HSD_CObjLoadDesc(DP(HSD_CObjDesc, cams[0].desc));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
         GObj_SetupGXLinkMax(gobj, fn_8001CEE4, 0xE);
         gobj->gxlink_prios = 0x80000;
 
+        DynamicModelDesc* model0 = (DynamicModelDesc*) (uintptr_t) DP(DiscU32, _p(x64)->models)[0].v;
         gobj = GObj_Create(0x18, 0x3D, 0);
-        jobj = HSD_JObjLoadJoint(_p(x64)->models[0]->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model0->joint));
 
         HSD_JObjSetTranslateX(jobj, lb_804D3808[_p(x60)][0]);
         HSD_JObjSetTranslateY(jobj, lb_804D3808[_p(x60)][1]);
@@ -265,7 +267,7 @@ void lb_8001CF18(void)
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0x13, 0);
         HSD_GObj_SetupProc(gobj, fn_8001CEC0, 0);
-        gm_8016895C(jobj, _p(x64)->models[0], 0);
+        gm_8016895C(jobj, model0, 0);
         HSD_JObjReqAnimAll(jobj, 0.0F);
         HSD_JObjAnimAll(jobj);
     }

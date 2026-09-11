@@ -82,7 +82,7 @@ void ftCliffCommon_80081370(Fighter_GObj* gobj)
             fp->mv.co.cliff.ledge_id = fp->coll_data.ledge_id_right;
         }
         ftCo_CliffCatch_Phys(gobj);
-        ft_800881D8(fp, fp->ft_data->x4C_sfx->x28, 127, 64);
+        ft_800881D8(fp, DP(FtSFX, fp->ft_data->x4C_sfx)->x28, 127, 64);
         ftCommon_8007E2F4(fp, 511);
         ftCommon_8007EBAC(fp, 12, 0);
 

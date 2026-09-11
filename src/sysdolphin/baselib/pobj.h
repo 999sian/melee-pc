@@ -35,29 +35,31 @@ struct HSD_PObj {
     } u;
 };
 
-struct HSD_PObjDesc {
-    char* class_name;
-    HSD_PObjDesc* next;
-    HSD_VtxDescList* verts;
+struct DISC_STRUCT HSD_PObjDesc {
+    DISC_PTR(char) class_name;
+    DISC_PTR(HSD_PObjDesc) next;
+    DISC_PTR(HSD_VtxDescList) verts;
     u16 flags;
     u16 n_display;
-    u8* display;
-    union {
-        HSD_Joint* joint;
-        HSD_ShapeSetDesc* shape_set;
-        HSD_EnvelopeDesc** envelope_p;
+    DISC_PTR(u8) display; /* raw GX display list */
+    union DISC_STRUCT {
+        DISC_PTR(HSD_Joint) joint;
+        DISC_PTR(HSD_ShapeSetDesc) shape_set;
+        DISC_PTR(DiscU32) envelope_p; /* NULL-terminated DISC_PTR(HSD_EnvelopeDesc)[] */
     } u;
 };
+DISC_ASSERT_SIZE(HSD_PObjDesc, 0x18);
 
-struct HSD_VtxDescList {
+struct DISC_STRUCT HSD_VtxDescList {
     GXAttr attr;
     GXAttrType attr_type;
     GXCompCnt comp_cnt;
     GXCompType comp_type;
     u8 frac;
     u16 stride;
-    void* vertex;
+    DISC_PTR(void) vertex; /* raw GX vertex array */
 };
+DISC_ASSERT_SIZE(HSD_VtxDescList, 0x18);
 
 struct HSD_Envelope {
     HSD_Envelope* next;
@@ -65,20 +67,21 @@ struct HSD_Envelope {
     f32 weight;
 };
 
-struct HSD_EnvelopeDesc {
-    HSD_Joint* joint;
+struct DISC_STRUCT HSD_EnvelopeDesc {
+    DISC_PTR(HSD_Joint) joint;
     f32 weight;
 };
+DISC_ASSERT_SIZE(HSD_EnvelopeDesc, 0x8);
 
 struct HSD_ShapeSet {
     u16 flags;
     u16 nb_shape;
     int nb_vertex_index;
     HSD_VtxDescList* vertex_desc;
-    u8** vertex_idx_list;
+    DiscU32* vertex_idx_list; /* disc array of DISC_PTR(u8) index arrays */
     s32 nb_normal_index;
     HSD_VtxDescList* normal_desc;
-    u8** normal_idx_list;
+    DiscU32* normal_idx_list;
     union {
         f32* bp;
         f32 bl;
@@ -86,27 +89,30 @@ struct HSD_ShapeSet {
     HSD_AObj* aobj;
 };
 
-struct HSD_ShapeSetDesc {
+struct DISC_STRUCT HSD_ShapeSetDesc {
     u16 flags;
     u16 nb_shape;
     s32 nb_vertex_index;
-    HSD_VtxDescList* vertex_desc;
-    u8** vertex_idx_list;
+    DISC_PTR(HSD_VtxDescList) vertex_desc;
+    DISC_PTR(DiscU32) vertex_idx_list;
     s32 nb_normal_index;
-    HSD_VtxDescList* normal_desc;
-    u8** normal_idx_list;
+    DISC_PTR(HSD_VtxDescList) normal_desc;
+    DISC_PTR(DiscU32) normal_idx_list;
 };
+DISC_ASSERT_SIZE(HSD_ShapeSetDesc, 0x1C);
 
-struct HSD_ShapeAnim {
-    HSD_ShapeAnim* next;
-    HSD_AObjDesc* aobjdesc;
+struct DISC_STRUCT HSD_ShapeAnim {
+    DISC_PTR(HSD_ShapeAnim) next;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
 };
+DISC_ASSERT_SIZE(HSD_ShapeAnim, 0x8);
 
-struct HSD_ShapeAnimJoint {
-    HSD_ShapeAnimJoint* child;
-    HSD_ShapeAnimJoint* next;
-    HSD_ShapeAnimDObj* shapeanimdobj;
+struct DISC_STRUCT HSD_ShapeAnimJoint {
+    DISC_PTR(HSD_ShapeAnimJoint) child;
+    DISC_PTR(HSD_ShapeAnimJoint) next;
+    DISC_PTR(HSD_ShapeAnimDObj) shapeanimdobj;
 };
+DISC_ASSERT_SIZE(HSD_ShapeAnimJoint, 0xC);
 
 struct HSD_PObjInfo {
     HSD_ClassInfo parent;

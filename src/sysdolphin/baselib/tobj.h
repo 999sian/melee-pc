@@ -149,7 +149,7 @@ struct HSD_TObj {
     struct _HSD_Tlut* tlut;
     struct _HSD_TexLODDesc* lod;
     HSD_AObj* aobj;
-    struct HSD_ImageDesc** imagetbl;
+    DiscU32* imagetbl; /* disc array of DISC_PTR(HSD_ImageDesc) slots */
     struct _HSD_Tlut** tluttbl;
     u8 tlut_no;
     Mtx mtx;
@@ -157,14 +157,14 @@ struct HSD_TObj {
     struct _HSD_TObjTev* tev;
 };
 
-typedef struct _HSD_TObjDesc {
-    char* class_name;
-    struct _HSD_TObjDesc* next;
+typedef struct DISC_STRUCT _HSD_TObjDesc {
+    DISC_PTR(char) class_name;
+    DISC_PTR(struct _HSD_TObjDesc) next;
     GXTexMapID id;
     GXTexGenSrc src;
-    Vec3 rotate;
-    Vec3 scale;
-    Vec3 translate;
+    DiscVec3 rotate;
+    DiscVec3 scale;
+    DiscVec3 translate;
     GXTexWrapMode wrap_s;
     GXTexWrapMode wrap_t;
     u8 repeat_s;
@@ -172,11 +172,12 @@ typedef struct _HSD_TObjDesc {
     u32 blend_flags;
     f32 blending;
     GXTexFilter magFilt;
-    struct HSD_ImageDesc* imagedesc;
-    struct _HSD_TlutDesc* tlutdesc;
-    struct _HSD_TexLODDesc* lod;
-    struct _HSD_TObjTevDesc* tev;
+    DISC_PTR(struct HSD_ImageDesc) imagedesc;
+    DISC_PTR(struct _HSD_TlutDesc) tlutdesc;
+    DISC_PTR(struct _HSD_TexLODDesc) lod;
+    DISC_PTR(struct _HSD_TObjTevDesc) tev;
 } HSD_TObjDesc;
+DISC_ASSERT_SIZE(HSD_TObjDesc, 0x5C);
 
 typedef struct _HSD_Tlut {
     void* lut;
@@ -185,23 +186,26 @@ typedef struct _HSD_Tlut {
     u16 n_entries;
 } HSD_Tlut;
 
-typedef struct _HSD_TlutDesc {
-    void* lut;
+typedef struct DISC_STRUCT _HSD_TlutDesc {
+    DISC_PTR(void) lut; /* raw GX palette data */
     GXTlutFmt fmt;
     u32 tlut_name;
     u16 n_entries;
 } HSD_TlutDesc;
+DISC_ASSERT_SIZE(HSD_TlutDesc, 0x10);
 
-typedef struct _HSD_TexLODDesc {
+typedef struct DISC_STRUCT _HSD_TexLODDesc {
     GXTexFilter minFilt;
     f32 LODBias;
     GXBool bias_clamp;
     GXBool edgeLODEnable;
     GXAnisotropy max_anisotropy;
 } HSD_TexLODDesc;
+DISC_ASSERT_SIZE(HSD_TexLODDesc, 0x10);
 
-struct HSD_ImageDesc {
-    void* image_ptr;
+/* Also allocated at runtime (HSD_ImageDescAlloc); layout stays disc-native. */
+struct DISC_STRUCT HSD_ImageDesc {
+    DISC_PTR(void) image_ptr; /* raw GX texture data */
     u16 width;
     u16 height;
     GXTexFmt format;
@@ -209,6 +213,7 @@ struct HSD_ImageDesc {
     f32 minLOD;
     f32 maxLOD;
 };
+DISC_ASSERT_SIZE(HSD_ImageDesc, 0x18);
 
 typedef struct _HSD_TObjTev {
     u8 color_op;
@@ -225,7 +230,7 @@ typedef struct _HSD_TObjTev {
     u32 active;
 } HSD_TObjTev;
 
-typedef struct _HSD_TObjTevDesc {
+typedef struct DISC_STRUCT _HSD_TObjTevDesc {
     u8 color_op;
     u8 alpha_op;
     u8 color_bias;
@@ -239,6 +244,7 @@ typedef struct _HSD_TObjTevDesc {
     GXColor konst, tev0, tev1;
     u32 active;
 } HSD_TObjTevDesc;
+DISC_ASSERT_SIZE(HSD_TObjTevDesc, 0x20);
 
 typedef struct _HSD_TObjInfo {
     HSD_ClassInfo parent;
@@ -248,15 +254,16 @@ typedef struct _HSD_TObjInfo {
                       HSD_TExp** c, HSD_TExp** a, HSD_TExp** list);
 } HSD_TObjInfo;
 
-typedef struct _HSD_TexAnim {
-    struct _HSD_TexAnim* next;
+typedef struct DISC_STRUCT _HSD_TexAnim {
+    DISC_PTR(struct _HSD_TexAnim) next;
     GXTexMapID id;
-    HSD_AObjDesc* aobjdesc;
-    struct HSD_ImageDesc** imagetbl;
-    struct _HSD_TlutDesc** tluttbl;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
+    DISC_PTR(DiscU32) imagetbl; /* DISC_PTR(HSD_ImageDesc)[n_imagetbl] */
+    DISC_PTR(DiscU32) tluttbl;  /* DISC_PTR(HSD_TlutDesc)[n_tluttbl] */
     u16 n_imagetbl;
     u16 n_tluttbl;
 } HSD_TexAnim;
+DISC_ASSERT_SIZE(HSD_TexAnim, 0x18);
 
 extern HSD_TObjInfo hsdTObj;
 

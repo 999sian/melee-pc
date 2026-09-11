@@ -33,7 +33,9 @@ void it_802F2D98(Item_GObj* gobj, Fighter_GObj* owner_gobj)
     it_8026C220(gobj, owner_gobj);
     item->xDD0_flag.b1 = false;
     item->xBC_itemStateContainer = it_803F9490;
-    it_80274F48(gobj, item->xC4_article_data->x10_modelDesc->x8_bone_attach_id,
+    it_80274F48(gobj,
+                DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)
+                    ->x8_bone_attach_id,
                 owner_gobj, ftKb_SpecialNYs_80109238(owner_gobj));
     Item_80268E5C(gobj, 0, 0);
     it_802762BC(item);
@@ -59,8 +61,9 @@ bool itKirbyyoshispecialn_UnkMotion0_Coll(Item_GObj* gobj)
 void it_802F2E7C(Item_GObj* gobj, bool has_destroy_type)
 {
     Item* item = GET_ITEM(gobj);
-    it_80275070(gobj,
-                item->xC4_article_data->x10_modelDesc->x8_bone_attach_id);
+    it_80275070(
+        gobj,
+        DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x8_bone_attach_id);
     lb_8000B1CC(ftLib_80086630(item->grab_victim,
                                ftKb_SpecialNYs_80109238(item->grab_victim)),
                 NULL, &item->pos);

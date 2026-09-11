@@ -223,7 +223,7 @@ static void mnSnap_8025329C(void)
             HSD_ASSERT(197, jobj->u.dobj->next->next->mobj);
             HSD_ASSERT(198, jobj->u.dobj->next->next->mobj->tobj);
             HSD_ASSERT(199, jobj->u.dobj->next->next->mobj->tobj->imagedesc);
-            mnSnap_GetImageDesc(jobj)->image_ptr = img;
+            DP_SET(mnSnap_GetImageDesc(jobj)->image_ptr, img);
             jobj->u.dobj->next->next->mobj->tobj->imagedesc->width = 0x280;
             mnSnap_GetDObj(jobj)->next->next->mobj->tobj->imagedesc->height =
                 0x1E0;
@@ -344,7 +344,7 @@ void mnSnap_80253640(s32 page)
         HSD_ASSERT(198, jobj->u.dobj->next->next->mobj->tobj);
         HSD_ASSERT(199, jobj->u.dobj->next->next->mobj->tobj->imagedesc);
         i += 1;
-        jobj->u.dobj->next->next->mobj->tobj->imagedesc->image_ptr = img;
+        DP_SET(jobj->u.dobj->next->next->mobj->tobj->imagedesc->image_ptr, img);
         jobj->u.dobj->next->next->mobj->tobj->imagedesc->width = 0x40;
         jobj->u.dobj->next->next->mobj->tobj->imagedesc->height = 0x30;
     }
@@ -1592,7 +1592,7 @@ void fn_802545C4(void)
                 HSD_ASSERT(183, jobj->u.dobj->mobj);
                 HSD_ASSERT(184, jobj->u.dobj->mobj->tobj);
                 HSD_ASSERT(185, jobj->u.dobj->mobj->tobj->imagedesc);
-                jobj->u.dobj->mobj->tobj->imagedesc->image_ptr = thumb_img;
+                DP_SET(jobj->u.dobj->mobj->tobj->imagedesc->image_ptr, thumb_img);
                 jobj->u.dobj->mobj->tobj->imagedesc->width = 640;
                 jobj->u.dobj->mobj->tobj->imagedesc->height = 480;
             } else if (mnSnap_804A0A10.menu_sel == 1) {
@@ -2641,7 +2641,7 @@ void mnSnap_80257F24(void)
                 1, -1);
 
     jobj2 = *(slot_jobj_ptr = &snap->slot_a_jobj);
-    snap->blank_img = jobj2->u.dobj->mobj->tobj->imagedesc->image_ptr;
+    snap->blank_img = DP(void, jobj2->u.dobj->mobj->tobj->imagedesc->image_ptr);
 
     if (snap->photo_count[snap->active_slot] <= 4) {
         HSD_JObjSetFlagsAll(snap->arrow_jobj, JOBJ_HIDDEN);

@@ -73,10 +73,21 @@ struct EF_Effect {
     /* +2B */ s8 x2B;
 }; /* size = 0x2C */
 
-struct EF_EffectDesc {
+/* Entry of the "eff*DataTable" array in Ef*Data.dat, read in place. */
+struct DISC_STRUCT EF_EffectDesc {
     /* +0 */ float lifetime;
     /* +4 */ StaticModelDesc model_desc;
 }; /* size = 0x14 */
+DISC_ASSERT_SIZE(struct EF_EffectDesc, 0x14);
+
+/* Header of an "eff*DataTable" symbol: two bank pointers, then the
+ * EF_EffectDesc array. EF_DAT_Entry (native) is reused for it in efasync.c
+ * only for the pointer slots; this is the disc view. */
+struct DISC_STRUCT EF_DataTable {
+    /* +0 */ DISC_PTR(void) ptcl_bank;
+    /* +4 */ DISC_PTR(void) tex_bank;
+    /* +8 */ EF_EffectDesc descs[1];
+};
 
 struct EF_QueuedEffect {
     /* +0 */ EF_QueuedEffect* next;

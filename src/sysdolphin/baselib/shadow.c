@@ -89,8 +89,8 @@ void HSD_ShadowRemove(HSD_Shadow* shadow)
     if (shadow->active) {
         HSD_MObjDeleteShadowTexture(shadow->texture);
     }
-    if (shadow->texture->imagedesc->image_ptr != NULL) {
-        HSD_Free(shadow->texture->imagedesc->image_ptr);
+    if (shadow->texture->imagedesc->image_ptr != 0) {
+        HSD_Free(DP(void, shadow->texture->imagedesc->image_ptr));
     }
     tobj = shadow->texture;
     HSD_ImageDescFree(tobj->imagedesc);
@@ -121,12 +121,12 @@ void HSD_ShadowSetSize(HSD_Shadow* shadow, u16 width, u16 height)
     if (!idesc->image_ptr || idesc->width != width || idesc->height != height)
     {
         if (idesc->image_ptr) {
-            HSD_Free(idesc->image_ptr);
+            HSD_Free(DP(void, idesc->image_ptr));
         }
 
         size = GXGetTexBufferSize(width, height, GX_TF_I4, GX_FALSE, 0);
         HSD_ASSERT(0x122, size > 0);
-        idesc->image_ptr = HSD_MemAlloc(size);
+        DP_SET(idesc->image_ptr, HSD_MemAlloc(size));
         idesc->width = width;
         idesc->height = height;
 
@@ -269,7 +269,7 @@ void HSD_ShadowEndRender(HSD_Shadow* shadow)
         HSD_ShadowSetSize(shadow, idesc->width, idesc->height);
     }
 
-    GXCopyTex(idesc->image_ptr, GX_TRUE);
+    GXCopyTex(DP(void, idesc->image_ptr), GX_TRUE);
     GXPixModeSync();
 
     GXInvalidateTexAll();

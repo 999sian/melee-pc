@@ -165,11 +165,11 @@ void ftCo_800DD4B0(Fighter_GObj* gobj, FtMotionId msid)
     int throw_index = msid - 219;
     FtMotionId victim_msid = throw_index + 239;
     float anim_speed;
-    if (fp->ft_data->x0->weight_independent_throws_mask & (1 << throw_index)) {
+    if (DP(ftCo_DatAttrs, fp->ft_data->x0)->weight_independent_throws_mask & (1 << throw_index)) {
         anim_speed = 1.0f;
     } else {
         anim_speed =
-            1.0f / (victim->ft_data->x0->weight * p_ftCommonData->x37C);
+            1.0f / (DP(ftCo_DatAttrs, victim->ft_data->x0)->weight * p_ftCommonData->x37C);
     }
     switch (msid) {
     case 222:

@@ -47,7 +47,7 @@ ItemStateTable it_803F89C8[] = {
 void it_802E2470(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     s32 facing;
     PAD_STACK(8);
 
@@ -81,12 +81,12 @@ void it_802E2470(Item_GObj* gobj)
 bool it_2725_Logic8_DmgReceived(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(0x10);
 
     ip->init_facing_dir = ip->facing_dir;
     ip->xC9C += it_8027CBFC(gobj);
-    if (ip->xC9C > attr->x0->x0 || ip->msid == 9) {
+    if (ip->xC9C > DP(itOttoseaAttr_x0, attr->x0)->x0 || ip->msid == 9) {
         if (ip->xDD4_itemVar.oldottosea.x20 != NULL) {
             it_8028ECE0(ip->xDD4_itemVar.oldottosea.x20);
             it_802E37A4(gobj);
@@ -142,7 +142,7 @@ bool itOldottosea_UnkMotion0_Coll(Item_GObj* gobj)
 void it_802E27B4(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     Vec3 pos;
     int int_dir;
 
@@ -180,7 +180,7 @@ void it_802E27B4(Item_GObj* gobj)
 bool itOldottosea_UnkMotion2_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     s32 threshold;
     PAD_STACK(0x10);
 
@@ -233,7 +233,7 @@ bool itOldottosea_UnkMotion2_Anim(Item_GObj* gobj)
 void itOldottosea_UnkMotion2_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     s32 jp_offset;
 
     if (lbLang_IsSettingJP()) {
@@ -243,7 +243,7 @@ void itOldottosea_UnkMotion2_Phys(Item_GObj* gobj)
     }
 
     if (ip->xDD4_itemVar.oldottosea.x24 == jp_offset) {
-        ip->x40_vel.x = ip->facing_dir * attr->x0->x4;
+        ip->x40_vel.x = ip->facing_dir * DP(itOttoseaAttr_x0, attr->x0)->x4;
     }
 
     ip->xDD4_itemVar.oldottosea.x24++;
@@ -279,7 +279,7 @@ bool itOldottosea_UnkMotion2_Coll(Item_GObj* gobj)
 void it_802E2BC0(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     ip->xDD4_itemVar.oldottosea.x28 = 0;
     ip->x40_vel.x *= attr->x4;
     Item_80268E5C(gobj, 4, ITEM_ANIM_UPDATE);
@@ -391,7 +391,7 @@ bool itOldottosea_UnkMotion7_Anim(Item_GObj* gobj)
 void itOldottosea_UnkMotion7_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     s32 threshold;
 
     if (lbLang_IsSettingJP()) {

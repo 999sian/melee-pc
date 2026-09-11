@@ -534,17 +534,18 @@ void Item_80267978(HSD_GObj* gobj)
     Item* item_data = gobj->user_data;
     if (item_data->kind < It_Kind_Kuriboh) {
         // Common items
-        item_data->xC4_article_data = it_804D6D24[item_data->kind];
+        item_data->xC4_article_data =
+            DP(Article, it_804D6D24[item_data->kind].v);
         item_data->xB8_itemLogicTable = &it_803F14C4[item_data->kind];
     } else if (item_data->kind < It_PKind_Start) {
         // Character items
         int idx = item_data->kind - It_Kind_Kuriboh;
-        item_data->xC4_article_data = it_804D6D38[idx];
+        item_data->xC4_article_data = DP(Article, it_804D6D38[idx].v);
         item_data->xB8_itemLogicTable = &it_803F3100[idx];
     } else if (item_data->kind < It_Kind_Old_Kuri) {
         // Pokemon
         int idx = item_data->kind - It_PKind_Start;
-        item_data->xC4_article_data = it_804D6D30[idx];
+        item_data->xC4_article_data = DP(Article, it_804D6D30[idx].v);
         item_data->xB8_itemLogicTable = &it_803F23CC[idx];
     } else {
         // Stage items
@@ -570,9 +571,11 @@ static void Item_80267AA8(HSD_GObj* gobj, SpawnItem* spawnItem)
     item_data->entity = gobj;
     Item_80267978(gobj);
     item_data->msid = -1;
-    item_data->xC8_joint =
-        item_data->xC4_article_data->x10_modelDesc->x0_joint;
-    item_data->xCC_item_attr = item_data->xC4_article_data->x0_common_attr;
+    item_data->xC8_joint = DP(
+        HSD_Joint,
+        DP(ItemModelDesc, item_data->xC4_article_data->x10_modelDesc)->x0_joint);
+    item_data->xCC_item_attr =
+        DP(ItemAttr, item_data->xC4_article_data->x0_common_attr);
     item_data->owner = NULL;
     item_data->xDC8_word.flags.x0 = 0;
     item_data->ecb_lock = -1;
@@ -611,18 +614,18 @@ static void Item_80267AA8(HSD_GObj* gobj, SpawnItem* spawnItem)
     item_data->xDC8_word.flags.x19 = item_data->xCC_item_attr->x1_3;
     item_data->xDC8_word.flags.x17 = item_data->xCC_item_attr->x1_1;
     item_attr = item_data->xCC_item_attr;
-    item_data->xBCC_unk = item_attr->x30_unk;
-    item_data->xBD4_grabRange = item_attr->x38_grab_range;
+    item_data->xBCC_unk = Vec2_FromDisc(&item_attr->x30_unk);
+    item_data->xBD4_grabRange = Vec2_FromDisc(&item_attr->x38_grab_range);
     item_data->xDC8_word.flags.x1A = item_data->xCC_item_attr->x1_4;
     item_attr = item_data->xCC_item_attr;
-    item_data->xBEC = item_attr->x20;
+    item_data->xBEC = itECB_FromDisc(&item_attr->x20);
     item_attr = item_data->xCC_item_attr;
-    item_data->xBDC = item_attr->x20;
+    item_data->xBDC = itECB_FromDisc(&item_attr->x20);
     item_data->xDC8_word.flags.x1C = 1;
     item_data->xDC8_word.flags.x1D = 1;
     item_data->xDC8_word.flags.x1E = 1;
     item_attr = item_data->xCC_item_attr;
-    item_data->xC1C = item_attr->x40;
+    item_data->xC1C = itECB_FromDisc(&item_attr->x40);
     item_data->xC0C = item_data->xC1C;
     item_data->xBFC = item_data->xC0C;
     item_data->xDC8_word.flags.xC = item_data->xCC_item_attr->x1_5;
@@ -784,7 +787,8 @@ static void Item_8026814C(HSD_GObj* gobj)
 static bool Item_802682F0(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    if (ip->xC4_article_data->x10_modelDesc->x4_bone_count != 0) {
+    if (DP(ItemModelDesc, ip->xC4_article_data->x10_modelDesc)->x4_bone_count !=
+        0) {
         HSD_JObj* jobj;
         int i;
         ip->xBBC_dynamicBoneTable =
@@ -837,21 +841,23 @@ static void Item_80268560(HSD_GObj* gobj)
     int i;
     Item* ip = GET_ITEM(gobj);
     Article* article_data = ip->xC4_article_data;
-    if (article_data->x14_dynamics == NULL) {
+    ItemDynamics* dyn = DP(ItemDynamics, article_data->x14_dynamics);
+    BoneDynamicsDesc* descs;
+    if (dyn == NULL) {
         ip->x374_dynamicBonesNum = 0;
         ip->xB68 = 0;
         return;
     }
-    ip->x374_dynamicBonesNum = article_data->x14_dynamics->count;
-    for (i = 0; i < article_data->x14_dynamics->count; i++) {
-        BoneDynamicsDesc* desc = &article_data->x14_dynamics->dyn_descs[i];
+    descs = DP(BoneDynamicsDesc, dyn->dyn_descs);
+    ip->x374_dynamicBonesNum = dyn->count;
+    for (i = 0; i < dyn->count; i++) {
+        BoneDynamicsDesc* desc = &descs[i];
         HSD_JObj* jobj = ip->xBBC_dynamicBoneTable->bones[desc->bone_id];
         lb_8000FD48(jobj, &ip->xD4_dynamicBones[i].dyn_desc,
                     desc->dyn_desc.count);
         ip->xD4_dynamicBones[i].skeleton = jobj;
         ip->xD4_dynamicBones[i].flags = 0;
-        lb_80011710(&article_data->x14_dynamics->dyn_descs[i].dyn_desc,
-                    &ip->xD4_dynamicBones[i].dyn_desc);
+        lb_80011710(&descs[i].dyn_desc, &ip->xD4_dynamicBones[i].dyn_desc);
     }
 }
 

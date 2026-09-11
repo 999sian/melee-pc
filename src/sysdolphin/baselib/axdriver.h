@@ -40,7 +40,7 @@ struct HSD_SM {
     /* 28 */ u8 dp12flag;
     /* 29 */ u8 itdflag;
     /* 2A */ u16 x2A;
-    /* 2C */ u32* cmd_stream;
+    /* 2C */ DiscU32* cmd_stream; ///< into the big-endian .sem image
     /* 30 */ int x30;
 };
 

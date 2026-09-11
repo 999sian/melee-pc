@@ -37,7 +37,7 @@ typedef struct ftGameWatchJudge {
     s32 rollVar[9];
 } ftGameWatchJudge;
 
-typedef struct _ftGameWatchAttributes {
+typedef struct DISC_STRUCT _ftGameWatchAttributes {
     /// MISC. ATTRIBUTES
 
     /// Mr. Game & Watch's Z-Axis stretch; 0.01 by default
@@ -110,6 +110,7 @@ typedef struct _ftGameWatchAttributes {
     /// Oil Panic absorption attributes
     AbsorbDesc x80_GAMEWATCH_PANIC_ABSORPTION;
 } ftGameWatchAttributes;
+DISC_ASSERT_SIZE(ftGameWatchAttributes, 0x94);
 
 typedef union ftGameWatch_MotionVars {
     struct ftGameWatch_Attack11Vars {

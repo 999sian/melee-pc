@@ -1,5 +1,7 @@
 #include "ftdynamics.h"
 
+
+
 #include <Runtime/platform.h>
 
 #include <placeholder.h>
@@ -16,6 +18,15 @@
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/jobj.h>
 
+static inline struct ftDynamics* get_ft_dyn(ftData* data) {
+    return DP(struct ftDynamics, data->x2C);
+}
+static inline struct ftDynamics* get_hat_dyn(KirbyHatStruct* hat, int idx) {
+    return DP(struct ftDynamics, hat->hat_dynamics[idx]);
+}
+static inline ArticleDynamicBones* get_adb(struct ftDynamics* dyn) {
+    return DP(ArticleDynamicBones, dyn->ftDynamicBones);
+}
 /* 09CB40 */ static void ftCo_8009CB40(Fighter* fp, ssize_t bone_idx, bool,
                                        FigaTree*);
 /* 09DD94 */ static void ftCo_8009DD94(Fighter_GObj*, bool);
@@ -36,7 +47,7 @@ static inline void ftCo_8009CB40_inline(struct DynamicsData* data)
 
 void ftCo_8009CB40(Fighter* fp, ssize_t bone_idx, bool arg2, FigaTree* arg3)
 {
-    ftDynamics* dyn = fp->ft_data->x2C;
+    ftDynamics* dyn = get_ft_dyn(fp->ft_data);
     PAD_STACK(8);
     if (dyn->dynamicsNum != 0) {
         s32 bone_id;
@@ -45,7 +56,7 @@ void ftCo_8009CB40(Fighter* fp, ssize_t bone_idx, bool arg2, FigaTree* arg3)
         s32 var_r29;
         struct DynamicsData* data;
         s32 inverse_flag;
-        bone_id = dyn->ftDynamicBones->array[bone_idx].bone_id;
+        bone_id = get_adb(dyn)->array[bone_idx].bone_id;
         flag = arg2 == 0 ? 0 : 1;
         var_r30 = fp->parts[bone_id].joint;
         var_r29 = 0;
@@ -54,13 +65,13 @@ void ftCo_8009CB40(Fighter* fp, ssize_t bone_idx, bool arg2, FigaTree* arg3)
         } else {
             fp->dynamic_bone_sets[bone_idx].bone_id = 0x100;
         }
-        data = fp->dynamic_bone_sets[bone_idx].dyn_desc.data;
+        data = DP(struct DynamicsData, fp->dynamic_bone_sets[bone_idx].dyn_desc.data);
         {
             s32 tmp = 1 - flag;
             inverse_flag = tmp;
         }
         while (data != NULL) {
-            if (var_r29 < (s32) arg3) {
+            if (var_r29 < (s32) (intptr_t) arg3) {
                 if (inverse_flag != 0 && !(fp->parts[bone_id].flags_b0)) {
                     ftCo_8009CB40_inline(data);
                 }
@@ -85,20 +96,20 @@ void ftCo_8009CB40(Fighter* fp, ssize_t bone_idx, bool arg2, FigaTree* arg3)
 void ftCo_8009CF84(Fighter* fp)
 {
     ftData* data = fp->ft_data;
-    fp->dynamics_num = data->x2C->dynamicsNum;
+    fp->dynamics_num = get_ft_dyn(data)->dynamicsNum;
     if (fp->dynamics_num >= Ft_Dynamics_NumMax) {
         HSD_ASSERTREPORT(109, 0, "fighter dynamics num over!\n");
     }
     {
         ssize_t i;
-        for (i = 0; i < data->x2C->dynamicsNum; i++) {
-            BoneDynamicsDesc* bones = &data->x2C->ftDynamicBones->array[i];
+        for (i = 0; i < get_ft_dyn(data)->dynamicsNum; i++) {
+            BoneDynamicsDesc* bones = &get_adb(get_ft_dyn(data))->array[i];
             lb_8000FD48(fp->parts[bones->bone_id].joint,
                         &fp->dynamic_bone_sets[i].dyn_desc,
                         bones->dyn_desc.count);
             fp->dynamic_bone_sets[i].bone_id = 0;
             ftCo_8009CB40(fp, i, 1, NULL);
-            lb_80011710(&data->x2C->ftDynamicBones->array[i].dyn_desc,
+            lb_80011710(&get_adb(get_ft_dyn(data))->array[i].dyn_desc,
                         &fp->dynamic_bone_sets[i].dyn_desc);
         }
     }
@@ -109,7 +120,7 @@ static inline void ftCo_SetupKirbyHatBone(Fighter* fp, KirbyHatStruct* hat,
                                           int dyn_idx, ssize_t i)
 {
     BoneDynamicsDesc* article =
-        &hat->hat_dynamics[dyn_idx]->ftDynamicBones->array[i];
+        &get_adb(get_hat_dyn(hat, dyn_idx))->array[i];
     HSD_JObj* cur = fp->u.kb.hat.jobj;
     ssize_t j;
     for (j = 0; j < (signed) article->bone_id; j++) {
@@ -125,14 +136,14 @@ static inline void ftCo_SetupKirbyHatBone(Fighter* fp, KirbyHatStruct* hat,
     lb_8000FD48(cur, &fp->dynamic_bone_sets[i].dyn_desc,
                 article->dyn_desc.count);
     fp->dynamic_bone_sets[i].bone_id = 0;
-    lb_80011710(&hat->hat_dynamics[dyn_idx]->ftDynamicBones->array[i].dyn_desc,
+    lb_80011710(&get_adb(get_hat_dyn(hat, dyn_idx))->array[i].dyn_desc,
                 &fp->dynamic_bone_sets[i].dyn_desc);
 }
 
 void ftCo_8009D074(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Koopa];
-    fp->dynamics_num = hat->hat_dynamics[2]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 2)->dynamicsNum;
     HSD_ASSERTREPORT(135, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -146,7 +157,7 @@ void ftCo_8009D074(Fighter* fp)
 void ftCo_8009D18C(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Zelda];
-    fp->dynamics_num = hat->hat_dynamics[2]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 2)->dynamicsNum;
     HSD_ASSERTREPORT(167, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -160,7 +171,7 @@ void ftCo_8009D18C(Fighter* fp)
 void ftCo_8009D2A4(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Nana];
-    fp->dynamics_num = hat->hat_dynamics[2]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 2)->dynamicsNum;
     HSD_ASSERTREPORT(199, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -174,7 +185,7 @@ void ftCo_8009D2A4(Fighter* fp)
 void ftCo_8009D3BC(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Falco];
-    fp->dynamics_num = hat->hat_dynamics[2]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 2)->dynamicsNum;
     HSD_ASSERTREPORT(232, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -188,7 +199,7 @@ void ftCo_8009D3BC(Fighter* fp)
 void ftCo_8009D4D4(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Kirby];
-    fp->dynamics_num = hat->hat_dynamics[1]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 1)->dynamicsNum;
     HSD_ASSERTREPORT(265, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -202,7 +213,7 @@ void ftCo_8009D4D4(Fighter* fp)
 void ftCo_8009D5EC(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Mars];
-    fp->dynamics_num = hat->hat_dynamics[0]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 0)->dynamicsNum;
     HSD_ASSERTREPORT(298, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -216,7 +227,7 @@ void ftCo_8009D5EC(Fighter* fp)
 void ftCo_8009D704(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Link];
-    fp->dynamics_num = hat->hat_dynamics[2]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 2)->dynamicsNum;
     HSD_ASSERTREPORT(331, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -231,21 +242,21 @@ void ftCo_8009D81C(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Yoshi];
     PAD_STACK(2 * 4);
-    fp->dynamics_num = hat->hat_dynamics[3]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 3)->dynamicsNum;
     HSD_ASSERTREPORT(364, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
         ssize_t i;
         for (i = 0; i < fp->dynamics_num; i++) {
             s32 bone_id =
-                hat->hat_dynamics[3]->ftDynamicBones->array[i].bone_id;
+                get_adb(get_hat_dyn(hat, 3))->array[i].bone_id;
             fp->parts[bone_id].flags_b0 = true;
             lb_8000FD48(
                 fp->parts[bone_id].joint, &fp->dynamic_bone_sets[i].dyn_desc,
-                hat->hat_dynamics[3]->ftDynamicBones->array[i].dyn_desc.count);
+                get_adb(get_hat_dyn(hat, 3))->array[i].dyn_desc.count);
             fp->dynamic_bone_sets[i].bone_id = FtPart_TopN;
             lb_80011710(
-                &hat->hat_dynamics[3]->ftDynamicBones->array[i].dyn_desc,
+                &get_adb(get_hat_dyn(hat, 3))->array[i].dyn_desc,
                 &fp->dynamic_bone_sets[i].dyn_desc);
         }
     }
@@ -254,7 +265,7 @@ void ftCo_8009D81C(Fighter* fp)
 void ftCo_8009D920(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Luigi];
-    fp->dynamics_num = hat->hat_dynamics[1]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 1)->dynamicsNum;
     HSD_ASSERTREPORT(388, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -268,7 +279,7 @@ void ftCo_8009D920(Fighter* fp)
 void ftCo_8009DA38(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Ganon];
-    fp->dynamics_num = hat->hat_dynamics[1]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 1)->dynamicsNum;
     HSD_ASSERTREPORT(421, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
@@ -283,21 +294,21 @@ void ftCo_8009DB50(Fighter* fp)
 {
     KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Purin];
     PAD_STACK(2 * 4);
-    fp->dynamics_num = hat->hat_dynamics[4]->dynamicsNum;
+    fp->dynamics_num = get_hat_dyn(hat, 4)->dynamicsNum;
     HSD_ASSERTREPORT(455, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
         ssize_t i;
         for (i = 0; i < fp->dynamics_num; i++) {
             s32 bone_id =
-                hat->hat_dynamics[4]->ftDynamicBones->array[i].bone_id;
+                get_adb(get_hat_dyn(hat, 4))->array[i].bone_id;
             fp->parts[bone_id].flags_b0 = true;
             lb_8000FD48(
                 fp->parts[bone_id].joint, &fp->dynamic_bone_sets[i].dyn_desc,
-                hat->hat_dynamics[4]->ftDynamicBones->array[i].dyn_desc.count);
+                get_adb(get_hat_dyn(hat, 4))->array[i].dyn_desc.count);
             fp->dynamic_bone_sets[i].bone_id = FtPart_TopN;
             lb_80011710(
-                &hat->hat_dynamics[4]->ftDynamicBones->array[i].dyn_desc,
+                &get_adb(get_hat_dyn(hat, 4))->array[i].dyn_desc,
                 &fp->dynamic_bone_sets[i].dyn_desc);
         }
     }
@@ -325,12 +336,12 @@ void ftCo_8009DC54(Fighter* fp)
         i = 0;
         do {
             HSD_JObj* cur = fp->u.kb.hat.jobj;
-            ftDynamics* dynamics = data->x2C;
-            ArticleDynamicBones* bones = dynamics->ftDynamicBones;
+            ftDynamics* dynamics = get_ft_dyn(data);
+            ArticleDynamicBones* bones = get_adb(dynamics);
             ssize_t j;
             for (j = 0;
                  j <
-                 (signed) dynamics->ftDynamicBones->array[bone_idx].bone_id;
+                 (signed) get_adb(dynamics)->array[bone_idx].bone_id;
                  j++)
             {
                 if (cur->child != NULL) {
@@ -347,7 +358,7 @@ void ftCo_8009DC54(Fighter* fp)
                 lb_8000FD48(cur, desc, bones->array[bone_idx].dyn_desc.count);
                 fp->dynamic_bone_sets[dyn_idx + 1].bone_id = FtPart_TopN;
                 lb_80011710(
-                    &data->x2C->ftDynamicBones->array[bone_idx].dyn_desc,
+                    &get_adb(get_ft_dyn(data))->array[bone_idx].dyn_desc,
                     desc);
             }
             i++;
@@ -420,7 +431,7 @@ void ftCo_8009DD94(Fighter_GObj* gobj, bool arg1)
         dyn = fp->dynamic_bone_sets;
         i = 0;
         while (i < dynamics_num) {
-            cur = dyn->dyn_desc.data->desc.lb_unk0.jobj;
+            cur = DP(struct DynamicsData, dyn->dyn_desc.data)->desc.lb_unk0.jobj;
             while (cur->child != NULL) {
                 cur = cur->child;
             }
@@ -490,7 +501,7 @@ enum_t ftCo_8009E318(Fighter_GObj* gobj, enum Fighter_Part arg1, f32 arg2)
     for (i = 0; i < fp->dynamics_num; i++) {
         ssize_t j;
         struct DynamicsData* cur;
-        for (cur = fp->dynamic_bone_sets[i].dyn_desc.data, j = 0; cur != NULL;
+        for (cur = DP(struct DynamicsData, fp->dynamic_bone_sets[i].dyn_desc.data), j = 0; cur != NULL;
              cur = cur->next, j++)
         {
             if (cur->desc.lb_unk0.jobj == part_jobj) {
@@ -529,13 +540,14 @@ void ftCo_8009E4A8(Fighter* fp)
     int i;
 
     if (fp->x594_b4) {
-        FigaTree** tree = fp->ft_data->x2C->x10[fp->x28[fp->anim_id][1]];
+        DiscU32* l1 = DP(DiscU32, get_ft_dyn(fp->ft_data)->x10);
+        FigaTree** tree = l1 ? (FigaTree**) (uintptr_t) DP(DiscU32, l1[fp->x28[fp->anim_id][1]].v) : NULL;
         if (tree != NULL) {
             for (i = 0; i < fp->dynamics_num; i++) {
                 ftCo_8009CB40(fp, i, 1, tree[i]);
                 if (fp->x590 != NULL) {
                     ftAnim_8006EED4(
-                        fp, fp->ft_data->x2C->ftDynamicBones->array[i].bone_id,
+                        fp, get_adb(get_ft_dyn(fp->ft_data))->array[i].bone_id,
                         fp->x590, frame, speed);
                 }
             }
@@ -545,7 +557,7 @@ void ftCo_8009E4A8(Fighter* fp)
             ftCo_8009CB40(fp, i, 0, NULL);
             if (fp->x590 != NULL) {
                 ftAnim_8006EED4(
-                    fp, fp->ft_data->x2C->ftDynamicBones->array[i].bone_id,
+                    fp, get_adb(get_ft_dyn(fp->ft_data))->array[i].bone_id,
                     fp->x590, frame, speed);
             }
         }
@@ -569,7 +581,7 @@ void ftCo_8009E614(Fighter* fp)
             cur_anim_frame = fp->cur_anim_frame;
             frame_speed_mul = fp->frame_speed_mul;
             if (fp->x594_b4 || fp->x594_b3) {
-                for (i = 0; i < data->x2C->dynamicsNum; i++) {
+                for (i = 0; i < get_ft_dyn(data)->dynamicsNum; i++) {
                     ftCo_8009CB40(fp, i, 1, NULL);
                 }
                 if (fp->x590 != 0) {
@@ -642,7 +654,7 @@ void ftCo_8009E7B4(Fighter* fp, u8 (*arg1)[2])
                     FigaTree*** dyn;
                     FigaTree** tree;
                     u8 blend_slot = arg1[0][1];
-                    dyn = fp->ft_data->x2C->x10;
+                    dyn = (void*) (uintptr_t) get_ft_dyn(fp->ft_data)->x10;
                     if (dyn == NULL) {
                         for (i = 0; i < fp->dynamics_num; i++) {
                             ftCo_8009CB40(fp, i, 0, NULL);

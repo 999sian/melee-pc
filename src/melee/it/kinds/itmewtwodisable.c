@@ -72,7 +72,7 @@ itMewtwoDisable_Logic67_SpawnMewtwoDisable(Fighter_GObj* fighter_gobj,
 void it_802C4B38(Item_GObj* item_gobj)
 {
     Item* item = GET_ITEM(item_gobj);
-    itMDisableAttributes* attrs = item->xC4_article_data->x4_specialAttributes;
+    itMDisableAttributes* attrs = DP(itMDisableAttributes, item->xC4_article_data->x4_specialAttributes);
     Fighter_GObj* fighter_gobj = item->xDD4_itemVar.mdisable.owner;
 
     // the last parameter gets the y scaling of mewtwo
@@ -102,7 +102,7 @@ bool itMewtwodisable_UnkMotion0_Anim(Item_GObj* item_gobj)
 
 void itMewtwodisable_UnkMotion0_Phys(Item_GObj* item_gobj) {}
 
-int itMewtwodisable_UnkMotion0_Coll(Item_GObj* item_gobj)
+bool itMewtwodisable_UnkMotion0_Coll(Item_GObj* item_gobj)
 {
     u32 coll_flags = 0;
 

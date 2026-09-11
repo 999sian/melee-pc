@@ -158,7 +158,7 @@ StageData grPs_StageData = {
     ARRAY_SIZE(grPs_803E1248),
 };
 
-void grStadium_OnDemoInit(int unused) {}
+void grStadium_OnDemoInit(bool unused) {}
 
 void grStadium_OnInit(void)
 {

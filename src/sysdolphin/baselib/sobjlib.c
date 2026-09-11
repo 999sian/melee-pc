@@ -153,39 +153,33 @@ HSD_SObj* HSD_SObjLib_803A477C(HSD_GObj* gobj, HSD_SObjDesc* desc,
                                u8 priority, u8 use_secondary)
 {
     HSD_ImageDesc* image;
-    HSD_Tlut* tlut;
+    HSD_TlutDesc* tlut;
     HSD_ImageDesc* image2;
     HSD_SObj* sobj;
     f32 inv_width;
     f32 inv_height;
 
-    if (use_secondary) {
-        image = desc->image;
-        tlut = desc->tlut;
-        image2 = ((HSD_SObjDesc2*) desc)->image2;
-    } else {
-        image = desc->image;
-        image2 = NULL;
-        tlut = desc->tlut;
-    }
+    image = DP(HSD_ImageDesc, desc->image);
+    tlut = DP(HSD_TlutDesc, desc->tlut);
+    image2 = use_secondary ? DP(HSD_ImageDesc, ((HSD_SObjDesc2*) desc)->image2) : NULL;
 
     sobj = HSD_ObjAlloc(&HSD_SObjLib_804D10E0);
     HSD_ASSERT(287, sobj);
 
     if (tlut != NULL) {
-        GXInitTlutObj(&sobj->x70_tlutobj, tlut->lut, tlut->fmt,
+        GXInitTlutObj(&sobj->x70_tlutobj, DP(void, tlut->lut), tlut->fmt,
                       tlut->n_entries);
-        GXInitTexObjCI(&sobj->x50_texobj, image->image_ptr, image->width,
+        GXInitTexObjCI(&sobj->x50_texobj, DP(void, image->image_ptr), image->width,
                        image->height, image->format, wrap_s, wrap_t,
                        (u8) image->mipmap, tlut->tlut_name);
     } else {
-        GXInitTexObj(&sobj->x50_texobj, image->image_ptr, image->width,
+        GXInitTexObj(&sobj->x50_texobj, DP(void, image->image_ptr), image->width,
                      image->height, image->format, wrap_s, wrap_t,
                      (u8) image->mipmap);
     }
 
     if (use_secondary) {
-        GXInitTexObj(&sobj->x7C_texobj, image2->image_ptr, image2->width,
+        GXInitTexObj(&sobj->x7C_texobj, DP(void, image2->image_ptr), image2->width,
                      image2->height, image2->format, wrap_s, wrap_t,
                      (u8) image2->mipmap);
     }

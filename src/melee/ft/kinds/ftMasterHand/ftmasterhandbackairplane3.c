@@ -35,7 +35,7 @@ void ftMh_BackAirplane3_Coll(HSD_GObj* gobj) {}
 void ftMh_MS_369_80153B90(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     Vec3 pos;
 
     Fighter_ChangeMotionState(gobj, ftMh_MS_BackPunch, 0, 0, 1, 0, 0);
@@ -68,7 +68,7 @@ void ftMh_BackPunch_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (--fp->mv.mh.unk0.x0 > 0) {
-        ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+        ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
         ftBossLib_8015BF74(gobj, da->x58);
     } else {
         fp->self_vel.x = 0;

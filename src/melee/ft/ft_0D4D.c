@@ -87,7 +87,7 @@ void ftCo_800D4F24(Fighter_GObj* gobj, int index)
         return;
     }
     if (index != 0) {
-        f32 sp1C = fp->ft_data->x0->x168 * fp->x34_scale.y;
+        f32 sp1C = DP(struct ftCo_DatAttrs, fp->ft_data->x0)->x168 * fp->x34_scale.y;
         u8 _[4];
         efSync_Spawn(0x43F, 0, &fp->cur_pos, &sp1C);
     }
@@ -162,7 +162,7 @@ void ftCo_800D4FF4(Fighter_GObj* gobj)
 void ftCo_Rebirth_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    ftCo_8008A7A8(gobj, fp->ft_data->x24);
+    ftCo_8008A7A8(gobj, DP(WaitStruct, fp->ft_data->x24));
     fp->mv.co.common.x0 -= 1;
     if (fp->mv.co.common.x0 == 0) {
         ftCo_800D5600(gobj);
@@ -275,7 +275,7 @@ void ftCo_800D5600(Fighter_GObj* gobj)
 void ftCo_RebirthWait_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCo_8008A7A8(gobj, fp->ft_data->x24);
+    ftCo_8008A7A8(gobj, DP(WaitStruct, fp->ft_data->x24));
     fp->mv.co.common.x0 -= 1;
     if (fp->mv.co.common.x0 == 0) {
         ftColl_8007B7A4(gobj, p_ftCommonData->x5D8);
@@ -374,7 +374,7 @@ void ftCo_Rebirth_Cam(Fighter_GObj* gobj)
     UnkFloat6_Camera spC;
     Fighter* fp = GET_FIGHTER(gobj);
     CmSubject* camera_box = fp->x890_cameraBox;
-    ftCamera_80076018(fp->ft_data->x3C, &spC, fp->x34_scale.y);
+    ftCamera_80076018(DP(UnkFloat6_Camera, fp->ft_data->x3C), &spC, fp->x34_scale.y);
     camera_box->pos.x = fp->mv.co.common.x4.x;
     camera_box->pos.y = fp->mv.co.common.x4.y + spC.x0.x;
     camera_box->pos.z = 0.0f;

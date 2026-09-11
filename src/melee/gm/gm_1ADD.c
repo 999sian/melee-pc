@@ -342,7 +342,7 @@ void gm_801AEBB0(void)
 
     gobj = GObj_Create(20, 21, 0);
     {
-        HSD_CObj* desc = HSD_CObjLoadDesc(gm_804D6868->cameras[0].desc);
+        HSD_CObj* desc = HSD_CObjLoadDesc(DP(HSD_CObjDesc, GM_SCENE_CAMERA(gm_804D6868)[0].desc));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, desc);
     }
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 0);
@@ -355,10 +355,10 @@ void gm_801AEBB0(void)
 HSD_GObj* gm_801AECC4(int model_idx)
 {
     HSD_GObj* gobj = GObj_Create(9, 13, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(gm_804D6868->models[model_idx]->joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_SCENE_MODEL(gm_804D6868, model_idx)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 14, 0);
-    gm_8016895C(jobj, gm_804D6868->models[model_idx], 0);
+    gm_8016895C(jobj, GM_SCENE_MODEL(gm_804D6868, model_idx), 0);
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
     if (model_idx == 1) {

@@ -45,7 +45,7 @@ Vec2* ftCo_800DEEE8(Fighter* fp, Vec2* shift)
 {
     SmashAttr* temp_r6 = &fp->smash_attrs;
     if (temp_r6->state == SmashState_Charging || temp_r6->state == 4) {
-        Vec2* temp_r5 = &Fighter_SmashChargeShakeTable->x0[temp_r6->x212C];
+        DiscVec2* temp_r5 = &DP(DiscVec2, Fighter_SmashChargeShakeTable->x0)[temp_r6->x212C];
         shift->x = temp_r5->x;
         shift->y = temp_r5->y;
         return shift;

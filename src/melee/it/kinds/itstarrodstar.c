@@ -22,7 +22,7 @@ ItemStateTable it_803F6530[] = { { 0, itStarrodstar_UnkMotion0_Anim,
                                    itStarrodstar_UnkMotion0_Phys,
                                    itStarrodstar_UnkMotion0_Coll } };
 
-typedef struct StarRodStarAttrs {
+typedef struct DISC_STRUCT StarRodStarAttrs {
     float x0;
     float x4;
     float x8;
@@ -32,6 +32,7 @@ typedef struct StarRodStarAttrs {
     int x18;
     float x1C;
 } StarRodStarAttrs;
+DISC_ASSERT_SIZE(StarRodStarAttrs, 0x20);
 
 void it_802988E4(Fighter_GObj* gobj, Vec* vec, int arg2, float arg3)
 {
@@ -60,7 +61,7 @@ void it_802988E4(Fighter_GObj* gobj, Vec* vec, int arg2, float arg3)
 void it_802989C8(Item_GObj* ig, Fighter_GObj* fg)
 {
     Item* ip = GET_ITEM(ig);
-    StarRodStarAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    StarRodStarAttrs* attrs = DP(StarRodStarAttrs, ip->xC4_article_data->x4_specialAttributes);
     HitCapsule* hit;
     it_8026B3A8(ig);
     it_80274740(ig);

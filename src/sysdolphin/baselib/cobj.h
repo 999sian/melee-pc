@@ -73,56 +73,67 @@ struct HSD_CObj {
     /* +88 */ Mtx* proj_mtx;
 };
 
-struct HSD_CameraDescCommon {
-    char* class_name;    // 0x00
-    u16 flags;           // 0x04
-    u16 projection_type; // 0x06
-    HSD_RectS16 viewport;
-    Scissor scissor;
-    HSD_WObjDesc* eyepos;   // 0x18
-    HSD_WObjDesc* interest; // 0x1C
-    f32 roll;               // 0x20
-    Vec3* up_vector;        // 0x24
-    f32 nnear;              // 0x28
-    f32 ffar;               // 0x2C
-};
+typedef struct DISC_STRUCT {
+    u16 left, right, top, bottom;
+} DiscScissor;
 
-struct HSD_CameraDescFrustum {
-    char* class_name;    // 0x00
-    u16 flags;           // 0x04
-    u16 projection_type; // 0x06
-    HSD_RectS16 viewport;
-    Scissor scissor;
-    HSD_WObjDesc* eyepos;   // 0x18
-    HSD_WObjDesc* interest; // 0x1C
-    f32 roll;               // 0x20
-    Vec3* up_vector;        // 0x24
-    f32 nnear;              // 0x28
-    f32 ffar;               // 0x2C
+typedef struct DISC_STRUCT {
+    s16 xmin, xmax, ymin, ymax;
+} DiscRectS16;
+
+struct DISC_STRUCT HSD_CameraDescCommon {
+    DISC_PTR(char) class_name; // 0x00
+    u16 flags;                 // 0x04
+    u16 projection_type;       // 0x06
+    DiscRectS16 viewport;
+    DiscScissor scissor;
+    DISC_PTR(HSD_WObjDesc) eyepos;   // 0x18
+    DISC_PTR(HSD_WObjDesc) interest; // 0x1C
+    f32 roll;                        // 0x20
+    DISC_PTR(DiscVec3) up_vector;    // 0x24
+    f32 nnear;                       // 0x28
+    f32 ffar;                        // 0x2C
+};
+DISC_ASSERT_SIZE(HSD_CameraDescCommon, 0x30);
+
+struct DISC_STRUCT HSD_CameraDescFrustum {
+    DISC_PTR(char) class_name; // 0x00
+    u16 flags;                 // 0x04
+    u16 projection_type;       // 0x06
+    DiscRectS16 viewport;
+    DiscScissor scissor;
+    DISC_PTR(HSD_WObjDesc) eyepos;   // 0x18
+    DISC_PTR(HSD_WObjDesc) interest; // 0x1C
+    f32 roll;                        // 0x20
+    DISC_PTR(DiscVec3) up_vector;    // 0x24
+    f32 nnear;                       // 0x28
+    f32 ffar;                        // 0x2C
     f32 top;
     f32 bottom;
     f32 left;
     f32 right;
 };
+DISC_ASSERT_SIZE(HSD_CameraDescFrustum, 0x40);
 
-struct HSD_CameraDescPerspective {
-    char* class_name;    // 0x00
-    u16 flags;           // 0x04
-    u16 projection_type; // 0x06
-    HSD_RectS16 viewport;
-    Scissor scissor;
-    HSD_WObjDesc* eyepos;   // 0x18
-    HSD_WObjDesc* interest; // 0x1C
-    f32 roll;               // 0x20
-    Vec3* up_vector;        // 0x24
-    f32 nnear;              // 0x28
-    f32 ffar;               // 0x2C
+struct DISC_STRUCT HSD_CameraDescPerspective {
+    DISC_PTR(char) class_name; // 0x00
+    u16 flags;                 // 0x04
+    u16 projection_type;       // 0x06
+    DiscRectS16 viewport;
+    DiscScissor scissor;
+    DISC_PTR(HSD_WObjDesc) eyepos;   // 0x18
+    DISC_PTR(HSD_WObjDesc) interest; // 0x1C
+    f32 roll;                        // 0x20
+    DISC_PTR(DiscVec3) up_vector;    // 0x24
+    f32 nnear;                       // 0x28
+    f32 ffar;                        // 0x2C
     f32 fov;
     f32 aspect;
 };
+DISC_ASSERT_SIZE(HSD_CameraDescPerspective, 0x38);
 
-union HSD_CObjDesc {
-    char* class_name;
+union DISC_STRUCT HSD_CObjDesc {
+    DISC_PTR(char) class_name;
     HSD_CameraDescCommon common;
     HSD_CameraDescFrustum frustum;
     HSD_CameraDescFrustum ortho;
@@ -135,11 +146,12 @@ struct HSD_CObjInfo {
     int (*load)(HSD_CObj* cobj, HSD_CObjDesc* desc);
 };
 
-struct HSD_CameraAnim {
-    HSD_AObjDesc* aobjdesc;
-    HSD_WObjAnim* eye_anim;
-    HSD_WObjAnim* interest_anim;
+struct DISC_STRUCT HSD_CameraAnim {
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
+    DISC_PTR(HSD_WObjAnim) eye_anim;
+    DISC_PTR(HSD_WObjAnim) interest_anim;
 };
+DISC_ASSERT_SIZE(HSD_CameraAnim, 0xC);
 
 typedef struct _cobj_Unk1 cobj_Unk1;
 

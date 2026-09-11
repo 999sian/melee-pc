@@ -31,21 +31,20 @@
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
 
-static HSD_WObjDesc ifMagnify_803F97C0 = { NULL,
-                                           { 0.0F, 0.0F, 300.0F },
-                                           NULL };
-static HSD_WObjDesc ifMagnify_803F97D4 = { NULL, { 0.0F, 0.0F, 0.0F }, NULL };
+static HSD_WObjDesc ifMagnify_803F97C0 = { 0, { 0.0F, 0.0F, 300.0F }, 0 };
+static HSD_WObjDesc ifMagnify_803F97D4 = { 0, { 0.0F, 0.0F, 0.0F }, 0 };
 
+/* eyepos/interest slots set in ifMagnify_802FC618 */
 static HSD_CameraDescFrustum ifMagnify_803F97E8 = {
-    NULL,
+    0,
     0,
     PROJ_ORTHO,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
-    &ifMagnify_803F97C0,
-    &ifMagnify_803F97D4,
+    0,
+    0,
     0.0F,
-    NULL,
+    0,
     0.1F,
     32768.0F,
 };
@@ -465,8 +464,9 @@ void ifMagnify_802FC3C0(s32 slot)
     gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
     GObj_InitUserData(gobj, 0xE, (void (*)(void*)) ifMagnify_802FC3BC, player);
 
-    jobj = HSD_JObjLoadJoint(
-        (*(DynamicModelDesc**) ifMagnify_804A1DE0.model_desc)->joint);
+    jobj = HSD_JObjLoadJoint(DP(
+        HSD_Joint,
+        DP(DynamicModelDesc, ifMagnify_804A1DE0.model_desc[0].v)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, ifMagnify_802FB8C0, 0xB, 0);
 
@@ -481,11 +481,12 @@ void ifMagnify_802FC3C0(s32 slot)
             (base = (ifMagnify*) ((HSD_ImageDesc*) &ifMagnify_804A1DE0 +
                                   (slot - 1)))
                 ->image_descs;
-        player->idesc->image_ptr = HSD_MemAlloc(
-            (GXGetTexBufferSize(player->idesc->width, player->idesc->height,
-                                player->idesc->format, 0, 0) +
-             0x1F) &
-            ~0x1F);
+        DP_SET(player->idesc->image_ptr,
+               HSD_MemAlloc((GXGetTexBufferSize(player->idesc->width,
+                                                player->idesc->height,
+                                                player->idesc->format, 0, 0) +
+                             0x1F) &
+                            ~0x1F));
         child->u.dobj->next->mobj->tobj->imagedesc = player->idesc;
     }
 
@@ -523,6 +524,8 @@ void ifMagnify_802FC618(void)
     HSD_RectS16 viewport;
 
     gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
+    DP_SET(ifMagnify_803F97E8.eyepos, &ifMagnify_803F97C0);
+    DP_SET(ifMagnify_803F97E8.interest, &ifMagnify_803F97D4);
     cobj = lb_80013B14((HSD_CameraDescPerspective*) &ifMagnify_803F97E8);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, (GObj_RenderFunc) (Event) ifMagnify_802FBBDC, 0);

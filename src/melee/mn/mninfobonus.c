@@ -293,12 +293,13 @@ mnInfoBonus_80252F8C_inline0(struct mnInfoBonus_804A09B0_t* o)
     model_desc = &o->x50;
     gobj = GObj_Create(6, 7, 0x80);
     o->x4C = gobj;
-    jobj = HSD_JObjLoadJoint(model_desc->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model_desc->joint));
 
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
-    HSD_JObjAddAnimAll(jobj, model_desc->animjoint, model_desc->matanim_joint,
-                       model_desc->shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model_desc->animjoint),
+                       DP(HSD_MatAnimJoint, model_desc->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, model_desc->shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.F);
     HSD_JObjAnimAll(jobj);
 
@@ -324,11 +325,18 @@ void mnInfoBonus_80252F8C(void)
     o->x44 = 8;
     *mnInfoBonus_804D6C80 = 0;
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(
-        archive, (void**) &o->x50.joint, "MenMainConBo_Top_joint",
-        &o->x50.animjoint, "MenMainConBo_Top_animjoint", &o->x50.matanim_joint,
-        "MenMainConBo_Top_matanim_joint", &o->x50.shapeanim_joint,
-        "MenMainConBo_Top_shapeanim_joint", 0);
+    {
+        void* dp_[4];
+        lbArchive_LoadSections(
+            archive, &dp_[0], "MenMainConBo_Top_joint",
+            &dp_[1], "MenMainConBo_Top_animjoint", &dp_[2],
+            "MenMainConBo_Top_matanim_joint", &dp_[3],
+            "MenMainConBo_Top_shapeanim_joint", 0);
+        DP_SET(o->x50.joint, dp_[0]);
+        DP_SET(o->x50.animjoint, dp_[1]);
+        DP_SET(o->x50.matanim_joint, dp_[2]);
+        DP_SET(o->x50.shapeanim_joint, dp_[3]);
+    }
     mnInfoBonus_inline_SetGObjFlag(
         HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), fn_80252C50, 0U));
 

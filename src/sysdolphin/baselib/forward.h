@@ -46,6 +46,7 @@ typedef struct HSD_JObj HSD_JObj;
 typedef struct HSD_Joint HSD_Joint;
 typedef struct HSD_LightAnim HSD_LightAnim;
 typedef struct HSD_LightAttn HSD_LightAttn;
+typedef struct HSD_LightAttnDesc HSD_LightAttnDesc;
 typedef struct HSD_LightDesc HSD_LightDesc;
 typedef struct HSD_LightPoint HSD_LightPoint;
 typedef struct HSD_LightPointDesc HSD_LightPointDesc;

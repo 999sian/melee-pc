@@ -713,10 +713,12 @@ static inline HSD_JObj* mnStageSw_CreateCursor(MnStageSwData* user_data,
     u32 idx;
 
     hovered = mn_804A04F0.hovered_selection;
-    cursor_jobj = HSD_JObjLoadJoint(MenMainCursorSs_Top.joint);
-    HSD_JObjAddAnimAll(cursor_jobj, MenMainCursorSs_Top.animjoint,
-                       MenMainCursorSs_Top.matanim_joint,
-                       MenMainCursorSs_Top.shapeanim_joint);
+    cursor_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, MenMainCursorSs_Top.joint));
+    HSD_JObjAddAnimAll(cursor_jobj,
+                       DP(HSD_AnimJoint, MenMainCursorSs_Top.animjoint),
+                       DP(HSD_MatAnimJoint, MenMainCursorSs_Top.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          MenMainCursorSs_Top.shapeanim_joint));
     mnStageSw_SetCursorAnim(index, user_data, cursor_jobj, &idx,
                             &cursor_anim_jobj);
     HSD_JObjAnimAll(cursor_anim_jobj);
@@ -746,13 +748,14 @@ static HSD_GObj* mnStageSw_80236CBC(s8 arg0)
     gobj = GObj_Create(6, 7, 0x80);
     mnStageSw_804D6BF0 = gobj;
 
-    jobj = HSD_JObjLoadJoint(mdl->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mdl->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 6, 0x80);
     HSD_GObj_SetupProc(gobj, fn_80236998, 0);
 
-    HSD_JObjAddAnimAll(jobj, mdl->animjoint, mdl->matanim_joint,
-                       mdl->shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, mdl->animjoint),
+                       DP(HSD_MatAnimJoint, mdl->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, mdl->shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_JObjAnimAll(jobj);
 

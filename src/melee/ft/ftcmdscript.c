@@ -352,7 +352,7 @@ void ftCo_800B4778(Fighter* fp, u8 cmd, u8 arg1, u8 arg2)
  */
 void ftCo_800B4880(Fighter* fp, int script_idx)
 {
-    u8* cmd = Fighter_804D64FC->cmdscripts[script_idx];
+    u8* cmd = (u8*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->cmdscripts)[script_idx].v;
     while (*cmd != CpuCmd_Done) {
         ftCo_800B463C(fp, *cmd);
         if (*cmd > CpuCmd_OneArgEnd) {

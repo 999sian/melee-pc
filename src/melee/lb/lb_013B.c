@@ -227,7 +227,7 @@ bool lb_800144C8(ColorOverlay* arg0, Fighter_804D653C_t* arg1, int arg2,
     if (arg1[arg0->x28_colanim.i].unk4 <= arg1[arg2].unk4) {
         arg0->x28_colanim.i = arg2;
         arg0->x4_pri = arg3;
-        arg0->x8_ptr1 = arg1[arg2].unk;
+        arg0->x8_ptr1 = DP(union ColorOverlay_x8_t, arg1[arg2].unk);
         arg0->x0_timer = 0;
         arg0->xC_loop = 0;
         arg0->x7C_color_enable = arg0->x7C_flag2 = false;
@@ -244,7 +244,7 @@ void lb_80014534(void)
 void lb_80014574(u8 arg0, int arg1, int arg2, int arg3)
 {
     HSD_PadRumbleAdd(arg0, arg1, arg3 != 0 ? arg3 : -2, lb_804D63C0[arg2].unk4,
-                     lb_804D63C0[arg2].unk);
+                     DP(void, lb_804D63C0[arg2].unk));
 }
 
 void lb_800145C0(u8 slot)

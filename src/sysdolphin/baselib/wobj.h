@@ -17,21 +17,23 @@ struct HSD_WObj {
     HSD_RObj* robj;
 };
 
-struct HSD_WObjDesc {
-    char* class_name;
-    Vec3 pos;
-    HSD_RObjDesc* robjdesc;
+struct DISC_STRUCT HSD_WObjDesc {
+    DISC_PTR(char) class_name;
+    DiscVec3 pos;
+    DISC_PTR(HSD_RObjDesc) robjdesc;
 };
+DISC_ASSERT_SIZE(HSD_WObjDesc, 0x14);
 
 struct HSD_WObjInfo {
     HSD_ObjInfo parent;
     int (*load)(HSD_WObj* wobj, HSD_WObjDesc* desc);
 };
 
-struct HSD_WObjAnim {
-    HSD_AObjDesc* aobjdesc;
-    HSD_RObjAnimJoint* robjanim;
+struct DISC_STRUCT HSD_WObjAnim {
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
+    DISC_PTR(HSD_RObjAnimJoint) robjanim;
 };
+DISC_ASSERT_SIZE(HSD_WObjAnim, 0x8);
 
 extern HSD_WObjInfo hsdWObj;
 

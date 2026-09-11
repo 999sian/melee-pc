@@ -18,7 +18,7 @@
 void ftMh_MS_378_80154A78(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     fp->cmd_vars[1] = 0;
     Fighter_ChangeMotionState(gobj, ftMh_MS_Squeeze, 0, 0, 1, 0, 0);
     ftAnim_8006EBA4(gobj);
@@ -61,7 +61,7 @@ void ftMh_Squeeze_IASA(HSD_GObj* gobj)
 void ftMh_Squeeze_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     ftBossLib_8015BE40(gobj, &fp->mv.mh.unk0.xC, &fp->mv.mh.unk0.x18, da->x2C,
                        da->x28);

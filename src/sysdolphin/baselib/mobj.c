@@ -62,8 +62,8 @@ void HSD_MObjAddAnim(HSD_MObj* mobj, HSD_MatAnim* matanim)
         if (mobj->aobj != NULL) {
             HSD_AObjRemove(mobj->aobj);
         }
-        mobj->aobj = HSD_AObjLoadDesc(matanim->aobjdesc);
-        HSD_TObjAddAnimAll(mobj->tobj, matanim->texanim);
+        mobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, matanim->aobjdesc));
+        HSD_TObjAddAnimAll(mobj->tobj, DP(HSD_TexAnim, matanim->texanim));
     }
 }
 
@@ -151,14 +151,19 @@ void HSD_MObjAnim(HSD_MObj* mobj)
 
 static int MObjLoad(HSD_MObj* mobj, HSD_MObjDesc* desc)
 {
+    HSD_MaterialDesc* mat = DP(HSD_MaterialDesc, desc->mat);
     mobj->rendermode = desc->rendermode;
-    mobj->tobj = HSD_TObjLoadDesc(desc->texdesc);
+    mobj->tobj = HSD_TObjLoadDesc(DP(HSD_TObjDesc, desc->texdesc));
     mobj->mat = HSD_MaterialAlloc();
-    memcpy(mobj->mat, desc->mat, sizeof(HSD_Material));
+    mobj->mat->ambient = mat->ambient;
+    mobj->mat->diffuse = mat->diffuse;
+    mobj->mat->specular = mat->specular;
+    mobj->mat->alpha = mat->alpha;
+    mobj->mat->shininess = mat->shininess;
     mobj->rendermode |= RENDER_TOON;
-    if (desc->pedesc != NULL) {
+    if (desc->pedesc != 0) {
         mobj->pe = hsdAllocMemPiece(sizeof(HSD_PEDesc));
-        memcpy(mobj->pe, desc->pedesc, sizeof(HSD_PEDesc));
+        memcpy(mobj->pe, DP(HSD_PEDesc, desc->pedesc), sizeof(HSD_PEDesc));
     }
     mobj->aobj = NULL;
     return 0;
@@ -171,7 +176,7 @@ HSD_MObj* HSD_MObjLoadDesc(HSD_MObjDesc* mobjdesc)
         HSD_ClassInfo* info;
 
         if (!mobjdesc->class_name ||
-            !(info = hsdSearchClassInfo(mobjdesc->class_name)))
+            !(info = hsdSearchClassInfo(DP(char, mobjdesc->class_name))))
         {
             mobj = HSD_MObjAlloc();
         } else {
@@ -429,8 +434,8 @@ void HSD_MObjUnset(HSD_MObj* mobj, u32 rendermode)
     HSD_TObjSetup(NULL);
 }
 
-static HSD_TObjDesc tobj_toon_desc = { NULL,
-                                       NULL,
+static HSD_TObjDesc tobj_toon_desc = { 0,
+                                       0,
                                        GX_TEXMAP7,
                                        GX_TG_COLOR0,
                                        { 0.0F, 0.0F, 0.0F },
@@ -444,13 +449,13 @@ static HSD_TObjDesc tobj_toon_desc = { NULL,
                                        1.0F,
                                        GX_LINEAR,
                                        0,
-                                       NULL,
-                                       NULL };
+                                       0,
+                                       0 };
 
 void HSD_MObjSetToonTextureImage(HSD_ImageDesc* imagedesc)
 {
     if (tobj_toon == NULL) {
-        tobj_toon_desc.imagedesc = imagedesc;
+        DP_SET(tobj_toon_desc.imagedesc, imagedesc);
         tobj_toon = HSD_TObjLoadDesc(&tobj_toon_desc);
         HSD_ASSERTREPORT(0x2F8, tobj_toon, "cannot allocate tobj for toon.");
     }

@@ -57,7 +57,7 @@ void ifStatus_802F6EA4(int arg0, int arg1, int arg2, int arg3, Event arg4,
             HSD_GObjFree(e->x0);
         }
         gobj = GObj_Create(0xE, 0xE, 0);
-        jobj = HSD_JObjLoadJoint(e->x14->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, e->x14->joint));
         lb_80011C18(jobj, 0x08000000);
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
@@ -127,7 +127,7 @@ void ifStatus_802F7134(void)
 {
     u8 _[8];
     HSD_Archive** archive;
-    DynamicModelDesc** volatile models;
+    DiscU32* volatile models; /* DynamicModelDesc*[] */
     int i;
 
     for (i = 0; i < 8; i++) {
@@ -140,7 +140,7 @@ void ifStatus_802F7134(void)
                            0);
 
     for (i = 0; i < 8; i++) {
-        ifStatus_803F9628[i].x14 = models[i];
+        ifStatus_803F9628[i].x14 = DP(DynamicModelDesc, models[i].v);
     }
 }
 

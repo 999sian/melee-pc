@@ -38,8 +38,8 @@ void HSD_WObjAddAnim(HSD_WObj* wobj, HSD_WObjAnim* anim)
         if (wobj->aobj != NULL) {
             HSD_AObjRemove(wobj->aobj);
         }
-        wobj->aobj = HSD_AObjLoadDesc(anim->aobjdesc);
-        HSD_RObjAddAnimAll(wobj->robj, anim->robjanim);
+        wobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, anim->aobjdesc));
+        HSD_RObjAddAnimAll(wobj->robj, DP(HSD_RObjAnimJoint, anim->robjanim));
     }
 }
 
@@ -95,12 +95,13 @@ void HSD_WObjInterpretAnim(HSD_WObj* wobj)
 
 static int WObjLoad(HSD_WObj* wobj, HSD_WObjDesc* desc)
 {
-    HSD_WObjSetPosition(wobj, &desc->pos);
+    Vec3 pos = { desc->pos.x, desc->pos.y, desc->pos.z };
+    HSD_WObjSetPosition(wobj, &pos);
     if (wobj->robj != NULL) {
         HSD_RObjRemoveAll(wobj->robj);
     }
-    wobj->robj = HSD_RObjLoadDesc(desc->robjdesc);
-    HSD_RObjResolveRefsAll(wobj->robj, desc->robjdesc);
+    wobj->robj = HSD_RObjLoadDesc(DP(HSD_RObjDesc, desc->robjdesc));
+    HSD_RObjResolveRefsAll(wobj->robj, DP(HSD_RObjDesc, desc->robjdesc));
     return 0;
 }
 
@@ -110,12 +111,7 @@ void HSD_WObjInit(HSD_WObj* wobj, HSD_WObjDesc* desc)
         return;
     }
 
-    HSD_WObjSetPosition(wobj, &desc->pos);
-    if (wobj->robj != NULL) {
-        HSD_RObjRemoveAll(wobj->robj);
-    }
-    wobj->robj = HSD_RObjLoadDesc(desc->robjdesc);
-    HSD_RObjResolveRefsAll(wobj->robj, desc->robjdesc);
+    WObjLoad(wobj, desc);
 }
 
 void HSD_WObjSetDefaultClass(HSD_ClassInfo* info)
@@ -133,8 +129,8 @@ HSD_WObj* HSD_WObjLoadDesc(HSD_WObjDesc* desc)
     if (desc != NULL) {
         HSD_WObj* wobj;
         HSD_ClassInfo* info;
-        if (desc->class_name == NULL ||
-            !(info = hsdSearchClassInfo(desc->class_name)))
+        if (desc->class_name == 0 ||
+            !(info = hsdSearchClassInfo(DP(char, desc->class_name))))
         {
             wobj = HSD_WObjAlloc();
         } else {

@@ -147,8 +147,8 @@ void lb_8000B4FC(HSD_JObj* jobj, HSD_Joint* joint)
     jobj->rotate.x = joint->rotation.x;
     jobj->rotate.y = joint->rotation.y;
     jobj->rotate.z = joint->rotation.z;
-    jobj->scale = joint->scale;
-    jobj->translate = joint->position;
+    DISC_VEC3_GET(jobj->scale, joint->scale);
+    DISC_VEC3_GET(jobj->translate, joint->position);
     HSD_JObjClearFlags(jobj, JOBJ_USE_QUATERNION);
     if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
         HSD_JObjSetMtxDirty(jobj);
@@ -163,7 +163,7 @@ void lb_8000B5DC(HSD_JObj* jobj, HSD_Joint* joint)
     jobj->rotate.x = joint->rotation.x;
     jobj->rotate.y = joint->rotation.y;
     jobj->rotate.z = joint->rotation.z;
-    jobj->translate = joint->position;
+    DISC_VEC3_GET(jobj->translate, joint->position);
     HSD_JObjClearFlags(jobj, JOBJ_USE_QUATERNION);
     if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
         HSD_JObjSetMtxDirty(jobj);
@@ -175,8 +175,8 @@ void lb_8000B6A4(HSD_JObj* jobj, HSD_Joint* joint)
     if (jobj == NULL || joint == NULL) {
         return;
     }
-    jobj->scale = joint->scale;
-    jobj->translate = joint->position;
+    DISC_VEC3_GET(jobj->scale, joint->scale);
+    DISC_VEC3_GET(jobj->translate, joint->position);
     if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
         HSD_JObjSetMtxDirty(jobj);
     }
@@ -187,7 +187,7 @@ void lb_8000B760(HSD_JObj* jobj, HSD_Joint* joint)
     if (jobj == NULL || joint == NULL) {
         return;
     }
-    jobj->translate = joint->position;
+    DISC_VEC3_GET(jobj->translate, joint->position);
     if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
         HSD_JObjSetMtxDirty(jobj);
     }
@@ -201,13 +201,13 @@ void lb_8000B804(HSD_JObj* jobj, HSD_Joint* joint)
     jobj->rotate.x = joint->rotation.x;
     jobj->rotate.y = joint->rotation.y;
     jobj->rotate.z = joint->rotation.z;
-    jobj->scale = joint->scale;
-    jobj->translate = joint->position;
+    DISC_VEC3_GET(jobj->scale, joint->scale);
+    DISC_VEC3_GET(jobj->translate, joint->position);
     HSD_JObjClearFlags(jobj, JOBJ_USE_QUATERNION);
     HSD_JObjSetFlags(jobj, JOBJ_MTX_DIRTY);
 
-    lb_8000B804(jobj->next, joint->next);
-    lb_8000B804(jobj->child, joint->child);
+    lb_8000B804(jobj->next, DP(HSD_Joint, joint->next));
+    lb_8000B804(jobj->child, DP(HSD_Joint, joint->child));
 }
 
 static void lb_8000B9D8(HSD_JObj* jobj, float** arg1, s32 arg2)
@@ -338,14 +338,14 @@ static HSD_AnimJoint* lb_8000BECC(HSD_AnimJoint* animjoint)
     if (animjoint == NULL) {
         return NULL;
     }
-    if (animjoint->aobjdesc != NULL) {
+    if (animjoint->aobjdesc != 0) {
         return animjoint;
     }
-    tmp = lb_8000BECC(animjoint->child);
+    tmp = lb_8000BECC(DP(HSD_AnimJoint, animjoint->child));
     if (tmp != NULL) {
         return tmp;
     }
-    tmp = lb_8000BECC(animjoint->next);
+    tmp = lb_8000BECC(DP(HSD_AnimJoint, animjoint->next));
     if (tmp != NULL) {
         return tmp;
     }
@@ -356,30 +356,31 @@ float lb_8000BFF0(HSD_AnimJoint* animjoint)
 {
     animjoint = lb_8000BECC(animjoint);
     if (animjoint != NULL) {
-        return animjoint->aobjdesc->end_frame;
+        return DP(HSD_AObjDesc, animjoint->aobjdesc)->end_frame;
     }
     return 0;
 }
 
-void lb_8000C07C(HSD_JObj* jobj, s32 i, HSD_AnimJoint** arg3,
-                 HSD_MatAnimJoint** arg4, HSD_ShapeAnimJoint** arg5)
+/* arg3..5 are disc pointer-slot arrays (HSD_AnimJoint*[] etc). */
+void lb_8000C07C(HSD_JObj* jobj, s32 i, DiscU32* arg3, DiscU32* arg4,
+                 DiscU32* arg5)
 {
     HSD_AnimJoint* phi_r4;
     HSD_MatAnimJoint* phi_r5;
     HSD_ShapeAnimJoint* phi_r6;
 
     if (arg3 != NULL) {
-        phi_r4 = arg3[i];
+        phi_r4 = (HSD_AnimJoint*) (uintptr_t) arg3[i].v;
     } else {
         phi_r4 = NULL;
     }
     if (arg4 != NULL) {
-        phi_r5 = arg4[i];
+        phi_r5 = (HSD_MatAnimJoint*) (uintptr_t) arg4[i].v;
     } else {
         phi_r5 = NULL;
     }
     if (arg5 != NULL) {
-        phi_r6 = arg5[i];
+        phi_r6 = (HSD_ShapeAnimJoint*) (uintptr_t) arg5[i].v;
     } else {
         phi_r6 = NULL;
     }
@@ -388,7 +389,8 @@ void lb_8000C07C(HSD_JObj* jobj, s32 i, HSD_AnimJoint** arg3,
 
 void lb_8000C0E8(HSD_JObj* jobj, s32 i, DynamicModelDesc* arg2)
 {
-    lb_8000C07C(jobj, i, arg2->anims, arg2->matanims, arg2->shapeanims);
+    lb_8000C07C(jobj, i, DP(DiscU32, arg2->anims), DP(DiscU32, arg2->matanims),
+                DP(DiscU32, arg2->shapeanims));
 }
 
 void memzero(void* mem, ssize_t size)

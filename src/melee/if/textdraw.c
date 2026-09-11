@@ -18,27 +18,26 @@
 
 /// .data
 /* 3FDC20 */ static HSD_WObjDesc devtext_eyepos = {
-    NULL, { 0.0f, 40.241424560546875f, 300.2409973144531f }, NULL
+    0, { 0.0f, 40.241424560546875f, 300.2409973144531f }, 0
 };
-/* 3FDC34 */ static HSD_WObjDesc devtext_interest = { NULL,
-                                                      { 0.0f, 10.0f, 0.0f },
-                                                      NULL };
+/* 3FDC34 */ static HSD_WObjDesc devtext_interest = {
+    0, { 0.0f, 10.0f, 0.0f }, 0
+};
 /* 3FDC48 */ static HSD_CameraDescPerspective devtext_CObjDesc = {
-    NULL,
+    0,
     0,
     1,
-    0,
-    640,
-    0,
-    480,
-    0,
-    640,
-    0,
-    480,
+    { 0, 640, 0, 480 },
+    { 0, 640, 0, 480 },
+#ifndef TARGET_PC
     &devtext_eyepos,
     &devtext_interest,
+#else
     0,
-    NULL,
+    0,
+#endif
+    0,
+    0,
     0.1f,
     32768.0f,
     30.0f,
@@ -284,6 +283,10 @@ void DevText_CreateCObj(int classifier, int p_link, int gobj_priority,
 {
     HSD_GObj* gobj = GObj_Create(classifier, p_link, gobj_priority);
     if (gobj) {
+#ifdef TARGET_PC
+        DP_SET(devtext_CObjDesc.eyepos, &devtext_eyepos);
+        DP_SET(devtext_CObjDesc.interest, &devtext_interest);
+#endif
         HSD_CObj* cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &devtext_CObjDesc);
         if (cobj) {
             HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);

@@ -10,6 +10,8 @@
 #define HSD_PARENT_INFO(o) ((o)->parent.head.parent)
 
 #define next_p(p) (p != NULL ? p->next : NULL)
+/* next_p for on-disc lists (DISC_PTR next slot). */
+#define next_dp(T, p) ((p) != NULL ? DP(T, (p)->next) : NULL)
 
 typedef struct _HSD_Class {
     struct _HSD_ClassInfo* class_info;

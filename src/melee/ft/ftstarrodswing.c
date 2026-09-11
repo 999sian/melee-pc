@@ -41,7 +41,7 @@ void ftCo_StarRodSwing_Coll(HSD_GObj* gobj)
 void ft_800CD914(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    int x = fp->ft_data->x8->x10;
+    int x = DP(struct ftData_x8, fp->ft_data->x8)->x10;
     Vec v2;
     Vec v;
     float f;

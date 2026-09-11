@@ -11,6 +11,14 @@
 /// Used by chain-type items in-game to link multiple parts together
 #define HSD_GOBJ_CLASS_ITEMLINK 7
 
+/* Disc (big-endian, in place) copy of itECB; see pc/disc.h. */
+typedef struct DISC_STRUCT {
+    float top;
+    float bottom;
+    float right;
+    float left;
+} DiscItECB;
+
 typedef struct Article Article;
 typedef struct BobOmbRain BobOmbRain;
 typedef struct BoneDynamicsDesc BoneDynamicsDesc;

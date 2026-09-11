@@ -180,7 +180,7 @@ void HSD_RObjAddAnim(HSD_RObj* robj, HSD_RObjAnimJoint* anim)
     if (robj->aobj != NULL) {
         HSD_AObjRemove(robj->aobj);
     }
-    robj->aobj = HSD_AObjLoadDesc(anim->aobjdesc);
+    robj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, anim->aobjdesc));
 }
 
 void HSD_RObjAddAnimAll(HSD_RObj* robj, HSD_RObjAnimJoint* anim)
@@ -192,7 +192,7 @@ void HSD_RObjAddAnimAll(HSD_RObj* robj, HSD_RObjAnimJoint* anim)
         return;
     }
 
-    for (i = robj, j = anim; i != NULL && j != NULL; i = i->next, j = j->next)
+    for (i = robj, j = anim; i != NULL && j != NULL; i = i->next, j = DP(HSD_RObjAnimJoint, j->next))
     {
         HSD_RObjAddAnim(i, j);
     }
@@ -578,7 +578,8 @@ void HSD_RObjResolveRefs(HSD_RObj* robj, HSD_RObjDesc* desc)
             HSD_JObjRefThis(robj->u.jobj);
             break;
         case 0x0:
-            HSD_RvalueResolveRefsAll(robj->u.exp.rvalue, desc->u.exp->rvalue);
+            HSD_RvalueResolveRefsAll(robj->u.exp.rvalue,
+                                     DP(HSD_RvalueList, DP(HSD_ExpDesc, desc->u.exp)->rvalue));
             break;
         }
     }
@@ -586,7 +587,7 @@ void HSD_RObjResolveRefs(HSD_RObj* robj, HSD_RObjDesc* desc)
 
 void HSD_RObjResolveRefsAll(HSD_RObj* robj, HSD_RObjDesc* desc)
 {
-    for (; robj != NULL && desc != NULL; robj = robj->next, desc = desc->next)
+    for (; robj != NULL && desc != NULL; robj = robj->next, desc = DP(HSD_RObjDesc, desc->next))
     {
         HSD_RObjResolveRefs(robj, desc);
     }
@@ -601,7 +602,7 @@ HSD_RObj* HSD_RObjLoadDesc(HSD_RObjDesc* robjdesc)
 
     if (robjdesc != NULL) {
         robj = HSD_RObjAlloc();
-        robj->next = HSD_RObjLoadDesc(robjdesc->next);
+        robj->next = HSD_RObjLoadDesc(DP(HSD_RObjDesc, robjdesc->next));
         robj->flags = robjdesc->flags;
         switch (robj->flags & ROBJ_TYPE_MASK) {
         case REFTYPE_JOBJ:
@@ -622,15 +623,15 @@ HSD_RObj* HSD_RObjLoadDesc(HSD_RObjDesc* robjdesc)
             }
         } break;
         case REFTYPE_EXP:
-            expLoadDesc(&robj->u.exp, robjdesc->u.exp);
+            expLoadDesc(&robj->u.exp, DP(HSD_ExpDesc, robjdesc->u.exp));
             break;
         case REFTYPE_BYTECODE:
-            bcexpLoadDesc(&robj->u.exp, robjdesc->u.bcexp);
+            bcexpLoadDesc(&robj->u.exp, DP(HSD_ByteCodeExpDesc, robjdesc->u.bcexp));
             robj->flags &= ~ROBJ_TYPE_MASK;
             break;
         case REFTYPE_IKHINT:
-            robj->u.ik_hint.bone_length = robjdesc->u.ik_hint->bone_length;
-            robj->u.ik_hint.rotate_x = robjdesc->u.ik_hint->rotate_x;
+            robj->u.ik_hint.bone_length = DP(HSD_IKHintDesc, robjdesc->u.ik_hint)->bone_length;
+            robj->u.ik_hint.rotate_x = DP(HSD_IKHintDesc, robjdesc->u.ik_hint)->rotate_x;
             break;
         default:
             HSD_Panic(__FILE__, 0x3C0, "unexpected type of robj.\n");
@@ -862,12 +863,12 @@ static void expLoadDesc(HSD_Exp* exp, HSD_ExpDesc* desc)
 {
     memset(exp, 0, sizeof(HSD_Exp));
     if (desc != NULL) {
-        if (desc->func != NULL) {
-            exp->expr.func = desc->func;
+        if (desc->func != 0) {
+            exp->expr.func = (f32(*)(void*)) DP(void, desc->func);
         } else {
             exp->expr.func = dummy_func;
         }
-        exp->rvalue = loadRvalue(desc->rvalue);
+        exp->rvalue = loadRvalue(DP(HSD_RvalueList, desc->rvalue));
         exp->nb_args = -1;
     }
 }
@@ -876,12 +877,12 @@ static void bcexpLoadDesc(HSD_Exp* exp, HSD_ByteCodeExpDesc* desc)
 {
     memset(exp, 0, sizeof(HSD_Exp));
     if (desc != NULL) {
-        if (desc->bytecode != NULL) {
-            exp->expr.bytecode = desc->bytecode;
+        if (desc->bytecode != 0) {
+            exp->expr.bytecode = DP(u8, desc->bytecode);
         } else {
             exp->expr.bytecode = NULL;
         }
-        exp->rvalue = loadRvalue(desc->rvalue);
+        exp->rvalue = loadRvalue(DP(HSD_RvalueList, desc->rvalue));
         exp->nb_args = -1;
         exp->is_bytecode = 1;
     }

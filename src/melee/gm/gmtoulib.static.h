@@ -70,15 +70,15 @@ struct lbl_803D9DD0_t {
 } lbl_803D9DD0 = { 0, { 0 }, 0 };
 
 /* 3D9DF4 */ static HSD_WObjDesc lbl_803D9DF4 = {
-    NULL,
+    0,
     { 320, -240, 415.6922 },
-    NULL,
+    0,
 };
 
 /* 3D9E08 */ static HSD_WObjDesc lbl_803D9E08 = {
-    NULL,
+    0,
     { 320, -240, 0 },
-    NULL,
+    0,
 };
 
 static s16 lbl_803D9E1C[][2] = {

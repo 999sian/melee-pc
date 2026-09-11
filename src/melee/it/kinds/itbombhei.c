@@ -12,7 +12,7 @@
 #include <melee/lb/lb_00F9.h>
 
 #define GET_ATTRS(ip)                                                         \
-    ((itBombHeiAttributes*) ip->xC4_article_data->x4_specialAttributes)
+    DP(itBombHeiAttributes, ip->xC4_article_data->x4_specialAttributes)
 
 ItemStateTable it_803F54D8[] = {
     { -1, itBombhei_UnkMotion0_Anim, itBombhei_UnkMotion0_Phys,
@@ -117,7 +117,7 @@ void itBombhei_Logic6_Spawned(Item_GObj* igp)
 {
     Item* ip = GET_ITEM(igp);
     f32 temp_f2;
-    itBombHeiAttributes* ap = ip->xC4_article_data->x4_specialAttributes;
+    itBombHeiAttributes* ap = GET_ATTRS(ip);
 
     ip->xDD4_itemVar.bombhei.xDDC = 0;
     ip->xDD4_itemVar.bombhei.xDD4 = ap->x10;
@@ -139,7 +139,7 @@ void it_8027D820(Item_GObj* igp)
     f32 scale;
     itBombHeiAttributes* ap;
 
-    ap = ip->xC4_article_data->x4_specialAttributes;
+    ap = GET_ATTRS(ip);
     temp_f30 = ap->x1C;
     ip->xDD4_itemVar.bombhei.xDD4 -= 1;
 
@@ -198,7 +198,7 @@ void it_8027DE18(Item_GObj* igp)
     itBombHeiAttributes* ap;
 
     ip = GET_ITEM(igp);
-    ap = ip->xC4_article_data->x4_specialAttributes;
+    ap = GET_ATTRS(ip);
 
     if ((ip->msid == 3) || (ip->msid == 0)) {
         ip->xDC8_word.flags.x19 = 1;
@@ -242,7 +242,7 @@ bool itBombhei_UnkMotion1_Coll(Item_GObj* igp)
 void itBombhei_Logic6_PickedUp(Item_GObj* igp)
 {
     Item* ip = GET_ITEM(igp);
-    itBombHeiAttributes* ap = ip->xC4_article_data->x4_specialAttributes;
+    itBombHeiAttributes* ap = GET_ATTRS(ip);
 
     ip->xDC8_word.flags.x19 = 1;
     ip->xDC8_word.flags.x17 = 1;

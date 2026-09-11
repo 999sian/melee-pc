@@ -211,7 +211,7 @@ bool un_80304780(void)
 }
 
 /* 3B8844 */ static HSD_FogDesc const _Toy_803B8844 = {
-    GX_FOG_LIN, NULL, 0.0f, 1.0f, { 0xFF, 0xFF, 0xFF, 0xFF },
+    GX_FOG_LIN, 0, 0.0f, 1.0f, { 0xFF, 0xFF, 0xFF, 0xFF },
 };
 /* 3B8858 */ static Vec3 const _Toy_803B8858 = { 0.0f, 8.0f, 0.0f };
 /* 3B8864 */ static PosArrayFull const _Toy_803B8864 = { {
@@ -2105,18 +2105,19 @@ HSD_LObj* Toy_LoadLObjList(LightList** list, s32* hasAnim)
     }
 
     while (*list != NULL) {
-        lobj = HSD_LObjLoadDesc((*list)->desc);
+        lobj = HSD_LObjLoadDesc(DP(HSD_LightDesc, (*list)->desc));
         if (lobj != NULL) {
+            DiscU32* anim_slots = DP(DiscU32, (*list)->anims);
+            HSD_LightAnim* anim = anim_slots ? (HSD_LightAnim*) (uintptr_t) anim_slots[0].v : NULL;
             animFlag = base + idx + 0xDC;
-            anims = (*list)->anims;
             *animFlag = 0;
-            if (anims != NULL && *anims != NULL) {
+            if (anim != NULL) {
                 if (hasAnim != NULL) {
                     *hasAnim = 1;
                 }
-                HSD_LObjAddAnimAll(lobj, *anims);
+                HSD_LObjAddAnimAll(lobj, anim);
                 HSD_LObjReqAnimAll(lobj, 0.0f);
-                if ((*anims)->position_anim != NULL) {
+                if (anim->position_anim != NULL) {
                     *animFlag = 1;
                 }
             }
@@ -5318,25 +5319,30 @@ void _Toy_8030E110(HSD_GObj* arg0)
     "ScMenFigure_cam_int1_camera";
 
 /* 3FE604 */ static HSD_WObjDesc _Toy_803FE604 = {
-    NULL,
+    0,
     { 0.0f, 0.0f, 38.0f },
-    NULL,
+    0,
 };
 /* 3FE618 */ static HSD_WObjDesc _Toy_803FE618 = {
-    NULL,
+    0,
     { 8.0f, 4.0f, 0.0f },
-    NULL,
+    0,
 };
 /* 3FE62C */ static HSD_CameraDescPerspective _Toy_803FE62C = {
-    NULL,
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
+#ifndef TARGET_PC
     &_Toy_803FE604,
     &_Toy_803FE618,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     (float) 0x8000,
     40.0f,
@@ -5344,25 +5350,30 @@ void _Toy_8030E110(HSD_GObj* arg0)
 };
 
 /* 3FE664 */ static HSD_WObjDesc _Toy_803FE664 = {
-    NULL,
+    0,
     { 0.0f, 0.0f, 50.0f },
-    NULL,
+    0,
 };
 /* 3FE678 */ static HSD_WObjDesc _Toy_803FE678 = {
-    NULL,
+    0,
     { 0.0f, 0.0f, 0.0f },
-    NULL,
+    0,
 };
 /* 3FE68C */ static HSD_CameraDescPerspective _Toy_803FE68C = {
-    NULL,
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
+#ifndef TARGET_PC
     &_Toy_803FE664,
     &_Toy_803FE678,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     (float) 0x8000,
     40.0f,
@@ -5371,6 +5382,12 @@ void _Toy_8030E110(HSD_GObj* arg0)
 
 void _Toy_8030FA50(void)
 {
+#ifdef TARGET_PC
+    DP_SET(_Toy_803FE62C.eyepos, &_Toy_803FE604);
+    DP_SET(_Toy_803FE62C.interest, &_Toy_803FE618);
+    DP_SET(_Toy_803FE68C.eyepos, &_Toy_803FE664);
+    DP_SET(_Toy_803FE68C.interest, &_Toy_803FE678);
+#endif
     UNUSED u8 framepad[16];
     Vec3 eye;
     Mtx mtx;

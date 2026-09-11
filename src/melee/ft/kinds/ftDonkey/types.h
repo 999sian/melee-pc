@@ -43,7 +43,7 @@ union ftDonkey_MotionVars {
     } unk8;
 };
 
-typedef struct _ftDonkeyAttributes {
+typedef struct DISC_STRUCT _ftDonkeyAttributes {
     s32 motion_state;
     s32 x4_motion_state;
 
@@ -56,14 +56,14 @@ typedef struct _ftDonkeyAttributes {
     float x1C;
     /////////////////////////////////////////////////
 
-    struct {
+    struct DISC_STRUCT {
         float x20_TURN_SPEED;
         float x24_JUMP_STARTUP_LAG;
         float x28_LANDING_LAG;
     } cargo_hold;
 
     //// Giant Punch
-    struct {
+    struct DISC_STRUCT {
         s32 x2C_MAX_ARM_SWINGS;
         s32 x30_DAMAGE_PER_SWING;
         float x34_PUNCH_HORIZONTAL_VEL;
@@ -71,7 +71,7 @@ typedef struct _ftDonkeyAttributes {
     } SpecialN;
 
     //// Headbutt
-    struct {
+    struct DISC_STRUCT {
         float x3C_MIN_STICK_X_MOMENTUM;
         float x40_MOMENTUM_TRANSITION_MODIFIER;
         float x44_AERIAL_GRAVITY;
@@ -80,7 +80,7 @@ typedef struct _ftDonkeyAttributes {
     float x48_UNKNOWN;
 
     //// Spinning Kong
-    struct {
+    struct DISC_STRUCT {
         float x4C_AERIAL_VERTICAL_VELOCITY;
         float x50_AERIAL_GRAVITY;
         float x54_GROUNDED_HORIZONTAL_VELOCITY;
@@ -91,12 +91,13 @@ typedef struct _ftDonkeyAttributes {
     } SpecialHi;
 
     /// Hand Slap
-    struct {
+    struct DISC_STRUCT {
         float x68;
         float x6C;
         float x70;
     } SpecialLw;
 
 } ftDonkeyAttributes;
+DISC_ASSERT_SIZE(ftDonkeyAttributes, 0x74);
 
 #endif

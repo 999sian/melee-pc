@@ -68,7 +68,7 @@ void it_2725_Logic103_Destroyed(Item_GObj* item_gobj)
 void it_802AFA70(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlashExplAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itFlashExplAttributes* attr = DP(itFlashExplAttributes, ip->xC4_article_data->x4_specialAttributes);
     f32 ratio;
     PAD_STACK(8);
 
@@ -100,7 +100,7 @@ void it_802AFA70(Item_GObj* gobj)
 bool itNessPKFlashExplode_UnkMotion0_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlashExplAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itFlashExplAttributes* attr = DP(itFlashExplAttributes, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* jobj = GET_JOBJ(gobj);
     Vec3 scale;
     scale.x = scale.y = scale.z = (ip->xDD4_itemVar.pkflushexplode.xDD4 *

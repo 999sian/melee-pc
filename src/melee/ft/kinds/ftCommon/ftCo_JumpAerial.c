@@ -151,7 +151,7 @@ void ftCo_800CBAC4(Fighter_GObj* gobj, FtMotionId msid, Vec3* vel, bool arg3)
     }
     fp->x1968_jumpsUsed += 1;
     ft_80088770(fp);
-    ft_80088328(fp, fp->ft_data->x4C_sfx->x14, SFX_VOLUME_MAX, SFX_PAN_MID);
+    ft_80088328(fp, DP(FtSFX, fp->ft_data->x4C_sfx)->x14, SFX_VOLUME_MAX, SFX_PAN_MID);
     ft_JumpAerial_Sound(fp, fp->kind);
 }
 

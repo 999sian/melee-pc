@@ -250,7 +250,7 @@ HSD_GObj* grLib_801C9CEC(CmQuakeKind kind)
     }
     tmp = kind;
     gobj = GObj_Create(HSD_GOBJ_CLASS_STAGE, 18, tmp);
-    jobj = HSD_JObjLoadJoint(stage_info.quake_model_set->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, stage_info.quake_model_set->joint));
 
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     if (kind == QuakeKind_Loop) {
@@ -259,8 +259,11 @@ HSD_GObj* grLib_801C9CEC(CmQuakeKind kind)
         HSD_GObj_SetupProc(gobj, grLib_801C9C40, 1);
     }
 
-    HSD_JObjAddAnimAll(jobj, stage_info.quake_model_set->anims[quake_idx],
-                       NULL, NULL);
+    HSD_JObjAddAnimAll(
+        jobj,
+        DP(HSD_AnimJoint,
+           DP(DiscU32, stage_info.quake_model_set->anims)[quake_idx].v),
+        NULL, NULL);
     HSD_JObjReqAnimAll(jobj, 0);
     if (kind == QuakeKind_Loop) {
         HSD_ForeachAnim(jobj, 6, 0x20, HSD_AObjSetFlags, AOBJ_ARG_AU,

@@ -43,7 +43,7 @@ Item_GObj* it_80284854(Vec3* pos)
 void itBat_Logic11_Spawned(Item_GObj* gobj)
 {
     Item* item = GET_ITEM(gobj);
-    itBatAttributes* ap = item->xC4_article_data->x4_specialAttributes;
+    itBatAttributes* ap = DP(itBatAttributes, item->xC4_article_data->x4_specialAttributes);
 
     it_8026B390(gobj);
     item->x40_vel.x = 0.0f;

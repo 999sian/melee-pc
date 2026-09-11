@@ -66,10 +66,10 @@
     0,
 };
 /* 3BCB3C */ static HSD_WObjDesc cm_803BCB3C = {
-    NULL, { 0.0f, 40.241425f, 300.241f }, 0
+    0, { 0.0f, 40.241425f, 300.241f }, 0
 };
 /* 3BCB50 */ static HSD_WObjDesc cm_803BCB50 = {
-    NULL,
+    0,
     { 0.0f, 10.0f, 0.0f },
     0,
 };
@@ -79,10 +79,15 @@
     1,
     { 0, 0x280, 0, 0x1E0 },
     { 0, 0x280, 0, 0x1E0 },
+#ifndef TARGET_PC
     &cm_803BCB3C,
     &cm_803BCB50,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     16384.0f,
     30.0f,
@@ -168,10 +173,14 @@ void Camera_Init(int n_subjects)
     int i;
 
     camera_sdata2_order();
-    interest_pos = &cm_803BCB64.interest->pos;
+#ifdef TARGET_PC
+    DP_SET(cm_803BCB64.eyepos, &cm_803BCB3C);
+    DP_SET(cm_803BCB64.interest, &cm_803BCB50);
+#endif
+    interest_pos = (Vec3*) &DP(HSD_WObjDesc, cm_803BCB64.interest)->pos;
     game_camera.transform.interest = *interest_pos;
     game_camera.transform.target_interest = *interest_pos;
-    eye_pos = &cm_803BCB64.eyepos->pos;
+    eye_pos = (Vec3*) &DP(HSD_WObjDesc, cm_803BCB64.eyepos)->pos;
     game_camera.transform.position = *eye_pos;
     game_camera.transform.target_position = *eye_pos;
     game_camera.transform.target_fov = cm_803BCB64.fov;

@@ -17,29 +17,29 @@
 #include <dolphin/types.h>
 
 static HSD_WObjDesc HSD_SisLib_8040C490 = {
-    NULL,
+    0,
     { 0, 0, 1 },
-    NULL,
+    0,
 };
 
 static HSD_WObjDesc HSD_SisLib_8040C4A4 = {
-    NULL,
+    0,
     { 0, 0, 0 },
-    NULL,
+    0,
 };
 
 static u32 HSD_SisLib_804D7968;
 
 static HSD_CameraDescPerspective HSD_SisLib_8040C4B8 = {
-    NULL,
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
-    &HSD_SisLib_8040C490,
-    &HSD_SisLib_8040C4A4,
+    0, /* eyepos, set at runtime (slots are 32-bit) */
+    0, /* interest */
     0.0f,
-    NULL,
+    0,
     0.0f,
     0xFFFF,
     30.0f,
@@ -526,8 +526,10 @@ int HSD_SisLib_803A611C(int font_idx, HSD_GObj* parent_gobj, u16 class_id,
     } else {
         entry->x4 = GObj_Create(class_id, p_link, p_prio);
         if (entry->x4 != NULL) {
-            HSD_CObj* cobj =
-                HSD_CObjLoadDesc((HSD_CObjDesc*) &HSD_SisLib_8040C4B8);
+            HSD_CObj* cobj;
+            DP_SET(HSD_SisLib_8040C4B8.eyepos, &HSD_SisLib_8040C490);
+            DP_SET(HSD_SisLib_8040C4B8.interest, &HSD_SisLib_8040C4A4);
+            cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &HSD_SisLib_8040C4B8);
             if (cobj != NULL) {
                 HSD_CObjSetOrtho(cobj, 0.0F, -480.0F, 0.0F, 640.0F);
                 {

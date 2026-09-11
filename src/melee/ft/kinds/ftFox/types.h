@@ -73,7 +73,7 @@ typedef union ftFox_MotionVars {
     ftFoxAppealS AppealS;
 } ftFox_MotionVars;
 
-struct ftFox_DatAttrs {
+struct DISC_STRUCT ftFox_DatAttrs {
     // NEUTRAL SPECIAL - BLASTER
 
     float x0_FOX_BLASTER_UNK1;
@@ -147,5 +147,6 @@ struct ftFox_DatAttrs {
     float xAC_FOX_REFLECTOR_FALL_ACCEL;
     ReflectDesc xB0_FOX_REFLECTOR_REFLECTION;
 };
+DISC_ASSERT_SIZE(struct ftFox_DatAttrs, 0xD4);
 
 #endif

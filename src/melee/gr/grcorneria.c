@@ -460,7 +460,7 @@ void grCorneria_801DCE1C(void)
     }
 }
 
-void grCorneria_801DD2C0(int unused)
+void grCorneria_801DD2C0(bool unused)
 {
     void* obj;
     int rand;

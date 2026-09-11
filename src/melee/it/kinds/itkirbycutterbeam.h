@@ -7,12 +7,13 @@
 
 #include <melee/it/kinds/types.h>
 
-typedef struct itKirbyCutterBeamAttributes {
+typedef struct DISC_STRUCT itKirbyCutterBeamAttributes {
     f32 x0_speed;
     f32 x4_vel;
     f32 x8_lifetime;
     f32 xC_decel;
 } itKirbyCutterBeamAttributes;
+DISC_ASSERT_SIZE(itKirbyCutterBeamAttributes, 0x10);
 
 /* 29BAB8 */ void it_8029BAB8(HSD_GObj* gobj, Vec3* pos, float facing_dir);
 /* 29BB90 */ void it_8029BB90(Item_GObj* gobj, HSD_GObj* owner);

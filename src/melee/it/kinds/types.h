@@ -70,7 +70,7 @@ struct ItemLogicTable {
     HSD_GObjInteraction evt_unk;
 };
 
-struct itSword_UnkBytes {
+struct DISC_STRUCT itSword_UnkBytes {
     /*   +0 */ f32 x0;
     /*   +4 */ f32 x4;
     /*   +8 */ u8 x8;
@@ -84,10 +84,10 @@ struct itSword_UnkBytes {
     /*  +10 */ u8 x10;
 };
 
-struct itSword_UnkArticle1 {
-    /*  +0 */ UNK_T x0;
-    /*  +4 */ UNK_T x4;
-    /*  +8 */ UNK_T x8;
+struct DISC_STRUCT itSword_UnkArticle1 {
+    /*  +0 */ DISC_PTR(void) x0;
+    /*  +4 */ DISC_PTR(void) x4;
+    /*  +8 */ DISC_PTR(void) x8;
     /*  +C */ float xC;
     /* +10 */ float x10;
     /* +14 */ float x14;

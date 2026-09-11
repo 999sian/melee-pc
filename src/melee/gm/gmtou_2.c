@@ -565,7 +565,7 @@ void fn_8019D1BC(void)
             HSD_JObj* first_jobj;
 
             first_c = gmTournament_GetJObj(
-                first_gobj = fn_8019035C(0, lbl_804D6694->models[12], 0, 0x1A,
+                first_gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 12), 0, 0x1A,
                                          2, 1, fn_8019C048, (f32) i));
             first_jobj = first_gobj->hsd_obj;
             HSD_JObjSetTranslateY(first_c, -2.5f);
@@ -594,7 +594,7 @@ void fn_8019D1BC(void)
                     0.99f * (pos - 320.0f) - 261.0f, -11.0f, 5);
         tmd->x524[2]->hidden = 1;
 
-        gobj = fn_8019035C(0, lbl_804D6694->models[10], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 10), 0, 0x1A, 2, 1,
                            fn_8019C3EC, pos);
         jobj = gobj->hsd_obj;
         (void) jobj;
@@ -602,7 +602,7 @@ void fn_8019D1BC(void)
         fn_8018FBD8(gobj, i);
         fn_8019BA08((u8) i, jobj);
 
-        gobj = fn_8019035C(0, lbl_804D6694->models[4], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 4), 0, 0x1A, 2, 1,
                            fn_8019C570, pos);
         jobj = gobj->hsd_obj;
         fn_8018FBD8(gobj, i);
@@ -620,7 +620,7 @@ void fn_8019D1BC(void)
             fn_8019044C(c, fn_8018F71C(tmd->x4B8[i].x1, tmd->x4B8[i].x3));
         }
 
-        gobj = fn_8019035C(0, lbl_804D6694->models[9], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 9), 0, 0x1A, 2, 1,
                            fn_8019C744, pos);
         jobj = gobj->hsd_obj;
         HSD_JObjSetTranslateY(jobj, -2.5f);
@@ -633,20 +633,20 @@ void fn_8019D1BC(void)
         }
         fn_8019044C(jobj, anim);
 
-        gobj = fn_8019035C(0, lbl_804D6694->models[8], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 8), 0, 0x1A, 2, 1,
                            fn_8019CA38, 0.0f);
         jobj = gobj->hsd_obj;
         HSD_JObjSetTranslateY(jobj, -2.5f);
         fn_8018FBD8(gobj, i);
 
-        gobj = fn_8019035C(0, lbl_804D6694->models[14], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 14), 0, 0x1A, 2, 1,
                            fn_8019CC74, anim);
         jobj = GET_JOBJ(gobj);
         HSD_JObjSetTranslateY(jobj, -2.5f);
         fn_8018FBD8(gobj, i);
 
         if (tmd->x31 != 0) {
-            gobj = fn_8019035C(0, lbl_804D6694->models[11], 0, 0x1A, 2, 1,
+            gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 11), 0, 0x1A, 2, 1,
                                fn_8019D074, anim);
             {
                 HSD_JObj* created_jobj = GET_JOBJ(gobj);
@@ -659,12 +659,12 @@ void fn_8019D1BC(void)
         }
     }
 
-    fn_8019035C(0, lbl_804D6694->models[1], 0, 0x1A, 2, 1, fn_8019CFA4, 0.0f);
-    fn_8019035C(0, lbl_804D6694->models[5], 0, 0x1A, 2, 1, fn_8019C6AC, 0.0f);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 1), 0, 0x1A, 2, 1, fn_8019CFA4, 0.0f);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 5), 0, 0x1A, 2, 1, fn_8019C6AC, 0.0f);
 
     {
         HSD_JObj* j16;
-        j16 = GET_JOBJ(fn_8019035C(0, lbl_804D6694->models[0], 0, 0x1A, 2, 1,
+        j16 = GET_JOBJ(fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 0), 0, 0x1A, 2, 1,
                                    NULL, 0.0f));
         j16 = HSD_JObjGetChild(j16);
         j16 = HSD_JObjGetNext(j16);
@@ -680,10 +680,10 @@ void fn_8019D1BC(void)
         }
     }
 
-    fn_8019035C(0, lbl_804D6694->models[6], 0, 0x1A, 2, 1, fn_8019CBFC, 0.0f);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 6), 0, 0x1A, 2, 1, fn_8019CBFC, 0.0f);
 
     for (i = 0; i < (s32) tmd->x2E; i++) {
-        gobj = fn_8019035C(0, lbl_804D6694->models[3], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6694, 3), 0, 0x1A, 2, 1,
                            fn_8019CDBC, 0.0f);
         jobj = GET_JOBJ(gobj);
         fn_8018FDC4(jobj, (5.999997f * (f32) tmd->x37[i].xF) - 21.5f, 17.0f,
@@ -734,12 +734,12 @@ void fn_8019DD60(void)
         }
     }
     tmd->x2C = 0;
-    gobj = fn_80190174(lbl_804D6690->cameras->desc);
-    fn_801901F8(lbl_804D6690->cameras->desc);
+    gobj = fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D6690)->desc));
+    fn_801901F8(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D6690)->desc));
     fn_801902F0((s32) gobj);
     fn_8019027C((UNK_T) lbl_804D6690->lights);
-    fn_8019035C(0, lbl_804D6690->models[5], 0, 0x1A, 2, 1, fn_8019BF18, 0.0f);
-    fn_8019035C(0, lbl_804D6690->models[4], 0, 0x1A, 2, 1, fn_8019BF8C, 0.0f);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6690, 5), 0, 0x1A, 2, 1, fn_8019BF18, 0.0f);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6690, 4), 0, 0x1A, 2, 1, fn_8019BF8C, 0.0f);
     tmd->x524[2] = HSD_SisLib_803A6754(0, (s32) lbl_804D663C);
     tmd->x524[2]->default_kerning = 1;
     text = tmd->x524[2];
@@ -749,7 +749,7 @@ void fn_8019DD60(void)
     fn_8019D1BC();
     gobj = GObj_Create(0xE, 0x1A, 0);
     {
-        HSD_Fog* tmp = HSD_FogLoadDesc(lbl_804D6690->fogs->desc);
+        HSD_Fog* tmp = HSD_FogLoadDesc(DP(HSD_FogDesc, GM_SCENE_FOG(lbl_804D6690)->desc));
         HSD_GObjObject_80390A70(gobj, (u8) HSD_GObj_FogKind, tmp);
     }
     GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 0, 0);

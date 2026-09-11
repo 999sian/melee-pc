@@ -39,7 +39,7 @@ bool ftCo_800C8C84(Fighter_GObj* gobj)
 static inline void fn_800C8_inline(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    FtSFX* ft_sfx = fp->ft_data->x4C_sfx;
+    FtSFX* ft_sfx = DP(FtSFX, fp->ft_data->x4C_sfx);
     fp->x2224_b2 = true;
     Fighter_ResetInputData_80068854(gobj);
     ftCo_800BFFD0(fp, 0x7A, 0);
@@ -91,7 +91,7 @@ void ftCo_800C8D00(Fighter_GObj* gobj)
 
 void fn_800C8E40(Fighter* fp, FtSFX* sfx)
 {
-    ft_PlaySFX(fp, fp->ft_data->x4C_sfx->xC, SFX_VOLUME_MAX, SFX_PAN_MID);
+    ft_PlaySFX(fp, DP(FtSFX, fp->ft_data->x4C_sfx)->xC, SFX_VOLUME_MAX, SFX_PAN_MID);
 }
 
 void fn_800C8E74(Fighter_GObj* gobj)

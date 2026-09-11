@@ -20,12 +20,13 @@ struct HSD_DObj {
     u32 flags;      // 0x14
 };
 
-struct HSD_DObjDesc {
-    char* class_name;
-    HSD_DObjDesc* next;
-    HSD_MObjDesc* mobjdesc;
-    HSD_PObjDesc* pobjdesc;
+struct DISC_STRUCT HSD_DObjDesc {
+    DISC_PTR(char) class_name;
+    DISC_PTR(HSD_DObjDesc) next;
+    DISC_PTR(HSD_MObjDesc) mobjdesc;
+    DISC_PTR(HSD_PObjDesc) pobjdesc;
 };
+DISC_ASSERT_SIZE(HSD_DObjDesc, 0x10);
 
 struct HSD_DObjInfo {
     HSD_ClassInfo parent;
@@ -33,10 +34,11 @@ struct HSD_DObjInfo {
     int (*load)(HSD_DObj* dobj, HSD_DObjDesc* desc);                  // 0x40
 };
 
-struct HSD_ShapeAnimDObj {
-    HSD_ShapeAnimDObj* next;
-    HSD_ShapeAnim* shapeanim;
+struct DISC_STRUCT HSD_ShapeAnimDObj {
+    DISC_PTR(HSD_ShapeAnimDObj) next;
+    DISC_PTR(HSD_ShapeAnim) shapeanim;
 };
+DISC_ASSERT_SIZE(HSD_ShapeAnimDObj, 0x8);
 
 #define HSD_DOBJ(o) ((HSD_DObj*) (o))
 #define HSD_DOBJ_INFO(i) ((HSD_DObjInfo*) (i))

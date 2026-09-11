@@ -1152,11 +1152,13 @@ void fn_80175DC8(HSD_GObj* gobj)
     me = data->x94;
     data_iter = data;
     {
-        DynamicModelDesc* model = data->pnlsce->models[0];
-        jobj = HSD_JObjLoadJoint(model->joint);
+        DynamicModelDesc* model = GM_SCENE_MODEL(data->pnlsce, 0);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, fn_80175038, 11, 0);
-        lb_8000C07C(jobj, 0, model->anims, model->matanims, model->shapeanims);
+        lb_8000C07C(jobj, 0, DP(DiscU32, model->anims),
+                    DP(DiscU32, model->matanims),
+                    DP(DiscU32, model->shapeanims));
     }
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
@@ -1472,7 +1474,8 @@ void fn_80176A6C(void)
         HSD_ASSERT(1634, 0);
     }
 
-    cobj = HSD_CObjLoadDesc(lbl_8046DBE8.pnlsce->cameras->desc);
+    cobj = HSD_CObjLoadDesc(
+        DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_8046DBE8.pnlsce)->desc));
     if (cobj == NULL) {
         OSReport("Error : cobj dont't get (gmResultAddPanelCamera)\n");
         HSD_ASSERT(1640, 0);
@@ -1562,9 +1565,9 @@ void fn_80176D3C(Vec3* positions)
     if (me && me) {
     }
     me_iter = data->x94;
-    models[0] = data->flmsce->models[3];
-    models[1] = data->flmsce->models[2];
-    models[2] = data->flmsce->models[1];
+    models[0] = GM_SCENE_MODEL(data->flmsce, 3);
+    models[1] = GM_SCENE_MODEL(data->flmsce, 2);
+    models[2] = GM_SCENE_MODEL(data->flmsce, 1);
 
     i = 0;
     do {
@@ -1594,7 +1597,7 @@ void fn_80176D3C(Vec3* positions)
             HSD_JObj* jobj;
             gobj = GObj_Create(14, 15, 0);
             model = &models[winner] - 1;
-            jobj = HSD_JObjLoadJoint((*model)->joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*model)->joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 11, 0);
 
@@ -1629,9 +1632,9 @@ void fn_80176F60(void)
     u8 tmp;
 
     temp_r30 = data->x94;
-    temp_r27 = *data->flmsce->models;
+    temp_r27 = GM_SCENE_MODEL(data->flmsce, 0);
     temp_r29 = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint(temp_r27->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, temp_r27->joint));
     HSD_GObjObject_80390A70(temp_r29, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(temp_r29, fn_80175038, 0xB, 0);
     lb_8000C0E8(jobj, 0, temp_r27);
@@ -1801,7 +1804,7 @@ void gm_Scene_Results_OnEnter(void* arg0_)
     if (light_gobj == NULL) {
         gmResultReportLightGObj();
     }
-    lobj = lb_80011AC4(data->pnlsce->lights);
+    lobj = lb_80011AC4(GM_SCENE_LIGHTS(data->pnlsce));
     if (lobj == NULL) {
         gmResultReportLightLObj();
     }

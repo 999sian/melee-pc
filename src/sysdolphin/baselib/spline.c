@@ -79,9 +79,29 @@ static inline void splGetBezierPoint(Vec3* p, Vec3* cp, f32 u)
            (cp[3].z * bez3);
 }
 
+/* Load 4 consecutive on-disc control points (base may be any valid index). */
+static void spl_load4(HSD_Spline* spline, s32 base, Vec3 out[4])
+{
+    DiscVec3* cv = DP(DiscVec3, spline->cv);
+    int i;
+    for (i = 0; i < 4; i++) {
+        out[i].x = cv[base + i].x;
+        out[i].y = cv[base + i].y;
+        out[i].z = cv[base + i].z;
+    }
+}
+
+static void spl_load1(HSD_Spline* spline, s32 i, Vec3* out)
+{
+    DiscVec3* cv = DP(DiscVec3, spline->cv);
+    out->x = cv[i].x;
+    out->y = cv[i].y;
+    out->z = cv[i].z;
+}
+
 void splGetSplinePoint(Vec3* p, HSD_Spline* spline, f32 u)
 {
-    Vec3* cp;
+    Vec3 cp[4];
     s16 idx;
     if (u < 0.0F || u > 1.0F) {
         return;
@@ -94,21 +114,21 @@ void splGetSplinePoint(Vec3* p, HSD_Spline* spline, f32 u)
         switch (spline->type) {
         case 0:
             // lerp
-            cp = &spline->cv[idx];
+            spl_load4(spline, idx, cp);
             p->x = (t * (cp[1].x - cp[0].x)) + cp[0].x;
             p->y = (t * (cp[1].y - cp[0].y)) + cp[0].y;
             p->z = (t * (cp[1].z - cp[0].z)) + cp[0].z;
             return;
         case 1:
-            cp = &spline->cv[idx * 3];
+            spl_load4(spline, idx * 3, cp);
             splGetBezierPoint(p, cp, t);
             return;
         case 2:
-            cp = &spline->cv[idx];
+            spl_load4(spline, idx, cp);
             splGetBSplinePoint(p, cp, t);
             return;
         case 3: {
-            cp = &spline->cv[idx];
+            spl_load4(spline, idx, cp);
             splGetCardinalPoint(p, cp, spline->tension, t);
             return;
         }
@@ -117,18 +137,17 @@ void splGetSplinePoint(Vec3* p, HSD_Spline* spline, f32 u)
         idx = spline->numcv - 1;
         switch (spline->type) {
         case 0:
-            *p = spline->cv[idx];
+            spl_load1(spline, idx, p);
             return;
         case 1:
-            *p = spline->cv[idx * 3];
+            spl_load1(spline, idx * 3, p);
             return;
         case 2:
-            cp = &spline->cv[idx] - 1;
+            spl_load4(spline, idx - 1, cp);
             splGetBSplinePoint(p, cp, 1.0f);
             return;
         case 3:
-            cp = &spline->cv[idx];
-            *p = cp[1];
+            spl_load1(spline, idx + 1, p);
             return;
         }
     }
@@ -149,9 +168,13 @@ static f32 splArcLengthPolynomial(const f32 coeffs[5], f32 t)
     return sqrtf__Ff(result);
 }
 
-static inline f32* spl_GetCoeffs(HSD_Spline* spl, s32 idx)
+static inline void spl_GetCoeffs(HSD_Spline* spl, s32 idx, f32 out[5])
 {
-    return spl->segPoly[idx];
+    DiscF32* poly = DP(DiscF32, spl->segPoly);
+    int i;
+    for (i = 0; i < 5; i++) {
+        out[i] = poly[idx * 5 + i].v;
+    }
 }
 
 static inline f32 spl_IterateSimpsonsMiddle(const f32 coeffs[5], const f32 dx,
@@ -189,25 +212,26 @@ f32 splArcLengthGetParameter(HSD_Spline* spl, f32 arg1)
     if (arg1 >= 1.0F) {
         return end;
     }
-
-    while (spl->segLength[idx + 1] < arg1) {
+    DiscF32* seg = DP(DiscF32, spl->segLength);
+    while (seg[idx + 1].v < arg1) {
         idx++;
     }
 
     switch (spl->type) {
     case 0: {
-        result = (arg1 - spl->segLength[idx]) /
-                 (spl->segLength[idx + 1] - spl->segLength[idx]);
+        result = (arg1 - seg[idx].v) /
+                 (seg[idx + 1].v - seg[idx].v);
     } break;
     case 1:
     case 2:
     case 3: {
         // i belive the bulk of this math is applying simpson's rule
         // https://en.wikipedia.org/wiki/Simpson%27s_rule
-        f32 var_f22 = spl->totalLength * (arg1 - spl->segLength[idx]);
+        f32 var_f22 = spl->totalLength * (arg1 - seg[idx].v);
+        f32 coeffs[5];
+        spl_GetCoeffs(spl, idx, coeffs);
 
         while (ABS(start - end) >= 0.00001F) {
-            const f32* coeffs = spl_GetCoeffs(spl, idx);
             f32 dx;
             f32 middle;
             f32 simpsons;

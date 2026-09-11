@@ -7,7 +7,7 @@
 
 #include <melee/it/kinds/types.h>
 
-typedef struct itLipstickSporeAttributes {
+typedef struct DISC_STRUCT itLipstickSporeAttributes {
     f32 x0;
     f32 x4;
     f32 x8;
@@ -16,6 +16,7 @@ typedef struct itLipstickSporeAttributes {
     s32 x14;
     s32 x18;
 } itLipstickSporeAttributes;
+DISC_ASSERT_SIZE(itLipstickSporeAttributes, 0x1C);
 
 /* 29A114 */ void it_8029A114(Fighter_GObj*, Vec*, f32 facing_dir, s32 arg4);
 /* 29A218 */ void it_8029A218(HSD_GObj* owner, Vec3* pos, f32 facing_dir,

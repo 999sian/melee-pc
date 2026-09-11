@@ -26,7 +26,7 @@ static HSD_FObj* lbAnim_InitFrames(FigaTrack* track, s8 frames)
         fobj->obj_type = track->obj_type;
         fobj->frac_value = track->frac_value;
         fobj->frac_slope = track->frac_slope;
-        fobj->ad_head = track->ad_head;
+        fobj->ad_head = DP(u8, track->ad_head);
         fobj->length = track->length;
         fobj->flags = 0;
         track++;
@@ -56,7 +56,7 @@ HSD_FObj* fn_8001E60C(FigaTrack* track, s8 frames)
             fobj->obj_type = track->obj_type;
             fobj->frac_value = track->frac_value;
             fobj->frac_slope = track->frac_slope;
-            fobj->ad_head = track->ad_head;
+            fobj->ad_head = DP(u8, track->ad_head);
             fobj->length = track->length;
             fobj->flags = 0;
             track++;

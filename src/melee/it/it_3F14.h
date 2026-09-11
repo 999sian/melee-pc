@@ -9,7 +9,7 @@
 #include <melee/it/kinds/types.h>
 #include <melee/it/types.h>
 
-typedef struct it_804D6D40_t {
+typedef struct DISC_STRUCT it_804D6D40_t {
     /* 0x00 */ s32 x0;
     /* 0x04 */ f32 x4;
     /* 0x08 */ f32 x8;
@@ -18,15 +18,20 @@ typedef struct it_804D6D40_t {
     /* 0x14 */ f32 x14;
     /* 0x18 */ f32 x18;
 } it_804D6D40_t;
+DISC_ASSERT_SIZE(it_804D6D40_t, 0x1C);
 
-typedef struct it_804D6D20_t {
-    ItemCommonData* x0;
-    Article** x4;
-    Article** x8;
-    Article** xC;
-    it_804D6D40_t* x10;
-    Fighter_804D653C_t* x14;
+/* Root of ItCo.dat ("itPublicData"). x4/x8/xC point at arrays of Article
+ * pointer slots (big-endian), so the globals below are DiscU32* and read via
+ * DP(Article, it_804D6D24[kind].v). */
+typedef struct DISC_STRUCT it_804D6D20_t {
+    DISC_PTR(ItemCommonData) x0;
+    DISC_PTR(DiscU32) x4;
+    DISC_PTR(DiscU32) x8;
+    DISC_PTR(DiscU32) xC;
+    DISC_PTR(it_804D6D40_t) x10;
+    DISC_PTR(Fighter_804D653C_t) x14;
 } it_804D6D20_t;
+DISC_ASSERT_SIZE(it_804D6D20_t, 0x18);
 
 /* 3F1418 */ extern struct sdata_ItemGXLink it_803F1418[43];
 /* 3F14C4 */ extern struct ItemLogicTable it_803F14C4[43];
@@ -47,10 +52,10 @@ typedef struct it_804D6D20_t {
 /* 4D6D18 */ extern u32 it_804D6D18;
 /* 4D6D1C */ extern u8 it_804D6D1C[4];
 /* 4D6D20 */ extern it_804D6D20_t* it_804D6D20;
-/* 4D6D24 */ extern Article** it_804D6D24;
+/* 4D6D24 */ extern DiscU32* it_804D6D24;
 /* 4D6D28 */ extern ItemCommonData* it_804D6D28;
-/* 4D6D30 */ extern Article** it_804D6D30;
-/* 4D6D38 */ extern Article** it_804D6D38;
+/* 4D6D30 */ extern DiscU32* it_804D6D30;
+/* 4D6D38 */ extern DiscU32* it_804D6D38;
 /* 4D6D40 */ extern it_804D6D40_t* it_804D6D40;
 
 #endif

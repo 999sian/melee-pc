@@ -164,7 +164,8 @@ static void ifAll_802F370C(SceneDesc* arg0)
     int i;
 
     gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint(arg0->models[0]->joint);
+    jobj = HSD_JObjLoadJoint(
+        DP(HSD_Joint, DP(DynamicModelDesc, DP(DiscU32, arg0->models)[0].v)->joint));
     ifAll_804A0FD8.x8 = jobj;
     lb_80011E24(jobj, &spC, 0xD, -1);
     lb_8000B1CC(spC, NULL, ifAll_GetTimerPosition());
@@ -209,7 +210,7 @@ void ifAll_802F390C(void)
     ifAll_802F370C(sp14);
 
     {
-        HSD_CObjDesc* desc = sp14->cameras[0].desc;
+        HSD_CObjDesc* desc = DP(HSD_CObjDesc, DP(struct SceneCameraDesc, sp14->cameras)[0].desc);
         HSD_GObj* gobj = GObj_Create(0x13, 0x14, 0);
         HSD_CObj* cobj = lb_80013B14((HSD_CameraDescPerspective*) desc);
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
@@ -218,7 +219,7 @@ void ifAll_802F390C(void)
         ifAll_804A0FD8.gobj = gobj;
     }
 
-    lightdesc = sp14->lights[0]->desc;
+    lightdesc = DP(HSD_LightDesc, DP(LightList, DP(DiscU32, sp14->lights)[0].v)->desc);
     {
         HSD_GObj* gobj = GObj_Create(0xE, 3, 0);
         HSD_LObj* lobj = HSD_LObjLoadDesc(lightdesc);

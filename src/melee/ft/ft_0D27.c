@@ -112,11 +112,11 @@ void fn_800D290C(Fighter_GObj* gobj)
 void fn_800D299C(Fighter_GObj* gobj, int idx, f32 arg8, f32 arg9)
 {
     static HSD_Joint lbl_803C6FF0 = {
-        NULL,
+        0,
         8,
-        NULL,
-        NULL,
-        { NULL },
+        0,
+        0,
+        { 0 },
         { 0.0F, 0.0F, 0.0F },
         { 1.0F, 1.0F, 1.0F },
         { 0.0F, 0.0F, 0.0F },

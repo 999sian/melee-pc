@@ -320,21 +320,22 @@ void ftCl_Init_OnLoad(HSD_GObj* gobj)
 
     Fighter* fp = gobj->user_data;
     ftData* ftdata = fp->ft_data;
-    ftLk_DatAttrs* ea = ftdata->ext_attr;
-    void** items = ftdata->x48_items;
+    ftLk_DatAttrs* ea = DP(ftLk_DatAttrs, ftdata->ext_attr);
+    DiscU32* items = DP(DiscU32, ftdata->x48_items);
 
     fp->can_walljump = true;
     ea->attackairlw_hit_anim_frame_end =
         lbAnim_8001E8F8(ftData_80085E50(fp, 72));
     ftLk_Init_OnLoadForCLink(fp);
     ea = fp->dat_attrs;
-    it_8026B3F8(items[0], ea->x48);
-    it_8026B3F8(items[1], ea->x2C);
-    it_8026B3F8(items[2], ea->xBC);
-    it_8026B3F8(items[3], ea->xC);
-    it_8026B3F8(items[4], ea->x10);
-    it_8026B3F8(items[5], It_Kind_CLink_Milk);
-    ftParts_800753D4(fp, Fighter_804D6540[fp->kind]->x0, items[6]);
+    it_8026B3F8((void*) (uintptr_t) items[0].v, ea->x48);
+    it_8026B3F8((void*) (uintptr_t) items[1].v, ea->x2C);
+    it_8026B3F8((void*) (uintptr_t) items[2].v, ea->xBC);
+    it_8026B3F8((void*) (uintptr_t) items[3].v, ea->xC);
+    it_8026B3F8((void*) (uintptr_t) items[4].v, ea->x10);
+    it_8026B3F8((void*) (uintptr_t) items[5].v, It_Kind_CLink_Milk);
+    struct Fighter_804D6540_t* t40 = (struct Fighter_804D6540_t*) (uintptr_t) Fighter_804D6540[fp->kind].v;
+    ftParts_800753D4(fp, DP(struct Fighter_804D6540_x0_t, t40->x0), (void*) (uintptr_t) items[6].v);
 }
 
 void ftCl_Init_OnItemPickupExt(HSD_GObj* gobj, bool flag)
@@ -404,7 +405,7 @@ void ftCl_Init_OnKnockbackExit(HSD_GObj* gobj)
 void ftCl_Init_80149114(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    ftLk_DatAttrs* ea = fp->ft_data->ext_attr;
+    ftLk_DatAttrs* ea = DP(ftLk_DatAttrs, fp->ft_data->ext_attr);
     float ftmp = ftCo_80092ED8(fp->x19A4, ea->xD8);
     fp->gr_vel = ftmp * p_ftCommonData->x294;
     if (fp->specialn_facing_dir < 0.0f) {

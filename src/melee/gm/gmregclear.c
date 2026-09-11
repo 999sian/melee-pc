@@ -42,9 +42,11 @@ struct lbl_80472D28_t {
     /* +30 */ HSD_ImageDesc x30;
     /* +48 */ HSD_Archive* x48;
     /* +4C */ DynamicModelDesc x4C;
-    /* +5C */ void* x5C;
-    /* +60 */ void* x60;
-    /* +64 */ char pad_64[0x20];
+    /* +5C */ DiscU32* x5C; /* LightList*[] */
+    /* +60 */ HSD_CObjDesc* x60;
+    /* +64 */ DiscU32* x64; /* HSD_CameraAnim*[] */
+    /* +68 */ struct SceneFogDesc* x68;
+    /* +6C */ char pad_6C[0x18];
     /* +84 */ HSD_Text* x84;
     /* +88 */ char pad_88[0x38];
     /* +C0 */ u16 xC0;
@@ -835,7 +837,7 @@ s32 fn_801803FC(void* arg0)
         OSReport("Error : gobj don\'t get (gmRegClearAddModel)\n");
         OSPanic(__FILE__, 0x42C, "");
     }
-    jobj = HSD_JObjLoadJoint(mdl->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mdl->joint));
     if (jobj == NULL) {
         OSReport("Error : jobj don\'t get (gmRegClearAddModel)\n");
         OSPanic(__FILE__, 0x432, "");
@@ -1055,7 +1057,7 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3,
             OSReport("Error : Cannot open archive file (File Name : %s).",
                      "GmRegClr");
         }
-        fn_80168A6C(scene_data, fn_80180630_GetModelDesc(state), 0);
+        fn_80168A6C(scene_data, &state->x4C, 0);
     }
 
     fn_80180630_CreateLightAndCamera(state, &cam_gobj);

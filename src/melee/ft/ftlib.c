@@ -340,8 +340,8 @@ void ftLib_800866DC(HSD_GObj* gobj, Vec3* v)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     struct ftCo_DatAttrs* r4 = &fp->co_attrs;
-    s32 i = fp->ft_data->x0->camera_zoom_target_bone;
-    lb_8000B1CC(ftLib_80086630(gobj, i), &r4->x170, v);
+    s32 i = DP(struct ftCo_DatAttrs, fp->ft_data->x0)->camera_zoom_target_bone;
+    lb_8000B1CC(ftLib_80086630(gobj, i), (Vec3*) &r4->x170, v);
 }
 
 void ftLib_80086724(HSD_GObj* gobj, HSD_GObj* other)
@@ -690,7 +690,7 @@ float ftLib_80086F80(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->invisible) {
-        return fp->ft_data->x0->name_tag_height;
+        return DP(struct ftCo_DatAttrs, fp->ft_data->x0)->name_tag_height;
     }
 
     return fp->co_attrs.name_tag_height;
@@ -942,7 +942,7 @@ s32 ftLib_8008746C(HSD_GObj* gobj)
         return 0x1FBD1;
     }
 
-    return fp->ft_data->x4C_sfx->x34;
+    return DP(FtSFX, fp->ft_data->x4C_sfx)->x34;
 }
 
 s32 ftLib_800874BC(HSD_GObj* gobj)

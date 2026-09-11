@@ -1382,25 +1382,30 @@ static void order_data_4A8(void)
 #endif
 
 /* 3FEED4 */ static HSD_WObjDesc _tyFigupon_803FEED4 = {
-    NULL,
+    0,
     { 0.0f, 0.0f, 50.0f },
-    NULL,
+    0,
 };
 /* 3FEEE8 */ static HSD_WObjDesc _tyFigupon_803FEEE8 = {
-    NULL,
+    0,
     { 0.0f, 0.0f, 0.0f },
-    NULL,
+    0,
 };
 /* 3FEEFC */ static HSD_CameraDescPerspective _tyFigupon_803FEEFC = {
-    NULL,
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
+#ifndef TARGET_PC
     &_tyFigupon_803FEED4,
     &_tyFigupon_803FEEE8,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     (float) 0x8000,
     40.0f,
@@ -1409,6 +1414,10 @@ static void order_data_4A8(void)
 
 void _tyFigupon_80317A60(void)
 {
+#ifdef TARGET_PC
+    DP_SET(_tyFigupon_803FEEFC.eyepos, &_tyFigupon_803FEED4);
+    DP_SET(_tyFigupon_803FEEFC.interest, &_tyFigupon_803FEEE8);
+#endif
     TyFiguponData* data = _tyFigupon_804D6EF0;
     HSD_CameraDescPerspective* cam_desc;
     HSD_CObj* cobj;

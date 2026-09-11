@@ -9,7 +9,7 @@
 
 #include <dolphin/mtx.h>
 
-/* 1D1018 */ void grStadium_OnDemoInit(int);
+/* 1D1018 */ void grStadium_OnDemoInit(bool);
 /* 1D101C */ void grStadium_OnInit(void);
 /* 1D10C8 */ void grStadium_OnLoad(void);
 /* 1D10CC */ void grStadium_OnStart(void);

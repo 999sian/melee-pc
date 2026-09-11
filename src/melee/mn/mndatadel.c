@@ -291,12 +291,13 @@ void mnDataDel_8024EEC0(void)
     assets = &mnDataDel_804A0938;
     data = mnDataDel_GetWarnData();
     wrn_modal = GObj_Create(6U, 7U, 0x80U);
-    root = HSD_JObjLoadJoint(assets->joint);
+    root = HSD_JObjLoadJoint(DP(HSD_Joint, assets->joint));
     HSD_GObjObject_80390A70(wrn_modal, HSD_GObj_JObjKind, root);
     GObj_SetupGXLink(wrn_modal, HSD_GObj_JObjCallback, 6U, 0x80U);
     HSD_GObj_SetupProc(wrn_modal, fn_8024ECCC, 0U);
-    HSD_JObjAddAnimAll(root, assets->animjoint, assets->matanim_joint,
-                       assets->shapeanim_joint);
+    HSD_JObjAddAnimAll(root, DP(HSD_AnimJoint, assets->animjoint),
+                       DP(HSD_MatAnimJoint, assets->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, assets->shapeanim_joint));
     HSD_JObjReqAnimAll(root, mnDataDel_803EF8A0.start_frame);
     HSD_JObjAnimAll(root);
     // hide arrow and progress bar
@@ -797,11 +798,12 @@ void mnDataDel_8024FE4C(u8 arg0)
     assets = &mnDataDel_804A0918;
     gobj = GObj_Create(6U, 7U, 0x80U);
     mnDataDel_804D6C68 = gobj;
-    root = HSD_JObjLoadJoint(assets->joint);
+    root = HSD_JObjLoadJoint(DP(HSD_Joint, assets->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, root);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4U, 0x80U);
-    HSD_JObjAddAnimAll(root, assets->animjoint, assets->matanim_joint,
-                       assets->shapeanim_joint);
+    HSD_JObjAddAnimAll(root, DP(HSD_AnimJoint, assets->animjoint),
+                       DP(HSD_MatAnimJoint, assets->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, assets->shapeanim_joint));
     HSD_JObjReqAnimAll(root, 0.0f);
     HSD_JObjAnimAll(root);
     user_data = HSD_MemAlloc(sizeof(*user_data));
@@ -828,9 +830,10 @@ void mnDataDel_8024FE4C(u8 arg0)
     proc->flags_3 = HSD_GObj_804D783C;
     assets = &mnDataDel_804A0928;
     for (i = 0; i < 6; i++) {
-        joint = HSD_JObjLoadJoint(assets->joint);
-        HSD_JObjAddAnimAll(joint, assets->animjoint, assets->matanim_joint,
-                           assets->shapeanim_joint);
+        joint = HSD_JObjLoadJoint(DP(HSD_Joint, assets->joint));
+        HSD_JObjAddAnimAll(joint, DP(HSD_AnimJoint, assets->animjoint),
+                           DP(HSD_MatAnimJoint, assets->matanim_joint),
+                           DP(HSD_ShapeAnimJoint, assets->shapeanim_joint));
         HSD_JObjReqAnimAll(joint, (f32) i);
         HSD_JObjAnimAll(joint);
         jobj = joint;
@@ -877,19 +880,34 @@ void mnDataDel_80250170(void)
     mn_804A04F0.hovered_selection = 0;
     mnDataDel_804D6C6C = NULL;
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(
-        archive, (void**) &assets[0].joint, "MenMainConDl_Top_joint",
-        &assets[0].animjoint, "MenMainConDl_Top_animjoint",
-        &assets[0].matanim_joint, "MenMainConDl_Top_matanim_joint",
-        &assets[0].shapeanim_joint, "MenMainConDl_Top_shapeanim_joint",
-        &assets[1].joint, "MenMainCursorDl_Top_joint", &assets[1].animjoint,
-        "MenMainCursorDl_Top_animjoint", &assets[1].matanim_joint,
-        "MenMainCursorDl_Top_matanim_joint", &assets[1].shapeanim_joint,
-        "MenMainCursorDl_Top_shapeanim_joint", &assets[2].joint,
-        "MenMainWarCmn_Top_joint", &assets[2].animjoint,
-        "MenMainWarCmn_Top_animjoint", &assets[2].matanim_joint,
-        "MenMainWarCmn_Top_matanim_joint", &assets[2].shapeanim_joint,
-        "MenMainWarCmn_Top_shapeanim_joint", 0);
+    {
+        void* dp_[12];
+        lbArchive_LoadSections(
+            archive, &dp_[0], "MenMainConDl_Top_joint",
+            &dp_[1], "MenMainConDl_Top_animjoint",
+            &dp_[2], "MenMainConDl_Top_matanim_joint",
+            &dp_[3], "MenMainConDl_Top_shapeanim_joint",
+            &dp_[4], "MenMainCursorDl_Top_joint", &dp_[5],
+            "MenMainCursorDl_Top_animjoint", &dp_[6],
+            "MenMainCursorDl_Top_matanim_joint", &dp_[7],
+            "MenMainCursorDl_Top_shapeanim_joint", &dp_[8],
+            "MenMainWarCmn_Top_joint", &dp_[9],
+            "MenMainWarCmn_Top_animjoint", &dp_[10],
+            "MenMainWarCmn_Top_matanim_joint", &dp_[11],
+            "MenMainWarCmn_Top_shapeanim_joint", 0);
+        DP_SET(assets[0].joint, dp_[0]);
+        DP_SET(assets[0].animjoint, dp_[1]);
+        DP_SET(assets[0].matanim_joint, dp_[2]);
+        DP_SET(assets[0].shapeanim_joint, dp_[3]);
+        DP_SET(assets[1].joint, dp_[4]);
+        DP_SET(assets[1].animjoint, dp_[5]);
+        DP_SET(assets[1].matanim_joint, dp_[6]);
+        DP_SET(assets[1].shapeanim_joint, dp_[7]);
+        DP_SET(assets[2].joint, dp_[8]);
+        DP_SET(assets[2].animjoint, dp_[9]);
+        DP_SET(assets[2].matanim_joint, dp_[10]);
+        DP_SET(assets[2].shapeanim_joint, dp_[11]);
+    }
     mnDataDel_8024FE4C(0U);
     proc = HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), fn_8024F840, 0U);
     proc->flags_3 = HSD_GObj_804D783C;

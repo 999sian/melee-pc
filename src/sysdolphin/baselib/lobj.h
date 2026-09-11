@@ -21,11 +21,12 @@ struct HSD_LightPoint {
     u32 dist_func;
 };
 
-struct HSD_LightPointDesc {
+struct DISC_STRUCT HSD_LightPointDesc {
     f32 ref_br;
     f32 ref_dist;
     u32 dist_func;
 };
+DISC_ASSERT_SIZE(HSD_LightPointDesc, 0xC);
 
 struct HSD_LightSpot {
     f32 cutoff;
@@ -35,13 +36,14 @@ struct HSD_LightSpot {
     u32 dist_func;
 };
 
-struct HSD_LightSpotDesc {
+struct DISC_STRUCT HSD_LightSpotDesc {
     f32 cutoff;
     u32 spot_func;
     f32 ref_br;
     f32 ref_dist;
     u32 dist_func;
 };
+DISC_ASSERT_SIZE(HSD_LightSpotDesc, 0x14);
 
 struct HSD_LightAttn {
     f32 a0;
@@ -51,6 +53,16 @@ struct HSD_LightAttn {
     f32 k1;
     f32 k2;
 };
+
+struct DISC_STRUCT HSD_LightAttnDesc {
+    f32 a0;
+    f32 a1;
+    f32 a2;
+    f32 k0;
+    f32 k1;
+    f32 k2;
+};
+DISC_ASSERT_SIZE(HSD_LightAttnDesc, 0x18);
 
 struct HSD_LObj {
     /* 0x00 - 0x04 */ HSD_Obj parent;
@@ -75,29 +87,31 @@ struct HSD_LObj {
     /* 0x94 */ GXLightObj spec_lightobj;
 };
 
-struct HSD_LightDesc {
-    /* 0x00 */ char* class_name;
-    /* 0x04 */ HSD_LightDesc* next;
+struct DISC_STRUCT HSD_LightDesc {
+    /* 0x00 */ DISC_PTR(char) class_name;
+    /* 0x04 */ DISC_PTR(HSD_LightDesc) next;
     /* 0x08 */ u16 flags;
     /* 0x0A */ u16 attnflags;
     /* 0x0C */ GXColor color;
-    /* 0x10 */ HSD_WObjDesc* position;
-    /* 0x14 */ HSD_WObjDesc* interest;
-    union {
-        void* p;
-        f32* shininess;
-        HSD_LightPointDesc* point;
-        HSD_LightSpotDesc* spot;
-        HSD_LightAttn* attn;
+    /* 0x10 */ DISC_PTR(HSD_WObjDesc) position;
+    /* 0x14 */ DISC_PTR(HSD_WObjDesc) interest;
+    union DISC_STRUCT {
+        DISC_PTR(void) p;
+        DISC_PTR(DiscF32) shininess;
+        DISC_PTR(HSD_LightPointDesc) point;
+        DISC_PTR(HSD_LightSpotDesc) spot;
+        DISC_PTR(HSD_LightAttnDesc) attn;
     } u;
 };
+DISC_ASSERT_SIZE(HSD_LightDesc, 0x1C);
 
-struct HSD_LightAnim {
-    HSD_LightAnim* next;
-    HSD_AObjDesc* aobjdesc;
-    HSD_WObjAnim* position_anim;
-    HSD_WObjAnim* interest_anim;
+struct DISC_STRUCT HSD_LightAnim {
+    DISC_PTR(HSD_LightAnim) next;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
+    DISC_PTR(HSD_WObjAnim) position_anim;
+    DISC_PTR(HSD_WObjAnim) interest_anim;
 };
+DISC_ASSERT_SIZE(HSD_LightAnim, 0x10);
 
 struct HSD_LObjInfo {
     HSD_ObjInfo parent;

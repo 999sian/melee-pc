@@ -13,9 +13,9 @@ struct ftPikachu_FighterVars {
     char filler0[FIGHTERVARS_SIZE];
 };
 
-typedef struct _ftPikachuAttributes {
-    Vec2 specialn_spawn_offset;
-    Vec2 specialairn_spawn_offset;
+typedef struct DISC_STRUCT _ftPikachuAttributes {
+    DiscVec2 specialn_spawn_offset;
+    DiscVec2 specialairn_spawn_offset;
     float specialairn_landing_lag;
     ItemKind specialn_itkind;
     ItemKind specialairn_itkind;
@@ -39,9 +39,9 @@ typedef struct _ftPikachuAttributes {
     s32 x60; // up b zip duration
     float x64;
     float x68; // up b angle offset 1
-    Vec3 x6C_scale;
+    DiscVec3 x6C_scale;
     float x78; // up b angle offset 2
-    Vec3 x7C_scale;
+    DiscVec3 x7C_scale;
     float x88;
     float x8C; // up b minimum stick magnitude
 
@@ -70,8 +70,9 @@ typedef struct _ftPikachuAttributes {
     s32 xD8;
     u32 xDC;
 
-    ftCollisionBox height_attributes;
+    ftCollisionBoxDisc height_attributes;
 } ftPikachuAttributes;
+DISC_ASSERT_SIZE(ftPikachuAttributes, 0xF8);
 
 union ftPikachu_MotionVars {
     /// @todo Proper state name.

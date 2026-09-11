@@ -353,28 +353,34 @@ extern ResultsData lbl_8046DBE8;
     { 0 },
 };
 
-/* 3D78E8 */ HSD_WObjDesc gmResultCameraEyeDesc = { NULL,
-                                                    { 0.0F, 0.0F, 62.0F },
-                                                    NULL };
-/* 3D78FC */ HSD_WObjDesc gmResultCameraInterestDesc = { NULL,
+/* 3D78E8 */ HSD_WObjDesc gmResultCameraEyeDesc = { 0, { 0.0F, 0.0F, 62.0F }, 0 };
+/* 3D78FC */ HSD_WObjDesc gmResultCameraInterestDesc = { 0,
                                                          { 0.0F, 0.0F, 0.0F },
-                                                         NULL };
+                                                         0 };
 
+/* eyepos/interest are DP_SET by gmResultCameraDescInit: disc slots can't hold
+ * link-time addresses. */
 /* 3D7910 */ HSD_CameraDescPerspective gmResultCameraDesc = {
-    NULL,
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
-    &gmResultCameraEyeDesc,
-    &gmResultCameraInterestDesc,
+    0,
+    0,
     0.0F,
-    NULL,
+    0,
     1.0F,
     5000.0F,
     19.999998F,
     1.216667F,
 };
+
+void gmResultCameraDescInit(void)
+{
+    DP_SET(gmResultCameraDesc.eyepos, &gmResultCameraEyeDesc);
+    DP_SET(gmResultCameraDesc.interest, &gmResultCameraInterestDesc);
+}
 
 /* 3D7948 */ char gmResultMissingGObjMessage[] =
     "Error : model gobj dont't find at gmResultSetViewPos\n";

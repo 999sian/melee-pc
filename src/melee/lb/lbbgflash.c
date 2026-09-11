@@ -53,25 +53,30 @@ static GXColor lbl_804D3848 = { 255, 255, 255, 255 };
 static GXColor lbl_804D384C = { 0, 0, 0, 0 };
 
 static HSD_WObjDesc lbl_803BB000 = {
-    NULL,
+    0,
     { 320.0f, -240.0f, 415.69220f },
 };
 
 static HSD_WObjDesc lbl_803BB014 = {
-    NULL,
+    0,
     { 320.0f, -240.0f, 0.0f },
 };
 
 HSD_CameraDescPerspective lbl_803BB028 = {
-    NULL,
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
+#ifndef TARGET_PC
     &lbl_803BB000,
     &lbl_803BB014,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     30000.0f,
     60.0f,
@@ -451,6 +456,10 @@ void lbBgFlash_800208EC(int arg0)
     u8 temp3;
 
     lbl_80433658.x44 = GObj_Create(0x14, 0x16, 0);
+#ifdef TARGET_PC
+    DP_SET(lbl_803BB028.eyepos, &lbl_803BB000);
+    DP_SET(lbl_803BB028.interest, &lbl_803BB014);
+#endif
 
     temp2 = (temp1 = HSD_CObjLoadDesc((HSD_CObjDesc*) &lbl_803BB028));
     temp3 = HSD_GObj_CameraKind;

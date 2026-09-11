@@ -7,7 +7,43 @@
 
 OSHeapHandle HSD_Synth_804D6018 = -1; // audio heap
 
-struct SfxLoadStreamNode;
+/* A loaded SSM bank: one head node (native) followed in the same allocation
+ * by the entry nodes. Entry nodes keep the on-disc 0x10-byte header layout
+ * (32-bit next slot) because the AX voice blocks that follow are addressed
+ * at fixed 0x40 strides from it. */
+struct SfxLoadStreamNode {
+    /* 0x00 */ struct SfxLoadStreamNode* x0; ///< next bank in the same bankID
+    /* 0x04 */ s32 x4;                       ///< DVD entrynum
+    /* 0x08 */ s32 x8;                       ///< first sfx id
+    /* 0x0C */ s32 xC;                       ///< entry count
+    /* 0x10 */ s32 x10;                      ///< ARAM offset of sample data
+    /* 0x14 */ s32 x14;                      ///< sample data bytes
+};
+
+/* AXPBADDR with the hi/lo address halves merged; the entry stream stores
+ * them big-endian and the readdress code patches them as u32. */
+struct DISC_STRUCT SfxVoiceAddr {
+    /* 0x00 */ u16 loopFlag;
+    /* 0x02 */ u16 format;
+    /* 0x04 */ u32 loopAddress;
+    /* 0x08 */ u32 endAddress;
+    /* 0x0C */ u32 currentAddress;
+};
+DISC_ASSERT_SIZE(struct SfxVoiceAddr, 0x10);
+
+/* One SSM entry, copied verbatim (big-endian) from the file's entry stream.
+ * The per-voice AX parameter blocks at 0x10 + i*0x40 stay big-endian and are
+ * handed to AXSetVoice* as-is: a real mixer must byte-swap them. */
+struct DISC_STRUCT foo {
+    /* 0x00 */ DISC_PTR(struct foo) next; ///< bucket chain
+    /* 0x04 */ int unk4;                  ///< sound ID
+    /* 0x08 */ int unk8;                  ///< voice count
+    /* 0x0C */ int unkC;                  ///< sample rate
+    /* 0x10 */ struct SfxVoiceAddr x10;
+    /* 0x20 */ AXPBADPCM x20;
+    /* 0x48 */ AXPBADPCMLOOP x48;
+};
+DISC_ASSERT_SIZE(struct foo, 0x50);
 
 /// Named after the assertion text pooled in this TU's `.data`.
 struct HSD_SynthSFXGroup {
@@ -45,7 +81,7 @@ struct HSD_SynthSFXNode {
 };
 
 static AXVPB* HSD_Synth_804C28E0[0x100 / 4];
-static void* HSD_Synth_804C29E0[0x80 / 4];
+static struct foo* HSD_Synth_804C29E0[0x80 / 4]; ///< entries by (id & 0x1F)
 static struct {
     /* 00 */ int entrynum;
     /* 04 */ int bankID;
@@ -53,7 +89,7 @@ static struct {
     /* 0C */ int xC;
 } HSD_Synth_804C2A60[6];
 static DiscU32 hsd_SynthSFXLoadBuf[0x20 / 4]; /* raw SSM header, big-endian */
-static AXVPB* HSD_Synth_804C2AE0[0x80 / 4];
+static struct SfxLoadStreamNode* HSD_Synth_804C2AE0[0x80 / 4];
 static int hsd_SynthSFXBank[0x80 / 4];
 static int hsd_SynthSFXBankHead[0x84 / 4];
 static struct HSD_SynthSFXNode hsd_SynthSFXNodes[0x40];
@@ -70,7 +106,9 @@ static int HSD_Synth_804C28E0_1844[HSD_SYNTHSFXGROUP_MAX];
 
 static u8 lbl_804C4524[0x1C];
 
-static struct {
+/* HPS block headers, DVD-loaded verbatim (big-endian). Words 3.. hold the
+ * per-channel AXPBADPCMLOOP blocks. */
+static struct DISC_STRUCT {
     /* 00 */ s32 x0;
     /* 04 */ s32 x4;
     /* 08 */ s32 x8;
@@ -82,7 +120,7 @@ static struct {
 /* 4D7728 */ static u32 hsd_SynthSFXBankAREnd;
 /* 4D772C */ static volatile int HSD_Synth_804D772C;
 /* 4D7730 */ static struct SfxLoadStreamNode* HSD_Synth_804D7730;
-/* 4D7734 */ static u32* HSD_Synth_804D7734;
+/* 4D7734 */ static DiscU32* HSD_Synth_804D7734;
 /* 4D7738 */ static int HSD_Synth_804D7738;
 /* 4D773C */ static volatile int sfxGroupDataReaddressCounter;
 /* 4D7740 */ static void (*driverInactivatedCallback)(int);

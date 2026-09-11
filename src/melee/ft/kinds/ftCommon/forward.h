@@ -5,6 +5,7 @@
 
 typedef struct ftHurtboxInit ftHurtboxInit;
 typedef struct ftCollisionBox ftCollisionBox;
+typedef struct ftCollisionBoxDisc ftCollisionBoxDisc;
 
 static MotionFlags const ftCommon_GroundAirColl_MF =
     Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim | Ft_MF_UpdateCmd |

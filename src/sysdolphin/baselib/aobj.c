@@ -192,7 +192,7 @@ HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc)
         HSD_AObjSetFlags(aobj, aobjdesc->flags);
         HSD_AObjSetRewindFrame(aobj, 0.0F);
         HSD_AObjSetEndFrame(aobj, aobjdesc->end_frame);
-        fobjdesc = aobjdesc->fobjdesc;
+        fobjdesc = DP(HSD_FObjDesc, aobjdesc->fobjdesc);
         fobj = HSD_FObjLoadDesc(fobjdesc);
         HSD_AObjSetFObj(aobj, fobj);
         id = aobjdesc->obj_id;

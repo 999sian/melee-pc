@@ -17,6 +17,14 @@
 #include <dolphin/pad.h>
 #include <dolphin/types.h>
 #include <melee/mn/types.h>
+#include <melee/sc/types.h>
+
+/* Disc pointer-array helpers: `slot` is a DISC_PTR(DiscU32) to T*[] on disc. */
+#define GM_DISC_ARR(T, slot, i) ((T*) (uintptr_t) DP(DiscU32, slot)[i].v)
+#define GM_SCENE_MODEL(sce, i) GM_DISC_ARR(DynamicModelDesc, (sce)->models, i)
+#define GM_SCENE_CAMERA(sce) DP(struct SceneCameraDesc, (sce)->cameras)
+#define GM_SCENE_FOG(sce) DP(struct SceneFogDesc, (sce)->fogs)
+#define GM_SCENE_LIGHTS(sce) DP(DiscU32, (sce)->lights)
 
 /// @deprecated Replace with inline bitfields
 typedef union UnkFlagStruct {

@@ -741,10 +741,11 @@ HSD_JObj* mnItemSw_80235020(u8 arg0, MnItemSwData* arg1)
     struct MnItemSwTable* tbl = mnItemSw_GetTable();
 
     hovered = (u8) mn_804A04F0.hovered_selection;
-    jobj = HSD_JObjLoadJoint(MenMainCursorIs_Top.joint);
-    HSD_JObjAddAnimAll(jobj, MenMainCursorIs_Top.animjoint,
-                       MenMainCursorIs_Top.matanim_joint,
-                       MenMainCursorIs_Top.shapeanim_joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, MenMainCursorIs_Top.joint));
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, MenMainCursorIs_Top.animjoint),
+                       DP(HSD_MatAnimJoint, MenMainCursorIs_Top.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          MenMainCursorIs_Top.shapeanim_joint));
     lb_80011E24(jobj, &sp14, 3, -1);
     item_val = arg0;
     HSD_JObjReqAnimAll(
@@ -841,13 +842,14 @@ HSD_GObj* mnItemSw_802351A0(s32 arg0)
 
     mnItemSw_804D6BE8 = gobj;
 
-    jobj = HSD_JObjLoadJoint(mdl->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mdl->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 6, 0x80);
     HSD_GObj_SetupProc(gobj, fn_80234C24, 0);
 
-    HSD_JObjAddAnimAll(jobj, mdl->animjoint, mdl->matanim_joint,
-                       mdl->shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, mdl->animjoint),
+                       DP(HSD_MatAnimJoint, mdl->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, mdl->shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_JObjAnimAll(jobj);
 

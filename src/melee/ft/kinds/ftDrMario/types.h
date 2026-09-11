@@ -3,7 +3,7 @@
 
 #include <Runtime/platform.h>
 
-typedef struct _ftDrMarioAttributes {
+typedef struct DISC_STRUCT _ftDrMarioAttributes {
     u8 pad_x0[4];
     u32 x4;
     u8 pad_x8[4];
@@ -11,5 +11,6 @@ typedef struct _ftDrMarioAttributes {
     u8 pad_x10[4];
     u32 x14;
 } ftDrMarioAttributes;
+DISC_ASSERT_SIZE(ftDrMarioAttributes, 0x18);
 
 #endif

@@ -16,7 +16,7 @@
 #include <melee/it/itgroundcoll.h>
 
 #define GET_ATTRS(ip)                                                         \
-    ((itSScopeAttributes*) (ip)->xC4_article_data->x4_specialAttributes)
+    DP(itSScopeAttributes, (ip)->xC4_article_data->x4_specialAttributes)
 
 ItemStateTable it_803F5F40[] = {
     { -1, itSscope_UnkMotion0_Anim, itSscope_UnkMotion0_Phys,
@@ -47,7 +47,7 @@ HSD_GObj* it_80291BE0(Vec3* arg0)
 void itSScope_Logic21_Spawned(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ip->xD4C = *(s32*) ip->xC4_article_data->x4_specialAttributes;
+    ip->xD4C = DP(DiscS32, ip->xC4_article_data->x4_specialAttributes)->v;
     it_802920B8(gobj);
 }
 
@@ -96,7 +96,7 @@ s32 it_80291D38(Item_GObj* gobj, s32 charge_level)
 static inline int it_80291DAC_level(Item_GObj* gobj, int arg1)
 {
     Item* ip = GET_ITEM(gobj);
-    itSScopeAttributes* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itSScopeAttributes* attrs = DP(itSScopeAttributes, ip->xC4_article_data->x4_specialAttributes);
     if (arg1 <= attrs->x4) {
         return 0;
     } else if (arg1 < attrs->x8 * 8) {

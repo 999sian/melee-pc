@@ -4304,10 +4304,13 @@ s32 mnCharSel_802640A0(void)
     GObj_SetupGXLink(gobj, (GObj_RenderFunc) (Event) fn_8026407C, 0, 0x80);
 
     gobj = GObj_Create(4, 5, 0x80);
-    jobj = HSD_JObjLoadJoint(css_models->background.joint);
-    HSD_JObjAddAnimAll(jobj, css_models->background.animjoint,
-                       css_models->background.matanim_joint,
-                       css_models->background.shapeanim_joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, css_models->background.joint));
+    HSD_JObjAddAnimAll(jobj,
+                       DP(HSD_AnimJoint, css_models->background.animjoint),
+                       DP(HSD_MatAnimJoint,
+                          css_models->background.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          css_models->background.shapeanim_joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 1, 0x80);
     HSD_GObj_SetupProc(gobj, fn_80263354, 4);
@@ -4316,16 +4319,22 @@ s32 mnCharSel_802640A0(void)
 
     mnCharSel_804D6CBC = GObj_Create(4, 5, 0x80);
     if (mnCharSel_804D6CF5 == 1) {
-        mnCharSel_804D6CC0 = HSD_JObjLoadJoint(css_models->regend_menu.joint);
+        mnCharSel_804D6CC0 =
+            HSD_JObjLoadJoint(DP(HSD_Joint, css_models->regend_menu.joint));
         HSD_JObjAddAnimAll(mnCharSel_804D6CC0,
-                           css_models->regend_menu.animjoint,
-                           css_models->regend_menu.matanim_joint,
-                           css_models->regend_menu.shapeanim_joint);
+                           DP(HSD_AnimJoint, css_models->regend_menu.animjoint),
+                           DP(HSD_MatAnimJoint,
+                              css_models->regend_menu.matanim_joint),
+                           DP(HSD_ShapeAnimJoint,
+                              css_models->regend_menu.shapeanim_joint));
     } else {
-        mnCharSel_804D6CC0 = HSD_JObjLoadJoint(css_models->menu.joint);
-        HSD_JObjAddAnimAll(mnCharSel_804D6CC0, css_models->menu.animjoint,
-                           css_models->menu.matanim_joint,
-                           css_models->menu.shapeanim_joint);
+        mnCharSel_804D6CC0 = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                                  css_models->menu.joint));
+        HSD_JObjAddAnimAll(mnCharSel_804D6CC0,
+                           DP(HSD_AnimJoint, css_models->menu.animjoint),
+                           DP(HSD_MatAnimJoint, css_models->menu.matanim_joint),
+                           DP(HSD_ShapeAnimJoint,
+                              css_models->menu.shapeanim_joint));
     }
     {
         u8 obj_kind = HSD_GObj_JObjKind;
@@ -4410,15 +4419,19 @@ s32 mnCharSel_802640A0(void)
         if (mt >= 0xFU && mt <= 0x16U) {
             gobj = GObj_Create(4, 5, 0x80);
             mnCharSel_804D6CC8 =
-                HSD_JObjLoadJoint(css_models->regend_options.joint);
+                HSD_JObjLoadJoint(DP(HSD_Joint,
+                                     css_models->regend_options.joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind,
                                     mnCharSel_804D6CC8);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 1, 0x80);
             HSD_GObj_SetupProc(gobj, fn_8025FB2C, 4);
             HSD_JObjAddAnimAll(mnCharSel_804D6CC8,
-                               css_models->regend_options.animjoint,
-                               css_models->regend_options.matanim_joint,
-                               css_models->regend_options.shapeanim_joint);
+                               DP(HSD_AnimJoint,
+                                  css_models->regend_options.animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  css_models->regend_options.matanim_joint),
+                               DP(HSD_ShapeAnimJoint,
+                                  css_models->regend_options.shapeanim_joint));
             HSD_JObjReqAnimAll(mnCharSel_804D6CC8, 0.0f);
             HSD_ForeachAnim(mnCharSel_804D6CC8, JOBJ_TYPE, ALL_TYPE_MASK,
                             HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
@@ -4428,13 +4441,16 @@ s32 mnCharSel_802640A0(void)
     if (mnCharSel_804D6CB0->match_type == 0x17) {
         u8 ck;
         gobj = GObj_Create(4, 5, 0x80);
-        mnCharSel_804D6CC4 = HSD_JObjLoadJoint(css_models->door.joint);
+        mnCharSel_804D6CC4 = HSD_JObjLoadJoint(DP(HSD_Joint,
+                                                  css_models->door.joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, mnCharSel_804D6CC4);
         GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 1, 0x80);
         HSD_GObj_SetupProc(gobj, fn_8025FB2C, 4);
-        HSD_JObjAddAnimAll(mnCharSel_804D6CC4, css_models->door.animjoint,
-                           css_models->door.matanim_joint,
-                           css_models->door.shapeanim_joint);
+        HSD_JObjAddAnimAll(mnCharSel_804D6CC4,
+                           DP(HSD_AnimJoint, css_models->door.animjoint),
+                           DP(HSD_MatAnimJoint, css_models->door.matanim_joint),
+                           DP(HSD_ShapeAnimJoint,
+                              css_models->door.shapeanim_joint));
         HSD_JObjReqAnimAll(mnCharSel_804D6CC4, 0.0f);
         HSD_ForeachAnim(mnCharSel_804D6CC4, JOBJ_TYPE, ALL_TYPE_MASK,
                         HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
@@ -4457,14 +4473,18 @@ s32 mnCharSel_802640A0(void)
 
     if (mnCharSel_804D6CB0->match_type == 1) {
         gobj = GObj_Create(4, 5, 0x80);
-        mnCharSel_804D6CCC = HSD_JObjLoadJoint(css_models->debug_camera.joint);
+        mnCharSel_804D6CCC =
+            HSD_JObjLoadJoint(DP(HSD_Joint, css_models->debug_camera.joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, mnCharSel_804D6CCC);
         GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
         HSD_GObj_SetupProc(gobj, fn_8025FAC0, 4);
         HSD_JObjAddAnimAll(mnCharSel_804D6CCC,
-                           css_models->debug_camera.animjoint,
-                           css_models->debug_camera.matanim_joint,
-                           css_models->debug_camera.shapeanim_joint);
+                           DP(HSD_AnimJoint,
+                              css_models->debug_camera.animjoint),
+                           DP(HSD_MatAnimJoint,
+                              css_models->debug_camera.matanim_joint),
+                           DP(HSD_ShapeAnimJoint,
+                              css_models->debug_camera.shapeanim_joint));
         HSD_JObjReqAnimAll(mnCharSel_804D6CCC, 0.0f);
     }
 
@@ -4472,15 +4492,16 @@ s32 mnCharSel_802640A0(void)
         HSD_GObj* cursor_gobj;
         struct CSSCursorData* cursor;
         cursor_gobj = GObj_Create(4, 5, 0x80);
-        jobj = HSD_JObjLoadJoint(css_models->hand.joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, css_models->hand.joint));
         cursor = HSD_MemAlloc(sizeof(*cursor));
         HSD_GObjObject_80390A70(cursor_gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(cursor_gobj, HSD_GObj_JObjCallback, 3, 0x80);
         HSD_GObj_SetupProc(cursor_gobj, mnCharSel_CursorThink, 1);
         GObj_InitUserData(cursor_gobj, 4, HSD_Free, cursor);
-        HSD_JObjAddAnimAll(jobj, css_models->hand.animjoint,
-                           css_models->hand.matanim_joint,
-                           css_models->hand.shapeanim_joint);
+        HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, css_models->hand.animjoint),
+                           DP(HSD_MatAnimJoint, css_models->hand.matanim_joint),
+                           DP(HSD_ShapeAnimJoint,
+                              css_models->hand.shapeanim_joint));
         HSD_JObjReqAnimAll(jobj, 0.0f);
         HSD_JObjAnimAll(jobj);
         HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
@@ -4500,7 +4521,7 @@ s32 mnCharSel_802640A0(void)
     for (i = 0, slot = 0; i < num_players; i++, slot++) {
         {
             HSD_GObj* model_gobj = GObj_Create(4, 5, 0x80);
-            jobj = HSD_JObjLoadJoint(css_models->token.joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, css_models->token.joint));
             {
                 int player;
                 struct CSSCharModel* model = HSD_MemAlloc(sizeof(*model));
@@ -4508,9 +4529,13 @@ s32 mnCharSel_802640A0(void)
                 GObj_InitUserData(model_gobj, 4, HSD_Free, model);
                 GObj_SetupGXLink(model_gobj, HSD_GObj_JObjCallback, 2, 0x80);
                 HSD_GObj_SetupProc(model_gobj, fn_80262648, 2);
-                HSD_JObjAddAnimAll(jobj, css_models->token.animjoint,
-                                   css_models->token.matanim_joint,
-                                   css_models->token.shapeanim_joint);
+                HSD_JObjAddAnimAll(jobj,
+                                   DP(HSD_AnimJoint,
+                                      css_models->token.animjoint),
+                                   DP(HSD_MatAnimJoint,
+                                      css_models->token.matanim_joint),
+                                   DP(HSD_ShapeAnimJoint,
+                                      css_models->token.shapeanim_joint));
                 HSD_JObjReqAnimAll(jobj, 0.0f);
                 {
                     HSD_JObj* anim_jobj = jobj;
@@ -5203,13 +5228,16 @@ s32 mnCharSel_802640A0(void)
     (void) ((u8*) text)[num_players];
     (void) icons[num_players];
     gobj = GObj_Create(4, 5, 0x80);
-    jobj = HSD_JObjLoadJoint(css_models->press_start.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, css_models->press_start.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
     HSD_GObj_SetupProc(gobj, fn_80262F44, 3);
-    HSD_JObjAddAnimAll(jobj, css_models->press_start.animjoint,
-                       css_models->press_start.matanim_joint,
-                       css_models->press_start.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj,
+                       DP(HSD_AnimJoint, css_models->press_start.animjoint),
+                       DP(HSD_MatAnimJoint,
+                          css_models->press_start.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          css_models->press_start.shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
                     AOBJ_ARG_AOV, 0, 0);

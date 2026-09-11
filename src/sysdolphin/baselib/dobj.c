@@ -87,7 +87,7 @@ void HSD_DObjAddAnim(HSD_DObj* dobj, HSD_MatAnim* mat_anim,
     }
 
     if (sh_anim != NULL) {
-        shapeanim = sh_anim->shapeanim;
+        shapeanim = DP(HSD_ShapeAnim, sh_anim->shapeanim);
     } else {
         shapeanim = NULL;
     }
@@ -108,7 +108,7 @@ void HSD_DObjAddAnimAll(HSD_DObj* dobj, HSD_MatAnim* matanim,
     }
 
     for (dp = dobj, ma = matanim, sd = shapeanimdobj; dp != NULL;
-         dp = dp->next, ma = next_p(ma), sd = next_p(sd))
+         dp = dp->next, ma = next_dp(HSD_MatAnim, ma), sd = next_dp(HSD_ShapeAnimDObj, sd))
     {
         HSD_DObjAddAnim(dp, ma, sd);
     }
@@ -175,9 +175,9 @@ void HSD_DObjAnimAll(HSD_DObj* dobj)
 
 static int DObjLoad(HSD_DObj* dobj, HSD_DObjDesc* desc)
 {
-    dobj->next = HSD_DObjLoadDesc(desc->next);
-    dobj->mobj = HSD_MObjLoadDesc(desc->mobjdesc);
-    dobj->pobj = HSD_PObjLoadDesc(desc->pobjdesc);
+    dobj->next = HSD_DObjLoadDesc(DP(HSD_DObjDesc, desc->next));
+    dobj->mobj = HSD_MObjLoadDesc(DP(HSD_MObjDesc, desc->mobjdesc));
+    dobj->pobj = HSD_PObjLoadDesc(DP(HSD_PObjDesc, desc->pobjdesc));
 
     if (dobj->mobj != NULL) {
         switch (dobj->mobj->rendermode & 0x60000000) {
@@ -208,8 +208,8 @@ HSD_DObj* HSD_DObjLoadDesc(HSD_DObjDesc* desc)
         return NULL;
     }
 
-    if (desc->class_name == NULL ||
-        (info = hsdSearchClassInfo(desc->class_name)) == NULL)
+    if (desc->class_name == 0 ||
+        (info = hsdSearchClassInfo(DP(char, desc->class_name))) == NULL)
     {
         dobj = HSD_DObjAlloc();
     } else {
@@ -265,12 +265,12 @@ void HSD_DObjResolveRefs(HSD_DObj* dobj, HSD_DObjDesc* desc)
     if (dobj == NULL || desc == NULL) {
         return;
     }
-    HSD_PObjResolveRefsAll(dobj->pobj, desc->pobjdesc);
+    HSD_PObjResolveRefsAll(dobj->pobj, DP(HSD_PObjDesc, desc->pobjdesc));
 }
 
 void HSD_DObjResolveRefsAll(HSD_DObj* dobj, HSD_DObjDesc* desc)
 {
-    for (; dobj != NULL && desc != NULL; dobj = dobj->next, desc = desc->next)
+    for (; dobj != NULL && desc != NULL; dobj = dobj->next, desc = DP(HSD_DObjDesc, desc->next))
     {
         HSD_DObjResolveRefs(dobj, desc);
     }

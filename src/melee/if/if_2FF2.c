@@ -17,52 +17,52 @@
 #include <sysdolphin/baselib/wobj.h>
 
 /* 3F9E38 */ static HSD_WObjDesc eyepos = {
-    NULL,
+    0,
     { 0.0f, 40.241425f, 100.24099f },
-    NULL,
+    0,
 };
 
 static HSD_WObjDesc interest = {
-    NULL,
+    0,
     { 0.0f, 10.0f, 0.0f },
-    NULL,
+    0,
 };
 
 /// @todo ::HSD_CameraDescFrustum without `left` or `right`
-/* 3F9E60 */ static struct fake_HSD_CObjDesc {
-    char* class_name;
+/* 3F9E60 */ static struct DISC_STRUCT fake_HSD_CObjDesc {
+    DISC_PTR(char) class_name;
     u16 flags;
     u16 projection_type;
-    HSD_RectS16 viewport;
-    Scissor scissor;
-    HSD_WObjDesc* eyepos;
-    HSD_WObjDesc* interest;
+    DiscRectS16 viewport;
+    DiscScissor scissor;
+    DISC_PTR(HSD_WObjDesc) eyepos;
+    DISC_PTR(HSD_WObjDesc) interest;
     f32 roll;
-    Vec3* up_vector;
+    DISC_PTR(DiscVec3) up_vector;
     f32 nnear;
     f32 ffar;
     f32 top;
     f32 bottom;
 } un_803F9E60 = {
-    NULL,
+    0,
     0,
     (1 << 0),
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
-    &eyepos,
-    &interest,
+    0, /* &eyepos, set in un_802FF710 */
+    0, /* &interest */
     0.0f,
-    NULL,
+    0,
     0.1f,
     32.0f * 1024,
     30.0f,
     1.18f,
 };
-ASSERT_SIZE(un_803F9E60, 0x38);
+DISC_ASSERT_SIZE(un_803F9E60, 0x38);
 
 /// @todo Clean up @c pos values; x and y seem like portions of 20
 /* 3F9E98 */ static HSD_WObjDesc light_position = {
-    NULL,
+    0,
     { 6.360198974609375f, 14.9432392120f, 59.982383728027344f },
 };
 
@@ -73,17 +73,17 @@ ASSERT_SIZE(un_803F9E60, 0x38);
 };
 
 /* 3F9EB8 */ static HSD_LightDesc light0 = {
-    NULL,
-    NULL,
+    0,
+    0,
     (1 << 3),
     0,
     { 0xFF, 0xFF, 0xFF, 0xFF },
-    &light_position,
-    NULL,
-    &light_point,
+    0, /* &light_position, set in un_802FF6A0 */
+    0,
+    { 0 }, /* &light_point */
 };
 /* 3F9ED4 */ static HSD_LightDesc light1 = {
-    NULL, &light0, (1 << 0), 0, { 0xFF, 0xFF, 0xFF, 0xFF }, NULL, NULL, NULL,
+    0, 0 /* &light0 */, (1 << 0), 0, { 0xFF, 0xFF, 0xFF, 0xFF }, 0, 0, { 0 },
 };
 
 /// .bss
@@ -234,6 +234,9 @@ void un_802FF6A0(void)
 {
     HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_LIGHT, 3, 0);
     HSD_LObj* new_var;
+    DP_SET(light0.position, &light_position);
+    DP_SET(light0.u.point, &light_point);
+    DP_SET(light1.next, &light0);
     new_var = HSD_LObjLoadDesc(&light1);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_LightKind, new_var);
     GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0, 0);
@@ -244,6 +247,8 @@ void un_802FF710(void)
     HSD_CObj* new_var;
     HSD_GObj* gobj = GObj_Create(0x13, 20, 0);
     if (gobj) {
+        DP_SET(un_803F9E60.eyepos, &eyepos);
+        DP_SET(un_803F9E60.interest, &interest);
         new_var = HSD_CObjLoadDesc((HSD_CObjDesc*) &un_803F9E60);
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, new_var);
         GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 11);

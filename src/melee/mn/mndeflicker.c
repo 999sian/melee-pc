@@ -143,13 +143,14 @@ void mnDeflicker_8024A4BC(HSD_GObj* arg0)
 
     gobj = GObj_Create(HSD_GOBJ_CLASS_ITEM, 7U, 0x80);
     mnDeflicker_804D6C38 = gobj;
-    jobj = HSD_JObjLoadJoint(mnDeflicker_804A08B8.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnDeflicker_804A08B8.joint));
     temp_r29 = HSD_GObj_JObjKind; // ty permuter, why does this fix everything?
     HSD_GObjObject_80390A70(gobj, temp_r29, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
-    HSD_JObjAddAnimAll(jobj, mnDeflicker_804A08B8.animjoint,
-                       mnDeflicker_804A08B8.matanim_joint,
-                       mnDeflicker_804A08B8.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, mnDeflicker_804A08B8.animjoint),
+                       DP(HSD_MatAnimJoint, mnDeflicker_804A08B8.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          mnDeflicker_804A08B8.shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
     user_data = HSD_MemAlloc(sizeof(*user_data));
@@ -182,13 +183,20 @@ void mnDeflicker_8024A6C4(HSD_GObj* arg0)
     mn_804A04F0.hovered_selection = 0;
     mnDeflicker_804D6C3C = 0;
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(
-        archive, (void**) &mnDeflicker_804A08B8.joint,
-        "MenMainConDf_Top_joint", &mnDeflicker_804A08B8.animjoint,
-        "MenMainConDf_Top_animjoint", &mnDeflicker_804A08B8.matanim_joint,
-        "MenMainConDf_Top_matanim_joint",
-        &mnDeflicker_804A08B8.shapeanim_joint,
-        "MenMainConDf_Top_shapeanim_joint", 0);
+    {
+        void* dp_[4];
+        lbArchive_LoadSections(
+            archive, &dp_[0],
+            "MenMainConDf_Top_joint", &dp_[1],
+            "MenMainConDf_Top_animjoint", &dp_[2],
+            "MenMainConDf_Top_matanim_joint",
+            &dp_[3],
+            "MenMainConDf_Top_shapeanim_joint", 0);
+        DP_SET(mnDeflicker_804A08B8.joint, dp_[0]);
+        DP_SET(mnDeflicker_804A08B8.animjoint, dp_[1]);
+        DP_SET(mnDeflicker_804A08B8.matanim_joint, dp_[2]);
+        DP_SET(mnDeflicker_804A08B8.shapeanim_joint, dp_[3]);
+    }
     mnDeflicker_8024A4BC(arg0);
     temp_r3 =
         HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80), mnDeflicker_8024A168, 0);

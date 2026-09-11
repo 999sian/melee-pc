@@ -12,7 +12,7 @@ struct ftYoshi_FighterVars {
     /* 0x2238 */ Item_GObj* x2238;
 };
 
-typedef struct _ftYoshiAttributes { // x2D4 (fp->dat_attrs)
+typedef struct DISC_STRUCT _ftYoshiAttributes { // x2D4 (fp->dat_attrs)
     s32 x0;
     float x4;
     float x8;
@@ -28,7 +28,7 @@ typedef struct _ftYoshiAttributes { // x2D4 (fp->dat_attrs)
     float x30;
     float x34;
     int x38;
-    Vec2 x3C;
+    DiscVec2 x3C;
     float x44;
     int x48;
     int x4C;
@@ -80,14 +80,14 @@ typedef struct _ftYoshiAttributes { // x2D4 (fp->dat_attrs)
     float x128;
     u8 x12C[0x138 - 0x12C];
 } ftYoshiAttributes;
-ASSERT_SIZE(struct _ftYoshiAttributes, 0x138);
+DISC_ASSERT_SIZE(struct _ftYoshiAttributes, 0x138);
 
-struct ftYs_DatAttrs {
+struct DISC_STRUCT ftYs_DatAttrs {
     /*   +0 */ char pad_0[0x10];
-    /*  +10 */ Vec2 x10;
+    /*  +10 */ DiscVec2 x10;
     /*  +18 */ float x18;
-    /*  +1C */ UNK_T x1C;
-    /*  +20 */ UNK_T x20;
+    /*  +1C */ DISC_PTR(void) x1C;
+    /*  +20 */ DISC_PTR(void) x20;
     /*  +24 */ float x24;
     /*  +28 */ char pad_28[0xEC - 0x28];
     /*  +EC */ float xEC;
@@ -101,9 +101,9 @@ struct ftYs_DatAttrs {
     /* +10C */ float x10C;
     /* +110 */ float x110;
     /* +114 */ char pad_114[0x118 - 0x114];
-    /* +118 */ Vec2 speciallw_star_offset;
+    /* +118 */ DiscVec2 speciallw_star_offset;
 };
-ASSERT_SIZE(struct ftYs_DatAttrs, 0x120);
+DISC_ASSERT_SIZE(struct ftYs_DatAttrs, 0x120);
 
 struct S_UNK_YOSHI2 {
     s32 x0;

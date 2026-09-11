@@ -838,12 +838,13 @@ HSD_GObj* mn_80233218(MenuState state)
     desc = &MenMainConRl_Top;
     gobj = GObj_Create(6, 7, 0x80);
     mn_804D6BE0 = gobj;
-    root_jobj = HSD_JObjLoadJoint(desc->joint);
+    root_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, desc->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, root_jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
     HSD_GObj_SetupProc(gobj, fn_80232F44, 0);
-    HSD_JObjAddAnimAll(root_jobj, desc->animjoint, desc->matanim_joint,
-                       desc->shapeanim_joint);
+    HSD_JObjAddAnimAll(root_jobj, DP(HSD_AnimJoint, desc->animjoint),
+                       DP(HSD_MatAnimJoint, desc->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, desc->shapeanim_joint));
     HSD_JObjReqAnimAll(root_jobj, 0.0f);
     HSD_JObjAnimAll(root_jobj);
 
@@ -918,9 +919,11 @@ HSD_GObj* mn_80233218(MenuState state)
 
         if (visible != 0) {
             desc = &MenMainCursorRl_Top;
-            cursor_jobj = HSD_JObjLoadJoint(desc->joint);
-            HSD_JObjAddAnimAll(cursor_jobj, desc->animjoint,
-                               desc->matanim_joint, desc->shapeanim_joint);
+            cursor_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, desc->joint));
+            HSD_JObjAddAnimAll(cursor_jobj, DP(HSD_AnimJoint, desc->animjoint),
+                               DP(HSD_MatAnimJoint,
+                                  desc->matanim_joint), DP(HSD_ShapeAnimJoint,
+                                  desc->shapeanim_joint));
             HSD_JObjReqAnimAll(cursor_jobj, 0.0f);
             HSD_JObjAnimAll(cursor_jobj);
 
@@ -982,9 +985,12 @@ HSD_GObj* mn_80233218(MenuState state)
                     break;
                 }
 
-                value_jobj = HSD_JObjLoadJoint(desc->joint);
-                HSD_JObjAddAnimAll(value_jobj, desc->animjoint,
-                                   desc->matanim_joint, desc->shapeanim_joint);
+                value_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, desc->joint));
+                HSD_JObjAddAnimAll(value_jobj,
+                                   DP(HSD_AnimJoint, desc->animjoint),
+                                   DP(HSD_MatAnimJoint, desc->matanim_joint),
+                                   DP(HSD_ShapeAnimJoint,
+                                      desc->shapeanim_joint));
                 HSD_JObjReqAnimAll(value_jobj, 0.0f);
                 HSD_JObjAnimAll(value_jobj);
 
@@ -999,10 +1005,15 @@ HSD_GObj* mn_80233218(MenuState state)
                     index_ptr = digit_indices.idx;
                     for (j = 0; j < 4; j++, index_ptr++) {
                         HSD_JObj* num_jobj =
-                            HSD_JObjLoadJoint(MenMainNmRl_Top.joint);
-                        HSD_JObjAddAnimAll(num_jobj, MenMainNmRl_Top.animjoint,
-                                           MenMainNmRl_Top.matanim_joint,
-                                           MenMainNmRl_Top.shapeanim_joint);
+                            HSD_JObjLoadJoint(DP(HSD_Joint,
+                                                 MenMainNmRl_Top.joint));
+                        HSD_JObjAddAnimAll(num_jobj,
+                                           DP(HSD_AnimJoint,
+                                              MenMainNmRl_Top.animjoint),
+                                           DP(HSD_MatAnimJoint,
+                                              MenMainNmRl_Top.matanim_joint),
+                                           DP(HSD_ShapeAnimJoint,
+                                              MenMainNmRl_Top.shapeanim_joint));
                         HSD_JObjAddChild(user_data->x34[0][*index_ptr],
                                          num_jobj);
                     }

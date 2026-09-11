@@ -71,13 +71,13 @@ static void order_sdata2(Item* ip)
 bool itNokonoko_Logic3_DmgReceived(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itNokoNoko_DatAttrs* da = ip->xC4_article_data->x4_specialAttributes;
+    itNokoNoko_DatAttrs* da = DP(itNokoNoko_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(4);
     ip->init_facing_dir = ip->facing_dir;
     ip->xC9C = (s32) ((f32) ip->xC9C + it_8027CBFC(gobj));
     if (ip->msid == 0xA) {
         it_802DD78C(gobj);
-    } else if (ip->xC9C > da->x0->x0) {
+    } else if (ip->xC9C > DP(itNokoNoko_DatAttrs2, da->x0)->x0) {
         it_802DCFBC(gobj);
     } else {
         it_802DCCCC(gobj);
@@ -129,14 +129,14 @@ bool itNokonoko_UnkMotion1_Coll(Item_GObj* gobj)
 void it_802DC990(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itNokoNoko_DatAttrs* da = ip->xC4_article_data->x4_specialAttributes;
-    ip->x40_vel.x = ip->facing_dir * da->x0->x4;
+    itNokoNoko_DatAttrs* da = DP(itNokoNoko_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
+    ip->x40_vel.x = ip->facing_dir * DP(itNokoNoko_DatAttrs2, da->x0)->x4;
     ip->x40_vel.z = 0.0f;
     ip->x40_vel.y = 0.0f;
     coll_inline(ip);
     it_802756E0(gobj);
     if (ip->xDD4_itemVar.nokonoko.x20 == 0) {
-        ip->xDD4_itemVar.nokonoko.x20 = (s32) (da->x8 / da->x0->x4);
+        ip->xDD4_itemVar.nokonoko.x20 = (s32) (da->x8 / DP(itNokoNoko_DatAttrs2, da->x0)->x4);
     }
     it_802DD4A8(gobj, 2, ITEM_ANIM_UPDATE);
 }
@@ -182,7 +182,7 @@ bool itNokonoko_UnkMotion2_Coll(Item_GObj* gobj)
 void it_802DCB9C(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itNokoNoko_DatAttrs* da = ip->xC4_article_data->x4_specialAttributes;
+    itNokoNoko_DatAttrs* da = DP(itNokoNoko_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     ip->x40_vel.x *= da->x4;
     ip->xDD4_itemVar.nokonoko.x28 = 0.0f;
     if (((ip->facing_dir > 0.0f) && (ip->x70_nudge.x < 0.0f)) ||
@@ -449,7 +449,7 @@ void itNokonoko_UnkMotion9_Phys(HSD_GObj* gobj) {}
 static void it_802DD59C_inline(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itNokoNoko_DatAttrs* da = ip->xC4_article_data->x4_specialAttributes;
+    itNokoNoko_DatAttrs* da = DP(itNokoNoko_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     f32 temp_f2;
     ip->x40_vel.x *= da->x4;
     ip->xDD4_itemVar.nokonoko.x28 = 0.0f;

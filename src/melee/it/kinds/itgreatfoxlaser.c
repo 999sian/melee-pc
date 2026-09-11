@@ -46,8 +46,8 @@ Item_GObj* it_802EAF34(HSD_GObj* owner, Vec3* offset, int type)
     item_gobj = Item_80268B18(&spawn);
     if (item_gobj != NULL) {
         Item* ip = GET_ITEM(item_gobj);
-        itGreatFoxLaser_Attrs* attr =
-            ip->xC4_article_data->x4_specialAttributes;
+        itGreatFoxLaser_Attrs* attr = DP(
+            itGreatFoxLaser_Attrs, ip->xC4_article_data->x4_specialAttributes);
         ip->scl = Ground_801C0498();
         HSD_JObjSetScaleX(item_gobj->hsd_obj, ip->scl);
         HSD_JObjSetScaleY(item_gobj->hsd_obj, ip->scl);
@@ -91,7 +91,8 @@ void it_802EB268(Item_GObj* gobj)
 bool itGreatfoxlaser_UnkMotion1_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGreatFoxLaser_Attrs* attr = ip->xC4_article_data->x4_specialAttributes;
+    itGreatFoxLaser_Attrs* attr =
+        DP(itGreatFoxLaser_Attrs, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* jobj;
     Vec3 offset;
     PAD_STACK(12);

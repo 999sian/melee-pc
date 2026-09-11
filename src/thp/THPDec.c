@@ -1,5 +1,8 @@
 #include <dolphin.h>
 #include <dolphin/thp/thp.h>
+#include <string.h>
+void __dcbz(void* base, u32 offset);
+u32 __cntlzw(u32 x);
 
 #ifdef __MWERKS__
 #define THP_SDATA __declspec(section ".sdata")

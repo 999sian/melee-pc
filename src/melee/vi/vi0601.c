@@ -87,16 +87,17 @@ void un_8031E9B8(void)
     PAD_STACK(2 * 4);
 
     gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint((*un_804D6FB0->models)->joint);
+    jobj = HSD_JObjLoadJoint(
+        DP(HSD_Joint, vi_SceneModel(un_804D6FB0, 0)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
-    gm_8016895C(jobj, *un_804D6FB0->models, 0);
+    gm_8016895C(jobj, vi_SceneModel(un_804D6FB0, 0), 0);
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_JObjAnimAll(jobj);
     HSD_GObj_SetupProc(gobj, vi_8031E6EC, 0x17);
 
     i = 0;
-    while (un_804D6FB0->models[i] != NULL) {
+    while (vi_SceneModel(un_804D6FB0, i) != NULL) {
         if ((u32) (i - 1) <= 2) {
             if ((gobj = grCorneria_801E1BF0())->hsd_obj == NULL) {
                 child = NULL;
@@ -104,7 +105,7 @@ void un_8031E9B8(void)
                 child = ((HSD_JObj*) gobj->hsd_obj)->child;
             }
             HSD_GObj_SetupProc(gobj, fn_8031E800, 2);
-            gm_8016895C(child, un_804D6FB0->models[i], 0);
+            gm_8016895C(child, vi_SceneModel(un_804D6FB0, i), 0);
             HSD_JObjReqAnimAll(child, 0.0f);
             HSD_JObjAnimAll(child);
         }
@@ -151,11 +152,10 @@ void vi0601_Scene_OnEnter(UNUSED void* enter_data)
     lbArchive_LoadSymbols("Vi0601.dat", &un_804D6FB0, "visual0601Scene", NULL);
 
     gobj = GObj_Create(0x13, 0x14, 0);
-    cobj =
-        lb_80013B14((HSD_CameraDescPerspective*) un_804D6FB0->cameras->desc);
+    cobj = lb_80013B14(vi_SceneCamDesc(un_804D6FB0));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, vi0601_GObj_OnRender, 2);
-    HSD_CObjAddAnim(cobj, un_804D6FB0->cameras->anims[0]);
+    HSD_CObjAddAnim(cobj, vi_SceneCamAnim(un_804D6FB0, 0));
     HSD_CObjReqAnim(cobj, 0.0f);
     HSD_CObjAnim(cobj);
     HSD_GObj_SetupProc(gobj, vi0601_RunFrame, 0);
@@ -174,7 +174,7 @@ void vi0601_Scene_OnEnter(UNUSED void* enter_data)
     un_8031E9B8();
 
     gobj2 = GObj_Create(0xB, 3, 0);
-    lobj = lb_80011AC4(un_804D6FB0->lights);
+    lobj = lb_80011AC4(DP(DiscU32, un_804D6FB0->lights));
     HSD_GObjObject_80390A70(gobj2, HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(gobj2, HSD_GObj_LObjCallback, 0, 0);
 

@@ -300,11 +300,12 @@ void mnSound_80249C08(int unused)
     UNUSED HSD_GObjProc* proc;
     HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_ITEM, 7U, 0x80U);
     mnSound_804D6C30 = gobj;
-    jobj = HSD_JObjLoadJoint(model->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4U, 0x80);
-    HSD_JObjAddAnimAll(jobj, model->animjoint, model->matanim_joint,
-                       model->shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model->animjoint),
+                       DP(HSD_MatAnimJoint, model->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, model->shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0F);
     user_data = HSD_MemAlloc(sizeof(Menu));
     HSD_ASSERTREPORT(0x22CU, user_data, "Can't get user_data.\n");
@@ -372,12 +373,19 @@ void mnSound_8024A09C(int arg0)
     mn_804A04F0.cur_menu = MENU_KIND_SETTINGS_SOUND;
     mn_804A04F0.hovered_selection = 0;
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(
-        archive, (void**) &mnSound_804A08A8.joint, "MenMainConSo_Top_joint",
-        &mnSound_804A08A8.animjoint, "MenMainConSo_Top_animjoint",
-        &mnSound_804A08A8.matanim_joint, "MenMainConSo_Top_matanim_joint",
-        &mnSound_804A08A8.shapeanim_joint, "MenMainConSo_Top_shapeanim_joint",
-        0);
+    {
+        void* dp_[4];
+        lbArchive_LoadSections(
+            archive, &dp_[0], "MenMainConSo_Top_joint",
+            &dp_[1], "MenMainConSo_Top_animjoint",
+            &dp_[2], "MenMainConSo_Top_matanim_joint",
+            &dp_[3], "MenMainConSo_Top_shapeanim_joint",
+            0);
+        DP_SET(mnSound_804A08A8.joint, dp_[0]);
+        DP_SET(mnSound_804A08A8.animjoint, dp_[1]);
+        DP_SET(mnSound_804A08A8.matanim_joint, dp_[2]);
+        DP_SET(mnSound_804A08A8.shapeanim_joint, dp_[3]);
+    }
     mnSound_80249C08(arg0);
     proc = HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80), mnSound_802492CC, 0);
     proc->flags_3 = HSD_GObj_804D783C;

@@ -130,7 +130,7 @@ void it_802ECE90(Item_GObj* gobj)
 void it_802ECEB0(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itOldottoseaAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itOldottoseaAttributes* attr = DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
     ip->x40_vel.x = attr->x4 * ip->facing_dir;
     ip->x40_vel.z = 0.0F;
     ip->x40_vel.y = 0.0F;
@@ -142,7 +142,7 @@ bool itKyasarin_UnkMotion0_Anim(Item_GObj* gobj)
     if (!it_80272C6C(gobj)) {
         Item* ip = GET_ITEM(gobj);
         itOldottoseaAttributes* attr =
-            ip->xC4_article_data->x4_specialAttributes;
+            DP(itOldottoseaAttributes, ip->xC4_article_data->x4_specialAttributes);
         ip->x40_vel.x = attr->x4 * ip->facing_dir;
         ip->x40_vel.z = 0.0F;
         ip->x40_vel.y = 0.0F;
@@ -154,7 +154,7 @@ bool itKyasarin_UnkMotion0_Anim(Item_GObj* gobj)
 bool itKyasarin_UnkMotion0_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
     if (ip->facing_dir == 1.0f) {
         if (ip->pos.x >= attr->x2C) {
             it_802ECFE0(gobj);
@@ -170,7 +170,7 @@ bool itKyasarin_UnkMotion0_Coll(Item_GObj* gobj)
 void it_802ECFE0(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
     Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
     it_80273454(gobj);
     ip->xDD4_itemVar.kyasarin.x24 = attr->x8;
@@ -199,7 +199,7 @@ bool itKyasarin_UnkMotion3_Anim(Item_GObj* gobj)
 void it_802ED0D0(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
     ip->x40_vel.x = -attr->x4 * ip->facing_dir;
     ip->x40_vel.z = 0.0F;
     ip->x40_vel.y = 0.0F;
@@ -211,7 +211,7 @@ bool itKyasarin_UnkMotion2_Anim(Item_GObj* gobj)
     if (!it_80272C6C(gobj)) {
         Item* ip = GET_ITEM(gobj);
         itKyasarinAttributes* attr =
-            ip->xC4_article_data->x4_specialAttributes;
+            DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
         ip->x40_vel.x = -attr->x4 * ip->facing_dir;
         ip->x40_vel.z = 0.0F;
         ip->x40_vel.y = 0.0F;
@@ -223,7 +223,7 @@ bool itKyasarin_UnkMotion2_Anim(Item_GObj* gobj)
 bool itKyasarin_UnkMotion2_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
     if (ip->facing_dir == 1.0F) {
         if (ip->pos.x <= attr->x34) {
@@ -244,7 +244,7 @@ bool itKyasarin_UnkMotion2_Coll(Item_GObj* gobj)
 void it_802ED25C(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
     ip->x40_vel.x = attr->x4 * ip->facing_dir;
     ip->x40_vel.z = 0.0F;
     ip->x40_vel.y = 0.0F;
@@ -256,7 +256,7 @@ bool itKyasarin_UnkMotion4_Anim(Item_GObj* gobj)
     if (!it_80272C6C(gobj)) {
         Item* ip = GET_ITEM(gobj);
         itKyasarinAttributes* attr =
-            ip->xC4_article_data->x4_specialAttributes;
+            DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
         ip->x40_vel.x = attr->x4 * ip->facing_dir;
         ip->x40_vel.z = 0.0F;
         ip->x40_vel.y = 0.0F;
@@ -273,7 +273,7 @@ static inline s32 itKyasarin_Randi(s32 range)
 bool itKyasarin_UnkMotion4_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (ip->facing_dir == 1.0f) {
         if (ip->pos.x >= attr->x2C) {
@@ -316,7 +316,7 @@ static inline void itKyasarin_TurnAround(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     it_802ED8BC(gobj);
     if (ip->xDD4_itemVar.kyasarin.x30 == -1.0f) {
@@ -361,7 +361,7 @@ bool itKyasarin_UnkMotion7_Anim(Item_GObj* gobj)
 
     if (!it_80272C6C(gobj)) {
         itKyasarinAttributes* attr =
-            ip->xC4_article_data->x4_specialAttributes;
+            DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
         spawn_pos = ip->pos;
         spawn_pos.x += attr->x38 * ip->facing_dir;
         spawn_pos.y += attr->x3C;
@@ -395,7 +395,7 @@ bool itKyasarin_UnkMotion5_Anim(Item_GObj* gobj)
 static inline void itKyasarin_UnkMotion8_case3(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
     Item_80268E5C(gobj, 3, ITEM_ANIM_UPDATE);
     it_80273454(gobj);
     ip->xDD4_itemVar.kyasarin.x24 = attr->xC;
@@ -518,7 +518,7 @@ static inline void itKyasarin_SaveStateAndStop(Item_GObj* gobj)
 bool it_802EDDC0(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itKyasarinAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itKyasarinAttributes* attr = DP(itKyasarinAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(4);
 
     ip->xDD4_itemVar.kyasarin.x38 += ip->xCA0;

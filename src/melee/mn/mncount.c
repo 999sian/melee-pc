@@ -733,11 +733,12 @@ static inline void fn_80251640_InitModel(HSD_GObj* gobj, MnCountData* userdata,
         mnCount_CreateRow(gobj, i, userdata->scroll_pos + i);
     }
     md = &model_desc;
-    jobj = HSD_JObjLoadJoint(md->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, md->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
-    HSD_JObjAddAnimAll(jobj, md->animjoint, md->matanim_joint,
-                       md->shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, md->animjoint),
+                       DP(HSD_MatAnimJoint, md->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, md->shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0f);
 }
 
@@ -805,11 +806,18 @@ void mnCount_Create(void)
     mn_804A04F0.hovered_selection = 0;
 
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(
-        archive, (void**) &model_desc.joint, "MenMainConCo_Top_joint",
-        &model_desc.animjoint, "MenMainConCo_Top_animjoint",
-        &model_desc.matanim_joint, "MenMainConCo_Top_matanim_joint",
-        &model_desc.shapeanim_joint, "MenMainConCo_Top_shapeanim_joint", 0);
+    {
+        void* dp_[4];
+        lbArchive_LoadSections(
+            archive, &dp_[0], "MenMainConCo_Top_joint",
+            &dp_[1], "MenMainConCo_Top_animjoint",
+            &dp_[2], "MenMainConCo_Top_matanim_joint",
+            &dp_[3], "MenMainConCo_Top_shapeanim_joint", 0);
+        DP_SET(model_desc.joint, dp_[0]);
+        DP_SET(model_desc.animjoint, dp_[1]);
+        DP_SET(model_desc.matanim_joint, dp_[2]);
+        DP_SET(model_desc.shapeanim_joint, dp_[3]);
+    }
 
     gobj = GObj_Create(6, 7, 0x80);
     menu_gobj = gobj;

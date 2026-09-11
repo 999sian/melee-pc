@@ -88,17 +88,14 @@ struct StageInfo {
     HSD_JObj* x280[261];
     void* x694[4];
     void* x6A4;
-    /* +6A8 */ struct GroundItemData {
-        s32 unk0;
-        Article* unk4;
-    }** itemdata;
+    /* +6A8 */ DiscU32* itemdata; /* GroundItemData*[] (disc), NULL-terminated */
     /* +6AC */ MapCollData* coll_data;
     /* +6B0 */ GroundParam* param;
-    /* +6B4 */ UNK_T** ald_yaku_all;
+    /* +6B4 */ DiscU32* ald_yaku_all; /* item script ptr[] (disc) */
     /* +6B8 */ void* map_ptcl;
     /* +6BC */ void* map_texg;
     /* +6C0 */ void* yakumono_param;
-    /* +6C4 */ LightList** map_plit;
+    /* +6C4 */ DiscU32* map_plit; /* LightList*[] (disc) */
     /* +6C8 */ void* x6C8;
     /* +6CC */ DynamicModelDesc* quake_model_set;
     s16 x6D0;
@@ -148,18 +145,27 @@ typedef struct StageCallbacks {
     };
 } StageCallbacks;
 
-struct GrJoint { ///< @todo rename fields
+/* Both a compiled-in table (StageData::joints) and disc data
+ * (UnkStageDat_x8_t::unk20); big-endian either way. */
+struct DISC_STRUCT GrJoint { ///< @todo rename fields
     s16 x;
     s16 y;
     s16 z;
 };
+DISC_ASSERT_SIZE(struct GrJoint, 6);
+
+struct DISC_STRUCT GroundItemData {
+    s32 unk0;
+    DISC_PTR(Article) unk4;
+};
+DISC_ASSERT_SIZE(struct GroundItemData, 8);
 
 struct StageData {
     GrKind grkind;
     StageCallbacks* callbacks;
     char* data1;
     Event on_init;
-    void (*on_demo_init)(int);
+    void (*on_demo_init)(bool);
     Event on_load;
     Event on_start;
     Predicate callback4;
@@ -331,11 +337,12 @@ struct grKraid_GroundVars2 {
     /*  + gp+D8 */ HSD_JObj* x14;
 };
 
-typedef struct grZakoGenerator_SpawnDesc {
+typedef struct DISC_STRUCT grZakoGenerator_SpawnDesc {
     /* +0 */ u16 kind;
     /* +2 */ u8 x2;
     /* +3 */ u8 respawn;
 } grZakoGenerator_SpawnDesc;
+DISC_ASSERT_SIZE(grZakoGenerator_SpawnDesc, 4);
 
 typedef struct grZakoGenerator_Spawn {
     /* +0 */ Vec3 pos0;
@@ -1965,7 +1972,7 @@ ASSERT_SIZE(struct Ground, 0x204);
  * these rows stage params and sources them from @c StageParam.csv /
  * @c StageItem.csv (@c stdata.c).
  */
-struct StageParam {
+struct DISC_STRUCT StageParam {
     /// The #StKind this row describes; ground.c lists it as @c stageid.
     StKind stkind;
     s32 x4;
@@ -1979,6 +1986,7 @@ struct StageParam {
     /// rather than padding. Same 74 bytes either way.
     s16 x1A[(0x64 - 0x1A) / 2];
 };
+DISC_ASSERT_SIZE(struct StageParam, 0x64);
 
 /**
  * The stage archive's @c grGroundParam public symbol, reached through
@@ -1986,7 +1994,7 @@ struct StageParam {
  *
  * @todo Most fields are still unidentified.
  */
-struct GroundParam {
+struct DISC_STRUCT GroundParam {
     float y;
     s16 x4;
     u8 x6_pad[2];
@@ -2013,7 +2021,7 @@ struct GroundParam {
      * One row per #StKind this ground serves, looked up by
      * #StageParam::stkind.
      */
-    StageParam* stage_params;
+    DISC_PTR(StageParam) stage_params;
     s32 stage_param_count;
     GXColor xB8;
     GXColor xBC;
@@ -2025,54 +2033,72 @@ struct GroundParam {
     GXColor xD4;
     GXColor xD8;
 };
+DISC_ASSERT_SIZE(struct GroundParam, 0xDC);
 
-struct UnkStageDatInternal {
+struct DISC_STRUCT UnkStageDatInternal {
     u8 x0_fill[0x4];
     u32 unk4; // flags
 };
+DISC_ASSERT_SIZE(struct UnkStageDatInternal, 8);
 
-struct UnkStageDat_x8_t {
-    /*  +0 */ struct HSD_Joint* unk0;
-    /*  +4 */ HSD_AnimJoint** unk4;
-    /*  +8 */ HSD_MatAnimJoint** unk8;
-    /*  +C */ HSD_ShapeAnimJoint** unkC;
-    /* +10 */ HSD_CameraDescPerspective* x10;
-    /* +14 */ UNK_T x14;
-    /* +18 */ LightList** x18;
-    /* +1C */ HSD_FogDesc* x1C;
-    /* +20 */ GrJoint* unk20;
+/* One @c map_gobj model group of the archive's @c map_head. */
+struct DISC_STRUCT UnkStageDat_x8_t {
+    /*  +0 */ DISC_PTR(struct HSD_Joint) unk0;
+    /*  +4 */ DISC_PTR(DiscU32) unk4; /* HSD_AnimJoint*[] */
+    /*  +8 */ DISC_PTR(DiscU32) unk8; /* HSD_MatAnimJoint*[] */
+    /*  +C */ DISC_PTR(DiscU32) unkC; /* HSD_ShapeAnimJoint*[] */
+    /* +10 */ DISC_PTR(HSD_CameraDescPerspective) x10;
+    /* +14 */ DISC_PTR(void) x14;
+    /* +18 */ DISC_PTR(DiscU32) x18; /* LightList*[] */
+    /* +1C */ DISC_PTR(HSD_FogDesc) x1C;
+    /* +20 */ DISC_PTR(GrJoint) unk20;
     /* +24 */ s32 unk24; // size of unk20 array
-    /* +28 */ UNK_T x28;
-    /* +2C */ s16* x2C;
+    /* +28 */ DISC_PTR(void) x28;
+    /* +2C */ DISC_PTR(DiscS16) x2C;
     /* +30 */ int x30;
 };
+DISC_ASSERT_SIZE(struct UnkStageDat_x8_t, 0x34);
 
-struct GroundShadowEntry {
-    HSD_LightAnim* unk0;
+struct DISC_STRUCT GroundShadowEntry {
+    DISC_PTR(HSD_LightAnim) unk0;
     u8 flag : 1;
 };
+DISC_ASSERT_SIZE(struct GroundShadowEntry, 8);
 
-struct UnkStageDat {
-    void* unk0;
+/* map_head::unk0 entry: maps a model group's joints to StageInfo::x280
+ * slots via (joint index, slot) s16 pairs. */
+struct DISC_STRUCT MapJointRemapEntry {
+    /* +0 */ DISC_PTR(struct HSD_Joint) joint;
+    /* +4 */ DISC_PTR(DiscS16) pairs; /* s16[pair_count][2] */
+    /* +8 */ s32 pair_count;
+};
+DISC_ASSERT_SIZE(struct MapJointRemapEntry, 0xC);
+
+/* The archive's @c map_head public symbol. */
+struct DISC_STRUCT UnkStageDat {
+    DISC_PTR(struct MapJointRemapEntry) unk0;
     s32 unk4;
 
-    struct UnkStageDat_x8_t* unk8; // Suspect this may not be a consistent type
-                                   // based on un_802FD708 callers
+    DISC_PTR(struct UnkStageDat_x8_t) unk8; // Suspect this may not be a
+                                             // consistent type based on
+                                             // un_802FD708 callers
     s32 unkC;
 
-    HSD_Spline** unk10;
+    DISC_PTR(DiscU32) unk10; /* HSD_Spline*[] */
     s32 unk14;
 
-    void* unk18;
+    DISC_PTR(void) unk18; /* LightOverrideEntry[] (ground.c) */
     s32 unk1C;
 
-    struct GroundShadowEntry* unk20;
+    DISC_PTR(struct GroundShadowEntry) unk20;
     s32 unk24;
 
-    UnkStageDatInternal** unk28;
+    DISC_PTR(DiscU32) unk28; /* UnkStageDatInternal*[] */
     s32 unk2C; // size
 };
-ASSERT_SIZE(struct UnkStageDat_x8_t, 0x34);
+DISC_ASSERT_SIZE(struct UnkStageDat, 0x30);
+/* &map_head->unk8[i], resolving the disc pointer slot. */
+#define MAP_GOBJ_DESC(dat, i) (&DP(struct UnkStageDat_x8_t, (dat)->unk8)[i])
 
 struct UnkArchiveStruct {
     HSD_Archive* unk0;

@@ -161,8 +161,8 @@ void ft_800C80A4(Fighter* fp)
 {
     size_t i;
     int idx;
-
-    for (i = idx = 0; i < ftPartsTable[fp->kind]->parts_num; idx++, i++) {
+    FighterPartsTable* parts = (FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v;
+    for (i = idx = 0; i < parts->parts_num; idx++, i++) {
         FighterBone* bone = &fp->parts[idx];
         if (bone->flags_b1) {
             HSD_JObj* jobj = bone->joint;

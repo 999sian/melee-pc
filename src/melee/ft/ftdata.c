@@ -1670,15 +1670,16 @@ void ftData_80085A14(FighterKind kind)
         lbFile_800168A0(1, ftData_803C23E4[kind], &sp18, &sp10);
         a_head = sp18;
         HSD_ASSERT(0x974, a_head);
+        struct Fighter_WaitAnimData* anims = DP(struct Fighter_WaitAnimData, temp_r27->xC);
         for (i = 0; i < (u32) ftData_Table_Unk0[kind].count; i++) {
-            temp_r0 = temp_r27->xC[i].x8;
+            temp_r0 = anims[i].x8;
             if (temp_r0 != 0) {
                 if (temp_r0 > 0x8000) {
                     HSD_ASSERTREPORT(0x9AF, 0, "fighter figatree over! %x\n",
                                      temp_r0);
                 }
-                temp_r27->xC[i].x14 =
-                    (uintptr_t) ((u8*) a_head + temp_r27->xC[i].x4);
+                anims[i].x14 =
+                    (uintptr_t) ((u8*) a_head + anims[i].x4);
             }
         }
         ftData_Table_Unk0[kind].data = a_head;
@@ -1713,15 +1714,15 @@ void ftData_80085B98(Fighter* fp, int arg1, int arg2)
         HSD_ASSERTREPORT(0x9D2, 0, "Demo Status error! %d\n", arg2);
     }
     if (temp_r30 != 0U) {
+        struct Fighter_WaitAnimData* anims = DP(struct Fighter_WaitAnimData, fp->ft_data->x14);
         for (i = arg1; i <= arg2; i++) {
-            temp_r3 = &fp->ft_data->x14[i];
+            temp_r3 = &anims[i];
             temp_r0 = temp_r3->x8;
             if (temp_r3->x8 != 0U) {
                 if (temp_r0 > 0xB000) {
                     HSD_ASSERTREPORT(0x9DC, 0, "fighter figatree over! %x\n",
                                      temp_r0);
                 }
-                temp_r3 = &fp->ft_data->x14[i];
                 temp_r3->x14 = temp_r30 + temp_r3->x4;
             }
         }
@@ -1773,7 +1774,7 @@ void ftData_80085CD8(Fighter* fp, Fighter* arg1, int msid)
                                          "HSD_ArchiveParse error! %x\n", msid);
                     }
                 }
-                fp->x590 = HSD_ArchiveGetPublicAddress(&sp14, temp_r3->x0);
+                fp->x590 = HSD_ArchiveGetPublicAddress(&sp14, DP(char, temp_r3->x0));
             } else {
                 fp->x590 = NULL;
             }
@@ -1826,7 +1827,7 @@ FigaTree* ftData_80085E50(Fighter* arg0, int msid)
                                          "HSD_ArchiveParse error! %x\n", msid);
                     }
                 }
-                arg0->x598 = HSD_ArchiveGetPublicAddress(&sp10, temp_r3->x0);
+                arg0->x598 = HSD_ArchiveGetPublicAddress(&sp10, DP(char, temp_r3->x0));
             } else {
                 arg0->x598 = 0;
             }
@@ -1843,8 +1844,8 @@ struct ftData_80085FD4_ret* ftData_80085FD4(Fighter* fp, int msid)
         Player_GetPlayerSlotType(fp->player_id) != Gm_PKind_Demo &&
         fp->x24[msid].x14 == 0)
     {
-        return (struct ftData_80085FD4_ret*) &gFtDataList[Ft_Kind_Popo]
-            ->xC[msid];
+        return (struct ftData_80085FD4_ret*) &DP(
+            struct Fighter_WaitAnimData, gFtDataList[Ft_Kind_Popo]->xC)[msid];
     }
     return (struct ftData_80085FD4_ret*) &fp->x24[msid];
 }

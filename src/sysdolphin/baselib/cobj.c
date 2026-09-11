@@ -110,9 +110,9 @@ void HSD_CObjAddAnim(HSD_CObj* cobj, HSD_CameraAnim* canim)
     if (cobj->aobj != NULL) {
         HSD_AObjRemove(cobj->aobj);
     }
-    cobj->aobj = HSD_AObjLoadDesc(canim->aobjdesc);
-    HSD_WObjAddAnim(HSD_CObjGetEyePositionWObj(cobj), canim->eye_anim);
-    HSD_WObjAddAnim(HSD_CObjGetInterestWObj(cobj), canim->interest_anim);
+    cobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, canim->aobjdesc));
+    HSD_WObjAddAnim(HSD_CObjGetEyePositionWObj(cobj), DP(HSD_WObjAnim, canim->eye_anim));
+    HSD_WObjAddAnim(HSD_CObjGetInterestWObj(cobj), DP(HSD_WObjAnim, canim->interest_anim));
 }
 
 static void CObjUpdateFunc(void* obj, int type, HSD_ObjData* val)
@@ -1270,17 +1270,23 @@ static inline void CObjResetFlags(HSD_CObj* cobj, u32 flags)
 static int CObjLoad(HSD_CObj* cobj, HSD_CObjDesc* desc)
 {
     static Vec3 up = { 0.0f, 1.0f, 0.0f };
+    HSD_RectS16 viewport = { desc->common.viewport.xmin, desc->common.viewport.xmax,
+                             desc->common.viewport.ymin, desc->common.viewport.ymax };
+    Scissor scissor = { desc->common.scissor.left, desc->common.scissor.right,
+                        desc->common.scissor.top, desc->common.scissor.bottom };
     cobj->flags = desc->common.flags;
     CObjResetFlags(cobj, desc->common.flags);
-    HSD_CObjSetViewport(cobj, &desc->common.viewport);
-    HSD_CObjSetScissor(cobj, &desc->common.scissor);
-    HSD_WObjInit(cobj->eyepos, desc->common.eyepos);
-    HSD_WObjInit(cobj->interest, desc->common.interest);
+    HSD_CObjSetViewport(cobj, &viewport);
+    HSD_CObjSetScissor(cobj, &scissor);
+    HSD_WObjInit(cobj->eyepos, DP(HSD_WObjDesc, desc->common.eyepos));
+    HSD_WObjInit(cobj->interest, DP(HSD_WObjDesc, desc->common.interest));
     HSD_CObjSetNear(cobj, desc->common.nnear);
     HSD_CObjSetFar(cobj, desc->common.ffar);
     if (desc->common.flags & 1) {
-        if (desc->common.up_vector != NULL) {
-            HSD_CObjSetUpVector(cobj, desc->common.up_vector);
+        if (desc->common.up_vector != 0) {
+            DiscVec3* dv = DP(DiscVec3, desc->common.up_vector);
+            Vec3 v = { dv->x, dv->y, dv->z };
+            HSD_CObjSetUpVector(cobj, &v);
         } else {
             HSD_CObjSetUpVector(cobj, &up);
         }
@@ -1321,8 +1327,8 @@ HSD_CObj* HSD_CObjLoadDesc(HSD_CObjDesc* desc)
     HSD_CObj* cobj;
 
     if (desc != NULL) {
-        if (desc->class_name == NULL ||
-            (info = hsdSearchClassInfo(desc->class_name)) == NULL)
+        if (desc->class_name == 0 ||
+            (info = hsdSearchClassInfo(DP(char, desc->class_name))) == NULL)
         {
             cobj = HSD_CObjAlloc();
         } else {

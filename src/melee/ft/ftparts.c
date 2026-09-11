@@ -16,6 +16,9 @@
 #include <sysdolphin/baselib/displayfunc.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
+static inline FighterPartsTable* get_parts_tbl(int kind) {
+    return (FighterPartsTable*) (uintptr_t) ftPartsTable[kind].v;
+}
 #include <sysdolphin/baselib/mtx.h>
 #include <sysdolphin/baselib/perf.h>
 #include <sysdolphin/baselib/pobj.h>
@@ -61,9 +64,9 @@ void ftParts_80073758(HSD_JObj* jobj)
 
 s32 ftParts_IntpJObjLoad(HSD_JObj* jobj, HSD_Joint* joint, HSD_JObj* parent)
 {
-    HSD_DObjDesc* dobjdesc = joint->u.dobjdesc;
+    DISC_PTR(HSD_DObjDesc) dobjdesc = joint->u.dobjdesc;
     s32 ret;
-    joint->u.dobjdesc = NULL;
+    joint->u.dobjdesc = 0;
     ret = hsdJObj.load(jobj, joint, parent);
     joint->u.dobjdesc = dobjdesc;
     return ret;
@@ -397,7 +400,7 @@ void ftParts_SetupParts(Fighter_GObj* fighter_obj)
     u32 tree_depth = 0;
     int dobj_count = 0;
 
-    if (ftPartsTable[fp->kind]->parts_num > MAX_FT_PARTS) {
+    if (get_parts_tbl(fp->kind)->parts_num > MAX_FT_PARTS) {
         HSD_ASSERTREPORT(503, 0, "fighter parts num over! player %d\n",
                          fp->player_id);
     }
@@ -448,7 +451,7 @@ void ftParts_SetupParts(Fighter_GObj* fighter_obj)
 
     fp->dobj_list.count = dobj_count;
 
-    if (part != ftPartsTable[fp->kind]->parts_num) {
+    if (part != get_parts_tbl(fp->kind)->parts_num) {
         HSD_ASSERTREPORT(546, 0, "fighter parts num not match! player %d\n",
                          fp->player_id);
     }
@@ -491,7 +494,7 @@ void ftParts_8007462C(Fighter_GObj* gobj)
             jobj = HSD_JObjGetParent(jobj);
         }
     }
-    if (i != ftPartsTable[fp->kind]->parts_num) {
+    if (i != get_parts_tbl(fp->kind)->parts_num) {
         HSD_ASSERTREPORT(593, 0, "fighter parts num not match! player %d\n",
                          fp->player_id);
     }
@@ -509,23 +512,18 @@ HSD_JObj* ftParts_8007482C(HSD_Joint* joint)
 void ftParts_8007487C(FtPartsDesc* desc, FtPartsVis* vis, u32 costume_id,
                       DObjList* arg3, DObjList* arg4)
 {
-    void*(*vis_table)[4];
+    DiscU32 (*vis_table)[4] = (DiscU32(*)[4]) DP(DiscU32, desc->vis_table);
     PAD_STACK(0x8);
 
-    vis_table = desc->vis_table;
     vis->model_num = desc->model_num;
     if (vis->model_num > 11) {
         HSD_ASSERTREPORT(627, 0, "fighter parts model num over!\n");
     }
 
-    vis->xC[0] =
-        vis_table[costume_id][0] ? vis_table[costume_id][0] : vis_table[0][0];
-    vis->xC[1] =
-        vis_table[costume_id][1] ? vis_table[costume_id][1] : vis_table[0][1];
-    vis->xC[2] =
-        vis_table[costume_id][2] ? vis_table[costume_id][2] : vis_table[0][2];
-    vis->xC[3] =
-        vis_table[costume_id][3] ? vis_table[costume_id][3] : vis_table[0][3];
+    vis->xC[0] = (FtPartsVisLookup*) (uintptr_t) (vis_table[costume_id][0].v ? DP(void, vis_table[costume_id][0].v) : DP(void, vis_table[0][0].v));
+    vis->xC[1] = (FtPartsVisLookup*) (uintptr_t) (vis_table[costume_id][1].v ? DP(void, vis_table[costume_id][1].v) : DP(void, vis_table[0][1].v));
+    vis->xC[2] = (FtPartsVisLookup*) (uintptr_t) (vis_table[costume_id][2].v ? DP(void, vis_table[costume_id][2].v) : DP(void, vis_table[0][2].v));
+    vis->xC[3] = (FtPartsVisLookup*) (uintptr_t) (vis_table[costume_id][3].v ? DP(void, vis_table[costume_id][3].v) : DP(void, vis_table[0][3].v));
     vis->xC[4] = 0;
     vis->cleared[0] = true;
     vis->cleared[1] = true;
@@ -544,7 +542,7 @@ void ftParts_800749CC(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
 
-    ftParts_8007487C(&fp->ft_data->x8->x0, &fp->x5AC, fp->x619_costume_id,
+    ftParts_8007487C(&DP(struct ftData_x8, fp->ft_data->x8)->x0, &fp->x5AC, fp->x619_costume_id,
                      &fp->dobj_list, &fp->x203C);
     for (i = 0; i < fp->x5AC.model_num; i++) {
         fp->x5F4_arr[i].prev = -1;
@@ -677,7 +675,7 @@ void ftParts_80074E58(Fighter* fp)
     fp->parts = HSD_ObjAlloc(&fighter_parts_alloc_data);
     fp->dobj_list.data = HSD_ObjAlloc(&fighter_dobj_list_alloc_data);
 
-    for (i = 0; i < ftPartsTable[fp->kind]->parts_num; i++) {
+    for (i = 0; i < get_parts_tbl(fp->kind)->parts_num; i++) {
         fp->parts[i].flags8 = 0;
         fp->parts[i].flagsC = 0;
     }
@@ -694,16 +692,16 @@ void ftParts_80074E58(Fighter* fp)
 
 Fighter_Part ftParts_GetBoneIndex(Fighter* fp, Fighter_Part part)
 {
-    return ftPartsTable[fp->kind]->part_to_joint[part];
+    return DP(s8, get_parts_tbl(fp->kind)->part_to_joint)[part];
 }
 
 int ftPartsRemap(size_t to_table_idx, size_t from_table_idx, size_t joint_idx)
 {
-    FighterPartsTable* from_table = ftPartsTable[from_table_idx];
+    FighterPartsTable* from_table = get_parts_tbl(from_table_idx);
     if (joint_idx < from_table->parts_num) {
-        size_t part_idx = from_table->joint_to_part[joint_idx];
-        if (part_idx != FTPART_INVALID) {
-            return ftPartsTable[to_table_idx]->part_to_joint[part_idx];
+        size_t part_idx = (size_t)(s8) DP(s8, from_table->joint_to_part)[joint_idx];
+        if (part_idx != (size_t)(s8) FTPART_INVALID) {
+            return DP(s8, get_parts_tbl(to_table_idx)->part_to_joint)[part_idx];
         }
     }
     return FTPART_INVALID;
@@ -715,9 +713,9 @@ u32 ftParts_8007506C(enum FighterKind ftkind, int part)
     int i;
     struct Fighter_804D6540_t* temp_r3;
 
-    temp_r3 = Fighter_804D6540[ftkind];
+    temp_r3 = (struct Fighter_804D6540_t*) (uintptr_t) Fighter_804D6540[ftkind].v;
     if (temp_r3 != NULL && temp_r3->x4 != 0) {
-        var_r3 = temp_r3->x0;
+        var_r3 = DP(struct Fighter_804D6540_x0_t, temp_r3->x0);
         for (i = 0; i < temp_r3->x4; i++, var_r3++) {
             if (var_r3->x0 == part) {
                 return 1 << i;

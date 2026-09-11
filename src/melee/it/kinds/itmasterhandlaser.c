@@ -94,8 +94,7 @@ void it_802F046C(Item_GObj* gobj)
 void it_802F0484(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itMasterHandLaserAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itMasterHandLaserAttributes* attrs = DP(itMasterHandLaserAttributes, ip->xC4_article_data->x4_specialAttributes);
     Item_80268E5C(gobj, 0, ITEM_ANIM_UPDATE);
     ip->on_accessory = it_802F05A8;
     ip->xDD4_itemVar.masterhandlaser.x0 = false;
@@ -158,9 +157,10 @@ void it_802F063C(Item_GObj* gobj, Item_GObj* arg1)
 
     ip = GET_ITEM(gobj);
     fp = GET_FIGHTER(ip->owner);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itMasterHandLaserAttributes, ip->xC4_article_data->x4_specialAttributes);
 
-    lb_8000B804(HSD_JObjGetChild(gobj->hsd_obj), ip->xC8_joint->child);
+    lb_8000B804(HSD_JObjGetChild(gobj->hsd_obj),
+                DP(HSD_Joint, ip->xC8_joint->child));
     lb_8000B1CC(fp->parts[ip->xDD4_itemVar.masterhandlaser.x4].joint, NULL,
                 &pos_0);
     y0 = pos_0.y;

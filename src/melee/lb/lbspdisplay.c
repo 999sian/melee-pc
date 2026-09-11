@@ -33,19 +33,21 @@
 #include <sysdolphin/baselib/tev.h>
 #include <sysdolphin/baselib/tobj.h>
 
-HSD_LObj* lb_80011AC4(LightList** list)
+HSD_LObj* lb_80011AC4(DiscU32* list)
 {
     HSD_LObj* prev;
     HSD_LObj* curr;
     HSD_LObj* first;
-    HSD_LightAnim** temp_r4;
+    LightList* ll;
+    DiscU32* temp_r4;
 
     prev = NULL;
-    while (*list != NULL) {
-        curr = HSD_LObjLoadDesc((*list)->desc);
-        temp_r4 = (*list)->anims;
+    while (list->v != 0) {
+        ll = (LightList*) (uintptr_t) list->v;
+        curr = HSD_LObjLoadDesc(DP(HSD_LightDesc, ll->desc));
+        temp_r4 = DP(DiscU32, ll->anims);
         if (temp_r4 != NULL) {
-            HSD_LObjAddAnimAll(curr, temp_r4[0]);
+            HSD_LObjAddAnimAll(curr, (HSD_LightAnim*) (uintptr_t) temp_r4[0].v);
         }
         if (prev != NULL) {
             HSD_LObjSetNext(prev, curr);
@@ -279,7 +281,7 @@ static void* setImageFromPreloadedArchive(HSD_ImageDesc* image_desc,
                                           s16 entry_num)
 {
     void* image_ptr = lbDvd_GetPreloadedArchive(entry_num);
-    image_desc->image_ptr = image_ptr;
+    DP_SET(image_desc->image_ptr, image_ptr);
     return image_ptr;
 }
 
@@ -299,7 +301,8 @@ HSD_ImageDesc* lb_800121FC(HSD_ImageDesc* image_desc, int width, int height,
         if (entry_num == 0 ||
             !setImageFromPreloadedArchive(image_desc, entry_num))
         {
-            image_desc->image_ptr = HSD_MemAlloc((buffer_size + 0x1F) & ~0x1F);
+            DP_SET(image_desc->image_ptr,
+                   HSD_MemAlloc((buffer_size + 0x1F) & ~0x1F));
         }
     }
     return image_desc;
@@ -326,8 +329,8 @@ void lb_800122F0(HSD_ImageDesc* img, GXTexObj* tex, f32 factor)
     color2.g = (u8) (s8) (26.099998f * factor);
     color2.b = (u8) (s8) (255.0f - (231.8f * factor));
 
-    GXInitTexObj(tex, img->image_ptr, img->width, img->height, img->format,
-                 GX_CLAMP, GX_CLAMP, (u8) img->mipmap);
+    GXInitTexObj(tex, DP(void, img->image_ptr), img->width, img->height,
+                 img->format, GX_CLAMP, GX_CLAMP, (u8) img->mipmap);
     GXClearVtxDesc();
     GXSetCullMode(GX_CULL_BACK);
     GXSetNumTexGens(1);
@@ -426,7 +429,7 @@ void lb_8001271C(GXTexObj* arg0, float x0, float arg2, float tex_width,
 void lb_8001285C(HSD_ImageDesc* image_desc, GXTexObj* tex_obj)
 {
     PAD_STACK(4);
-    GXInitTexObj(tex_obj, image_desc->image_ptr, image_desc->width,
+    GXInitTexObj(tex_obj, DP(void, image_desc->image_ptr), image_desc->width,
                  image_desc->height, image_desc->format, GX_CLAMP, GX_CLAMP,
                  image_desc->mipmap);
     GXGetTexObjFmt(tex_obj);

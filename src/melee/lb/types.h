@@ -112,10 +112,11 @@ struct FighterHurtCapsule {
 
 ASSERT_SIZE(FighterHurtCapsule, 0x4C);
 
-struct ReflectDesc {
+/* ftData sub-structures: read in place from Pl*.dat. */
+struct DISC_STRUCT ReflectDesc {
     u32 x0_bone_id;
     s32 x4_max_damage;
-    Vec3 x8_offset;
+    DiscVec3 x8_offset;
     float x14_size;
     float x18_damage_mul;
     float x1C_speed_mul;
@@ -124,21 +125,24 @@ struct ReflectDesc {
     /// change
     u8 x20_behavior;
 };
+DISC_ASSERT_SIZE(struct ReflectDesc, 0x24);
 
-struct AbsorbDesc {
+struct DISC_STRUCT AbsorbDesc {
     /*  +0 */ int x0_bone_id;
-    /*  +4 */ Vec3 x4_offset;
+    /*  +4 */ DiscVec3 x4_offset;
     /* +10 */ float x10_size;
 };
+DISC_ASSERT_SIZE(struct AbsorbDesc, 0x14);
 
-struct ShieldDesc {
+struct DISC_STRUCT ShieldDesc {
     int bone;
-    Vec3 pos;
+    DiscVec3 pos;
     float radius;
     float dmg_mul;
     float vel_mul;
     u8 flags : 8;
 };
+DISC_ASSERT_SIZE(struct ShieldDesc, 0x20);
 
 struct lbRefract_CallbackData {
     void* buffer;    /// @brief Base address of texture buffer.
@@ -324,14 +328,15 @@ struct ColorOverlay_UnkInner {
     /* +7B */ u8 x7B;
 };
 
-union ColorOverlay_x8_t {
+/* Color-animation command words, read in place from PlCo.dat / LbRb.dat. */
+union DISC_STRUCT ColorOverlay_x8_t {
     GXColor light_color;
-    struct {
+    struct DISC_STRUCT {
         s32 unk : 6;
         s32 x : 13;
         s32 yz : 13;
     } light_rot1;
-    struct {
+    struct DISC_STRUCT {
         u32 x0_0 : 1;
         u32 x0_1 : 1;
         u32 x0_2 : 1;
@@ -343,12 +348,12 @@ union ColorOverlay_x8_t {
         s32 x : 12;
         s32 yz : 12;
     } light_rot2;
-    struct {
+    struct DISC_STRUCT {
         u32 unk : 6;
         u32 timer : 26;
     } unk;
 };
-ASSERT_SIZE(union ColorOverlay_x8_t, 0x4);
+DISC_ASSERT_SIZE(union ColorOverlay_x8_t, 0x4);
 
 struct ColorOverlay {
     s32 x0_timer; // 0x0
@@ -427,28 +432,30 @@ struct lb_80014638_arg1_t {
 };
 ASSERT_SIZE(struct lb_80014638_arg1_t, 0x14);
 
-struct Fighter_804D653C_t {
-    void* unk;
+/* Table entries in PlCo.dat / ItCo.dat / LbRb.dat: {script ptr, u8, u8}. */
+struct DISC_STRUCT Fighter_804D653C_t {
+    DISC_PTR(void) unk;
     u8 unk4;
     u8 unk5;
 };
-ASSERT_SIZE(struct Fighter_804D653C_t, 8);
+DISC_ASSERT_SIZE(struct Fighter_804D653C_t, 8);
 
-struct lb_00F9_UnkDesc1Inner {
+/* Dynamics (bone physics). On disc a DynamicsDesc is {ptr to
+ * lb_00F9_UnkDesc1Inner[count], count, pos} (Pl*.dat / Gr*.dat); at runtime
+ * the same struct's `data` slot points at native DynamicsData pool nodes
+ * (lb_804D63A0_t, allocated in MEM1 < 4GB). Only the desc and the disc
+ * records are byte-swapped; nodes stay native. */
+struct DISC_STRUCT lb_00F9_UnkDesc1Inner {
     /* 0x00 */ f32 unk_0;
     /* 0x04 */ f32 unk_4; /* inferred */
-    /* 0x08 */ Quaternion unk_8;
+    /* 0x08 */ DiscVec4 unk_8;
     /* 0x18 */ f32 unk_18;  /* inferred */
-    /* 0x1C */ Vec3 unk_1C; /* inferred */
-    /* 0x28 */ Vec3 unk_28; /* inferred */
+    /* 0x1C */ DiscVec3 unk_1C; /* inferred */
+    /* 0x28 */ DiscVec3 unk_28; /* inferred */
     /* 0x34 */ f32 unk_34;  /* inferred */
     /* 0x38 */ f32 unk_38;  /* inferred */
 };
-ASSERT_SIZE(struct lb_00F9_UnkDesc1Inner, 0x3C);
-
-struct lb_00F9_UnkDesc1 {
-    struct lb_00F9_UnkDesc1Inner array[2];
-};
+DISC_ASSERT_SIZE(struct lb_00F9_UnkDesc1Inner, 0x3C);
 
 struct lb_00F9_UnkDesc0 {
     /* 0x00 */ HSD_JObj* jobj;
@@ -471,32 +478,31 @@ struct lb_00F9_UnkDesc0 {
     /* 0x8C */ f32 unk_8C;
 };
 
+/* ponytail: the lb_unk1/absorb/hurt views were the disc record and unused
+ * runtime types; the disc record is read via DP(lb_00F9_UnkDesc1Inner, ...). */
 union PolymorphicDesc {
     u8 _[0x90];
     struct lb_00F9_UnkDesc0 lb_unk0;
-    struct lb_00F9_UnkDesc1 lb_unk1;
-    struct AbsorbDesc absorb;
-    struct HurtCapsule hurt;
 };
-ASSERT_SIZE(union PolymorphicDesc, 0x90);
 
 struct DynamicsData {
     union PolymorphicDesc desc;
     /* 0x90 */ struct DynamicsData* next;
     /* 0x94 */ s32 unk_94;
-}; /* size = 0x98 */
-ASSERT_SIZE(struct DynamicsData, 0x98);
-
-struct DynamicsDesc {
-    /* +0 */ struct DynamicsData* data;
-    /* +4 */ unsigned int count;
-    /* +8 */ Vec3 pos;
 };
 
-struct BoneDynamicsDesc {
+struct DISC_STRUCT DynamicsDesc {
+    /* +0 */ DISC_PTR(struct DynamicsData) data; /* disc: lb_00F9_UnkDesc1Inner[] */
+    /* +4 */ unsigned int count;
+    /* +8 */ DiscVec3 pos;
+};
+DISC_ASSERT_SIZE(struct DynamicsDesc, 0x14);
+
+struct DISC_STRUCT BoneDynamicsDesc {
     enum_t bone_id;
     DynamicsDesc dyn_desc;
 };
+DISC_ASSERT_SIZE(struct BoneDynamicsDesc, 0x18);
 
 struct lb_8000FD18_t {
     char pad_0[0x94];
@@ -519,226 +525,226 @@ struct lbColl_8000A10C_arg0_t {
     Vec3 x14;
 };
 
-struct Command_00 {
+struct DISC_STRUCT Command_00 {
     u32 code : 6;
     u32 value : 26;
 };
-struct Command_02 {
+struct DISC_STRUCT Command_02 {
     u32 code : 6;
     u32 value : 26;
 };
-struct Command_03 {
+struct DISC_STRUCT Command_03 {
     u32 code : 6;
     u32 value : 26;
 };
-struct Command_04 {
+struct DISC_STRUCT Command_04 {
     u32 x;
 };
-struct Command_05 {
-    union CmdUnion* ptr;
+struct DISC_STRUCT Command_05 {
+    DISC_PTR(union CmdUnion) ptr;
 };
-struct Command_07 {
-    union CmdUnion* ptr;
+struct DISC_STRUCT Command_07 {
+    DISC_PTR(union CmdUnion) ptr;
 };
-struct Command_09 {
+struct DISC_STRUCT Command_09 {
     u32 id : 6;
     u32 param_1 : 8;
     u32 param_2 : 18;
 };
-struct unk0 {
+struct DISC_STRUCT unk0 {
     u32 opcode : 6; ///< Bits 0~5
     u32 unk1 : 8;   ///< Bits 6~13
     u32 unk2 : 18;  ///< Bits 14~31
 };
-struct unk1 {
+struct DISC_STRUCT unk1 {
     u32 opcode : 6; ///< Bits 0~5
     u32 unk0 : 2;   ///< Bits 6~7
     u32 unk1 : 4;   ///< Bits 8~11
     u32 unk2 : 1;   ///< Bit 12
 };
-struct set_throw_flags {
+struct DISC_STRUCT set_throw_flags {
     u32 opcode : 6;   ///< Bits 0~5
     u32 hit_idx : 26; ///< Bits 6~31
 };
-struct unk3 {
+struct DISC_STRUCT unk3 {
     s32 unk0 : 7;  ///< Bits 0~6
     s32 unk1 : 25; ///< Bits 7~31
 };
-struct unk4 {
+struct DISC_STRUCT unk4 {
     u16 opcode : 6; ///< Bits 0~5
     u16 unk1 : 8;   ///< Bits 6~13
 };
-struct unk5 {
+struct DISC_STRUCT unk5 {
     s32 unk0 : 14; ///< Bits 0~13
     s32 unk1 : 18; ///< Bits 14~31
 };
-struct unk6 {
+struct DISC_STRUCT unk6 {
     u8 opcode : 6; ///< Bits 0~5
     u8 unk1 : 1;   ///< Bit 6
 };
-struct set_airborne_state {
+struct DISC_STRUCT set_airborne_state {
     u32 opcode : 6; ///< Bits 0~5
     u32 state : 26; ///< Bits 6~31
 }; ///< #ftAction_80071998
-struct unk8 {
+struct DISC_STRUCT unk8 {
     int unk0;
 };
-struct part_anim {
+struct DISC_STRUCT part_anim {
     s32 opcode : 6;
     s32 unk1 : 7;
     s32 unk2 : 7;
     u32 unk3 : 12;
 };
-struct unk9 {
+struct DISC_STRUCT unk9 {
     s32 unk0 : 6;
     u32 unk1 : 13;
     u32 unk2 : 13;
 };
-struct unk10 {
+struct DISC_STRUCT unk10 {
     s32 unk0 : 6;
     u32 unk1 : 1;
     u32 unk2 : 12;
     u32 unk3 : 13;
 };
-struct unk11 {
+struct DISC_STRUCT unk11 {
     s32 unk0 : 6;
     u32 unk1 : 26;
 };
-struct unk12 {
+struct DISC_STRUCT unk12 {
     u32 unk0 : 6;
     u32 unk1 : 2;
     u32 unk2 : 10;
     u32 unk3 : 14;
 };
-struct unk13 {
+struct DISC_STRUCT unk13 {
     u32 unk0 : 6;
     u32 unk1 : 8;
     u32 unk2 : 18;
 };
-struct unk14 {
+struct DISC_STRUCT unk14 {
     u32 unk0 : 6;
     u32 unk1 : 8;
 };
-struct unk15 {
+struct DISC_STRUCT unk15 {
     u32 unk0 : 6;
     u32 unk1 : 26;
 }; ///< #ftAction_80072B14
-struct unk16 {
+struct DISC_STRUCT unk16 {
     u32 unk0 : 6;
     s32 unk3 : 1;
     s32 unk4 : 25;
 }; ///< #ftAction_80072B3C
-struct unk17 {
+struct DISC_STRUCT unk17 {
     u32 unk0 : 6;
     s32 unk1 : 26;
 }; ///< #ftAction_80072B94
-struct unk18 {
+struct DISC_STRUCT unk18 {
     u32 unk0 : 6;
     s32 damage_amount : 26;
 }; ///< #ftAction_80072BF4
-struct unk19 {
+struct DISC_STRUCT unk19 {
     u32 unk0 : 6;
     u32 unk1 : 26;
 }; ///< #ftAction_80072C6C
-struct unk20 {
+struct DISC_STRUCT unk20 {
     u32 unk0 : 6;
     u32 unk1 : 26;
 }; ///< #ftAction_80072CB0
-struct unk21 {
+struct DISC_STRUCT unk21 {
     u32 unk0 : 6;
     u32 unk1 : 1;
     u32 unk2 : 8;
 }; ///< #ftAction_800730B8
-struct set_hitbox_damage {
+struct DISC_STRUCT set_hitbox_damage {
     u32 opcdoe : 6;
     u32 idx : 3;
     u32 value : 23;
 }; ///< #ftAction_8007162C
-struct set_hitbox_scale {
+struct DISC_STRUCT set_hitbox_scale {
     u32 opcode : 6;
     u32 idx : 3;
     u32 value : 23;
 }; ///< #ftAction_8007169C
-struct set_hitbox_x42_b57 {
+struct DISC_STRUCT set_hitbox_x42_b57 {
     u32 opcode : 6;
     u32 idx : 24;
     u32 type : 1;
     u32 value : 1;
 }; ///< #ftAction_80071708
-struct set_cmd_var {
+struct DISC_STRUCT set_cmd_var {
     u32 opcode : 6;
     u32 idx : 2;
     u32 value : 24;
 }; ///< #ftAction_80071708
-struct set_hurt_state {
+struct DISC_STRUCT set_hurt_state {
     u32 opcode : 6;
     u32 bone_idx : 8;
     u32 state : 18;
 }; ///< #ftAction_80071A9C
-struct set_jab_combo {
+struct DISC_STRUCT set_jab_combo {
     u32 opcode : 6;
     u32 disabled : 26;
 }; ///< #ftAction_80071AE8
-struct set_jab_rapid {
+struct DISC_STRUCT set_jab_rapid {
     u32 opcode : 6;
     u32 state : 26;
 }; ///< #ftAction_80071B28
-struct set_dobj_flags {
+struct DISC_STRUCT set_dobj_flags {
     u32 opcode : 6;
     s32 idx : 7;
     s32 value : 19;
 }; ///< #ftAction_80071D40
-struct set_throw_hitbox_0 {
+struct DISC_STRUCT set_throw_hitbox_0 {
     u32 opcode : 6;
     u32 idx : 3;
     u32 damage : 23;
 }; ///< #ftAction_80071E04
-struct set_throw_hitbox_1 {
+struct DISC_STRUCT set_throw_hitbox_1 {
     u32 unk0 : 9;
     u32 hit_x24 : 9;
     u32 hit_x28 : 9;
 }; ///< #ftAction_80071E04
-struct set_throw_hitbox_2 {
+struct DISC_STRUCT set_throw_hitbox_2 {
     u32 hit_x2C : 9;
     u32 element : 4;
     u32 sfx_severity : 3;
     u32 sfx_kind : 4;
 }; ///< #ftAction_80071E04
-struct unk27 {
+struct DISC_STRUCT unk27 {
     u32 opcode : 6;
     u32 value : 26;
 }; ///< #ftAction_80071F34
-struct set_article_vis {
+struct DISC_STRUCT set_article_vis {
     u32 opcode : 6;
     u32 value : 26;
 }; ///< #ftAction_80071F78
-struct set_fighter_vis {
+struct DISC_STRUCT set_fighter_vis {
     u32 opcode : 6;
     u32 value : 26;
 }; ///< #ftAction_80071FA0
-struct set_tex_anim {
+struct DISC_STRUCT set_tex_anim {
     u32 opcode : 6;
     u32 b : 1;
     s32 idx : 7;
     s32 idx2 : 7;
     s32 frame : 11;
 }; ///< #ftAction_800726F4
-struct unk31 {
+struct DISC_STRUCT unk31 {
     u32 opcode : 6;
     u32 unk0 : 10;
     u32 unk1 : 16;
 }; ///< #ftAction_80073008
-struct unk32 {
+struct DISC_STRUCT unk32 {
     u32 opcode : 6;
     u32 unk0 : 13;
     u32 unk1 : 13;
 }; ///< #ftAction_80073008
-struct unk33 {
+struct DISC_STRUCT unk33 {
     u32 opcode : 6;
     u32 unk0 : 13;
     u32 unk1 : 13;
 }; ///< #it_8027990C
-struct spawn_gfx_0 {
+struct DISC_STRUCT spawn_gfx_0 {
     u32 opcode : 6;
     u32 boneId : 8;
     u32 useCommonBoneIDs : 1;
@@ -746,23 +752,23 @@ struct spawn_gfx_0 {
     u32 useUnkBone : 1;
     u32 unk1 : 15;
 };
-struct spawn_gfx_1 {
+struct DISC_STRUCT spawn_gfx_1 {
     u32 gfxID : 16;
     u32 unkFloat : 16;
 };
-struct spawn_gfx_2 {
+struct DISC_STRUCT spawn_gfx_2 {
     s16 offsetZ : 16;
     s16 offsetY : 16;
 };
-struct spawn_gfx_3 {
+struct DISC_STRUCT spawn_gfx_3 {
     s16 offsetX : 16;
     u16 rangeZ : 16;
 };
-struct spawn_gfx_4 {
+struct DISC_STRUCT spawn_gfx_4 {
     u16 rangeY : 16;
     u16 rangeX : 16;
 };
-struct spawn_hitbox_0 {
+struct DISC_STRUCT spawn_hitbox_0 {
     u32 opcode : 6;
     u32 id : 3;
     u32 hit_group : 3;
@@ -771,15 +777,15 @@ struct spawn_hitbox_0 {
     u32 use_common_bone_ids : 1;
     u32 damage : 10;
 };
-struct spawn_hitbox_1 {
+struct DISC_STRUCT spawn_hitbox_1 {
     u32 size : 16;
     s32 z_offset : 16;
 };
-struct spawn_hitbox_2 {
+struct DISC_STRUCT spawn_hitbox_2 {
     s32 y_offset : 16;
     s32 x_offset : 16;
 };
-struct spawn_hitbox_3 {
+struct DISC_STRUCT spawn_hitbox_3 {
     u32 angle : 9;
     u32 knockback_growth : 9;
     u32 weight_set_knockback : 9;
@@ -789,7 +795,7 @@ struct spawn_hitbox_3 {
     u32 clank : 1;
     u32 rebound : 1;
 };
-struct spawn_hitbox_4 {
+struct DISC_STRUCT spawn_hitbox_4 {
     u32 base_knockback : 9;
     u32 element : 5;
     s32 shield_damage : 8;
@@ -798,7 +804,7 @@ struct spawn_hitbox_4 {
     u32 hit_grounded : 1;
     u32 hit_aerial : 1;
 };
-struct spawn_hitbox_5 {
+struct DISC_STRUCT spawn_hitbox_5 {
     u32 x0 : 8;
     u32 x1_b0 : 1;
     u32 x1_b1 : 1;
@@ -809,14 +815,14 @@ struct spawn_hitbox_5 {
     u32 x1_b6 : 1;
     u32 x1_b7 : 1;
 };
-struct it_create_hitbox_0 {
+struct DISC_STRUCT it_create_hitbox_0 {
     u32 opcode : 6;
     u32 id : 3;
     u32 hit_group : 3;
     u32 bone : 7;
     u32 damage : 13;
 };
-struct it_create_hitbox_4 {
+struct DISC_STRUCT it_create_hitbox_4 {
     u32 base_knockback : 9;
     u32 element : 5;
     u32 x40_b0 : 1;
@@ -826,7 +832,7 @@ struct it_create_hitbox_4 {
     u32 x40_b3 : 1;
     u32 x40_b2 : 1;
 };
-struct spawn_hitbox_skip {
+struct DISC_STRUCT spawn_hitbox_skip {
     u8 _0[0xF];
     u32 xF_b0 : 1;
     u32 xF_b1 : 1;
@@ -834,48 +840,48 @@ struct spawn_hitbox_skip {
     u32 xF_b3 : 1;
     u32 xF_b4 : 1;
 };
-struct sound_effect_0 {
+struct DISC_STRUCT sound_effect_0 {
     u32 opcode : 6;
     u32 behavior : 8;
     u32 unknown : 18;
 };
-struct sound_effect_1 {
+struct DISC_STRUCT sound_effect_1 {
     u32 sfx_id;
 };
-struct sound_effect_2 {
+struct DISC_STRUCT sound_effect_2 {
     u32 padding : 16;
     u32 volume : 8;
     u32 panning : 8;
 };
-struct pseudo_random_sfx_0 {
+struct DISC_STRUCT pseudo_random_sfx_0 {
     u32 opcode : 6;
     u32 volume : 8;
     u32 panning : 8;
     u32 behavior : 4;
     u32 random_range : 6;
 };
-struct pseudo_random_sfx_1 {
+struct DISC_STRUCT pseudo_random_sfx_1 {
     u32 sfx_id;
 };
-struct stage_sfx_0 {
+struct DISC_STRUCT stage_sfx_0 {
     u32 opcode : 6;
     u32 sfx_base : 10;
     u32 x2_b0_7 : 8;
     u32 pitch_select : 8;
 };
-struct stage_sfx_1 {
+struct DISC_STRUCT stage_sfx_1 {
     u32 sfx_id;
 };
-struct stage_sfx_2 {
+struct DISC_STRUCT stage_sfx_2 {
     u32 x0_b0_15 : 16;
     u32 x2_b0_15 : 16;
 };
-struct stage_sfx_3 {
+struct DISC_STRUCT stage_sfx_3 {
     u32 x0_b0_15 : 16;
     u32 x2_b0_7 : 8;
     u32 x3_b0_7 : 8;
 };
-struct footstep_fx_0 {
+struct DISC_STRUCT footstep_fx_0 {
     u32 opcode : 6;
     u32 boneId : 8;
     u32 use_alt_bone : 1;
@@ -883,36 +889,36 @@ struct footstep_fx_0 {
     u32 x2_b0_7 : 8;
     u32 x3_b0_7 : 8;
 };
-struct unk_fx_0 {
+struct DISC_STRUCT unk_fx_0 {
     u32 opcode : 6;
     u32 x0_b6_7 : 2;
     u32 x1_b0_7 : 8;
     u32 x2_b0_7 : 8;
     u32 x3_b0_7 : 8;
 };
-struct smash_charge_0 {
+struct DISC_STRUCT smash_charge_0 {
     u32 opcode : 6;
     u32 charge_frames : 10;
     u32 charge_rate : 16;
 };
-struct smash_charge_1 {
+struct DISC_STRUCT smash_charge_1 {
     u32 color_anim : 8;
     u32 x1_b0_23 : 24;
 };
-struct wind_fx_0 {
+struct DISC_STRUCT wind_fx_0 {
     u32 opcode : 6;
     u32 x0_b6_17 : 18;
     u32 bone : 8;
 };
-struct wind_fx_1 {
+struct DISC_STRUCT wind_fx_1 {
     s16 timer : 16;
     s16 x : 16;
 };
-struct wind_fx_2 {
+struct DISC_STRUCT wind_fx_2 {
     s16 y : 16;
     s16 mag : 16;
 };
-struct wind_fx_3 {
+struct DISC_STRUCT wind_fx_3 {
     s16 angle : 16;
     s16 decay : 16;
 };
@@ -924,7 +930,7 @@ struct CommandInfo {
         u32* ptr[1]; ///< @todo Hack to match #Command_04
         /// @todo eventually clean this up, probably have each struct as its
         /// own union?
-        union CmdUnion {
+        union DISC_STRUCT CmdUnion {
             struct Command_00 Command_00;
             struct Command_02 Command_02;
             struct Command_03 Command_03;

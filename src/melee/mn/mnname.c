@@ -1695,40 +1695,59 @@ s32 mnName_8023AC40(void)
     HSD_Archive* archive = mn_804D6BB8;
     HSD_GObjProc* proc;
 
-    lbArchive_LoadSections(
-        archive, &mnName_804A06E0.joint, "MenMainConNmTp_Top_joint",
-        &mnName_804A06E0.anim_joint, "MenMainConNmTp_Top_animjoint",
-        &mnName_804A06E0.matanim_joint, "MenMainConNmTp_Top_matanim_joint",
-        &mnName_804A06E0.shapeanim_joint, "MenMainConNmTp_Top_shapeanim_joint",
-        &mnName_804A06C0.joint, "MenMainBaseNmTp_Top_joint",
-        &mnName_804A06C0.anim_joint, "MenMainBaseNmTp_Top_animjoint",
-        &mnName_804A06C0.matanim_joint, "MenMainBaseNmTp_Top_matanim_joint",
-        &mnName_804A06C0.shapeanim_joint,
-        "MenMainBaseNmTp_Top_shapeanim_joint", &mnName_804A06D0.joint,
-        "MenMainWarCmn_Top_joint", &mnName_804A06D0.anim_joint,
-        "MenMainWarCmn_Top_animjoint", &mnName_804A06D0.matanim_joint,
-        "MenMainWarCmn_Top_matanim_joint", &mnName_804A06D0.shapeanim_joint,
-        "MenMainWarCmn_Top_shapeanim_joint", &mnNameNew_804A06F0.joint,
-        "MenMainConEtNw_Top_joint", &mnNameNew_804A06F0.animjoint,
-        "MenMainConEtNw_Top_animjoint", &mnNameNew_804A06F0.matanim_joint,
-        "MenMainConEtNw_Top_matanim_joint",
-        &mnNameNew_804A06F0.shapeanim_joint,
-        "MenMainConEtNw_Top_shapeanim_joint", &mnNameNew_804A0700.joint,
-        "MenMainBaseEtNw_Top_joint", &mnNameNew_804A0700.animjoint,
-        "MenMainBaseEtNw_Top_animjoint", &mnNameNew_804A0700.matanim_joint,
-        "MenMainBaseEtNw_Top_matanim_joint",
-        &mnNameNew_804A0700.shapeanim_joint,
-        "MenMainBaseEtNw_Top_shapeanim_joint", &mnNameNew_804A0710.joint,
-        "MenMainSubEtNw_Top_joint", &mnNameNew_804A0710.animjoint,
-        "MenMainSubEtNw_Top_animjoint", &mnNameNew_804A0710.matanim_joint,
-        "MenMainSubEtNw_Top_matanim_joint",
-        &mnNameNew_804A0710.shapeanim_joint,
-        "MenMainSubEtNw_Top_shapeanim_joint", &mnNameNew_804A0720[0].joint,
-        "MenMainSbaseEtNw_Top_joint", &mnNameNew_804A0720[0].animjoint,
-        "MenMainSbaseEtNw_Top_animjoint", &mnNameNew_804A0720[0].matanim_joint,
-        "MenMainSbaseEtNw_Top_matanim_joint",
-        &mnNameNew_804A0720[0].shapeanim_joint,
-        "MenMainSbaseEtNw_Top_shapeanim_joint", 0);
+    {
+        void* dp_[16];
+        lbArchive_LoadSections(
+            archive, &mnName_804A06E0.joint, "MenMainConNmTp_Top_joint",
+            &mnName_804A06E0.anim_joint, "MenMainConNmTp_Top_animjoint",
+            &mnName_804A06E0.matanim_joint, "MenMainConNmTp_Top_matanim_joint",
+            &mnName_804A06E0.shapeanim_joint, "MenMainConNmTp_Top_shapeanim_joint",
+            &mnName_804A06C0.joint, "MenMainBaseNmTp_Top_joint",
+            &mnName_804A06C0.anim_joint, "MenMainBaseNmTp_Top_animjoint",
+            &mnName_804A06C0.matanim_joint, "MenMainBaseNmTp_Top_matanim_joint",
+            &mnName_804A06C0.shapeanim_joint,
+            "MenMainBaseNmTp_Top_shapeanim_joint", &mnName_804A06D0.joint,
+            "MenMainWarCmn_Top_joint", &mnName_804A06D0.anim_joint,
+            "MenMainWarCmn_Top_animjoint", &mnName_804A06D0.matanim_joint,
+            "MenMainWarCmn_Top_matanim_joint", &mnName_804A06D0.shapeanim_joint,
+            "MenMainWarCmn_Top_shapeanim_joint", &dp_[0],
+            "MenMainConEtNw_Top_joint", &dp_[1],
+            "MenMainConEtNw_Top_animjoint", &dp_[2],
+            "MenMainConEtNw_Top_matanim_joint",
+            &dp_[3],
+            "MenMainConEtNw_Top_shapeanim_joint", &dp_[4],
+            "MenMainBaseEtNw_Top_joint", &dp_[5],
+            "MenMainBaseEtNw_Top_animjoint", &dp_[6],
+            "MenMainBaseEtNw_Top_matanim_joint",
+            &dp_[7],
+            "MenMainBaseEtNw_Top_shapeanim_joint", &dp_[8],
+            "MenMainSubEtNw_Top_joint", &dp_[9],
+            "MenMainSubEtNw_Top_animjoint", &dp_[10],
+            "MenMainSubEtNw_Top_matanim_joint",
+            &dp_[11],
+            "MenMainSubEtNw_Top_shapeanim_joint", &dp_[12],
+            "MenMainSbaseEtNw_Top_joint", &dp_[13],
+            "MenMainSbaseEtNw_Top_animjoint", &dp_[14],
+            "MenMainSbaseEtNw_Top_matanim_joint",
+            &dp_[15],
+            "MenMainSbaseEtNw_Top_shapeanim_joint", 0);
+        DP_SET(mnNameNew_804A06F0.joint, dp_[0]);
+        DP_SET(mnNameNew_804A06F0.animjoint, dp_[1]);
+        DP_SET(mnNameNew_804A06F0.matanim_joint, dp_[2]);
+        DP_SET(mnNameNew_804A06F0.shapeanim_joint, dp_[3]);
+        DP_SET(mnNameNew_804A0700.joint, dp_[4]);
+        DP_SET(mnNameNew_804A0700.animjoint, dp_[5]);
+        DP_SET(mnNameNew_804A0700.matanim_joint, dp_[6]);
+        DP_SET(mnNameNew_804A0700.shapeanim_joint, dp_[7]);
+        DP_SET(mnNameNew_804A0710.joint, dp_[8]);
+        DP_SET(mnNameNew_804A0710.animjoint, dp_[9]);
+        DP_SET(mnNameNew_804A0710.matanim_joint, dp_[10]);
+        DP_SET(mnNameNew_804A0710.shapeanim_joint, dp_[11]);
+        DP_SET(mnNameNew_804A0720[0].joint, dp_[12]);
+        DP_SET(mnNameNew_804A0720[0].animjoint, dp_[13]);
+        DP_SET(mnNameNew_804A0720[0].matanim_joint, dp_[14]);
+        DP_SET(mnNameNew_804A0720[0].shapeanim_joint, dp_[15]);
+    }
 
     if (lbLang_IsSavedLanguageUS()) {
         lbArchive_LoadSections(

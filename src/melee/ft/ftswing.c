@@ -75,7 +75,7 @@ void ftCo_Attack_800CCF58(Fighter_GObj* gobj, enum_t arg1)
     HSD_ASSERT(124, fp->item_gobj != NULL);
     swing_type = fn_800CCEC4(itGetKind(fp->item_gobj));
     anim_id = get_anim_id(fp, swing_type, arg1);
-    f = Fighter_804D654C[swing_type][arg1];
+    f = Fighter_804D654C[swing_type][arg1].v;
     switch (swing_type) {
     case 0:
         ftCo_800CD350(gobj, anim_id, arg1, f);

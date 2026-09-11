@@ -605,20 +605,20 @@ void ftCh_Init_OnLoad(HSD_GObj* gobj)
 {
     ftData* ftdata;
     ftCrazyHand_DatAttrs* ftData_attr;
-    void** items;
+    DiscU32* items;
     Fighter* fp;
 
     fp = GET_FIGHTER(gobj);
     ftdata = fp->ft_data;
-    ftData_attr = ftdata->ext_attr;
-    items = ftdata->x48_items;
+    ftData_attr = DP(ftCrazyHand_DatAttrs, ftdata->ext_attr);
+    items = DP(DiscU32, ftdata->x48_items);
 
     PUSH_ATTRS(fp, ftCrazyHand_DatAttrs);
 
     ftBossLib_ReportGObjSlotType(gobj);
-    it_8026B3F8(items[0], It_Kind_CrazyHand_Laser);
-    it_8026B3F8(items[1], It_Kind_CrazyHand_Bullet);
-    it_8026B3F8(items[2], It_Kind_CrazyHand_Bomb);
+    it_8026B3F8(DP(Article, items[0].v), It_Kind_CrazyHand_Laser);
+    it_8026B3F8(DP(Article, items[1].v), It_Kind_CrazyHand_Bullet);
+    it_8026B3F8(DP(Article, items[2].v), It_Kind_CrazyHand_Bomb);
     fp->no_normal_motion = 1;
     fp->x2229_b6 = 1;
     fp->no_kb = 1;

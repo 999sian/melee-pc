@@ -12,7 +12,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-/* 223580 */ static void grTSamus_OnDemoInit(int);
+/* 223580 */ static void grTSamus_OnDemoInit(bool);
 /* 223584 */ static void grTSamus_OnInit(void);
 /* 2235F4 */ static void grTSamus_OnLoad(void);
 /* 2235F8 */ static void grTSamus_OnStart(void);
@@ -72,7 +72,7 @@ StageData grTSs_StageData = {
     1,
 };
 
-void grTSamus_OnDemoInit(int unused) {}
+void grTSamus_OnDemoInit(bool unused) {}
 
 void grTSamus_OnInit(void)
 {

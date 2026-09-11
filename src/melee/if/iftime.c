@@ -204,7 +204,7 @@ void ifTime_UpdateTimers(HSD_GObj* arg0)
     ifTime_SetTime(jobj, seconds, centiseconds);
     if (gm_8016B110() == 0 && centiseconds == 0 && seconds == 5) {
         HSD_JObj* jobj2 =
-            HSD_JObjLoadJoint(x->countdown_timer_models[0]->joint);
+            HSD_JObjLoadJoint(DP(HSD_Joint, x->countdown_timer_models[0]->joint));
         if (jobj2 == NULL) {
             OSReport("Error : jobj dont't get (ifAddTimeDownModel)\n");
             OSPanic("iftime.c", 300, "");
@@ -233,7 +233,7 @@ void ifTime_CreateTimers(void)
     HSD_JObj* jobj;
     HSD_JObj* digit;
     int i;
-    void *anims, *matanims, *shapeanims;
+    DiscU32 *anims, *matanims, *shapeanims;
     if (!rules->x1_0 && !rules->timer_enabled) {
         ifTime_data.match_timer = NULL;
         return;
@@ -249,16 +249,16 @@ void ifTime_CreateTimers(void)
             OSReport("Error : gobj dont't get (ifAddTime)\n");
             OSPanic("iftime.c", 383, "");
         }
-        jobj = HSD_JObjLoadJoint(ifTime_match_timer_models.joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, ifTime_match_timer_models.joint));
         if (jobj == NULL) {
             OSReport("Error : jobj dont't get (ifAddTime)\n");
             OSPanic("iftime.c", 389, "");
         }
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 11, 0);
-        anims = ifTime_match_timer_models.anims;
-        matanims = ifTime_match_timer_models.matanims;
-        shapeanims = ifTime_match_timer_models.shapeanims;
+        anims = DP(DiscU32, ifTime_match_timer_models.anims);
+        matanims = DP(DiscU32, ifTime_match_timer_models.matanims);
+        shapeanims = DP(DiscU32, ifTime_match_timer_models.shapeanims);
         lb_8000C07C(jobj, 0, anims, matanims, shapeanims);
         HSD_JObjReqAnimAll(jobj, 0.0f);
         HSD_GObj_SetupProc(gobj, ifTime_UpdateTimers, 17);

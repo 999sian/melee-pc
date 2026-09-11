@@ -328,7 +328,7 @@ void fn_80181708(void)
                        (void (*)(HSD_GObj*)) fn_80181598, 0x15U);
 
     gobj = GObj_Create(0xEU, 0xFU, 0U);
-    jobj = HSD_JObjLoadJoint((*lbl_804D65CC)->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*lbl_804D65CC)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xBU, 0U);
     HSD_GObj_SetupProc(gobj, fn_80180C14, 0x15U);
@@ -338,7 +338,7 @@ void fn_80181708(void)
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
 
     gobj = (new_var = GObj_Create(0xEU, 0xFU, 0U));
-    jobj = HSD_JObjLoadJoint((*lbl_804D65D0)->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*lbl_804D65D0)->joint));
     HSD_GObjObject_80390A70(new_var, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(new_var, HSD_GObj_JObjCallback, 0xBU, 0U);
     HSD_GObj_SetupProc(new_var, fn_80180C60, 0x15U);

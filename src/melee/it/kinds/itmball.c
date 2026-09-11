@@ -170,8 +170,7 @@ void itMball_80297CC4(Item_GObj* arg0)
 {
     f32 zero = 0.0f;
     Item* item = GET_ITEM(arg0);
-    itMBallAttributes* spec_attrs =
-        item->xC4_article_data->x4_specialAttributes;
+    itMBallAttributes* spec_attrs = DP(itMBallAttributes, item->xC4_article_data->x4_specialAttributes);
     HSD_JObj* hsd_obj = arg0->hsd_obj;
 
     it_8026B3A8(arg0);
@@ -197,8 +196,7 @@ void itMball_80297CC4(Item_GObj* arg0)
 void itMball_OnAccessory(Item_GObj* arg0)
 {
     Item* item = GET_ITEM(arg0);
-    itMBallAttributes* spec_attrs =
-        item->xC4_article_data->x4_specialAttributes;
+    itMBallAttributes* spec_attrs = DP(itMBallAttributes, item->xC4_article_data->x4_specialAttributes);
 
     if (item->xD44_lifeTimer == spec_attrs->x4) {
         item->xDD4_itemVar.mball.b1 = it_8027AB64(arg0);
@@ -222,8 +220,7 @@ bool itMball_Motion5_Coll(Item_GObj* gobj)
 void itMball_80297E8C(Item_GObj* gobj)
 {
     Item* item = GET_ITEM(gobj);
-    itMBallAttributes* spec_attrs =
-        item->xC4_article_data->x4_specialAttributes;
+    itMBallAttributes* spec_attrs = DP(itMBallAttributes, item->xC4_article_data->x4_specialAttributes);
     HSD_JObj* jobj = GET_JOBJ(gobj);
 
     it_8026B3A8(gobj);

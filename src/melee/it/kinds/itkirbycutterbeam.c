@@ -48,7 +48,7 @@ void it_8029BB90(Item_GObj* gobj, HSD_GObj* owner)
 {
     Item* ip = GET_ITEM(gobj);
     itKirbyCutterBeamAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itKirbyCutterBeamAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
 
     ip->xDD4_itemVar.kirbycutterbeam.angle =
@@ -82,7 +82,7 @@ void itKirbycutterbeam_UnkMotion0_Phys(Item_GObj* gobj)
     Item* ip = GET_ITEM(gobj);
     HSD_JObj* child = HSD_JObjGetChild(GET_JOBJ(gobj));
     PAD_STACK(8);
-    attr = ip->xC4_article_data->x4_specialAttributes;
+    attr = DP(itKirbyCutterBeamAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     ip->xDD4_itemVar.kirbycutterbeam.init_pos = ip->pos;
     ip->x40_vel.x =

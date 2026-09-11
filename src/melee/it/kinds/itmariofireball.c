@@ -46,7 +46,7 @@ void it_8029B6F8(Item_GObj* gobj, Vec3* pos, ItemKind kind, f32 facing_dir)
 void it_8029B7C0(Item_GObj* gobj)
 {
     Item* it = GET_ITEM(gobj);
-    itUnkAttributes* ap = it->xC4_article_data->x4_specialAttributes;
+    itUnkAttributes* ap = DP(itUnkAttributes, it->xC4_article_data->x4_specialAttributes);
     f32 x0 = ap->x0_float;
     f32 x4 = ap->x4_float;
 
@@ -81,7 +81,7 @@ bool itMariofireball_UnkMotion0_Coll(Item_GObj* gobj)
     if (it_8027781C(gobj)) {
         Item* it = GET_ITEM(gobj);
         HSD_JObj* jobj = GET_JOBJ(gobj);
-        itUnkAttributes* attrs = it->xC4_article_data->x4_specialAttributes;
+        itUnkAttributes* attrs = DP(itUnkAttributes, it->xC4_article_data->x4_specialAttributes);
         if (calc_dist_2d_accurate(&it->x40_vel) < attrs->x10) {
             return true;
         }

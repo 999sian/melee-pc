@@ -99,7 +99,8 @@ typedef void (*RefractCallbackTypeB)(struct lbRefract_CallbackData*, s32, u32,
 typedef void (*RefractCallbackTypeC)(struct lbRefract_CallbackData*, s32, u32,
                                      s32*, s32*, s32*, s32*);
 
-typedef struct lbColl_80008D30_arg1 {
+/* Embedded in ftCommonData / item attributes (read in place from disc). */
+typedef struct DISC_STRUCT lbColl_80008D30_arg1 {
     /*  +0 */ HitCapsuleState state;
     /*  +4 */ u32 damage;
     /*  +8 */ int kb_angle;
@@ -110,6 +111,7 @@ typedef struct lbColl_80008D30_arg1 {
     /* +1C */ int sfx_severity;
     /* +20 */ enum_t sfx_kind;
 } lbColl_80008D30_arg1;
+DISC_ASSERT_SIZE(lbColl_80008D30_arg1, 0x24);
 
 typedef enum ECBSourceKind {
     ECBSource_None,

@@ -95,16 +95,16 @@ void grAnime_801C6620(HSD_PObj* arg0, HSD_ShapeAnim* arg1)
                                 pobj->u.shape_set);
             if (shape_anim != NULL) {
                 unk = pobj->u.unk;
-                if (shape_anim->aobjdesc != NULL) {
+                if (shape_anim->aobjdesc != 0) {
                     if (unk->aobj != NULL) {
                         HSD_AObjRemove(unk->aobj);
                     }
-                    unk->aobj = HSD_AObjLoadDesc(shape_anim->aobjdesc);
+                    unk->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, shape_anim->aobjdesc));
                 }
             }
         }
         pobj = pobj->next;
-        shape_anim = shape_anim != NULL ? shape_anim->next : NULL;
+        shape_anim = shape_anim != NULL ? DP(HSD_ShapeAnim, shape_anim->next) : NULL;
     }
 }
 
@@ -114,7 +114,7 @@ static inline HSD_TexAnim* HSD_TexAnimFindById(HSD_TexAnim* cur, int id)
         if ((signed) cur->id == id) {
             return cur;
         }
-        cur = cur->next;
+        cur = DP(HSD_TexAnim, cur->next);
     }
     return NULL;
 }
@@ -125,12 +125,12 @@ void grAnime_801C6710(HSD_TObj* tobj, HSD_TexAnim* texanim)
         return;
     }
     texanim = HSD_TexAnimFindById(texanim, tobj->id);
-    if (texanim != NULL && texanim->aobjdesc != NULL) {
+    if (texanim != NULL && texanim->aobjdesc != 0) {
         if (tobj->aobj != NULL) {
             HSD_AObjRemove(tobj->aobj);
         }
-        tobj->aobj = HSD_AObjLoadDesc(texanim->aobjdesc);
-        tobj->imagetbl = texanim->imagetbl;
+        tobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, texanim->aobjdesc));
+        tobj->imagetbl = DP(DiscU32, texanim->imagetbl);
     }
 }
 
@@ -147,13 +147,13 @@ static inline void grAnime_801C6710_all(HSD_TObj* tobj, HSD_TexAnim* texanim)
 void grAnime_801C67A8(HSD_MObj* mobj, HSD_MatAnim* matanim)
 {
     if (mobj != NULL && matanim != NULL) {
-        if (matanim->aobjdesc != NULL) {
+        if (matanim->aobjdesc != 0) {
             if (mobj->aobj != NULL) {
                 HSD_AObjRemove(mobj->aobj);
             }
-            mobj->aobj = HSD_AObjLoadDesc(matanim->aobjdesc);
+            mobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, matanim->aobjdesc));
         }
-        grAnime_801C6710_all(mobj->tobj, matanim->texanim);
+        grAnime_801C6710_all(mobj->tobj, DP(HSD_TexAnim, matanim->texanim));
     }
 }
 
@@ -184,12 +184,12 @@ void grAnime_801C683C(HSD_DObj* arg0, HSD_MatAnim* arg1,
     while (dobj != NULL) {
         if (dobj != NULL) {
             grAnime_801C6620(dobj->pobj,
-                             sa_dobj != NULL ? sa_dobj->shapeanim : NULL);
+                             sa_dobj != NULL ? DP(HSD_ShapeAnim, sa_dobj->shapeanim) : NULL);
             grAnime_801C67A8_noinline(dobj->mobj, matanim);
         }
         dobj = dobj->next;
-        matanim = matanim != NULL ? matanim->next : NULL;
-        sa_dobj = sa_dobj != NULL ? sa_dobj->next : NULL;
+        matanim = matanim != NULL ? DP(HSD_MatAnim, matanim->next) : NULL;
+        sa_dobj = sa_dobj != NULL ? DP(HSD_ShapeAnimDObj, sa_dobj->next) : NULL;
     }
 }
 
@@ -198,11 +198,11 @@ void grAnime_801C68F4(HSD_RObj* robj, HSD_RObjAnimJoint* robjanimjoint)
     if (robj == NULL || robjanimjoint == NULL) {
         return;
     }
-    if (robjanimjoint->aobjdesc != NULL) {
+    if (robjanimjoint->aobjdesc != 0) {
         if (robj->aobj != NULL) {
             HSD_AObjRemove(robj->aobj);
         }
-        robj->aobj = HSD_AObjLoadDesc(robjanimjoint->aobjdesc);
+        robj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, robjanimjoint->aobjdesc));
     }
 }
 
@@ -219,7 +219,7 @@ static void grAnime_801C6960(HSD_RObj* robj, HSD_RObjAnimJoint* arg1)
     while ((phi_r31 != NULL) && (phi_r30 != NULL)) {
         grAnime_801C68F4(phi_r31, phi_r30);
         phi_r31 = phi_r31->next;
-        phi_r30 = phi_r30->next;
+        phi_r30 = DP(HSD_RObjAnimJoint, phi_r30->next);
     }
 }
 
@@ -294,19 +294,19 @@ void grAnime_801C6A54(HSD_JObj* jobj, HSD_AnimJoint* animjoint,
         return;
     }
     if (animjoint != NULL) {
-        if (animjoint->aobjdesc != NULL) {
+        if (animjoint->aobjdesc != 0) {
             if (jobj->aobj != NULL) {
                 HSD_AObjRemove(jobj->aobj);
             }
-            jobj->aobj = HSD_AObjLoadDesc(animjoint->aobjdesc);
+            jobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, animjoint->aobjdesc));
             grAnime_801C69FC_for_jobj(grAnime_GetAObj(jobj));
         }
-        grAnime_801C6960(jobj->robj, animjoint->robj_anim);
+        grAnime_801C6960(jobj->robj, DP(HSD_RObjAnimJoint, animjoint->robj_anim));
     }
     if (union_type_dobj(jobj)) {
         grAnime_801C683C(
-            jobj->u.dobj, matanimjoint != NULL ? matanimjoint->matanim : NULL,
-            shapeanimjoint != NULL ? shapeanimjoint->shapeanimdobj : NULL);
+            jobj->u.dobj, matanimjoint != NULL ? DP(HSD_MatAnim, matanimjoint->matanim) : NULL,
+            shapeanimjoint != NULL ? DP(HSD_ShapeAnimDObj, shapeanimjoint->shapeanimdobj) : NULL);
     }
 }
 
@@ -319,19 +319,19 @@ static inline void grAnime_801C6A54_inner(HSD_JObj* jobj,
         return;
     }
     if (animjoint != NULL) {
-        if (animjoint->aobjdesc != NULL) {
+        if (animjoint->aobjdesc != 0) {
             if (jobj->aobj != NULL) {
                 HSD_AObjRemove(jobj->aobj);
             }
-            jobj->aobj = HSD_AObjLoadDesc(animjoint->aobjdesc);
+            jobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, animjoint->aobjdesc));
             grAnime_801C69FC_noinline(jobj->aobj);
         }
-        grAnime_801C6960(jobj->robj, animjoint->robj_anim);
+        grAnime_801C6960(jobj->robj, DP(HSD_RObjAnimJoint, animjoint->robj_anim));
     }
     if (union_type_dobj(jobj)) {
         grAnime_801C683C(
-            jobj->u.dobj, matanimjoint != NULL ? matanimjoint->matanim : NULL,
-            shapeanimjoint != NULL ? shapeanimjoint->shapeanimdobj : NULL);
+            jobj->u.dobj, matanimjoint != NULL ? DP(HSD_MatAnim, matanimjoint->matanim) : NULL,
+            shapeanimjoint != NULL ? DP(HSD_ShapeAnimDObj, shapeanimjoint->shapeanimdobj) : NULL);
     }
 }
 
@@ -364,20 +364,20 @@ static inline void grAnime_801C6C0C_inner(HSD_JObj* jobj,
         if (!(jobj->flags & 0x1000)) {
             child = jobj->child;
             if (animjoint != NULL) {
-                next_caj = animjoint != NULL ? animjoint->child : NULL;
+                next_caj = animjoint != NULL ? DP(HSD_AnimJoint, animjoint->child) : NULL;
             } else {
                 next_caj = NULL;
             }
             caj = next_caj;
             if (matanimjoint != NULL) {
-                next_cmj = matanimjoint != NULL ? matanimjoint->child : NULL;
+                next_cmj = matanimjoint != NULL ? DP(HSD_MatAnimJoint, matanimjoint->child) : NULL;
             } else {
                 next_cmj = NULL;
             }
             cmj = next_cmj;
             if (shapeanimjoint != NULL) {
                 next_csj =
-                    shapeanimjoint != NULL ? shapeanimjoint->child : NULL;
+                    shapeanimjoint != NULL ? DP(HSD_ShapeAnimJoint, shapeanimjoint->child) : NULL;
             } else {
                 next_csj = NULL;
             }
@@ -386,19 +386,19 @@ static inline void grAnime_801C6C0C_inner(HSD_JObj* jobj,
                 grAnime_801C6C0C(child, caj, cmj, csj);
                 child = child->next;
                 if (caj != NULL) {
-                    next_caj = caj != NULL ? caj->next : NULL;
+                    next_caj = caj != NULL ? DP(HSD_AnimJoint, caj->next) : NULL;
                 } else {
                     next_caj = NULL;
                 }
                 caj = next_caj;
                 if (cmj != NULL) {
-                    next_cmj = cmj != NULL ? cmj->next : NULL;
+                    next_cmj = cmj != NULL ? DP(HSD_MatAnimJoint, cmj->next) : NULL;
                 } else {
                     next_cmj = NULL;
                 }
                 cmj = next_cmj;
                 if (csj != NULL) {
-                    next_csj = csj != NULL ? csj->next : NULL;
+                    next_csj = csj != NULL ? DP(HSD_ShapeAnimJoint, csj->next) : NULL;
                 } else {
                     next_csj = NULL;
                 }
@@ -425,20 +425,20 @@ void grAnime_801C6C0C(HSD_JObj* jobj, HSD_AnimJoint* animjoint,
         if (!(jobj->flags & 0x1000)) {
             jp = jobj->child;
             if (animjoint != NULL) {
-                next_aj = animjoint != NULL ? animjoint->child : NULL;
+                next_aj = animjoint != NULL ? DP(HSD_AnimJoint, animjoint->child) : NULL;
             } else {
                 next_aj = NULL;
             }
             aj = next_aj;
             if (matanimjoint != NULL) {
-                next_mj = matanimjoint != NULL ? matanimjoint->child : NULL;
+                next_mj = matanimjoint != NULL ? DP(HSD_MatAnimJoint, matanimjoint->child) : NULL;
             } else {
                 next_mj = NULL;
             }
             mj = next_mj;
             if (shapeanimjoint != NULL) {
                 next_sj =
-                    shapeanimjoint != NULL ? shapeanimjoint->child : NULL;
+                    shapeanimjoint != NULL ? DP(HSD_ShapeAnimJoint, shapeanimjoint->child) : NULL;
             } else {
                 next_sj = NULL;
             }
@@ -447,19 +447,19 @@ void grAnime_801C6C0C(HSD_JObj* jobj, HSD_AnimJoint* animjoint,
                 grAnime_801C6C0C_inner(jp, aj, mj, sj);
                 jp = jp->next;
                 if (aj != NULL) {
-                    next_aj = aj != NULL ? aj->next : NULL;
+                    next_aj = aj != NULL ? DP(HSD_AnimJoint, aj->next) : NULL;
                 } else {
                     next_aj = NULL;
                 }
                 aj = next_aj;
                 if (mj != NULL) {
-                    next_mj = mj != NULL ? mj->next : NULL;
+                    next_mj = mj != NULL ? DP(HSD_MatAnimJoint, mj->next) : NULL;
                 } else {
                     next_mj = NULL;
                 }
                 mj = next_mj;
                 if (sj != NULL) {
-                    next_sj = sj != NULL ? sj->next : NULL;
+                    next_sj = sj != NULL ? DP(HSD_ShapeAnimJoint, sj->next) : NULL;
                 } else {
                     next_sj = NULL;
                 }
@@ -887,9 +887,9 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     u32 req_flags = 0;
     s32 anim_flags = 0;
     UnkArchiveStruct* archive;
-    HSD_AnimJoint** ajp;
-    HSD_MatAnimJoint** mjp;
-    HSD_ShapeAnimJoint** sjp;
+    DiscU32* ajp; /* HSD_AnimJoint*[] */
+    DiscU32* mjp; /* HSD_MatAnimJoint*[] */
+    DiscU32* sjp; /* HSD_ShapeAnimJoint*[] */
     HSD_AnimJoint* aj;
     HSD_MatAnimJoint* mj;
     HSD_ShapeAnimJoint* sj;
@@ -901,8 +901,10 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     }
     archive = grDatFiles_801C6330(map_id);
     HSD_ASSERT(0x4DE, archive);
-    if ((arg3 & 1) && (ajp = archive->unk4->unk8[map_id].unk4, ajp != NULL) &&
-        ((aj = ajp[arg4]) != NULL))
+    if ((arg3 & 1) &&
+        (ajp = DP(DiscU32, MAP_GOBJ_DESC(archive->unk4, map_id)->unk4),
+         ajp != NULL) &&
+        ((aj = DP(HSD_AnimJoint, ajp[arg4].v)) != NULL))
     {
         aj = &aj[arg2];
         req_flags |= 0x81;
@@ -910,8 +912,10 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     } else {
         aj = NULL;
     }
-    if ((arg3 & 2) && (mjp = archive->unk4->unk8[map_id].unk8, mjp != NULL) &&
-        ((mj = mjp[arg4]) != NULL))
+    if ((arg3 & 2) &&
+        (mjp = DP(DiscU32, MAP_GOBJ_DESC(archive->unk4, map_id)->unk8),
+         mjp != NULL) &&
+        ((mj = DP(HSD_MatAnimJoint, mjp[arg4].v)) != NULL))
     {
         mj = &mj[arg2];
         req_flags |= 0x416;
@@ -919,8 +923,10 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     } else {
         mj = NULL;
     }
-    if ((arg3 & 4) && (sjp = archive->unk4->unk8[map_id].unkC, sjp != NULL) &&
-        ((sj = sjp[arg4]) != NULL))
+    if ((arg3 & 4) &&
+        (sjp = DP(DiscU32, MAP_GOBJ_DESC(archive->unk4, map_id)->unkC),
+         sjp != NULL) &&
+        ((sj = DP(HSD_ShapeAnimJoint, sjp[arg4].v)) != NULL))
     {
         sj = &sj[arg2];
         req_flags |= 8;
@@ -938,7 +944,7 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     grAnime_801C752C(jobj, arg5, anim_flags, HSD_AObjSetRate, 1, farg1);
     archive = grDatFiles_801C6330(map_id);
     HSD_ASSERT(0x148, archive);
-    eflags = archive->unk4->unk8[map_id].x28;
+    eflags = DP(u8, MAP_GOBJ_DESC(archive->unk4, map_id)->x28);
     if (eflags != NULL) {
         flag = eflags[arg4];
     } else {
@@ -985,9 +991,9 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
     HSD_JObj* jobj = gobj->hsd_obj;
     UnkArchiveStruct* archive;
     HSD_Joint* joint;
-    HSD_AnimJoint** ajp;
-    HSD_MatAnimJoint** mjp;
-    HSD_ShapeAnimJoint** sap;
+    DiscU32* ajp;
+    DiscU32* mjp;
+    DiscU32* sap;
     HSD_AnimJoint* aj;
     HSD_MatAnimJoint* ma;
     HSD_ShapeAnimJoint* sa;
@@ -999,7 +1005,7 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
     }
     archive = grDatFiles_801C6330(arg1);
     HSD_ASSERT(0x556, archive);
-    joint = archive->unk4->unk8[arg1].unk0;
+    joint = DP(HSD_Joint, MAP_GOBJ_DESC(archive->unk4, arg1)->unk0);
     if (HSD_JObjGetChild(jobj) != NULL) {
         jobj = HSD_JObjGetChild(jobj);
     }
@@ -1008,21 +1014,21 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
     }
     grMaterial_801C8B68(jobj, 0);
     HSD_JObjRemoveAnimAll(jobj);
-    sap = archive->unk4->unk8[arg1].unkC;
-    ajp = archive->unk4->unk8[arg1].unk4;
-    mjp = archive->unk4->unk8[arg1].unk8;
+    sap = DP(DiscU32, MAP_GOBJ_DESC(archive->unk4, arg1)->unkC);
+    ajp = DP(DiscU32, MAP_GOBJ_DESC(archive->unk4, arg1)->unk4);
+    mjp = DP(DiscU32, MAP_GOBJ_DESC(archive->unk4, arg1)->unk8);
     if (sap != NULL) {
-        sa = sap[arg2];
+        sa = DP(HSD_ShapeAnimJoint, sap[arg2].v);
     } else {
         sa = NULL;
     }
     if (mjp != NULL) {
-        ma = mjp[arg2];
+        ma = DP(HSD_MatAnimJoint, mjp[arg2].v);
     } else {
         ma = NULL;
     }
     if (ajp != NULL) {
-        aj = ajp[arg2];
+        aj = DP(HSD_AnimJoint, ajp[arg2].v);
     } else {
         aj = NULL;
     }
@@ -1030,7 +1036,7 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
     HSD_JObjReqAnimAll(jobj, 0.0f);
     archive = grDatFiles_801C6330(arg1);
     HSD_ASSERT(0x148, archive);
-    flags = (u8*) archive->unk4->unk8[arg1].x28;
+    flags = DP(u8, MAP_GOBJ_DESC(archive->unk4, arg1)->x28);
     if (flags != NULL) {
         flag = flags[arg2];
     } else {
@@ -1098,16 +1104,16 @@ HSD_Joint* grAnime_801C8578(HSD_Joint* joint, s32* counter)
     if (*counter == 0) {
         return joint;
     }
-    if (joint->child != NULL) {
+    if (joint->child != 0) {
         *counter -= 1;
-        joint = grAnime_801C8578(joint->child, counter);
+        joint = grAnime_801C8578(DP(HSD_Joint, joint->child), counter);
         if (*counter == 0) {
             return joint;
         }
     }
-    if (joint->next != NULL) {
+    if (joint->next != 0) {
         *counter -= 1;
-        joint = grAnime_801C8578(joint->next, counter);
+        joint = grAnime_801C8578(DP(HSD_Joint, joint->next), counter);
         if (*counter == 0) {
             return joint;
         }
@@ -1134,7 +1140,8 @@ void grAnime_801C86D4(s32 arg0, HSD_GObj* arg1, s32 arg2)
     archive = grDatFiles_801C6330(arg0);
     HSD_ASSERT(0x602, archive);
     {
-        HSD_Joint* root = archive->unk4->unk8[arg0].unk0;
+        HSD_Joint* root =
+            DP(HSD_Joint, MAP_GOBJ_DESC(archive->unk4, arg0)->unk0);
         sp = arg2;
         joint = grAnime_801C8578_noinline(root, &sp);
     }

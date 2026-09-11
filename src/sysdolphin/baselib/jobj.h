@@ -108,7 +108,7 @@ typedef struct HSD_JObj {
     /* +10 */ HSD_JObj* child;
     /* +14 */ u32 flags;
     /* +18 */ union {
-        HSD_SList* ptcl;
+        HSD_DiscSList* ptcl;
         struct HSD_DObj* dobj;
         HSD_Spline* spline;
     } u;
@@ -124,22 +124,23 @@ typedef struct HSD_JObj {
 } HSD_JObj;
 ASSERT_SIZE(struct HSD_JObj, 0x88);
 
-typedef struct HSD_Joint {
-    /* +0 */ char* class_name;
+typedef struct DISC_STRUCT HSD_Joint {
+    /* +0 */ DISC_PTR(char) class_name;
     /* +4 */ u32 flags;
-    /* +8 */ HSD_Joint* child;
-    /* +C */ HSD_Joint* next;
-    /* +10 */ union {
-        HSD_DObjDesc* dobjdesc;
-        HSD_Spline* spline;
-        HSD_SList* ptcl;
+    /* +8 */ DISC_PTR(HSD_Joint) child;
+    /* +C */ DISC_PTR(HSD_Joint) next;
+    /* +10 */ union DISC_STRUCT {
+        DISC_PTR(HSD_DObjDesc) dobjdesc;
+        DISC_PTR(HSD_Spline) spline;
+        DISC_PTR(HSD_DiscSList) ptcl;
     } u;
-    /* +14 */ Vec3 rotation;
-    /* +20 */ Vec3 scale;
-    /* +2C */ Vec3 position;
-    /* +38 */ MtxPtr mtx;
-    /* +3C */ HSD_RObjDesc* robjdesc;
+    /* +14 */ DiscVec3 rotation;
+    /* +20 */ DiscVec3 scale;
+    /* +2C */ DiscVec3 position;
+    /* +38 */ DISC_PTR(DiscMtx) mtx;
+    /* +3C */ DISC_PTR(HSD_RObjDesc) robjdesc;
 } HSD_Joint;
+DISC_ASSERT_SIZE(HSD_Joint, 0x40);
 
 typedef struct HSD_JObjInfo {
     HSD_ObjInfo parent;

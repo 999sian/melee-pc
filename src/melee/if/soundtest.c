@@ -717,7 +717,7 @@ struct un_803FA258_t {
 /* 804D5978 */ static char un_804D5978[] = "<Init>\n";
 /* 804D5980 */ static char un_804D5980[] = "<Save>\n";
 /* 804D5988 */ static char un_804D5988[] = "<Load>\n";
-/* 804D5990 */ HSD_SObjDesc un_804D5990 = { &un_803FD274, NULL };
+/* 804D5990 */ HSD_SObjDesc un_804D5990 = { 0, 0 };
 /* 804D5998 */ static char un_804D5998[] = "Init";
 /* 804D59A0 */ static char un_804D59A0[] = "Format";
 /* 804D59A8 */ static char un_804D59A8[] = "Create";
@@ -2032,7 +2032,8 @@ bool un_80301964(enum soundtest_callback_arg0 arg0)
 
             gobj = GObj_Create(0xE, 0xF, 0);
             GObj_SetupGXLink(gobj, HSD_SObjLib_803A49E0, 0x12, 0);
-            un_803FD274.image_ptr = un_804D6E04;
+            DP_SET(un_803FD274.image_ptr, un_804D6E04);
+            DP_SET(un_804D5990.image, &un_803FD274);
             sobj = HSD_SObjLib_803A477C(gobj, &un_804D5990, 0, 0, 0x80, 0);
             sobj->x10 = 320.0f;
             sobj->x14 = 240.0f;
@@ -2992,7 +2993,7 @@ bool un_80301E08(enum soundtest_callback_arg0 update_scene)
 /* 803FD258 */ char un_803FD258[] = "<Delete>\n";
 /* 803FD264 */ char un_803FD264[] = "<SnapMount0>\n";
 /* 803FD274 */ HSD_ImageDesc un_803FD274 = {
-    NULL, 640, 480, GX_TF_RGB565, 0, 0.0f, 0.0f,
+    0, 640, 480, GX_TF_RGB565, 0, 0.0f, 0.0f,
 };
 /* 803FD28C */ char un_803FD28C[] = "<SnapLoad0>\n";
 /* 803FD29C */ char un_803FD29C[] = "<SnapDelete0>\n";

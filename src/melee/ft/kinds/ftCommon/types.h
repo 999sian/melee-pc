@@ -20,14 +20,25 @@ struct ftCollisionBox {
     /* +10 */ Vec2 right;
 };
 
-struct ftHurtboxInit {
+/// Disc-layout twin of ftCollisionBox, embedded in per-character attr blocks.
+struct DISC_STRUCT ftCollisionBoxDisc {
+    /*  +0 */ float top;
+    /*  +4 */ float bottom;
+    /*  +8 */ DiscVec2 left;
+    /* +10 */ DiscVec2 right;
+};
+DISC_ASSERT_SIZE(struct ftCollisionBoxDisc, 0x18);
+
+/// On disc (ftData::x30) and also built on the stack; same layout either way.
+struct DISC_STRUCT ftHurtboxInit {
     Fighter_Part bone_idx;
     HurtHeight height;
     u32 is_grabbable;
-    Vec3 a_offset;
-    Vec3 b_offset;
+    DiscVec3 a_offset;
+    DiscVec3 b_offset;
     float scale;
 };
+DISC_ASSERT_SIZE(struct ftHurtboxInit, 0x28);
 
 union ftCommon_MotionVars {
     struct {

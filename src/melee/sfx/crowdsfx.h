@@ -25,7 +25,7 @@ typedef struct CrowdSFX_UnkStruct {
 /// - Functions at 0x80321900+ named CrowdSFXManager_* in that map
 /// - Audio function 0x8002411C named lbAudio_PlayCrowdSFX
 /// - Code triggers match wiki descriptions of crowd gasps/cheers
-typedef struct CrowdConfig {
+typedef struct DISC_STRUCT CrowdConfig {
     /// Knockback thresholds for crowd gasp intensity (cat 1/2/3)
     /* 0x00 */ f32 kb_threshold_low;
     /* 0x04 */ f32 kb_threshold_mid;
@@ -51,6 +51,7 @@ typedef struct CrowdConfig {
     /// Y-offset added to blast zone bottom for proximity check
     /* 0x40 */ f32 blastzone_y_offset;
 } CrowdConfig;
+DISC_ASSERT_SIZE(CrowdConfig, 0x44);
 
 /* 321900 */ void sfx_setupCrowdSFX(void);
 /* 321950 */ void sfx_initCrowdSFX(CrowdSFX_UnkStruct*);

@@ -41,7 +41,7 @@ void ftCh_Drill_IASA(HSD_GObj* gobj)
 void ftCh_Drill_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    ftCrazyHand_DatAttrs* da = fp->ft_data->ext_attr;
+    ftCrazyHand_DatAttrs* da = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     {
         float f = ++fp->mv.ch.unk0.x0;

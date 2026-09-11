@@ -88,7 +88,7 @@ void ftCo_800D638C(Fighter_GObj* gobj)
 void ftCo_SquatWait_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCo_8008A7A8(gobj, fp->ft_data->x28);
+    ftCo_8008A7A8(gobj, DP(WaitStruct, fp->ft_data->x28));
 }
 
 void ftCo_SquatWait_IASA(Fighter_GObj* gobj)

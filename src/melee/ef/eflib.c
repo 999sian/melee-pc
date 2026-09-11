@@ -495,7 +495,7 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
     GObj_SetupGXLink(effect->gobj, HSD_GObj_JObjCallback, 7, 1);
     GObj_InitUserData(effect->gobj, 8, efLib_remove_user_data, effect);
     {
-        HSD_JObj* jobj = HSD_JObjLoadJoint(desc->model_desc.joint);
+        HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, desc->model_desc.joint));
         if (jobj == NULL) {
             HSD_GObjFree(effect->gobj);
             return NULL;
@@ -512,13 +512,14 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
             ++effect->lifetime;
         }
         {
-            if ((desc->model_desc.animjoint != NULL) |
-                (desc->model_desc.matanim_joint != NULL) |
-                (desc->model_desc.shapeanim_joint != NULL))
+            if ((desc->model_desc.animjoint != 0) |
+                (desc->model_desc.matanim_joint != 0) |
+                (desc->model_desc.shapeanim_joint != 0))
             {
-                HSD_JObjAddAnimAll(jobj, desc->model_desc.animjoint,
-                                   desc->model_desc.matanim_joint,
-                                   desc->model_desc.shapeanim_joint);
+                HSD_JObjAddAnimAll(
+                    jobj, DP(HSD_AnimJoint, desc->model_desc.animjoint),
+                    DP(HSD_MatAnimJoint, desc->model_desc.matanim_joint),
+                    DP(HSD_ShapeAnimJoint, desc->model_desc.shapeanim_joint));
                 HSD_JObjReqAnimAll(jobj, 0.0F);
                 {
                     s32 temp_r5_2 = efLib_AnimCount;

@@ -20,7 +20,7 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
-typedef struct itGShell_Attrs {
+typedef struct DISC_STRUCT itGShell_Attrs {
     float x0;
     float x4;
     float x8;
@@ -34,9 +34,9 @@ typedef struct itGShell_Attrs {
     float x28;
     float x2C;
     float x30;
-    Vec x34;
+    DiscVec3 x34;
 } itGShell_Attrs;
-ASSERT_SIZE(itGShell_Attrs, 64);
+DISC_ASSERT_SIZE(itGShell_Attrs, 64);
 
 ItemStateTable it_803F5BA8[] = {
     { -1, itGshell_UnkMotion0_Anim, itGshell_UnkMotion0_Phys,
@@ -63,7 +63,8 @@ ItemStateTable it_803F5BA8[] = {
 void it_8028B8D8(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     f32 temp;
     Vec v;
     HSD_JObj* jobj;
@@ -72,7 +73,7 @@ void it_8028B8D8(Item_GObj* gobj)
     /// @todo Shared code used by #it_8028CFE0 and #it_802DDB38.
     if (ip->xDD4_itemVar.gshell.xDDC <= 0.0f) {
         jobj = GET_JOBJ(gobj);
-        v = attrs->x34;
+        v = Vec3_FromDisc(&attrs->x34);
         temp = -ip->facing_dir;
         v.x *= temp;
         efAsync_Spawn(gobj, &GET_ITEM(gobj)->xBC0, 2, 1029, jobj, &v);
@@ -85,7 +86,8 @@ void it_8028B8D8(Item_GObj* gobj)
 void it_8028B988(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->xDD4_itemVar.gshell.xDEC_b1) {
         ip->xDD4_itemVar.gshell.xDE0 -= 1.0f;
         if (ip->xDD4_itemVar.gshell.xDE0 <= 0.0f) {
@@ -102,7 +104,8 @@ void it_8028B988(Item_GObj* gobj)
 void it_8028BA2C(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     it_80275D5C(gobj, &ip->xC0C);
     if (ABS(ip->x40_vel.x) < attrs->x8) {
         ip->x40_vel.x = ip->x40_vel.y = ip->x40_vel.z = 0.0f;
@@ -119,7 +122,8 @@ void it_8028BA2C(Item_GObj* gobj)
 void it_8028BAD8(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     switch (ip->msid) {
     case 0:
     case 1:
@@ -154,7 +158,8 @@ void it_8028BAD8(Item_GObj* gobj)
 void it_8028BC2C(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
     switch (ip->msid) {
     case 5:
@@ -203,7 +208,8 @@ void it_8028BC2C(Item_GObj* gobj)
 void itGShell_Logic14_Spawned(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     ip->xDD4_itemVar.gshell.xDD4 = attrs->x0;
     it_80275174(gobj, ip->xDD4_itemVar.gshell.xDD4);
     ip->xDD4_itemVar.gshell.xDE8 = 1;
@@ -249,9 +255,10 @@ bool itGshell_UnkMotion0_Coll(Item_GObj* gobj)
     it_8026D62C(gobj, it_8028C018);
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
-        Item_UpdateRollingShellRotation(gobj, ip, jobj, &attrs->x20);
+        f32 rotation_rate = attrs->x20;
+        Item_UpdateRollingShellRotation(gobj, ip, jobj, &rotation_rate);
     }
     return false;
 }
@@ -323,7 +330,8 @@ void itGShell_Logic14_Thrown(Item_GObj* gobj)
 bool itGshell_UnkMotion3_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->xDD4_itemVar.gshell.xDEC_b1) {
         ip->xDD4_itemVar.gshell.xDE0 -= 1.0f;
         if (ip->xDD4_itemVar.gshell.xDE0 <= 0.0f) {
@@ -385,7 +393,8 @@ bool itGshell_UnkMotion4_Coll(Item_GObj* gobj)
 void it_8028C3A8(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
     it_8026B3A8(gobj);
     it_80275474(gobj);
@@ -441,7 +450,8 @@ bool itGshell_UnkMotion6_Anim(Item_GObj* gobj)
 void itGshell_UnkMotion6_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ABS(ip->x40_vel.x) < attrs->x8 && !ip->xDC8_word.flags.x15) {
         it_8026B390(gobj);
         it_802725D4(gobj);
@@ -458,9 +468,10 @@ bool itGshell_UnkMotion6_Coll(Item_GObj* gobj)
     it_8026D62C(gobj, it_8028C898);
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
-        Item_UpdateRollingShellRotation(gobj, ip, jobj, &attrs->x20);
+        f32 rotation_rate = attrs->x20;
+        Item_UpdateRollingShellRotation(gobj, ip, jobj, &rotation_rate);
     }
     if (it_8027770C(gobj)) {
         it_80272980(gobj);
@@ -471,7 +482,8 @@ bool itGshell_UnkMotion6_Coll(Item_GObj* gobj)
 void it_8028C898(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
     it_8026B3A8(gobj);
     it_80275474(gobj);
@@ -571,7 +583,7 @@ bool itGshell_UnkMotion9_Coll(Item_GObj* gobj)
     it_8026E8C4(gobj, it_8028BE54, it_8028C018);
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
         it_80276CB8(gobj);
         jobj = HSD_JObjGetChild(jobj);
@@ -605,7 +617,8 @@ bool itGShell_Logic14_Reflected(Item_GObj* gobj)
 static inline void shellHit(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itGShell_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itGShell_Attrs* attrs =
+        DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     it_802756D0(gobj);
     it_80275444(gobj);
     ip->x40_vel.x = -ip->x40_vel.x * attrs->xC * HSD_Randf();

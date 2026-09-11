@@ -10,6 +10,16 @@
 
 #include <dolphin/gx.h>
 #include <melee/mn/types.h>
+#include <melee/sc/types.h>
+
+/// Filled by fn_80168A6C: one model of a SceneDesc plus its lights/camera/fog.
+struct gm_SceneSlice {
+    /* 0x00 */ struct DynamicModelDesc model;
+    /* 0x10 */ DiscU32* lights; /* LightList*[] */
+    /* 0x14 */ HSD_CObjDesc* cam_desc;
+    /* 0x18 */ DiscU32* cam_anims; /* HSD_CameraAnim*[] */
+    /* 0x1C */ struct SceneFogDesc* fogs;
+};
 
 #define NUM_UNLOCKABLE_CHARACTERS 11
 #define NUM_UNLOCKABLE_STAGES 11

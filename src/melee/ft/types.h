@@ -43,14 +43,15 @@
 #define FTPART_INVALID 0xFF
 
 /// Table in PlCo.dat
-struct FighterPartsTable {
-    u8* joint_to_part;
-    u8* part_to_joint;
+struct DISC_STRUCT FighterPartsTable {
+    DISC_PTR(u8) joint_to_part;
+    DISC_PTR(u8) part_to_joint;
     u32 parts_num;
 };
+DISC_ASSERT_SIZE(struct FighterPartsTable, 0xC);
 
 /// @todo Determine size and add remaining members.
-struct ftCommonData {
+struct DISC_STRUCT ftCommonData {
     /*   +0 */ float horizontal_stick_deadzone;
     /*   +4 */ float vertical_stick_deadzone;
     /*   +8 */ float horizontal_stick_smash_deadzone;
@@ -170,7 +171,7 @@ struct ftCommonData {
     /* +1D0 */ float x1D0;
     /* +1D4 */ float x1D4;
     /* +1D8 */ float x1D8;
-    /* +1DC */ UNK_T x1DC;
+    /* +1DC */ DISC_PTR(void) x1DC;
     /* +1E0 */ float x1E0;
     /* +1E4 */ float x1E4;
     /* +1E8 */ float x1E8_radians;
@@ -195,7 +196,7 @@ struct ftCommonData {
     /* +230 */ float x230;
     /* +234 */ float x234_radians;
     /* +238 */ float x238_radians;
-    /* +23C */ UNK_T x23C;
+    /* +23C */ DISC_PTR(void) x23C;
     /* +240 */ float x240;
     /* +244 */ float x244;
     /* +248 */ float x248;
@@ -209,7 +210,7 @@ struct ftCommonData {
     /* +268 */ float x268;
     /* +26C */ float x26C;
     /* +270 */ float x270;
-    /* +274 */ UNK_T x274;
+    /* +274 */ DISC_PTR(void) x274;
     /* +278 */ float x278;
     /* +27C */ float x27C;
     /* +280 */ float x280_unkShieldHealth;
@@ -255,7 +256,7 @@ struct ftCommonData {
     /* +320 */ int x320;
     /* +324 */ int x324;
     /* +328 */ float x328;
-    /* +32C */ Vec2 escapeair_deadzone;
+    /* +32C */ DiscVec2 escapeair_deadzone;
     /* +334 */ int x334;
     /* +338 */ float escapeair_force;
     /* +33C */ float escapeair_decay;
@@ -296,8 +297,8 @@ struct ftCommonData {
     /* +3E8 */ float x3E8_shieldKnockbackFrameDecay;
     /* +3EC */ float x3EC_shieldGroundFrictionMultiplier;
     /* +3F0 */ float x3F0;
-    /* +3F4 */ UNK_T x3F4;
-    /* +3F8 */ UNK_T x3F8;
+    /* +3F4 */ DISC_PTR(void) x3F4;
+    /* +3F8 */ DISC_PTR(void) x3F8;
     /* +3FC */ int x3FC;
     /* +400 */ float x400;
     /* +404 */ float x404;
@@ -354,30 +355,30 @@ struct ftCommonData {
     /* +4D0 */ float x4D0;
     /* +4D4 */ float x4D4;
     /* +4D8 */ u32 x4D8;
-    /* +4DC */ Vec2 x4DC;
-    /* +4E4 */ Vec3 x4E4;
+    /* +4DC */ DiscVec2 x4DC;
+    /* +4E4 */ DiscVec3 x4E4;
     /* +4F0 */ float x4F0;
     /* +4F4 */ float x4F4;
     /* +4F8 */ u32 x4F8;
     /* +4FC */ u32 x4FC;
-    /* +500 */ UNK_T x500;
+    /* +500 */ DISC_PTR(void) x500;
     /* +504 */ int x504;
-    /* +508 */ UNK_T x508;
-    /* +50C */ UNK_T x50C;
+    /* +508 */ DISC_PTR(void) x508;
+    /* +50C */ DISC_PTR(void) x50C;
     /* +510 */ float x510;
     /* +514 */ float x514;
-    /* +518 */ UNK_T x518;
+    /* +518 */ DISC_PTR(void) x518;
     /* +51C */ float x51C_radians;
     /* +520 */ int x520;
-    /* +524 */ UNK_T x524;
-    /* +528 */ UNK_T x528;
-    /* +52C */ UNK_T x52C;
-    /* +530 */ UNK_T x530;
-    /* +534 */ UNK_T x534;
-    /* +538 */ UNK_T x538;
+    /* +524 */ DISC_PTR(void) x524;
+    /* +528 */ DISC_PTR(void) x528;
+    /* +52C */ DISC_PTR(void) x52C;
+    /* +530 */ DISC_PTR(void) x530;
+    /* +534 */ DISC_PTR(void) x534;
+    /* +538 */ DISC_PTR(void) x538;
     /* +53C */ float x53C;
     /* +540 */ float x540;
-    /* +544 */ UNK_T x544;
+    /* +544 */ DISC_PTR(void) x544;
     /* +548 */ float x548;
     /* +54C */ float x54C;
     /* +550 */ float x550;
@@ -407,19 +408,19 @@ struct ftCommonData {
     /* +5B0 */ float x5B0;
     /* +5B4 */ int x5B4;
     /* +5B8 */ float x5B8;
-    /* +5BC */ UNK_T x5BC;
+    /* +5BC */ DISC_PTR(void) x5BC;
     /* +5C0 */ float x5C0;
-    /* +5C4 */ UNK_T x5C4;
+    /* +5C4 */ DISC_PTR(void) x5C4;
     /* +5C8 */ int x5C8;
     /* +5CC */ float x5CC;
-    /* +5D0 */ UNK_T x5D0;
-    /* +5D4 */ UNK_T x5D4;
+    /* +5D0 */ DISC_PTR(void) x5D0;
+    /* +5D4 */ DISC_PTR(void) x5D4;
     /* +5D8 */ int x5D8;
     /* +5DC */ u32 bury_timer_unk1;
     /* +5E0 */ u32 bury_timer_unk2;
     /* +5E4 */ u32 bury_timer_unk3;
     /* +5E8 */ float x5E8;
-    /* +5EC */ UNK_T x5EC;
+    /* +5EC */ DISC_PTR(void) x5EC;
     /* +5F0 */ u32 x5F0;
     /* +5F4 */ int x5F4;
     /* +5F8 */ float x5F8;
@@ -551,17 +552,19 @@ struct ftCommonData {
     /* +7FC */ float x7FC;
     /* +800 */ float x800;
     /* +804 */ float x804;
-    /* +804 */ Vec3 x808;
+    /* +804 */ DiscVec3 x808;
     /* +814 */ int x814;
 };
+DISC_ASSERT_SIZE(struct ftCommonData, 0x818);
 
-typedef struct _FtSFXArr {
+typedef struct DISC_STRUCT _FtSFXArr {
     int num;
-    s32* sfx_ids;
+    DISC_PTR(DiscS32) sfx_ids;
 } FtSFXArr;
+DISC_ASSERT_SIZE(FtSFXArr, 0x8);
 
-struct FtSFX {
-    FtSFXArr* smash;
+struct DISC_STRUCT FtSFX {
+    DISC_PTR(FtSFXArr) smash;
     int x4;
     int x8;
     int xC;
@@ -569,20 +572,21 @@ struct FtSFX {
     int x14;
     int x18;
     int x1C;
-    FtSFXArr* x20;
+    DISC_PTR(FtSFXArr) x20;
     int x24;
     int x28;
     int x2C;
     int x30;
     int x34;
 };
+DISC_ASSERT_SIZE(struct FtSFX, 0x38);
 
-typedef struct {
+typedef struct DISC_STRUCT {
     u32 unk0;
     f32 unk4;
 } ftData_x34;
 
-typedef struct ftData_x44_t {
+typedef struct DISC_STRUCT ftData_x44_t {
     s16 unk0;
     s16 unk2;
     s16 unk4;
@@ -594,72 +598,92 @@ typedef struct ftData_x44_t {
     float ledge_snap_y;
     float ledge_snap_height;
 } ftData_x44_t;
+DISC_ASSERT_SIZE(ftData_x44_t, 0x1C);
 
-struct ftData_x8_x8 {
+struct DISC_STRUCT ftData_x8_x8 {
     /*  +8 */ u32 x8;
-    /*  +C */ u16** xC;
+    /*  +C */ DISC_PTR(DISC_PTR(DiscU16)) xC;
 };
+DISC_ASSERT_SIZE(struct ftData_x8_x8, 0x8);
 
-struct FtPartsDesc {
+struct DISC_STRUCT FtPartsDesc {
     /*  +0 */ u32 model_num;
-    /*  +4 */ void* (*vis_table)[4];
+    /*  +4 */ DISC_PTR(void) vis_table; ///< DISC_PTR(void)[costume][4]
 };
+DISC_ASSERT_SIZE(struct FtPartsDesc, 0x8);
 
-struct ftData_x20 {
-    /* +0 */ HSD_Joint** x0;
+struct DISC_STRUCT ftData_x20 {
+    /* +0 */ DISC_PTR(DISC_PTR(HSD_Joint)) x0;
     /* +4 */ f32 x8;
 };
+DISC_ASSERT_SIZE(struct ftData_x20, 0x8);
 
-struct ftData {
-    /*  +0 */ struct ftCo_DatAttrs* x0;
-    /*  +4 */ void* ext_attr;
-    /*  +8 */ struct ftData_x8 {
-        /*  +0 */ FtPartsDesc x0;
-        /*  +8 */ ftData_x8_x8 x8;
-        /* +10 */ u8 x10; ///< Fighter_Part
-        /* +11 */ u8 x11;
-        /* +12 */ u8 x12;
-        /* +13 */ u8 x13;
-        /* +14 */ u8 x14;
-    }* x8;
-    /*  +C */ struct Fighter_WaitAnimData* xC;
-    /* +10 */ u8 (*x10)[2];
-    /* +14 */ struct Fighter_WaitAnimData* x14;
-    /* +18 */ u8 (*x18)[2];
-    /* +1C */ struct ftData_x1C {
-        u16 x0; ///< Fighter_Part
-        u16 x2;
-        u8* x4; ///< an array of Fighter part indices
-        HSD_AnimJoint** x8;
-    }** x1C;
-    /* +20 */ struct ftData_x20* x20;
-    /* +24 */ UNK_T x24;
-    /* +28 */ WaitStruct* x28;
-    /* +2C */ struct ftDynamics* x2C;
-    /* +30 */ struct ftData_x30 {
-        /* +0 */ int count;
-        /* +4 */ ftHurtboxInit* inits;
-    }* x30;
-    /* +34 */ struct ftData_x34 {
-        /* +0 */ Fighter_Part x0;
-        /* +4 */ float scale;
-    }* x34;
-    /* +38 */ struct ftData_x38 {
-        int x0;
-        Vec3 x4;
-        float x10;
-    }* x38;
-    /* +3C */ struct UnkFloat6_Camera* x3C;
-    /* +40 */ struct itPickup* x40;
-    /* +44 */ ftData_x44_t* x44;
-    /* +48 */ UNK_T* x48_items; ///< @todo might be similar to KirbyHat? see
-                                ///< ftPr_Init_8013C360
-    /* +4C */ FtSFX* x4C_sfx;
-    /* +50 */ Vec2* x50;
+struct DISC_STRUCT ftData {
+    /*  +0 */ DISC_PTR(struct ftCo_DatAttrs) x0;
+    /*  +4 */ DISC_PTR(void) ext_attr;
+    /*  +8 */ DISC_PTR(struct ftData_x8) x8;
+    /*  +C */ DISC_PTR(struct Fighter_WaitAnimData) xC;
+    /* +10 */ DISC_PTR(u8) x10; ///< u8[][2]
+    /* +14 */ DISC_PTR(struct Fighter_WaitAnimData) x14;
+    /* +18 */ DISC_PTR(u8) x18; ///< u8[][2]
+    /* +1C */ DISC_PTR(DISC_PTR(struct ftData_x1C)) x1C;
+    /* +20 */ DISC_PTR(struct ftData_x20) x20;
+    /* +24 */ DISC_PTR(void) x24;
+    /* +28 */ DISC_PTR(WaitStruct) x28;
+    /* +2C */ DISC_PTR(struct ftDynamics) x2C;
+    /* +30 */ DISC_PTR(struct ftData_x30) x30;
+    /* +34 */ DISC_PTR(struct ftData_x34) x34;
+    /* +38 */ DISC_PTR(struct ftData_x38) x38;
+    /* +3C */ DISC_PTR(struct UnkFloat6_Camera) x3C;
+    /* +40 */ DISC_PTR(struct itPickup) x40;
+    /* +44 */ DISC_PTR(ftData_x44_t) x44;
+    /* +48 */ DISC_PTR(DISC_PTR(void)) x48_items; ///< @todo might be similar to
+                                                  ///< KirbyHat? see ftPr_Init_8013C360
+    /* +4C */ DISC_PTR(FtSFX) x4C_sfx;
+    /* +50 */ DISC_PTR(DiscVec2) x50;
     /* +54 */ int x54;
-    /* +58 */ struct ftData_x58_t* x58;
-    /* +5C */ HSD_Joint* x5C;
+    /* +58 */ DISC_PTR(struct ftData_x58_t) x58;
+    /* +5C */ DISC_PTR(HSD_Joint) x5C;
 };
+DISC_ASSERT_SIZE(struct ftData, 0x60);
+
+struct DISC_STRUCT ftData_x8 {
+    /*  +0 */ FtPartsDesc x0;
+    /*  +8 */ ftData_x8_x8 x8;
+    /* +10 */ u8 x10; ///< Fighter_Part
+    /* +11 */ u8 x11;
+    /* +12 */ u8 x12;
+    /* +13 */ u8 x13;
+    /* +14 */ u8 x14;
+};
+DISC_ASSERT_SIZE(struct ftData_x8, 0x18);
+
+struct DISC_STRUCT ftData_x1C {
+    u16 x0; ///< Fighter_Part
+    u16 x2;
+    DISC_PTR(u8) x4; ///< an array of Fighter part indices
+    DISC_PTR(DISC_PTR(HSD_AnimJoint)) x8;
+};
+DISC_ASSERT_SIZE(struct ftData_x1C, 0xC);
+
+struct DISC_STRUCT ftData_x30 {
+    /* +0 */ int count;
+    /* +4 */ DISC_PTR(ftHurtboxInit) inits;
+};
+DISC_ASSERT_SIZE(struct ftData_x30, 0x8);
+
+struct DISC_STRUCT ftData_x34 {
+    /* +0 */ Fighter_Part x0;
+    /* +4 */ float scale;
+};
+DISC_ASSERT_SIZE(struct ftData_x34, 0x8);
+
+struct DISC_STRUCT ftData_x38 {
+    int x0;
+    DiscVec3 x4;
+    float x10;
+};
+DISC_ASSERT_SIZE(struct ftData_x38, 0x14);
 
 typedef struct _ThrowFlags {
     union {
@@ -677,14 +701,16 @@ typedef struct _ThrowFlags {
     };
 } ThrowFlags;
 
-struct ftCo_DatAttrs_xBC_t {
+struct DISC_STRUCT ftCo_DatAttrs_xBC_t {
     float size;
-    Vec3 x4;
-    Vec3 x10;
+    DiscVec3 x4;
+    DiscVec3 x10;
     float x1C;
 };
+DISC_ASSERT_SIZE(struct ftCo_DatAttrs_xBC_t, 0x20);
 
-typedef struct ftCo_DatAttrs {
+/// On disc in Pl*.dat; Fighter::co_attrs is a copy and keeps the disc layout.
+typedef struct DISC_STRUCT ftCo_DatAttrs {
     /* +000 fp+110 */ float walk_accel_mul;
     /* +004 fp+114 */ float walk_accel_base;
     /* +008 fp+118 */ float walk_max_vel;
@@ -747,10 +773,10 @@ typedef struct ftCo_DatAttrs {
     /* +108 fp+218 */ float wall_jump_vertical_velocity;
     /* +10C fp+21C */ float passiveceil_vel_x;
     /* +110 fp+220 */ float trophy_scale;
-    /* +114 fp+224 */ Vec3 x114;
-    /* +120 fp+230 */ Vec3 x120;
+    /* +114 fp+224 */ DiscVec3 x114;
+    /* +120 fp+230 */ DiscVec3 x120;
     /* +12C fp+23C */ float x12C;
-    /* +130 fp+240 */ Vec3 x130;
+    /* +130 fp+240 */ DiscVec3 x130;
     /* +13C fp+24C */ float x13C;
     /* +140 fp+250 */ float screw_attack_launch_velocity;
     /* +144 fp+254 */ float x144;
@@ -764,10 +790,11 @@ typedef struct ftCo_DatAttrs {
     /* +164 fp+274 */ float warp_star_hitbox_scale;
     /* +168 fp+278 */ float x168;
     /* +16C fp+27C */ int camera_zoom_target_bone;
-    /* +170 fp+280 */ Vec3 x170;
+    /* +170 fp+280 */ DiscVec3 x170;
     /* +17C fp+28C */ float x17C;
     /* +180 fp+290 */ u8 weight_independent_throws_mask;
 } ftCo_DatAttrs;
+DISC_ASSERT_SIZE(ftCo_DatAttrs, 0x184);
 
 struct FighterBone {
     /* +0 */ HSD_JObj* joint;
@@ -831,11 +858,13 @@ ASSERT_SIZE(struct FighterBone, 0x10);
     /* fp+2138 */ float x2138_smashSinceHitbox;
 } SmashAttr;
 
-typedef struct itPickup {
-    /*  +0 */ Vec4 gr_light_offset;
-    /* +10 */ Vec4 gr_heavy_offset;
-    /* +20 */ Vec4 air_light_offset;
+/// On disc in Pl*.dat; Fighter::x294_itPickup is a copy and keeps the layout.
+typedef struct DISC_STRUCT itPickup {
+    /*  +0 */ DiscVec4 gr_light_offset;
+    /* +10 */ DiscVec4 gr_heavy_offset;
+    /* +20 */ DiscVec4 air_light_offset;
 } itPickup;
+DISC_ASSERT_SIZE(itPickup, 0x30);
 
 struct UnkCostumeStruct {
     /*  +0 */ HSD_Joint* joint;
@@ -883,14 +912,15 @@ struct MotionState {
     HSD_GObjEvent cam_cb;
 };
 
-struct Fighter_WaitAnimData {
-    char* x0;
+struct DISC_STRUCT Fighter_WaitAnimData {
+    DISC_PTR(char) x0;
     s32 x4;
     s32 x8;
-    union CmdUnion* xC;
+    DISC_PTR(union CmdUnion) xC;
     s32 x10_animCurrFlags;
-    u32 x14;
+    u32 x14; ///< runtime: host address of the loaded AJ chunk
 };
+DISC_ASSERT_SIZE(struct Fighter_WaitAnimData, 0x18);
 
 struct Fighter_CostumeStrings {
     char* dat_filename;
@@ -1168,7 +1198,7 @@ struct Fighter {
     /*  fp+294 */ itPickup x294_itPickup;
     /*  fp+2C4 */ Vec2 x2C4;
     /*  fp+2CC */ ftDonkeyAttributes* x2CC;
-    /*  fp+2D0 */ struct Fighter_x2D0_t {
+    /*  fp+2D0 */ struct DISC_STRUCT Fighter_x2D0_t { ///< view onto dat_attrs
         /// @warning i didnt confirm these comments, they come from altimors
         /// ghidra db
         int x0;       ///< turn frames
@@ -1816,56 +1846,60 @@ struct ftData_UnkCountStruct {
     int count;
 };
 
-struct UnkFloat6_Camera {
-    Vec3 x0;
-    Vec3 xC;
+struct DISC_STRUCT UnkFloat6_Camera {
+    DiscVec3 x0;
+    DiscVec3 xC;
 };
+DISC_ASSERT_SIZE(struct UnkFloat6_Camera, 0x18);
 
 typedef struct ftData_UnkModelStruct {
     Fighter_ModelEvent model_events[Ft_Kind_Max];
     HSD_JObj* (*getter[Ft_Kind_Max])(HSD_GObj*);
 } ftData_UnkModelStruct;
 
-struct ftData_80085FD4_ret {
-    /* +0 */ const char* x0;
-    /* +4 */ UNK_T x4;
-    /* +8 */ size_t x8;
-    /* +C */ UNK_T xC;
+/// View of Fighter_WaitAnimData.
+struct DISC_STRUCT ftData_80085FD4_ret {
+    /* +0 */ DISC_PTR(const char) x0;
+    /* +4 */ DISC_PTR(void) x4;
+    /* +8 */ u32 x8;
+    /* +C */ DISC_PTR(void) xC;
     /* +10:0 */ u8 x10_b0 : 1;
     /* +10:1 */ u8 x10_b1 : 1;
     /* +14 */ u32 x14;
 };
+DISC_ASSERT_SIZE(struct ftData_80085FD4_ret, 0x18);
 
-struct ArticleDynamicBones {
+struct DISC_STRUCT ArticleDynamicBones {
     BoneDynamicsDesc array[Ft_Dynamics_NumMax];
 };
 
-struct ftDynamics {
+struct DISC_STRUCT ftDynamics {
     /// @todo Very similar to #ItemDynamics.
-    struct {
-        /*  +0 */ int dynamicsNum;
-        /*  +4 */ ArticleDynamicBones* ftDynamicBones;
-    };
+    /*  +0 */ int dynamicsNum;
+    /*  +4 */ DISC_PTR(ArticleDynamicBones) ftDynamicBones;
     /*  +8 */ int x4;
-    /*  +C */ struct ftData_x38* x8;
-    /* +10 */ FigaTree*** x10;
+    /*  +C */ DISC_PTR(struct ftData_x38) x8;
+    /* +10 */ DISC_PTR(DISC_PTR(DISC_PTR(FigaTree))) x10;
 };
+DISC_ASSERT_SIZE(struct ftDynamics, 0x14);
 
-struct KirbyHatStruct {
-    /*  +0 */ HSD_Joint* hat_joint;
+struct DISC_STRUCT KirbyHatStruct {
+    /*  +0 */ DISC_PTR(HSD_Joint) hat_joint;
     /*  +4 */ FtPartsDesc desc;
-    /*  +C */ ftDynamics* hat_dynamics[5];
+    /*  +C */ DISC_PTR(ftDynamics) hat_dynamics[5];
 };
+DISC_ASSERT_SIZE(struct KirbyHatStruct, 0x20);
 
-typedef struct Kirby_Unk {
-    /*  +0 */ HSD_Joint* x0;
+typedef struct DISC_STRUCT Kirby_Unk {
+    /*  +0 */ DISC_PTR(HSD_Joint) x0;
     /*  +4 */ FtPartsDesc x4;
-    /*  +C */ UNK_T xC;
-    /* +10 */ ftDynamics* x10;
-    /* +14 */ UNK_T x14;
-    /* +18 */ ftDynamics* x18;
-    /* +1C */ ftDynamics* x1C;
+    /*  +C */ DISC_PTR(void) xC;
+    /* +10 */ DISC_PTR(ftDynamics) x10;
+    /* +14 */ DISC_PTR(void) x14;
+    /* +18 */ DISC_PTR(ftDynamics) x18;
+    /* +1C */ DISC_PTR(ftDynamics) x1C;
 } Kirby_Unk;
+DISC_ASSERT_SIZE(Kirby_Unk, 0x20);
 
 struct ft_80459B88_t {
     /* +0 */ Kirby_Unk* x0;
@@ -1908,7 +1942,7 @@ typedef struct DmgLogEntry {
 } DmgLogEntry;
 ASSERT_SIZE(struct DmgLogEntry, 0x28);
 
-struct ftData_x58_t {
+struct DISC_STRUCT ftData_x58_t {
     /* 0x00 */ u8 x0;
     /* 0x01 */ u8 x1;
     /* 0x02 */ u8 pad_02[2];
@@ -1922,6 +1956,7 @@ struct ftData_x58_t {
     /* 0x12 */ u8 pad_12[6];
     /* 0x18 */ f32 x18;
 };
+DISC_ASSERT_SIZE(struct ftData_x58_t, 0x1C);
 
 struct ftCo_803C6594_t {
     /* 00 */ Vec3 x0;

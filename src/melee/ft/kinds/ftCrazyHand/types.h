@@ -5,7 +5,7 @@
 
 #include <dolphin/mtx.h>
 
-typedef struct _ftCrazyHandAttributes {
+typedef struct DISC_STRUCT _ftCrazyHandAttributes {
     s32 x0;
     s32 x4;
     s32 x8;
@@ -18,7 +18,7 @@ typedef struct _ftCrazyHandAttributes {
     float x24;
     float x28;
     float x2C;
-    Vec2 x30_pos2;
+    DiscVec2 x30_pos2;
     float x38;
     float x3C;
     float x40;
@@ -39,20 +39,20 @@ typedef struct _ftCrazyHandAttributes {
     float x7C;
     float x80;
     float x84;
-    Vec2 x88_pos;
+    DiscVec2 x88_pos;
     float x90;
     float x94;
     float x98;
     float x9C;
     float xA0;
     float xA4;
-    Vec2 xA8_pos;
+    DiscVec2 xA8_pos;
     float xB0;
     float xB4;
     float xB8;
-    Vec2 xBC_pos;
-    Vec2 xC4_pos;
-    Vec2 xCC_pos;
+    DiscVec2 xBC_pos;
+    DiscVec2 xC4_pos;
+    DiscVec2 xCC_pos;
     float xD4;
     float xD8;
     float xDC;
@@ -68,14 +68,15 @@ typedef struct _ftCrazyHandAttributes {
     float x104;
     float x108;
     float x10C;
-    Vec2 x110_pos;
-    Vec2 x118_pos;
+    DiscVec2 x110_pos;
+    DiscVec2 x118_pos;
     float x120;
     s32 x124;
     s32 x128;
-    Vec2 x12C_pos;
-    Vec2 x134_pos;
-    Vec2 x13C_pos;
+    DiscVec2 x12C_pos;
+    DiscVec2 x134_pos;
+    DiscVec2 x13C_pos;
 } ftCrazyHand_DatAttrs;
+DISC_ASSERT_SIZE(ftCrazyHand_DatAttrs, 0x144);
 
 #endif

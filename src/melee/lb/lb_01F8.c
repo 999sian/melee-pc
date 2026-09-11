@@ -31,14 +31,14 @@ static struct lbl_804335B8_t lbl_804335B8;
 
 HSD_SObj* lbMthp8001F890(HSD_GObj* gobj)
 {
-    lbl_804335B8.x70.image_ptr = NULL;
+    DP_SET(lbl_804335B8.x70.image_ptr, NULL);
     lbl_804335B8.x70.width = lbl_804335B8.x6C;
     lbl_804335B8.x70.height = lbl_804335B8.x6E;
     lbl_804335B8.x70.format = GX_TF_RGBA8;
     lbl_804335B8.x70.mipmap = 0;
     lbl_804335B8.x70.minLOD = lbl_804335B8.x70.maxLOD = 0.0F;
-    lbl_804335B8.x88.image = &lbl_804335B8.x70;
-    lbl_804335B8.x88.tlut = NULL;
+    DP_SET(lbl_804335B8.x88.image, &lbl_804335B8.x70);
+    DP_SET(lbl_804335B8.x88.tlut, NULL);
     lbl_804335B8.x90 =
         HSD_SObjLib_803A477C(gobj, &lbl_804335B8.x88, 0, 0, 0x80, 0);
     lbl_804335B8.x90->x40 |= 0x10;

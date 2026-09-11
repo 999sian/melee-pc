@@ -63,7 +63,8 @@ void it_80299C48(Item_GObj* parent_gobj, Vec3* pos, Vec3* velocity,
     gobj = Item_80268B18(&spawn);
     if (gobj != NULL) {
         it = GET_ITEM(gobj);
-        attrs = it->xC4_article_data->x4_specialAttributes;
+        attrs = DP(itHammerheadAttributes,
+                   it->xC4_article_data->x4_specialAttributes);
         it_80299D7C(gobj);
         it->facing_dir = facing_dir;
         it->x40_vel.x = velocity->x * attrs->initial_velocity * it->facing_dir;
@@ -75,7 +76,8 @@ void it_80299C48(Item_GObj* parent_gobj, Vec3* pos, Vec3* velocity,
 void itHammerHead_Logic40_Spawned(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHammerheadAttributes* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itHammerheadAttributes* attrs =
+        DP(itHammerheadAttributes, ip->xC4_article_data->x4_specialAttributes);
     it_80275158(gobj, attrs->x4);
 }
 
@@ -92,7 +94,8 @@ void it_80299D7C(Item_GObj* gobj)
 void itHammerHead_Logic40_PickedUp(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHammerheadAttributes* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itHammerheadAttributes* attrs =
+        DP(itHammerheadAttributes, ip->xC4_article_data->x4_specialAttributes);
     it_80275158(gobj, attrs->x4);
     Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
 }

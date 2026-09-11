@@ -126,15 +126,15 @@ struct Fighter_804D6520_t* Fighter_804D6520 = NULL;
 struct Fighter_804D6524_t* Fighter_804D6524 = NULL;
 struct Fighter_ShakeTable_t* Fighter_SmashChargeShakeTable = NULL;
 struct Fighter_ShakeTable_t* Fighter_GrabMashShake = NULL;
-Vec2** Fighter_804D6530 = NULL;
-UNK_T Fighter_804D6534 = NULL;
+DiscU32* Fighter_804D6530 = NULL;
+DiscU32* Fighter_804D6534 = NULL;
 struct Fighter_804D653C_t* Fighter_804D6538 = NULL;
 struct Fighter_804D653C_t* Fighter_804D653C = NULL;
-struct Fighter_804D6540_t** Fighter_804D6540 = NULL;
-FighterPartsTable** ftPartsTable = NULL;
-float* Fighter_804D6548 = NULL;
-float (*Fighter_804D654C)[5] = NULL;
-int** Fighter_804D6550 = NULL;
+DiscU32* Fighter_804D6540 = NULL;
+DiscU32* ftPartsTable = NULL;
+DiscF32* Fighter_804D6548 = NULL;
+DiscF32 (*Fighter_804D654C)[5] = NULL;
+DiscF32* Fighter_804D6550 = NULL;
 ftCommonData* p_ftCommonData;
 
 void Fighter_800679B0(void)
@@ -178,36 +178,37 @@ void Fighter_FirstInitialize_80067A84(void)
 
 void Fighter_LoadCommonData(void)
 {
-    void** pData;
+    /* ftLoadCommonData is an on-disc array of 23 pointer slots. */
+    DISC_PTR(void)* pData;
     lbArchive_LoadSymbols("PlCo.dat", (void**) &pData, "ftLoadCommonData", 0);
 
     // copy 23 4-byte chunks from pData to p_ftCommonData in reverse order,
     // equivalent to this: for(i=0; i<23; i++)
     //   (&Fighter_804D64FC)[23-1-i] = pData[i];
     // loop unrolling doesn't work (only up to 8 elements)
-    p_ftCommonData = pData[0]; // p_ftCommonData
-    Fighter_804D6550 = pData[1];
-    Fighter_804D654C = pData[2];
-    Fighter_804D6548 = pData[3];
-    ftPartsTable = pData[4];
-    Fighter_804D6540 = pData[5];
-    Fighter_804D653C = pData[6];
-    Fighter_804D6538 = pData[7];
-    Fighter_804D6534 = pData[8];
-    Fighter_804D6530 = pData[9];
-    Fighter_GrabMashShake = pData[10];
-    Fighter_SmashChargeShakeTable = pData[11];
-    Fighter_804D6524 = pData[12];
-    Fighter_804D6520 = pData[13];
-    Fighter_804D651C = pData[14];
-    Fighter_804D6518 = pData[15];
-    Fighter_804D6514 = pData[16];
-    Fighter_804D6510 = pData[17];
-    Fighter_804D650C = pData[18];
-    Fighter_804D6508 = pData[19];
-    Fighter_804D6504 = pData[20];
-    gCrowdConfig = pData[21];
-    Fighter_804D64FC = pData[22];
+    p_ftCommonData = DP(void, pData[0]); // p_ftCommonData
+    Fighter_804D6550 = DP(void, pData[1]);
+    Fighter_804D654C = DP(void, pData[2]);
+    Fighter_804D6548 = DP(void, pData[3]);
+    ftPartsTable = DP(void, pData[4]);
+    Fighter_804D6540 = DP(void, pData[5]);
+    Fighter_804D653C = DP(void, pData[6]);
+    Fighter_804D6538 = DP(void, pData[7]);
+    Fighter_804D6534 = DP(void, pData[8]);
+    Fighter_804D6530 = DP(void, pData[9]);
+    Fighter_GrabMashShake = DP(void, pData[10]);
+    Fighter_SmashChargeShakeTable = DP(void, pData[11]);
+    Fighter_804D6524 = DP(void, pData[12]);
+    Fighter_804D6520 = DP(void, pData[13]);
+    Fighter_804D651C = DP(void, pData[14]);
+    Fighter_804D6518 = DP(void, pData[15]);
+    Fighter_804D6514 = DP(void, pData[16]);
+    Fighter_804D6510 = DP(void, pData[17]);
+    Fighter_804D650C = DP(void, pData[18]);
+    Fighter_804D6508 = DP(void, pData[19]);
+    Fighter_804D6504 = DP(void, pData[20]);
+    gCrowdConfig = DP(void, pData[21]);
+    Fighter_804D64FC = DP(void, pData[22]);
 }
 
 void Fighter_UpdateModelScale(Fighter_GObj* gobj)
@@ -731,8 +732,8 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
     fp->x18 = 0x155;
     fp->x1C_actionStateList = ftData_MotionStateList;
     fp->x20_actionStateList = ftData_CharacterStateTables[fp->kind];
-    fp->x24 = fp->ft_data->xC;
-    fp->x28 = fp->ft_data->x10;
+    fp->x24 = DP(struct Fighter_WaitAnimData, fp->ft_data->xC);
+    fp->x28 = DP(void, fp->ft_data->x10);
 
     fp->input.lstick[2].y = 0.0f;
     fp->input.lstick[2].x = 0.0f;
@@ -1260,7 +1261,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
                 } else {
                     ftData_80085CD8(fp, fp, fp->anim_id);
                 }
-                fp->x3E4_fighterCmdScript.u = unk_struct_x18->xC;
+                fp->x3E4_fighterCmdScript.u = DP(union CmdUnion, unk_struct_x18->xC);
                 fp->x3E4_fighterCmdScript.loop_count = 0;
 
                 if (anim_start) {
@@ -2597,7 +2598,7 @@ void Fighter_UnkProcessGrab_8006CA5C(Fighter_GObj* gobj)
             ftColl_80078A2C(gobj);
             if (fp->victim_gobj) {
                 if (!fp->x2225_b1) {
-                    ft_PlaySFX(fp, fp->ft_data->x4C_sfx->x30, 0x7F, 0x40);
+                    ft_PlaySFX(fp, DP(FtSFX, fp->ft_data->x4C_sfx)->x30, 0x7F, 0x40);
                 }
                 ftColl_80078754(gobj, fp->victim_gobj, 0);
                 fp->grab_cb(gobj);
@@ -2608,7 +2609,7 @@ void Fighter_UnkProcessGrab_8006CA5C(Fighter_GObj* gobj)
 
             if (fp->target_item_gobj) {
                 if (!fp->x2225_b1) {
-                    ft_PlaySFX(fp, fp->ft_data->x4C_sfx->x30, 0x7F, 0x40);
+                    ft_PlaySFX(fp, DP(FtSFX, fp->ft_data->x4C_sfx)->x30, 0x7F, 0x40);
                 }
                 it_8027B4A4(gobj, fp->target_item_gobj);
                 if (fp->x2194) {

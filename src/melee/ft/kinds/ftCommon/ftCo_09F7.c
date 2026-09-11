@@ -72,7 +72,7 @@ block_2:
         goto block_5;
     }
 
-    part = ((int*) fp->ft_data->x54)[fp->x2220_b0];
+    part = DP(DiscS32, fp->ft_data->x54)[fp->x2220_b0].v;
 
     fp->x2220_b0++;
     if (fp->x2220_b0 < 5) {
@@ -84,7 +84,7 @@ block_5:
     if (part != 0x8E) {
         goto block_7;
     }
-    part = fp->ft_data->x8->x10;
+    part = DP(struct ftData_x8, fp->ft_data->x8)->x10;
     goto block_9;
 block_7:
     if (arg3 == 0) {
@@ -143,9 +143,9 @@ block_12:
     case 0x428:
     case 0x429:
     case 0x42A: {
-        f32* attrs = &fp->ft_data->x0->x168;
+        f32 attrs = DP(ftCo_DatAttrs, fp->ft_data->x0)->x168;
         HSD_JObj* joint = fp->parts[part].joint;
-        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 3, gfx_id, joint, attrs);
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 3, gfx_id, joint, &attrs);
         return;
     }
     case 0x495:
@@ -207,9 +207,9 @@ block_70:
     switch (gfx_id) {
     case 0x3E8: {
         HSD_JObj* joint = fp->parts[part].joint;
-        ftCommonData* data = p_ftCommonData;
+        f32 x564 = p_ftCommonData->x564;
         efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 5, gfx_id, joint, &sp84,
-                      &data->x564);
+                      &x564);
         return;
     }
     case 0x3E9:

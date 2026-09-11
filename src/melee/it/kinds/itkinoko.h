@@ -7,15 +7,17 @@
 
 #include <melee/it/kinds/types.h>
 
-typedef struct KinokoAnim {
-    HSD_AnimJoint* joint;
+typedef struct DISC_STRUCT KinokoAnim {
+    DISC_PTR(HSD_AnimJoint) joint;
 } KinokoAnim;
+DISC_ASSERT_SIZE(KinokoAnim, 0x4);
 
-typedef struct KinokoAttrs {
+typedef struct DISC_STRUCT KinokoAttrs {
     f32 x0;
     f32 x4;
     s32 x8;
 } KinokoAttrs;
+DISC_ASSERT_SIZE(KinokoAttrs, 0xC);
 
 HSD_AnimJoint* it_80293660(int idx);
 void itKinoko_Logic26_Spawned(Item_GObj*);

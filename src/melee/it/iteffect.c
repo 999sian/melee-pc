@@ -20,12 +20,12 @@ void it_8027870C(s32 arg0)
     } else {
         lbArchive_80017040(NULL, it_803F1ED8, &it_804D6D20, it_803F1EF0, 0);
     }
-    it_804D6D28 = it_804D6D20->x0;
-    it_804D6D24 = it_804D6D20->x4;
-    it_804D6D38 = it_804D6D20->x8;
-    it_804D6D30 = it_804D6D20->xC;
-    it_804D6D40 = it_804D6D20->x10;
-    it_804D6D04 = it_804D6D20->x14;
+    it_804D6D28 = DP(ItemCommonData, it_804D6D20->x0);
+    it_804D6D24 = DP(DiscU32, it_804D6D20->x4);
+    it_804D6D38 = DP(DiscU32, it_804D6D20->x8);
+    it_804D6D30 = DP(DiscU32, it_804D6D20->xC);
+    it_804D6D40 = DP(it_804D6D40_t, it_804D6D20->x10);
+    it_804D6D04 = DP(Fighter_804D653C_t, it_804D6D20->x14);
 }
 
 void it_802787B4(Item_GObj* item_gobj, s32 arg1)

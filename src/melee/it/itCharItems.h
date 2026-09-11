@@ -23,7 +23,7 @@ typedef struct itClimbersBlizzard_ItemVars {
     /* +4 */ u8 flag0 : 1;
 } itClimbersBlizzard_ItemVars;
 
-typedef struct itClimbersBlizzardAttributes {
+typedef struct DISC_STRUCT itClimbersBlizzardAttributes {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
@@ -37,7 +37,7 @@ typedef struct itClimbersIce_ItemVars {
     /* +8 */ u8 x8_b0 : 1;
 } itClimbersIce_ItemVars;
 
-typedef struct itClimbersStringAttributes {
+typedef struct DISC_STRUCT itClimbersStringAttributes {
     /* +00 */ s32 x0_count;
     /* +04 */ s32 x4;
     /* +08 */ f32 x8;
@@ -47,11 +47,11 @@ typedef struct itClimbersStringAttributes {
     /* +18 */ s32 x18;
     /* +1C */ s32 x1C;
     /* +20 */ s32 x20;
-    /* +24 */ HSD_Joint* x24_joint;
-    /* +28 */ HSD_Joint* x28_joint;
+    /* +24 */ DISC_PTR(HSD_Joint) x24_joint;
+    /* +28 */ DISC_PTR(HSD_Joint) x28_joint;
 } itClimbersStringAttributes;
 
-typedef struct itClimbersIceAttributes {
+typedef struct DISC_STRUCT itClimbersIceAttributes {
     /* +00 */ f32 x0;
     /* +04 */ f32 x4;
     /* +08 */ f32 x8;
@@ -84,7 +84,7 @@ typedef struct {
     /* xC ip+DE0 */ f32 xC;
 } itDrMarioPill_ItemVars;
 
-typedef struct {
+typedef struct DISC_STRUCT {
     /* x0 */ f32 x0;
     /* x4 */ f32 x4;
     /* x8 */ f32 x8;
@@ -92,7 +92,7 @@ typedef struct {
     /* x10 */ f32 x10;
 } itDrMarioPillAttributes;
 
-typedef struct {
+typedef struct DISC_STRUCT {
     f32 x0;
     f32 x4;
     f32 x8;
@@ -118,14 +118,14 @@ typedef struct {
     f32 x58;
 } itHitodemanAttributes;
 
-typedef struct {
+typedef struct DISC_STRUCT {
     /* x0 */ f32 x0;
     /* x4 */ f32 x4;
     /* x8 */ f32 x8;
     /* xC */ f32 xC;
 } itFireAttributes;
 
-typedef struct {
+typedef struct DISC_STRUCT {
     /* x0 */ f32 x0;
 } itThunderAttributes;
 
@@ -220,7 +220,7 @@ typedef struct itLeadead_ItemVars {
     /* 0x7C */ itECB xE50;
 } itLeadead_ItemVars;
 
-typedef struct FoxBlasterAttr {
+typedef struct DISC_STRUCT FoxBlasterAttr {
     /* +0 */ float x0;
     /* +4 */ float x4;
     /* +8 */ float x8;
@@ -262,7 +262,7 @@ typedef struct {
     /* 0x78 ip+0xE4C */ s32 xE4C;
 } itArwingLaser_ItemVars;
 
-typedef struct FoxLaserAttr {
+typedef struct DISC_STRUCT FoxLaserAttr {
     /* +0 */ float lifetime; // [35]
     /* +4 */ float scale;    // [3]
     /* +8 */ float x8;
@@ -281,7 +281,7 @@ typedef struct {
     /*  +8 ip+DDC */ HSD_JObj* xDDC;
 } itFoxIllusion_ItemVars;
 
-typedef struct FoxIllusionAttr {
+typedef struct DISC_STRUCT FoxIllusionAttr {
     float x0; // [5]
     float x4; // [2]
 } FoxIllusionAttr;
@@ -360,7 +360,7 @@ typedef struct {
     f32 x60;
 } itLinkHookshot_ItemVars;
 
-typedef struct {
+typedef struct DISC_STRUCT {
     f32 x0;
     f32 x4;
     f32 x8;
@@ -382,9 +382,9 @@ typedef struct {
     f32 x48;
     f32 x4C;
     f32 x50;
-    HSD_Joint* x54;
-    HSD_Joint* x58;
-    HSD_Joint* x5C;
+    DISC_PTR(HSD_Joint) x54;
+    DISC_PTR(HSD_Joint) x58;
+    DISC_PTR(HSD_Joint) x5C;
 } itLinkHookshotAttributes;
 
 typedef struct {
@@ -398,7 +398,7 @@ typedef struct {
     Item_GObj* x10;
 } itLinkBomb_ItemVars;
 
-typedef struct itLinkBombAttributes {
+typedef struct DISC_STRUCT itLinkBombAttributes {
     /* x0 */ u32 lifetime;
     /* x4 */ f32 x4;
     /* x8 */ f32 x8;
@@ -436,13 +436,13 @@ typedef struct {
     /* ip+F98 */ Item_GObj* xF98;
 } itLinkBoomerang_ItemVars;
 
-typedef struct {
-    HSD_AnimJoint* anim;
-    HSD_MatAnimJoint* matanim;
-    HSD_ShapeAnimJoint* shapeanim;
+typedef struct DISC_STRUCT {
+    DISC_PTR(HSD_AnimJoint) anim;
+    DISC_PTR(HSD_MatAnimJoint) matanim;
+    DISC_PTR(HSD_ShapeAnimJoint) shapeanim;
 } AnimBundle;
 
-typedef struct itLinkBoomerangAttributes {
+typedef struct DISC_STRUCT itLinkBoomerangAttributes {
     /* x0 */ u32 x0;
     /* x4 */ u32 x4;
     /* x8 */ u32 x8;
@@ -460,8 +460,8 @@ typedef struct itLinkBoomerangAttributes {
     /* x38 */ f32 x38;
     /* x3C */ f32 x3C;
     /* x40 */ f32 x40;
-    /* x44 */ HSD_Joint* x44;
-    /* x48 */ HSD_Joint* x48;
+    /* x44 */ DISC_PTR(HSD_Joint) x44;
+    /* x48 */ DISC_PTR(HSD_Joint) x48;
     /* x4C */ AnimBundle x4C_anim;
     /* x58 */ AnimBundle x58_anim;
 } itLinkBoomerangAttributes;
@@ -506,7 +506,7 @@ typedef struct {
     s32 xF0;
 } itLinkArrow_ItemVars;
 
-typedef struct {
+typedef struct DISC_STRUCT {
     f32 x0;
     f32 x4;
     f32 x8;
@@ -516,8 +516,8 @@ typedef struct {
     f32 x18;
     f32 x1C;
     f32 x20;
-    HSD_Joint* x24;
-    HSD_Joint* x28;
+    DISC_PTR(HSD_Joint) x24;
+    DISC_PTR(HSD_Joint) x28;
     f32 x2C;
 } itLinkArrowAttributes;
 
@@ -530,7 +530,7 @@ typedef struct itMasterHandBullet_ItemVars {
     /* ip+DD4 */ f32 x0;
 } itMasterHandBullet_ItemVars;
 
-typedef struct itMasterHandBulletAttributes {
+typedef struct DISC_STRUCT itMasterHandBulletAttributes {
     f32 x0;
 } itMasterHandBulletAttributes;
 
@@ -541,22 +541,22 @@ typedef struct itMasterHandLaser_ItemVars {
     /* ip+DE0 */ HSD_JObj* x10;
 } itMasterHandLaser_ItemVars;
 
-typedef struct itMasterHandLaserAttributes {
+typedef struct DISC_STRUCT itMasterHandLaserAttributes {
     f32 x0;
     f32 x4;
 } itMasterHandLaserAttributes;
 
-typedef struct itPeachToadSporeAttributes {
+typedef struct DISC_STRUCT itPeachToadSporeAttributes {
     f32 x0_min_speed;
     f32 x4_max_speed_offset;
     f32 x8_speed_decay_rate;
     f32 xc_angle;
 } itPeachToadSporeAttributes;
 
-typedef struct itPeachTurnipAttributes {
+typedef struct DISC_STRUCT itPeachTurnipAttributes {
     f32 x0_lifetime;
     s32 x4_length; // length of x8, should be 8 for the number of turnip types
-    struct {
+    struct DISC_STRUCT {
         s32 x0_odds;
         s32 x4_damage;
     } x8 UNK_SIZE_ARRAY;
@@ -604,20 +604,20 @@ typedef struct itPikachuthunder_ItemVars {
     /* +38 ip+E0C */ Item_GObj* x38;
 } itPikachuthunder_ItemVars;
 
-typedef struct itPikachutJoltGroundAttributes {
+typedef struct DISC_STRUCT itPikachutJoltGroundAttributes {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
     /* +C */ f32 xC;
 } itPikachutJoltGroundAttributes;
 
-typedef struct itPikachuthunderAttributes {
+typedef struct DISC_STRUCT itPikachuthunderAttributes {
     /* +0 ip+DD4 */ f32 x0;
     /* +4 ip+DD8 */ f32 x4;
     /* +8 ip+DDC */ f32 x8;
 } itPikachuthunderAttributes;
 
-typedef struct itSamusBombAttributes {
+typedef struct DISC_STRUCT itSamusBombAttributes {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
@@ -653,7 +653,7 @@ typedef struct itSamusChargeshot_ItemVars {
     /* +84 +E38 */ u32 padding[15]; /* gap 0x84-0xC0 (0x3C bytes) */
 } itSamusChargeshot_ItemVars;
 
-typedef struct itSamusChargeShot_Attributes {
+typedef struct DISC_STRUCT itSamusChargeShot_Attributes {
     /* +0 */ f32 lifetime;
     /* +4 */ u32 x4;
     /* +8 */ f32 x8;
@@ -675,7 +675,7 @@ typedef struct itSamusGrapple_ItemVars {
     /* +16 ip+DEA */ u8 x16;
 } itSamusGrapple_ItemVars;
 
-typedef struct itSamusGrappleAttributes {
+typedef struct DISC_STRUCT itSamusGrappleAttributes {
     /* +00 */ f32 x0;
     /* +04 */ f32 x4;
     /* +08 */ f32 x8;
@@ -701,28 +701,29 @@ typedef struct itSamusGrappleAttributes {
     /* +58 */ f32 x58;
     /* +5C */ f32 x5C;
     /* +60 */ f32 x60;
-    /* +64 */ HSD_Joint* x64;
-    /* +68 */ HSD_Joint* x68;
-    /* +6C */ HSD_Joint* x6C;
-    /* +70 */ HSD_Joint* x70;
-    /* +74 */ HSD_AnimJoint** x74;
-    /* +78 */ HSD_MatAnimJoint** x78;
-    /* +7C */ HSD_ShapeAnimJoint** x7C;
-    /* +80 */ HSD_AnimJoint** x80;
-    /* +84 */ HSD_MatAnimJoint** x84;
-    /* +88 */ HSD_ShapeAnimJoint** x88;
-    /* +8C */ HSD_AnimJoint** x8C;
-    /* +90 */ HSD_MatAnimJoint** x90;
-    /* +94 */ HSD_ShapeAnimJoint** x94;
-    /* +98 */ HSD_AnimJoint** x98;
-    /* +9C */ HSD_MatAnimJoint** x9C;
-    /* +A0 */ HSD_ShapeAnimJoint** xA0;
-    /* +A4 */ HSD_AnimJoint** xA4;
-    /* +A8 */ HSD_MatAnimJoint** xA8;
-    /* +AC */ HSD_ShapeAnimJoint** xAC;
+    /* +64 */ DISC_PTR(HSD_Joint) x64;
+    /* +68 */ DISC_PTR(HSD_Joint) x68;
+    /* +6C */ DISC_PTR(HSD_Joint) x6C;
+    /* +70 */ DISC_PTR(HSD_Joint) x70;
+    /* +74 */ DISC_PTR(DiscU32) x74;
+    /* +78 */ DISC_PTR(DiscU32) x78;
+    /* +7C */ DISC_PTR(DiscU32) x7C;
+    /* +80 */ DISC_PTR(DiscU32) x80;
+    /* +84 */ DISC_PTR(DiscU32) x84;
+    /* +88 */ DISC_PTR(DiscU32) x88;
+    /* +8C */ DISC_PTR(DiscU32) x8C;
+    /* +90 */ DISC_PTR(DiscU32) x90;
+    /* +94 */ DISC_PTR(DiscU32) x94;
+    /* +98 */ DISC_PTR(DiscU32) x98;
+    /* +9C */ DISC_PTR(DiscU32) x9C;
+    /* +A0 */ DISC_PTR(DiscU32) xA0;
+    /* +A4 */ DISC_PTR(DiscU32) xA4;
+    /* +A8 */ DISC_PTR(DiscU32) xA8;
+    /* +AC */ DISC_PTR(DiscU32) xAC;
 } itSamusGrappleAttributes;
+DISC_ASSERT_SIZE(itSamusGrappleAttributes, 0xB0);
 
-typedef struct itSamusMissileAttributes {
+typedef struct DISC_STRUCT itSamusMissileAttributes {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
@@ -776,7 +777,7 @@ typedef struct itSeakChain_ItemVars {
     /* +1C ip+DF0 */ Vec3 history[0xF];
 } itSeakChain_ItemVars;
 
-typedef struct itSeakChain_Attrs {
+typedef struct DISC_STRUCT itSeakChain_Attrs {
     /*  +0 */ s32 x0;
     /*  +4 */ f32 x4;
     /*  +8 */ u8 pad_8[0x8];
@@ -800,8 +801,8 @@ typedef struct itSeakChain_Attrs {
     /* +58 */ f32 x58;
     /* +5C */ f32 x5C;
     /* +60 */ f32 x60;
-    /* +64 */ HSD_Joint* x64_joint;
-    /* +68 */ HSD_Joint* x68_joint;
+    /* +64 */ DISC_PTR(HSD_Joint) x64_joint;
+    /* +68 */ DISC_PTR(HSD_Joint) x68_joint;
 } itSeakChain_Attrs;
 ASSERT_SIZE(struct itSeakChain_Attrs, 0x6C);
 
@@ -821,7 +822,7 @@ typedef struct itZeldaDinFireExplode_ItemVars {
     /* +C ip+DE0 */ s32 xDE0;
 } itZeldaDinFireExplode_ItemVars;
 
-typedef struct itZeldaDinFireExplodeAttributes {
+typedef struct DISC_STRUCT itZeldaDinFireExplodeAttributes {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
@@ -841,7 +842,7 @@ typedef struct itGamewatchchef_ItemVars {
     /* +4 ip+DD8 */ s32 x4;
 } itGamewatchchef_ItemVars;
 
-typedef struct itGamewatchchefAttrEntry {
+typedef struct DISC_STRUCT itGamewatchchefAttrEntry {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
@@ -849,16 +850,16 @@ typedef struct itGamewatchchefAttrEntry {
     /* +10 */ f32 x10;
 } itGamewatchchefAttrEntry;
 
-typedef struct itGamewatchchefAttributes {
-    /* +0 */ void* x0;
+typedef struct DISC_STRUCT itGamewatchchefAttributes {
+    /* +0 */ DISC_PTR(void) x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
     /* +C */ f32 xC;
     /* +10 */ itGamewatchchefAttrEntry entries[1];
 } itGamewatchchefAttributes;
 
-typedef struct itGamewatchparachuteAttributes {
-    /* +0 */ void* x0;
+typedef struct DISC_STRUCT itGamewatchparachuteAttributes {
+    /* +0 */ DISC_PTR(void) x0;
 } itGamewatchparachuteAttributes;
 
 typedef struct itHinoarashi_ItemVars {
@@ -871,7 +872,7 @@ typedef struct itHinoarashi_ItemVars {
     /* xE4C */ f32 x78;
 } itHinoarashi_ItemVars;
 
-typedef struct itHinoarashiAttributes {
+typedef struct DISC_STRUCT itHinoarashiAttributes {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
@@ -894,7 +895,7 @@ typedef struct itToolsMotionAttrs {
     /* +18 */ f32 x18;
 } itToolsMotionAttrs;
 
-typedef struct itToolsAttributes {
+typedef struct DISC_STRUCT itToolsAttributes {
     /* +00 */ f32 x0;
     /* +04 */ f32 x4;
     /* +08 */ f32 x8;

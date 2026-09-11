@@ -160,13 +160,13 @@ static inline void un_8031FD18_SetupScene(void)
     HSD_GObj* gobj;
     HSD_JObj* jobj;
 
-    for (i = 0; un_804D6FE0->models[i] != NULL; i++) {
+    for (i = 0; vi_SceneModel(un_804D6FE0, i) != NULL; i++) {
+        DynamicModelDesc* model = vi_SceneModel(un_804D6FE0, i);
         gobj = GObj_Create(0xE, 0xF, 0);
-        jobj = HSD_JObjLoadJoint(un_804D6FE0->models[i]->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
-        gm_8016895C(jobj, un_804D6FE0->models[i],
-                    (un_804D6FE0->models[i] != NULL) * 0);
+        gm_8016895C(jobj, model, 0);
         HSD_JObjReqAnimAll(jobj, 0.0f);
         HSD_JObjAnimAll(jobj);
         HSD_GObj_SetupProc(gobj, fn_8031FAA8, 0);
@@ -185,12 +185,11 @@ static inline void un_8031FD18_SetupCamera(void)
     HSD_CObj* cobj;
 
     camera_gobj = GObj_Create(0x13, 0x14, 0);
-    cobj =
-        lb_80013B14((HSD_CameraDescPerspective*) un_804D6FE0->cameras->desc);
+    cobj = lb_80013B14(vi_SceneCamDesc(un_804D6FE0));
     HSD_GObjObject_80390A70(camera_gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(camera_gobj,
                         (void (*)(HSD_GObj*, int))(Event) fn_8031FB90, 8);
-    HSD_CObjAddAnim(cobj, un_804D6FE0->cameras->anims[0]);
+    HSD_CObjAddAnim(cobj, vi_SceneCamAnim(un_804D6FE0, 0));
     HSD_CObjReqAnim(cobj, 0.0f);
     HSD_CObjAnim(cobj);
     HSD_GObj_SetupProc(camera_gobj, fn_8031FC30, 0);
@@ -238,7 +237,8 @@ static inline void un_8031FD18_SetupStand(void)
     f32 scale;
 
     stand_gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint(un_804D6FE4->models[0]->joint);
+    jobj = HSD_JObjLoadJoint(
+        DP(HSD_Joint, vi_SceneModel(un_804D6FE4, 0)->joint));
     HSD_GObjObject_80390A70(stand_gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(stand_gobj, HSD_GObj_JObjCallback, 0xB, 0);
     HSD_GObj_SetupProc(stand_gobj, un_8031F990, 0);
@@ -309,7 +309,7 @@ void vi1201v1_Scene_OnEnter(void* arg)
     un_8031FD18_SetupStand();
 
     fog_gobj = GObj_Create(0xB, 3, 0);
-    fog = HSD_FogLoadDesc(un_804D6FE0->fogs->desc);
+    fog = HSD_FogLoadDesc(vi_SceneFogDesc(un_804D6FE0));
     HSD_GObjObject_80390A70(fog_gobj, HSD_GObj_FogKind, fog);
     GObj_SetupGXLink(fog_gobj, HSD_GObj_FogCallback, 0, 0);
     HSD_GObj_SetupProc(fog_gobj, fn_8031FCBC, 0);
@@ -317,7 +317,7 @@ void vi1201v1_Scene_OnEnter(void* arg)
     un_804D6FF8 = 0;
 
     light_gobj = GObj_Create(0xB, 3, 0);
-    lobj = lb_80011AC4(un_804D6FE0->lights);
+    lobj = lb_80011AC4(DP(DiscU32, un_804D6FE0->lights));
     HSD_GObjObject_80390A70(light_gobj, HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(light_gobj, HSD_GObj_LObjCallback, 0, 0);
 

@@ -116,13 +116,13 @@ void lb_8000FD18(DynamicsDesc* desc)
 {
     struct DynamicsData *temp, *cur, *next;
 
-    for (cur = desc->data; cur != NULL; cur = next) {
+    for (cur = DP(struct DynamicsData, desc->data); cur != NULL; cur = next) {
         next = cur->next;
         temp = cur_data;
         cur_data = cur;
         cur->next = temp;
     }
-    desc->data = NULL;
+    DP_SET(desc->data, NULL);
 }
 
 static inline struct DynamicsData* popDynamicsData(void)
@@ -146,7 +146,7 @@ void lb_8000FD48(HSD_JObj* jobj, DynamicsDesc* desc, size_t max_count)
     }
 
     if (jobj == NULL) {
-        desc->data = NULL;
+        DP_SET(desc->data, NULL);
         return;
     }
 
@@ -154,7 +154,7 @@ void lb_8000FD48(HSD_JObj* jobj, DynamicsDesc* desc, size_t max_count)
 
     while ((s32) desc->count < (s32) max_count) {
         if ((s32) desc->count == 0) {
-            desc->data = (prev = popDynamicsData());
+            DP_SET(desc->data, (prev = popDynamicsData()));
         } else {
             prev->next = popDynamicsData();
             prev = prev->next;
@@ -188,7 +188,7 @@ void lb_8000FD48(HSD_JObj* jobj, DynamicsDesc* desc, size_t max_count)
         desc->count++;
     }
 
-    prev = desc->data;
+    prev = DP(struct DynamicsData, desc->data);
     {
         struct DynamicsData* next;
 
@@ -433,7 +433,7 @@ void lb_8001044C(DynamicsDesc* desc, void* colliders_raw, int num_colliders,
         return;
     }
 
-    cur = desc->data;
+    cur = DP(struct DynamicsData, desc->data);
     if (cur == NULL) {
         return;
     }
@@ -1000,18 +1000,22 @@ void lb_80011710(DynamicsDesc* arg0, DynamicsDesc* arg1)
     arg1->pos.x = arg0->pos.x;
     arg1->pos.y = arg0->pos.y;
     arg1->pos.z = arg0->pos.z;
-    data1 = arg1->data;
-    data0 = &arg0->data->desc.lb_unk1.array[0];
-    for (data1 = arg1->data, i = 0; i < (int) arg0->count;
-         data1 = data1->next, i++)
+    data1 = DP(struct DynamicsData, arg1->data);
+    /* On disc `data` points at a flat lb_00F9_UnkDesc1Inner[count]. */
+    data0 = DP(struct lb_00F9_UnkDesc1Inner, arg0->data);
+    for (data1 = DP(struct DynamicsData, arg1->data), i = 0;
+         i < (int) arg0->count; data1 = data1->next, i++)
     {
         s32 tmp0, tmp1;
         data1->desc.lb_unk0.unk_4C = data0[i].unk_0;
         data1->desc.lb_unk0.unk_50 = data0[i].unk_4;
-        data1->desc.lb_unk0.unk_58 = data0[i].unk_8;
+        data1->desc.lb_unk0.unk_58.x = data0[i].unk_8.x;
+        data1->desc.lb_unk0.unk_58.y = data0[i].unk_8.y;
+        data1->desc.lb_unk0.unk_58.z = data0[i].unk_8.z;
+        data1->desc.lb_unk0.unk_58.w = data0[i].unk_8.w;
         data1->desc.lb_unk0.unk_68 = data0[i].unk_18;
-        data1->desc.lb_unk0.unk_6C = data0[i].unk_1C;
-        data1->desc.lb_unk0.unk_78 = data0[i].unk_28;
+        DISC_VEC3_GET(data1->desc.lb_unk0.unk_6C, data0[i].unk_1C);
+        DISC_VEC3_GET(data1->desc.lb_unk0.unk_78, data0[i].unk_28);
         data1->desc.lb_unk0.unk_84 = data0[i].unk_34;
         data1->desc.lb_unk0.unk_88 = data0[i].unk_38;
         if (data1->desc.lb_unk0.unk_48 != 0.0) {
@@ -1043,7 +1047,9 @@ bool lb_800117F4(DynamicsDesc* arg0, GXColor* arg1, GXColor* arg2, int arg3,
     GXLoadPosMtxImm(&view_mtx[0], 0);
     GXSetLineWidth(12, GX_TO_ONE);
     GXBegin(GX_LINESTRIP, GX_VTXFMT0, arg0->count);
-    for (cur = arg0->data, i = 0; cur != NULL; cur = cur->next, i++) {
+    for (cur = DP(struct DynamicsData, arg0->data), i = 0; cur != NULL;
+         cur = cur->next, i++)
+    {
         HSD_JObjSetMtxDirtyInline(cur->desc.lb_unk0.jobj);
         HSD_JObjSetupMatrix(cur->desc.lb_unk0.jobj);
         {

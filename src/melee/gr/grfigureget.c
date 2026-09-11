@@ -38,7 +38,7 @@ typedef struct grFigureGet_Data {
 
 static Vec3 const grFigureGet_803B8470 = { 0.0f, 0.0f, 0.0f };
 
-/* 219530 */ static void grFigureGet_OnDemoInit(int);
+/* 219530 */ static void grFigureGet_OnDemoInit(bool);
 /* 219534 */ static void grFigureGet_OnInit(void);
 /* 21959C */ static void grFigureGet_OnLoad(void);
 /* 2195A0 */ static void grFigureGet_OnStart(void);
@@ -95,7 +95,7 @@ StageData grFigureGet_StageData = {
 
 static grFigureGet_Params* yakumono_param;
 
-void grFigureGet_OnDemoInit(int unused) {}
+void grFigureGet_OnDemoInit(bool unused) {}
 
 void grFigureGet_OnInit(void)
 {

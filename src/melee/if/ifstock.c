@@ -542,7 +542,7 @@ HSD_GObj* ifStock_802F96D0(int a, int b, float x, float y)
 {
     struct ifStock_804A1378* q = &ifStock_804A1378;
     HSD_GObj* gobj = GObj_Create(14, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint((*q->x0)->joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*q->x0)->joint));
     HSD_JObj* jobj2;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, fn_802F9680, 11, 0);
@@ -599,7 +599,7 @@ void ifStock_802F98E8(u8 player, u8 b)
         gobj = GObj_Create(14, 15, 0);
         gobj->user_data = ifStock_802F98E8_get_data(stock, player);
         if (gobj != NULL) {
-            jobj = HSD_JObjLoadJoint((*stock->x0)->joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*stock->x0)->joint));
             if (jobj != NULL) {
                 HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
                 GObj_SetupGXLink(gobj, fn_802F94E0, 11, 0);
@@ -750,7 +750,7 @@ static inline HSD_GObj* ifStock_802F9F48_inline(int arg)
 {
     struct ifStock_804A1378* q = &ifStock_804A1378;
     HSD_GObj* gobj = GObj_Create(14, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint((*q->x0)->joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*q->x0)->joint));
     HSD_JObj* jobj2;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, fn_802F95E8, 11, 0);
@@ -779,7 +779,7 @@ HSD_GObj* ifStock_802FA118(int arg)
 {
     struct ifStock_804A1378* q = &ifStock_804A1378;
     HSD_GObj* gobj = GObj_Create(14, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint((*q->x0)->joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*q->x0)->joint));
     HSD_JObj* jobj2;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, fn_802F9548, 11, 0);
@@ -829,7 +829,7 @@ void ifStock_802FA5BC(int arg)
 {
     struct ifStock_804A1378* q = &ifStock_804A1378;
     HSD_GObj* gobj = GObj_Create(14, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(q->x4->joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, q->x4->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, fn_802F9598, 11, 0);
     if (arg) {
@@ -1014,7 +1014,7 @@ static inline void ifStock_CreateStockGObjs(HSD_GObj** slots)
     }
     if (gm_IsMultimanSmashMode()) {
         gobj = GObj_Create(14, 15, 0);
-        jobj = HSD_JObjLoadJoint(stock->x4->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, stock->x4->joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, fn_802F9598, 11, 0);
         gm_8016895C(jobj, stock->x4, 0);

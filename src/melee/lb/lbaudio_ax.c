@@ -262,11 +262,13 @@ int lbAudioAx_80023870(int id, int vol, int pan, int track)
     return fn_80023750(id, vol, pan, track, 7);
 }
 
-static struct {
-    int** x0;
-    int** x4;
-    int** x8;
-    int** xC;
+/* LbAd.dat "lbAudioLoadData": four tables (by language setting) of pointers
+ * to 0x83D60-terminated sfx id lists. */
+static struct DISC_STRUCT {
+    DISC_PTR(DiscU32) x0;
+    DISC_PTR(DiscU32) x4;
+    DISC_PTR(DiscU32) x8;
+    DISC_PTR(DiscU32) xC;
 }* lbl_804D6454;
 
 void lbAudioAx_8002392C(void)
@@ -274,27 +276,29 @@ void lbAudioAx_8002392C(void)
     lbArchive_LoadSymbols("LbAd.dat", &lbl_804D6454, "lbAudioLoadData", 0);
 }
 
-static inline int* getAudioLoadData(int arg0)
+static inline DiscS32* getAudioLoadData(int arg0)
 {
+    DISC_PTR(DiscU32) table;
     if (lbLang_IsSettingUS()) {
         if (lbLang_IsSavedLanguageUS()) {
-            return lbl_804D6454->x4[arg0];
+            table = lbl_804D6454->x4;
         } else {
-            return lbl_804D6454->xC[arg0];
+            table = lbl_804D6454->xC;
         }
     } else {
         if (lbLang_IsSavedLanguageUS()) {
-            return lbl_804D6454->x8[arg0];
+            table = lbl_804D6454->x8;
         } else {
-            return lbl_804D6454->x0[arg0];
+            table = lbl_804D6454->x0;
         }
     }
+    return DP(DiscS32, DP(DiscU32, table)[arg0].v);
 }
 
 int lbAudioAx_80023968(int arg0)
 {
     int i = 0;
-    int* var_r4;
+    DiscS32* var_r4;
 
 #ifdef MUST_MATCH
     if (arg0 < 0 && arg0 >= 30) {
@@ -303,7 +307,7 @@ int lbAudioAx_80023968(int arg0)
 #endif
 
     var_r4 = getAudioLoadData(arg0);
-    while (*var_r4 != 0x83D60) {
+    while (var_r4->v != 0x83D60) {
         var_r4++;
         i++;
     }
@@ -312,7 +316,7 @@ int lbAudioAx_80023968(int arg0)
 
 int lbAudioAx_80023A44(int arg0, int arg1)
 {
-    int* var_r3;
+    DiscS32* var_r3;
 
 #ifdef MUST_MATCH
     if (arg0 < 0 && arg0 >= 0x1E) {
@@ -324,7 +328,7 @@ int lbAudioAx_80023A44(int arg0, int arg1)
 #endif
 
     var_r3 = getAudioLoadData(arg0);
-    return var_r3[arg1];
+    return var_r3[arg1].v;
 }
 
 static inline void fn_800269AC_delay(void)

@@ -242,7 +242,7 @@ void ftAction_80071028(Fighter_GObj* gobj, CommandInfo* cmd)
     {
         if (!fp->invisible) {
             if (cmd->u->spawn_gfx_0.useUnkBone) {
-                bone = fp->ft_data->x8->x12;
+                bone = DP(struct ftData_x8, fp->ft_data->x8)->x12;
             } else {
                 bone = cmd->u->spawn_gfx_0.boneId;
             }
@@ -667,8 +667,8 @@ void ftAction_80071CA4(Fighter_GObj* gobj, CommandInfo* cmd)
 void ftAction_80071CCC(Fighter_GObj* gobj, CommandInfo* cmd)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    FtSFX* sfx = fp->ft_data->x4C_sfx;
-    FtSFXArr* sfx_smash = sfx->smash;
+    FtSFX* sfx = DP(FtSFX, fp->ft_data->x4C_sfx);
+    FtSFXArr* sfx_smash = sfx ? DP(FtSFXArr, sfx->smash) : NULL;
     if (sfx_smash == NULL) {
         NEXT_CMD(cmd);
     } else {
@@ -1171,9 +1171,9 @@ void ftAction_80072CD8(Fighter_GObj* gobj, CommandInfo* cmd)
             range.x = 0.0f;
 
             if (!cmd->u->footstep_fx_0.use_alt_bone) {
-                part = fp->ft_data->x8->x13;
+                part = DP(struct ftData_x8, fp->ft_data->x8)->x13;
             } else {
-                part = fp->ft_data->x8->x14;
+                part = DP(struct ftData_x8, fp->ft_data->x8)->x14;
             }
             ftCo_8009F834(gobj, gfx_id, part, 0, 0, &offset, &range, 0.0f);
         }

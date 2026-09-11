@@ -23,7 +23,7 @@ void ftCamera_80076064(Fighter* fp)
     CmSubject* camera_box;
     UnkFloat6_Camera spC;
     camera_box = fp->x890_cameraBox;
-    ftCamera_80076018(fp->ft_data->x3C, &spC, fp->x34_scale.y);
+    ftCamera_80076018(DP(UnkFloat6_Camera, fp->ft_data->x3C), &spC, fp->x34_scale.y);
     camera_box->state = CmSubjectState_Active;
     if (fp->facing_dir == 1.0f) {
         camera_box->target_ext.h.x = spC.x0.z;
@@ -59,7 +59,7 @@ void ftCamera_UpdateCameraBox(HSD_GObj* gobj)
     {
         UnkFloat6_Camera cam_floats;
 
-        ftCamera_80076018(fp->ft_data->x3C, &cam_floats, fp->x34_scale.y);
+        ftCamera_80076018(DP(UnkFloat6_Camera, fp->ft_data->x3C), &cam_floats, fp->x34_scale.y);
         if (fp->facing_dir == 1.0f) {
             camera_box->target_ext.h.x = cam_floats.x0.z;
             camera_box->target_ext.h.y =

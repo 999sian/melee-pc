@@ -174,12 +174,13 @@ void mnHyaku_8024CB94(u8 arg0)
 
     gobj = GObj_Create(HSD_GOBJ_CLASS_ITEM, 7U, 0x80);
     mnHyaku_804D6C58 = gobj;
-    jobj = HSD_JObjLoadJoint(mnHyaku_804A08E8.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnHyaku_804A08E8.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
-    HSD_JObjAddAnimAll(jobj, mnHyaku_804A08E8.animjoint,
-                       mnHyaku_804A08E8.matanim_joint,
-                       mnHyaku_804A08E8.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, mnHyaku_804A08E8.animjoint),
+                       DP(HSD_MatAnimJoint, mnHyaku_804A08E8.matanim_joint),
+                       DP(HSD_ShapeAnimJoint,
+                          mnHyaku_804A08E8.shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
 
@@ -215,12 +216,18 @@ void mnHyaku_8024CD64(u8 arg0)
     lbAudioAx_80027168();
     lbAudioAx_80027648();
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(
-        archive, (void**) &mnHyaku_804A08E8, "MenMainConKm_Top_joint",
-        &mnHyaku_804A08E8.animjoint, "MenMainConKm_Top_animjoint",
-        &mnHyaku_804A08E8.matanim_joint, "MenMainConKm_Top_matanim_joint",
-        &mnHyaku_804A08E8.shapeanim_joint, "MenMainConKm_Top_shapeanim_joint",
-        0);
+    {
+        void* dp_[3];
+        lbArchive_LoadSections(
+            archive, (void**) &mnHyaku_804A08E8, "MenMainConKm_Top_joint",
+            &dp_[0], "MenMainConKm_Top_animjoint",
+            &dp_[1], "MenMainConKm_Top_matanim_joint",
+            &dp_[2], "MenMainConKm_Top_shapeanim_joint",
+            0);
+        DP_SET(mnHyaku_804A08E8.animjoint, dp_[0]);
+        DP_SET(mnHyaku_804A08E8.matanim_joint, dp_[1]);
+        DP_SET(mnHyaku_804A08E8.shapeanim_joint, dp_[2]);
+    }
     mnHyaku_8024CB94(arg0);
     proc =
         HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), mnHyaku_8024C68C, 0U);

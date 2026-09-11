@@ -3848,51 +3848,46 @@ int gm_80168940(MatchEnd* match_end)
     return 0;
 }
 
+#define DISC_ANIM(T, arr, i) ((arr) != 0 ? GM_DISC_ARR(T, arr, i) : NULL)
+
 void gm_8016895C(HSD_JObj* arg0, DynamicModelDesc* arg1, int idx)
 {
-    HSD_AnimJoint* anim = arg1->anims != NULL ? arg1->anims[idx] : NULL;
-    HSD_MatAnimJoint* matanim =
-        arg1->matanims != NULL ? arg1->matanims[idx] : NULL;
+    HSD_AnimJoint* anim = DISC_ANIM(HSD_AnimJoint, arg1->anims, idx);
+    HSD_MatAnimJoint* matanim = DISC_ANIM(HSD_MatAnimJoint, arg1->matanims, idx);
     HSD_ShapeAnimJoint* shapeanim =
-        arg1->shapeanims != NULL ? arg1->shapeanims[idx] : NULL;
+        DISC_ANIM(HSD_ShapeAnimJoint, arg1->shapeanims, idx);
     HSD_JObjAddAnimAll(arg0, anim, matanim, shapeanim);
 }
 
 void fn_801689E4(HSD_JObj* arg0, DynamicModelDesc* arg1, int idx)
 {
-    HSD_AnimJoint* anim = arg1->anims != NULL ? arg1->anims[idx] : NULL;
-    HSD_MatAnimJoint* matanim =
-        arg1->matanims != NULL ? arg1->matanims[idx] : NULL;
+    HSD_AnimJoint* anim = DISC_ANIM(HSD_AnimJoint, arg1->anims, idx);
+    HSD_MatAnimJoint* matanim = DISC_ANIM(HSD_MatAnimJoint, arg1->matanims, idx);
     HSD_ShapeAnimJoint* shapeanim =
-        arg1->shapeanims != NULL ? arg1->shapeanims[idx] : NULL;
+        DISC_ANIM(HSD_ShapeAnimJoint, arg1->shapeanims, idx);
     HSD_JObjAddAnimAll(arg0, anim, matanim, shapeanim);
 }
 
 void fn_80168A6C(void* arg0, void* arg1, s32 idx)
 {
-    struct {
-        /* 0x00 */ s32** x0;
-        /* 0x04 */ s32* x4;
-        /* 0x08 */ s32 x8;
-        /* 0x0C */ s32 xC;
-    }* src = arg0;
+    SceneDesc* src = arg0;
+    struct gm_SceneSlice* dst = arg1;
+    DynamicModelDesc* model;
 
-    memzero(arg1, 0x20);
+    memzero(dst, sizeof(*dst));
 
-    if (src->x0[idx] != NULL) {
-        ((s32*) arg1)[0] = src->x0[idx][0];
-        ((s32*) arg1)[1] = src->x0[idx][1];
-        ((s32*) arg1)[2] = src->x0[idx][2];
-        ((s32*) arg1)[3] = src->x0[idx][3];
+    model = GM_SCENE_MODEL(src, idx);
+    if (model != NULL) {
+        dst->model = *model;
     }
 
-    if (src->x4 != NULL) {
-        ((s32*) arg1)[5] = src->x4[0];
-        ((s32*) arg1)[6] = src->x4[1];
+    if (src->cameras != 0) {
+        dst->cam_desc = DP(HSD_CObjDesc, GM_SCENE_CAMERA(src)->desc);
+        dst->cam_anims = DP(DiscU32, GM_SCENE_CAMERA(src)->anims);
     }
 
-    ((s32*) arg1)[4] = src->x8;
-    ((s32*) arg1)[7] = src->xC;
+    dst->lights = GM_SCENE_LIGHTS(src);
+    dst->fogs = GM_SCENE_FOG(src);
 }
 
 f32 gm_80168B34(CharacterKind ckind, int arg1, int arg2)

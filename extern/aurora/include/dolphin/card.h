@@ -240,6 +240,7 @@ extern u32 __CARDFreq;
 #endif
 
 s32 CARDRenameAsync(s32 chan, const char* oldName, const char* newName, CARDCallback callback);
+s32 CARDFormatAsync(s32 chan, CARDCallback callback);
 
 // CARDBios
 #if TARGET_PC

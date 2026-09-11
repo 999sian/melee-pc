@@ -83,7 +83,7 @@ void ftCo_800CDE94(Fighter* fighter, Vec3* arg1, Vec3* arg2)
     f32 scale;
     f32 inverse_scale;
 
-    fighterbone_jobj = fighter->parts[fighter->ft_data->x8->x10].joint;
+    fighterbone_jobj = fighter->parts[DP(struct ftData_x8, fighter->ft_data->x8)->x10].joint;
     pos = *arg1;
 
     scale = fighter->x34_scale.y;

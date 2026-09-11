@@ -80,7 +80,7 @@
 /* 1C32AC */ void Ground_801C32AC(int gobj_id);
 /* 1C32D4 */ s32 Ground_801C32D4(s32, s32);
 /* 1C33C0 */ s32 Ground_801C33C0(s32, s32);
-/* 1C36F4 */ void Ground_801C36F4(int map_id, HSD_JObj* jobj, UNK_T joint);
+/* 1C36F4 */ void Ground_801C36F4(int map_id, HSD_JObj* jobj, HSD_Joint* joint);
 /* 1C3880 */ void Ground_801C3880(f32);
 /* 1C3890 */ void Ground_801C3890(f32);
 /* 1C38A0 */ void Ground_801C38A0(f32);
@@ -116,7 +116,7 @@
 /* 1C43C4 */ bool Ground_801C43C4(void*);
 /* 1C445C */ void Ground_801C445C(HSD_LObj* lobj);
 /* 1C498C */ HSD_GObj* Ground_801C498C(void);
-/* 1C49B4 */ LightList** Ground_801C49B4(void);
+/* 1C49B4 */ DiscU32* Ground_801C49B4(void); /* LightList*[] slots */
 /* 1C49F8 */ void* Ground_GetYakumonoParam(void);
 /* 1C4A08 */ void Ground_801C4A08(HSD_GObj* gobj);
 /* 1C4B50 */ void Ground_801C4B50(HSD_Spline*, Vec3*, Vec3*, f32);

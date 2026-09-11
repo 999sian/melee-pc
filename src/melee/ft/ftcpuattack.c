@@ -1808,7 +1808,7 @@ bool ftCo_800B8A9C(Fighter* fp)
     if (fp->ground_or_air == GA_Air) {
         if (ftCo_800B89CC(fp)) {
             result =
-                ftCo_800B4AB0(fp, target, (Fighter_804D64FC->x8)[fp->kind]);
+                ftCo_800B4AB0(fp, target, ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x8)[fp->kind].v));
             if (result != 0) {
                 cpu->xA4 = result;
                 return true;
@@ -1830,7 +1830,7 @@ bool ftCo_800B8A9C(Fighter* fp)
                 tmp->xC8++;
             }
         }
-        result = ftCo_800B4AB0(fp, target, (Fighter_804D64FC->x4)[fp->kind]);
+        result = ftCo_800B4AB0(fp, target, ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x4)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             return true;
@@ -1846,29 +1846,29 @@ bool ftCo_800B8A9C(Fighter* fp)
         } else {
             switch (item->kind) {
             case It_Kind_Harisen:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[0];
+                weapon_reach = DP(DiscF32, Fighter_804D64FC->x24)[0].v;
                 break;
             case It_Kind_LipStick:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[1];
+                weapon_reach = DP(DiscF32, Fighter_804D64FC->x24)[1].v;
                 break;
             case It_Kind_StarRod:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[2];
+                weapon_reach = DP(DiscF32, Fighter_804D64FC->x24)[2].v;
                 break;
             case It_Kind_Sword:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[3];
+                weapon_reach = DP(DiscF32, Fighter_804D64FC->x24)[3].v;
                 break;
             case It_Kind_Bat:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[4];
+                weapon_reach = DP(DiscF32, Fighter_804D64FC->x24)[4].v;
                 break;
             case It_Kind_Parasol:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[5];
+                weapon_reach = DP(DiscF32, Fighter_804D64FC->x24)[5].v;
                 break;
             default:
                 weapon_reach = 0.0f;
                 break;
             }
         }
-        result = ftCo_800B52AC(fp, target, (Fighter_804D64FC->x18)[fp->kind],
+        result = ftCo_800B52AC(fp, target, ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x18)[fp->kind].v),
                                weapon_reach);
         if (result != 0) {
             cpu->xA4 = result;
@@ -1876,7 +1876,7 @@ bool ftCo_800B8A9C(Fighter* fp)
         }
     }
     if (cpu->level > 5 && ftCo_800B9F6C(target)) {
-        result = ftCo_800B4AB0(fp, target, (Fighter_804D64FC->x10)[fp->kind]);
+        result = ftCo_800B4AB0(fp, target, ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x10)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             return true;
@@ -1901,21 +1901,21 @@ bool ftCo_800B8A9C(Fighter* fp)
         }
     }
     if (var_r0 != 0) {
-        result = ftCo_800B4AB0(fp, target, (Fighter_804D64FC->x1C)[fp->kind]);
+        result = ftCo_800B4AB0(fp, target, ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x1C)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             cpu->xF8_b7 = 1;
             return true;
         }
     }
-    result = ftCo_800B4AB0(fp, target, (Fighter_804D64FC->x4)[fp->kind]);
+    result = ftCo_800B4AB0(fp, target, ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x4)[fp->kind].v));
     if (result != 0) {
         cpu->xA4 = result;
         return true;
     }
     if (cpu->x50 != 0) {
         result = ftCo_800B5AB0(fp, (void*) cpu->x50,
-                               (Fighter_804D64FC->x14)[fp->kind]);
+                               ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x14)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             return true;
@@ -2333,7 +2333,7 @@ bool ftCo_800B9CBC(Fighter* fp)
         return false;
     }
     if (temp_f31 < 0.08726646192371845 && temp_f31 > -0.08726646192371845) {
-        temp_r31->xA4 = ftCo_800B6208(Fighter_804D64FC->xC[fp->kind]);
+        temp_r31->xA4 = ftCo_800B6208(((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->xC)[fp->kind].v));
         if (temp_r31->xA4 != 0) {
             return true;
         }
@@ -2425,21 +2425,21 @@ bool ftCo_800BA2E8(Fighter* fp, Fighter* arg1)
     PAD_STACK(0x10);
 
     if (fp->cur_pos.x - arg1->cur_pos.x > 0.0) {
-        if (ftCo_800A2A70(fp, false) > Fighter_804D64FC->x20[fp->kind]) {
+        if (ftCo_800A2A70(fp, false) > DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v) {
             ftCo_800BA160(fp);
             return true;
         }
-        if (ftCo_800A2A70(fp, true) > Fighter_804D64FC->x20[fp->kind]) {
+        if (ftCo_800A2A70(fp, true) > DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v) {
             ftCo_800BA224(fp);
             return true;
         }
         return false;
     } else {
-        if (ftCo_800A2A70(fp, true) > Fighter_804D64FC->x20[fp->kind]) {
+        if (ftCo_800A2A70(fp, true) > DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v) {
             ftCo_800BA224(fp);
             return true;
         }
-        if (ftCo_800A2A70(fp, false) > Fighter_804D64FC->x20[fp->kind]) {
+        if (ftCo_800A2A70(fp, false) > DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v) {
             ftCo_800BA160(fp);
             return true;
         }
@@ -2452,13 +2452,13 @@ void ftCo_800BA674(Fighter* fp, Fighter* arg1)
     PAD_STACK(0x10);
 
     if (fp->cur_pos.x - arg1->cur_pos.x > 0.0) {
-        if (ftCo_800A2A70(fp, false) > 2.0 * Fighter_804D64FC->x20[fp->kind]) {
+        if (ftCo_800A2A70(fp, false) > 2.0 * DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v) {
             ftCo_800BA160(fp);
         } else {
             ftCo_800BA224(fp);
         }
     } else {
-        if (ftCo_800A2A70(fp, true) > 2.0 * Fighter_804D64FC->x20[fp->kind]) {
+        if (ftCo_800A2A70(fp, true) > 2.0 * DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v) {
             ftCo_800BA224(fp);
         } else {
             ftCo_800BA160(fp);

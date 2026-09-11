@@ -92,7 +92,7 @@ void ftMh_Wait1_2_Anim(HSD_GObj* gobj)
 void ftMh_Wait1_2_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     ftBossLib_8015BE40(gobj, &fp->mv.mh.unk0.xC, &fp->mv.mh.unk0.x18, da->x2C,
                        da->x28);
@@ -112,7 +112,7 @@ void ftMh_Wait1_2_Coll(HSD_GObj* gobj)
 void ftMh_MS_389_80151018(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     fp->mv.mh.unk0.x20 = 0;
     {
         Vec3 pos;

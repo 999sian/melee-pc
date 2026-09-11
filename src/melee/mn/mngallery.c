@@ -427,11 +427,12 @@ void mnGallery_8025963C(void)
 
     gobj = GObj_Create(6, 7, 0x80);
     mnGallery_804D6C88 = gobj;
-    jobj = HSD_JObjLoadJoint(model->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 0x80);
-    HSD_JObjAddAnimAll(jobj, model->animjoint, model->matanim_joint,
-                       model->shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model->animjoint),
+                       DP(HSD_MatAnimJoint, model->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, model->shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_JObjAnimAll(jobj);
 
@@ -447,11 +448,12 @@ void mnGallery_8025963C(void)
     for (i = 0; i < 2; i++) {
         child_gobj = GObj_Create(6, 7, 0x80);
         user_data->gobjs[i] = child_gobj;
-        jobj = HSD_JObjLoadJoint(model->joint);
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         HSD_GObjObject_80390A70(child_gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(child_gobj, HSD_GObj_JObjCallback, 4, 0x80);
-        HSD_JObjAddAnimAll(jobj, model->animjoint, model->matanim_joint,
-                           model->shapeanim_joint);
+        HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model->animjoint),
+                           DP(HSD_MatAnimJoint, model->matanim_joint),
+                           DP(HSD_ShapeAnimJoint, model->shapeanim_joint));
         HSD_JObjReqAnimAll(jobj, 0.0f);
         HSD_JObjAnimAll(jobj);
 
@@ -484,17 +486,28 @@ void mnGallery_80259868(void)
     mn_804A04F0.hovered_selection = 0;
     archive = mn_804D6BB8;
 
-    lbArchive_LoadSections(
-        archive, (void*) &mnGallery_804A0BA0.joint, "MenMainConGa_Top_joint",
-        &mnGallery_804A0BA0.animjoint, "MenMainConGa_Top_animjoint",
-        &mnGallery_804A0BA0.matanim_joint, "MenMainConGa_Top_matanim_joint",
-        &mnGallery_804A0BA0.shapeanim_joint,
-        "MenMainConGa_Top_shapeanim_joint", &mnGallery_804A0BB0.joint,
-        "MenMainCursorGa_Top_joint", &mnGallery_804A0BB0.animjoint,
-        "MenMainCursorGa_Top_animjoint", &mnGallery_804A0BB0.matanim_joint,
-        "MenMainCursorGa_Top_matanim_joint",
-        &mnGallery_804A0BB0.shapeanim_joint,
-        "MenMainCursorGa_Top_shapeanim_joint", 0);
+    {
+        void* dp_[8];
+        lbArchive_LoadSections(
+            archive, &dp_[0], "MenMainConGa_Top_joint",
+            &dp_[1], "MenMainConGa_Top_animjoint",
+            &dp_[2], "MenMainConGa_Top_matanim_joint",
+            &dp_[3],
+            "MenMainConGa_Top_shapeanim_joint", &dp_[4],
+            "MenMainCursorGa_Top_joint", &dp_[5],
+            "MenMainCursorGa_Top_animjoint", &dp_[6],
+            "MenMainCursorGa_Top_matanim_joint",
+            &dp_[7],
+            "MenMainCursorGa_Top_shapeanim_joint", 0);
+        DP_SET(mnGallery_804A0BA0.joint, dp_[0]);
+        DP_SET(mnGallery_804A0BA0.animjoint, dp_[1]);
+        DP_SET(mnGallery_804A0BA0.matanim_joint, dp_[2]);
+        DP_SET(mnGallery_804A0BA0.shapeanim_joint, dp_[3]);
+        DP_SET(mnGallery_804A0BB0.joint, dp_[4]);
+        DP_SET(mnGallery_804A0BB0.animjoint, dp_[5]);
+        DP_SET(mnGallery_804A0BB0.matanim_joint, dp_[6]);
+        DP_SET(mnGallery_804A0BB0.shapeanim_joint, dp_[7]);
+    }
 
     gobj = GObj_Create(0, 1, 0x80);
     proc = HSD_GObj_SetupProc(gobj, fn_80258ED0, 0);

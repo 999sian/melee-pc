@@ -53,8 +53,7 @@ void it_802AA054(Item_GObj* gobj, Vec3* pos, Vec3* vel, f32 facing_dir,
 void it_802AA1D8(Item_GObj* item_gobj)
 {
     Item* item = GET_ITEM(item_gobj);
-    itNessPKFirepillarAttributes* attrs =
-        item->xC4_article_data->x4_specialAttributes;
+    itNessPKFirepillarAttributes* attrs = DP(itNessPKFirepillarAttributes, item->xC4_article_data->x4_specialAttributes);
     Item_80268E5C(item_gobj, 0, ITEM_ANIM_UPDATE);
     it_80275158(item_gobj, attrs->x0);
 }
@@ -77,8 +76,7 @@ bool itNesspkfire_UnkMotion0_Coll(Item_GObj* gobj)
 bool it_2725_Logic23_DmgDealt(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itNessPKFirepillarAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itNessPKFirepillarAttributes* attrs = DP(itNessPKFirepillarAttributes, ip->xC4_article_data->x4_specialAttributes);
     Vec3 pos = ip->pos;
     pos.y += attrs->x4;
     itNesspkfirepillar_802AA494(gobj, ip->owner, &pos, ip->facing_dir);
@@ -88,8 +86,7 @@ bool it_2725_Logic23_DmgDealt(Item_GObj* gobj)
 bool it_2725_Logic23_Clanked(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itNessPKFirepillarAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itNessPKFirepillarAttributes* attrs = DP(itNessPKFirepillarAttributes, ip->xC4_article_data->x4_specialAttributes);
     Vec3 pos = ip->pos;
     pos.y += attrs->x4;
     itNesspkfirepillar_802AA494(gobj, ip->owner, &pos, ip->facing_dir);

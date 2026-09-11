@@ -69,12 +69,10 @@ void ftCo_800CF6E8(ftCo_DatAttrs* attr, f32 scale)
         attr->heavy_throw_velocity_multiplier =
             ftCo_CalcYScaledKnockback(attr->heavy_throw_velocity_multiplier,
                                       scale, Fighter_804D6524->x5C);
-        cur = &attr->xBC.size;
-        *cur = ftCo_CalcYScaledKnockback(*cur, scale, Fighter_804D6524->x60);
-        cur = &attr->xDC;
-        *cur = ftCo_CalcYScaledKnockback(*cur, scale, Fighter_804D6524->x64);
-        cur[1] =
-            ftCo_CalcYScaledKnockback(cur[1], scale, Fighter_804D6524->x68);
+        attr->xBC.size = ftCo_CalcYScaledKnockback(attr->xBC.size, scale, Fighter_804D6524->x60);
+        attr->xDC = ftCo_CalcYScaledKnockback(attr->xDC, scale, Fighter_804D6524->x64);
+        attr->kirby_b_star_damage =
+            ftCo_CalcYScaledKnockback(attr->kirby_b_star_damage, scale, Fighter_804D6524->x68);
         attr->normal_landing_lag = ftCo_CalcYScaledKnockback(
             attr->normal_landing_lag, scale, Fighter_804D6524->x6C);
         attr->landingairn_lag = ftCo_CalcYScaledKnockback(
@@ -149,10 +147,12 @@ void ftCo_800D0FA0(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    fp->co_attrs = *fp->ft_data->x0;
+    fp->co_attrs = *DP(struct ftCo_DatAttrs, fp->ft_data->x0);
     {
-        fp->x294_itPickup = *fp->ft_data->x40;
-        fp->x2C4 = *fp->ft_data->x50;
+        fp->x294_itPickup = *DP(struct itPickup, fp->ft_data->x40);
+        DiscVec2* v = DP(DiscVec2, fp->ft_data->x50);
+        fp->x2C4.x = v->x;
+        fp->x2C4.y = v->y;
     }
 }
 
@@ -170,9 +170,13 @@ void ftCo_800D105C(Fighter_GObj* fgp)
     PAD_STACK(36); /// @todo fix stack
 
     fp = GET_FIGHTER(fgp);
-    fp->co_attrs = *fp->ft_data->x0;
-    fp->x294_itPickup = *fp->ft_data->x40;
-    fp->x2C4 = *fp->ft_data->x50;
+    fp->co_attrs = *DP(struct ftCo_DatAttrs, fp->ft_data->x0);
+    fp->x294_itPickup = *DP(struct itPickup, fp->ft_data->x40);
+    {
+        DiscVec2* v = DP(DiscVec2, fp->ft_data->x50);
+        fp->x2C4.x = v->x;
+        fp->x2C4.y = v->y;
+    }
 
     if (fp->x34_scale.y != 1.0f) {
         ftCo_800CF6E8(&fp->co_attrs, fp->x34_scale.y);

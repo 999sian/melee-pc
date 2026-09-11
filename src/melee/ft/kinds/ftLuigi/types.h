@@ -12,7 +12,7 @@ struct ftLuigi_FighterVars {
     u8 _[FIGHTERVARS_SIZE - 0xC];
 };
 
-typedef struct _ftLuigiAttributes {
+typedef struct DISC_STRUCT _ftLuigiAttributes {
     /// SIDE SPECIAL - GREEN MISSILE
     float x0_LUIGI_GREENMISSILE_UNK1;
     float x4_LUIGI_GREENMISSILE_SMASH;
@@ -61,6 +61,7 @@ typedef struct _ftLuigiAttributes {
     float x90_LUIGI_CYCLONE_TAP_GRAVITY;
     s32 x94_LUIGI_CYCLONE_LANDING_LAG;
 } ftLuigiAttributes;
+DISC_ASSERT_SIZE(ftLuigiAttributes, 0x98);
 
 typedef struct ftLuigiSpecialS {
     /// 0x2340 - Number of frames Green Missile has been charged

@@ -12,18 +12,20 @@
 #include <melee/ft/types.h>
 #include <sysdolphin/baselib/objalloc.h>
 
-extern struct Fighter_804D64FC_t {
-    u8** cmdscripts; ///< +00 per-character command script arrays
-    void** x4;       ///< +04 ground attack tables (per character)
-    void** x8;       ///< +08 air attack tables (per character)
-    UNK_T* xC;       ///< +0C ranged/projectile attack tables
-    void** x10;      ///< +10 smash attack tables (per character)
-    void** x14;      ///< +14 special action tables (per character)
-    void** x18;      ///< +18 weapon attack tables (per character)
-    void** x1C;      ///< +1C edge guard tables (per character)
-    float* x20;      ///< +20 distance thresholds (per character)
-    void* x24;       ///< +24 weapon reach bonus table
+/* PlCo.dat tables: all disc data. */
+extern struct DISC_STRUCT Fighter_804D64FC_t {
+    DISC_PTR(DISC_PTR(u8)) cmdscripts; ///< +00 per-character command script arrays
+    DISC_PTR(DISC_PTR(void)) x4;       ///< +04 ground attack tables (per character)
+    DISC_PTR(DISC_PTR(void)) x8;       ///< +08 air attack tables (per character)
+    DISC_PTR(DISC_PTR(void)) xC;       ///< +0C ranged/projectile attack tables
+    DISC_PTR(DISC_PTR(void)) x10;      ///< +10 smash attack tables (per character)
+    DISC_PTR(DISC_PTR(void)) x14;      ///< +14 special action tables (per character)
+    DISC_PTR(DISC_PTR(void)) x18;      ///< +18 weapon attack tables (per character)
+    DISC_PTR(DISC_PTR(void)) x1C;      ///< +1C edge guard tables (per character)
+    DISC_PTR(DiscF32) x20;             ///< +20 distance thresholds (per character)
+    DISC_PTR(void) x24;                ///< +24 weapon reach bonus table
 }* Fighter_804D64FC;
+DISC_ASSERT_SIZE(struct Fighter_804D64FC_t, 0x28);
 
 struct plAllocInfo;
 
@@ -86,12 +88,13 @@ struct plAllocInfo;
 /* 4D6514 */ extern HSD_Joint*
     Fighter_804D6514; ///< trophy platform model when characters spawn
 
-/* 4D6518 */ extern struct Fighter_804D6518_t {
+/* 4D6518 */ extern struct DISC_STRUCT Fighter_804D6518_t {
     f32 x0; ///< gravity mult
     f32 x4; ///< weight mult
 }* Fighter_804D6518;
+DISC_ASSERT_SIZE(struct Fighter_804D6518_t, 0x8);
 
-/* 4D651C */ extern struct Fighter_804D651C_t {
+/* 4D651C */ extern struct DISC_STRUCT Fighter_804D651C_t {
     f32 x0;
     f32 x4;          ///< jump y impulse fullhop
     f32 x8;          ///< jump y impulse shorthop
@@ -102,8 +105,9 @@ struct plAllocInfo;
     f32 x1C;         ///< ledge jump y impulse
     f32 x20;         ///< wall jump y impulse
 }* Fighter_804D651C; ///< metal modifiers - used in 0x800d105c
+DISC_ASSERT_SIZE(struct Fighter_804D651C_t, 0x24);
 
-/* 4D6520 */ extern struct Fighter_804D6520_t {
+/* 4D6520 */ extern struct DISC_STRUCT Fighter_804D6520_t {
     f32 x0;          ///< walk speed scale
     f32 x4;          ///< dash accel a
     f32 x8;          ///< dash accel b
@@ -120,8 +124,9 @@ struct plAllocInfo;
     f32 x34;         ///< wall jump x impulse
     f32 x38;         ///< wall jump y impulse
 }* Fighter_804D6520; ///< bunnyhood modifiers - used in 0x800d105c
+DISC_ASSERT_SIZE(struct Fighter_804D6520_t, 0x3C);
 
-/* 4D6524 */ extern struct Fighter_804D6524_t {
+/* 4D6524 */ extern struct DISC_STRUCT Fighter_804D6524_t {
     /// @warning not all comments not confirmed - from altimors ghidra db
     float x0;        ///< knockback recieved mult
     float x4;        ///< damage dealt mult
@@ -163,31 +168,37 @@ struct plAllocInfo;
     float x94;       ///< cmsubject offset mult
     float x98;       ///<
 }* Fighter_804D6524; ///< fighter scale modifiers - used in 0x800d105c
-/* 4D6528 */ extern struct Fighter_ShakeTable_t {
-    Vec2* x0;
+DISC_ASSERT_SIZE(struct Fighter_804D6524_t, 0x9C);
+/* 4D6528 */ extern struct DISC_STRUCT Fighter_ShakeTable_t {
+    DISC_PTR(DiscVec2) x0;
     int x4;
 }* Fighter_SmashChargeShakeTable; ///< smash-charge shake table
+DISC_ASSERT_SIZE(struct Fighter_ShakeTable_t, 0x8);
 
 /// Grab-mash shake table
 /* 4D652C */ extern struct Fighter_ShakeTable_t* Fighter_GrabMashShake;
 
-/* 4D6530 */ extern Vec2** Fighter_804D6530;
-/* 4D6534 */ extern UNK_T Fighter_804D6534;
+/* Arrays of pointer slots on disc are DiscU32[]: read DP(T, arr[i].v). */
+/* 4D6530 */ extern DiscU32* Fighter_804D6530; ///< DiscVec2*[]
+/* 4D6534 */ extern DiscU32* Fighter_804D6534; ///< void*[]
 /* 4D6538 */ extern struct Fighter_804D653C_t* Fighter_804D6538;
 /* 4D653C */ extern struct Fighter_804D653C_t* Fighter_804D653C;
-/* 4D6540 */ extern struct Fighter_804D6540_t {
-    struct Fighter_804D6540_x0_t {
-        u8 x0;
-        u8 x1;
-        u8 x2;
-        u8 x3;
-    }* x0;
+struct DISC_STRUCT Fighter_804D6540_x0_t {
+    u8 x0;
+    u8 x1;
+    u8 x2;
+    u8 x3;
+};
+struct DISC_STRUCT Fighter_804D6540_t {
+    DISC_PTR(struct Fighter_804D6540_x0_t) x0;
     int x4;
-}** Fighter_804D6540;
-/* 4D6544 */ extern FighterPartsTable** ftPartsTable;
-/* 4D6548 */ extern float* Fighter_804D6548;
-/* 4D654C */ extern float (*Fighter_804D654C)[5];
-/* 4D6550 */ extern int** Fighter_804D6550;
+};
+DISC_ASSERT_SIZE(struct Fighter_804D6540_t, 0x8);
+/* 4D6540 */ extern DiscU32* Fighter_804D6540; ///< struct Fighter_804D6540_t*[kind]
+/* 4D6544 */ extern DiscU32* ftPartsTable;     ///< FighterPartsTable*[kind]
+/* 4D6548 */ extern DiscF32* Fighter_804D6548;
+/* 4D654C */ extern DiscF32 (*Fighter_804D654C)[5];
+/* 4D6550 */ extern DiscF32* Fighter_804D6550; ///< f32[msid][3] item throw attrs
 /* 4D6554 */ extern ftCommonData* p_ftCommonData;
 
 #endif

@@ -70,7 +70,7 @@ void it_802B63F8(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itSamusMissileAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (ip->xD44_lifeTimer > attrs->x4 - attrs->x8) {
         ip->xDAC_itcmd_var0 = 1;
@@ -135,7 +135,7 @@ void it_802B64FC(Item_GObj* gobj)
     itSamusMissileAttributes* sa;
 
     ip = GET_ITEM(gobj);
-    sa = ip->xC4_article_data->x4_specialAttributes;
+    sa = DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
     vec3.x = vec3.y = vec3.z = 0.0f;
     if (it_8026B634(&ip->pos, &vec3, ip->owner, ip->facing_dir) != NULL) {
         goto block_4;
@@ -184,7 +184,7 @@ void* it_802B66A8(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itSamusMissileAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(0x8);
 
     ip->x40_vel.x = attrs->xC * ip->facing_dir;
@@ -228,7 +228,7 @@ bool itSamusmissile_UnkMotion0_Anim(Item_GObj* gobj)
 static inline void inlineA0(Item_GObj* gobj, Vec3* vec)
 {
     Item* ip = GET_ITEM(gobj);
-    itSamusMissileAttributes* sa1 = ip->xC4_article_data->x4_specialAttributes;
+    itSamusMissileAttributes* sa1 = DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
     vec->x = sa1->xC * ip->facing_dir;
     vec->y = 0.0f;
     vec->z = 0.0f;
@@ -250,7 +250,7 @@ static inline void itSamusmissile_SetRotationX(Item_GObj* gobj)
 void itSamusmissile_UnkMotion0_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itSamusMissileAttributes* sa0 = ip->xC4_article_data->x4_specialAttributes;
+    itSamusMissileAttributes* sa0 = DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
     Vec3 vec;
     PAD_STACK(8);
     if (ip->xDAC_itcmd_var0 != 0) {
@@ -278,7 +278,7 @@ void it_802B6A60(Item_GObj* gobj)
     itSamusMissileAttributes* attrs;
     PAD_STACK(0x8);
 
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     ip->x40_vel.x = attrs->x2C * ip->facing_dir;
     ip->x40_vel.y = 0.0f;
@@ -302,7 +302,7 @@ void itSamusmissile_UnkMotion1_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itSamusMissileAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (ip->xDB0_itcmd_var1 != 0) {
         ip->x40_vel.x = attrs->x30 * ip->facing_dir + ip->x40_vel.x;
@@ -393,7 +393,7 @@ bool it_2725_Logic52_ShieldBounced(Item_GObj* arg0)
 bool it_2725_Logic52_Reflected(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itSamusMissileAttributes* sa = ip->xC4_article_data->x4_specialAttributes;
+    itSamusMissileAttributes* sa = DP(itSamusMissileAttributes, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* jobj = GET_JOBJ(gobj);
     PAD_STACK(6 * 4);
     ip->xDB8_itcmd_var3 = 1;

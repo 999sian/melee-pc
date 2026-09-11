@@ -36,7 +36,7 @@ static AnimLoopSettings loop_settings_1 = { 0, 1330.0F, 130.0F };
 static Vec3 jobj_translate = { 0, -3, 0 };
 
 static HSD_CameraDescPerspective* cobj_desc;
-static LightList** list_list;
+static DiscU32* list_list; /* LightList*[] */
 static HSD_FogDesc* fog_desc;
 static int countdown_timer;
 static u32 frame_count;
@@ -45,12 +45,12 @@ static GXBool bg_initialized;
 HSD_GObj* gmTitle_801A12C4(void)
 {
     HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(model_desc_0.joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model_desc_0.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 9, 0);
-    HSD_JObjAddAnimAll(jobj, model_desc_0.animjoint,
-                       model_desc_0.matanim_joint,
-                       model_desc_0.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model_desc_0.animjoint),
+                       DP(HSD_MatAnimJoint, model_desc_0.matanim_joint),
+                       DP(HSD_ShapeAnimJoint, model_desc_0.shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, loop_settings_0.loop_frame);
     HSD_JObjAnimAll(jobj);
 
@@ -86,12 +86,12 @@ static inline bool isActiveTitle(void)
 static void fn_801A1498_inline(void)
 {
     HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(model_desc_1.joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model_desc_1.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 3, 0);
-    HSD_JObjAddAnimAll(jobj, model_desc_1.animjoint,
-                       model_desc_1.matanim_joint,
-                       model_desc_1.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model_desc_1.animjoint),
+                       DP(HSD_MatAnimJoint, model_desc_1.matanim_joint),
+                       DP(HSD_ShapeAnimJoint, model_desc_1.shapeanim_joint));
     HSD_GObj_SetupProc(gobj, gmTitle_801A146C, 0);
     if (isActiveTitle()) {
         HSD_JObjReqAnimAll(jobj, loop_settings_1.start_frame);
@@ -136,14 +136,14 @@ static bool isEmblemUnlocked(void)
 HSD_GObj* gmTitle_801A165C(void)
 {
     HSD_GObj* gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(model_desc_0.joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model_desc_0.joint));
     u8 kind = HSD_GObj_JObjKind;
 
     HSD_GObjObject_80390A70(gobj, kind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 9, 0);
-    HSD_JObjAddAnimAll(jobj, model_desc_0.animjoint,
-                       model_desc_0.matanim_joint,
-                       model_desc_0.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model_desc_0.animjoint),
+                       DP(HSD_MatAnimJoint, model_desc_0.matanim_joint),
+                       DP(HSD_ShapeAnimJoint, model_desc_0.shapeanim_joint));
     if (isActiveTitle()) {
         bg_initialized = GX_FALSE;
         HSD_JObjReqAnimAll(jobj, loop_settings_0.start_frame);
@@ -237,22 +237,30 @@ HSD_Archive* gmTitle_801A1AC0(void)
 {
     const char dat[] = "GmTtAll.dat";
     const char usd[] = "GmTtAll.usd";
+    void *j0, *a0, *m0, *s0, *j1, *a1, *m1, *s1;
+    HSD_Archive* archive;
 
-    return lbArchive_LoadSymbols(
-        lbLang_IsSettingUS() ? usd : dat, &model_desc_0.joint,
-        "TtlMoji_Top_joint", &model_desc_0.animjoint, "TtlMoji_Top_animjoint",
-        &model_desc_0.matanim_joint, "TtlMoji_Top_matanim_joint",
-        &model_desc_0.shapeanim_joint, "TtlMoji_Top_shapeanim_joint",
+    archive = lbArchive_LoadSymbols(
+        lbLang_IsSettingUS() ? usd : dat, &j0, "TtlMoji_Top_joint", &a0,
+        "TtlMoji_Top_animjoint", &m0, "TtlMoji_Top_matanim_joint", &s0,
+        "TtlMoji_Top_shapeanim_joint",
 
         &cobj_desc, "ScTitle_cam_int1_camera", &list_list,
         "ScTitle_scene_lights", &fog_desc, "ScTitle_fog",
 
-        &model_desc_1.joint, "TtlBg_Top_joint", &model_desc_1.animjoint,
-        "TtlBg_Top_animjoint", &model_desc_1.matanim_joint,
-        "TtlBg_Top_matanim_joint", &model_desc_1.shapeanim_joint,
-        "TtlBg_Top_shapeanim_joint",
+        &j1, "TtlBg_Top_joint", &a1, "TtlBg_Top_animjoint", &m1,
+        "TtlBg_Top_matanim_joint", &s1, "TtlBg_Top_shapeanim_joint",
 
         &gm_804D67F0, "TitleMark_sobjdesc", 0);
+    DP_SET(model_desc_0.joint, j0);
+    DP_SET(model_desc_0.animjoint, a0);
+    DP_SET(model_desc_0.matanim_joint, m0);
+    DP_SET(model_desc_0.shapeanim_joint, s0);
+    DP_SET(model_desc_1.joint, j1);
+    DP_SET(model_desc_1.animjoint, a1);
+    DP_SET(model_desc_1.matanim_joint, m1);
+    DP_SET(model_desc_1.shapeanim_joint, s1);
+    return archive;
 }
 
 void gm_Scene_Title_OnFrame(void)

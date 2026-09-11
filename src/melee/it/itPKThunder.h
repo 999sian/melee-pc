@@ -7,7 +7,7 @@
 
 #include <dolphin/mtx.h>
 
-typedef struct itPKThunderAttributes {
+typedef struct DISC_STRUCT itPKThunderAttributes {
     float x0_PKTHUNDER_LIFETIME;
     float x4_PKTHUNDER_SPEED;
     float x8_PKTHUNDER_SPAWN_ANGLE;

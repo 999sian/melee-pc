@@ -282,15 +282,15 @@ void ftpickupitem_800948A8(Fighter_GObj* gobj, Item_GObj* item_gobj)
             if (itGetKind(item_gobj) == It_Kind_WStar) {
                 ret_part = FtPart_TopN;
             } else {
-                ret_part = fp->ft_data->x8->x10;
+                ret_part = DP(struct ftData_x8, fp->ft_data->x8)->x10;
             }
         } else {
-            ret_part = fp->ft_data->x8->x11;
+            ret_part = DP(struct ftData_x8, fp->ft_data->x8)->x11;
         }
         pl_8003E854(fp->player_id, fp->is_sub_fighter, item_gobj);
         Item_8026AB54(item_gobj, gobj, ret_part);
         if (itIsHeavy(item_gobj) == 1) {
-            ft_800881D8(fp, fp->ft_data->x4C_sfx->x2C, 127, 64);
+            ft_800881D8(fp, DP(FtSFX, fp->ft_data->x4C_sfx)->x2C, 127, 64);
         }
     }
 }

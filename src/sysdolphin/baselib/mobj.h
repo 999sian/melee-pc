@@ -87,7 +87,17 @@ struct HSD_Material {
     f32 shininess;
 };
 
-struct HSD_PEDesc {
+/* On-disc material; copied into a runtime HSD_Material by MObjLoad. */
+typedef struct DISC_STRUCT {
+    GXColor ambient;
+    GXColor diffuse;
+    GXColor specular;
+    f32 alpha;
+    f32 shininess;
+} HSD_MaterialDesc;
+DISC_ASSERT_SIZE(HSD_MaterialDesc, 0x14);
+
+struct DISC_STRUCT HSD_PEDesc {
     u8 flags;
     u8 ref0;
     u8 ref1;
@@ -101,43 +111,50 @@ struct HSD_PEDesc {
     u8 alpha_op;
     u8 alpha_comp1;
 };
+DISC_ASSERT_SIZE(HSD_PEDesc, 0xC);
 
-typedef struct _HSD_MObjDesc {
-    char* class_name;
+typedef struct DISC_STRUCT _HSD_MObjDesc {
+    DISC_PTR(char) class_name;
     u32 rendermode;
-    struct _HSD_TObjDesc* texdesc;
-    HSD_Material* mat;
-    void* renderdesc;
-    HSD_PEDesc* pedesc;
+    DISC_PTR(struct _HSD_TObjDesc) texdesc;
+    DISC_PTR(HSD_MaterialDesc) mat;
+    DISC_PTR(void) renderdesc;
+    DISC_PTR(HSD_PEDesc) pedesc;
 } HSD_MObjDesc;
+DISC_ASSERT_SIZE(HSD_MObjDesc, 0x18);
 
-typedef struct _HSD_ChanAnim {
-    struct _HSD_ChanAnim* next;
-    HSD_AObjDesc* aobjdesc;
+typedef struct DISC_STRUCT _HSD_ChanAnim {
+    DISC_PTR(struct _HSD_ChanAnim) next;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
 } HSD_ChanAnim;
+DISC_ASSERT_SIZE(HSD_ChanAnim, 0x8);
 
-typedef struct _HSD_TevRegAnim {
-    struct _HSD_TevRegAnim* next;
-    HSD_AObjDesc* aobjdesc;
+typedef struct DISC_STRUCT _HSD_TevRegAnim {
+    DISC_PTR(struct _HSD_TevRegAnim) next;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
 } HSD_TevRegAnim;
+DISC_ASSERT_SIZE(HSD_TevRegAnim, 0x8);
 
-typedef struct _HSD_RenderAnim {
-    struct _HSD_ChanAnim* chananim;
-    struct _HSD_TevRegAnim* reganim;
+typedef struct DISC_STRUCT _HSD_RenderAnim {
+    DISC_PTR(struct _HSD_ChanAnim) chananim;
+    DISC_PTR(struct _HSD_TevRegAnim) reganim;
 } HSD_RenderAnim;
+DISC_ASSERT_SIZE(HSD_RenderAnim, 0x8);
 
-typedef struct _HSD_MatAnim {
-    struct _HSD_MatAnim* next;
-    HSD_AObjDesc* aobjdesc;
-    struct _HSD_TexAnim* texanim;
-    struct _HSD_RenderAnim* renderanim;
+typedef struct DISC_STRUCT _HSD_MatAnim {
+    DISC_PTR(struct _HSD_MatAnim) next;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
+    DISC_PTR(struct _HSD_TexAnim) texanim;
+    DISC_PTR(struct _HSD_RenderAnim) renderanim;
 } HSD_MatAnim;
+DISC_ASSERT_SIZE(HSD_MatAnim, 0x10);
 
-struct HSD_MatAnimJoint {
-    HSD_MatAnimJoint* child;
-    HSD_MatAnimJoint* next;
-    HSD_MatAnim* matanim;
+struct DISC_STRUCT HSD_MatAnimJoint {
+    DISC_PTR(HSD_MatAnimJoint) child;
+    DISC_PTR(HSD_MatAnimJoint) next;
+    DISC_PTR(HSD_MatAnim) matanim;
 };
+DISC_ASSERT_SIZE(HSD_MatAnimJoint, 0xC);
 
 struct HSD_MObjInfo {
     /*  +0 */ HSD_ClassInfo parent;

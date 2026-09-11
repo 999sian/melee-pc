@@ -30,7 +30,7 @@ union ftKoopa_MotionVars {
     } specials;
 };
 
-typedef struct _ftKoopaAttributes {
+typedef struct DISC_STRUCT _ftKoopaAttributes {
     float x0;
     s32 x4;
     float x8;
@@ -72,6 +72,7 @@ typedef struct _ftKoopaAttributes {
     float x98;
     float x9C;
 } ftKoopaAttributes;
+DISC_ASSERT_SIZE(ftKoopaAttributes, 0xA0);
 
 typedef struct _ftKoopaVars {
     float x0;

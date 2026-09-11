@@ -68,8 +68,8 @@ Fighter_GObj* ftDemo_CreateFighter(plAllocInfo2* alloc_info)
         fp->x18 = 14;
         fp->x1C_actionStateList = ftData_803C52A0;
         fp->x20_actionStateList = ftData_UnkMotionStates0[fp->kind];
-        fp->x24 = fp->ft_data->x14;
-        fp->x28 = fp->ft_data->x18;
+        fp->x24 = DP(struct Fighter_WaitAnimData, fp->ft_data->x14);
+        fp->x28 = DP(void, fp->ft_data->x18);
         efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
         if (!alloc_info->b0) {
             ftData_80085820(fp->kind, fp->x619_costume_id);

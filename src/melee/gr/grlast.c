@@ -22,7 +22,7 @@
 #include <sysdolphin/baselib/psstructs.h>
 #include <sysdolphin/baselib/random.h>
 
-/* 21A620 */ static void grLast_OnDemoInit(enum_t);
+/* 21A620 */ static void grLast_OnDemoInit(bool);
 /* 21A740 */ static void grLast_OnInit(void);
 /* 21A7C4 */ static void grLast_OnLoad(void);
 /* 21A7C8 */ static void grLast_OnStart(void);
@@ -93,7 +93,7 @@ Vec3 const grLast_803B8498 = { 0.0f, 0.0f, 1.0f };
 /// @todo yakumono struct
 static int* yakumono_param;
 
-static void grLast_OnDemoInit(enum_t arg0)
+static void grLast_OnDemoInit(bool arg0)
 {
     Ground_GObj* gobj;
     Ground* gp;

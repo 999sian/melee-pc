@@ -55,12 +55,12 @@ float it_802F295C(HSD_GObj* owner_gobj, itUnk2_DatAttrs* attr)
 
     var_f31 = 0.0f;
     spawn.kind = It_Kind_Unk2;
-    spawn.prev_pos = attr->pos;
+    spawn.prev_pos = Vec3_FromDisc(&attr->pos);
     spawn.prev_pos.z = 0.0f;
     spawn.pos = spawn.prev_pos;
     spawn.facing_dir = -1.0f;
     spawn.x3C_damage = 0;
-    spawn.vel = attr->vel;
+    spawn.vel = Vec3_FromDisc(&attr->vel);
     spawn.x0_parent_gobj = owner_gobj;
     spawn.x4_parent_gobj2 = owner_gobj;
     spawn.x44_flag.b0 = 1;

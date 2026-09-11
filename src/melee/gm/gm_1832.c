@@ -747,9 +747,9 @@ void fn_801857C4(HSD_GObj* arg0)
         i = 0;
         delay = 1;
         for (; i < 10; i++, img_idx++) {
-            desc.desc.image = &lbl_804735E8.x40[img_idx[0x90]];
-            desc.desc.tlut = NULL;
-            desc.image2 = &lbl_804735E8.x88[img_idx[0x90]];
+            DP_SET(desc.desc.image, &lbl_804735E8.x40[img_idx[0x90]]);
+            DP_SET(desc.desc.tlut, NULL);
+            DP_SET(desc.image2, &lbl_804735E8.x88[img_idx[0x90]]);
             sobj = HSD_SObjLib_803A477C(lbl_804735E8.xDC, &desc.desc, 0, 0,
                                         0x80, 1);
             total_tiles = 10;
@@ -798,9 +798,9 @@ static inline void fn_80185A0C_Tail(const u8* count_ptr, u8** img_idx, s32* i)
     img = lbl_804735E8.x40;
     lbl_804735E8.xE1 = 0;
     for (*i = 0; *i < (s32) *count_ptr; (*i)++) {
-        img->image_ptr = NULL;
+        DP_SET(img->image_ptr, NULL);
         lb_800121FC(img, 0x17C, 0x190, GX_TF_RGB5A3, 0);
-        img[3].image_ptr = NULL;
+        DP_SET(img[3].image_ptr, NULL);
         lb_800121FC(&img[3], 0x17C, 0x190, GX_TF_Z24X8, 0);
         img++;
     }
@@ -817,7 +817,7 @@ static inline void fn_80185A0C_Tail(const u8* count_ptr, u8** img_idx, s32* i)
     HSD_GObj_SetupProc(GObj_Create(0x13, 1, 0), fn_801857C4, 0);
 
     gobj3 = GObj_Create(0x13, 0x14, 0);
-    cobj = HSD_CObjLoadDesc(lbl_804D6600->cameras->desc);
+    cobj = HSD_CObjLoadDesc(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D6600)[0].desc));
     HSD_GObjObject_80390A70(gobj3, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj3, (GObj_RenderFunc) (Event) fn_801852FC, 0);
     gobj3->gxlink_prios = 0x61;
@@ -1022,11 +1022,11 @@ void fn_801861B8(void)
 void fn_80186400(void)
 {
     HSD_GObj* gobj = GObj_Create(0xE, 0xF, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(lbl_804D65FC->models[0]->joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_SCENE_MODEL(lbl_804D65FC, 0)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
     HSD_GObj_SetupProc(gobj, fn_80184AB8, 0);
-    gm_8016895C(jobj, lbl_804D65FC->models[0], 0);
+    gm_8016895C(jobj, GM_SCENE_MODEL(lbl_804D65FC, 0), 0);
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
     if (lbl_8047368C.model_scale_kind != 3) {
@@ -1050,7 +1050,7 @@ typedef struct ClassicArchiveNameLocal {
 
 static inline void* gm_80186634_LoadLightList(void)
 {
-    return lb_80011AC4(lbl_804D65FC->lights);
+    return lb_80011AC4(GM_SCENE_LIGHTS(lbl_804D65FC));
 }
 
 static inline void gm_80186634_SetupLight(void)
@@ -1071,8 +1071,8 @@ static inline void gm_80186634_SetupCamera(void)
     HSD_CObj* cobj2;
 
     gobj = GObj_Create(0x13, 0x14, 0);
-    cobj = HSD_CObjLoadDesc(lbl_804D65FC->cameras[0].desc);
-    cobj2 = HSD_CObjLoadDesc(lbl_804D6600->cameras[0].desc);
+    cobj = HSD_CObjLoadDesc(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D65FC)[0].desc));
+    cobj2 = HSD_CObjLoadDesc(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D6600)[0].desc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 8);
     gobj->gxlink_prios = 0x801;
@@ -1091,11 +1091,11 @@ static inline void gm_80186634_SetupModel(void)
     HSD_JObj* jobj;
 
     gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint(lbl_804D6600->models[0]->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_SCENE_MODEL(lbl_804D6600, 0)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xC, 0);
     HSD_GObj_SetupProc(gobj, (HSD_GObjEvent) (Event) fn_8018504C, 0x11);
-    gm_8016895C(jobj, lbl_804D6600->models[0], 0);
+    gm_8016895C(jobj, GM_SCENE_MODEL(lbl_804D6600, 0), 0);
     HSD_JObjReqAnimAll(jobj, (f32) ((lbl_8047368C.xEE - 1) * 0x32));
     HSD_JObjAnimAll(jobj);
     lb_80011E24(jobj, &lbl_804735A8.x4[4], 0xE, -1);
@@ -1108,7 +1108,7 @@ static inline void gm_80186634_SetupFog(void)
     HSD_Fog* fog;
 
     gobj = GObj_Create(0xE, 0xF, 0);
-    fog = HSD_FogLoadDesc(lbl_804D65FC->fogs[0].desc);
+    fog = HSD_FogLoadDesc(DP(HSD_FogDesc, GM_SCENE_FOG(lbl_804D65FC)[0].desc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_FogKind, fog);
     GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 0xB, 0);
 }

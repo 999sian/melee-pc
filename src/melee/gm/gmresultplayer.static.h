@@ -117,6 +117,7 @@ extern u32 gmResultX22F4Init[0x20 / sizeof(u32)];
 extern u32 gmResultScoreTableInit[0x20 / sizeof(u32)];
 extern ResultsCharacterData gmResultCharacterData;
 extern HSD_CameraDescPerspective gmResultCameraDesc;
+void gmResultCameraDescInit(void);
 
 extern ResultsDisplayData lbl_8046E1B0;
 extern HSD_GObj* lbl_8046E38C[4];

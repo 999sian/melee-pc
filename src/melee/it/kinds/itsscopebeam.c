@@ -63,7 +63,7 @@ void it_80298ED0(HSD_GObj* projectile, HSD_GObj* owner)
     Item* it = GET_ITEM(projectile);
     ScopeBeamFloats* data;
     HSD_JObj* jobj = GET_JOBJ(projectile);
-    ScopeBeamAttrs* attrs = it->xC4_article_data->x4_specialAttributes;
+    ScopeBeamAttrs* attrs = DP(ScopeBeamAttrs, it->xC4_article_data->x4_specialAttributes);
     Vec3 scale;
 
     it->owner = owner;
@@ -112,7 +112,7 @@ bool itSscopebeam_UnkMotion9_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     s32 index = ip->xDD4_itemVar.scopebeam.x0;
-    ScopeBeamAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    ScopeBeamAttrs* attrs = DP(ScopeBeamAttrs, ip->xC4_article_data->x4_specialAttributes);
     ScopeBeamFloats* data = &attrs->floats[index];
 
     if (ip->xD44_lifeTimer == data->lifetime) {
@@ -138,7 +138,7 @@ bool itSscopebeam_UnkMotion9_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     CollData* coll = &ip->x378_itemColl;
-    ScopeBeamAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    ScopeBeamAttrs* attrs = DP(ScopeBeamAttrs, ip->xC4_article_data->x4_specialAttributes);
     CollData saved_coll;
     Vec3 vel;
     Vec3 axis;

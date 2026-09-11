@@ -188,19 +188,19 @@ void ftDrawCommon_800805C8(HSD_GObj* gobj, s32 arg1, bool arg2)
     if (fighter->x21FC_flag.b2 != 0) {
         itPickup* temp_r24 = &fighter->x294_itPickup;
         if (fighter->ground_or_air == 0) {
-            if (lbGx_8001E2F8(&temp_r24->gr_light_offset, &fighter->cur_pos,
+            if (lbGx_8001E2F8((Vec4*) &temp_r24->gr_light_offset, &fighter->cur_pos,
                               &ftDrawCommon_804D3A88, arg1,
                               fighter->facing_dir))
             {
                 do_invalidate = true;
             }
-            if (lbGx_8001E2F8(&temp_r24->gr_heavy_offset, &fighter->cur_pos,
+            if (lbGx_8001E2F8((Vec4*) &temp_r24->gr_heavy_offset, &fighter->cur_pos,
                               &ftDrawCommon_804D3A90, arg1,
                               fighter->facing_dir))
             {
                 do_invalidate = true;
             }
-        } else if (lbGx_8001E2F8(&temp_r24->air_light_offset,
+        } else if (lbGx_8001E2F8((Vec4*) &temp_r24->air_light_offset,
                                  &fighter->cur_pos, &ftDrawCommon_804D3A8C,
                                  arg1, fighter->facing_dir))
         {

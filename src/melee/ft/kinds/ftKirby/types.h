@@ -67,7 +67,7 @@ struct ftKb_FighterVars {
 };
 ASSERT_SIZE(struct ftKb_FighterVars, FIGHTERVARS_SIZE);
 
-struct ftKb_SpecialNMs_DatAttrs {
+struct DISC_STRUCT ftKb_SpecialNMs_DatAttrs {
     /* da+35C */ u32 charge_iterations;
     /* da+360 */ u32 base_damage;
     /* da+364 */ u32 additional_damage_per_iteration;
@@ -75,9 +75,10 @@ struct ftKb_SpecialNMs_DatAttrs {
     /* da+36C */ float air_horizontal_deceleration_rate;
 };
 ASSERT_SIZE(struct ftKb_SpecialNMs_DatAttrs, 0x14);
+DISC_ASSERT_SIZE(struct ftKb_SpecialNMs_DatAttrs, 0x14);
 
 /// @todo Every hat is its own struct.
-struct ftKb_DatAttrs {
+struct DISC_STRUCT ftKb_DatAttrs {
     // Midair Jumps
     /*   +0 */ u32 jumpaerial_turn_duration;
     /*   +4 */ float jumpaerial_horizontal_momentum_backwards;
@@ -216,15 +217,15 @@ struct ftKb_DatAttrs {
     /* +1BC */ float specialn_ns_freefall_toggle;
 
     // Pikachu
-    /* +1C0 */ Vec2 specialn_pk_spawn_offset;
-    /* +1C8 */ Vec2 specialairn_pk_spawn_offset;
+    /* +1C0 */ DiscVec2 specialn_pk_spawn_offset;
+    /* +1C8 */ DiscVec2 specialairn_pk_spawn_offset;
     /* +1D0 */ float specialairn_pk_landing_lag;
     /* +1D4 */ ItemKind specialn_pk_itkind;
     /* +1D8 */ ItemKind specialairn_pk_itkind;
 
     // Pichu
-    /* +1DC */ Vec2 specialn_pc_spawn_offset;
-    /* +1E4 */ Vec2 specialairn_pc_spawn_offset;
+    /* +1DC */ DiscVec2 specialn_pc_spawn_offset;
+    /* +1E4 */ DiscVec2 specialairn_pc_spawn_offset;
     /* +1EC */ float specialairn_pc_landing_lag;
     /* +1F0 */ ItemKind specialn_pc_itkind;
     /* +1F4 */ ItemKind specialairn_pc_itkind;
@@ -378,6 +379,7 @@ struct ftKb_DatAttrs {
     /* +400 */ ReflectDesc specialn_zd_reflectdesc;
 };
 ASSERT_SIZE(struct ftKb_DatAttrs, 0x424);
+DISC_ASSERT_SIZE(struct ftKb_DatAttrs, 0x424);
 
 union ftKb_MotionVars {
     struct ftGameWatch_SpecialNVars specialn_gw;

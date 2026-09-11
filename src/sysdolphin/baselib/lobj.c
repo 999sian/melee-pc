@@ -950,40 +950,38 @@ void HSD_LObjSetInterestWObj(HSD_LObj* lobj, HSD_WObj* wobj)
 
 static int LObjLoad(HSD_LObj* lobj, HSD_LightDesc* ldesc)
 {
+    HSD_LightAttnDesc* attn = DP(HSD_LightAttnDesc, ldesc->u.attn);
+    HSD_LightPointDesc* point = DP(HSD_LightPointDesc, ldesc->u.point);
+    HSD_LightSpotDesc* spot = DP(HSD_LightSpotDesc, ldesc->u.spot);
     HSD_LObjSetColor(lobj, ldesc->color);
     HSD_LObjSetFlags(lobj, ldesc->flags);
     switch (ldesc->flags & LOBJ_TYPE_MASK) {
     case LOBJ_AMBIENT:
         break;
     case LOBJ_INFINITE:
-        HSD_LObjSetPositionWObj(lobj, HSD_WObjLoadDesc(ldesc->position));
+        HSD_LObjSetPositionWObj(lobj, HSD_WObjLoadDesc(DP(HSD_WObjDesc, ldesc->position)));
         break;
     case LOBJ_POINT:
-        HSD_LObjSetPositionWObj(lobj, HSD_WObjLoadDesc(ldesc->position));
+        HSD_LObjSetPositionWObj(lobj, HSD_WObjLoadDesc(DP(HSD_WObjDesc, ldesc->position)));
         if (ldesc->attnflags & LOBJ_LIGHT_ATTN) {
             HSD_LObjSetFlags(lobj, LOBJ_RAW_PARAM);
-            HSD_LObjSetAttnK(lobj, ldesc->u.attn->k0, ldesc->u.attn->k1,
-                             ldesc->u.attn->k2);
+            HSD_LObjSetAttnK(lobj, attn->k0, attn->k1, attn->k2);
         } else {
-            HSD_LObjSetDistAttn(lobj, ldesc->u.point->ref_dist,
-                                ldesc->u.point->ref_br,
-                                ldesc->u.point->dist_func);
+            HSD_LObjSetDistAttn(lobj, point->ref_dist, point->ref_br,
+                                point->dist_func);
         }
         break;
     case LOBJ_SPOT:
-        HSD_LObjSetPositionWObj(lobj, HSD_WObjLoadDesc(ldesc->position));
-        HSD_LObjSetInterestWObj(lobj, HSD_WObjLoadDesc(ldesc->interest));
+        HSD_LObjSetPositionWObj(lobj, HSD_WObjLoadDesc(DP(HSD_WObjDesc, ldesc->position)));
+        HSD_LObjSetInterestWObj(lobj, HSD_WObjLoadDesc(DP(HSD_WObjDesc, ldesc->interest)));
         if (ldesc->attnflags != 0) {
             HSD_LObjSetFlags(lobj, LOBJ_RAW_PARAM);
-            HSD_LObjSetAttn(lobj, ldesc->u.attn->a0, ldesc->u.attn->a1,
-                            ldesc->u.attn->a2, ldesc->u.attn->k0,
-                            ldesc->u.attn->k1, ldesc->u.attn->k2);
+            HSD_LObjSetAttn(lobj, attn->a0, attn->a1, attn->a2, attn->k0,
+                            attn->k1, attn->k2);
         } else {
-            HSD_LObjSetDistAttn(lobj, ldesc->u.spot->ref_dist,
-                                ldesc->u.spot->ref_br,
-                                ldesc->u.spot->dist_func);
-            HSD_LObjSetSpot(lobj, ldesc->u.spot->cutoff,
-                            ldesc->u.spot->spot_func);
+            HSD_LObjSetDistAttn(lobj, spot->ref_dist, spot->ref_br,
+                                spot->dist_func);
+            HSD_LObjSetSpot(lobj, spot->cutoff, spot->spot_func);
         }
         break;
     default:
@@ -998,11 +996,11 @@ HSD_LObj* HSD_LObjLoadDesc(HSD_LightDesc* ldesc)
 {
     HSD_LObj *top, **p = &top;
 
-    for (; ldesc; ldesc = ldesc->next) {
+    for (; ldesc; ldesc = DP(HSD_LightDesc, ldesc->next)) {
         HSD_ClassInfo* info;
 
         if (!ldesc->class_name ||
-            !(info = hsdSearchClassInfo(ldesc->class_name)))
+            !(info = hsdSearchClassInfo(DP(char, ldesc->class_name))))
         {
             *p = HSD_LObjAlloc();
         } else {
@@ -1027,9 +1025,9 @@ void HSD_LObjAddAnim(HSD_LObj* lobj, HSD_LightAnim* lanim)
         if (lobj->aobj) {
             HSD_AObjRemove(lobj->aobj);
         }
-        lobj->aobj = HSD_AObjLoadDesc(lanim->aobjdesc);
-        HSD_WObjAddAnim(HSD_LObjGetPositionWObj(lobj), lanim->position_anim);
-        HSD_WObjAddAnim(HSD_LObjGetInterestWObj(lobj), lanim->interest_anim);
+        lobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, lanim->aobjdesc));
+        HSD_WObjAddAnim(HSD_LObjGetPositionWObj(lobj), DP(HSD_WObjAnim, lanim->position_anim));
+        HSD_WObjAddAnim(HSD_LObjGetInterestWObj(lobj), DP(HSD_WObjAnim, lanim->interest_anim));
     }
 }
 
@@ -1042,7 +1040,7 @@ void HSD_LObjAddAnimAll(HSD_LObj* lobj, HSD_LightAnim* lanim)
         return;
     }
 
-    for (lp = lobj, la = lanim; lp; lp = next_p(lp), la = next_p(la)) {
+    for (lp = lobj, la = lanim; lp; lp = next_p(lp), la = next_dp(HSD_LightAnim, la)) {
         HSD_LObjAddAnim(lp, la);
     }
 }

@@ -37,7 +37,7 @@ void ftCo_Wait_Anim(HSD_GObj* gobj)
     if (fp->x2224_b2) {
         ftCo_DownSpot_Enter(gobj);
     } else {
-        ftCo_8008A7A8(gobj, fp->ft_data->x24);
+        ftCo_8008A7A8(gobj, DP(WaitStruct, fp->ft_data->x24));
     }
 }
 

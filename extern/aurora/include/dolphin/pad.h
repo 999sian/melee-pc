@@ -81,6 +81,7 @@
 #define PAD_ANY_RIGHT (1ULL << 39)
 
 // added by Aurora, not present in original SDK
+void PADSetSamplingRate(u32 msec);
 #define PAD_AXIS_LEFT_X_POS 0
 #define PAD_AXIS_LEFT_X_NEG 1
 #define PAD_AXIS_LEFT_Y_POS 2

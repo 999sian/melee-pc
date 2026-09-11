@@ -77,7 +77,7 @@ void it_8027CF30(Item_GObj* gobj)
 {
     Item* it = GET_ITEM(gobj);
     Article* article = it->xC4_article_data;
-    ItCapsuleAttr* attr = article->x4_specialAttributes;
+    ItCapsuleAttr* attr = DP(ItCapsuleAttr, article->x4_specialAttributes);
     Vec3 sp18;
     u8 _[8];
 

@@ -80,7 +80,7 @@ Item_GObj* it_802AFD8C(Item_GObj* parent, Vec3* pos, u32 kind,
     item_gobj = Item_80268B18(&spawn);
     if (item_gobj != NULL) {
         Item* ip = GET_ITEM(item_gobj);
-        attr = ip->xC4_article_data->x4_specialAttributes;
+        attr = DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
         ip->xDB8_itcmd_var3 = 0;
         ip->xDB4_itcmd_var2 = 0;
         ip->xDB0_itcmd_var1 = 0;
@@ -118,7 +118,7 @@ void it_802AFF08(Item_GObj* gobj, Fighter_GObj* owner)
 {
     Item* ip = GET_ITEM(gobj);
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* child = HSD_JObjGetChild(GET_JOBJ(gobj));
     f32 angle_factor;
     PAD_STACK(16);
@@ -180,7 +180,7 @@ void it_802B00F4(Item_GObj* gobj, Fighter_GObj* owner)
 {
     Item* ip = GET_ITEM(gobj);
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
 
     ip->owner = owner;
@@ -319,7 +319,7 @@ bool itSeakneedlethrown_UnkMotion0_Coll(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* child = HSD_JObjGetChild(gobj->hsd_obj);
     f32 rot = -ip->facing_dir *
               atan2f(ip->pos.y - ip->xDD4_itemVar.seakneedlethrown.xDE4.y,
@@ -355,7 +355,7 @@ bool itSeakneedlethrown_UnkMotion1_Coll(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
     if (itSeakNeedleThrown_CheckGroundHit(gobj)) {
         it_80275158(gobj, attr->x4);
         ip->x40_vel.y = ABS(ip->x40_vel.y);
@@ -421,7 +421,7 @@ bool itSeakneedlethrown_UnkMotion4_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* child = HSD_JObjGetChild(gobj->hsd_obj);
     PAD_STACK(8);
     if (itSeakNeedleThrown_CheckGroundHit4(gobj) != 0) {
@@ -438,7 +438,7 @@ bool it_2725_Logic109_DmgDealt(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (HSD_Randi(3) == 0) {
         it_80272560(gobj, 0);
@@ -458,7 +458,7 @@ bool it_2725_Logic109_Clanked(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (HSD_Randi(3) == 0) {
         it_80272560(gobj, 0);
@@ -478,7 +478,7 @@ bool it_2725_Logic109_DmgReceived(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (HSD_Randi(3) == 0) {
         it_80272560(gobj, 0);
@@ -499,7 +499,7 @@ bool it_2725_Logic109_Reflected(Item_GObj* gobj)
     Item* ip = GET_ITEM(gobj);
     HSD_JObj* jobj = gobj->hsd_obj;
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
     f32 dx, dy;
     f32 angle;
     PAD_STACK(16);
@@ -555,7 +555,7 @@ bool it_2725_Logic109_ShieldBounced(Item_GObj* gobj)
 static inline bool it_2725_Logic109_HitShield_inline(Item_GObj* gobj, Item* ip)
 {
     itSeakNeedleThrownAttributes* attr =
-        ip->xC4_article_data->x4_specialAttributes;
+        DP(itSeakNeedleThrownAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (HSD_Randi(3) == 0) {
         it_80272560(gobj, 0);

@@ -4,6 +4,7 @@
 #include "state.h"
 #include <dolphin/gx.h>
 #include <dolphin/vi.h>
+#include <pc/pc.h>
 
 HSD_VIInfo HSD_VIData;
 static u8 garbage[HSD_ANTIALIAS_GARBAGE_SIZE] ATTRIBUTE_ALIGN(32);

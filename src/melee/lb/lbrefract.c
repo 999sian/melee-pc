@@ -296,12 +296,12 @@ float texture_offset[2][3] = {
     { +0.0F, -0.5F, +0.0F },
 };
 
-HSD_ImageDesc imagedesc0 = { NULL, 0, 0, 4, 0, 0.0F, 0.0F };
+HSD_ImageDesc imagedesc0 = { 0, 0, 0, 4, 0, 0.0F, 0.0F };
 HSD_TexLODDesc loddesc0 = { 1, 0.0F, 1, 1, 0 };
 
 HSD_TObjDesc tobjdesc0 = {
-    NULL,
-    NULL,
+    0,
+    0,
     0,
     0,
     { 0.0F, 0.0F, 0.0F },
@@ -314,18 +314,18 @@ HSD_TObjDesc tobjdesc0 = {
     0x83,
     1.0F,
     1,
-    &imagedesc0,
-    NULL,
-    &loddesc0,
-    NULL,
+    0,
+    0,
+    0,
+    0,
 };
 
-HSD_ImageDesc imagedesc1 = { NULL, 0, 0, 3, 0, 0.0F, 0.0F };
+HSD_ImageDesc imagedesc1 = { 0, 0, 0, 3, 0, 0.0F, 0.0F };
 HSD_TexLODDesc loddesc1 = { 1, 0.0F, 1, 1, 0 };
 
 HSD_TObjDesc tobjdesc1 = {
-    NULL,
-    &tobjdesc0,
+    0,
+    0,
     1,
     1,
     { 0.0F, 0.0F, 0.0F },
@@ -338,10 +338,10 @@ HSD_TObjDesc tobjdesc1 = {
     0x81,
     1.0F,
     1,
-    &imagedesc1,
-    NULL,
-    &loddesc1,
-    NULL,
+    0,
+    0,
+    0,
+    0,
 };
 
 void lbRefract_800222A4(void)
@@ -375,6 +375,10 @@ void lbRefract_800222A4(void)
         HSD_MemAlloc(refract_data->x0 * sizeof(HSD_TObj*));
     lbl_804336D0.imagedesc =
         HSD_MemAlloc(refract_data->x0 * sizeof(HSD_ImageDesc));
+    DP_SET(tobjdesc1.next, &tobjdesc0);
+    DP_SET(tobjdesc1.lod, &loddesc1);
+    DP_SET(tobjdesc0.imagedesc, &imagedesc0);
+    DP_SET(tobjdesc0.lod, &loddesc0);
 
     for (i = 0; i < refract_data->x0; i++) {
         buf = HSD_MemAlloc(GXGetTexBufferSize(32, 32, GX_TF_IA8, 0, 0));
@@ -382,15 +386,15 @@ void lbRefract_800222A4(void)
         lbRefract_80021CE8(&cb, i);
 
         lbl_804336D0.imagedesc[i] = data->imagedesc0;
-        tobjdesc1.imagedesc = &lbl_804336D0.imagedesc[i];
+        DP_SET(tobjdesc1.imagedesc, &lbl_804336D0.imagedesc[i]);
         lbl_804336D0.tobj_list[i] = HSD_TObjLoadDesc(&tobjdesc1);
 
-        imagedesc0.image_ptr = lbl_804336D0.image_ptr;
+        DP_SET(imagedesc0.image_ptr, lbl_804336D0.image_ptr);
         imagedesc0.format = GX_TF_RGB565;
         imagedesc0.width = image_width;
         imagedesc0.height = image_height;
 
-        lbl_804336D0.imagedesc[(s32) i].image_ptr = buf;
+        DP_SET(lbl_804336D0.imagedesc[(s32) i].image_ptr, buf);
         lbl_804336D0.imagedesc[(s32) i].format = GX_TF_IA8;
         lbl_804336D0.imagedesc[(s32) i].width = 32;
         lbl_804336D0.imagedesc[(s32) i].height = 32;

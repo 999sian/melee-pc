@@ -34,7 +34,7 @@ HSD_GObj* it_802C6C38(Item_GObj* parent, Vec3* pos, enum_t part,
     result = Item_80268B18(&spawn);
     if (result != NULL) {
         Item* item = GET_ITEM(result);
-        void** attr = item->xC4_article_data->x4_specialAttributes;
+        DiscU32* attr = DP(DiscU32, item->xC4_article_data->x4_specialAttributes);
         Item_AttachGameWatchArticle(parent, part, result, attr);
         return result;
     }

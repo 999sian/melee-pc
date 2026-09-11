@@ -19,7 +19,7 @@ typedef struct itPKFlushExplode_ItemVars {
     HSD_GObj* xDDC;
 } itPKFlushExplode_ItemVars;
 
-typedef struct itFlashAttributes {
+typedef struct DISC_STRUCT itFlashAttributes {
     float x0_FLASH_LIFETIMER;
     float x4_FLASH_HITBOX_SIZE_MUL;
     float x8_FLASH_GRAPHIC_SIZE_INIT_MUL;
@@ -33,7 +33,7 @@ typedef struct itFlashAttributes {
     float x28_FLASH_EXPLOSION_DELAY;
 } itFlashAttributes;
 
-typedef struct itFlashExplAttributes {
+typedef struct DISC_STRUCT itFlashExplAttributes {
     float x0_FLASH_EXPL_HITBOX_SIZE_MUL;
     float x4_FLASH_EXPL_GRAPHIC_SIZE_INIT;
     float x8_FLASH_EXPL_GRAPHIC_SIZE_GROWTH;

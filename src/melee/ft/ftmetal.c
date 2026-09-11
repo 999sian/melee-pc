@@ -21,7 +21,7 @@ void ft_800C8170(Fighter* fp)
 
     PAD_STACK(8);
 
-    for (i = 0; i < ftPartsTable[fp->kind]->parts_num; i++) {
+    for (i = 0; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
         if (fp->parts[i].flags_b1) {
             FighterBone* bone = &fp->parts[i];
             jobj = bone->joint;
@@ -81,7 +81,7 @@ static inline void enableMetal(Fighter* fp)
     int i;
     HSD_JObj* jobj;
 
-    for (i = 0; i < ftPartsTable[fp->kind]->parts_num; i++) {
+    for (i = 0; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
         if (fp->parts[i].flags_b1) {
             jobj = fp->parts[i].joint;
             dobj = HSD_JObjGetDObj(jobj);
@@ -165,14 +165,14 @@ void ft_800C85B8(Fighter_GObj* gobj)
     PAD_STACK(0xC);
 
     fp = GET_FIGHTER(gobj);
-    joint = fp->ft_data->x5C;
+    joint = DP(HSD_Joint, fp->ft_data->x5C);
     sp20 = joint;
     joint_idx = (dobj_count = (sp1C = 0));
     while (sp20 != 0) {
         if (ftParts_8007506C(fp->kind, joint_idx) != 0) {
             joint_idx++;
         } else {
-            HSD_IDInsertToTable(NULL, (u32) sp20, fp->parts[joint_idx].joint);
+            HSD_IDInsertToTable(NULL, (uintptr_t) sp20, fp->parts[joint_idx].joint);
             joint_idx++;
             ftAnim_GetNextJointInTree(&sp20, &sp1C);
         }
@@ -185,11 +185,11 @@ void ft_800C85B8(Fighter_GObj* gobj)
         } else {
             i = 0;
             part_jobj = fp->parts[part_idx].joint;
-            dobj = HSD_DObjLoadDesc(sp20->u.dobjdesc);
+            dobj = HSD_DObjLoadDesc(DP(HSD_DObjDesc, sp20->u.dobjdesc));
             if (dobj != NULL) {
                 dobj_iter = HSD_JObjGetDObj(part_jobj);
                 fp->parts[part_idx].flags2_b5 = true;
-                HSD_DObjResolveRefsAll(dobj, sp20->u.dobjdesc);
+                HSD_DObjResolveRefsAll(dobj, DP(HSD_DObjDesc, sp20->u.dobjdesc));
                 if (dobj_iter == NULL) {
                     HSD_JObjAddDObj(part_jobj, dobj);
                 } else {

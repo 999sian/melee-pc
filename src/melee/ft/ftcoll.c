@@ -3184,7 +3184,7 @@ void ftColl_8007B1B8(Fighter_GObj* gobj, ShieldDesc* shield, HSD_GObjEvent cb)
     fp->shield_hit_cb = cb;
     fp->shield_hit.bone = fp->parts[shield->bone].joint;
     fp->shield_hit.size = shield->radius;
-    fp->shield_hit.offset = shield->pos;
+    DISC_VEC3_GET(fp->shield_hit.offset, shield->pos);
 }
 
 void ftColl_CreateReflectHit(Fighter_GObj* gobj, ReflectDesc* reflect,
@@ -3200,7 +3200,7 @@ void ftColl_CreateReflectHit(Fighter_GObj* gobj, ReflectDesc* reflect,
     fp->x2218_b5 = reflect->x20_behavior;
     fp->reflect_hit.bone = fp->parts[reflect->x0_bone_id].joint;
     fp->reflect_hit.size = reflect->x14_size;
-    fp->reflect_hit.offset = reflect->x8_offset;
+    DISC_VEC3_GET(fp->reflect_hit.offset, reflect->x8_offset);
 }
 
 void ftColl_CreateAbsorbHit(Fighter_GObj* gobj, AbsorbDesc* absorb)
@@ -3210,14 +3210,14 @@ void ftColl_CreateAbsorbHit(Fighter_GObj* gobj, AbsorbDesc* absorb)
     fp->x2218_b7 = false;
     fp->absorb_hit.bone = fp->parts[absorb->x0_bone_id].joint;
     fp->absorb_hit.size = absorb->x10_size;
-    fp->absorb_hit.offset = absorb->x4_offset;
+    DISC_VEC3_GET(fp->absorb_hit.offset, absorb->x4_offset);
 }
 
 void ftColl_8007B320(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    struct ftData_x30* x30 = fp->ft_data->x30;
-    ftDynamics* dyn = fp->ft_data->x2C;
+    struct ftData_x30* x30 = DP(struct ftData_x30, fp->ft_data->x30);
+    ftDynamics* dyn = DP(struct ftDynamics, fp->ft_data->x2C);
     u32 i;
     PAD_STACK(8);
 
@@ -3228,14 +3228,14 @@ void ftColl_8007B320(Fighter_GObj* gobj)
     fp->hurt_capsules_len = x30->count;
     for (i = 0; i < (u32) x30->count; i++) {
         FighterHurtCapsule* hurt = &fp->hurt_capsules[i];
-        ftHurtboxInit* init = &x30->inits[i];
+        ftHurtboxInit* init = &DP(ftHurtboxInit, x30->inits)[i];
         hurt->capsule.bone_idx = init->bone_idx;
         hurt->height = init->height;
         hurt->is_grabbable = init->is_grabbable;
         hurt->capsule.state = HurtCapsule_Enabled;
         hurt->capsule.bone = fp->parts[hurt->capsule.bone_idx].joint;
-        hurt->capsule.a_offset = init->a_offset;
-        hurt->capsule.b_offset = init->b_offset;
+        DISC_VEC3_GET(hurt->capsule.a_offset, init->a_offset);
+        DISC_VEC3_GET(hurt->capsule.b_offset, init->b_offset);
         hurt->capsule.scale = init->scale;
     }
 
@@ -3246,10 +3246,10 @@ void ftColl_8007B320(Fighter_GObj* gobj)
     fp->x166C = dyn->x4;
     for (i = 0; i < (u32) dyn->x4; i++) {
         Fighter_x1670_t* dst = &fp->x1670[i];
-        struct ftData_x38* init = &dyn->x8[i];
+        struct ftData_x38* init = &DP(struct ftData_x38, dyn->x8)[i];
         dst->x24 = init->x0;
         dst->jobj = fp->parts[init->x0].joint;
-        dst->v1 = init->x4;
+        DISC_VEC3_GET(dst->v1, init->x4);
         dst->v2 = init->x10;
     }
 }
@@ -3257,19 +3257,19 @@ void ftColl_8007B320(Fighter_GObj* gobj)
 void ftColl_8007B4E0(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    struct ftData_x30* x30 = fp->ft_data->x30;
+    struct ftData_x30* x30 = DP(struct ftData_x30, fp->ft_data->x30);
     int i;
 
     for (i = 0; i < (s32) fp->hurt_capsules_len; i++) {
         FighterHurtCapsule* hurt = &fp->hurt_capsules[i];
-        ftHurtboxInit* init = &x30->inits[i];
+        ftHurtboxInit* init = &DP(ftHurtboxInit, x30->inits)[i];
         hurt->capsule.bone_idx = init->bone_idx;
         hurt->height = init->height;
         hurt->is_grabbable = init->is_grabbable;
         hurt->capsule.state = HurtCapsule_Enabled;
         hurt->capsule.bone = fp->parts[hurt->capsule.bone_idx].joint;
-        hurt->capsule.a_offset = init->a_offset;
-        hurt->capsule.b_offset = init->b_offset;
+        DISC_VEC3_GET(hurt->capsule.a_offset, init->a_offset);
+        DISC_VEC3_GET(hurt->capsule.b_offset, init->b_offset);
         hurt->capsule.scale = init->scale;
         hurt->capsule.skip_update_pos = false;
     }
@@ -3284,8 +3284,8 @@ void ftColl_HurtboxInit(Fighter* fp, FighterHurtCapsule* hurt,
     hurt->is_grabbable = init->is_grabbable;
     hurt->capsule.state = HurtCapsule_Enabled;
     hurt->capsule.bone = fp->parts[hurt->capsule.bone_idx].joint;
-    hurt->capsule.a_offset = init->a_offset;
-    hurt->capsule.b_offset = init->b_offset;
+    DISC_VEC3_GET(hurt->capsule.a_offset, init->a_offset);
+    DISC_VEC3_GET(hurt->capsule.b_offset, init->b_offset);
     hurt->capsule.scale = init->scale;
     fp->x221A_b6 = true;
 }

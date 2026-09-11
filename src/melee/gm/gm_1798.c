@@ -309,7 +309,7 @@ void fn_8017A004(void)
 {
     ResultsData* data = &lbl_8046DBE8;
     HSD_GObj* gobj = GObj_Create(0xB, 3, 0);
-    HSD_LObj* lobj = lb_80011AC4(data->pnlsce->lights);
+    HSD_LObj* lobj = lb_80011AC4(GM_SCENE_LIGHTS(data->pnlsce));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0, 0);
 }
@@ -332,6 +332,7 @@ void fn_8017A078(s32 arg0)
     callbacks = config->x3C;
 
     gobj = GObj_Create(0x13, 0x14, 0);
+    gmResultCameraDescInit();
     cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &gmResultCameraDesc);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
 
@@ -570,7 +571,7 @@ Fighter_GObj* fn_8017A67C(CharacterKind kind, int arg1, int arg2)
 static inline void inline1(HSD_ImageDesc* imgs, int slot, const u16* w,
                            const u16* h)
 {
-    imgs[slot].image_ptr = NULL;
+    DP_SET(imgs[slot].image_ptr, NULL);
     lb_800121FC(&imgs[slot], *w, *h, 5, 0);
 }
 
@@ -611,7 +612,7 @@ void fn_8017AA78(const u8* arg0)
     efAsync_LoadSync(0);
     ftDemo_ObjAllocInit();
     Player_InitAllPlayers();
-    lbl_8046E1B0.shared_img.image_ptr = NULL;
+    DP_SET(lbl_8046E1B0.shared_img.image_ptr, NULL);
     lb_800121FC(&lbl_8046E1B0.shared_img, 0x64, 0x98, GX_TF_RGB5A3, 0);
     lbl_8046E3AC.match_end = *fn_80174274();
 

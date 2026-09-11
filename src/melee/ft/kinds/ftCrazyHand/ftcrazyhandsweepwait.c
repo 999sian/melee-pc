@@ -78,7 +78,7 @@ void ftCh_Slap_IASA(HSD_GObj* gobj)
 void ftCh_Slap_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCrazyHand_DatAttrs* da = fp->ft_data->ext_attr;
+    ftCrazyHand_DatAttrs* da = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     fp->self_vel.x += da->x40;
 }
@@ -86,7 +86,7 @@ void ftCh_Slap_Phys(HSD_GObj* gobj)
 static void fn_801577B4(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCrazyHand_DatAttrs* da = fp->ft_data->ext_attr;
+    ftCrazyHand_DatAttrs* da = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
 
     if (fp->cur_pos.x > da->x3C) {
         fp->self_vel.x = 0.0f;

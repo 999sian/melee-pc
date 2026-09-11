@@ -1690,25 +1690,30 @@ static void order_data_110(void)
 #endif
 
 /* 3FF11C */ static HSD_WObjDesc _tyDisplay_803FF11C = {
-    NULL,
+    0,
     { 0.0f, 130.0f, 500.0f },
-    NULL,
+    0,
 };
 /* 3FF130 */ static HSD_WObjDesc _tyDisplay_803FF130 = {
-    NULL,
+    0,
     { 0.0f, 0.0f, 0.0f },
-    NULL,
+    0,
 };
 /* 3FF144 */ static HSD_CameraDescPerspective _tyDisplay_803FF144 = {
-    NULL,
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
+#ifndef TARGET_PC
     &_tyDisplay_803FF11C,
     &_tyDisplay_803FF130,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     (float) 0x8000,
     30.0f,
@@ -1717,6 +1722,10 @@ static void order_data_110(void)
 
 void _tyDisplay_8031B328(void)
 {
+#ifdef TARGET_PC
+    DP_SET(_tyDisplay_803FF144.eyepos, &_tyDisplay_803FF11C);
+    DP_SET(_tyDisplay_803FF144.interest, &_tyDisplay_803FF130);
+#endif
     TyDspBgData* ptr = _tyDisplay_804D6F1C;
     ToyCameraControl* scene = Toy_sbss_804D6ED4;
     LightList** lightData;

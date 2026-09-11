@@ -72,7 +72,7 @@ static inline void inline_UnkMotion8_Anim(Item_GObj* igp)
 {
     if (it_80272C6C(igp) == 0) {
         Item* ip = GET_ITEM(igp);
-        itBombHeiAttributes* ap = ip->xC4_article_data->x4_specialAttributes;
+        itBombHeiAttributes* ap = DP(itBombHeiAttributes, ip->xC4_article_data->x4_specialAttributes);
 
         ip->xDC8_word.flags.x19 = 1;
         ip->xDC8_word.flags.x17 = 1;

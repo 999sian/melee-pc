@@ -469,12 +469,12 @@ HSD_FObj* HSD_FObjLoadDesc(HSD_FObjDesc* desc)
 {
     if (desc != NULL) {
         HSD_FObj* fobj = HSD_FObjAlloc();
-        fobj->next = HSD_FObjLoadDesc(desc->next);
+        fobj->next = HSD_FObjLoadDesc(DP(HSD_FObjDesc, desc->next));
         fobj->startframe = desc->startframe;
         fobj->obj_type = desc->type;
         fobj->frac_value = desc->frac_value;
         fobj->frac_slope = desc->frac_slope;
-        fobj->ad_head = desc->ad;
+        fobj->ad_head = DP(u8, desc->ad);
         fobj->length = desc->length;
         fobj->flags = 0;
         return fobj;

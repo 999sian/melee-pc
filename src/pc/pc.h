@@ -22,6 +22,20 @@ void pc_frame_boundary(void);
 /* Set once the window is closed; the game loop is expected to exit. */
 extern bool pc_exit_requested;
 
+/* Vertex array byte sizes for aurora's GXSetArray (src/pc/vtxarray.c).
+ * pc_vtx_array_scan walks a PObj's display list at load time; the size of
+ * an indexed attribute array is then (max index + 1) * stride. */
+struct HSD_PObjDesc;
+void pc_vtx_array_scan(const struct HSD_PObjDesc* desc);
+uint32_t pc_vtx_array_size(const void* data);
+
+/* GX/VI entry points the game uses that aurora does not declare
+ * (implemented in src/pc/gx.c and src/pc/vi.c). */
+struct _GXFogAdjTable;
+void GXWaitDrawDone(void);
+void GXInitFogAdjTable(struct _GXFogAdjTable* table, uint16_t width, float projmtx[4][4]);
+uint16_t VIPadFrameBufferWidth(uint16_t width);
+
 #ifdef __cplusplus
 }
 #endif

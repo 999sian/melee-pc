@@ -49,7 +49,7 @@ typedef union ftMewtwo_MotionVars {
     ftMewtwoSpecialHi SpecialHi;
 } ftMewtwo_MotionVars;
 
-typedef struct _ftMewtwoAttributes {
+typedef struct DISC_STRUCT _ftMewtwoAttributes {
     // NEUTRAL SPECIAL - SHADOW BALL (SpecialN/SpecialAirN)
 
     float x0_MEWTWO_SHADOWBALL_CHARGE_CYCLES; // Number of frames each
@@ -91,5 +91,6 @@ typedef struct _ftMewtwoAttributes {
     float x80_MEWTWO_DISABLE_OFFSET_X;
     float x84_MEWTWO_DISABLE_OFFSET_Y;
 } ftMewtwoAttributes;
+DISC_ASSERT_SIZE(ftMewtwoAttributes, 0x88);
 
 #endif

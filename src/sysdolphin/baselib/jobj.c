@@ -62,8 +62,8 @@ void JObjResetRST(HSD_JObj* jobj, HSD_Joint* joint)
     jobj->rotate.x = joint->rotation.x;
     jobj->rotate.y = joint->rotation.y;
     jobj->rotate.z = joint->rotation.z;
-    jobj->scale = joint->scale;
-    jobj->translate = joint->position;
+    DISC_VEC3_GET(jobj->scale, joint->scale);
+    DISC_VEC3_GET(jobj->translate, joint->position);
     if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
         HSD_JObjSetMtxDirty(jobj);
     }
@@ -77,11 +77,11 @@ void HSD_JObjResetRST(HSD_JObj* jobj, HSD_Joint* joint)
     JObjResetRST(jobj, joint);
     if (!(jobj->flags & JOBJ_INSTANCE)) {
         HSD_JObj* child_jobj = jobj->child;
-        HSD_Joint* child_joint = joint->child;
+        HSD_Joint* child_joint = DP(HSD_Joint, joint->child);
         while (child_jobj != NULL) {
             HSD_JObjResetRST(child_jobj, child_joint);
             child_jobj = child_jobj->next;
-            child_joint = child_joint != NULL ? child_joint->next : NULL;
+            child_joint = child_joint != NULL ? DP(HSD_Joint, child_joint->next) : NULL;
         }
     }
 }
@@ -303,9 +303,9 @@ void HSD_JObjAddAnim(HSD_JObj* jobj, HSD_AnimJoint* an_joint,
             if (jobj->aobj != NULL) {
                 HSD_AObjRemove(jobj->aobj);
             }
-            jobj->aobj = HSD_AObjLoadDesc(an_joint->aobjdesc);
+            jobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, an_joint->aobjdesc));
             JObjSortAnim(jobj->aobj);
-            HSD_RObjAddAnimAll(jobj->robj, an_joint->robj_anim);
+            HSD_RObjAddAnimAll(jobj->robj, DP(HSD_RObjAnimJoint, an_joint->robj_anim));
             if (an_joint->flags & 1) {
                 HSD_JObjSetFlags(jobj, JOBJ_CLASSICAL_SCALE);
             } else {
@@ -314,8 +314,8 @@ void HSD_JObjAddAnim(HSD_JObj* jobj, HSD_AnimJoint* an_joint,
         }
         if (union_type_dobj(jobj)) {
             HSD_DObjAddAnimAll(
-                jobj->u.dobj, mat_joint != NULL ? mat_joint->matanim : NULL,
-                sh_joint != NULL ? sh_joint->shapeanimdobj : NULL);
+                jobj->u.dobj, mat_joint != NULL ? DP(HSD_MatAnim, mat_joint->matanim) : NULL,
+                sh_joint != NULL ? DP(HSD_ShapeAnimDObj, sh_joint->shapeanimdobj) : NULL);
         }
     }
 }
@@ -332,15 +332,15 @@ void HSD_JObjAddAnimAll(HSD_JObj* jobj, HSD_AnimJoint* ajoint,
         HSD_JObjAddAnim(jobj, ajoint, mjoint, sjoint);
         if (!(jobj->flags & JOBJ_INSTANCE)) {
             jp = jobj->child;
-            aj = ajoint != NULL ? ajoint->child : NULL;
-            mj = mjoint != NULL ? mjoint->child : NULL;
-            sj = sjoint != NULL ? sjoint->child : NULL;
+            aj = ajoint != NULL ? DP(HSD_AnimJoint, ajoint->child) : NULL;
+            mj = mjoint != NULL ? DP(HSD_MatAnimJoint, mjoint->child) : NULL;
+            sj = sjoint != NULL ? DP(HSD_ShapeAnimJoint, sjoint->child) : NULL;
             while (jp != NULL) {
                 HSD_JObjAddAnimAll(jp, aj, mj, sj);
                 jp = jp->next;
-                aj = aj != NULL ? aj->next : NULL;
-                mj = mj != NULL ? mj->next : NULL;
-                sj = sj != NULL ? sj->next : NULL;
+                aj = aj != NULL ? DP(HSD_AnimJoint, aj->next) : NULL;
+                mj = mj != NULL ? DP(HSD_MatAnimJoint, mj->next) : NULL;
+                sj = sj != NULL ? DP(HSD_ShapeAnimJoint, sj->next) : NULL;
             }
         }
     }
@@ -614,8 +614,8 @@ static inline HSD_JObj* JObjLoadJointSub(HSD_Joint* joint, HSD_JObj* parent)
     if (joint == NULL) {
         return NULL;
     }
-    if (joint->class_name == NULL ||
-        !(info = hsdSearchClassInfo(joint->class_name)))
+    if (joint->class_name == 0 ||
+        !(info = hsdSearchClassInfo(DP(char, joint->class_name))))
     {
         jobj = HSD_JObjAlloc();
     } else {
@@ -629,35 +629,41 @@ static inline HSD_JObj* JObjLoadJointSub(HSD_Joint* joint, HSD_JObj* parent)
 s32 JObjLoad(HSD_JObj* jobj, HSD_Joint* joint, HSD_JObj* parent)
 {
     if (!(joint->flags & JOBJ_INSTANCE)) {
-        jobj->child = JObjLoadJointSub(joint->child, jobj);
+        jobj->child = JObjLoadJointSub(DP(HSD_Joint, joint->child), jobj);
     }
-    jobj->next = JObjLoadJointSub(joint->next, parent);
+    jobj->next = JObjLoadJointSub(DP(HSD_Joint, joint->next), parent);
     jobj->parent = parent;
     jobj->flags |= joint->flags;
     if (union_type_spline(jobj)) {
-        jobj->u.spline = joint->u.spline;
+        jobj->u.spline = DP(HSD_Spline, joint->u.spline);
     } else if (union_type_ptcl(jobj)) {
-        HSD_SList* slist;
-        jobj->u.ptcl = joint->u.ptcl;
-        slist = joint->u.ptcl;
+        HSD_DiscSList* slist;
+        jobj->u.ptcl = DP(HSD_DiscSList, joint->u.ptcl);
+        slist = jobj->u.ptcl;
         while (slist != NULL) {
-            *(u32*) &slist->data |= 0x80000000;
-            slist = slist->next;
+            slist->data |= 0x80000000;
+            slist = DP(HSD_DiscSList, slist->next);
         }
     } else {
-        jobj->u.dobj = HSD_DObjLoadDesc(joint->u.dobjdesc);
+        jobj->u.dobj = HSD_DObjLoadDesc(DP(HSD_DObjDesc, joint->u.dobjdesc));
     }
-    jobj->robj = HSD_RObjLoadDesc(joint->robjdesc);
+    jobj->robj = HSD_RObjLoadDesc(DP(HSD_RObjDesc, joint->robjdesc));
     jobj->rotate.x = joint->rotation.x;
     jobj->rotate.y = joint->rotation.y;
     jobj->rotate.z = joint->rotation.z;
-    jobj->scale = joint->scale;
-    jobj->translate = joint->position;
+    DISC_VEC3_GET(jobj->scale, joint->scale);
+    DISC_VEC3_GET(jobj->translate, joint->position);
     PSMTXIdentity(jobj->mtx);
     jobj->scl = NULL;
-    if (joint->mtx != NULL) {
+    if (joint->mtx != 0) {
+        DiscMtx* m = DP(DiscMtx, joint->mtx);
+        int r, c;
         jobj->envelopemtx = HSD_MtxAlloc();
-        memcpy(jobj->envelopemtx, joint->mtx, sizeof(Mtx));
+        for (r = 0; r < 3; r++) {
+            for (c = 0; c < 4; c++) {
+                jobj->envelopemtx[r][c] = m->m[r][c];
+            }
+        }
     }
     HSD_IDInsertToTable(NULL, (u32) joint, jobj);
     jobj->id = (u32) joint;
@@ -687,7 +693,7 @@ void HSD_JObjResolveRefs(HSD_JObj* jobj, HSD_Joint* joint)
         return;
     }
 
-    HSD_RObjResolveRefsAll(jobj->robj, joint->robjdesc);
+    HSD_RObjResolveRefsAll(jobj->robj, DP(HSD_RObjDesc, joint->robjdesc));
     if (!!(jobj->flags & JOBJ_INSTANCE)) {
         HSD_JObjUnref(jobj->child);
         jobj->child = HSD_IDGetDataFromTable(NULL, (u32) joint->child, NULL);
@@ -695,7 +701,7 @@ void HSD_JObjResolveRefs(HSD_JObj* jobj, HSD_Joint* joint)
         HSD_JObjRef(jobj->child);
     }
     if (union_type_dobj(jobj)) {
-        HSD_DObjResolveRefsAll(jobj->u.dobj, joint->u.dobjdesc);
+        HSD_DObjResolveRefsAll(jobj->u.dobj, DP(HSD_DObjDesc, joint->u.dobjdesc));
     }
 }
 
@@ -706,10 +712,10 @@ void HSD_JObjResolveRefsAll(HSD_JObj* jobj, HSD_Joint* joint)
     while (jobj != NULL && joint != NULL) {
         HSD_JObjResolveRefs(jobj, joint);
         if (!(jobj->flags & JOBJ_INSTANCE)) {
-            HSD_JObjResolveRefsAll(jobj->child, joint->child);
+            HSD_JObjResolveRefsAll(jobj->child, DP(HSD_Joint, joint->child));
         }
         jobj = jobj->next;
-        joint = joint->next;
+        joint = DP(HSD_Joint, joint->next);
     }
 }
 

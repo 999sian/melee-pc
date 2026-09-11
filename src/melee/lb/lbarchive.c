@@ -263,11 +263,13 @@ bool lbArchive_800171CC(HSD_Archive** dst, const char* filename, void* symbols,
 static inline void Locate(HSD_Archive* archive, intptr_t base_addr)
 {
     u32 i;
-    u32* ptr;
+    DiscU32* ptr;
 
+    /* Slots are big-endian 32-bit host addresses (see pc/disc.h); base_addr
+     * is a delta between two copies of the same image, so u32 wrap is fine. */
     for (i = 0; i < archive->header.nb_reloc; i++) {
-        ptr = (u32*) archive->reloc_info[i].offset;
-        *(intptr_t*) (archive->data + (u32) ptr) += base_addr;
+        ptr = (DiscU32*) (archive->data + archive->reloc_info[i].offset);
+        ptr->v += (u32) base_addr;
     }
 }
 

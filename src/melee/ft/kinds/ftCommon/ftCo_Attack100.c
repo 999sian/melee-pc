@@ -282,13 +282,13 @@ void fn_800D6F58(Fighter_GObj* gobj, Item_GObj* item_gobj)
     if (itGetKind(fp->item_gobj) == It_Kind_WStar) {
         part = FtPart_TopN;
     } else {
-        part = fp->ft_data->x8->x10;
+        part = DP(struct ftData_x8, fp->ft_data->x8)->x10;
     }
     pl_8003E854(fp->player_id, fp->is_sub_fighter, item_gobj);
     Item_8026AB54(item_gobj, gobj, part);
     ftpickupitem_8009447C(gobj, item_gobj);
     {
-        HSD_JObj* jobj = fp->parts[fp->ft_data->x8->x10].joint;
+        HSD_JObj* jobj = fp->parts[DP(struct ftData_x8, fp->ft_data->x8)->x10].joint;
         efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 0, 0x422, jobj);
     }
     fp->x2224_b1 = true;

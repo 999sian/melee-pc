@@ -82,10 +82,10 @@ Item_AttachToParent(Item_GObj* item_gobj, HSD_GObj* parent, Fighter_Part part)
 static inline void Item_AttachGameWatchArticle(HSD_GObj* parent,
                                                Fighter_Part part,
                                                Item_GObj* item_gobj,
-                                               void** attributes)
+                                               DiscU32* attributes)
 {
     Item_AttachToParent(item_gobj, parent, part);
-    it_8027CE64(item_gobj, parent, attributes[0]);
+    it_8027CE64(item_gobj, parent, DP(void, attributes[0].v));
 }
 
 static inline void Item_EnterAirStateWithHitlag(Item_GObj* gobj, enum_t msid)

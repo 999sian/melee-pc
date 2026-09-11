@@ -100,21 +100,21 @@ static void gm_801ADB04(void)
     gm_80480D98.x0 =
         lbArchive_80016DBC("NtAppro", &spC, "ScNtcApproach_scene_data", 0);
     gobj = GObj_Create(0x13, 0x14, 0);
-    cobj = HSD_CObjLoadDesc(spC->cameras[0].desc);
+    cobj = HSD_CObjLoadDesc(DP(HSD_CObjDesc, GM_SCENE_CAMERA(spC)[0].desc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 0);
     gobj->gxlink_prios = 0x4801;
 
     gobj = GObj_Create(0xB, 0xF, 0);
-    lobj = lb_80011AC4(spC->lights);
+    lobj = lb_80011AC4(GM_SCENE_LIGHTS(spC));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0, 0);
 
     gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint(spC->models[0]->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_SCENE_MODEL(spC, 0)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
-    gm_8016895C(jobj, spC->models[0], 0);
+    gm_8016895C(jobj, GM_SCENE_MODEL(spC, 0), 0);
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
     HSD_GObj_SetupProc(gobj, fn_801AD920, 1);

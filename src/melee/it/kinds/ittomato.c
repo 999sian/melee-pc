@@ -63,14 +63,14 @@ Item_GObj* it_802841B4(Fighter_GObj* parent_gobj, Vec3* pos, s32 arg2)
 void it_8028428C(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    MaximTomatoSpecialAttr* sa = ip->xC4_article_data->x4_specialAttributes;
+    MaximTomatoSpecialAttr* sa = DP(MaximTomatoSpecialAttr, ip->xC4_article_data->x4_specialAttributes);
     ip->xDD4_itemVar.tomato.heal_amount = sa->heal_amount_1;
 }
 
 void itTomato_Logic9_Spawned(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    MaximTomatoSpecialAttr* sa = ip->xC4_article_data->x4_specialAttributes;
+    MaximTomatoSpecialAttr* sa = DP(MaximTomatoSpecialAttr, ip->xC4_article_data->x4_specialAttributes);
 
     it_8026B390(gobj);
     ip->x40_vel.x = 0.0F;

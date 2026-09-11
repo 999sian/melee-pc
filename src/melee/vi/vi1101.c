@@ -196,7 +196,7 @@ void vi1101_Scene_OnEnter(void* arg)
 
     temp_r28 = GObj_Create(0xB, 3, 0);
     HSD_GObjObject_80390A70(temp_r28, HSD_GObj_LightKind & 0xFFFF,
-                            lb_80011AC4(un_804D6FC0->lights));
+                            lb_80011AC4(DP(DiscU32, un_804D6FC0->lights)));
     GObj_SetupGXLink(temp_r28, HSD_GObj_LObjCallback, 0, 0);
 
     if (gm_IsCKindUnlocked(CKind_Luigi) != 0) {
@@ -206,22 +206,23 @@ void vi1101_Scene_OnEnter(void* arg)
     }
 
     temp_r31 = GObj_Create(0x13, 0x14, 0);
-    temp_r3 = lb_80013B14((HSD_CameraDescPerspective*) var_r28->cameras->desc);
+    temp_r3 = lb_80013B14(vi_SceneCamDesc(var_r28));
     HSD_GObjObject_80390A70(temp_r31, HSD_GObj_CameraKind, temp_r3);
     GObj_SetupGXLinkMax(temp_r31, fn_8031F56C, 5);
-    HSD_CObjAddAnim(temp_r3, var_r28->cameras->anims[0]);
+    HSD_CObjAddAnim(temp_r3, vi_SceneCamAnim(var_r28, 0));
     HSD_CObjReqAnim(temp_r3, un_804DE0DC);
     HSD_CObjAnim(temp_r3);
     HSD_GObj_SetupProc(temp_r31, fn_8031F600, 0);
 
-    for (var_r31 = 0; un_804D6FC0->models[var_r31] != NULL; var_r31++) {
+    for (var_r31 = 0; vi_SceneModel(un_804D6FC0, var_r31) != NULL; var_r31++) {
+        DynamicModelDesc* model = vi_SceneModel(un_804D6FC0, var_r31);
         temp_r26 = GObj_Create(0xE, 0xF, 0);
         temp_r3_2 =
-            HSD_JObjLoadJoint(new_var2 = un_804D6FC0->models[var_r31]->joint);
+            HSD_JObjLoadJoint(new_var2 = DP(HSD_Joint, model->joint));
         HSD_GObjObject_80390A70(temp_r26, new_var3 = HSD_GObj_JObjKind,
                                 temp_r3_2);
         GObj_SetupGXLink(temp_r26, HSD_GObj_JObjCallback, 9, 0);
-        gm_8016895C(temp_r3_2, un_804D6FC0->models[var_r31], 0);
+        gm_8016895C(temp_r3_2, model, 0);
         HSD_JObjReqAnimAll(temp_r3_2, un_804DE0DC);
         new_var = temp_r3_2;
         HSD_JObjAnimAll(new_var);

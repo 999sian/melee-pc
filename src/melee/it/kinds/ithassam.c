@@ -22,6 +22,21 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
 
+/* ponytail: decomp casts x4_specialAttributes to itHassam_ItemVars (a runtime
+ * Item union member); mirror only the disc fields actually read here. */
+typedef struct DISC_STRUCT itHassamAttributes {
+    f32 x0;
+    f32 x4;
+    f32 x8;
+    f32 xC;
+    f32 x10;
+    f32 x14;
+    s32 x18;
+    s32 x1C;
+    s32 x20;
+} itHassamAttributes;
+DISC_ASSERT_SIZE(itHassamAttributes, 0x24);
+
 /* 2CDC5C */ static void itHassam_802CDC5C(Item_GObj* gobj);
 /* 2CDC80 */ static void itHassam_802CDC80(Item_GObj* gobj);
 /* 2CDCB4 */ static void itHassam_802CDCB4(Item_GObj* gobj);
@@ -57,7 +72,8 @@ ItemStateTable it_803F7CF8[] = {
 void itHassam_802CDBE0(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHassam_ItemVars* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHassamAttributes* attr =
+        DP(itHassamAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(12);
 
     it_80279C48(gobj);
@@ -181,7 +197,8 @@ void itHassam_802CDF28(Item_GObj* gobj)
     Fighter_GObj* var_r3;
 
     Item* ip = GET_ITEM(gobj);
-    itHassam_ItemVars* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHassamAttributes* attr =
+        DP(itHassamAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     var_r3 = itHassam_802CDE1C(&ip->pos, ip->owner);
     if (var_r3 == NULL) {
@@ -204,7 +221,8 @@ void itHassam_802CDF28(Item_GObj* gobj)
 void itHassam_802CE008(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHassam_ItemVars* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHassamAttributes* attr =
+        DP(itHassamAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
     Item_SetEffectHitlagCallbacks(ip);
@@ -219,11 +237,11 @@ bool itHassam_UnkMotion1_Anim(Item_GObj* gobj)
 {
     f32 prev_dir;
     Item* ip;
-    itHassam_ItemVars* attr;
+    itHassamAttributes* attr;
     HSD_JObj* jobj;
 
     ip = (Item*) gobj->user_data;
-    attr = ip->xC4_article_data->x4_specialAttributes;
+    attr = DP(itHassamAttributes, ip->xC4_article_data->x4_specialAttributes);
     if (it_80272C6C(gobj) == false) {
         Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
         Item_SetEffectHitlagCallbacks(ip);
@@ -261,7 +279,8 @@ bool itHassam_UnkMotion1_Anim(Item_GObj* gobj)
 void itHassam_UnkMotion1_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHassam_ItemVars* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHassamAttributes* attr =
+        DP(itHassamAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     it_8027A344(gobj);
     if (ip->ground_or_air == GA_Air) {
@@ -303,13 +322,13 @@ void itHassam_802CE400(Item_GObj* gobj)
 {
     Item* ip;
     HSD_JObj* jobj;
-    itHassam_ItemVars* attr;
+    itHassamAttributes* attr;
     Vec3 cam_pos;
     Vec3 sp10;
 
     ip = GET_ITEM(gobj);
     jobj = (HSD_JObj*) gobj->hsd_obj;
-    attr = ip->xC4_article_data->x4_specialAttributes;
+    attr = DP(itHassamAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     itHassam_802CE400_sub(gobj, 2, ITEM_ANIM_UPDATE);
     Camera_GetTransformPosition(&cam_pos);

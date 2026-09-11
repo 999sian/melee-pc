@@ -1457,10 +1457,10 @@ static inline void CreateGlyphVariant(StaticModelDesc* variant_desc,
                                       HSD_JObj** out)
 {
     HSD_JObj* variant;
-    variant = HSD_JObjLoadJoint(variant_desc->joint);
-    HSD_JObjAddAnimAll(variant, variant_desc->animjoint,
-                       variant_desc->matanim_joint,
-                       variant_desc->shapeanim_joint);
+    variant = HSD_JObjLoadJoint(DP(HSD_Joint, variant_desc->joint));
+    HSD_JObjAddAnimAll(variant, DP(HSD_AnimJoint, variant_desc->animjoint),
+                       DP(HSD_MatAnimJoint, variant_desc->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, variant_desc->shapeanim_joint));
     AnimateGlyphVariant(variant, user_data, i);
     *out = variant;
 }
@@ -1485,12 +1485,13 @@ HSD_GObj* mnNameNew_GlyphVariantSetup(NameNewEntry* arg0, u16 arg1, s32 arg2)
 
     setup_desc = &mnNameNew_804A0710;
     gobj = GObj_Create(6U, 7U, 0x80U);
-    jobj = HSD_JObjLoadJoint(setup_desc->joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, setup_desc->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 6U, 0x80U);
     HSD_GObj_SetupProc(gobj, fn_8023CFC8, 0U);
-    HSD_JObjAddAnimAll(jobj, setup_desc->animjoint, setup_desc->matanim_joint,
-                       setup_desc->shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, setup_desc->animjoint),
+                       DP(HSD_MatAnimJoint, setup_desc->matanim_joint),
+                       DP(HSD_ShapeAnimJoint, setup_desc->shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, ((f32) (u8) arg1) / 2.0f);
     HSD_JObjAnimAll(jobj);
 
@@ -1836,10 +1837,13 @@ static inline void mnNameNew_InitKeyJobjs(NameNewEntry* user_data,
     f32 y_range;
 
     for (k = 0; k < 0x32; k++) {
-        key_jobj = HSD_JObjLoadJoint(mnNameNew_804A0700.joint);
-        HSD_JObjAddAnimAll(key_jobj, mnNameNew_804A0700.animjoint,
-                           mnNameNew_804A0700.matanim_joint,
-                           mnNameNew_804A0700.shapeanim_joint);
+        key_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, mnNameNew_804A0700.joint));
+        HSD_JObjAddAnimAll(key_jobj,
+                           DP(HSD_AnimJoint, mnNameNew_804A0700.animjoint),
+                           DP(HSD_MatAnimJoint,
+                              mnNameNew_804A0700.matanim_joint),
+                           DP(HSD_ShapeAnimJoint,
+                              mnNameNew_804A0700.shapeanim_joint));
         HSD_JObjReqAnimAll(key_jobj, (f32) ((u8) k == user_data->x1));
         HSD_JObjAnimAll(key_jobj);
         x_range = HSD_JObjGetTranslationX(user_data->jobjs[17]) -
@@ -1866,12 +1870,14 @@ void mnNameNew_8023E32C(s32 arg0)
     setup_desc = &mnNameNew_804A06F0;
     gobj = GObj_Create(6U, 7U, 0x80U);
     mnNameNew_804D6C08 = gobj;
-    root_jobj = HSD_JObjLoadJoint(setup_desc->joint);
+    root_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, setup_desc->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, root_jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4U, 0x80U);
     HSD_GObj_SetupProc(gobj, (HSD_GObjEvent) fn_8023DBE8, 0U);
-    HSD_JObjAddAnimAll(root_jobj, setup_desc->animjoint,
-                       setup_desc->matanim_joint, setup_desc->shapeanim_joint);
+    HSD_JObjAddAnimAll(root_jobj, DP(HSD_AnimJoint, setup_desc->animjoint),
+                       DP(HSD_MatAnimJoint,
+                          setup_desc->matanim_joint), DP(HSD_ShapeAnimJoint,
+                          setup_desc->shapeanim_joint));
     HSD_JObjReqAnimAll(root_jobj, 0.0f);
     HSD_JObjAnimAll(root_jobj);
     user_data = HSD_MemAlloc(sizeof(*user_data));
@@ -1938,55 +1944,82 @@ void mnNameNew_EnterFromMnCharSel(HSD_Archive* arg0, s32 arg1)
     HSD_SisLib_803A5E70();
     mnNameNew_PortInUse = arg1;
 
-    lbArchive_LoadSections(
-        arg0,
+    {
+        void* dp_[24];
+        lbArchive_LoadSections(
+            arg0,
 
-        // Background
-        (void**) &MenMainBack_Top.joint, "MenMainBack_Top_joint",
-        &MenMainBack_Top.animjoint, "MenMainBack_Top_animjoint",
-        &MenMainBack_Top.matanim_joint, "MenMainBack_Top_matanim_joint",
-        &MenMainBack_Top.shapeanim_joint, "MenMainBack_Top_shapeanim_joint",
+            // Background
+            &dp_[0], "MenMainBack_Top_joint",
+            &dp_[1], "MenMainBack_Top_animjoint",
+            &dp_[2], "MenMainBack_Top_matanim_joint",
+            &dp_[3], "MenMainBack_Top_shapeanim_joint",
 
-        // Scene
-        &MenMain_cam, "ScMenMain_cam_int1_camera", &MenMain_lights,
-        "ScMenMain_scene_lights", &MenMain_fog, "ScMenMain_fog",
+            // Scene
+            &MenMain_cam, "ScMenMain_cam_int1_camera", &MenMain_lights,
+            "ScMenMain_scene_lights", &MenMain_fog, "ScMenMain_fog",
 
-        // Panel
-        &MenMainPanel_Top.joint, "MenMainPanel_Top_joint",
-        &MenMainPanel_Top.animjoint, "MenMainPanel_Top_animjoint",
-        &MenMainPanel_Top.matanim_joint, "MenMainPanel_Top_matanim_joint",
-        &MenMainPanel_Top.shapeanim_joint, "MenMainPanel_Top_shapeanim_joint",
+            // Panel
+            &dp_[4], "MenMainPanel_Top_joint",
+            &dp_[5], "MenMainPanel_Top_animjoint",
+            &dp_[6], "MenMainPanel_Top_matanim_joint",
+            &dp_[7], "MenMainPanel_Top_shapeanim_joint",
 
-        // Row 1
-        &mnNameNew_804A06F0.joint, "MenMainConEtNw_Top_joint",
-        &mnNameNew_804A06F0.animjoint, "MenMainConEtNw_Top_animjoint",
-        &mnNameNew_804A06F0.matanim_joint, "MenMainConEtNw_Top_matanim_joint",
-        &mnNameNew_804A06F0.shapeanim_joint,
-        "MenMainConEtNw_Top_shapeanim_joint",
+            // Row 1
+            &dp_[8], "MenMainConEtNw_Top_joint",
+            &dp_[9], "MenMainConEtNw_Top_animjoint",
+            &dp_[10], "MenMainConEtNw_Top_matanim_joint",
+            &dp_[11],
+            "MenMainConEtNw_Top_shapeanim_joint",
 
-        // Row 2
-        &mnNameNew_804A0700.joint, "MenMainBaseEtNw_Top_joint",
-        &mnNameNew_804A0700.animjoint, "MenMainBaseEtNw_Top_animjoint",
-        &mnNameNew_804A0700.matanim_joint, "MenMainBaseEtNw_Top_matanim_joint",
-        &mnNameNew_804A0700.shapeanim_joint,
-        "MenMainBaseEtNw_Top_shapeanim_joint",
+            // Row 2
+            &dp_[12], "MenMainBaseEtNw_Top_joint",
+            &dp_[13], "MenMainBaseEtNw_Top_animjoint",
+            &dp_[14], "MenMainBaseEtNw_Top_matanim_joint",
+            &dp_[15],
+            "MenMainBaseEtNw_Top_shapeanim_joint",
 
-        // Row 3
-        &mnNameNew_804A0710.joint, "MenMainSubEtNw_Top_joint",
-        &mnNameNew_804A0710.animjoint, "MenMainSubEtNw_Top_animjoint",
-        &mnNameNew_804A0710.matanim_joint, "MenMainSubEtNw_Top_matanim_joint",
-        &mnNameNew_804A0710.shapeanim_joint,
-        "MenMainSubEtNw_Top_shapeanim_joint",
+            // Row 3
+            &dp_[16], "MenMainSubEtNw_Top_joint",
+            &dp_[17], "MenMainSubEtNw_Top_animjoint",
+            &dp_[18], "MenMainSubEtNw_Top_matanim_joint",
+            &dp_[19],
+            "MenMainSubEtNw_Top_shapeanim_joint",
 
-        // Row 4
-        &mnNameNew_804A0720[0].joint, "MenMainSbaseEtNw_Top_joint",
-        &mnNameNew_804A0720[0].animjoint, "MenMainSbaseEtNw_Top_animjoint",
-        &mnNameNew_804A0720[0].matanim_joint,
-        "MenMainSbaseEtNw_Top_matanim_joint",
-        &mnNameNew_804A0720[0].shapeanim_joint,
-        "MenMainSbaseEtNw_Top_shapeanim_joint",
+            // Row 4
+            &dp_[20], "MenMainSbaseEtNw_Top_joint",
+            &dp_[21], "MenMainSbaseEtNw_Top_animjoint",
+            &dp_[22],
+            "MenMainSbaseEtNw_Top_matanim_joint",
+            &dp_[23],
+            "MenMainSbaseEtNw_Top_shapeanim_joint",
 
-        NULL);
+            NULL);
+        DP_SET(MenMainBack_Top.joint, dp_[0]);
+        DP_SET(MenMainBack_Top.animjoint, dp_[1]);
+        DP_SET(MenMainBack_Top.matanim_joint, dp_[2]);
+        DP_SET(MenMainBack_Top.shapeanim_joint, dp_[3]);
+        DP_SET(MenMainPanel_Top.joint, dp_[4]);
+        DP_SET(MenMainPanel_Top.animjoint, dp_[5]);
+        DP_SET(MenMainPanel_Top.matanim_joint, dp_[6]);
+        DP_SET(MenMainPanel_Top.shapeanim_joint, dp_[7]);
+        DP_SET(mnNameNew_804A06F0.joint, dp_[8]);
+        DP_SET(mnNameNew_804A06F0.animjoint, dp_[9]);
+        DP_SET(mnNameNew_804A06F0.matanim_joint, dp_[10]);
+        DP_SET(mnNameNew_804A06F0.shapeanim_joint, dp_[11]);
+        DP_SET(mnNameNew_804A0700.joint, dp_[12]);
+        DP_SET(mnNameNew_804A0700.animjoint, dp_[13]);
+        DP_SET(mnNameNew_804A0700.matanim_joint, dp_[14]);
+        DP_SET(mnNameNew_804A0700.shapeanim_joint, dp_[15]);
+        DP_SET(mnNameNew_804A0710.joint, dp_[16]);
+        DP_SET(mnNameNew_804A0710.animjoint, dp_[17]);
+        DP_SET(mnNameNew_804A0710.matanim_joint, dp_[18]);
+        DP_SET(mnNameNew_804A0710.shapeanim_joint, dp_[19]);
+        DP_SET(mnNameNew_804A0720[0].joint, dp_[20]);
+        DP_SET(mnNameNew_804A0720[0].animjoint, dp_[21]);
+        DP_SET(mnNameNew_804A0720[0].matanim_joint, dp_[22]);
+        DP_SET(mnNameNew_804A0720[0].shapeanim_joint, dp_[23]);
+    }
 
     is_us = lbLang_IsSavedLanguageUS();
 

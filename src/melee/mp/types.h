@@ -44,7 +44,7 @@ struct mp_UnkStruct0 {
     /* +2C */ mp_UnkStruct3* ptr;
 };
 
-struct MapLine {
+struct DISC_STRUCT MapLine {
     /* +0 */ u16 v0_idx;
     /* +2 */ u16 v1_idx;
     /* +4 */ s16 prev_id0;
@@ -54,6 +54,7 @@ struct MapLine {
     /* +C */ u16 hi_flags;
     /* +E */ u16 lo_flags;
 };
+DISC_ASSERT_SIZE(struct MapLine, 0x10);
 
 struct CollLine {
     /* +0 */ MapLine* x0;
@@ -80,7 +81,7 @@ struct CollVtx {
 }; /* size = 0x18 */
 ASSERT_SIZE(struct CollVtx, 0x18);
 
-struct MapJoint {
+struct DISC_STRUCT MapJoint {
     /*  +0 */ s16 floor_start;
     /*  +2 */ s16 floor_count;
     /*  +4 */ s16 ceiling_start;
@@ -98,6 +99,7 @@ struct MapJoint {
     /* +24 */ s16 vtx_start;
     /* +26 */ s16 vtx_count;
 };
+DISC_ASSERT_SIZE(struct MapJoint, 0x28);
 
 struct CollJoint {
     /* 0x00 */ CollJoint* next;
@@ -116,10 +118,10 @@ struct CollJoint {
 }; /* size = 0x34 */
 ASSERT_SIZE(struct CollJoint, 0x34);
 
-struct MapCollData {
-    /*  +0 */ Vec2* verts;
+struct DISC_STRUCT MapCollData {
+    /*  +0 */ DISC_PTR(DiscVec2) verts;
     /*  +4 */ int vert_count;
-    /*  +8 */ MapLine* lines;
+    /*  +8 */ DISC_PTR(MapLine) lines;
     /*  +C */ int line_count;
     /* +10 */ s16 floor_start;
     /* +12 */ s16 floor_count;
@@ -131,10 +133,11 @@ struct MapCollData {
     /* +1E */ s16 left_wall_count;
     /* +20 */ s16 dynamic_start;
     /* +22 */ s16 dynamic_count;
-    /* +24 */ MapJoint* joints;
+    /* +24 */ DISC_PTR(MapJoint) joints;
     /* +28 */ int joint_count;
     /* +2C */ int x2C; /* inferred */
 };
+DISC_ASSERT_SIZE(struct MapCollData, 0x30);
 
 struct mpCollisionBox {
     float top;

@@ -19,7 +19,7 @@
 void ftCh_GrabUnk1_8015ABD0(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCrazyHand_DatAttrs* da = fp->ft_data->ext_attr;
+    ftCrazyHand_DatAttrs* da = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
     Fighter_ChangeMotionState(gobj, 0x16D, 0, 0.0f, 1.0f, 0.0f, NULL);
     ftAnim_8006EBA4(gobj);
     fp->mv.ch.unk0.xC.x = da->xCC_pos.y;
@@ -30,7 +30,7 @@ void ftCh_GrabUnk1_8015ABD0(HSD_GObj* gobj)
 void ftCh_GrabUnk1_8015AC50(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCrazyHand_DatAttrs* da = fp->ft_data->ext_attr;
+    ftCrazyHand_DatAttrs* da = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
     Fighter_ChangeMotionState(gobj, 0x16E, 0, 0.0f, 1.0f, 0.0f, NULL);
     ftAnim_8006EBA4(gobj);
     fp->mv.ch.unk0.xC.x = da->x18;
@@ -72,7 +72,7 @@ void ftCh_FingerGun2_IASA(HSD_GObj* gobj)
 void ftCh_FingerGun2_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCrazyHand_DatAttrs* da = fp->ft_data->ext_attr;
+    ftCrazyHand_DatAttrs* da = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     ftBossLib_8015BE40(gobj, &fp->mv.ch.unk0.xC, &fp->mv.ch.unk0.x18, da->x14,
                        da->x10);

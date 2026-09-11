@@ -29,23 +29,23 @@ void ftAnim_GetNextAnimJointInTree(HSD_AnimJoint** panimjoint, int* pdepth)
     HSD_AnimJoint* var_r0;
     int i = *pdepth;
 
-    if (temp_r28->child != NULL) {
+    if (DP(HSD_AnimJoint, temp_r28->child) != NULL) {
         ftAnim_804590D8[i++] = temp_r28;
         if (i >= 30) {
             HSD_ASSERTREPORT(46, 0, "fighter joint depth num over!\n");
         }
-        var_r0 = temp_r28->child;
+        var_r0 = DP(HSD_AnimJoint, temp_r28->child);
     } else {
-        if (temp_r28->next != NULL) {
-            var_r0 = temp_r28->next;
+        if (DP(HSD_AnimJoint, temp_r28->next) != NULL) {
+            var_r0 = DP(HSD_AnimJoint, temp_r28->next);
         } else {
             while (1) {
                 if (i == 0) {
                     var_r0 = NULL;
                     break;
                 }
-                if (ftAnim_804590D8[i - 1]->next != NULL) {
-                    var_r0 = ftAnim_804590D8[--i]->next;
+                if (DP(HSD_AnimJoint, ftAnim_804590D8[i - 1]->next) != NULL) {
+                    var_r0 = DP(HSD_AnimJoint, ftAnim_804590D8[--i]->next);
                     break;
                 }
                 i--;
@@ -64,23 +64,23 @@ void ftAnim_GetNextMatAnimJointInTree(HSD_MatAnimJoint** pjoint, int* pdepth)
 
     temp_r28 = *pjoint;
     i = *pdepth;
-    if (temp_r28->child != NULL) {
+    if (DP(HSD_MatAnimJoint, temp_r28->child) != NULL) {
         ftAnim_804590D8_unk[i++] = temp_r28;
         if (i >= 30) {
             HSD_ASSERTREPORT(87, 0, "fighter joint depth num over!\n");
         }
-        var_r0 = temp_r28->child;
+        var_r0 = DP(HSD_MatAnimJoint, temp_r28->child);
     } else {
-        if (temp_r28->next != NULL) {
-            var_r0 = temp_r28->next;
+        if (DP(HSD_MatAnimJoint, temp_r28->next) != NULL) {
+            var_r0 = DP(HSD_MatAnimJoint, temp_r28->next);
         } else {
             while (1) {
                 if (i == 0) {
                     var_r0 = NULL;
                     break;
                 }
-                if (ftAnim_804590D8_unk[i - 1]->next != 0U) {
-                    var_r0 = ftAnim_804590D8_unk[--i]->next;
+                if (DP(HSD_MatAnimJoint, ftAnim_804590D8_unk[i - 1]->next) != NULL) {
+                    var_r0 = DP(HSD_MatAnimJoint, ftAnim_804590D8_unk[--i]->next);
                     break;
                 }
                 i--;
@@ -99,23 +99,23 @@ void ftAnim_GetNextJointInTree(HSD_Joint** pjoint, s32* pdepth)
 
     temp_r28 = *pjoint;
     i = *pdepth;
-    if (temp_r28->child != NULL) {
+    if (DP(HSD_Joint, temp_r28->child) != NULL) {
         ftAnim_804590D8_F0[i++] = temp_r28;
         if (i >= 30) {
             HSD_ASSERTREPORT(128, 0, "fighter joint depth num over!\n");
         }
-        var_r0 = temp_r28->child;
+        var_r0 = DP(HSD_Joint, temp_r28->child);
     } else {
-        if (temp_r28->next != NULL) {
-            var_r0 = temp_r28->next;
+        if (DP(HSD_Joint, temp_r28->next) != NULL) {
+            var_r0 = DP(HSD_Joint, temp_r28->next);
         } else {
             while (1) {
                 if (i == 0) {
                     var_r0 = NULL;
                     break;
                 }
-                if (ftAnim_804590D8_F0[i - 1]->next != 0U) {
-                    var_r0 = ftAnim_804590D8_F0[--i]->next;
+                if (DP(HSD_Joint, ftAnim_804590D8_F0[i - 1]->next) != NULL) {
+                    var_r0 = DP(HSD_Joint, ftAnim_804590D8_F0[--i]->next);
                     break;
                 }
                 i--;
@@ -134,10 +134,12 @@ void ftAnim_8006DF0C(Fighter* fp)
     Vec3 vec;
 
     if (fp->x2221_b2) {
+        Vec3 pos0;
+        DISC_VEC3_GET(pos0, p_ftCommonData->x808);
         temp_r30 = fp->parts[0].joint;
-        temp_r31 = fp->parts[fp->ft_data->x8->x10].joint;
+        temp_r31 = fp->parts[DP(struct ftData_x8, fp->ft_data->x8)->x10].joint;
         lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, FtPart_HipN)].joint,
-                    &p_ftCommonData->x808, &vec);
+                    &pos0, &vec);
         HSD_MtxInverse(HSD_JObjGetMtxPtr(temp_r30), mtx);
         PSMTXMultVec(mtx, &vec, &vec);
         HSD_JObjSetTranslate(temp_r31, &vec);
@@ -247,7 +249,7 @@ void ftAnim_8006E054(Fighter* fp, HSD_JObj* jobj, HSD_JObj* arg2,
         fp->x6B0 = fp->x6E4;
     }
     if (!fp->x2226_b2 && fp->x2221_b2) {
-        jobj = fp->parts[fp->ft_data->x8->x10].joint;
+        jobj = fp->parts[DP(struct ftData_x8, fp->ft_data->x8)->x10].joint;
         ftCommon_GetModelScale(fp);
         HSD_JObjGetTranslation(jobj, &sp2C);
         sp38 = fp->x68C_transNPos;
@@ -398,7 +400,7 @@ void ftAnim_8006EBE8(HSD_GObj* gobj, float anim_start, float anim_rate,
     ftAnim_80070758(root_jobj);
     ftAnim_80070758(anim_jobj);
     if (anim_blend_frames == 0) {
-        ftAnim_8006FA58(fp, FtPart_TransN, fp->x108_costume_joint->child);
+        ftAnim_8006FA58(fp, FtPart_TransN, DP(HSD_Joint, fp->x108_costume_joint->child));
         ftAnim_8006FE08(fp, false);
         ftAnim_80070710(root_jobj, anim_start);
         if (fp->x594_b1_loop) {
@@ -408,7 +410,7 @@ void ftAnim_8006EBE8(HSD_GObj* gobj, float anim_start, float anim_rate,
         HSD_ForeachAnim(root_jobj, JOBJ_TYPE, mask, HSD_AObjSetRate,
                         AOBJ_ARG_AF, anim_rate);
     } else {
-        ftAnim_8006FB88(fp, FtPart_TransN, fp->x108_costume_joint->child);
+        ftAnim_8006FB88(fp, FtPart_TransN, DP(HSD_Joint, fp->x108_costume_joint->child));
         ftAnim_8006FE08(fp, true);
         ftAnim_80070710(anim_jobj, anim_start);
         ftAnim_80070710(root_jobj, anim_start);
@@ -432,7 +434,7 @@ void ftAnim_8006EDD0(Fighter* fp, int arg1, float arg8, float arg9)
     struct ftData_80085FD4_ret* temp_ret;
     HSD_JObj* jobj = fp->x8AC_animSkeleton;
     ftAnim_80070758(jobj);
-    ftAnim_8006FB88(fp, FtPart_TransN, fp->x108_costume_joint->child);
+    ftAnim_8006FB88(fp, FtPart_TransN, DP(HSD_Joint, fp->x108_costume_joint->child));
     ftAnim_80070A10(fp, FtPart_TopN, ftData_80085E50(fp, arg1));
     ftAnim_80070710(jobj, arg8);
     temp_ret = ftData_80085FD4(fp, arg1);
@@ -517,8 +519,9 @@ bool ftAnim_IsFramesRemaining(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
 
+    FighterPartsTable* parts = (FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v;
     if (fp->x8A4_animBlendFrames == 0.0F) {
-        for (i = 0; i < ftPartsTable[fp->kind]->parts_num; i++) {
+        for (i = 0; i < parts->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
                 !fp->parts[i].flags_b5 && lb_8000B074(fp->parts[i].joint))
             {
@@ -526,7 +529,7 @@ bool ftAnim_IsFramesRemaining(Fighter_GObj* gobj)
             }
         }
     } else {
-        for (i = 0; i < ftPartsTable[fp->kind]->parts_num; i++) {
+        for (i = 0; i < parts->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
                 !fp->parts[i].flags_b5 && lb_8000B074(fp->parts[i].x4_jobj2))
             {
@@ -555,7 +558,7 @@ float ftAnim_8006F3DC(Fighter_GObj* fighter_gobj)
 
     if (fp->x8A4_animBlendFrames == 0.0F) {
         int i;
-        for (i = 0; i < ftPartsTable[fp->kind]->parts_num; i++) {
+        for (i = 0; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
                 !fp->parts[i].flags_b5)
             {
@@ -599,8 +602,8 @@ void ftAnim_8006F4C8(Fighter* fp, bool do_blending, FigaTree* tree)
     u32 temp_r3;
     int i = 0;
 
-    cur_node = tree->nodes;
-    cur_track = tree->tracks;
+    cur_node = DP(s8, tree->nodes);
+    cur_track = DP(FigaTrack, tree->tracks);
 
     flags = fp->x594_bits;
 
@@ -650,9 +653,9 @@ void ftAnim_8006F628(Fighter* fp, Fighter_Part part, bool do_blending)
 
     i = 0;
     tree = fp->x590;
-    cur_node = tree->nodes;
+    cur_node = DP(s8, tree->nodes);
     x594_bits = fp->x594_bits;
-    cur_track = tree->tracks;
+    cur_track = DP(FigaTrack, tree->tracks);
     kind = fp->x597_bits;
     temp_r25 = fp->parts[part].xC;
 
@@ -707,8 +710,8 @@ void ftAnim_8006F7C8(Fighter* ft, Fighter_Part part, int arg2, FigaTree* tree)
     int r22;
     PAD_STACK(8);
 
-    nodes = tree->nodes;
-    tracks = tree->tracks;
+    nodes = DP(s8, tree->nodes);
+    tracks = DP(FigaTrack, tree->tracks);
     r29 = ft->x594_bits;
     r27 = ft->parts[part].xC;
 
@@ -808,7 +811,7 @@ void ftAnim_8006FA58(Fighter* fp, Fighter_Part part, HSD_Joint* joint)
         while (ftParts_8007506C(fp->kind, i) != 0) {
             i++;
         }
-        if (i == fp->ft_data->x8->x10) {
+        if (i == DP(struct ftData_x8, fp->ft_data->x8)->x10) {
             if (fp->parts[i].flags_b0) {
                 lb_8000B760(fp->parts[i].joint, joint);
             } else if (!fp->parts[i].flags_b5) {
@@ -836,7 +839,7 @@ void ftAnim_8006FB88(Fighter* fp, Fighter_Part part, HSD_Joint* joint)
         while (ftParts_8007506C(fp->kind, i) != 0) {
             i++;
         }
-        if (i == fp->ft_data->x8->x10) {
+        if (i == DP(struct ftData_x8, fp->ft_data->x8)->x10) {
             if (fp->parts[i].flags_b0) {
                 lb_8000B760(fp->parts[i].x4_jobj2, joint);
                 HSD_JObjClearFlags(fp->parts[i].x4_jobj2, JOBJ_USE_QUATERNION);
@@ -868,9 +871,9 @@ void ftAnim_8006FCE4(Fighter* fp, bool do_blending)
 
     i = 0;
     tree = fp->x590;
-    cur_node = tree->nodes;
+    cur_node = DP(s8, tree->nodes);
     x594_bits = fp->x594_bits;
-    cur_track = tree->tracks;
+    cur_track = DP(FigaTrack, tree->tracks);
     kind = fp->x597_bits;
 
     while (*cur_node != -1) {
@@ -925,7 +928,7 @@ void ftAnim_8006FE48(Fighter_GObj* fighter_gobj)
 void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 {
     int i;
-    for (i = start; i < ftPartsTable[fp->kind]->parts_num; i++) {
+    for (i = start; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {
@@ -942,7 +945,7 @@ void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 void ftAnim_8006FF74(Fighter* fp, Fighter_Part start)
 {
     int i;
-    for (i = start; i < ftPartsTable[fp->kind]->parts_num; i++) {
+    for (i = start; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {
@@ -1007,11 +1010,13 @@ void ftAnim_80070200(Fighter* fp, ftData_x8_x8* r4, CostumeTObjList* r5,
     if (r5->n_costume_tobjs > ARRAY_SIZE(r5->costume_tobjs)) {
         HSD_ASSERTREPORT(1228, 0, "fighter tobj num over!\n");
     }
-    r5->x5D0 =
-        r4->xC[fp->x619_costume_id] ? r4->xC[fp->x619_costume_id] : r4->xC[0];
+    DiscU32* xC = DP(DiscU32, r4->xC);
+    r5->x5D0 = xC[fp->x619_costume_id].v
+                   ? DP(DiscU16, xC[fp->x619_costume_id].v)
+                   : DP(DiscU16, xC[0].v);
 
     for (i = 0; i < r5->n_costume_tobjs; i++) {
-        r5->costume_tobjs[i] = ftParts_80075240(r6, r5->x5D0[i]);
+        r5->costume_tobjs[i] = ftParts_80075240(r6, r5->x5D0[i].v);
         if (r5->costume_tobjs[i]->aobj == NULL) {
             HSD_ASSERTREPORT(1236, 0, "can't find fighter texture anim!\n");
         }
@@ -1030,7 +1035,7 @@ void ftAnim_80070308(Fighter_GObj* fighter_gobj)
                            .x4,
                        NULL);
     HSD_JObjReqAnimAll(jobj, 0.0F);
-    ftAnim_80070200(fp, &fp->ft_data->x8->x8, &fp->tobj_list, &fp->dobj_list);
+    ftAnim_80070200(fp, &DP(struct ftData_x8, fp->ft_data->x8)->x8, &fp->tobj_list, &fp->dobj_list);
 }
 
 extern struct {
@@ -1131,8 +1136,8 @@ void ftAnim_800707B0(Fighter_GObj* arg0)
     for (i = 0; i < (signed) ARRAY_SIZE(fp->x8B0); i++) {
         temp_r4 = &fp->x8B0[i];
         if (temp_r4->x11 != -1) {
-            struct ftData_x1C* temp_r26 = fp->ft_data->x1C[i];
-            u8* var_r29 = temp_r26->x4;
+            struct ftData_x1C* temp_r26 = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[i].v;
+            u8* var_r29 = DP(u8, temp_r26->x4);
 
             temp_r4->x8 += temp_r4->xC;
             if (temp_r4->x4 <= temp_r4->x8) {
@@ -1171,7 +1176,7 @@ void ftAnim_80070904(Fighter* fp, Fighter_Part start, HSD_AnimJoint* animjoint)
         while (ftParts_8007506C(fp->kind, i) != 0) {
             i++;
         }
-        if (!fp->parts[i].flags_b0 && animjoint->aobjdesc != NULL) {
+        if (!fp->parts[i].flags_b0 && animjoint->aobjdesc != 0) {
             HSD_JObj* jobj = fp->parts[i].x4_jobj2;
             HSD_JObjAddAnim(jobj, animjoint, NULL, NULL);
             HSD_JObjClearFlags(jobj, 0x20000);
@@ -1195,8 +1200,8 @@ void ftAnim_80070A10(Fighter* ft, Fighter_Part part, FigaTree* tree)
     int r27;
     int r22;
 
-    nodes = tree->nodes;
-    tracks = tree->tracks;
+    nodes = DP(s8, tree->nodes);
+    tracks = DP(FigaTrack, tree->tracks);
     r29 = ft->x594_bits;
     r27 = ft->parts[part].xC;
 
@@ -1261,16 +1266,16 @@ void ftAnim_ApplyPartAnim(Fighter_GObj* gobj, s32 arg1, s32 arg2, f32 arg3)
     struct ftData_x1C* temp_r29;
 
     temp_r30 = &fp->x8B0[arg1];
-    temp_r29 = fp->ft_data->x1C[arg1];
+    temp_r29 = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[arg1].v;
     temp_r30->x11 = arg2;
     temp_r30->x4 = arg3;
     temp_r30->x8 = 0.0F;
     if (arg3) {
-        temp_r30->xC = lb_8000BFF0(temp_r29->x8[arg2]) / arg3;
+        temp_r30->xC = lb_8000BFF0((HSD_AnimJoint*) (uintptr_t) DP(DiscU32, temp_r29->x8)[arg2].v) / arg3;
     } else {
         temp_r30->xC = 0.0F;
     }
-    ftAnim_80070904(fp, temp_r29->x0, temp_r29->x8[arg2]);
+    ftAnim_80070904(fp, temp_r29->x0, (HSD_AnimJoint*) (uintptr_t) DP(DiscU32, temp_r29->x8)[arg2].v);
 }
 
 void ftAnim_80070C48(Fighter_GObj* gobj, s32 arg1)
@@ -1311,9 +1316,8 @@ void ftAnim_80070CC4(Fighter_GObj* gobj, int arg1)
     if (r30->x11 == -1) {
         return;
     }
-    r28 = fp->ft_data->x1C[arg1];
-
-    some_inline(fp, r28->x0, r28->x8[r30->x11]);
+    r28 = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[arg1].v;
+    some_inline(fp, r28->x0, (HSD_AnimJoint*) (uintptr_t) DP(DiscU32, r28->x8)[r30->x11].v);
 
     r30->x11 = -1;
     if (fp->x590 != NULL) {
@@ -1346,8 +1350,8 @@ void ftAnim_80070F28(HSD_GObj* gobj)
     for (i = 0; i < ARRAY_SIZE(fp->x8B0); i++) {
         struct Fighter_x8B0_t* slot = &fp->x8B0[i];
         if (slot->x11 != -1) {
-            struct ftData_x1C* data = fp->ft_data->x1C[i];
-            u8* parts_list = data->x4;
+            struct ftData_x1C* data = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[i].v;
+            u8* parts_list = DP(u8, data->x4);
             int j;
 
             for (j = 0; j < data->x2; j++) {

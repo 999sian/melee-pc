@@ -1097,7 +1097,7 @@ void ftCo_800A20A0(Fighter* fp)
         Fighter* other_fp = data->x44;
 
         if (ftCo_800A1AB4(fp, other_fp) <
-            2.0f * Fighter_804D64FC->x20[fp->kind])
+            2.0f * DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v)
         {
             data->xF8_b6 = true;
         } else {
@@ -4546,6 +4546,7 @@ void ftCo_800A9904(Fighter* fp)
             ftCo_800A96B8(fp);
         }
     } else if (data->xFA_b5) {
+        f32 grav_copy = fp->co_attrs.gravity;
         f32* grav_p;
         f32 dx = data->x54.x - fp->cur_pos.x;
         if (ftCo_IsNearlyZero(fp->pos_delta.x)) {
@@ -4553,7 +4554,7 @@ void ftCo_800A9904(Fighter* fp)
         } else {
             x_time = dx / fp->pos_delta.x;
         }
-        gravity = *(grav_p = &fp->co_attrs.gravity);
+        gravity = *(grav_p = &grav_copy);
         if (ftCo_IsNearlyZero(gravity)) {
             terminal_time = 1000.0F;
         } else {
@@ -4676,6 +4677,7 @@ void ftCo_800A9CB4(Fighter* fp)
     f32 sp38_b;
     struct CpuFighter* data = &fp->cpu;
 
+    f32 grav_copy = fp->co_attrs.gravity;
     f32* grav_p;
     f32 temp_f1;
     f32 gravity;
@@ -4737,7 +4739,7 @@ void ftCo_800A9CB4(Fighter* fp)
     } else {
         x_time = 0.0f;
     }
-    gravity = *(grav_p = &fp->co_attrs.gravity);
+    gravity = *(grav_p = &grav_copy);
     if (ftCo_IsNearlyZero(gravity)) {
         terminal_time = 1000.0f;
     } else {
@@ -5362,6 +5364,7 @@ void ftCo_800ABBA8(Fighter* fp)
     struct CpuFighter* data = &fp->cpu;
     Fighter* target;
     Fighter* below;
+    f32 grav_copy = fp->co_attrs.gravity;
     f32* grav_ptr;
     Vec3 sp74;
     Vec3 sp68;
@@ -5516,7 +5519,7 @@ void ftCo_800ABBA8(Fighter* fp)
     } else {
         vf0 = dxx / v;
     }
-    grav_ptr = &fp->co_attrs.gravity;
+    grav_ptr = &grav_copy;
     (void) grav_ptr;
     g = *grav_ptr;
     if (g < 0.00001f && g > -0.00001f) {
@@ -6793,7 +6796,8 @@ static inline void ftCo_CpuUpdateTargetDistance(Fighter* fp)
         data->xF8_b6 = false;
     } else {
         if ((data->x44 != NULL) && (fp->ground_or_air == GA_Ground)) {
-            if (ftCo_800A1AB4(fp, data->x44) < Fighter_804D64FC->x20[fp->kind])
+            if (ftCo_800A1AB4(fp, data->x44) <
+                DP(DiscF32, Fighter_804D64FC->x20)[fp->kind].v)
             {
                 data->xF8_b6 = true;
             } else {

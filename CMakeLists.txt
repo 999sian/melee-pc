@@ -35,8 +35,11 @@ add_library(melee_game STATIC ${GAME_SOURCES})
 target_include_directories(melee_game PUBLIC extern/aurora/include src src/sdk_include)
 target_compile_definitions(melee_game PUBLIC TARGET_PC=1 MELEE_PC=1)
 target_compile_options(melee_game PRIVATE
-        -w
         -fpermissive
+        -Wno-all -Wno-extra
+        -Werror=int-conversion
+        -Werror=implicit-function-declaration
+        -Werror=incompatible-pointer-types
         -fno-strict-aliasing
         -fwrapv
         -ffp-contract=off

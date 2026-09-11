@@ -54,7 +54,7 @@ static void order_sdata2(void)
 static inline void itClimbersIce_sub_x4(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itClimbersIceAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itClimbersIceAttributes* attr = DP(itClimbersIceAttributes, ip->xC4_article_data->x4_specialAttributes);
     ip->xD44_lifeTimer -= attr->x4;
 }
 
@@ -120,7 +120,7 @@ Item_GObj* it_802C1590(Item_GObj* parent_gobj, Vec3* pos, enum_t kind,
 void it_802C16F8(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itClimbersIceAttributes* sa = ip->xC4_article_data->x4_specialAttributes;
+    itClimbersIceAttributes* sa = DP(itClimbersIceAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(16);
 
     ip->x40_vel.x = sa->x10 * ip->facing_dir;
@@ -159,7 +159,7 @@ bool it_802C1854(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
     CollData* coll = &ip->x378_itemColl;
-    itClimbersIceAttributes* sa = ip->xC4_article_data->x4_specialAttributes;
+    itClimbersIceAttributes* sa = DP(itClimbersIceAttributes, ip->xC4_article_data->x4_specialAttributes);
     bool result = false;
 
     if (ip->x378_itemColl.env_flags & 0x18000) {
@@ -197,7 +197,7 @@ bool itClimbersice_UnkMotion0_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     HSD_JObj* jobj = gobj->hsd_obj;
-    itClimbersIceAttributes* sa = ip->xC4_article_data->x4_specialAttributes;
+    itClimbersIceAttributes* sa = DP(itClimbersIceAttributes, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* child;
     PAD_STACK(8);
 
@@ -265,7 +265,7 @@ bool itClimbersice_UnkMotion2_Anim(Item_GObj* gobj)
 static inline void itClimbersice_Phys_inline(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itClimbersIceAttributes* sa = ip->xC4_article_data->x4_specialAttributes;
+    itClimbersIceAttributes* sa = DP(itClimbersIceAttributes, ip->xC4_article_data->x4_specialAttributes);
     u32 dmg = ABS(ip->x40_vel.x * sa->x30);
     dmg += sa->x2C;
     it_80272460(&ip->x5D4_hitboxes[0].hit, dmg, gobj);
@@ -281,7 +281,7 @@ void itClimbersice_UnkMotion2_Phys(Item_GObj* gobj)
 static inline bool itClimbersice_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itClimbersIceAttributes* sa = ip->xC4_article_data->x4_specialAttributes;
+    itClimbersIceAttributes* sa = DP(itClimbersIceAttributes, ip->xC4_article_data->x4_specialAttributes);
     if (it_80276308(gobj) != 0) {
         if (ABS(ip->x40_vel.x) <= sa->xC) {
             it_8027770C(gobj);
@@ -348,7 +348,7 @@ bool it_2725_Logic90_HitShield(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     ItemAttr* attr = ip->xCC_item_attr;
-    itClimbersIceAttributes* sa = ip->xC4_article_data->x4_specialAttributes;
+    itClimbersIceAttributes* sa = DP(itClimbersIceAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     if (ABS(ip->x40_vel.x) <= sa->xC) {
         itColl_BounceOffVictim(gobj);

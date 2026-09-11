@@ -12,7 +12,7 @@ struct ftMars_FighterVars {
     u8 _[FIGHTERVARS_SIZE - 4];
 };
 
-struct SwordAttrs {
+struct DISC_STRUCT SwordAttrs {
     /* +0x0 */ f32 x0;
     /* +0x4 */ f32 x4;
     /* +0x8 */ u8 x8;
@@ -29,8 +29,9 @@ struct SwordAttrs {
     float x18;
     float x1C;
 };
+DISC_ASSERT_SIZE(struct SwordAttrs, 0x20);
 
-typedef struct _MarsAttributes {
+typedef struct DISC_STRUCT _MarsAttributes {
     int x0;
     int x4;
     int x8;
@@ -59,6 +60,7 @@ typedef struct _MarsAttributes {
     AbsorbDesc x64;
     struct SwordAttrs x78;
 } MarsAttributes;
+DISC_ASSERT_SIZE(MarsAttributes, 0x98);
 
 union ftMars_MotionVars {
     struct ftMars_Unk0MotionVars {

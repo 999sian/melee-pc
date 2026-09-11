@@ -42,11 +42,14 @@ void Command_03(CommandInfo* info)
 /// Execute Loop
 void Command_04(CommandInfo* info)
 {
-    u32* ptr = (u32*) info;
-    ptr[info->loop_count + 3] -= 1;
+    /* event_return[loop_count-1] is the remaining count; [loop_count-2] the
+     * loop start. ptr-index math on `info` assumed 4-byte pointers. */
+    s32 remaining = (s32) (uintptr_t) info->event_return[info->loop_count - 1];
+    info->event_return[info->loop_count - 1] =
+        (union CmdUnion*) (uintptr_t) (remaining - 1);
 
-    if ((s32) info->event_return[info->loop_count - 1]) {
-        info->ptr[0] = &info->ptr[info->loop_count][0];
+    if ((s32) (uintptr_t) info->event_return[info->loop_count - 1]) {
+        info->u = info->event_return[info->loop_count - 2];
         return;
     }
     NEXT_CMD(info);
@@ -58,7 +61,7 @@ void Command_05(CommandInfo* info)
 {
     NEXT_CMD(info);
     info->event_return[info->loop_count++] = info->u + 1;
-    info->u = info->u->Command_05.ptr;
+    info->u = DP(union CmdUnion, info->u->Command_05.ptr);
 }
 
 /// Return
@@ -71,7 +74,7 @@ void Command_06(CommandInfo* info)
 void Command_07(CommandInfo* info)
 {
     NEXT_CMD(info);
-    info->u = info->u->Command_07.ptr;
+    info->u = DP(union CmdUnion, info->u->Command_07.ptr);
 }
 
 /// SetTimerAnimation

@@ -144,8 +144,7 @@ Item_GObj* it_802EE200(HSD_GObj* parent, Vec3* pos, f32 threshold1,
 void it_802EE374(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itWhispyAppleAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itWhispyAppleAttributes* attrs = DP(itWhispyAppleAttributes, ip->xC4_article_data->x4_specialAttributes);
     f32 rand;
 
     Item_80268E5C(gobj, 0, ITEM_ANIM_UPDATE);

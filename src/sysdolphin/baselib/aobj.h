@@ -47,20 +47,22 @@ struct HSD_AObj {
     struct HSD_Obj* hsd_obj;
 };
 
-struct HSD_AObjDesc {
+struct DISC_STRUCT HSD_AObjDesc {
     u32 flags;
     f32 end_frame;
-    HSD_FObjDesc* fobjdesc;
+    DISC_PTR(HSD_FObjDesc) fobjdesc;
     u32 obj_id;
 };
+DISC_ASSERT_SIZE(HSD_AObjDesc, 0x10);
 
-struct HSD_AnimJoint {
-    HSD_AnimJoint* child;
-    HSD_AnimJoint* next;
-    HSD_AObjDesc* aobjdesc;
-    HSD_RObjAnimJoint* robj_anim;
+struct DISC_STRUCT HSD_AnimJoint {
+    DISC_PTR(HSD_AnimJoint) child;
+    DISC_PTR(HSD_AnimJoint) next;
+    DISC_PTR(HSD_AObjDesc) aobjdesc;
+    DISC_PTR(HSD_RObjAnimJoint) robj_anim;
     u32 flags;
 };
+DISC_ASSERT_SIZE(HSD_AnimJoint, 0x14);
 
 void HSD_AObjInitAllocData(void);
 HSD_ObjAllocData* HSD_AObjGetAllocData(void);

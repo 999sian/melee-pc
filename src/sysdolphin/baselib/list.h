@@ -8,6 +8,13 @@ typedef struct _HSD_SList {
     void* data;
 } HSD_SList;
 
+/* On-disc singly linked list (e.g. HSD_Joint.u.ptcl). */
+typedef struct DISC_STRUCT _HSD_DiscSList {
+    DISC_PTR(struct _HSD_DiscSList) next;
+    u32 data;
+} HSD_DiscSList;
+DISC_ASSERT_SIZE(HSD_DiscSList, 0x8);
+
 typedef struct _HSD_DList {
     struct _HSD_DList* next;
     struct _HSD_DList* prev;

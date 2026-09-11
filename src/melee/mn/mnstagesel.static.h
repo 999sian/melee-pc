@@ -48,7 +48,8 @@ static s8 mnStageSel_804D50A0 = -1;
 
 static SSSData* sss_data;
 static HSD_Archive* mnStageSel_804D6C94;
-static struct mnStageSel_804D6C98_t {
+/* MnSelectStageDataTable + 0x10: read in place from MnSlMap.dat */
+static struct DISC_STRUCT mnStageSel_804D6C98_t {
     StaticModelDesc x0;
     StaticModelDesc x10;
     StaticModelDesc x20;
@@ -60,11 +61,12 @@ static struct mnStageSel_804D6C98_t {
     StaticModelDesc x80;
     StaticModelDesc x90;
     StaticModelDesc xA0;
-    HSD_Joint* xB0;
-    HSD_AnimJoint* xB4;
-    HSD_MatAnimJoint* xB8;
-    HSD_ShapeAnimJoint* xBC;
+    DISC_PTR(HSD_Joint) xB0;
+    DISC_PTR(HSD_AnimJoint) xB4;
+    DISC_PTR(HSD_MatAnimJoint) xB8;
+    DISC_PTR(HSD_ShapeAnimJoint) xBC;
 }* mnStageSel_804D6C98;
+DISC_ASSERT_SIZE(struct mnStageSel_804D6C98_t, 0xC0);
 static HSD_GObj* mnStageSel_804D6C9C;
 static u32 mnStageSel_804D6CA0;
 static u32 mnStageSel_804D6CA4;

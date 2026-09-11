@@ -82,28 +82,23 @@
     26.0, // Heart Yellow
     27.0, // Heart Green
 };
-/* 3F992C */ static HSD_WObjDesc nametag_eyepos = { NULL,
+/* 3F992C */ static HSD_WObjDesc nametag_eyepos = { 0,
                                                     { 0.0f, 0.0f, 300.0f },
-                                                    NULL };
-/* 3F9940 */ static HSD_WObjDesc nametag_interest = { NULL,
+                                                    0 };
+/* 3F9940 */ static HSD_WObjDesc nametag_interest = { 0,
                                                       { 0.0f, 0.0f, 0.0f },
-                                                      NULL };
+                                                      0 };
+/* eyepos/interest slots set in un_802FD4C8 */
 /* 3F9954 */ static HSD_CameraDescFrustum nametag_CObjDesc = {
-    NULL,
+    0,
     0,
     3,
+    { 0, 640, 0, 480 },
+    { 0, 640, 0, 480 },
     0,
-    640,
     0,
-    480,
-    0,
-    640,
-    0,
-    480,
-    &nametag_eyepos,
-    &nametag_interest,
     0.0f,
-    NULL,
+    0,
     0.1f,
     32768.0f,
     0.0f,
@@ -190,19 +185,24 @@ void fn_802FCAC4(HSD_GObj* gobj, int pass)
 void un_802FCBA0(void)
 {
     HSD_Archive** archive;
-    DynamicModelDesc** x;
+    DiscU32* x; /* DynamicModelDesc*[] */
+    DynamicModelDesc* d;
 
     archive = ifAll_GetArchive();
     lbArchive_LoadSections(*archive, (void**) &x, "ScInfPnm_scene_models", 0);
-    un_804A1ED0.joint = x[0]->joint;
-    if (x[0]->anims) {
-        un_804A1ED0.animjoint = x[0]->anims[0];
+    d = DP(DynamicModelDesc, x[0].v);
+    DP_SET(un_804A1ED0.joint, DP(HSD_Joint, d->joint));
+    if (d->anims) {
+        DP_SET(un_804A1ED0.animjoint,
+               (HSD_AnimJoint*) (uintptr_t) DP(DiscU32, d->anims)[0].v);
     }
-    if (x[0]->matanims) {
-        un_804A1ED0.matanim_joint = x[0]->matanims[0];
+    if (d->matanims) {
+        DP_SET(un_804A1ED0.matanim_joint,
+               (HSD_MatAnimJoint*) (uintptr_t) DP(DiscU32, d->matanims)[0].v);
     }
-    if (x[0]->shapeanims) {
-        un_804A1ED0.shapeanim_joint = x[0]->shapeanims[0];
+    if (d->shapeanims) {
+        DP_SET(un_804A1ED0.shapeanim_joint,
+               (HSD_ShapeAnimJoint*) (uintptr_t) DP(DiscU32, d->shapeanims)[0].v);
     }
 }
 #ifdef MUST_MATCH
@@ -269,15 +269,15 @@ void NameTag_Create(int slot)
     PAD_STACK(8);
     un_804A1EE0[slot] = gobj;
     {
-        HSD_JObj* jobj = HSD_JObjLoadJoint(un_804A1ED0.joint);
+        HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, un_804A1ED0.joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, NameTag_RenderCallback, 9, 0);
         HSD_JObjSetScaleX(jobj, 10.0f);
         HSD_JObjSetScaleY(jobj, 10.0f);
         HSD_JObjSetScaleZ(jobj, 10.0f);
-        HSD_JObjAddAnimAll(jobj, un_804A1ED0.animjoint,
-                           un_804A1ED0.matanim_joint,
-                           un_804A1ED0.shapeanim_joint);
+        HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, un_804A1ED0.animjoint),
+                           DP(HSD_MatAnimJoint, un_804A1ED0.matanim_joint),
+                           DP(HSD_ShapeAnimJoint, un_804A1ED0.shapeanim_joint));
         {
             float f = un_802FC9B4(slot, Player_GetTeam(slot), gm_8016B168(),
                                   Player_GetPlayerSlotType(slot));
@@ -374,6 +374,8 @@ void un_802FD4C8(void)
     un_804D6D6C = 0;
     memzero(un_804D6D70, i = sizeof(un_804D6D70));
     un_804D6D68 = (gobj = un_802FD4C8_inline(15));
+    DP_SET(nametag_CObjDesc.eyepos, &nametag_eyepos);
+    DP_SET(nametag_CObjDesc.interest, &nametag_interest);
     new_var = lb_80013B14((HSD_CameraDescPerspective*) (&nametag_CObjDesc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, new_var);
     GObj_SetupGXLinkMax(gobj, fn_802FCAC4, 6);

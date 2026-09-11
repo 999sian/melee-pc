@@ -7,6 +7,7 @@
 #include "object.h"
 #include <dolphin/gx/GXPixel.h>
 #include <dolphin/mtx.h>
+#include <pc/pc.h>
 
 static void FogInfoInit(void);
 static void FogAdjInfoInit(void);
@@ -95,8 +96,8 @@ HSD_Fog* HSD_FogLoadDesc(HSD_FogDesc* desc)
     HSD_Fog* fog = HSD_FogAlloc();
     HSD_ASSERT(0x99, fog);
     HSD_FogInit(fog, desc);
-    if (desc->fogadjdesc != NULL) {
-        fog->fog_adj = HSD_FogAdjLoadDesc(desc->fogadjdesc);
+    if (desc->fogadjdesc != 0) {
+        fog->fog_adj = HSD_FogAdjLoadDesc(DP(HSD_FogAdjDesc, desc->fogadjdesc));
     }
     return fog;
 }
@@ -142,9 +143,14 @@ void HSD_FogAdjInit(HSD_FogAdj* adj, HSD_FogAdjDesc* desc)
 {
     if (adj != NULL) {
         if (desc != NULL) {
+            int r, c;
             adj->width = desc->width;
             adj->center = desc->center;
-            PSMTXCopy(desc->mtx, adj->mtx);
+            for (r = 0; r < 4; r++) {
+                for (c = 0; c < 4; c++) {
+                    adj->mtx[r][c] = desc->mtx.m[r][c];
+                }
+            }
         } else {
             f32 v[6];
             GXGetViewportv(v);

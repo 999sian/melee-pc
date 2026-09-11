@@ -56,7 +56,7 @@ void fn_800D9CE8(Fighter_GObj* gobj)
         fp->mv.co.capturedamage.x18 = it->xDD4_itemVar.samusgrapple.xC;
         break;
     default:
-        fp->mv.co.capturedamage.x18 = fp->parts[fp->ft_data->x8->x11].joint;
+        fp->mv.co.capturedamage.x18 = fp->parts[DP(struct ftData_x8, fp->ft_data->x8)->x11].joint;
         break;
     }
 

@@ -122,8 +122,8 @@ void fn_801A6664(HSD_GObj* arg0)
     HSD_JObjAnimAll((HSD_JObj*) arg0->hsd_obj);
     if ((s32) gm_804D6758 != 0) {
         HSD_SObjLib_803A4740(gm_804D6754->hsd_obj);
-        gm_804D6760.image = &gm_804808F8.x0[gm_804D675C][0];
-        gm_804D6760.tlut = NULL;
+        DP_SET(gm_804D6760.image, &gm_804808F8.x0[gm_804D675C][0]);
+        DP_SET(gm_804D6760.tlut, NULL);
         temp_r3 =
             HSD_SObjLib_803A477C(gm_804D6754, &gm_804D6760, 0, 0, 0x80, 0);
         temp_r3->x10 = 60.0f;
@@ -152,8 +152,8 @@ void fn_801A6664(HSD_GObj* arg0)
         }
         gm_804D6790 = 7;
         HSD_SObjLib_803A4740(gm_804D677C->hsd_obj);
-        gm_804D6788.image = &gm_804809D0[gm_804D6784];
-        gm_804D6788.tlut = NULL;
+        DP_SET(gm_804D6788.image, &gm_804809D0[gm_804D6784]);
+        DP_SET(gm_804D6788.tlut, NULL);
         temp_r3_2 =
             HSD_SObjLib_803A477C(gm_804D677C, &gm_804D6788, 0, 0, 0x80, 0);
         temp_r3_2->x10 = 60.0f;
@@ -287,10 +287,10 @@ void fn_801A6B6C(HSD_GObj* gobj)
         HSD_GObjFree(gm_804D676C);
         HSD_GObjFree(gm_804D677C);
         mn_8022F0F0(3);
-        HSD_Free(gm_80480964.x0[0][0].image_ptr);
-        HSD_Free(gm_80480964.x0[0][1].image_ptr);
-        HSD_Free(gm_80480964.x0[1][0].image_ptr);
-        HSD_Free(gm_80480964.x0[1][1].image_ptr);
+        HSD_Free(DP(void, gm_80480964.x0[0][0].image_ptr));
+        HSD_Free(DP(void, gm_80480964.x0[0][1].image_ptr));
+        HSD_Free(DP(void, gm_80480964.x0[1][0].image_ptr));
+        HSD_Free(DP(void, gm_80480964.x0[1][1].image_ptr));
         gm_801A7B00();
         HSD_GObjFree(gobj);
     }
@@ -308,19 +308,20 @@ void gm_801A6C54(void)
     int i;
 
     gobj = GObj_Create(0x13, 0x14, 0);
-    cobj =
-        lb_80013B14((HSD_CameraDescPerspective*) gm_804D6748->cameras[0].desc);
+    cobj = lb_80013B14(
+        DP(HSD_CameraDescPerspective, GM_SCENE_CAMERA(gm_804D6748)->desc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, fn_801A6ACC, 8);
     gobj->gxlink_prios = 0x61;
-    HSD_CObjAddAnim(cobj, gm_804D6748->cameras[0].anims[0]);
+    HSD_CObjAddAnim(cobj, GM_DISC_ARR(HSD_CameraAnim,
+                                      GM_SCENE_CAMERA(gm_804D6748)->anims, 0));
     HSD_CObjReqAnim(cobj, 0.0F);
     HSD_CObjAnim(cobj);
     HSD_GObj_SetupProc(gobj, fn_801A6C30, 0);
 
     for (i = 0; i < 2; i++) {
-        gm_804808F8.x0[i][0].image_ptr = NULL;
-        gm_804808F8.x0[i][1].image_ptr = NULL;
+        DP_SET(gm_804808F8.x0[i][0].image_ptr, NULL);
+        DP_SET(gm_804808F8.x0[i][1].image_ptr, NULL);
         lb_800121FC(&gm_804808F8.x0[i][0], 0x1EA, 0x1E0, 5, 0);
         lb_800121FC(&gm_804808F8.x0[i][1], 0x1EA, 0x1E0, 0x16, 0);
     }
@@ -342,19 +343,20 @@ void gm_801A6DC0(void)
     int i;
 
     gobj = GObj_Create(0x13, 0x14, 0);
-    cobj =
-        lb_80013B14((HSD_CameraDescPerspective*) gm_804D6748->cameras[0].desc);
+    cobj = lb_80013B14(
+        DP(HSD_CameraDescPerspective, GM_SCENE_CAMERA(gm_804D6748)->desc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, fn_801A6D78, 0xB);
     gobj->gxlink_prios = 0x801;
-    HSD_CObjAddAnim(cobj, gm_804D6748->cameras[0].anims[0]);
+    HSD_CObjAddAnim(cobj, GM_DISC_ARR(HSD_CameraAnim,
+                                      GM_SCENE_CAMERA(gm_804D6748)->anims, 0));
     HSD_CObjReqAnim(cobj, 0.0F);
     HSD_CObjAnim(cobj);
     HSD_GObj_SetupProc(gobj, fn_801A6B6C, 0);
 
     for (i = 0; i < 2; i++) {
-        gm_80480964.x0[i][0].image_ptr = NULL;
-        gm_80480964.x0[i][1].image_ptr = NULL;
+        DP_SET(gm_80480964.x0[i][0].image_ptr, NULL);
+        DP_SET(gm_80480964.x0[i][1].image_ptr, NULL);
         lb_800121FC(&gm_80480964.x0[i][0], 0x1EA, 0x1E0, 5, 0);
         lb_800121FC(&gm_80480964.x0[i][1], 0x1EA, 0x1E0, 0x16, 0);
     }
@@ -410,7 +412,7 @@ static inline void initImages(void)
     int i;
 
     for (i = 0; i < 2; i++) {
-        gm_804809D0[i].image_ptr = NULL;
+        DP_SET(gm_804809D0[i].image_ptr, NULL);
         lb_800121FC(&gm_804809D0[i], 0x1EA, 0x1E0, 5, 0);
     }
 }
@@ -459,7 +461,8 @@ static inline void gm_801A7070_SetupTrophy(u8 priority)
 
     gobj = GObj_Create(0xE, 0xF, priority);
     gm_804D6778 = gobj;
-    jobj = HSD_JObjLoadJoint(gm_804D67AC->models[0]->joint);
+    jobj = HSD_JObjLoadJoint(
+        DP(HSD_Joint, GM_SCENE_MODEL(gm_804D67AC, 0)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
 
@@ -521,7 +524,7 @@ void gm_Scene_ToyFall_OnEnter(void* unused)
     gm_801A6EE4();
     /// create lights
     gobj = GObj_Create(0xB, 3, 0);
-    lobj = lb_80011AC4(gm_804D6748->lights);
+    lobj = lb_80011AC4(GM_SCENE_LIGHTS(gm_804D6748));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0, 0);
     /// the rest of the gobj spawns creates/handles multiple cameras or deal

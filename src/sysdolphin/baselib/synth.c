@@ -32,15 +32,6 @@ void HSD_AudioFree(void* ptr)
 static int HSD_Synth_804D6028[2] = { 0 };
 static float HSD_Synth_804D6030 = 1.0f;
 
-struct SfxLoadStreamNode {
-    /* 0x00 */ struct SfxLoadStreamNode* x0;
-    /* 0x04 */ s32 x4;
-    /* 0x08 */ s32 x8;
-    /* 0x0C */ s32 xC;
-    /* 0x10 */ s32 x10;
-    /* 0x14 */ s32 x14;
-};
-
 static inline s32 SfxLoadStreamDataSize(s32 size)
 {
     return size + 8;
@@ -52,12 +43,6 @@ static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
     BOOL intr;
     s32 i;
 
-#ifdef TARGET_PC
-    /* ponytail: SFX bank entry streams are raw big-endian AX voice blocks and
-     * audio is stubbed; treat every bank load as cancelled until the audio
-     * path is ported. */
-    HSD_Synth_804D7738 = 1;
-#endif
     if (HSD_Synth_804D7738 == 0) {
         s32 j;
         s32 header_size = hsd_SynthSFXLoadBuf[0].v;
@@ -66,30 +51,35 @@ static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
         u32 total;
         u32 dnw;
         int bankID;
-        AXVPB** pp;
+        struct SfxLoadStreamNode** pp;
+        struct foo* e;
         s32 count;
         s32 base;
 
         alloc_size =
             hsd_SynthSFXLoadBuf[2].v * 8 + sizeof(struct SfxLoadStreamNode);
         total = OSRoundUp32B(alloc_size + header_size);
+        /* Move the raw entry stream to the end of the allocation and put the
+         * 4 words of it that arrived with the header in front of it; all
+         * copies are word-for-word so the stream stays big-endian. */
         for (j = (data_bytes >> 2) - 1; j >= 0; j--) {
             ((u32*) HSD_Synth_804D7730)[j + ((total - data_bytes) >> 2)] =
                 ((u32*) HSD_Synth_804D7730)[j];
         }
         dnw = total - header_size;
         for (i = 0; i != 4; i++) {
-            ((u32*) HSD_Synth_804D7730)[(dnw >> 2) + i] =
-                hsd_SynthSFXLoadBuf[4U + i].v;
+            ((DiscU32*) HSD_Synth_804D7730)[(dnw >> 2) + i] =
+                hsd_SynthSFXLoadBuf[4U + i];
         }
-        HSD_Synth_804D7734 = (u32*) ((u8*) HSD_Synth_804D7730 + (dnw & ~3));
+        HSD_Synth_804D7734 =
+            (DiscU32*) ((u8*) HSD_Synth_804D7730 + (dnw & ~3));
 
         bankID = HSD_Synth_804C2A60[0].bankID;
         pp = &HSD_Synth_804C2AE0[bankID];
         while (*pp != NULL) {
-            pp = &(*pp)->next;
+            pp = &(*pp)->x0;
         }
-        *pp = (AXVPB*) HSD_Synth_804D7730;
+        *pp = HSD_Synth_804D7730;
 
         HSD_Synth_804D7730->x0 = NULL;
         HSD_Synth_804D7730->x4 = HSD_Synth_804C2A60[0].entrynum;
@@ -99,42 +89,35 @@ static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
         base = hsd_SynthSFXLoadBuf[3].v;
         HSD_Synth_804D7730->x8 = base;
         HSD_Synth_804D7730->xC = count;
-        HSD_Synth_804D7730 = HSD_Synth_804D7730 + 1;
+        e = (struct foo*) (HSD_Synth_804D7730 + 1);
         for (i = 0; i < count; i++) {
             s32 n;
             s32 nbytes;
             s32 k;
             s32 id;
-            void** bucket;
 
-            /* The SSM entry stream is big-endian in memory; entries are
-             * patched in place and stay big-endian. */
-            n = ((DiscU32*) HSD_Synth_804D7734)->v;
-            (void) n;
+            /* Stream entry: { voice count, sample rate, n * 0x40-byte AX
+             * voice blocks }, copied behind the node's next/id words. */
+            n = HSD_Synth_804D7734->v;
             nbytes = SfxLoadStreamDataSize(n << 6);
-            memcpy((u8*) HSD_Synth_804D7730 + 8, HSD_Synth_804D7734, nbytes);
+            memcpy((u8*) e + 8, HSD_Synth_804D7734, nbytes);
             for (k = 0; k < n; k++) {
-                u8* e = (u8*) HSD_Synth_804D7730 + k * 0x40;
-                if (e + 0x10 != NULL) {
-                    ((DiscU32*) (e + 0x14))->v += hsd_SynthSFXBank[bankID] * 2;
-                } else {
-                    ((DiscU32*) (e + 0x14))->v = HSD_Synth_804D7784;
-                }
-                ((DiscU32*) ((u8*) HSD_Synth_804D7730 + k * 0x40 + 0x18))->v +=
-                    hsd_SynthSFXBank[bankID] * 2;
-                ((DiscU32*) ((u8*) HSD_Synth_804D7730 + k * 0x40 + 0x1C))->v +=
-                    hsd_SynthSFXBank[bankID] * 2;
+                struct SfxVoiceAddr* a =
+                    (struct SfxVoiceAddr*) ((u8*) e + 0x10 + k * 0x40);
+                /* Retail always takes this branch (its loopFlag test
+                 * degenerated to a non-null check); the else arm would
+                 * point non-looping voices at the silence buffer. */
+                a->loopAddress += hsd_SynthSFXBank[bankID] * 2;
+                a->endAddress += hsd_SynthSFXBank[bankID] * 2;
+                a->currentAddress += hsd_SynthSFXBank[bankID] * 2;
             }
             id = base + i;
-            HSD_Synth_804D7730->x4 = id;
+            e->unk4 = id;
             id &= 0x1F;
-            bucket = &HSD_Synth_804C29E0[id];
-            HSD_Synth_804D7730->x0 = (struct SfxLoadStreamNode*) *bucket;
-            *bucket = HSD_Synth_804D7730;
+            DP_SET(e->next, HSD_Synth_804C29E0[id]);
+            HSD_Synth_804C29E0[id] = e;
             HSD_Synth_804D7734 += (u32) nbytes >> 2;
-            HSD_Synth_804D7730 =
-                (struct SfxLoadStreamNode*) ((u32*) HSD_Synth_804D7730 +
-                                             ((u32) ((n << 6) + 0x10) >> 2));
+            e = (struct foo*) ((u8*) e + (n << 6) + 0x10);
         }
         if (HSD_Synth_804C2A60[0].x8 != NULL) {
             HSD_Synth_804C2A60[0].x8(HSD_Synth_804C2A60[0].entrynum,
@@ -300,24 +283,24 @@ static void order_data_0(void)
 }
 #endif
 
-static inline void HSD_SynthSFXUnloadBank_inline(AXVPB* vpb)
+static inline void HSD_SynthSFXUnloadBank_inline(struct SfxLoadStreamNode* bank)
 {
     int i;
-    for (i = 0; i < vpb->priority; i++) {
-        HSD_Synth_80388DC8((int) vpb->next1 + i);
+    for (i = 0; i < bank->xC; i++) {
+        HSD_Synth_80388DC8(bank->x8 + i);
     }
 }
 
 void HSD_SynthSFXUnloadBank(int bank_id)
 {
-    AXVPB** head;
+    struct SfxLoadStreamNode** head;
     HSD_SynthSFXStopRange(bank_id);
     head = &HSD_Synth_804C2AE0[bank_id];
     while (*head != NULL) {
-        AXVPB* cur;
+        struct SfxLoadStreamNode* cur;
         HSD_SynthSFXUnloadBank_inline(*head);
         cur = *head;
-        *head = (*head)->next;
+        *head = (*head)->x0;
         HSD_AudioFree(cur);
     }
     hsd_SynthSFXBank[bank_id] = hsd_SynthSFXBankHead[bank_id];
@@ -325,36 +308,40 @@ void HSD_SynthSFXUnloadBank(int bank_id)
 
 void HSD_Synth_80388DC8(int sfx_id)
 {
-    void* cur;
-    void** pcur = &HSD_Synth_804C29E0[sfx_id & 0x1F];
+    struct foo* prev = NULL;
+    struct foo* cur = HSD_Synth_804C29E0[sfx_id & 0x1F];
 
-    while ((cur = *pcur) != NULL) {
-        if (((int*) cur)[1] == sfx_id) {
-            *pcur = *(void**) cur;
+    while (cur != NULL) {
+        if (cur->unk4 == sfx_id) {
+            if (prev == NULL) {
+                HSD_Synth_804C29E0[sfx_id & 0x1F] = DP(struct foo, cur->next);
+            } else {
+                DP_SET(prev->next, DP(struct foo, cur->next));
+            }
             return;
         }
-        pcur = (void**) cur;
+        prev = cur;
+        cur = DP(struct foo, cur->next);
     }
 }
 
 void HSD_Synth_80388E08(int sfx_id)
 {
-    AXVPB* cur;
-    AXVPB** pcur;
+    struct SfxLoadStreamNode* cur;
+    struct SfxLoadStreamNode** pcur;
     int i;
 
     for (i = 0; i < 0x20; i++) {
         pcur = &HSD_Synth_804C2AE0[i];
         while (*pcur != NULL) {
             cur = *pcur;
-            /// @todo AXVPB prev must be a signed int type, not a pointer
-            if ((int) cur->prev == sfx_id) {
+            if (cur->x4 == sfx_id) {
                 HSD_SynthSFXUnloadBank_inline(cur);
-                *pcur = cur->next;
+                *pcur = cur->x0;
                 HSD_AudioFree(cur);
                 return;
             }
-            pcur = &cur->next;
+            pcur = &cur->x0;
         }
     }
 }
@@ -375,58 +362,55 @@ static void order_data_1(void)
 }
 #endif
 
-void HSD_SynthSFXGroupDataReaddress(AXVPB* arg0, void* callback)
+void HSD_SynthSFXGroupDataReaddress(struct SfxLoadStreamNode* bank,
+                                    u32 aram_offset)
 {
-    u8* q;
+    struct foo* e;
     int i;
     int count;
     int delta;
-    u8* p;
     int j;
 
-    p = (u8*) arg0 + 0x18;
+    e = (struct foo*) (bank + 1);
     sfxGroupDataReaddressCounter += 1;
     HSD_DevComRequest(
-        0, (uintptr_t) arg0->callback, (uintptr_t) callback, arg0->userContext,
-        0x1B, 0,
+        0, bank->x10, aram_offset, bank->x14, 0x1B, 0,
         (HSD_DevComCallback) (Event) HSD_SynthSFXGroupDataReaddressCallback,
         NULL);
-    i = 0;
-    delta = ((u8*) callback - (u8*) arg0->callback) * 2;
-    while (i < arg0->priority) {
-        count = *(int*) (p + 8);
-        q = p;
+    delta = (aram_offset - bank->x10) * 2;
+    for (i = 0; i < bank->xC; i++) {
+        count = e->unk8;
         for (j = 0; j < count; j++) {
-            if (*(u16*) (q + 0x10) != 0) {
-                *(u32*) (q + 0x14) += delta;
+            struct SfxVoiceAddr* a =
+                (struct SfxVoiceAddr*) ((u8*) e + 0x10 + j * 0x40);
+            if (a->loopFlag != 0) {
+                a->loopAddress += delta;
             }
-            *(u32*) (q + 0x18) += delta;
-            *(u32*) (q + 0x1C) += delta;
-            q += 0x40;
+            a->endAddress += delta;
+            a->currentAddress += delta;
         }
-        p = (u8*) ((count << 6) + (uintptr_t) p);
-        p += 0x10;
-        i++;
+        e = (struct foo*) ((u8*) e + (count << 6) + 0x10);
     }
-    arg0->callback = (void (*)(void*)) callback;
+    bank->x10 = aram_offset;
 }
 
 void HSD_SynthSFXBankDeflag(int bank_id)
 {
-    AXVPB* vpb;
-    intptr_t offset;
+    struct SfxLoadStreamNode* bank;
+    u32 offset;
 
     HSD_SynthSFXStopRange(bank_id);
-    vpb = HSD_Synth_804C2AE0[bank_id];
+    bank = HSD_Synth_804C2AE0[bank_id];
     offset = hsd_SynthSFXBankHead[bank_id];
-    while (vpb != NULL) {
-        if ((intptr_t) vpb->callback != offset) {
-            HSD_SynthSFXGroupDataReaddress(vpb, (void*) offset);
+    while (bank != NULL) {
+        if ((u32) bank->x10 != offset) {
+            HSD_SynthSFXGroupDataReaddress(bank, offset);
         }
-        offset += vpb->userContext;
-        vpb = vpb->next;
+        offset += bank->x14;
+        bank = bank->x0;
     }
-    HSD_Synth_804C2AE0[bank_id + 0x80 / 4] = (void*) offset;
+    /* Retail wrote HSD_Synth_804C2AE0[bank_id + 0x20], which is this slot. */
+    hsd_SynthSFXBank[bank_id] = offset;
 }
 
 void HSD_SynthSFXBankDeflagSync(void)
@@ -517,18 +501,9 @@ void dropcallback(void* dropped)
     OSRestoreInterrupts(enabled);
 }
 
-struct foo {
-    void* next;
-    int unk4; // sound ID
-    int unk8; // voice count
-    int unkC; // audio parameter
-    AXPBADDR x10;
-    AXPBADPCM x20;
-    AXPBADPCMLOOP x48;
-};
-
 /** @remarks The per-voice blocks of an SFX entry are 0x40 apart, which is
- *  less than the AX structures they carry.
+ *  less than the AX structures they carry. They are big-endian in memory
+ *  (see struct foo in synth.static.h); the AX stubs ignore them.
  */
 #define SFX_VOICE(i) ((struct foo*) ((u8*) sfx_entry + (i) * 0x40))
 
@@ -624,7 +599,8 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
                     (65536.0F *
                      (sfx_node->x18[1] * (sfx_node->x14 * sfx_node->x18[0])));
                 AXSetVoiceSrc(voices[voice_idx], &HSD_Synth_80407FD8);
-                AXSetVoiceAddr(voices[voice_idx], &SFX_VOICE(voice_idx)->x10);
+                AXSetVoiceAddr(voices[voice_idx],
+                               (AXPBADDR*) &SFX_VOICE(voice_idx)->x10);
                 AXSetVoiceAdpcm(voices[voice_idx], &SFX_VOICE(voice_idx)->x20);
                 AXSetVoiceAdpcmLoop(voices[voice_idx],
                                     &SFX_VOICE(voice_idx)->x48);
@@ -639,7 +615,7 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
             OSRestoreInterrupts(saved_interrupts);
             return sfx_node->x0;
         }
-        sfx_entry = sfx_entry->next;
+        sfx_entry = DP(struct foo, sfx_entry->next);
     }
 
     OSRestoreInterrupts(saved_interrupts);
@@ -1247,7 +1223,10 @@ void HSD_Synth_8038ADD0(void)
     if (node->flags & 8) {
         return;
     }
-    pos = (*(u32*) ((u8*) node->voice[0] + 0x1B2) - HSD_Synth_804D7780 * 2) >>
+    /* pb.addr.currentAddress{Hi,Lo} (GC offset 0x1B2 in AXVPB). */
+    pos = (((u32) node->voice[0]->pb.addr.currentAddressHi << 16 |
+            node->voice[0]->pb.addr.currentAddressLo) -
+           HSD_Synth_804D7780 * 2) >>
           0x11;
     if (pos != HSD_Synth_804D7774) {
         HSD_Synth_804D7774 = pos;
@@ -1357,20 +1336,21 @@ void HSD_SynthPStreamFirstHakoHeaderCallback(void)
 void HSD_SynthPStreamHeaderCallback(int arg0, int arg1, void* arg2,
                                     bool cancelflag)
 {
-    u32* entry = arg2;
+    DiscU32* entry = arg2; /* HPS header, big-endian */
     struct HSD_SynthSFXNode* node;
     int i;
 
     node = getNode(HSD_Synth_804D7760);
     if (node != NULL) {
-        node->voice_count = entry[3];
+        node->voice_count = entry[3].v;
         if (node->voice_count == 2) {
             node->voice[1] = AXAcquireVoice(0x1D, dropcallback, 0);
             HSD_ASSERTMSG(0x5CF, node->voice[1], "entry->voice[1]");
         }
-        node->x14 = 0.00003125f * (f32) entry[2];
+        node->x14 = 0.00003125f * (f32) entry[2].v;
         for (i = 0; i < node->voice_count; i++) {
             *(u32*) &HSD_Synth_80407FD8.ratioHi = (u32) (65536.0f * node->x14);
+            /* AX blocks handed over big-endian; the AX stubs ignore them. */
             AXSetVoiceAddr(node->voice[i], (AXPBADDR*) &entry[i * 14 + 4]);
             AXSetVoiceAdpcm(node->voice[i], (AXPBADPCM*) &entry[i * 14 + 8]);
         }

@@ -612,13 +612,13 @@ void ftMh_Init_OnLoad(HSD_GObj* gobj)
     ftMasterHand_SpecialAttrs* ftData_attr;
     Fighter* fp = gobj->user_data;
     ftData* ftdata = fp->ft_data;
-    ftData_attr = ftdata->ext_attr;
+    ftData_attr = DP(ftMasterHand_SpecialAttrs, ftdata->ext_attr);
     {
-        UNK_T* items = ftdata->x48_items;
+        DiscU32* items = DP(DiscU32, ftdata->x48_items);
         PUSH_ATTRS(fp, ftMasterHand_SpecialAttrs);
         ftBossLib_ReportGObjSlotType(gobj);
-        it_8026B3F8(items[0], It_Kind_MasterHand_Laser);
-        it_8026B3F8(items[1], It_Kind_MasterHand_Bullet);
+        it_8026B3F8(DP(Article, items[0].v), It_Kind_MasterHand_Laser);
+        it_8026B3F8(DP(Article, items[1].v), It_Kind_MasterHand_Bullet);
         fp->no_normal_motion = true;
         fp->x2229_b6 = true;
         fp->no_kb = true;

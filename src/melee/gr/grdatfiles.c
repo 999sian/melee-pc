@@ -18,6 +18,7 @@
 
 /// @todo Merge declaration and definition
 /* static */ extern UnkStageDat grDatFiles_803E0924;
+static StageParam grDatFiles_803E07E4;
 
 void grDatFiles_801C5FC0(HSD_Archive* archive, void* data, size_t length)
 {
@@ -83,6 +84,8 @@ void grDatFiles_801C6038(void* arg0, s32 arg1, s32 arg2)
         temp_r3->unk4 = &grDatFiles_803E0924;
         if (arg1 == 0) {
             stage_info.coll_data = NULL;
+            /* DISC_PTR slots cannot be statically initialised. */
+            DP_SET(grDatFiles_803E0848.stage_params, &grDatFiles_803E07E4);
             stage_info.param = &grDatFiles_803E0848;
             stage_info.itemdata = NULL;
             stage_info.ald_yaku_all = NULL;
@@ -98,10 +101,11 @@ void grDatFiles_801C6038(void* arg0, s32 arg1, s32 arg2)
 
 void grDatFiles_801C6228(UnkStageDat* arg0)
 {
-    if (arg0 != NULL && arg0->unk28 != NULL && arg0->unk2C != 0) {
+    if (arg0 != NULL && arg0->unk28 != 0 && arg0->unk2C != 0) {
         s32 i;
         for (i = 0; i < arg0->unk2C; i++) {
-            UnkStageDatInternal* temp_r4 = arg0->unk28[i];
+            UnkStageDatInternal* temp_r4 = DP(
+                UnkStageDatInternal, DP(DiscU32, arg0->unk28)[i].v);
             if (temp_r4 != NULL) {
                 temp_r4->unk4 |= 0x4000000;
             }
@@ -140,7 +144,7 @@ UnkArchiveStruct* grDatFiles_801C6330(s32 arg0)
             if (grDatFiles_8049EE10[i].unk0 != NULL) {
                 UnkStageDat* temp_r7 = grDatFiles_8049EE10[i].unk4;
                 if (temp_r7 != NULL && temp_r7->unkC > arg0 &&
-                    temp_r7->unk8[arg0].unk0 != 0)
+                    MAP_GOBJ_DESC(temp_r7, arg0)->unk0 != 0)
                 {
                     return &grDatFiles_8049EE10[i];
                 }
@@ -175,7 +179,7 @@ GroundParam grDatFiles_803E0848 = {
     1,  0x80, { 0 }, 0x1E, 0,  1,     0x8000, 10,
     0,  0,    1,     1,    1,  { 0 }, 40,     10,
     50, 100,  10,    10,   10, 10,    false,  0,
-    0,  0,    30,    10,   0,  0,     { 0 },  &grDatFiles_803E07E4,
+    0,  0,    30,    10,   0,  0,     { 0 },  0,
     1,
 };
 

@@ -21,7 +21,7 @@
 #include <sysdolphin/baselib/util.h>
 #include <sysdolphin/baselib/video.h>
 
-static void splGetCardinalTangent(Vec3* p, Vec3* cp, f32 tension, f32 u)
+static void splGetCardinalTangent(Vec3* p, DiscVec3* cp, f32 tension, f32 u)
 {
     f32 u2 = u * u;
     f32 car0, car1, car2, car3;
@@ -40,7 +40,7 @@ static void splGetCardinalTangent(Vec3* p, Vec3* cp, f32 tension, f32 u)
            (cp[3].z * car3);
 }
 
-static void splGetBSplineTangent(Vec3* p, Vec3* cp, f32 u)
+static void splGetBSplineTangent(Vec3* p, DiscVec3* cp, f32 u)
 {
     f32 u2 = u * u;
     f32 u_1 = 1.0F - u;
@@ -55,7 +55,7 @@ static void splGetBSplineTangent(Vec3* p, Vec3* cp, f32 u)
     p->z = (cp[0].z * b0) + (cp[1].z * b1) + (cp[2].z * b2) + (cp[3].z * b3);
 }
 
-static void splGetBezierTangent(Vec3* p, Vec3* cp, f32 u)
+static void splGetBezierTangent(Vec3* p, DiscVec3* cp, f32 u)
 {
     f32 u_1 = u - 1.0F;
     f32 u2 = u * u;
@@ -74,7 +74,8 @@ static void splGetBezierTangent(Vec3* p, Vec3* cp, f32 u)
 
 void lbShadow_8000E9F0(Vec3* p, HSD_Spline* spline, f32 u)
 {
-    Vec3* cp;
+    DiscVec3* cp;
+    DiscVec3* base;
     s16 idx;
     f32 orig_u;
 
@@ -94,21 +95,22 @@ void lbShadow_8000E9F0(Vec3* p, HSD_Spline* spline, f32 u)
         if (orig_u == 1.0F) {
             idx -= 1;
         }
-        cp = &spline->cv[idx];
+        base = DP(DiscVec3, spline->cv);
+        cp = &base[idx];
         p->x = cp[1].x - cp[0].x;
         p->y = cp[1].y - cp[0].y;
         p->z = cp[1].z - cp[0].z;
         return;
     case 1:
-        cp = &spline->cv[idx * 3];
+        cp = &DP(DiscVec3, spline->cv)[idx * 3];
         splGetBezierTangent(p, cp, u);
         return;
     case 2:
-        cp = &spline->cv[idx];
+        cp = &DP(DiscVec3, spline->cv)[idx];
         splGetBSplineTangent(p, cp, u);
         return;
     case 3:
-        cp = &spline->cv[idx];
+        cp = &DP(DiscVec3, spline->cv)[idx];
         splGetCardinalTangent(p, cp, spline->tension, u);
         break;
     }

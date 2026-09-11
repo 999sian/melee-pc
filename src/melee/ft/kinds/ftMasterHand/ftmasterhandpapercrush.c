@@ -58,7 +58,7 @@ void ftMh_PaperCrush_IASA(HSD_GObj* gobj)
 void ftMh_PaperCrush_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftMasterHand_SpecialAttrs* da = fp->ft_data->ext_attr;
+    ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     ft_80085134(gobj);
     {
         float f = ++fp->mv.mh.unk0.x0;

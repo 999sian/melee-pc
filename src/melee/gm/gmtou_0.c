@@ -268,10 +268,10 @@ void gm_80190EA4(void)
     int i;
     TmData* tmdata = gm_GetTournamentData();
 
-    fn_80190174(lbl_804D664C->cameras->desc);
+    fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D664C)->desc));
     fn_801902F0(0);
     fn_80193308();
-    fn_8019027C(lbl_804D664C->lights);
+    fn_8019027C(GM_SCENE_LIGHTS(lbl_804D664C));
     fn_80193230();
     tmdata->cur_option = 0;
 
@@ -309,10 +309,10 @@ void gm_80190FE4(int arg0)
     TmData* tm = gm_GetTournamentData();
 
     if (mn_8022F218() == 0) {
-        fn_80190174(lbl_804D664C->cameras->desc);
+        fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D664C)->desc));
         fn_801902F0(0);
         fn_80193308();
-        fn_8019027C(lbl_804D664C->lights);
+        fn_8019027C(GM_SCENE_LIGHTS(lbl_804D664C));
         fn_80193230();
 
         for (tm->cur_option = 0; tm->cur_option < 7; tm->cur_option++) {
@@ -1299,23 +1299,23 @@ void fn_80192BB0(void)
     HSD_JObj* jobj;
     s32 i;
 
-    fn_8019035C(1, lbl_804D664C->models[2], 0, 0x1A, 2, 1,
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D664C, 2), 0, 0x1A, 2, 1,
                 (void (*)(HSD_GObj*)) fn_8019175C, 0.0f);
 
     for (i = 0; i < 6; i++) {
-        gobj = fn_8019035C(1, lbl_804D664C->models[3], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(1, GM_SCENE_MODEL(lbl_804D664C, 3), 0, 0x1A, 2, 1,
                            fn_80191240, 0.0f);
         jobj = (HSD_JObj*) gobj->hsd_obj;
         fn_8018FBD8((void*) gobj, i);
         HSD_JObjSetTranslateY(jobj, -((3.5f * (f32) i) - 11.5f));
 
-        gobj = fn_8019035C(1, lbl_804D664C->models[0], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(1, GM_SCENE_MODEL(lbl_804D664C, 0), 0, 0x1A, 2, 1,
                            fn_801913BC, 0.0f);
         jobj = (HSD_JObj*) gobj->hsd_obj;
         fn_8018FBD8((void*) gobj, i);
         HSD_JObjSetTranslateY(jobj, -((3.5f * (f32) i) - 11.5f));
 
-        gobj = fn_8019035C(1, lbl_804D664C->models[1], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(1, GM_SCENE_MODEL(lbl_804D664C, 1), 0, 0x1A, 2, 1,
                            fn_80191678, 0.0f);
         jobj = (HSD_JObj*) gobj->hsd_obj;
         fn_8018FBD8((void*) gobj, i);
@@ -1334,26 +1334,26 @@ void fn_80192E6C(void)
     f32 new_var2;
     PAD_STACK(16);
 
-    fn_8019035C(1, lbl_804D6650->models[4], 0, 0x1A, 2, 1, fn_801918F0, 0.0f);
-    fn_8019035C(1, lbl_804D6650->models[7], 0, 0x1A, 2, 1, fn_80191A54, 0.0f);
-    fn_8019035C(1, lbl_804D6650->models[5], 0, 0x1A, 2, 1,
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 4), 0, 0x1A, 2, 1, fn_801918F0, 0.0f);
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 7), 0, 0x1A, 2, 1, fn_80191A54, 0.0f);
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 5), 0, 0x1A, 2, 1,
                 (void (*)(HSD_GObj*)) fn_80191B5C, 0.0f);
-    fn_8019035C(1, lbl_804D6650->models[0], 0, 0x1A, 2, 1, fn_80191CA4, 0.0f);
-    fn_8019035C(1, lbl_804D6650->models[6], 0, 0x1A, 2, 1, fn_8019237C, 0.0f);
-    fn_8019035C(1, lbl_804D6650->models[10], 0, 0x1A, 2, 1, fn_8019249C, 0.0f);
-    HSD_JObjSetFlagsAll((HSD_JObj*) fn_8019035C(1, lbl_804D6650->models[2], 0,
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 0), 0, 0x1A, 2, 1, fn_80191CA4, 0.0f);
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 6), 0, 0x1A, 2, 1, fn_8019237C, 0.0f);
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 10), 0, 0x1A, 2, 1, fn_8019249C, 0.0f);
+    HSD_JObjSetFlagsAll((HSD_JObj*) fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 2), 0,
                                                 0x1A, 2, 1, fn_80192758, 0.0f)
                             ->hsd_obj,
                         JOBJ_HIDDEN);
 
     for (i = 0; i < 0x40; i++) {
-        gobj = fn_8019035C(1, lbl_804D6650->models[8], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 8), 0, 0x1A, 2, 1,
                            fn_80191D38, 0.0f);
         fn_8018FDC4((HSD_JObj*) gobj->hsd_obj, -12.300001f, 12.800008f,
                     666.0f);
         fn_8018FBD8((void*) gobj, i);
 
-        gobj = fn_8019035C(1, lbl_804D6650->models[3], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 3), 0, 0x1A, 2, 1,
                            fn_80191E9C, 0.0f);
         jobj = (HSD_JObj*) gobj->hsd_obj;
         HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -1363,7 +1363,7 @@ void fn_80192E6C(void)
 
     for (j = 0; j <= 0x19; j++) {
         new_var2 = (f32) j;
-        gobj = fn_8019035C(1, lbl_804D6650->models[9], 0, 0x1A, 2, 1,
+        gobj = fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 9), 0, 0x1A, 2, 1,
                            fn_80191FD4, new_var2);
         jobj = gobj->hsd_obj;
         new_var3 = jobj;
@@ -1377,7 +1377,7 @@ void fn_80192E6C(void)
         fn_8018FBD8((void*) gobj, j);
     }
 
-    fn_8019035C(1, lbl_804D6650->models[1], 0, 0x1A, 2, 1, fn_80192690, 0.0f);
+    fn_8019035C(1, GM_SCENE_MODEL(lbl_804D6650, 1), 0, 0x1A, 2, 1, fn_80192690, 0.0f);
 }
 
 #ifdef MUST_MATCH
@@ -1390,12 +1390,12 @@ void fn_80193230(void)
     HSD_Fog* fog;
     PAD_STACK(4);
 
-    fn_8019035C(0, lbl_804D664C->models[5], 0, 0x1A, 2, 1, fn_801910E0, 0.0F);
-    fn_8019035C(0, lbl_804D664C->models[4], 0, 0x1A, 2, 1, fn_80191154, 0.0F);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D664C, 5), 0, 0x1A, 2, 1, fn_801910E0, 0.0F);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D664C, 4), 0, 0x1A, 2, 1, fn_80191154, 0.0F);
     fn_80192BB0();
     fn_80192E6C();
     gobj = GObj_Create(0xE, 0x1A, 0);
-    fog = HSD_FogLoadDesc(lbl_804D664C->fogs[0].desc);
+    fog = HSD_FogLoadDesc(DP(HSD_FogDesc, GM_SCENE_FOG(lbl_804D664C)[0].desc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_FogKind, fog);
     GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 0, 0);
 }
@@ -1517,15 +1517,15 @@ void fn_801935B8(void)
     table = &lbl_803D9F80;
     tm = gm_GetTournamentData();
     fn_8018FBE0(0, 0, 0, 5, 5, 0x3e7, 3);
-    fn_801902F0((s32) fn_80190174(lbl_804D664C->cameras->desc));
+    fn_801902F0((s32) fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D664C)->desc)));
     fn_80193308();
-    fn_8019027C(lbl_804D664C->lights);
-    fn_8019035C(0, lbl_804D664C->models[5], 0, 0x1A, 2, 1, fn_801910E0, 0.0f);
-    fn_8019035C(0, lbl_804D664C->models[4], 0, 0x1A, 2, 1, fn_80191154, 0.0f);
+    fn_8019027C(GM_SCENE_LIGHTS(lbl_804D664C));
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D664C, 5), 0, 0x1A, 2, 1, fn_801910E0, 0.0f);
+    fn_8019035C(0, GM_SCENE_MODEL(lbl_804D664C, 4), 0, 0x1A, 2, 1, fn_80191154, 0.0f);
     fn_80192BB0();
     fn_80192E6C();
     gobj = GObj_Create(0xE, 0x1A, 0);
-    fog = HSD_FogLoadDesc(lbl_804D664C->fogs[0].desc);
+    fog = HSD_FogLoadDesc(DP(HSD_FogDesc, GM_SCENE_FOG(lbl_804D664C)[0].desc));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_FogKind, fog);
     GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 0, 0);
 

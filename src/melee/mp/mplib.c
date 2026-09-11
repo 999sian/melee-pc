@@ -805,7 +805,7 @@ static struct mpLib_803BF248_t mpLib_803BF248[0x47] = {
     { Gr_Kind_Figure3, &mpLib_803BF1F8 },
 };
 
-extern Vec2 mpLib_803BF718[2];
+extern DiscVec2 mpLib_803BF718[2];
 extern MapLine mpLib_803BF728;
 extern MapJoint mpLib_803BF738;
 extern MapCollData mpLib_803BF760;
@@ -833,17 +833,17 @@ CollJoint* mpGetGroundCollJoint(void)
 void mpPruneEmptyLines(MapCollData* coll_data)
 {
     MapLine* line;
-    Vec2* verts = coll_data->verts;
+    DiscVec2* verts = DP(DiscVec2, coll_data->verts);
     int i;
 
     if (stage_info.grkind == Gr_Kind_Pura) {
         return;
     }
 
-    line = coll_data->lines;
+    line = DP(MapLine, coll_data->lines);
     for (i = 0; i < coll_data->line_count; i++, line++) {
-        Vec2* v0 = &verts[line->v0_idx];
-        Vec2* v1 = &verts[line->v1_idx];
+        DiscVec2* v0 = &verts[line->v0_idx];
+        DiscVec2* v1 = &verts[line->v1_idx];
         MapLine* other;
         int j;
 
@@ -851,7 +851,7 @@ void mpPruneEmptyLines(MapCollData* coll_data)
             continue;
         }
 
-        other = coll_data->lines;
+        other = DP(MapLine, coll_data->lines);
         for (j = 0; j < coll_data->line_count; j++, other++) {
             if (other->prev_id0 == i) {
                 other->prev_id0 = line->prev_id0;
@@ -906,6 +906,10 @@ void mpLibLoad(MapCollData* coll_data)
     HSD_ASSERT(414, groundCollJoint);
     grDynamicAttr_801CA0B4();
     if (coll_data == NULL) {
+        /* DISC_PTR slots cannot be statically initialised. */
+        DP_SET(mpLib_803BF760.verts, mpLib_803BF718);
+        DP_SET(mpLib_803BF760.lines, &mpLib_803BF728);
+        DP_SET(mpLib_803BF760.joints, &mpLib_803BF738);
         coll_data = &mpLib_803BF760;
     }
     f31 = Ground_801C0498();
@@ -915,12 +919,12 @@ void mpLibLoad(MapCollData* coll_data)
     mpLib_80458868[0].bottom = -F32_MAX;
     for (i = 0; i < coll_data->joint_count; i++) {
         joint = &groundCollJoint[i];
-        joint->inner = &coll_data->joints[i];
+        joint->inner = DP(MapJoint, coll_data->joints) + i;
         joint->flags = CollJoint_Enabled;
-        joint->bounding_min.x = f31 * coll_data->joints[i].left_bound;
-        joint->bounding_min.y = f31 * coll_data->joints[i].bottom_bound;
-        joint->bounding_max.x = f31 * coll_data->joints[i].right_bound;
-        joint->bounding_max.y = f31 * coll_data->joints[i].top_bound;
+        joint->bounding_min.x = f31 * DP(MapJoint, coll_data->joints)[i].left_bound;
+        joint->bounding_min.y = f31 * DP(MapJoint, coll_data->joints)[i].bottom_bound;
+        joint->bounding_max.x = f31 * DP(MapJoint, coll_data->joints)[i].right_bound;
+        joint->bounding_max.y = f31 * DP(MapJoint, coll_data->joints)[i].top_bound;
         joint->x20 = NULL;
         joint->cb_data_0 = NULL;
         joint->cb_0 = NULL;
@@ -942,8 +946,8 @@ void mpLibLoad(MapCollData* coll_data)
     floor_start = coll_data->floor_start;
     for (; floor_count > 0; floor_count--) {
         groundCollLine[floor_start].flags =
-            coll_data->lines[floor_start].hi_flags | LINE_FLAG_ENABLED;
-        groundCollLine[floor_start].x0 = &coll_data->lines[floor_start];
+            DP(MapLine, coll_data->lines)[floor_start].hi_flags | LINE_FLAG_ENABLED;
+        groundCollLine[floor_start].x0 = DP(MapLine, coll_data->lines) + floor_start;
         floor_start++;
     }
 
@@ -951,8 +955,8 @@ void mpLibLoad(MapCollData* coll_data)
     ceiling_start = coll_data->ceiling_start;
     for (; ceiling_count > 0; ceiling_count--) {
         groundCollLine[ceiling_start].flags =
-            coll_data->lines[ceiling_start].hi_flags | LINE_FLAG_ENABLED;
-        groundCollLine[ceiling_start].x0 = &coll_data->lines[ceiling_start];
+            DP(MapLine, coll_data->lines)[ceiling_start].hi_flags | LINE_FLAG_ENABLED;
+        groundCollLine[ceiling_start].x0 = DP(MapLine, coll_data->lines) + ceiling_start;
         ceiling_start++;
     }
 
@@ -960,9 +964,9 @@ void mpLibLoad(MapCollData* coll_data)
     right_wall_start = coll_data->right_wall_start;
     for (; right_wall_count > 0; right_wall_count--) {
         groundCollLine[right_wall_start].flags =
-            coll_data->lines[right_wall_start].hi_flags | LINE_FLAG_ENABLED;
+            DP(MapLine, coll_data->lines)[right_wall_start].hi_flags | LINE_FLAG_ENABLED;
         groundCollLine[right_wall_start].x0 =
-            &coll_data->lines[right_wall_start];
+            DP(MapLine, coll_data->lines) + right_wall_start;
         right_wall_start++;
     }
 
@@ -970,9 +974,9 @@ void mpLibLoad(MapCollData* coll_data)
     left_wall_start = coll_data->left_wall_start;
     for (; left_wall_count > 0; left_wall_count--) {
         groundCollLine[left_wall_start].flags =
-            coll_data->lines[left_wall_start].hi_flags | LINE_FLAG_ENABLED;
+            DP(MapLine, coll_data->lines)[left_wall_start].hi_flags | LINE_FLAG_ENABLED;
         groundCollLine[left_wall_start].x0 =
-            &coll_data->lines[left_wall_start];
+            DP(MapLine, coll_data->lines) + left_wall_start;
         left_wall_start++;
     }
 
@@ -980,19 +984,19 @@ void mpLibLoad(MapCollData* coll_data)
     dynamic_start = coll_data->dynamic_start;
     for (; dynamic_count > 0; dynamic_count--) {
         groundCollLine[dynamic_start].flags =
-            coll_data->lines[dynamic_start].hi_flags | LINE_FLAG_ENABLED;
-        groundCollLine[dynamic_start].x0 = &coll_data->lines[dynamic_start];
+            DP(MapLine, coll_data->lines)[dynamic_start].hi_flags | LINE_FLAG_ENABLED;
+        groundCollLine[dynamic_start].x0 = DP(MapLine, coll_data->lines) + dynamic_start;
         dynamic_start++;
     }
 
     i = 0;
     while (i < coll_data->vert_count) {
-        f0 = coll_data->verts[i].x;
+        f0 = DP(DiscVec2, coll_data->verts)[i].x;
         f2 = f31 * f0;
         groundCollVtx[i].x0 = f0;
         groundCollVtx[i].pos.x = f2;
         groundCollVtx[i].x10 = f2;
-        f0 = coll_data->verts[i].y;
+        f0 = DP(DiscVec2, coll_data->verts)[i].y;
         f1 = f31 * f0;
         groundCollVtx[i].x4 = f0;
         groundCollVtx[i].pos.y = f1;
@@ -4495,8 +4499,7 @@ void mpLib_80054D68(int line_id, u32 flags)
     LINEID_CHECK(4595, line_id);
     {
         MapLine* line = groundCollLine[line_id].x0;
-        u16* old_flags = &line->lo_flags;
-        *old_flags = (*old_flags & ~0xFF) | flags;
+        line->lo_flags = (line->lo_flags & ~0xFF) | flags;
     }
 }
 
@@ -6976,15 +6979,15 @@ void mpLib_8005A2DC(void)
     HSD_StateInvalidate(-1);
 }
 
-Vec2 mpLib_803BF718[2] = { { -1.0F, -400.0F }, { 1.0F, -400.0F } };
+DiscVec2 mpLib_803BF718[2] = { { -1.0F, -400.0F }, { 1.0F, -400.0F } };
 MapLine mpLib_803BF728 = { 0, 1, -1, -1, -1, -1, 1, 0 };
 MapJoint mpLib_803BF738 = {
     0, 1, 0, 0, 0, 0, 0, 0, 0, 0, -9.0F, -408.0F, 9.0F, -392.0F, 0, 2,
 };
 MapCollData mpLib_803BF760 = {
-    /*  +0 */ mpLib_803BF718,
+    /*  +0 */ 0, /* linked at runtime in mpLibLoad */
     /*  +4 */ 2,
-    /*  +8 */ &mpLib_803BF728,
+    /*  +8 */ 0,
     /*  +C */ 0x00000001,
     /* +10 */ 0,
     /* +12 */ 1,
@@ -6996,7 +6999,7 @@ MapCollData mpLib_803BF760 = {
     /* +1E */ 0,
     /* +20 */ 0,
     /* +22 */ 0,
-    /* +24 */ &mpLib_803BF738,
+    /* +24 */ 0,
     /* +28 */ 0x00000001,
     /* +2C */ 0x00000000,
 };

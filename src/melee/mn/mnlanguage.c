@@ -167,11 +167,12 @@ void mnLanguage_8024C3C4(HSD_GObj* arg0)
 
     gobj = GObj_Create(HSD_GOBJ_CLASS_ITEM, 7, MOBJ_MASK);
     mn_gobj = gobj;
-    jobj = HSD_JObjLoadJoint(model_desc.joint);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model_desc.joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, MOBJ_MASK);
-    HSD_JObjAddAnimAll(jobj, model_desc.animjoint, model_desc.matanim_joint,
-                       model_desc.shapeanim_joint);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, model_desc.animjoint),
+                       DP(HSD_MatAnimJoint, model_desc.matanim_joint),
+                       DP(HSD_ShapeAnimJoint, model_desc.shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
     user_data = HSD_MemAlloc(sizeof(*user_data));
@@ -213,11 +214,18 @@ void mnLanguage_8024C5C0(HSD_GObj* gobj)
     mn_804A04F0.cur_menu = 23;
     mn_804A04F0.hovered_selection = 0;
     archive = mn_804D6BB8;
-    lbArchive_LoadSections(
-        archive, (void**) &model_desc.joint, "MenMainConLa_Top_joint",
-        &model_desc.animjoint, "MenMainConLa_Top_animjoint",
-        &model_desc.matanim_joint, "MenMainConLa_Top_matanim_joint",
-        &model_desc.shapeanim_joint, "MenMainConLa_Top_shapeanim_joint", 0);
+    {
+        void* dp_[4];
+        lbArchive_LoadSections(
+            archive, &dp_[0], "MenMainConLa_Top_joint",
+            &dp_[1], "MenMainConLa_Top_animjoint",
+            &dp_[2], "MenMainConLa_Top_matanim_joint",
+            &dp_[3], "MenMainConLa_Top_shapeanim_joint", 0);
+        DP_SET(model_desc.joint, dp_[0]);
+        DP_SET(model_desc.animjoint, dp_[1]);
+        DP_SET(model_desc.matanim_joint, dp_[2]);
+        DP_SET(model_desc.shapeanim_joint, dp_[3]);
+    }
     mnLanguage_8024C3C4(gobj);
     gobjproc =
         HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80), mnLanguage_8024BFE0, 0);

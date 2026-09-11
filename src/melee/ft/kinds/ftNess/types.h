@@ -103,7 +103,7 @@ union ftNess_MotionVars {
 
 /// Special Attributes
 
-typedef struct ftNessAttributes {
+typedef struct DISC_STRUCT ftNessAttributes {
     // Neutral Special - PK Flash
     s32 x0_PKFLASH_TIMER1_LOOPFRAMES;
     s32 x4_PKFLASH_TIMER2_LOOPFRAMES;

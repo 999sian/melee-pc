@@ -61,16 +61,21 @@ const struct lbl_803B7C80_t {
     30, -20, 15, -12, 10, -8, 6, -4, 2, 1,
 };
 
-/* 3B7CA8 */ static const HSD_CameraDescPerspective lbl_803B7CA8 = {
-    NULL,
+/* 3B7CA8 */ static HSD_CameraDescPerspective lbl_803B7CA8 = {
+    0,
     0,
     PROJ_PERSPECTIVE,
     { 0, 640, 0, 480 },
     { 0, 640, 0, 480 },
+#ifndef TARGET_PC
     &lbl_803D9DF4,
     &lbl_803D9E08,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     30000.0f,
     60.0f,
@@ -1685,6 +1690,10 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
     PAD_STACK(16);
 
     cam = lbl_803B7CA8;
+#ifdef TARGET_PC
+    DP_SET(cam.eyepos, &lbl_803D9DF4);
+    DP_SET(cam.interest, &lbl_803D9E08);
+#endif
 
     while ((tmp = HSD_GObjPLinkHead[27]) != NULL) {
         HSD_GObjFree(tmp);
@@ -1779,7 +1788,7 @@ void fn_8018E85C(DynamicModelDesc* model, s32 flag)
             gobj = GObj_Create(0xE, 0x1B, 0);
             *(HSD_GObj**) (sub + 0x2C) = gobj;
             gobj = *(HSD_GObj**) (sub + 0x2C);
-            jobj = HSD_JObjLoadJoint(model->joint);
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 2);
             gm_8016895C(jobj, model, 0);
@@ -2565,7 +2574,7 @@ HSD_GObj* fn_8019035C(bool arg0, DynamicModelDesc* model, int arg2, int arg3,
                       int arg4, bool arg5, void (*arg6)(HSD_GObj*), f32 arg8)
 {
     HSD_GObj* gobj = GObj_Create(0xE, arg3, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(model->joint);
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, arg4, 0);
     if (arg6 != NULL) {
@@ -2616,8 +2625,8 @@ void fn_80190480(float arg8)
 void fn_801904D0(void)
 {
     struct lbl_803D9DD0_t* tmp = &lbl_803D9DD0;
-    HSD_CObjSetInterest(tmp->cobj, &lbl_803D9E08.pos);
-    HSD_CObjSetEyePosition(tmp->cobj, &lbl_803D9DF4.pos);
+    HSD_CObjSetInterest(tmp->cobj, (Vec3*) &lbl_803D9E08.pos);
+    HSD_CObjSetEyePosition(tmp->cobj, (Vec3*) &lbl_803D9DF4.pos);
 }
 
 #ifdef MUST_MATCH
@@ -2631,8 +2640,8 @@ void fn_80190520(f32 x, f32 y, f32 z)
 
     if (((s32) x == 0) && ((s32) y == 0) && ((s32) z == 0)) {
         struct lbl_803D9DD0_t* tmp = &lbl_803D9DD0;
-        HSD_CObjSetInterest(tmp->cobj, &lbl_803D9E08.pos);
-        HSD_CObjSetEyePosition(tmp->cobj, &lbl_803D9DF4.pos);
+        HSD_CObjSetInterest(tmp->cobj, (Vec3*) &lbl_803D9E08.pos);
+        HSD_CObjSetEyePosition(tmp->cobj, (Vec3*) &lbl_803D9DF4.pos);
         return;
     } else {
         struct lbl_803D9DD0_t* tmp = &lbl_803D9DD0;

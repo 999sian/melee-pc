@@ -85,7 +85,7 @@ bool it_802E5AC4(Item_GObj* item_gobj, bool arg_check)
     item = GET_ITEM(item_gobj);
     coll_data = &item->x378_itemColl;
     comm_attr = item->xCC_item_attr;
-    spec_attr = item->xC4_article_data->x4_specialAttributes;
+    spec_attr = DP(it_2E5A_Attrs, item->xC4_article_data->x4_specialAttributes);
     it_80276214(item_gobj);
     coll_data->cur_pos.y -= item->xC1C.bottom;
     check1 = mpColl_80048844(coll_data);
@@ -263,7 +263,7 @@ static inline void it_802E614C(Item_GObj* parent_gobj1,
 s32 it_802E61C4(Item_GObj* item_gobj, s32 arg1, s32 arg2)
 {
     Item* item = GET_ITEM(item_gobj);
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr = DP(it_2E5A_Attrs, item->xC4_article_data->x4_specialAttributes);
     f32 new_var;
     s32 var_r29;
     f32 temp_f1;
@@ -287,7 +287,7 @@ void it_802E628C(Item_GObj* item_gobj, f32 arg8, f32 arg9)
     f32 temp_f1;
     f32 temp_f0;
     f32 var_f30;
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr = DP(it_2E5A_Attrs, item->xC4_article_data->x4_specialAttributes);
 
     temp_f31 = HSD_Randf();
     temp_f1 = M_PI_2;
@@ -319,7 +319,7 @@ static inline void it_802E6380_inline(Item_GObj* item_gobj)
         (item->xDD4_itemVar.it_2E5A.x18.b1 = 0);
 
     if (item->xDD4_itemVar.it_2E5A.x8 != 0) {
-        it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+        it_2E5A_Attrs* attr = DP(it_2E5A_Attrs, item->xC4_article_data->x4_specialAttributes);
         it_2E5A_SubVars* sub = &item->xDD4_itemVar.it_2E5A.sub;
         sub->x4 = GET_JOBJ(item_gobj);
         sub->x0 = (0.003906f * attr->x28) / item->scl;
@@ -337,11 +337,12 @@ static inline s32 it_802E6380_tier(Item_GObj* item_gobj, it_2E5A_Attrs* attr,
 {
     // NOTE: tiers[0].ecb[9] should be tiers[1].threshold, but writing it
     // that way produces different asm offsets
+    // ponytail: PC reads the big-endian field directly; the s32* alias would
+    // bypass the byte swap.
     s32 off = 2;
-    s32* tier_thresholds = (s32*) &attr->tiers[0].ecb;
     if (arg1->xC < attr->tiers[2].threshold) {
         off = 1;
-        if (arg1->xC < tier_thresholds[9]) {
+        if (arg1->xC < attr->tiers[1].threshold) {
             off = 0;
         }
     }
@@ -351,7 +352,7 @@ static inline s32 it_802E6380_tier(Item_GObj* item_gobj, it_2E5A_Attrs* attr,
 s32 it_802E6380(Item_GObj* item_gobj, it_802E5FXX_struct* arg1)
 {
     Item* item = GET_ITEM(item_gobj);
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr = DP(it_2E5A_Attrs, item->xC4_article_data->x4_specialAttributes);
     s32 off = it_802E6380_tier(item_gobj, attr, arg1);
     PAD_STACK(8);
 
@@ -373,10 +374,11 @@ s32 it_802E6380(Item_GObj* item_gobj, it_802E5FXX_struct* arg1)
 
     {
         s32 tier_idx = off;
+        itECB ecb = itECB_FromDisc(&attr->tiers[tier_idx].ecb);
         item->xD84 = attr->tiers[tier_idx].xD84_value;
         item->scl = attr->tiers[tier_idx].scale;
-        it_80273318(item_gobj, attr->tiers[tier_idx].joint);
-        it_80275D5C(item_gobj, &attr->tiers[tier_idx].ecb);
+        it_80273318(item_gobj, DP(HSD_Joint, attr->tiers[tier_idx].joint));
+        it_80275D5C(item_gobj, &ecb);
     }
 
     item->xC0C = item->xC1C;
@@ -435,7 +437,7 @@ static inline void it_2E5A_ApplyStateDesc(HSD_GObj* item_gobj, int idx)
 {
     Item* item = item_gobj->user_data;
     HSD_JObj* item_jobj = item_gobj->hsd_obj;
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr = DP(it_2E5A_Attrs, item->xC4_article_data->x4_specialAttributes);
     item->xD0_itemStateDesc = (ItemStateDesc*) &attr->tiers[idx].anim_joint;
     Item_80268D34(item_gobj, item->xD0_itemStateDesc);
     HSD_JObjAnimAll(item_jobj);

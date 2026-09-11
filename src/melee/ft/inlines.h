@@ -21,7 +21,7 @@
 #define PUSH_ATTRS(fp, attributeName)                                         \
     do {                                                                      \
         void* backup = (fp)->dat_attrs_backup;                                \
-        attributeName* src = (attributeName*) (fp)->ft_data->ext_attr;        \
+        attributeName* src = DP(attributeName, (fp)->ft_data->ext_attr);      \
         void** da = &(fp)->dat_attrs;                                         \
         *(attributeName*) (fp)->dat_attrs_backup = *src;                      \
         *da = backup;                                                         \
@@ -31,7 +31,7 @@
 #define COPY_ATTRS(gobj, attributeName)                                       \
     Fighter* fp = GET_FIGHTER(gobj);                                          \
     attributeName* sA2 = (attributeName*) fp->dat_attrs;                      \
-    attributeName* ext_attr = (attributeName*) fp->ft_data->ext_attr;         \
+    attributeName* ext_attr = DP(attributeName, fp->ft_data->ext_attr);       \
     *sA2 = *ext_attr;
 
 #ifdef M2C
