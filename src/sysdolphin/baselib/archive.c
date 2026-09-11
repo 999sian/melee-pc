@@ -7,11 +7,13 @@
 static inline void Locate(HSD_Archive* archive)
 {
     u32 i;
-    u32* ptr;
+    DiscU32* ptr;
 
+    /* Pointer slots stay big-endian in the archive image and hold absolute
+     * host addresses (the image lives below 4GB, see pc/disc.h). */
     for (i = 0; i < archive->header.nb_reloc; i++) {
-        ptr = (u32*) (archive->data + archive->reloc_info[i].offset);
-        *ptr += (u32) archive->data;
+        ptr = (DiscU32*) (archive->data + archive->reloc_info[i].offset);
+        ptr->v += (u32) (uintptr_t) archive->data;
     }
 }
 
@@ -115,8 +117,9 @@ void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbols,
     }
 
     while (offset != -1U && offset < archive->header.data_size) {
-        next = *(uintptr_t*) ((uintptr_t) archive->data + offset);
-        *(u32*) ((uintptr_t) archive->data + offset) = (uintptr_t) addr;
+        DiscU32* slot = (DiscU32*) ((uintptr_t) archive->data + offset);
+        next = slot->v;
+        DP_SET(slot->v, addr);
         offset = next;
     }
 }

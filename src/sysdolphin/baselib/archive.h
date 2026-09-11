@@ -7,7 +7,8 @@
 
 #define HSD_ARCHIVE_DONT_FREE 1
 
-struct HSD_ArchiveHeader {
+/* On-disc header and tables: big-endian, read in place. */
+struct DISC_STRUCT HSD_ArchiveHeader {
     u32 file_size; /* 0x00 */
     u32 data_size; /* 0x04 */
     u32 nb_reloc;  /* 0x08 */
@@ -18,16 +19,16 @@ struct HSD_ArchiveHeader {
 };
 ASSERT_SIZE(struct HSD_ArchiveHeader, 0x20);
 
-struct HSD_ArchiveRelocationInfo {
+struct DISC_STRUCT HSD_ArchiveRelocationInfo {
     u32 offset;
 };
 
-struct HSD_ArchivePublicInfo {
+struct DISC_STRUCT HSD_ArchivePublicInfo {
     u32 offset; /* 0x00 */
     u32 symbol; /* 0x04 */
 };
 
-struct HSD_ArchiveExternInfo {
+struct DISC_STRUCT HSD_ArchiveExternInfo {
     u32 offset; /* 0x00 */
     u32 symbol; /* 0x04 */
 };

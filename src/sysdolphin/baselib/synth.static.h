@@ -52,7 +52,7 @@ static struct {
     /* 08 */ void (*x8)(int, int);
     /* 0C */ int xC;
 } HSD_Synth_804C2A60[6];
-static u32 hsd_SynthSFXLoadBuf[0x20 / 4];
+static DiscU32 hsd_SynthSFXLoadBuf[0x20 / 4]; /* raw SSM header, big-endian */
 static AXVPB* HSD_Synth_804C2AE0[0x80 / 4];
 static int hsd_SynthSFXBank[0x80 / 4];
 static int hsd_SynthSFXBankHead[0x84 / 4];
