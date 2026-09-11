@@ -498,7 +498,7 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
                    "s0.color a={} b={} c={} d={} s0.alpha a={} b={} c={} d={} "
                    "s0.texMap={} s0.chan={} | chan0 lit={} matSrc={} ambSrc={} "
                    "mat=({:.3f},{:.3f},{:.3f},{:.3f}) amb=({:.3f},{:.3f},{:.3f},{:.3f}) "
-                   "vtxClr0={} clr0fmt cnt={} type={} desc={} | blend={} src={} dst={} op={} alphaUpd={}\n",
+                   "vtxClr0={} clr0fmt cnt={} type={} desc={} | blend={} src={} dst={} op={} alphaUpd={} numChans={} | posDesc={} posCnt={} posType={} arrStride={}\n",
                    n, cache.config.shaderConfig.tevStageCount,
                    c0[0], c0[1], c0[2], c0[3], c1[0], c1[1], c1[2], c1[3],
                    c2[0], c2[1], c2[2], c2[3],
@@ -525,7 +525,11 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
                    underlying(state.vtxDesc[GX_VA_CLR0]),
                    underlying(state.blendMode), underlying(state.blendFacSrc),
                    underlying(state.blendFacDst), underlying(state.blendOp),
-                   state.alphaUpdate);
+                   state.alphaUpdate, state.numChans,
+                   underlying(state.vtxDesc[GX_VA_POS]),
+                   underlying(state.vtxFmts[fmt].attrs[GX_VA_POS].cnt),
+                   underlying(state.vtxFmts[fmt].attrs[GX_VA_POS].type),
+                   state.arrays[GX_VA_POS].stride);
       }
     }
   }
