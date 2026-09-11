@@ -6,6 +6,10 @@
  *       separate for now. Also I dont know if anyone cares as long
  *       as it matches lol.
  */
+#include <stdio.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <stdlib.h>
 #include "eflib.h"
 
 #include <math.h>
@@ -436,6 +440,29 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
     EF_EffectDesc* desc;
     u8 p_link;
 
+    /* Effect diagnostics:
+     *   MELEE_EF_LOG=1     report each distinct gfx_id the first time it spawns
+     *   MELEE_EF_SKIP=a-b  do not spawn effects with gfx_id in [a,b]
+     * Used to bisect which effect draws the untextured white quad. */
+    {
+        const char* skip = getenv("MELEE_EF_SKIP");
+        if (getenv("MELEE_EF_LOG") != NULL) {
+            static u8 seen[16384];
+            if (gfx_id >= 0 && gfx_id < (int) sizeof(seen) && !seen[gfx_id]) {
+                seen[gfx_id] = 1;
+                OSReport("ef: gfx_id %d (0x%X)\n", gfx_id, gfx_id);
+            }
+        }
+        if (skip != NULL) {
+            int lo = 0, hi = 0;
+            if (sscanf(skip, "%d-%d", &lo, &hi) == 2 && gfx_id >= lo &&
+                gfx_id <= hi)
+            {
+                return NULL;
+            }
+        }
+    }
+
     desc = &((EF_EffectDesc*) efAsync_DatEntries[gfx_id / 1000]
                  .data)[gfx_id % 1000];
 
@@ -499,6 +526,32 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
         if (jobj == NULL) {
             HSD_GObjFree(effect->gobj);
             return NULL;
+        }
+        /* MELEE_EF_MAT=<id>: dump the material/texture state of one effect,
+         * to see why it draws as an untextured white quad. */
+        {
+            const char* want = getenv("MELEE_EF_MAT");
+            if (want != NULL && atoi(want) == gfx_id) {
+                HSD_DObj* dobj;
+                for (dobj = jobj->u.dobj; dobj != NULL; dobj = dobj->next) {
+                    HSD_MObj* m = dobj->mobj;
+                    HSD_TObj* t = (m != NULL) ? m->tobj : NULL;
+                    OSReport("ef%d: dobj mobj=%p rendermode=%08x tobj=%p\n",
+                             gfx_id, (void*) m,
+                             (m != NULL) ? m->rendermode : 0u, (void*) t);
+                    for (; t != NULL; t = t->next) {
+                        OSReport("  tobj id=%d flags=%08x imagedesc=%p tlut=%p\n",
+                                 t->id, t->flags, (void*) t->imagedesc,
+                                 (void*) t->tlut);
+                        if (t->imagedesc != NULL) {
+                            OSReport("    image ptr=%08x %ux%u fmt=%d\n",
+                                     t->imagedesc->image_ptr,
+                                     t->imagedesc->width, t->imagedesc->height,
+                                     t->imagedesc->format);
+                        }
+                    }
+                }
+            }
         }
         {
             u8 kind = HSD_GObj_JObjKind;
