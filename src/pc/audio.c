@@ -16,6 +16,7 @@
  * ponytail: no aux (reverb/chorus) busses and no ITD; dry stereo only.
  */
 #include <dolphin/ai.h>
+#include "pc/pc.h"
 #include <dolphin/ar.h>
 #include <dolphin/ax.h>
 #include <dolphin/axfx.h>
@@ -371,6 +372,35 @@ void AXSetVoiceAddr(AXVPB* p, AXPBADDR* addr)
     v->loop_addr = addr32(be16(addr->loopAddressHi), be16(addr->loopAddressLo));
     v->end_addr = addr32(be16(addr->endAddressHi), be16(addr->endAddressLo));
     v->cur_addr = addr32(be16(addr->currentAddressHi), be16(addr->currentAddressLo));
+
+    /* Every voice address is treated as an ARAM offset by next_sample(), which
+     * indexes s_aram[cur_addr >> 1]. A voice whose samples are NOT in ARAM
+     * would read outside that buffer and fall silent -- which is the shape of
+     * "some sound effects don't play". Report any address past the end of
+     * ARAM (nibble-addressed, so the limit is 2x the byte size). */
+    {
+        static int log_cached = -1;
+        const u32 limit = (u32) (PC_ARAM_SIZE * 2u);
+
+        if (log_cached < 0) {
+            log_cached = getenv("MELEE_AUDIO_ADDR") != NULL;
+        }
+        if (v->end_addr > limit || v->cur_addr > limit) {
+            static unsigned long bad;
+            if (log_cached || ++bad <= 4) {
+                fprintf(stderr,
+                        "audio: voice addr outside ARAM: cur=%u end=%u"
+                        " limit=%u\n",
+                        v->cur_addr, v->end_addr, limit);
+            }
+        } else if (log_cached) {
+            static unsigned long ok;
+            if (++ok <= 4 || ok % 200 == 0) {
+                fprintf(stderr, "audio: voice addr ok: cur=%u end=%u (%lu)\n",
+                        v->cur_addr, v->end_addr, ok);
+            }
+        }
+    }
     set_addr(&dst->loopAddressHi, &dst->loopAddressLo, v->loop_addr);
     set_addr(&dst->endAddressHi, &dst->endAddressLo, v->end_addr);
     set_addr(&dst->currentAddressHi, &dst->currentAddressLo, v->cur_addr);
