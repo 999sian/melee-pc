@@ -175,10 +175,30 @@ static void render_frame(float* out)
     if (s_frame_callback) {
         s_frame_callback();
     }
+    int n_used = 0, n_running = 0, n_zero_mix = 0;
     for (int i = 0; i < AX_VOICES; i++) {
         Voice* v = &s_voices[i];
+        if (v->used) {
+            n_used++;
+        }
         if (v->used && v->vpb.pb.state == 1) {
+            n_running++;
+            if (v->vpb.pb.mix.vL == 0 && v->vpb.pb.mix.vR == 0) {
+                n_zero_mix++;
+            }
             mix_voice(v, out);
+        }
+    }
+    /* MELEE_AUDIO_STATS=1: voice census against the output clock, so a
+     * silent stretch in MELEE_AUDIO_DUMP can be explained -- were there no
+     * voices, were they all stopped, or were they running at zero volume? */
+    if (getenv("MELEE_AUDIO_STATS") != NULL) {
+        static unsigned long frames;
+        frames++;
+        if ((frames % 100) == 0) { /* every 100 * 5ms = 0.5s of output */
+            fprintf(stderr, "voices t=%.1fs used=%d running=%d zero_mix=%d\n",
+                    frames * (double) AX_FRAME / AX_RATE, n_used, n_running,
+                    n_zero_mix);
         }
     }
     OSRestoreInterrupts(intr);
