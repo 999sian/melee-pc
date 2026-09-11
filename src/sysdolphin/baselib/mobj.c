@@ -250,13 +250,13 @@ HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
         if ((tobj_2->flags & (TEX_LIGHTMAP_DIFFUSE | TEX_LIGHTMAP_AMBIENT)) &&
             tobj_2->id != GX_TEXMAP_NULL)
         {
+            pc_texp_tex_requested++;
             HSD_TOBJ_METHOD(tobj_2)->make_texp(
                 tobj_2, (TEX_LIGHTMAP_DIFFUSE | TEX_LIGHTMAP_AMBIENT), done,
                 &diff, &alpha, list);
         }
     }
     done |= (TEX_LIGHTMAP_DIFFUSE | TEX_LIGHTMAP_AMBIENT);
-
     if (mobj->rendermode & RENDER_DIFFUSE) {
         exp_2 = HSD_TExpTev(list);
         if (toon != NULL) {
@@ -295,6 +295,7 @@ HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
             if ((tobj_3->flags & TEX_LIGHTMAP_SPECULAR) &&
                 tobj_3->id != GX_TEXMAP_NULL)
             {
+                pc_texp_tex_requested++;
                 HSD_TOBJ_METHOD(tobj_3)->make_texp(
                     tobj_3, TEX_LIGHTMAP_SPECULAR, done, &spec, &alpha, list);
             }
@@ -317,44 +318,33 @@ HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
         diff = exp_3;
     }
 
-    /* MELEE_TEX_FLAGS=1: report the first few calls (not a modulo, which
-     * silently prints nothing when there are few calls) plus the tobj
-     * lightmap bits, since every texture application above is gated on them. */
-    if (getenv("MELEE_TEX_FLAGS") != NULL) {
-        static unsigned long calls, with_lm, without_lm;
-        HSD_TObj* t;
-        calls++;
-        for (t = tobj_top; t != NULL; t = t->next) {
-            if (tobj_lightmap(t)) {
-                with_lm++;
-            } else {
-                without_lm++;
-            }
-        }
-        if (calls <= 8 || (calls % 500) == 0) {
-            /* Which lightmap bits are set decides which loop, if any, turns
-             * this tobj into a texture stage. DIFFUSE|AMBIENT is applied
-             * unconditionally; SPECULAR only when rendermode has
-             * RENDER_SPECULAR; EXT at the end. */
-            HSD_TObj* t2;
-            OSReport("maketexp call=%lu rendermode=%08x diffuse=%d specular=%d\n",
-                     calls, mobj->rendermode,
-                     (mobj->rendermode & RENDER_DIFFUSE) != 0,
-                     (mobj->rendermode & RENDER_SPECULAR) != 0);
-            for (t2 = tobj_top; t2 != NULL; t2 = t2->next) {
-                OSReport("  tobj flags=%08x lm=%08x id=%d coord=%d\n", t2->flags,
-                         tobj_lightmap(t2), t2->id, tobj_coord(t2));
-            }
-        }
-    }
-
     ext = diff;
 
     for (tobj_4 = tobj_top; tobj_4 != NULL; tobj_4 = tobj_4->next) {
         if ((tobj_4->flags & TEX_LIGHTMAP_EXT) && tobj_4->id != GX_TEXMAP_NULL)
         {
+            pc_texp_tex_requested++;
             HSD_TOBJ_METHOD(tobj_4)->make_texp(tobj_4, TEX_LIGHTMAP_EXT, done,
                                                &ext, &alpha, list);
+        }
+    }
+
+    /* MELEE_TEX_FLAGS=1: a material that has a tobj attached yet requested no
+     * texture stage from ANY of the three loops (diffuse/ambient, specular,
+     * ext) is one that will draw flat. Must sit after the ext loop, which is
+     * the last one that can request. */
+    if (getenv("MELEE_TEX_FLAGS") != NULL && pc_texp_tex_requested == 0 &&
+        tobj_top != NULL)
+    {
+        static unsigned long silent;
+        HSD_TObj* t2;
+        if (++silent <= 10) {
+            OSReport("flat-material #%lu rendermode=%08x\n", silent,
+                     mobj->rendermode);
+            for (t2 = tobj_top; t2 != NULL; t2 = t2->next) {
+                OSReport("   tobj flags=%08x lm=%08x id=%d\n", t2->flags,
+                         tobj_lightmap(t2), t2->id);
+            }
         }
     }
 
