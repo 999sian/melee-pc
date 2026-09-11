@@ -108,6 +108,10 @@
 /* 4D6460 */ CmSubject* cm_804D6460;
 /* 4D645C */ CmSubject* cm_804D645C;
 /* 4D6458 */ CmSubject* cm_804D6458;
+/* Native-endian copies of the initial camera interest/eye positions, which
+ * live in disc-layout descriptors (see the note at their use). */
+static Vec3 cm_interest_copy;
+static Vec3 cm_eye_copy;
 
 /// @todo sdata2 order hack
 static inline void camera_sdata2_order(void)
@@ -177,10 +181,21 @@ void Camera_Init(int n_subjects)
     DP_SET(cm_803BCB64.eyepos, &cm_803BCB3C);
     DP_SET(cm_803BCB64.interest, &cm_803BCB50);
 #endif
-    interest_pos = (Vec3*) &DP(HSD_WObjDesc, cm_803BCB64.interest)->pos;
+    /* HSD_WObjDesc::pos is a DiscVec3 -- big-endian floats. Casting it to
+     * Vec3* reads them unswapped, which yields denormals or wild values for
+     * the camera's interest and eye positions. Copy through DISC_VEC3_GET. */
+    {
+        Vec3 interest_v, eye_v;
+
+        DISC_VEC3_GET(interest_v, DP(HSD_WObjDesc, cm_803BCB64.interest)->pos);
+        DISC_VEC3_GET(eye_v, DP(HSD_WObjDesc, cm_803BCB64.eyepos)->pos);
+        cm_interest_copy = interest_v;
+        cm_eye_copy = eye_v;
+    }
+    interest_pos = &cm_interest_copy;
     game_camera.transform.interest = *interest_pos;
     game_camera.transform.target_interest = *interest_pos;
-    eye_pos = (Vec3*) &DP(HSD_WObjDesc, cm_803BCB64.eyepos)->pos;
+    eye_pos = &cm_eye_copy;
     game_camera.transform.position = *eye_pos;
     game_camera.transform.target_position = *eye_pos;
     game_camera.transform.target_fov = cm_803BCB64.fov;

@@ -718,7 +718,12 @@ void ftCo_800D4580(Fighter_GObj* gobj, int arg1)
 
     fp->mv.co.unk_deadup.x40 = datattrs[1];
     fp->mv.co.unk_deadup.x44 = 0;
-    fp->mv.co.unk_deadup.x50 = *(Vec3*) &datattrs[6];
+    /* Upstream reads this through `int* datattrs = &p_ftCommonData->x520`, so
+     * datattrs[6] is the field at 0x520 + 0x18 == x538, a DiscVec3. The port
+     * replaced that pointer with a two-element local array, which turned
+     * index 6 into an out-of-bounds read of stack garbage. Name the field
+     * instead, and copy it byte-swapped like any other disc vector. */
+    DISC_VEC3_GET(fp->mv.co.unk_deadup.x50, p_ftCommonData->x538);
     fp->mv.co.common.x24 = 0.0f;
     fp->mv.co.common.x20 = 0.0f;
     fp->mv.co.common.x1C = 0.0f;

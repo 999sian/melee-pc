@@ -1,4 +1,5 @@
 #include "ftlib.h"
+#include <stdlib.h>
 
 #include <melee/it/forward.h>
 
@@ -341,7 +342,16 @@ void ftLib_800866DC(HSD_GObj* gobj, Vec3* v)
     Fighter* fp = GET_FIGHTER(gobj);
     struct ftCo_DatAttrs* r4 = &fp->co_attrs;
     s32 i = DP(struct ftCo_DatAttrs, fp->ft_data->x0)->camera_zoom_target_bone;
-    lb_8000B1CC(ftLib_80086630(gobj, i), (Vec3*) &r4->x170, v);
+    Vec3 offset;
+
+    /* x170 is a DiscVec3: big-endian floats in disc data. Casting it to Vec3*
+     * hands lb_8000B1CC three byte-swapped floats, which it then adds to a
+     * bone's world position -- that is how camera_box->bone_pos ended up with
+     * a y outside +/-50000 and tripped the assert in lbVector_WorldToScreen
+     * (lbvector.c:384) during a fighter draw. Copy through DISC_VEC3_GET so
+     * the values are byte-swapped on the way out. */
+    DISC_VEC3_GET(offset, r4->x170);
+    lb_8000B1CC(ftLib_80086630(gobj, i), &offset, v);
 }
 
 void ftLib_80086724(HSD_GObj* gobj, HSD_GObj* other)
