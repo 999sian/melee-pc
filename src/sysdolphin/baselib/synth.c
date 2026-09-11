@@ -12,6 +12,19 @@
 #include <dolphin/ar.h>
 #include <dolphin/os.h>
 
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_sfx_stats(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_SFX_STATS") != NULL;
+    }
+    return cached;
+}
+
+
 /* 389334 */ static int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan,
                                            int priority, int itd_flag,
                                            float pitch1, float pitch2,
@@ -613,7 +626,7 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
                 HSD_Synth_804D7750 = 0x40;
             }
             sfx_node->x0 = HSD_Synth_804D7750 + node_idx;
-            if (getenv("MELEE_SFX_STATS") != NULL) {
+            if (pc_dbg_sfx_stats()) {
                 static unsigned long started;
                 started++;
                 if (started <= 3 || (started % 200) == 0) {
@@ -631,7 +644,7 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
      * bucket falls through to here and returns -1 silently -- the sound
      * simply never plays. Count those against successful starts, and name
      * the first few missing ids. */
-    if (getenv("MELEE_SFX_STATS") != NULL) {
+    if (pc_dbg_sfx_stats()) {
         static unsigned long misses;
         misses++;
         if (misses <= 12 || (misses % 200) == 0) {

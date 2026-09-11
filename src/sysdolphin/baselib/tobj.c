@@ -14,6 +14,19 @@
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
 
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_tex_assign(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_TEX_ASSIGN") != NULL;
+    }
+    return cached;
+}
+
+
 #define FLT_EPSILON 1.00000001335e-10F
 
 static void MakeTextureMtx(HSD_TObj* tobj);
@@ -1120,7 +1133,7 @@ s32 HSD_TObjAssignResources(HSD_TObj* tobj_top)
     /* MELEE_TEX_ASSIGN=1: report how many tobjs were forced to
      * GX_TEXMAP_NULL and why. A material whose only tobj is nulled here
      * renders untextured (flat colour) even though it has a texture. */
-    if (getenv("MELEE_TEX_ASSIGN") != NULL) {
+    if (pc_dbg_tex_assign()) {
         static unsigned long nulled_toon, nulled_bump, nulled_limit, assigned;
         HSD_TObj* t;
         for (t = tobj_top; t; t = t->next) {

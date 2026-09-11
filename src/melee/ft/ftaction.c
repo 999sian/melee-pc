@@ -33,6 +33,19 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/random.h>
 
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_sfx_stats(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_SFX_STATS") != NULL;
+    }
+    return cached;
+}
+
+
 /* 07121C */ static void ftAction_8007121C(Fighter_GObj* gobj,
                                            CommandInfo* cmd);
 /* 0715EC */ static void ftAction_800715EC(Fighter_GObj* gobj,
@@ -603,7 +616,7 @@ void ftAction_80071B50(Fighter_GObj* gobj, CommandInfo* cmd)
          * sounds are missing because scripts never reach this, the count
          * stays near zero; if the bytecode is misdecoded, the count is
          * healthy but sfx/vol/pan are nonsense. */
-        if (getenv("MELEE_SFX_STATS") != NULL) {
+        if (pc_dbg_sfx_stats()) {
             static unsigned long hits;
             if (++hits <= 2 || (hits % 25) == 0) {
                 OSReport("ftaction SFX cmd #%lu sfx=%d vol=%d pan=%d behavior=%d\n",

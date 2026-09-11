@@ -36,6 +36,19 @@
 #include <sysdolphin/baselib/psdisp.h>
 #include <sysdolphin/baselib/psstructs.h>
 #include <sysdolphin/baselib/state.h>
+
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_ef_log(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_EF_LOG") != NULL;
+    }
+    return cached;
+}
+
 // externs
 
 extern EF_DAT_Entry efAsync_DatEntries[51];
@@ -445,8 +458,10 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
      *   MELEE_EF_SKIP=a-b  do not spawn effects with gfx_id in [a,b]
      * Used to bisect which effect draws the untextured white quad. */
     {
-        const char* skip = getenv("MELEE_EF_SKIP");
-        if (getenv("MELEE_EF_LOG") != NULL) {
+        static const char* skip;
+        static int skip_done;
+        if (!skip_done) { skip = getenv("MELEE_EF_SKIP"); skip_done = 1; }
+        if (pc_dbg_ef_log()) {
             static u8 seen[16384];
             if (gfx_id >= 0 && gfx_id < (int) sizeof(seen) && !seen[gfx_id]) {
                 seen[gfx_id] = 1;
@@ -530,7 +545,9 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
         /* MELEE_EF_MAT=<id>: dump the material/texture state of one effect,
          * to see why it draws as an untextured white quad. */
         {
-            const char* want = getenv("MELEE_EF_MAT");
+            static const char* want;
+            static int want_done;
+            if (!want_done) { want = getenv("MELEE_EF_MAT"); want_done = 1; }
             if (want != NULL && atoi(want) == gfx_id) {
                 HSD_DObj* dobj;
                 for (dobj = jobj->u.dobj; dobj != NULL; dobj = dobj->next) {

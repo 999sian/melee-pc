@@ -12,6 +12,19 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/random.h>
 
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_sfx_stats(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_SFX_STATS") != NULL;
+    }
+    return cached;
+}
+
+
 #define TEST(expr) (expr) ? true : false
 
 bool ft_800877F8(HSD_GObj* gobj, s32 arg1)
@@ -456,7 +469,7 @@ void ft_80088110(Fighter* fp)
 void ft_PlaySFX(Fighter* fp, enum_t sfx_id, u8 sfx_vol, u8 sfx_pan)
 {
     sfx_id = ft_80087D0C(fp, sfx_id);
-    if (getenv("MELEE_SFX_STATS") != NULL) {
+    if (pc_dbg_sfx_stats()) {
         static unsigned long plays;
         if (++plays <= 2 || (plays % 25) == 0) {
             OSReport("ft_PlaySFX #%lu id=%d\n", plays, (int) sfx_id);

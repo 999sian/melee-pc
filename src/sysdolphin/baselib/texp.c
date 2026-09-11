@@ -9,6 +9,19 @@
 #include "texpdag.h"
 #include "tobj.h"
 
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_tev_tree(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_TEV_TREE") != NULL;
+    }
+    return cached;
+}
+
+
 HSD_TExpType HSD_TExpGetType(HSD_TExp* texp)
 {
     if (texp == NULL) {
@@ -1172,7 +1185,7 @@ void HSD_TExpSetupTev(HSD_TExpTevDesc* tevdesc, HSD_TExp* texp)
     /* MELEE_TEV_TREE=1: count the compiled stages and how many carry a tobj.
      * A stage with no tobj is emitted with map = HSD_TE_UNDEF, i.e. no
      * texture, so a tree of only such stages draws flat colour. */
-    if (getenv("MELEE_TEV_TREE") != NULL) {
+    if (pc_dbg_tev_tree()) {
         static unsigned long calls, stages_total, stages_with_tobj, trees_no_tobj;
         HSD_TExpTevDesc* d;
         unsigned long n = 0, withtex = 0;
@@ -1247,7 +1260,7 @@ int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc,
     }
 
     /* MELEE_TEV_TREE=1: did this tree ask for a texture stage and lose it? */
-    if (getenv("MELEE_TEV_TREE") != NULL) {
+    if (pc_dbg_tev_tree()) {
         extern int pc_texp_tex_requested;
         static unsigned long dropped, kept, never_asked;
         HSD_TExpTevDesc* d;

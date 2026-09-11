@@ -27,6 +27,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_audio_stats(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_AUDIO_STATS") != NULL;
+    }
+    return cached;
+}
+
+
 #define AX_VOICES 64
 #define AX_RATE 32000
 #define AX_FRAME 160 /* 5ms */
@@ -192,7 +205,7 @@ static void render_frame(float* out)
     /* MELEE_AUDIO_STATS=1: voice census against the output clock, so a
      * silent stretch in MELEE_AUDIO_DUMP can be explained -- were there no
      * voices, were they all stopped, or were they running at zero volume? */
-    if (getenv("MELEE_AUDIO_STATS") != NULL) {
+    if (pc_dbg_audio_stats()) {
         static unsigned long frames;
         frames++;
         if ((frames % 100) == 0) { /* every 100 * 5ms = 0.5s of output */
@@ -457,7 +470,7 @@ void AISetStreamVolLeft(u8 vol)
      * master gain for the whole mix. If the game fades music out at a scene
      * transition, that silences sound effects too. Log every change so the
      * value can be lined up against silent stretches in MELEE_AUDIO_DUMP. */
-    if (getenv("MELEE_AUDIO_STATS") != NULL && vol != (u8) (s_master * 255.0f)) {
+    if (pc_dbg_audio_stats() && vol != (u8) (s_master * 255.0f)) {
         static unsigned long n;
         fprintf(stderr, "AISetStreamVolLeft #%lu vol=%u (master %.3f -> %.3f)\n",
                 ++n, vol, s_master, vol / 255.0f);

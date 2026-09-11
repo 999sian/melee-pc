@@ -25,6 +25,19 @@
 #include <sysdolphin/baselib/texp.h>
 #include <sysdolphin/baselib/tobj.h>
 
+/* Cached once: getenv() scans the whole environment, and these guards sit
+ * on per-draw / per-voice paths where that cost is not acceptable even
+ * when the diagnostic is switched off. */
+static int pc_dbg_mobj_mark(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_MOBJ_MARK") != NULL;
+    }
+    return cached;
+}
+
+
 /* 1C897C */ static void grMaterial_801C897C(HSD_JObj* jobj, u32 flags);
 /* 1C8E74 */ static void grMaterial_801C8E74(void);
 /* 1C8EF8 */ static void fn_801C8EF8(HSD_MObj* mobj, u32 rendermode);
@@ -430,7 +443,7 @@ static void fn_801C8EF8(HSD_MObj* mobj, u32 rendermode)
     /* MELEE_MOBJ_MARK=1: stage materials do not go through HSD_MObjSetup, so
      * tag them separately (3 = had a texture, 4 = none) or their draws would
      * inherit whichever marker was emitted last. */
-    if (getenv("MELEE_MOBJ_MARK") != NULL) {
+    if (pc_dbg_mobj_mark()) {
         GXInsertDebugMarker(tobj != NULL ? "3" : "4");
     }
     HSD_TObjSetup(tobj);

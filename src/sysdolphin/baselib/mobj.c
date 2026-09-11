@@ -200,6 +200,17 @@ HSD_MObj* HSD_MObjLoadDesc(HSD_MObjDesc* mobjdesc)
  * for and then dropped during simplification". */
 int pc_texp_tex_requested;
 
+/* Cached once: getenv() scans the whole environment, and these guards sit on
+ * per-draw paths where that cost is not acceptable even when the diagnostic
+ * is switched off. */
+static int pc_dbg(const char* name, int* cache)
+{
+    if (*cache < 0) {
+        *cache = getenv(name) != NULL;
+    }
+    return *cache;
+}
+
 HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
 {
     pc_texp_tex_requested = 0;
@@ -333,7 +344,8 @@ HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
      * texture stage from ANY of the three loops (diffuse/ambient, specular,
      * ext) is one that will draw flat. Must sit after the ext loop, which is
      * the last one that can request. */
-    if (getenv("MELEE_TEX_FLAGS") != NULL && pc_texp_tex_requested == 0 &&
+    static int c_texflags = -1;
+    if (pc_dbg("MELEE_TEX_FLAGS", &c_texflags) && pc_texp_tex_requested == 0 &&
         tobj_top != NULL)
     {
         static unsigned long silent;
@@ -453,7 +465,8 @@ void HSD_MObjSetup(HSD_MObj* mobj, u32 rendermode)
      * material had a texture, so aurora can report untextured draws that
      * came from a material that DID have one. The marker travels in the
      * GX FIFO, so it stays ordered across the command-processor thread. */
-    if (getenv("MELEE_MOBJ_MARK") != NULL) {
+    static int c_mobjmark = -1;
+    if (pc_dbg("MELEE_MOBJ_MARK", &c_mobjmark)) {
         GXInsertDebugMarker(tobj != NULL ? "1" : "2");
     }
     HSD_TObjSetup(tobj);
