@@ -325,9 +325,20 @@ HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
                 without_lm++;
             }
         }
-        if (calls <= 5 || (calls % 500) == 0) {
-            OSReport("maketexp call=%lu rendermode=%08x with_lm=%lu without_lm=%lu\n",
-                     calls, mobj->rendermode, with_lm, without_lm);
+        if (calls <= 8 || (calls % 500) == 0) {
+            /* Which lightmap bits are set decides which loop, if any, turns
+             * this tobj into a texture stage. DIFFUSE|AMBIENT is applied
+             * unconditionally; SPECULAR only when rendermode has
+             * RENDER_SPECULAR; EXT at the end. */
+            HSD_TObj* t2;
+            OSReport("maketexp call=%lu rendermode=%08x diffuse=%d specular=%d\n",
+                     calls, mobj->rendermode,
+                     (mobj->rendermode & RENDER_DIFFUSE) != 0,
+                     (mobj->rendermode & RENDER_SPECULAR) != 0);
+            for (t2 = tobj_top; t2 != NULL; t2 = t2->next) {
+                OSReport("  tobj flags=%08x lm=%08x id=%d coord=%d\n", t2->flags,
+                         tobj_lightmap(t2), t2->id, tobj_coord(t2));
+            }
         }
     }
 

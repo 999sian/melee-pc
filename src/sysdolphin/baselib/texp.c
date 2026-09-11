@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "texp.h"
 
 #include <string.h>
@@ -1168,6 +1169,32 @@ void HSD_TExpSetReg(HSD_TExp* texp)
 void HSD_TExpSetupTev(HSD_TExpTevDesc* tevdesc, HSD_TExp* texp)
 {
     HSD_TExpSetReg(texp);
+    /* MELEE_TEV_TREE=1: count the compiled stages and how many carry a tobj.
+     * A stage with no tobj is emitted with map = HSD_TE_UNDEF, i.e. no
+     * texture, so a tree of only such stages draws flat colour. */
+    if (getenv("MELEE_TEV_TREE") != NULL) {
+        static unsigned long calls, stages_total, stages_with_tobj, trees_no_tobj;
+        HSD_TExpTevDesc* d;
+        unsigned long n = 0, withtex = 0;
+        for (d = tevdesc; d != NULL; d = (HSD_TExpTevDesc*) d->desc.next) {
+            n++;
+            if (d->tobj != NULL) {
+                withtex++;
+            }
+        }
+        calls++;
+        stages_total += n;
+        stages_with_tobj += withtex;
+        if (withtex == 0) {
+            trees_no_tobj++;
+        }
+        if (calls <= 5 || (calls % 20000) == 0) {
+            OSReport("tevtree calls=%lu stages=%lu with_tobj=%lu "
+                     "trees_without_any_tobj=%lu (this tree: %lu/%lu)\n",
+                     calls, stages_total, stages_with_tobj, trees_no_tobj,
+                     withtex, n);
+        }
+    }
     for (; tevdesc != NULL; tevdesc = (HSD_TExpTevDesc*) tevdesc->desc.next) {
         if (tevdesc->tobj != NULL) {
             tevdesc->desc.map = tevdesc->tobj->id;
