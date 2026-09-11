@@ -56,13 +56,15 @@ void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
       return v != nullptr ? std::strtol(v, nullptr, 10) : 0L;
     }();
     // Untextured quads are the shape the artifact takes, so report those
-    // individually (with the game's breadcrumb) and the rest only sparsely.
+    // individually and the rest only sparsely. The per-vertex byte stride
+    // discriminates a 2D sprite quad (XY + ST floats = 16B) from 3D geometry.
     if (log) {
       static uint64_t n = 0;
       const bool quad = data.vtxCount == 4;
       if (quad || (n % 2000) == 0) {
-        fmt::print(stderr, "untex draw #{}{}: idx={} vtx={} tag={}\n", n, quad ? " QUAD" : "", data.indexCount,
-                   data.vtxCount, aurora_draw_tag);
+        const uint32_t stride = data.vtxCount != 0 ? data.vertRange.size / data.vtxCount : 0;
+        fmt::print(stderr, "untex draw #{}{}: idx={} vtx={} stride={} tag={}\n", n, quad ? " QUAD" : "",
+                   data.indexCount, data.vtxCount, stride, aurora_draw_tag);
       }
       ++n;
     }
