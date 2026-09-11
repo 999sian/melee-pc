@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "ftaction.h"
 
 #include <Runtime/platform.h>
@@ -597,6 +598,18 @@ void ftAction_80071B50(Fighter_GObj* gobj, CommandInfo* cmd)
         NEXT_CMD(cmd);
         vol = cmd->u->sound_effect_2.volume;
         pan = cmd->u->sound_effect_2.panning;
+
+        /* MELEE_SFX_STATS=1: the action-script SFX opcode. If gameplay
+         * sounds are missing because scripts never reach this, the count
+         * stays near zero; if the bytecode is misdecoded, the count is
+         * healthy but sfx/vol/pan are nonsense. */
+        if (getenv("MELEE_SFX_STATS") != NULL) {
+            static unsigned long hits;
+            if (++hits <= 2 || (hits % 25) == 0) {
+                OSReport("ftaction SFX cmd #%lu sfx=%d vol=%d pan=%d behavior=%d\n",
+                         hits, (int) sfx, (int) vol, (int) pan, (int) behavior);
+            }
+        }
 
         switch (behavior) {
         case 0:

@@ -544,7 +544,7 @@ static void sm_reject(int reason, int sound_id)
         return;
     }
     counts[reason & 7]++;
-    if (++total <= 4 || (total % 500) == 0) {
+    if (++total <= 4 || (total % 25) == 0) {
         OSReport("sm_req total=%lu ok=%lu bank=%lu sample=%lu next=%lu "
                  "track=%lu chan=%lu busy=%lu pool=%lu (last id=%d)\n",
                  total, counts[0], counts[1], counts[2], counts[3], counts[4],

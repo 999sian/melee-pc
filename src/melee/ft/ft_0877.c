@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "ft_0877.h"
 
 #include "fighter.h"
@@ -455,6 +456,12 @@ void ft_80088110(Fighter* fp)
 void ft_PlaySFX(Fighter* fp, enum_t sfx_id, u8 sfx_vol, u8 sfx_pan)
 {
     sfx_id = ft_80087D0C(fp, sfx_id);
+    if (getenv("MELEE_SFX_STATS") != NULL) {
+        static unsigned long plays;
+        if (++plays <= 2 || (plays % 25) == 0) {
+            OSReport("ft_PlaySFX #%lu id=%d\n", plays, (int) sfx_id);
+        }
+    }
     fp->x2160 = lbAudioAx_800237A8(sfx_id, sfx_vol, sfx_pan);
 
     {
