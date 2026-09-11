@@ -1,0 +1,3833 @@
+// GX FIFO encode/decode round-trip tests
+//
+// Pattern: call a GX API function (encode), capture the raw FIFO bytes,
+// reset g_gxState, feed bytes to command_processor::process() (decode),
+// validate the decoded state matches expected values.
+
+#include "gx_test_common.hpp"
+#include "__gx.h"
+
+#include <algorithm>
+#include <atomic>
+#include <bit>
+#include <chrono>
+#include <cmath>
+#include <thread>
+
+using aurora::gx::g_gxState;
+
+namespace aurora::gfx {
+extern uint32_t g_testDrawCount;
+extern std::atomic<uint32_t> g_testProcessedDrawCount;
+namespace testing {
+extern std::atomic<uint32_t> beginOffscreenCount;
+extern std::atomic<uint32_t> endOffscreenCount;
+extern std::atomic<uint32_t> resolvePassCount;
+extern std::atomic<uint32_t> offscreenWidth;
+extern std::atomic<uint32_t> offscreenHeight;
+} // namespace testing
+} // namespace aurora::gfx
+
+namespace {
+bool wait_for(const std::atomic<uint32_t>& value, uint32_t expected) {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{2};
+  while (value.load(std::memory_order_acquire) != expected) {
+    if (std::chrono::steady_clock::now() >= deadline) {
+      return false;
+    }
+    std::this_thread::yield();
+  }
+  return true;
+}
+
+bool wait_for(const std::atomic<bool>& value, bool expected) {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{2};
+  while (value.load(std::memory_order_acquire) != expected) {
+    if (std::chrono::steady_clock::now() >= deadline) {
+      return false;
+    }
+    std::this_thread::yield();
+  }
+  return true;
+}
+
+std::atomic<bool> sDrawDoneCallbackCalled{false};
+std::atomic<bool> sDrawDoneCallbackSawProcessedCommand{false};
+std::atomic<bool> sBlockingCallbackEntered{false};
+std::atomic<bool> sBlockingCallbackMayReturn{false};
+std::atomic<bool> sBlockingCallbackReturned{false};
+
+void draw_done_callback() {
+  sDrawDoneCallbackSawProcessedCommand.store(g_gxState.bpRegValid.test(0x41), std::memory_order_relaxed);
+  sDrawDoneCallbackCalled.store(true, std::memory_order_release);
+}
+
+void blocking_draw_done_callback() {
+  sBlockingCallbackEntered.store(true, std::memory_order_release);
+  while (!sBlockingCallbackMayReturn.load(std::memory_order_acquire)) {
+    std::this_thread::yield();
+  }
+  sBlockingCallbackReturned.store(true, std::memory_order_release);
+}
+} // namespace
+
+static bool has_bp_write(const std::vector<u8>& bytes, u8 reg) {
+  const std::array<u8, 2> pattern{0x61, reg};
+  return std::search(bytes.begin(), bytes.end(), pattern.begin(), pattern.end()) != bytes.end();
+}
+
+static bool has_aurora_cmd(const std::vector<u8>& bytes, u16 cmd) {
+  const std::array<u8, 3> pattern{GX_AURORA, static_cast<u8>(cmd >> 8), static_cast<u8>(cmd & 0xFF)};
+  return std::search(bytes.begin(), bytes.end(), pattern.begin(), pattern.end()) != bytes.end();
+}
+
+static u32 read_fifo_u32(const std::vector<u8>& bytes, size_t offset) {
+  return (static_cast<u32>(bytes[offset]) << 24) | (static_cast<u32>(bytes[offset + 1]) << 16) |
+         (static_cast<u32>(bytes[offset + 2]) << 8) | static_cast<u32>(bytes[offset + 3]);
+}
+
+TEST_F(GXFifoTest, FifoPublishesOnlyAtExplicitBoundary) {
+  constexpr size_t largeCommandPrefixSize = 64 * 1024;
+  const std::vector<u8> nops(largeCommandPrefixSize, GX_NOP);
+  const std::array<u8, 4> bpPayload{0x41, 0x12, 0x34, 0x56};
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  aurora::gx::fifo::write_data(nops.data(), static_cast<u32>(nops.size()));
+  aurora::gx::fifo::write_u8(GX_LOAD_BP_REG);
+  aurora::gx::fifo::write_data(bpPayload.data(), static_cast<u32>(bpPayload.size()));
+  EXPECT_FALSE(g_gxState.bpRegValid.test(0x41));
+  aurora::gx::fifo::publish();
+  aurora::gx::fifo::drain();
+  aurora::gx::fifo::end_frame();
+  aurora::gx::fifo::shutdown();
+
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x41123456u);
+}
+
+TEST_F(GXFifoTest, AutoSizedDrawPublishesAfterLengthPatch) {
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXClearVtxDesc();
+  GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+  GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_U8, 0);
+  aurora::gfx::g_testDrawCount = 0;
+  aurora::gfx::g_testProcessedDrawCount.store(0, std::memory_order_relaxed);
+
+  GXBegin(GX_TRIANGLES, GX_VTXFMT0, GX_AUTO);
+  GXPosition3u8(0, 1, 2);
+  GXPosition3u8(3, 4, 5);
+  GXPosition3u8(6, 7, 8);
+  GXEnd();
+  aurora::gx::fifo::drain();
+  aurora::gx::fifo::end_frame();
+  aurora::gx::fifo::shutdown();
+
+  EXPECT_EQ(aurora::gfx::g_testDrawCount, 1u);
+}
+
+TEST_F(GXFifoTest, CommandsAfterFinalDrawRemainPendingUntilDrain) {
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXClearVtxDesc();
+  GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+  GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_U8, 0);
+  aurora::gfx::g_testDrawCount = 0;
+  aurora::gfx::g_testProcessedDrawCount.store(0, std::memory_order_relaxed);
+
+  GXBegin(GX_TRIANGLES, GX_VTXFMT0, 3);
+  GXPosition3u8(0, 1, 2);
+  GXPosition3u8(3, 4, 5);
+  GXPosition3u8(6, 7, 8);
+  GXEnd();
+
+  const std::array<u8, 5> trailingBpWrite{GX_LOAD_BP_REG, 0x41, 0x12, 0x34, 0x56};
+  aurora::gx::fifo::write_data(trailingBpWrite.data(), trailingBpWrite.size());
+  ASSERT_TRUE(wait_for(aurora::gfx::g_testProcessedDrawCount, 1));
+  EXPECT_FALSE(g_gxState.bpRegValid.test(0x41));
+
+  aurora::gx::fifo::drain();
+  aurora::gx::fifo::end_frame();
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x41123456u);
+}
+
+TEST_F(GXFifoTest, FrameBufferCommandsPublishAfterTheirCompletePayload) {
+  using namespace aurora::gfx::testing;
+  beginOffscreenCount.store(0, std::memory_order_relaxed);
+  endOffscreenCount.store(0, std::memory_order_relaxed);
+  resolvePassCount.store(0, std::memory_order_relaxed);
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXCreateFrameBuffer(320, 180);
+  ASSERT_TRUE(wait_for(beginOffscreenCount, 1));
+  EXPECT_EQ(offscreenWidth.load(std::memory_order_relaxed), 320u);
+  EXPECT_EQ(offscreenHeight.load(std::memory_order_relaxed), 180u);
+
+  GXCopyTex(reinterpret_cast<void*>(0x1234), GX_FALSE);
+  ASSERT_TRUE(wait_for(resolvePassCount, 1));
+
+  GXRestoreFrameBuffer();
+  ASSERT_TRUE(wait_for(endOffscreenCount, 1));
+  aurora::gx::fifo::drain();
+  aurora::gx::fifo::end_frame();
+}
+
+TEST_F(GXFifoTest, DrawDoneProcessesPublishedAndUnpublishedTailBeforeCallback) {
+  using namespace aurora::gfx::testing;
+  beginOffscreenCount.store(0, std::memory_order_relaxed);
+  sDrawDoneCallbackCalled.store(false, std::memory_order_relaxed);
+  sDrawDoneCallbackSawProcessedCommand.store(false, std::memory_order_relaxed);
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXCreateFrameBuffer(160, 90);
+  const std::array<u8, 5> trailingBpWrite{GX_LOAD_BP_REG, 0x41, 0x65, 0x43, 0x21};
+  aurora::gx::fifo::write_data(trailingBpWrite.data(), trailingBpWrite.size());
+  GXSetDrawDoneCallback(draw_done_callback);
+
+  GXDrawDone();
+
+  EXPECT_EQ(beginOffscreenCount.load(std::memory_order_acquire), 1u);
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x41654321u);
+  EXPECT_TRUE(sDrawDoneCallbackCalled.load(std::memory_order_acquire));
+  EXPECT_TRUE(sDrawDoneCallbackSawProcessedCommand.load(std::memory_order_relaxed));
+  GXSetDrawDoneCallback(nullptr);
+  aurora::gx::fifo::end_frame();
+}
+
+TEST_F(GXFifoTest, SetDrawDonePublishesTailWithoutDraining) {
+  sDrawDoneCallbackCalled.store(false, std::memory_order_relaxed);
+  sDrawDoneCallbackSawProcessedCommand.store(false, std::memory_order_relaxed);
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXSetNumTevStages(2);
+  ASSERT_NE(__gx->dirtyState, 0u);
+  const std::array<u8, 5> trailingBpWrite{GX_LOAD_BP_REG, 0x41, 0x01, 0x02, 0x03};
+  aurora::gx::fifo::write_data(trailingBpWrite.data(), trailingBpWrite.size());
+  GXSetDrawDoneCallback(draw_done_callback);
+
+  GXSetDrawDone();
+
+  EXPECT_EQ(__gx->dirtyState, 0u);
+  EXPECT_GT(aurora::gx::fifo::get_buffer_size(), 0u);
+  ASSERT_TRUE(wait_for(sDrawDoneCallbackCalled, true));
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x41010203u);
+  EXPECT_TRUE(sDrawDoneCallbackSawProcessedCommand.load(std::memory_order_relaxed));
+  GXSetDrawDoneCallback(nullptr);
+  aurora::gx::fifo::drain();
+  aurora::gx::fifo::end_frame();
+}
+
+TEST_F(GXFifoTest, SetDrawDoneInDisplayListDispatchesWhenCalled) {
+  std::array<u8, 64> displayList{};
+  sDrawDoneCallbackCalled.store(false, std::memory_order_relaxed);
+  sDrawDoneCallbackSawProcessedCommand.store(false, std::memory_order_relaxed);
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXSetDrawDoneCallback(draw_done_callback);
+
+  GXBeginDisplayList(displayList.data(), static_cast<u32>(displayList.size()));
+  GXSetColorUpdate(GX_ENABLE);
+  GXSetDrawDone();
+  const u32 size = GXEndDisplayList();
+
+  EXPECT_FALSE(sDrawDoneCallbackCalled.load(std::memory_order_acquire));
+  GXCallDisplayList(displayList.data(), size);
+  ASSERT_TRUE(wait_for(sDrawDoneCallbackCalled, true));
+  EXPECT_TRUE(sDrawDoneCallbackSawProcessedCommand.load(std::memory_order_relaxed));
+
+  GXSetDrawDoneCallback(nullptr);
+  aurora::gx::fifo::drain();
+  aurora::gx::fifo::end_frame();
+}
+
+TEST_F(GXFifoTest, DrainWaitsForDrawDoneCallbackToReturn) {
+  sBlockingCallbackEntered.store(false, std::memory_order_relaxed);
+  sBlockingCallbackMayReturn.store(false, std::memory_order_relaxed);
+  sBlockingCallbackReturned.store(false, std::memory_order_relaxed);
+  std::atomic<bool> drainStarted{false};
+  std::atomic<bool> drainReturned{false};
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXSetDrawDoneCallback(blocking_draw_done_callback);
+  GXSetDrawDone();
+  if (!wait_for(sBlockingCallbackEntered, true)) {
+    sBlockingCallbackMayReturn.store(true, std::memory_order_release);
+    GXSetDrawDoneCallback(nullptr);
+    aurora::gx::fifo::drain();
+    aurora::gx::fifo::end_frame();
+    FAIL() << "draw-done callback did not begin";
+  }
+
+  std::thread drainThread{[&] {
+    drainStarted.store(true, std::memory_order_release);
+    aurora::gx::fifo::drain();
+    drainReturned.store(true, std::memory_order_release);
+  }};
+  EXPECT_TRUE(wait_for(drainStarted, true));
+  std::this_thread::sleep_for(std::chrono::milliseconds{10});
+  EXPECT_FALSE(drainReturned.load(std::memory_order_acquire));
+
+  sBlockingCallbackMayReturn.store(true, std::memory_order_release);
+  EXPECT_TRUE(wait_for(drainReturned, true));
+  drainThread.join();
+  EXPECT_TRUE(sBlockingCallbackReturned.load(std::memory_order_acquire));
+
+  GXSetDrawDoneCallback(nullptr);
+  aurora::gx::fifo::end_frame();
+}
+
+TEST_F(GXFifoTest, AuroraSyncGXProcessesTailWithoutDrawDoneCallback) {
+  sDrawDoneCallbackCalled.store(false, std::memory_order_relaxed);
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  const std::array<u8, 5> trailingBpWrite{GX_LOAD_BP_REG, 0x41, 0x0A, 0x0B, 0x0C};
+  aurora::gx::fifo::write_data(trailingBpWrite.data(), trailingBpWrite.size());
+  GXSetDrawDoneCallback(draw_done_callback);
+
+  AuroraGXSync();
+
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x410A0B0Cu);
+  EXPECT_FALSE(sDrawDoneCallbackCalled.load(std::memory_order_acquire));
+  GXSetDrawDoneCallback(nullptr);
+  aurora::gx::fifo::end_frame();
+}
+
+TEST_F(GXFifoTest, DisplayListCallPublishesAtCompleteBoundary) {
+  const std::array<u8, 5> displayList{GX_LOAD_BP_REG, 0x41, 0x12, 0x34, 0x56};
+
+  aurora::gx::fifo::init();
+  aurora::gx::fifo::begin_frame();
+  GXCallDisplayList(displayList.data(), static_cast<u32>(displayList.size()));
+  aurora::gx::fifo::drain();
+  aurora::gx::fifo::end_frame();
+  aurora::gx::fifo::shutdown();
+
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x41123456u);
+}
+
+// ============================================================================
+// BP registers (direct FIFO writes, no dirty state flush needed)
+// ============================================================================
+
+TEST_F(GXFifoTest, BpMask_AppliesToNextWriteOnly) {
+  const std::vector<u8> bytes{
+      0x61, 0x41, 0x12, 0x34, 0x56, // Initial BP 0x41 value
+      0x61, 0xFE, 0x00, 0x0F, 0x00, // Select bits 8-11
+      0x61, 0x41, 0xAB, 0xCD, 0xEF, // Only the selected bits are updated
+      0x61, 0x41, 0x01, 0x02, 0x03, // The mask has reset, so all bits are updated
+  };
+  const std::vector<u8> maskedWrites{bytes.begin(), bytes.begin() + 15};
+  const std::vector<u8> fullWrite{bytes.begin() + 15, bytes.end()};
+
+  decode_fifo(maskedWrites);
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x41123D56u);
+  EXPECT_EQ(g_gxState.bpRegCache[0xFE], 0x00FFFFFFu);
+
+  decode_fifo(fullWrite);
+  EXPECT_EQ(g_gxState.bpRegCache[0x41], 0x41010203u);
+}
+
+TEST_F(GXFifoTest, IndirectTextureMask_IsShadowOnly) {
+  const std::vector<u8> bytes{0x61, 0x0F, 0x00, 0x00, 0x05};
+  g_gxState.dirty = 0;
+
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.bpRegCache[0x0F], 0x0F000005u);
+  EXPECT_EQ(g_gxState.dirty, 0);
+}
+
+TEST_F(GXFifoTest, FirstZeroBpWrite_IsDecoded) {
+  const std::vector<u8> bytes{0x61, 0x00, 0x00, 0x00, 0x00};
+
+  decode_fifo(bytes);
+
+  EXPECT_TRUE(g_gxState.bpRegValid.test(0x00));
+  EXPECT_EQ(g_gxState.numTevStages, 1u);
+  EXPECT_EQ(g_gxState.cullMode, GX_CULL_NONE);
+}
+
+// --- GXSetBlendMode (BP 0x41) ---
+
+TEST_F(GXFifoTest, BlendMode_Blend_SrcAlpha) {
+  GXSetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP);
+  auto bytes = capture_fifo();
+
+  // Validate encoding: BP opcode 0x61, register ID 0x41
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0x41);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.blendMode, GX_BM_BLEND);
+  EXPECT_EQ(g_gxState.blendFacSrc, GX_BL_SRCALPHA);
+  EXPECT_EQ(g_gxState.blendFacDst, GX_BL_INVSRCALPHA);
+}
+
+TEST_F(GXFifoTest, BlendMode_None) {
+  GXSetBlendMode(GX_BM_NONE, GX_BL_ZERO, GX_BL_ZERO, GX_LO_CLEAR);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  // Pre-set to something else to prove the decode works
+  g_gxState.blendMode = GX_BM_BLEND;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.blendMode, GX_BM_NONE);
+}
+
+TEST_F(GXFifoTest, BlendMode_Subtract) {
+  GXSetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_NOOP);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.blendMode, GX_BM_SUBTRACT);
+}
+
+TEST_F(GXFifoTest, BlendMode_Logic) {
+  GXSetBlendMode(GX_BM_LOGIC, GX_BL_ONE, GX_BL_ZERO, GX_LO_XOR);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.blendMode, GX_BM_LOGIC);
+  EXPECT_EQ(g_gxState.blendOp, GX_LO_XOR);
+}
+
+// --- GXSetColorUpdate / GXSetAlphaUpdate (BP 0x41 cmode0) ---
+
+TEST_F(GXFifoTest, ColorUpdate_Disabled) {
+  GXSetColorUpdate(GX_FALSE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  g_gxState.colorUpdate = true;
+  decode_fifo(bytes);
+
+  EXPECT_FALSE(g_gxState.colorUpdate);
+}
+
+TEST_F(GXFifoTest, AlphaUpdate_Disabled) {
+  GXSetAlphaUpdate(false);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  g_gxState.alphaUpdate = true;
+  decode_fifo(bytes);
+
+  EXPECT_FALSE(g_gxState.alphaUpdate);
+}
+
+// --- GXSetZMode (BP 0x40) ---
+
+TEST_F(GXFifoTest, ZMode_LessNoUpdate) {
+  GXSetZMode(true, GX_LESS, false);
+  auto bytes = capture_fifo();
+
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0x40);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_TRUE(g_gxState.depthCompare);
+  EXPECT_EQ(g_gxState.depthFunc, GX_LESS);
+  EXPECT_FALSE(g_gxState.depthUpdate);
+}
+
+TEST_F(GXFifoTest, ZMode_AlwaysUpdate) {
+  GXSetZMode(true, GX_ALWAYS, true);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_TRUE(g_gxState.depthCompare);
+  EXPECT_EQ(g_gxState.depthFunc, GX_ALWAYS);
+  EXPECT_TRUE(g_gxState.depthUpdate);
+}
+
+TEST_F(GXFifoTest, ZMode_Disabled) {
+  GXSetZMode(false, GX_NEVER, false);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_FALSE(g_gxState.depthCompare);
+  EXPECT_EQ(g_gxState.depthFunc, GX_NEVER);
+  EXPECT_FALSE(g_gxState.depthUpdate);
+}
+
+// --- GXSetAlphaCompare (BP 0xF3) ---
+
+TEST_F(GXFifoTest, AlphaCompare_GreaterThan128) {
+  GXSetAlphaCompare(GX_GREATER, 128, GX_AOP_AND, GX_ALWAYS, 0);
+  auto bytes = capture_fifo();
+
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0xF3);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.alphaCompare.comp0, GX_GREATER);
+  EXPECT_EQ(g_gxState.alphaCompare.ref0, 128u);
+  EXPECT_EQ(g_gxState.alphaCompare.op, GX_AOP_AND);
+  EXPECT_EQ(g_gxState.alphaCompare.comp1, GX_ALWAYS);
+  EXPECT_EQ(g_gxState.alphaCompare.ref1, 0u);
+}
+
+TEST_F(GXFifoTest, AlphaCompare_OrGequal) {
+  GXSetAlphaCompare(GX_GEQUAL, 64, GX_AOP_OR, GX_LEQUAL, 200);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.alphaCompare.comp0, GX_GEQUAL);
+  EXPECT_EQ(g_gxState.alphaCompare.ref0, 64u);
+  EXPECT_EQ(g_gxState.alphaCompare.op, GX_AOP_OR);
+  EXPECT_EQ(g_gxState.alphaCompare.comp1, GX_LEQUAL);
+  EXPECT_EQ(g_gxState.alphaCompare.ref1, 200u);
+}
+
+// --- GXSetDstAlpha (BP 0x42) ---
+
+TEST_F(GXFifoTest, DstAlpha_Enabled) {
+  GXSetDstAlpha(true, 0x80);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  g_gxState.dstAlpha = UINT32_MAX;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.dstAlpha, 0x80u);
+}
+
+TEST_F(GXFifoTest, DstAlpha_Disabled) {
+  GXSetDstAlpha(false, 0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  g_gxState.dstAlpha = 0x80;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.dstAlpha, UINT32_MAX);
+}
+
+// --- GXSetPixelFmt (BP 0x43, 0x42 + genMode flush) ---
+
+TEST_F(GXFifoTest, PixelFmt_Rgb565Z16_Decode) {
+  GXSetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_FAR);
+  auto bytes = flush_and_capture();
+
+  EXPECT_TRUE(has_bp_write(bytes, 0x43));
+  EXPECT_TRUE(has_bp_write(bytes, 0x00));
+
+  reset_gx_state();
+  g_gxState.pixelFmt = GX_PF_RGB8_Z24;
+  g_gxState.zFmt = GX_ZC_LINEAR;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.pixelFmt, GX_PF_RGB565_Z16);
+  EXPECT_EQ(g_gxState.zFmt, GX_ZC_FAR);
+  EXPECT_TRUE(g_gxState.zCompLocBeforeTex);
+}
+
+TEST_F(GXFifoTest, PixelFmt_U8_Decode) {
+  GXSetPixelFmt(GX_PF_U8, GX_ZC_MID);
+  auto bytes = flush_and_capture();
+
+  EXPECT_TRUE(has_bp_write(bytes, 0x43));
+  EXPECT_TRUE(has_bp_write(bytes, 0x42));
+  EXPECT_TRUE(has_bp_write(bytes, 0x00));
+
+  reset_gx_state();
+  g_gxState.pixelFmt = GX_PF_RGB8_Z24;
+  g_gxState.zFmt = GX_ZC_LINEAR;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.pixelFmt, GX_PF_U8);
+  EXPECT_EQ(g_gxState.zFmt, GX_ZC_MID);
+  EXPECT_EQ(g_gxState.dstAlpha, UINT32_MAX);
+  EXPECT_TRUE(g_gxState.zCompLocBeforeTex);
+}
+
+// ============================================================================
+// TEV registers (direct FIFO writes)
+// ============================================================================
+
+// --- GXSetTevColorIn / GXSetTevAlphaIn ---
+
+TEST_F(GXFifoTest, TevColorIn_Stage0) {
+  GXSetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO);
+  auto bytes = capture_fifo();
+
+  // BP opcode 0x61, register 0xC0 (stage 0 color)
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0xC0);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.colorPass.a, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.b, GX_CC_TEXC);
+  EXPECT_EQ(s.colorPass.c, GX_CC_RASC);
+  EXPECT_EQ(s.colorPass.d, GX_CC_ZERO);
+}
+
+TEST_F(GXFifoTest, TevAlphaIn_Stage0) {
+  GXSetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_RASA, GX_CA_ZERO);
+  auto bytes = capture_fifo();
+
+  // BP opcode 0x61, register 0xC1 (stage 0 alpha)
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0xC1);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.alphaPass.a, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_TEXA);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_RASA);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_ZERO);
+}
+
+TEST_F(GXFifoTest, TevAlphaIn_Stage5) {
+  GXSetTevAlphaIn(GX_TEVSTAGE5, GX_CA_APREV, GX_CA_A0, GX_CA_KONST, GX_CA_ZERO);
+  auto bytes = capture_fifo();
+
+  // Stage 5 alpha register = 0xC1 + 5*2 = 0xCB
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0xCB);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[5];
+  EXPECT_EQ(s.alphaPass.a, GX_CA_APREV);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_A0);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_KONST);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_ZERO);
+}
+
+TEST_F(GXFifoTest, TevColorIn_Stage7) {
+  GXSetTevColorIn(GX_TEVSTAGE7, GX_CC_C0, GX_CC_A0, GX_CC_KONST, GX_CC_CPREV);
+  auto bytes = capture_fifo();
+
+  // Stage 7 color register = 0xC0 + 7*2 = 0xCE
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0xCE);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[7];
+  EXPECT_EQ(s.colorPass.a, GX_CC_C0);
+  EXPECT_EQ(s.colorPass.b, GX_CC_A0);
+  EXPECT_EQ(s.colorPass.c, GX_CC_KONST);
+  EXPECT_EQ(s.colorPass.d, GX_CC_CPREV);
+}
+
+// --- GXSetTevOp (convenience wrapper over ColorIn/AlphaIn/ColorOp/AlphaOp) ---
+// GXSetTevOp emits 4 BP writes: tevc (colorIn+colorOp) and teva (alphaIn+alphaOp).
+
+TEST_F(GXFifoTest, TevOp_Modulate_Stage0) {
+  GXSetTevOp(GX_TEVSTAGE0, GX_MODULATE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  // Modulate: color = ZERO, TEXC, RASC, ZERO (stage 0 uses RASC/RASA)
+  EXPECT_EQ(s.colorPass.a, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.b, GX_CC_TEXC);
+  EXPECT_EQ(s.colorPass.c, GX_CC_RASC);
+  EXPECT_EQ(s.colorPass.d, GX_CC_ZERO);
+  // Modulate: alpha = ZERO, TEXA, RASA, ZERO
+  EXPECT_EQ(s.alphaPass.a, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_TEXA);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_RASA);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_ZERO);
+  // Op = ADD, bias = ZERO, scale = 1, clamp = true, outReg = TEVPREV
+  EXPECT_EQ(s.colorOp.op, GX_TEV_ADD);
+  EXPECT_EQ(s.colorOp.bias, GX_TB_ZERO);
+  EXPECT_EQ(s.colorOp.scale, GX_CS_SCALE_1);
+  EXPECT_TRUE(s.colorOp.clamp);
+  EXPECT_EQ(s.colorOp.outReg, GX_TEVPREV);
+  EXPECT_EQ(s.alphaOp.op, GX_TEV_ADD);
+  EXPECT_EQ(s.alphaOp.bias, GX_TB_ZERO);
+  EXPECT_EQ(s.alphaOp.scale, GX_CS_SCALE_1);
+  EXPECT_TRUE(s.alphaOp.clamp);
+  EXPECT_EQ(s.alphaOp.outReg, GX_TEVPREV);
+}
+
+TEST_F(GXFifoTest, TevOp_Modulate_Stage1) {
+  // Non-stage-0 uses CPREV/APREV instead of RASC/RASA
+  GXSetTevOp(GX_TEVSTAGE1, GX_MODULATE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[1];
+  EXPECT_EQ(s.colorPass.a, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.b, GX_CC_TEXC);
+  EXPECT_EQ(s.colorPass.c, GX_CC_CPREV);
+  EXPECT_EQ(s.colorPass.d, GX_CC_ZERO);
+  EXPECT_EQ(s.alphaPass.a, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_TEXA);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_APREV);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_ZERO);
+}
+
+TEST_F(GXFifoTest, TevOp_Replace) {
+  GXSetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  // Replace: color = ZERO, ZERO, ZERO, TEXC
+  EXPECT_EQ(s.colorPass.a, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.b, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.c, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.d, GX_CC_TEXC);
+  // Replace: alpha = ZERO, ZERO, ZERO, TEXA
+  EXPECT_EQ(s.alphaPass.a, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_TEXA);
+}
+
+TEST_F(GXFifoTest, TevOp_Decal) {
+  GXSetTevOp(GX_TEVSTAGE0, GX_DECAL);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  // Decal: color = RASC, TEXC, TEXA, ZERO
+  EXPECT_EQ(s.colorPass.a, GX_CC_RASC);
+  EXPECT_EQ(s.colorPass.b, GX_CC_TEXC);
+  EXPECT_EQ(s.colorPass.c, GX_CC_TEXA);
+  EXPECT_EQ(s.colorPass.d, GX_CC_ZERO);
+  // Decal: alpha = ZERO, ZERO, ZERO, RASA
+  EXPECT_EQ(s.alphaPass.a, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_RASA);
+}
+
+TEST_F(GXFifoTest, TevOp_Blend) {
+  GXSetTevOp(GX_TEVSTAGE0, GX_BLEND);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  // Blend: color = RASC, ONE, TEXC, ZERO
+  EXPECT_EQ(s.colorPass.a, GX_CC_RASC);
+  EXPECT_EQ(s.colorPass.b, GX_CC_ONE);
+  EXPECT_EQ(s.colorPass.c, GX_CC_TEXC);
+  EXPECT_EQ(s.colorPass.d, GX_CC_ZERO);
+  // Blend: alpha = ZERO, TEXA, RASA, ZERO
+  EXPECT_EQ(s.alphaPass.a, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_TEXA);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_RASA);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_ZERO);
+}
+
+TEST_F(GXFifoTest, TevOp_PassClr) {
+  GXSetTevOp(GX_TEVSTAGE0, GX_PASSCLR);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  // PassClr: color = ZERO, ZERO, ZERO, RASC
+  EXPECT_EQ(s.colorPass.a, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.b, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.c, GX_CC_ZERO);
+  EXPECT_EQ(s.colorPass.d, GX_CC_RASC);
+  // PassClr: alpha = ZERO, ZERO, ZERO, RASA
+  EXPECT_EQ(s.alphaPass.a, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.b, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.c, GX_CA_ZERO);
+  EXPECT_EQ(s.alphaPass.d, GX_CA_RASA);
+}
+
+// --- GXSetTevColorOp / GXSetTevAlphaOp ---
+
+TEST_F(GXFifoTest, TevColorOp_Sub_Scale2_Reg1) {
+  GXSetTevColorOp(GX_TEVSTAGE0, GX_TEV_SUB, GX_TB_ADDHALF, GX_CS_SCALE_2, GX_TRUE, GX_TEVREG1);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.colorOp.op, GX_TEV_SUB);
+  EXPECT_EQ(s.colorOp.bias, GX_TB_ADDHALF);
+  EXPECT_EQ(s.colorOp.scale, GX_CS_SCALE_2);
+  EXPECT_TRUE(s.colorOp.clamp);
+  EXPECT_EQ(s.colorOp.outReg, GX_TEVREG1);
+}
+
+TEST_F(GXFifoTest, TevAlphaOp_Add_NoClamp_Reg2) {
+  GXSetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_SUBHALF, GX_CS_DIVIDE_2, GX_FALSE, GX_TEVREG2);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.alphaOp.op, GX_TEV_ADD);
+  EXPECT_EQ(s.alphaOp.bias, GX_TB_SUBHALF);
+  EXPECT_EQ(s.alphaOp.scale, GX_CS_DIVIDE_2);
+  EXPECT_FALSE(s.alphaOp.clamp);
+  EXPECT_EQ(s.alphaOp.outReg, GX_TEVREG2);
+}
+
+TEST_F(GXFifoTest, TevColorOp_CompareR8GT) {
+  // Compare ops (op > 1) use a different encoding: bias=3, scale encodes compare mode
+  GXSetTevColorOp(GX_TEVSTAGE0, GX_TEV_COMP_R8_GT, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.colorOp.op, GX_TEV_COMP_R8_GT);
+  // Decoder normalizes compare mode: bias=ZERO, scale=SCALE_1
+  EXPECT_EQ(s.colorOp.bias, GX_TB_ZERO);
+  EXPECT_EQ(s.colorOp.scale, GX_CS_SCALE_1);
+  EXPECT_EQ(s.colorOp.outReg, GX_TEVPREV);
+}
+
+TEST_F(GXFifoTest, TevColorOp_CompareGR16EQ) {
+  GXSetTevColorOp(GX_TEVSTAGE0, GX_TEV_COMP_GR16_EQ, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVREG0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.colorOp.op, GX_TEV_COMP_GR16_EQ);
+  EXPECT_EQ(s.colorOp.outReg, GX_TEVREG0);
+}
+
+TEST_F(GXFifoTest, TevAlphaOp_CompareRGB8GT) {
+  GXSetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_COMP_RGB8_GT, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  // GX_TEV_COMP_RGB8_GT is the same enum value for alpha as GX_TEV_COMP_A8_GT
+  EXPECT_EQ(s.alphaOp.op, GX_TEV_COMP_RGB8_GT);
+  EXPECT_EQ(s.alphaOp.bias, GX_TB_ZERO);
+  EXPECT_EQ(s.alphaOp.scale, GX_CS_SCALE_1);
+}
+
+TEST_F(GXFifoTest, TevColorOp_CompareBGR24GT) {
+  GXSetTevColorOp(GX_TEVSTAGE2, GX_TEV_COMP_BGR24_GT, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVREG1);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[2];
+  EXPECT_EQ(s.colorOp.op, GX_TEV_COMP_BGR24_GT);
+  EXPECT_EQ(s.colorOp.bias, GX_TB_ZERO);
+  EXPECT_EQ(s.colorOp.scale, GX_CS_SCALE_1);
+  EXPECT_EQ(s.colorOp.outReg, GX_TEVREG1);
+}
+
+TEST_F(GXFifoTest, TevColorOp_CompareRGB8EQ) {
+  GXSetTevColorOp(GX_TEVSTAGE0, GX_TEV_COMP_RGB8_EQ, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVPREV);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.colorOp.op, GX_TEV_COMP_RGB8_EQ);
+  EXPECT_EQ(s.colorOp.outReg, GX_TEVPREV);
+}
+
+TEST_F(GXFifoTest, TevAlphaOp_CompareA8EQ) {
+  GXSetTevAlphaOp(GX_TEVSTAGE1, GX_TEV_COMP_RGB8_EQ, GX_TB_ZERO, GX_CS_SCALE_1, GX_TRUE, GX_TEVREG2);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[1];
+  // For alpha, GX_TEV_COMP_RGB8_EQ maps to A8_EQ
+  EXPECT_EQ(s.alphaOp.op, GX_TEV_COMP_RGB8_EQ);
+  EXPECT_EQ(s.alphaOp.outReg, GX_TEVREG2);
+}
+
+// --- GXSetTevColorS10 ---
+
+TEST_F(GXFifoTest, TevColorS10_Positive) {
+  GXColorS10 col = {511, 256, 100, 0};
+  GXSetTevColorS10(GX_TEVREG0, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // S10 values are encoded as 11-bit signed and decoded to float/255
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][0], 511.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][1], 256.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][2], 100.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][3], 0.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, TevColorS10_Negative) {
+  GXColorS10 col = {-128, -1, 0, 255};
+  GXSetTevColorS10(GX_TEVPREV, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][0], -128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][1], -1.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][2], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][3], 255.f / 255.f, 1.f / 255.f);
+}
+
+// --- GXSetTevKColorSel / GXSetTevKAlphaSel ---
+
+TEST_F(GXFifoTest, TevKColorSel_Stage0_K0) {
+  GXSetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevStages[0].kcSel, GX_TEV_KCSEL_K0);
+}
+
+TEST_F(GXFifoTest, TevKColorSel_Stage1_K2_R) {
+  GXSetTevKColorSel(GX_TEVSTAGE1, GX_TEV_KCSEL_K2_R);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevStages[1].kcSel, GX_TEV_KCSEL_K2_R);
+}
+
+TEST_F(GXFifoTest, TevKAlphaSel_Stage0_K1_A) {
+  GXSetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K1_A);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevStages[0].kaSel, GX_TEV_KASEL_K1_A);
+}
+
+TEST_F(GXFifoTest, TevKAlphaSel_Stage3_K3_B) {
+  GXSetTevKAlphaSel(GX_TEVSTAGE3, GX_TEV_KASEL_K3_B);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevStages[3].kaSel, GX_TEV_KASEL_K3_B);
+}
+
+TEST_F(GXFifoTest, TevKColorSel_DoesNotCorruptSwapTable) {
+  // Regression: tevKsel shadow registers share bits with swap table entries.
+  // Setting K color selection must not zero out the swap table bits.
+  GXSetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // Swap table 0 should remain identity (initialized in GXInit)
+  EXPECT_EQ(g_gxState.tevSwapTable[0].red, GX_CH_RED);
+  EXPECT_EQ(g_gxState.tevSwapTable[0].green, GX_CH_GREEN);
+  EXPECT_EQ(g_gxState.tevSwapTable[0].blue, GX_CH_BLUE);
+  EXPECT_EQ(g_gxState.tevSwapTable[0].alpha, GX_CH_ALPHA);
+  // K color selection should still be set
+  EXPECT_EQ(g_gxState.tevStages[0].kcSel, GX_TEV_KCSEL_K0);
+}
+
+// --- GXSetTevSwapMode ---
+
+TEST_F(GXFifoTest, TevSwapMode_Stage0) {
+  GXSetTevSwapMode(GX_TEVSTAGE0, GX_TEV_SWAP1, GX_TEV_SWAP2);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevStages[0].tevSwapRas, GX_TEV_SWAP1);
+  EXPECT_EQ(g_gxState.tevStages[0].tevSwapTex, GX_TEV_SWAP2);
+}
+
+TEST_F(GXFifoTest, TevSwapMode_Stage3) {
+  GXSetTevSwapMode(GX_TEVSTAGE3, GX_TEV_SWAP3, GX_TEV_SWAP0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevStages[3].tevSwapRas, GX_TEV_SWAP3);
+  EXPECT_EQ(g_gxState.tevStages[3].tevSwapTex, GX_TEV_SWAP0);
+}
+
+// --- GXSetTevSwapModeTable ---
+
+TEST_F(GXFifoTest, TevSwapModeTable_Swap1_AllRed) {
+  GXSetTevSwapModeTable(GX_TEV_SWAP1, GX_CH_RED, GX_CH_RED, GX_CH_RED, GX_CH_ALPHA);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP1].red, GX_CH_RED);
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP1].green, GX_CH_RED);
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP1].blue, GX_CH_RED);
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP1].alpha, GX_CH_ALPHA);
+}
+
+TEST_F(GXFifoTest, TevSwapModeTable_Swap2_Swizzle) {
+  GXSetTevSwapModeTable(GX_TEV_SWAP2, GX_CH_BLUE, GX_CH_GREEN, GX_CH_RED, GX_CH_ALPHA);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP2].red, GX_CH_BLUE);
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP2].green, GX_CH_GREEN);
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP2].blue, GX_CH_RED);
+  EXPECT_EQ(g_gxState.tevSwapTable[GX_TEV_SWAP2].alpha, GX_CH_ALPHA);
+}
+
+// --- GXSetTevOrder (BP 0x28-0x2F) ---
+
+TEST_F(GXFifoTest, TevOrder_Stage0) {
+  GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.texMapId, GX_TEXMAP0);
+  EXPECT_EQ(s.texCoordId, GX_TEXCOORD0);
+  EXPECT_EQ(s.channelId, GX_COLOR0A0);
+}
+
+TEST_F(GXFifoTest, TevOrder_Stage1_OddStage) {
+  // Odd stages use different bit positions within the tref register
+  GXSetTevOrder(GX_TEVSTAGE1, GX_TEXCOORD2, GX_TEXMAP3, GX_COLOR1A1);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[1];
+  EXPECT_EQ(s.texMapId, GX_TEXMAP3);
+  EXPECT_EQ(s.texCoordId, GX_TEXCOORD2);
+  EXPECT_EQ(s.channelId, GX_COLOR1A1);
+}
+
+TEST_F(GXFifoTest, TevOrder_Stage0_TexNull) {
+  GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD_NULL, GX_TEXMAP_NULL, GX_COLOR0A0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& s = g_gxState.tevStages[0];
+  EXPECT_EQ(s.texMapId, GX_TEXMAP_NULL);
+  EXPECT_EQ(s.channelId, GX_COLOR0A0);
+}
+
+// --- GXSetTevKColor (BP 0xE0-0xE7, K color flag) ---
+
+TEST_F(GXFifoTest, TevKColor_K0) {
+  GXColor kc = {255, 128, 64, 32};
+  GXSetTevKColor(GX_KCOLOR0, kc);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // K colors are stored as float (0-1 range), 8-bit precision
+  EXPECT_NEAR(g_gxState.kcolors[0][0], 255.f / 255.f, 1.f / 255.f); // R
+  EXPECT_NEAR(g_gxState.kcolors[0][1], 128.f / 255.f, 1.f / 255.f); // G
+  EXPECT_NEAR(g_gxState.kcolors[0][2], 64.f / 255.f, 1.f / 255.f);  // B
+  EXPECT_NEAR(g_gxState.kcolors[0][3], 32.f / 255.f, 1.f / 255.f);  // A
+}
+
+TEST_F(GXFifoTest, TevKColor_K1) {
+  GXColor kc = {0, 255, 0, 128};
+  GXSetTevKColor(GX_KCOLOR1, kc);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.kcolors[1][0], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[1][1], 255.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[1][2], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[1][3], 128.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, TevKColor_K2) {
+  GXColor kc = {10, 20, 30, 40};
+  GXSetTevKColor(GX_KCOLOR2, kc);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.kcolors[2][0], 10.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[2][1], 20.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[2][2], 30.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[2][3], 40.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, TevKColor_K3) {
+  GXColor kc = {200, 150, 100, 50};
+  GXSetTevKColor(GX_KCOLOR3, kc);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.kcolors[3][0], 200.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[3][1], 150.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[3][2], 100.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.kcolors[3][3], 50.f / 255.f, 1.f / 255.f);
+}
+
+// --- GXSetTevColor (BP 0xE0-0xE7, TEV color register) ---
+// Note: side channel stores as float, FIFO encodes as 11-bit signed.
+// Decoded value will have reduced precision.
+
+TEST_F(GXFifoTest, TevColor_Reg0) {
+  GXColor col = {200, 100, 50, 255};
+  GXSetTevColor(GX_TEVREG0, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // 11-bit signed encoding, so values should round-trip within 8-bit range
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][0], 200.f / 255.f, 1.f / 255.f); // R
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][1], 100.f / 255.f, 1.f / 255.f); // G
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][2], 50.f / 255.f, 1.f / 255.f);  // B
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG0][3], 255.f / 255.f, 1.f / 255.f); // A
+}
+
+TEST_F(GXFifoTest, TevColor_Prev) {
+  GXColor col = {128, 64, 32, 16};
+  GXSetTevColor(GX_TEVPREV, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][0], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][1], 64.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][2], 32.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVPREV][3], 16.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, TevColor_Reg1) {
+  GXColor col = {0, 128, 255, 192};
+  GXSetTevColor(GX_TEVREG1, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][0], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][1], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][2], 255.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][3], 192.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, TevColor_Reg2) {
+  GXColor col = {1, 2, 3, 4};
+  GXSetTevColor(GX_TEVREG2, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][0], 1.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][1], 2.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][2], 3.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][3], 4.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, TevColorS10_Reg1) {
+  GXColorS10 col = {300, -50, 0, 255};
+  GXSetTevColorS10(GX_TEVREG1, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][0], 300.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][1], -50.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][2], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG1][3], 255.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, TevColorS10_Reg2) {
+  GXColorS10 col = {-1024, 1023, 128, -256};
+  GXSetTevColorS10(GX_TEVREG2, col);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][0], -1024.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][1], 1023.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][2], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.colorRegs[GX_TEVREG2][3], -256.f / 255.f, 1.f / 255.f);
+}
+
+// ============================================================================
+// CP registers (require __GXSetDirtyState() flush)
+// ============================================================================
+
+// --- GXClearVtxDesc ---
+
+TEST_F(GXFifoTest, ClearVtxDesc_ClearsAll) {
+  // Set every attribute to something non-default
+  GXSetVtxDesc(GX_VA_PNMTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX0MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX1MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX2MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX3MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX4MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX5MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX6MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX7MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_POS, GX_INDEX16);
+  GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
+  GXSetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_CLR1, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX0, GX_INDEX16);
+  GXSetVtxDesc(GX_VA_TEX1, GX_INDEX8);
+  GXSetVtxDesc(GX_VA_TEX2, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX3, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX4, GX_INDEX16);
+  GXSetVtxDesc(GX_VA_TEX5, GX_INDEX8);
+  GXSetVtxDesc(GX_VA_TEX6, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX7, GX_DIRECT);
+  // Discard the dirty state from above
+  aurora::gx::fifo::clear_buffer();
+
+  // Now clear and flush
+  GXClearVtxDesc();
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  // Pre-fill g_gxState with non-zero to prove decode clears them
+  for (int i = 0; i < GX_VA_MAX_ATTR; ++i) {
+    g_gxState.vtxDesc[i] = GX_INDEX16;
+  }
+  decode_fifo(bytes);
+
+  // After GXClearVtxDesc: POS = GX_DIRECT, everything else = GX_NONE
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_PNMTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX0MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX1MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX2MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX3MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX4MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX5MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX6MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX7MTXIDX], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_POS], GX_DIRECT);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_NRM], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_CLR0], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_CLR1], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX0], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX1], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX2], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX3], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX4], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX5], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX6], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX7], GX_NONE);
+}
+
+// --- GXSetVtxDesc / GXClearVtxDesc ---
+
+TEST_F(GXFifoTest, VtxDesc_PosAndNrm_Direct) {
+  GXClearVtxDesc();
+  GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_NRM, GX_DIRECT);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_POS], GX_DIRECT);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_NRM], GX_DIRECT);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_CLR0], GX_NONE);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX0], GX_NONE);
+}
+
+TEST_F(GXFifoTest, VtxDesc_Indexed) {
+  GXClearVtxDesc();
+  GXSetVtxDesc(GX_VA_POS, GX_INDEX16);
+  GXSetVtxDesc(GX_VA_NRM, GX_INDEX16);
+  GXSetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX0, GX_INDEX8);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_POS], GX_INDEX16);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_NRM], GX_INDEX16);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_CLR0], GX_DIRECT);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX0], GX_INDEX8);
+}
+
+TEST_F(GXFifoTest, VtxDesc_MtxIdx) {
+  GXClearVtxDesc();
+  GXSetVtxDesc(GX_VA_PNMTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_TEX0MTXIDX, GX_DIRECT);
+  GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_PNMTXIDX], GX_DIRECT);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_TEX0MTXIDX], GX_DIRECT);
+  EXPECT_EQ(g_gxState.vtxDesc[GX_VA_POS], GX_DIRECT);
+}
+
+TEST_F(GXFifoTest, GetVtxDesc_UsesShadowState) {
+  GXClearVtxDesc();
+  GXSetVtxDesc(GX_VA_POS, GX_INDEX16);
+  GXSetVtxDesc(GX_VA_NBT, GX_DIRECT);
+
+  GXAttrType posType = GX_NONE;
+  GXAttrType nbtType = GX_NONE;
+  GXVtxDescList vcd[24]{};
+  GXGetVtxDesc(GX_VA_POS, &posType);
+  GXGetVtxDesc(GX_VA_NBT, &nbtType);
+  GXGetVtxDescv(vcd);
+
+  EXPECT_EQ(posType, GX_INDEX16);
+  EXPECT_EQ(nbtType, GX_DIRECT);
+  EXPECT_EQ(vcd[GX_VA_POS].attr, GX_VA_POS);
+  EXPECT_EQ(vcd[GX_VA_POS].type, GX_INDEX16);
+  EXPECT_EQ(vcd[GX_VA_TEX7 + 1].attr, GX_VA_NBT);
+  EXPECT_EQ(vcd[GX_VA_TEX7 + 1].type, GX_DIRECT);
+  EXPECT_EQ(vcd[GX_VA_TEX7 + 2].attr, GX_VA_NULL);
+}
+
+// --- GXSetVtxAttrFmt ---
+
+TEST_F(GXFifoTest, VtxAttrFmt_PosF32) {
+  GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& vf = g_gxState.vtxFmts[GX_VTXFMT0];
+  EXPECT_EQ(vf.attrs[GX_VA_POS].cnt, GX_POS_XYZ);
+  EXPECT_EQ(vf.attrs[GX_VA_POS].type, GX_F32);
+  EXPECT_EQ(vf.attrs[GX_VA_POS].frac, 0);
+}
+
+TEST_F(GXFifoTest, VtxAttrFmt_NrmS16) {
+  GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_S16, 0);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& vf = g_gxState.vtxFmts[GX_VTXFMT0];
+  EXPECT_EQ(vf.attrs[GX_VA_NRM].cnt, GX_NRM_XYZ);
+  EXPECT_EQ(vf.attrs[GX_VA_NRM].type, GX_S16);
+}
+
+TEST_F(GXFifoTest, VtxAttrFmt_Tex0_S16_Frac8) {
+  GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_S16, 8);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& vf = g_gxState.vtxFmts[GX_VTXFMT0];
+  EXPECT_EQ(vf.attrs[GX_VA_TEX0].cnt, GX_TEX_ST);
+  EXPECT_EQ(vf.attrs[GX_VA_TEX0].type, GX_S16);
+  EXPECT_EQ(vf.attrs[GX_VA_TEX0].frac, 8);
+}
+
+TEST_F(GXFifoTest, VtxAttrFmt_Clr0_RGBA8) {
+  GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& vf = g_gxState.vtxFmts[GX_VTXFMT0];
+  EXPECT_EQ(vf.attrs[GX_VA_CLR0].cnt, GX_CLR_RGBA);
+  EXPECT_EQ(vf.attrs[GX_VA_CLR0].type, GX_RGBA8);
+}
+
+TEST_F(GXFifoTest, VtxAttrFmt_MultipleTexCoords) {
+  GXSetVtxAttrFmt(GX_VTXFMT1, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+  GXSetVtxAttrFmt(GX_VTXFMT1, GX_VA_TEX1, GX_TEX_ST, GX_U16, 15);
+  GXSetVtxAttrFmt(GX_VTXFMT1, GX_VA_TEX2, GX_TEX_ST, GX_S16, 8);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& vf = g_gxState.vtxFmts[GX_VTXFMT1];
+  EXPECT_EQ(vf.attrs[GX_VA_TEX0].type, GX_F32);
+  EXPECT_EQ(vf.attrs[GX_VA_TEX1].type, GX_U16);
+  EXPECT_EQ(vf.attrs[GX_VA_TEX1].frac, 15);
+  EXPECT_EQ(vf.attrs[GX_VA_TEX2].type, GX_S16);
+  EXPECT_EQ(vf.attrs[GX_VA_TEX2].frac, 8);
+}
+
+TEST_F(GXFifoTest, GetVtxAttrFmt_UsesShadowState) {
+  GXSetVtxAttrFmt(GX_VTXFMT2, GX_VA_NRM, GX_NRM_NBT3, GX_S16, 0);
+  GXSetVtxAttrFmt(GX_VTXFMT2, GX_VA_TEX4, GX_TEX_ST, GX_U16, 11);
+
+  GXCompCnt cnt = GX_POS_XY;
+  GXCompType type = GX_U8;
+  u8 frac = 0;
+  GXVtxAttrFmtList vat[13]{};
+
+  GXGetVtxAttrFmt(GX_VTXFMT2, GX_VA_NRM, &cnt, &type, &frac);
+  EXPECT_EQ(cnt, GX_NRM_NBT3);
+  EXPECT_EQ(type, GX_S16);
+  EXPECT_EQ(frac, 14);
+
+  GXGetVtxAttrFmtv(GX_VTXFMT2, vat);
+  EXPECT_EQ(vat[GX_VA_NRM - GX_VA_POS].attr, GX_VA_NRM);
+  EXPECT_EQ(vat[GX_VA_NRM - GX_VA_POS].cnt, GX_NRM_NBT3);
+  EXPECT_EQ(vat[GX_VA_NRM - GX_VA_POS].type, GX_S16);
+  EXPECT_EQ(vat[GX_VA_TEX4 - GX_VA_POS].attr, GX_VA_TEX4);
+  EXPECT_EQ(vat[GX_VA_TEX4 - GX_VA_POS].type, GX_U16);
+  EXPECT_EQ(vat[GX_VA_TEX4 - GX_VA_POS].frac, 11);
+  EXPECT_EQ(vat[12].attr, GX_VA_NULL);
+}
+
+// --- GXSetArray (Aurora array-base command + CP stride command) ---
+
+TEST_F(GXFifoTest, SetArray_Pos_EncodesAuroraArrayBaseAndStride) {
+  u8 posData[32]{};
+  u8 oldData[8]{};
+
+  GXSetArray(GX_VA_POS, posData, sizeof(posData), 12, false);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 22u);
+  EXPECT_EQ(bytes[0], GX_AURORA);
+  EXPECT_EQ(bytes[1], 0x00);
+  EXPECT_EQ(bytes[2], GX_AURORA_LOAD_ARRAYBASE);
+
+  const auto expect_be64 = [&](size_t offset, u64 value) {
+    for (size_t i = 0; i < 8; ++i) {
+      EXPECT_EQ(bytes[offset + i], static_cast<u8>((value >> (56 - i * 8)) & 0xFF));
+    }
+  };
+  const auto expect_be32 = [&](size_t offset, u32 value) {
+    for (size_t i = 0; i < 4; ++i) {
+      EXPECT_EQ(bytes[offset + i], static_cast<u8>((value >> (24 - i * 8)) & 0xFF));
+    }
+  };
+
+  expect_be64(3, static_cast<u64>(reinterpret_cast<uintptr_t>(posData)));
+  expect_be32(11, sizeof(posData));
+  EXPECT_EQ(bytes[15], 0);
+  EXPECT_EQ(bytes[16], GX_LOAD_CP_REG);
+  EXPECT_EQ(bytes[17], GX_CP_REG_ARRAYSTRIDE);
+  expect_be32(18, 12);
+
+  reset_gx_state();
+  gxState().arrays[GX_VA_POS].data = oldData;
+  gxState().arrays[GX_VA_POS].size = sizeof(oldData);
+  gxState().arrays[GX_VA_POS].stride = 2;
+  gxState().arrays[GX_VA_POS].cachedRange.offset = 4;
+  gxState().arrays[GX_VA_POS].cachedRange.size = 8;
+  gxState().dirty = 0;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(gxState().arrays[GX_VA_POS].data, posData);
+  EXPECT_EQ(gxState().arrays[GX_VA_POS].size, sizeof(posData));
+  EXPECT_EQ(gxState().arrays[GX_VA_POS].stride, 12);
+  EXPECT_FALSE(gxState().arrays[GX_VA_POS].le);
+  EXPECT_EQ(gxState().arrays[GX_VA_POS].cachedRange.offset, 0u);
+  EXPECT_EQ(gxState().arrays[GX_VA_POS].cachedRange.size, 0u);
+  EXPECT_EQ(gxState().dirty, aurora::gx::DirtyPipeline | aurora::gx::DirtyImmediates);
+}
+
+TEST_F(GXFifoTest, SetArray_Nbt_UsesNrmCommandSlotAndState) {
+  u8 nbtData[96]{};
+  u8 untouchedData[24]{};
+
+  GXSetArray(GX_VA_NBT, nbtData, sizeof(nbtData), 36, false);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 22u);
+  EXPECT_EQ(bytes[0], GX_AURORA);
+  EXPECT_EQ(bytes[1], 0x00);
+  EXPECT_EQ(bytes[2], GX_AURORA_LOAD_ARRAYBASE | 0x01);
+  EXPECT_EQ(bytes[15], 0);
+  EXPECT_EQ(bytes[16], GX_LOAD_CP_REG);
+  EXPECT_EQ(bytes[17], GX_CP_REG_ARRAYSTRIDE | 0x01);
+
+  reset_gx_state();
+  gxState().arrays[GX_VA_NRM].cachedRange.offset = 12;
+  gxState().arrays[GX_VA_NRM].cachedRange.size = 48;
+  gxState().arrays[GX_VA_NBT].data = untouchedData;
+  gxState().arrays[GX_VA_NBT].size = sizeof(untouchedData);
+  gxState().arrays[GX_VA_NBT].stride = 24;
+  gxState().dirty = 0;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(gxState().arrays[GX_VA_NRM].data, nbtData);
+  EXPECT_EQ(gxState().arrays[GX_VA_NRM].size, sizeof(nbtData));
+  EXPECT_EQ(gxState().arrays[GX_VA_NRM].stride, 36);
+  EXPECT_FALSE(gxState().arrays[GX_VA_NRM].le);
+  EXPECT_EQ(gxState().arrays[GX_VA_NRM].cachedRange.offset, 0u);
+  EXPECT_EQ(gxState().arrays[GX_VA_NRM].cachedRange.size, 0u);
+  EXPECT_EQ(gxState().dirty, aurora::gx::DirtyPipeline | aurora::gx::DirtyImmediates);
+
+  EXPECT_EQ(gxState().arrays[GX_VA_NBT].data, untouchedData);
+  EXPECT_EQ(gxState().arrays[GX_VA_NBT].size, sizeof(untouchedData));
+  EXPECT_EQ(gxState().arrays[GX_VA_NBT].stride, 24);
+}
+
+TEST_F(GXFifoTest, SetArray_LittleEndianFlag_UpdatesStateAndClearsCachedRange) {
+  u8 clrData[16]{};
+
+  GXSetArray(GX_VA_CLR0, clrData, sizeof(clrData), 4, true);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 22u);
+  EXPECT_EQ(bytes[0], GX_AURORA);
+  EXPECT_EQ(bytes[1], 0x00);
+  EXPECT_EQ(bytes[2], GX_AURORA_LOAD_ARRAYBASE | (GX_VA_CLR0 - GX_VA_POS));
+  EXPECT_EQ(bytes[15], 1);
+  EXPECT_EQ(bytes[16], GX_LOAD_CP_REG);
+  EXPECT_EQ(bytes[17], GX_CP_REG_ARRAYSTRIDE | (GX_VA_CLR0 - GX_VA_POS));
+
+  reset_gx_state();
+  gxState().arrays[GX_VA_CLR0].data = clrData;
+  gxState().arrays[GX_VA_CLR0].size = sizeof(clrData);
+  gxState().arrays[GX_VA_CLR0].stride = 4;
+  gxState().arrays[GX_VA_CLR0].le = false;
+  gxState().arrays[GX_VA_CLR0].cachedRange.offset = 3;
+  gxState().arrays[GX_VA_CLR0].cachedRange.size = 9;
+  gxState().dirty = 0;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(gxState().arrays[GX_VA_CLR0].data, clrData);
+  EXPECT_EQ(gxState().arrays[GX_VA_CLR0].size, sizeof(clrData));
+  EXPECT_EQ(gxState().arrays[GX_VA_CLR0].stride, 4);
+  EXPECT_TRUE(gxState().arrays[GX_VA_CLR0].le);
+  EXPECT_EQ(gxState().arrays[GX_VA_CLR0].cachedRange.offset, 0u);
+  EXPECT_EQ(gxState().arrays[GX_VA_CLR0].cachedRange.size, 0u);
+  EXPECT_EQ(gxState().dirty, aurora::gx::DirtyPipeline | aurora::gx::DirtyImmediates);
+}
+
+TEST_F(GXFifoTest, LoadTexObj_EncodesSdkBpBurstAndAuroraMetadata) {
+  alignas(32) u8 image[64]{};
+  GXTexObj obj{};
+  GXInitTexObj(&obj, image, 8, 8, GX_TF_RGB5A3, GX_REPEAT, GX_MIRROR, GX_FALSE);
+
+  GXLoadTexObj(&obj, GX_TEXMAP2);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_bp_write(bytes, 0x82));
+  EXPECT_TRUE(has_bp_write(bytes, 0x86));
+  EXPECT_TRUE(has_bp_write(bytes, 0x8A));
+  EXPECT_TRUE(has_bp_write(bytes, 0x8E));
+  EXPECT_TRUE(has_bp_write(bytes, 0x92));
+  EXPECT_TRUE(has_bp_write(bytes, 0x96));
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_LOAD_TEXOBJ));
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& slot = gxState().loadedTextures[GX_TEXMAP2];
+  EXPECT_EQ(slot.data, image);
+  EXPECT_EQ(slot.width(), 8u);
+  EXPECT_EQ(slot.height(), 8u);
+  EXPECT_EQ(slot.format(), GX_TF_RGB5A3);
+  EXPECT_FALSE(slot.has_mips());
+  EXPECT_EQ(slot.mode0 >> 24, 0x82u);
+  EXPECT_EQ(slot.mode1 >> 24, 0x86u);
+  EXPECT_EQ(slot.image0 >> 24, 0x8Au);
+  EXPECT_EQ(slot.image3 >> 24, 0x96u);
+  EXPECT_NE(slot.texObjId, 0u);
+  EXPECT_EQ(slot.texDataVersion, 1u);
+}
+
+TEST_F(GXFifoTest, LoadTexObjPcFormat_PreservesFullFormatMetadata) {
+  alignas(32) u8 image[64]{};
+  GXTexObj obj{};
+  GXInitTexObj(&obj, image, 8, 8, GX_TF_RGBA8_PC, GX_REPEAT, GX_REPEAT, GX_FALSE);
+
+  EXPECT_EQ(GXGetTexObjFmt(&obj), GX_TF_RGBA8_PC);
+
+  GXLoadTexObj(&obj, GX_TEXMAP3);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_LOAD_TEXOBJ));
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& slot = gxState().loadedTextures[GX_TEXMAP3];
+  EXPECT_EQ(slot.width(), 8u);
+  EXPECT_EQ(slot.height(), 8u);
+  EXPECT_EQ(slot.format(), GX_TF_RGBA8_PC);
+  EXPECT_EQ(slot.raw_format(), static_cast<u32>(GX_TF_RGBA8));
+}
+
+TEST_F(GXFifoTest, TexImage0BpWrite_ClearsExtendedTextureMetadata) {
+  auto& slot = gxState().loadedTextures[GX_TEXMAP0];
+  slot.mWidth = 1024;
+  slot.mHeight = 1024;
+  slot.mFormat = GX_TF_BC1_PC;
+
+  const u32 image0 = (0x88u << 24) | (7u << 0) | (15u << 10) | (static_cast<u32>(GX_TF_RGBA8) << 20);
+  aurora::gx::fifo::write_u8(0x61);
+  aurora::gx::fifo::write_u32(image0);
+  auto bytes = capture_fifo();
+
+  decode_fifo(bytes);
+
+  EXPECT_EQ(slot.width(), 8u);
+  EXPECT_EQ(slot.height(), 16u);
+  EXPECT_EQ(slot.format(), GX_TF_RGBA8);
+}
+
+TEST_F(GXFifoTest, TexObjRawDimensions_WrapAtTenBitBoundary) {
+  auto& slot = gxState().loadedTextures[GX_TEXMAP0];
+  slot.image0 = (0x3FFu << 0) | (0x3FFu << 10);
+  slot.mWidth = 0;
+  slot.mHeight = 0;
+
+  EXPECT_EQ(slot.width(), 0u);
+  EXPECT_EQ(slot.height(), 0u);
+}
+
+TEST_F(GXFifoTest, TexObjExplicitDimensions_DoNotWrapAtTenBitBoundary) {
+  auto& slot = gxState().loadedTextures[GX_TEXMAP0];
+  slot.image0 = (0x3FFu << 0) | (0x3FFu << 10);
+  slot.mWidth = 1024;
+  slot.mHeight = 1024;
+
+  EXPECT_EQ(slot.width(), 1024u);
+  EXPECT_EQ(slot.height(), 1024u);
+}
+
+TEST_F(GXFifoTest, LoadTexObjCiAndTlut_PopulatesTextureAndTlutSlots) {
+  alignas(32) u8 image[64]{};
+  alignas(32) u16 palette[16]{};
+  GXTexObj texObj{};
+  GXTlutObj tlutObj{};
+
+  GXInitTexObjCI(&texObj, image, 8, 8, GX_TF_C4, GX_CLAMP, GX_CLAMP, GX_FALSE, GX_TLUT3);
+  GXInitTlutObj(&tlutObj, palette, GX_TL_RGB565, 16);
+
+  GXLoadTexObj(&texObj, GX_TEXMAP1);
+  GXLoadTlut(&tlutObj, GX_TLUT3);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_bp_write(bytes, 0x81));
+  EXPECT_TRUE(has_bp_write(bytes, 0x85));
+  EXPECT_TRUE(has_bp_write(bytes, 0x89));
+  EXPECT_TRUE(has_bp_write(bytes, 0x8D));
+  EXPECT_TRUE(has_bp_write(bytes, 0x91));
+  EXPECT_TRUE(has_bp_write(bytes, 0x95));
+  EXPECT_TRUE(has_bp_write(bytes, 0x99));
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_LOAD_TEXOBJ));
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_LOAD_TLUT));
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& texSlot = gxState().loadedTextures[GX_TEXMAP1];
+  EXPECT_EQ(texSlot.data, image);
+  EXPECT_EQ(texSlot.width(), 8u);
+  EXPECT_EQ(texSlot.height(), 8u);
+  EXPECT_EQ(texSlot.format(), GX_TF_C4);
+  EXPECT_EQ(texSlot.tlut, GX_TLUT3);
+
+  const auto& tlutSlot = gxState().loadedTluts[GX_TLUT3];
+  EXPECT_EQ(tlutSlot.data, palette);
+  EXPECT_EQ(tlutSlot.format, GX_TL_RGB565);
+  EXPECT_EQ(tlutSlot.numEntries, 16u);
+  EXPECT_NE(tlutSlot.tlutObjId, 0u);
+  EXPECT_EQ(tlutSlot.tlutDataVersion, 1u);
+}
+
+TEST_F(GXFifoTest, TlutExecute_ReappliesSameTargetAfterSourceChanges) {
+  const std::vector<u8> firstLoad{
+      0x61, 0x64, 0x00, 0x00, 0x11,
+      0x61, 0x65, 0x00, 0x00, 0x03,
+  };
+  const std::vector<u8> secondLoad{
+      0x61, 0x64, 0x00, 0x00, 0x22,
+      0x61, 0x65, 0x00, 0x00, 0x03,
+  };
+
+  decode_fifo(firstLoad);
+  EXPECT_EQ(g_gxState.loadedTluts[3].loadTlut0, 0x64000011u);
+
+  decode_fifo(secondLoad);
+  EXPECT_EQ(g_gxState.loadedTluts[3].loadTlut0, 0x64000022u);
+}
+
+TEST_F(GXFifoTest, DestroyTexObj_EmitsAuroraDestroyCommandAndClearsIdentity) {
+  alignas(32) u8 image[64]{};
+  GXTexObj obj{};
+  GXInitTexObj(&obj, image, 8, 8, GX_TF_RGB5A3, GX_REPEAT, GX_REPEAT, GX_FALSE);
+  GXDestroyTexObj(&obj);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_DESTROY_TEXOBJ));
+  EXPECT_EQ(reinterpret_cast<const GXTexObj_*>(&obj)->texObjId, 0u);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+}
+
+TEST_F(GXFifoTest, DestroyTexObj_MarksLoadedSlotNoCacheUntilReloaded) {
+  alignas(32) u8 imageA[64]{};
+  alignas(32) u8 imageB[64]{};
+  GXTexObj objA{};
+  GXTexObj objB{};
+
+  GXInitTexObj(&objA, imageA, 8, 8, GX_TF_RGB5A3, GX_REPEAT, GX_REPEAT, GX_FALSE);
+  GXLoadTexObj(&objA, GX_TEXMAP2);
+  auto loadABytes = capture_fifo();
+  const auto destroyedTexObjId = reinterpret_cast<const GXTexObj_*>(&objA)->texObjId;
+
+  GXDestroyTexObj(&objA);
+  auto destroyBytes = capture_fifo();
+
+  GXInitTexObj(&objB, imageB, 8, 8, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, GX_FALSE);
+  GXLoadTexObj(&objB, GX_TEXMAP2);
+  auto loadBBytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(loadABytes);
+  auto& slot = gxState().loadedTextures[GX_TEXMAP2];
+  EXPECT_EQ(slot.texObjId, destroyedTexObjId);
+  EXPECT_FALSE(slot.no_cache());
+
+  decode_fifo(destroyBytes);
+  EXPECT_EQ(slot.texObjId, destroyedTexObjId);
+  EXPECT_TRUE(slot.no_cache());
+
+  decode_fifo(loadBBytes);
+  EXPECT_EQ(slot.data, imageB);
+  EXPECT_EQ(slot.format(), GX_TF_RGB565);
+  EXPECT_FALSE(slot.no_cache());
+}
+
+TEST_F(GXFifoTest, DestroyTlutObj_EmitsAuroraDestroyCommandAndClearsIdentity) {
+  alignas(32) u16 palette[16]{};
+  GXTlutObj obj{};
+  GXInitTlutObj(&obj, palette, GX_TL_RGB565, 16);
+  GXDestroyTlutObj(&obj);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_DESTROY_TLUT));
+  EXPECT_EQ(reinterpret_cast<const GXTlutObj_*>(&obj)->tlutObjId, 0u);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+}
+
+TEST_F(GXFifoTest, DestroyTlutObj_MarksLoadedSlotNoCacheUntilReloaded) {
+  alignas(32) u16 paletteA[16]{};
+  alignas(32) u16 paletteB[16]{};
+  GXTlutObj objA{};
+  GXTlutObj objB{};
+
+  GXInitTlutObj(&objA, paletteA, GX_TL_RGB565, 16);
+  GXLoadTlut(&objA, GX_TLUT3);
+  auto loadABytes = capture_fifo();
+  const auto destroyedTlutObjId = reinterpret_cast<const GXTlutObj_*>(&objA)->tlutObjId;
+
+  GXDestroyTlutObj(&objA);
+  auto destroyBytes = capture_fifo();
+
+  GXInitTlutObj(&objB, paletteB, GX_TL_IA8, 16);
+  GXLoadTlut(&objB, GX_TLUT3);
+  auto loadBBytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(loadABytes);
+  auto& slot = gxState().loadedTluts[GX_TLUT3];
+  EXPECT_EQ(slot.tlutObjId, destroyedTlutObjId);
+  EXPECT_FALSE(slot.no_cache());
+
+  decode_fifo(destroyBytes);
+  EXPECT_EQ(slot.tlutObjId, destroyedTlutObjId);
+  EXPECT_TRUE(slot.no_cache());
+
+  decode_fifo(loadBBytes);
+  EXPECT_EQ(slot.data, paletteB);
+  EXPECT_EQ(slot.format, GX_TL_IA8);
+  EXPECT_FALSE(slot.no_cache());
+}
+
+TEST_F(GXFifoTest, DestroyCopyTex_EmitsAuroraDestroyCommand) {
+  alignas(32) u8 image[32]{};
+
+  GXDestroyCopyTex(image);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_DESTROY_COPY_TEX));
+
+  reset_gx_state();
+  decode_fifo(bytes);
+}
+
+TEST_F(GXFifoTest, DestroyCopyTex_RemovesActiveCopyTextureAndCacheEntriesForPointer) {
+  alignas(32) u8 imageA[32]{};
+  alignas(32) u8 imageB[32]{};
+
+  const aurora::gx::GXState::CopyTextureRef ref{.revision = 1};
+  gxState().copyTextures[imageA] = ref;
+  gxState().copyTextures[imageB] = ref;
+  gxState().copyTextureCache.emplace(
+      aurora::gx::GXState::CopyTextureKey{.dest = imageA, .width = 32, .height = 32, .format = GX_TF_I4}, ref);
+  gxState().copyTextureCache.emplace(
+      aurora::gx::GXState::CopyTextureKey{.dest = imageA, .width = 64, .height = 64, .format = GX_TF_I8}, ref);
+  gxState().copyTextureCache.emplace(
+      aurora::gx::GXState::CopyTextureKey{.dest = imageB, .width = 32, .height = 32, .format = GX_TF_I4}, ref);
+
+  GXDestroyCopyTex(imageA);
+  auto bytes = capture_fifo();
+
+  decode_fifo(bytes);
+
+  EXPECT_FALSE(gxState().copyTextures.contains(imageA));
+  EXPECT_TRUE(gxState().copyTextures.contains(imageB));
+  for (const auto& [key, _] : gxState().copyTextureCache) {
+    EXPECT_NE(key.dest, imageA);
+  }
+  EXPECT_EQ(gxState().copyTextureCache.size(), 1u);
+}
+
+// ============================================================================
+// BP genMode (requires __GXSetDirtyState() flush)
+// ============================================================================
+
+// --- GXSetCullMode ---
+
+TEST_F(GXFifoTest, CullMode_Back) {
+  GXSetCullMode(GX_CULL_BACK);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  g_gxState.cullMode = GX_CULL_NONE;
+  decode_fifo(bytes);
+
+  // The encoder swaps front/back for hardware, and decoder swaps back
+  EXPECT_EQ(g_gxState.cullMode, GX_CULL_BACK);
+}
+
+TEST_F(GXFifoTest, CullMode_Front) {
+  GXSetCullMode(GX_CULL_FRONT);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.cullMode, GX_CULL_FRONT);
+}
+
+TEST_F(GXFifoTest, CullMode_None) {
+  GXSetCullMode(GX_CULL_NONE);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  g_gxState.cullMode = GX_CULL_BACK;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.cullMode, GX_CULL_NONE);
+}
+
+TEST_F(GXFifoTest, GetLinePointCullShadowState) {
+  GXSetLineWidth(12, GX_TO_ZERO);
+  GXSetPointSize(34, GX_TO_ONE);
+  GXSetCullMode(GX_CULL_FRONT);
+
+  u8 lineWidth = 0;
+  u8 pointSize = 0;
+  GXTexOffset lineOffs = GX_TO_ZERO;
+  GXTexOffset pointOffs = GX_TO_ZERO;
+  GXCullMode cullMode = GX_CULL_NONE;
+
+  GXGetLineWidth(&lineWidth, &lineOffs);
+  GXGetPointSize(&pointSize, &pointOffs);
+  GXGetCullMode(&cullMode);
+
+  EXPECT_EQ(lineWidth, 12);
+  EXPECT_EQ(lineOffs, GX_TO_ZERO);
+  EXPECT_EQ(pointSize, 34);
+  EXPECT_EQ(pointOffs, GX_TO_ONE);
+  EXPECT_EQ(cullMode, GX_CULL_FRONT);
+}
+
+TEST_F(GXFifoTest, LinePointSize_Decode) {
+  GXSetLineWidth(12, GX_TO_ZERO);
+  GXSetPointSize(34, GX_TO_ONE);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 10u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0x22);
+  EXPECT_EQ(bytes[5], 0x61);
+  EXPECT_EQ(bytes[6], 0x22);
+
+  reset_gx_state();
+  g_gxState.lineWidth = 1;
+  g_gxState.pointSize = 2;
+  g_gxState.lineTexOffset = GX_TO_ONE;
+  g_gxState.pointTexOffset = GX_TO_ZERO;
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.lineWidth, 12u);
+  EXPECT_EQ(g_gxState.lineTexOffset, GX_TO_ZERO);
+  EXPECT_EQ(g_gxState.pointSize, 34u);
+  EXPECT_EQ(g_gxState.pointTexOffset, GX_TO_ONE);
+}
+
+// --- GXSetNumTevStages / GXSetNumTexGens / GXSetNumChans ---
+
+TEST_F(GXFifoTest, NumTevStages) {
+  GXSetNumTevStages(4);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.numTevStages, 4u);
+}
+
+TEST_F(GXFifoTest, NumTexGens) {
+  GXSetNumTexGens(3);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.numTexGens, 3u);
+}
+
+TEST_F(GXFifoTest, NumChans) {
+  GXSetNumChans(2);
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.numChans, 2u);
+}
+
+TEST_F(GXFifoTest, GenMode_ReappliesAfterMirroredXfWrites) {
+  const std::vector<u8> genMode{0x61, 0x00, 0x00, 0x00, 0x12}; // 2 texgens, 1 channel
+  const std::vector<u8> xfCounts{
+      0x10, 0x00, 0x00, 0x10, 0x3F, 0x00, 0x00, 0x00, 0x03,
+      0x10, 0x00, 0x00, 0x10, 0x09, 0x00, 0x00, 0x00, 0x02,
+  };
+
+  decode_fifo(genMode);
+  decode_fifo(xfCounts);
+  EXPECT_EQ(g_gxState.numTexGens, 3u);
+  EXPECT_EQ(g_gxState.numChans, 2u);
+
+  decode_fifo(genMode);
+  EXPECT_EQ(g_gxState.numTexGens, 2u);
+  EXPECT_EQ(g_gxState.numChans, 1u);
+}
+
+TEST_F(GXFifoTest, XfCounts_ReapplyAfterMirroredGenModeWrite) {
+  const std::vector<u8> xfCounts{
+      0x10, 0x00, 0x00, 0x10, 0x3F, 0x00, 0x00, 0x00, 0x03,
+      0x10, 0x00, 0x00, 0x10, 0x09, 0x00, 0x00, 0x00, 0x02,
+  };
+  const std::vector<u8> genMode{0x61, 0x00, 0x00, 0x00, 0x11}; // 1 texgen, 1 channel
+
+  decode_fifo(xfCounts);
+  decode_fifo(genMode);
+  EXPECT_EQ(g_gxState.numTexGens, 1u);
+  EXPECT_EQ(g_gxState.numChans, 1u);
+
+  decode_fifo(xfCounts);
+  EXPECT_EQ(g_gxState.numTexGens, 3u);
+  EXPECT_EQ(g_gxState.numChans, 2u);
+}
+
+// ============================================================================
+// XF registers (direct FIFO writes)
+// ============================================================================
+
+// --- GXLoadPosMtxIndx (indexed XF load from GX_POS_MTX_ARRAY) ---
+
+TEST_F(GXFifoTest, LoadPosMtxIndx_RoundTripWithFullIndexAndFollowingCommand) {
+  std::array<aurora::Mat3x4<float>, 257> matrices{};
+  auto& source = matrices[0x100];
+  source.m0 = {1.0f, 2.0f, 3.0f, 10.0f};
+  source.m1 = {4.0f, 5.0f, 6.0f, 20.0f};
+  source.m2 = {7.0f, 8.0f, 9.0f, 30.0f};
+
+  GXSetArray(GX_POS_MTX_ARRAY, matrices.data(), sizeof(matrices), sizeof(matrices[0]), true);
+  GXLoadPosMtxIndx(0x100, GX_PNMTX3);
+  GXSetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ONE, GX_LO_NOOP);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 32u);
+  EXPECT_EQ(bytes[22], GX_LOAD_INDX_A);
+  EXPECT_EQ(bytes[23], 0x01);
+  EXPECT_EQ(bytes[24], 0x00);
+  EXPECT_EQ(bytes[25], 0xB0);
+  EXPECT_EQ(bytes[26], 0x24);
+  EXPECT_EQ(bytes[27], GX_LOAD_BP_REG);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& decoded = g_gxState.pnMtx[3].pos;
+  EXPECT_EQ(decoded, source);
+  EXPECT_EQ(g_gxState.blendMode, GX_BM_SUBTRACT);
+}
+
+TEST_F(GXFifoTest, LoadPosMtxIndx_DecodesBigEndianArray) {
+  const std::array<f32, 12> values{
+      1.0f, 2.0f, 3.0f, 10.0f, 4.0f, 5.0f, 6.0f, 20.0f, 7.0f, 8.0f, 9.0f, 30.0f,
+  };
+  std::array<u8, sizeof(values)> source{};
+  for (size_t i = 0; i < values.size(); ++i) {
+    const u32 bits = std::bit_cast<u32>(values[i]);
+    source[i * 4] = static_cast<u8>(bits >> 24);
+    source[i * 4 + 1] = static_cast<u8>(bits >> 16);
+    source[i * 4 + 2] = static_cast<u8>(bits >> 8);
+    source[i * 4 + 3] = static_cast<u8>(bits);
+  }
+
+  GXSetArray(GX_POS_MTX_ARRAY, source.data(), source.size(), source.size(), false);
+  GXLoadPosMtxIndx(0, GX_PNMTX0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& decoded = g_gxState.pnMtx[0].pos;
+  for (size_t i = 0; i < values.size(); ++i) {
+    EXPECT_FLOAT_EQ(reinterpret_cast<const f32*>(&decoded)[i], values[i]);
+  }
+}
+
+// --- GXLoadPosMtxImm (XF 0x000-0x077) ---
+
+TEST_F(GXFifoTest, LoadPosMtxImm_Identity) {
+  // 3x4 identity matrix
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 1.0f;
+  mtx.m1[1] = 1.0f;
+  mtx.m2[2] = 1.0f;
+
+  GXLoadPosMtxImm(&mtx, GX_PNMTX0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.pnMtx[0].pos;
+  EXPECT_FLOAT_EQ(decoded.m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadPosMtxImm_Translation) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 1.0f;
+  mtx.m1[1] = 1.0f;
+  mtx.m2[2] = 1.0f;
+  mtx.m0[3] = 10.0f;
+  mtx.m1[3] = 20.0f;
+  mtx.m2[3] = 30.0f;
+
+  GXLoadPosMtxImm(&mtx, GX_PNMTX3);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.pnMtx[3].pos;
+  EXPECT_FLOAT_EQ(decoded.m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 10.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 20.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 30.0f);
+}
+
+// --- GXLoadNrmMtxImm (XF 0x400-0x459) ---
+
+TEST_F(GXFifoTest, LoadNrmMtxImm_Identity) {
+  // 3x4 matrix with 3x3 identity (translation column ignored by encoder)
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 1.0f;
+  mtx.m1[1] = 1.0f;
+  mtx.m2[2] = 1.0f;
+
+  GXLoadNrmMtxImm(&mtx, GX_PNMTX0);
+  auto bytes = capture_fifo();
+
+  // XF opcode 0x10
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x10);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.pnMtx[0].nrm;
+  EXPECT_FLOAT_EQ(decoded.m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 1.0f);
+}
+
+TEST_F(GXFifoTest, LoadNrmMtxImm_ArbitraryValues) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 0.5f;  mtx.m0[1] = -0.5f; mtx.m0[2] = 0.7f;  mtx.m0[3] = 999.0f;
+  mtx.m1[0] = 0.3f;  mtx.m1[1] = 0.8f;  mtx.m1[2] = -0.1f; mtx.m1[3] = 888.0f;
+  mtx.m2[0] = -0.6f; mtx.m2[1] = 0.2f;  mtx.m2[2] = 0.9f;  mtx.m2[3] = 777.0f;
+
+  GXLoadNrmMtxImm(&mtx, GX_PNMTX0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.pnMtx[0].nrm;
+  // 3x3 portion should round-trip
+  EXPECT_FLOAT_EQ(decoded.m0[0], 0.5f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], -0.5f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.7f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], 0.3f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 0.8f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], -0.1f);
+  EXPECT_FLOAT_EQ(decoded.m2[0], -0.6f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.2f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 0.9f);
+  // Translation column is NOT written by the encoder, so it stays zeroed
+  EXPECT_FLOAT_EQ(decoded.m0[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadNrmMtxImm_DifferentSlot) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 2.0f;
+  mtx.m1[1] = 3.0f;
+  mtx.m2[2] = 4.0f;
+
+  GXLoadNrmMtxImm(&mtx, GX_PNMTX3);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.pnMtx[3].nrm;
+  EXPECT_FLOAT_EQ(decoded.m0[0], 2.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 3.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 4.0f);
+}
+
+TEST_F(GXFifoTest, LoadNrmMtxImm_Isolation) {
+  // Loading nrm into slot 0 should not affect slot 1 or the pos matrix
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 11.0f;
+  mtx.m1[1] = 22.0f;
+  mtx.m2[2] = 33.0f;
+
+  GXLoadNrmMtxImm(&mtx, GX_PNMTX0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // Slot 0 nrm should have our values
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].nrm.m0[0], 11.0f);
+  // Slot 0 pos should remain zeroed (nrm write doesn't touch pos)
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].pos.m0[0], 0.0f);
+  // Slot 1 nrm should remain zeroed
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[1].nrm.m0[0], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadNrmMtxImm_WithPosMtx) {
+  // Load both pos and nrm into the same slot, verify both decode correctly
+  aurora::Mat3x4<float> posMtx{};
+  posMtx.m0[0] = 1.0f;
+  posMtx.m1[1] = 1.0f;
+  posMtx.m2[2] = 1.0f;
+  posMtx.m0[3] = 5.0f;
+  posMtx.m1[3] = 10.0f;
+  posMtx.m2[3] = 15.0f;
+
+  aurora::Mat3x4<float> nrmMtx{};
+  nrmMtx.m0[0] = 0.5f;
+  nrmMtx.m1[1] = 0.5f;
+  nrmMtx.m2[2] = 0.5f;
+
+  GXLoadPosMtxImm(&posMtx, GX_PNMTX0);
+  GXLoadNrmMtxImm(&nrmMtx, GX_PNMTX0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // Position matrix
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].pos.m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].pos.m0[3], 5.0f);
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].pos.m1[3], 10.0f);
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].pos.m2[3], 15.0f);
+  // Normal matrix
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].nrm.m0[0], 0.5f);
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].nrm.m1[1], 0.5f);
+  EXPECT_FLOAT_EQ(g_gxState.pnMtx[0].nrm.m2[2], 0.5f);
+}
+
+// --- GXLoadTexMtxImm 3x4 (XF 0x078-0x0EF) ---
+
+TEST_F(GXFifoTest, LoadTexMtx3x4_Identity) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 1.0f;
+  mtx.m1[1] = 1.0f;
+  mtx.m2[2] = 1.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX0, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x10);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.texMtxs[0];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadTexMtx3x4_ArbitraryValues) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 2.0f;  mtx.m0[1] = 0.5f;  mtx.m0[2] = 0.0f;  mtx.m0[3] = 10.0f;
+  mtx.m1[0] = -0.5f; mtx.m1[1] = 3.0f;  mtx.m1[2] = 0.0f;  mtx.m1[3] = 20.0f;
+  mtx.m2[0] = 0.0f;  mtx.m2[1] = 0.0f;  mtx.m2[2] = 1.5f;  mtx.m2[3] = -5.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX0, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.texMtxs[0];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 2.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.5f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 10.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], -0.5f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 3.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 20.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 1.5f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], -5.0f);
+}
+
+TEST_F(GXFifoTest, LoadTexMtx3x4_DifferentSlot) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 7.0f;
+  mtx.m1[1] = 8.0f;
+  mtx.m2[2] = 9.0f;
+  mtx.m2[3] = 42.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX5, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // GX_TEXMTX5 = 45, addr = 45*4 = 180 = 0xB4, index = (0xB4 - 0x78) / 12 = 5
+  auto& decoded = g_gxState.texMtxs[5];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 7.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 8.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 9.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 42.0f);
+}
+
+TEST_F(GXFifoTest, LoadTexMtx3x4_LastSlot) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 11.0f;
+  mtx.m1[1] = 22.0f;
+  mtx.m2[2] = 33.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX9, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.texMtxs[9];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 11.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 22.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 33.0f);
+}
+
+TEST_F(GXFifoTest, LoadTexMtx3x4_Isolation) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 50.0f;
+  mtx.m1[1] = 60.0f;
+  mtx.m2[2] = 70.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX0, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_FLOAT_EQ(g_gxState.texMtxs[0].m0[0], 50.0f);
+  // Slot 1 should remain zeroed
+  EXPECT_FLOAT_EQ(g_gxState.texMtxs[1].m0[0], 0.0f);
+  EXPECT_FLOAT_EQ(g_gxState.texMtxs[1].m1[1], 0.0f);
+}
+
+// --- GXLoadTexMtxImm 2x4 (XF 0x078-0x0EF) ---
+
+TEST_F(GXFifoTest, LoadTexMtx2x4_Identity) {
+  // 2x4 identity: row0 = [1,0,0,0], row1 = [0,1,0,0]
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 1.0f;
+  mtx.m1[1] = 1.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX0, GX_MTX2x4);
+  auto bytes = capture_fifo();
+
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x10);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.texMtxs[0];
+  // First two rows should round-trip
+  EXPECT_FLOAT_EQ(decoded.m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 0.0f);
+  // Third row not written by 2x4, should be zeroed
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadTexMtx2x4_ArbitraryValues) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 0.5f;  mtx.m0[1] = -1.0f; mtx.m0[2] = 0.25f; mtx.m0[3] = 100.0f;
+  mtx.m1[0] = 3.0f;  mtx.m1[1] = 0.0f;  mtx.m1[2] = -2.5f; mtx.m1[3] = -50.0f;
+  // Row 2 values should be ignored by the encoder
+  mtx.m2[0] = 999.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX0, GX_MTX2x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.texMtxs[0];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 0.5f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], -1.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.25f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 100.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], 3.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], -2.5f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], -50.0f);
+  // Row 2 should be zeroed (only 8 floats written)
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadTexMtx2x4_DifferentSlot) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 4.0f;
+  mtx.m0[3] = 15.0f;
+  mtx.m1[1] = 5.0f;
+  mtx.m1[3] = 25.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX3, GX_MTX2x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.texMtxs[3];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 4.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 15.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 5.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 25.0f);
+}
+
+TEST_F(GXFifoTest, LoadTexMtx2x4_Isolation) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 10.0f;
+  mtx.m1[1] = 20.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_TEXMTX0, GX_MTX2x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_FLOAT_EQ(g_gxState.texMtxs[0].m0[0], 10.0f);
+  EXPECT_FLOAT_EQ(g_gxState.texMtxs[0].m1[1], 20.0f);
+  // Slot 1 should remain zeroed
+  EXPECT_FLOAT_EQ(g_gxState.texMtxs[1].m0[0], 0.0f);
+  EXPECT_FLOAT_EQ(g_gxState.texMtxs[1].m1[1], 0.0f);
+}
+
+// --- GXSetProjection (XF 0x1020-0x1026) ---
+
+TEST_F(GXFifoTest, Projection_Perspective) {
+  aurora::Mat4x4<float> proj{};
+  proj.m0[0] = 1.5f; // near / (right - left) * 2
+  proj.m0[2] = 0.1f;
+  proj.m1[1] = 2.0f; // near / (top - bottom) * 2
+  proj.m1[2] = 0.2f;
+  proj.m2[2] = -1.002f;
+  proj.m2[3] = -0.2002f;
+  proj.m3[2] = -1.0f;
+
+  GXSetProjection(&proj, GX_PERSPECTIVE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.projType, GX_PERSPECTIVE);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m0[0], 1.5f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m0[2], 0.1f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m1[1], 2.0f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m1[2], 0.2f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m2[2], -1.002f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m2[3], -0.2002f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m3[2], -1.0f);
+}
+
+TEST_F(GXFifoTest, Projection_Orthographic) {
+  aurora::Mat4x4<float> proj{};
+  proj.m0[0] = 2.0f / 640.0f;
+  proj.m0[3] = -1.0f;
+  proj.m1[1] = 2.0f / 480.0f;
+  proj.m1[3] = -1.0f;
+  proj.m2[2] = -1.0f / 10000.0f;
+  proj.m2[3] = 0.0f;
+  proj.m3[3] = 1.0f;
+
+  GXSetProjection(&proj, GX_ORTHOGRAPHIC);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.projType, GX_ORTHOGRAPHIC);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m0[0], 2.0f / 640.0f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m0[3], -1.0f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m1[1], 2.0f / 480.0f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m1[3], -1.0f);
+  EXPECT_FLOAT_EQ(g_gxState.proj.m3[3], 1.0f);
+}
+
+TEST_F(GXFifoTest, GetProjectionAndScissorShadowState) {
+  const f32 proj[] = {0.0f, 1.5f, 0.1f, 2.0f, 0.2f, -1.002f, -0.2002f};
+  f32 outProj[7]{};
+  u32 left = 0, top = 0, width = 0, height = 0;
+
+  GXSetProjectionv(proj);
+  GXSetScissor(16, 24, 320, 240);
+  GXGetProjectionv(outProj);
+  GXGetScissor(&left, &top, &width, &height);
+
+  for (size_t i = 0; i < 7; ++i) {
+    EXPECT_FLOAT_EQ(outProj[i], proj[i]);
+  }
+  EXPECT_EQ(left, 16u);
+  EXPECT_EQ(top, 24u);
+  EXPECT_EQ(width, 320u);
+  EXPECT_EQ(height, 240u);
+}
+
+TEST_F(GXFifoTest, Scissor_EncodesBpAndDecodesLogicalState) {
+  GXSetScissor(16, 24, 320, 240);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_bp_write(bytes, 0x20));
+  EXPECT_TRUE(has_bp_write(bytes, 0x21));
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.logicalScissor.x, 16);
+  EXPECT_EQ(g_gxState.logicalScissor.y, 24);
+  EXPECT_EQ(g_gxState.logicalScissor.width, 320);
+  EXPECT_EQ(g_gxState.logicalScissor.height, 240);
+}
+
+TEST_F(GXFifoTest, GetViewportShadowState) {
+  f32 vp[6]{};
+
+  GXSetViewport(10.0f, 20.0f, 640.0f, 480.0f, 0.1f, 1.0f);
+  GXGetViewportv(vp);
+  EXPECT_FLOAT_EQ(vp[0], 10.0f);
+  EXPECT_FLOAT_EQ(vp[1], 20.0f);
+  EXPECT_FLOAT_EQ(vp[2], 640.0f);
+  EXPECT_FLOAT_EQ(vp[3], 480.0f);
+  EXPECT_FLOAT_EQ(vp[4], 0.1f);
+  EXPECT_FLOAT_EQ(vp[5], 1.0f);
+
+  GXSetViewportJitter(30.0f, 40.0f, 320.0f, 240.0f, 0.2f, 0.9f, 0);
+  GXGetViewportv(vp);
+  EXPECT_FLOAT_EQ(vp[0], 30.0f);
+  EXPECT_FLOAT_EQ(vp[1], 39.5f);
+  EXPECT_FLOAT_EQ(vp[2], 320.0f);
+  EXPECT_FLOAT_EQ(vp[3], 240.0f);
+  EXPECT_FLOAT_EQ(vp[4], 0.2f);
+  EXPECT_FLOAT_EQ(vp[5], 0.9f);
+}
+
+TEST_F(GXFifoTest, Viewport_DecodesLogicalViewportState) {
+  GXSetViewport(10.0f, 20.0f, 640.0f, 480.0f, 0.1f, 1.0f);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_FLOAT_EQ(g_gxState.logicalViewport.left, 10.0f);
+  EXPECT_FLOAT_EQ(g_gxState.logicalViewport.top, 20.0f);
+  EXPECT_FLOAT_EQ(g_gxState.logicalViewport.width, 640.0f);
+  EXPECT_FLOAT_EQ(g_gxState.logicalViewport.height, 480.0f);
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.left, 10.0f);
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.top, 20.0f);
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.width, 640.0f);
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.height, 480.0f);
+}
+
+TEST_F(GXFifoTest, ViewportRender_EncodesAuroraOverride) {
+  GXSetViewportRender(100.0f, 50.0f, 1280.0f, 720.0f, 0.0f, 1.0f);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_LOAD_VIEWPORT_RENDER));
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.left, 100.0f);
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.top, 50.0f);
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.width, 1280.0f);
+  EXPECT_FLOAT_EQ(g_gxState.renderViewport.height, 720.0f);
+}
+
+TEST_F(GXFifoTest, ScissorRender_EncodesAuroraOverride) {
+  GXSetScissorRender(100, 40, 800, 600);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_LOAD_SCISSOR_RENDER));
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.renderScissor.x, 100);
+  EXPECT_EQ(g_gxState.renderScissor.y, 40);
+  EXPECT_EQ(g_gxState.renderScissor.width, 800);
+  EXPECT_EQ(g_gxState.renderScissor.height, 600);
+}
+
+// --- GXLoadLightObjImm (XF 0x600-0x67F) ---
+
+TEST_F(GXFifoTest, LoadLightObjImm_Light0_BasicColor) {
+  GXLightObj lightObj;
+  GXInitLightPos(&lightObj, 100.0f, 200.0f, 300.0f);
+  GXInitLightDir(&lightObj, 0.0f, -1.0f, 0.0f);
+  GXInitLightColor(&lightObj, {255, 128, 64, 255});
+  GXInitLightAttn(&lightObj, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+
+  GXLoadLightObjImm(&lightObj, GX_LIGHT0);
+  auto bytes = capture_fifo();
+
+  // XF bulk write: opcode 0x10
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x10);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& light = g_gxState.lights[0];
+  // Color
+  EXPECT_NEAR(light.color[0], 255.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[1], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[2], 64.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[3], 255.f / 255.f, 1.f / 255.f);
+  // Position
+  EXPECT_FLOAT_EQ(light.pos[0], 100.0f);
+  EXPECT_FLOAT_EQ(light.pos[1], 200.0f);
+  EXPECT_FLOAT_EQ(light.pos[2], 300.0f);
+  // Direction (GXInitLightDir negates)
+  EXPECT_FLOAT_EQ(light.dir[0], 0.0f);
+  EXPECT_FLOAT_EQ(light.dir[1], 1.0f);
+  EXPECT_FLOAT_EQ(light.dir[2], 0.0f);
+  // Cosine attenuation
+  EXPECT_FLOAT_EQ(light.cosAtt[0], 1.0f);
+  EXPECT_FLOAT_EQ(light.cosAtt[1], 0.0f);
+  EXPECT_FLOAT_EQ(light.cosAtt[2], 0.0f);
+  // Distance attenuation
+  EXPECT_FLOAT_EQ(light.distAtt[0], 1.0f);
+  EXPECT_FLOAT_EQ(light.distAtt[1], 0.0f);
+  EXPECT_FLOAT_EQ(light.distAtt[2], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadLightObjImm_Light3_Attenuation) {
+  GXLightObj lightObj;
+  GXInitLightPos(&lightObj, -50.0f, 0.0f, 75.0f);
+  GXInitLightDir(&lightObj, 1.0f, 0.0f, 0.0f);
+  GXInitLightColor(&lightObj, {0, 255, 0, 128});
+  GXInitLightAttn(&lightObj, 0.5f, 0.3f, 0.2f, 1.0f, 0.01f, 0.001f);
+
+  GXLoadLightObjImm(&lightObj, GX_LIGHT3);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& light = g_gxState.lights[3];
+  EXPECT_NEAR(light.color[0], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[1], 255.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[2], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[3], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_FLOAT_EQ(light.pos[0], -50.0f);
+  EXPECT_FLOAT_EQ(light.pos[1], 0.0f);
+  EXPECT_FLOAT_EQ(light.pos[2], 75.0f);
+  EXPECT_FLOAT_EQ(light.dir[0], -1.0f);
+  EXPECT_FLOAT_EQ(light.dir[1], 0.0f);
+  EXPECT_FLOAT_EQ(light.dir[2], 0.0f);
+  EXPECT_FLOAT_EQ(light.cosAtt[0], 0.5f);
+  EXPECT_FLOAT_EQ(light.cosAtt[1], 0.3f);
+  EXPECT_FLOAT_EQ(light.cosAtt[2], 0.2f);
+  EXPECT_FLOAT_EQ(light.distAtt[0], 1.0f);
+  EXPECT_FLOAT_EQ(light.distAtt[1], 0.01f);
+  EXPECT_FLOAT_EQ(light.distAtt[2], 0.001f);
+}
+
+TEST_F(GXFifoTest, LoadLightObjImm_Light7_LastLight) {
+  GXLightObj lightObj;
+  GXInitLightPos(&lightObj, 0.0f, 1000.0f, 0.0f);
+  GXInitLightDir(&lightObj, 0.0f, 0.0f, -1.0f);
+  GXInitLightColor(&lightObj, {128, 128, 128, 255});
+  GXInitLightAttn(&lightObj, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+
+  GXLoadLightObjImm(&lightObj, GX_LIGHT7);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& light = g_gxState.lights[7];
+  EXPECT_NEAR(light.color[0], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[1], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[2], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[3], 255.f / 255.f, 1.f / 255.f);
+  EXPECT_FLOAT_EQ(light.pos[0], 0.0f);
+  EXPECT_FLOAT_EQ(light.pos[1], 1000.0f);
+  EXPECT_FLOAT_EQ(light.pos[2], 0.0f);
+  EXPECT_FLOAT_EQ(light.dir[0], 0.0f);
+  EXPECT_FLOAT_EQ(light.dir[1], 0.0f);
+  EXPECT_FLOAT_EQ(light.dir[2], 1.0f);
+}
+
+TEST_F(GXFifoTest, LoadLightObjImm_SpotLight) {
+  GXLightObj lightObj;
+  GXInitLightPos(&lightObj, 10.0f, 20.0f, 30.0f);
+  GXInitLightDir(&lightObj, 0.0f, -1.0f, 0.0f);
+  GXInitLightSpot(&lightObj, 45.0f, GX_SP_COS);
+  GXInitLightDistAttn(&lightObj, 100.0f, 0.5f, GX_DA_MEDIUM);
+  GXInitLightColor(&lightObj, {255, 255, 255, 255});
+
+  GXLoadLightObjImm(&lightObj, GX_LIGHT1);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& light = g_gxState.lights[1];
+  EXPECT_NEAR(light.color[0], 1.0f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[1], 1.0f, 1.f / 255.f);
+  EXPECT_NEAR(light.color[2], 1.0f, 1.f / 255.f);
+  EXPECT_FLOAT_EQ(light.pos[0], 10.0f);
+  EXPECT_FLOAT_EQ(light.pos[1], 20.0f);
+  EXPECT_FLOAT_EQ(light.pos[2], 30.0f);
+  // GX_SP_COS with cutoff=45: cr = cos(45 * pi / 180)
+  // a0 = -cr/(1-cr), a1 = 1/(1-cr), a2 = 0
+  float cr = std::cos(45.0f * M_PIF / 180.0f);
+  EXPECT_FLOAT_EQ(light.cosAtt[0], -cr / (1.0f - cr));
+  EXPECT_FLOAT_EQ(light.cosAtt[1], 1.0f / (1.0f - cr));
+  EXPECT_FLOAT_EQ(light.cosAtt[2], 0.0f);
+  // GX_DA_MEDIUM with refDist=100, refBright=0.5:
+  // k0 = 1, k1 = 0.5*(1-b)/(b*d), k2 = 0.5*(1-b)/(b*d*d)
+  EXPECT_FLOAT_EQ(light.distAtt[0], 1.0f);
+  EXPECT_FLOAT_EQ(light.distAtt[1], 0.5f * 0.5f / (0.5f * 100.0f));
+  EXPECT_FLOAT_EQ(light.distAtt[2], 0.5f * 0.5f / (0.5f * 100.0f * 100.0f));
+}
+
+// --- GXSetChanCtrl (XF 0x100E-0x1011) ---
+
+TEST_F(GXFifoTest, ChanCtrl_Color0_LightingEnabled) {
+  GXSetChanCtrl(GX_COLOR0, true, GX_SRC_REG, GX_SRC_VTX, GX_LIGHT0 | GX_LIGHT1, GX_DF_CLAMP, GX_AF_SPOT);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& cfg = g_gxState.colorChannelConfig[GX_COLOR0];
+  EXPECT_TRUE(cfg.lightingEnabled);
+  EXPECT_EQ(cfg.matSrc, GX_SRC_VTX);
+  EXPECT_EQ(cfg.ambSrc, GX_SRC_REG);
+  EXPECT_EQ(cfg.diffFn, GX_DF_CLAMP);
+  EXPECT_EQ(cfg.attnFn, GX_AF_SPOT);
+
+  // Light mask should be 0x03 (lights 0 and 1)
+  auto& state = g_gxState.colorChannelState[GX_COLOR0];
+  EXPECT_TRUE(state.lightMask[0]);
+  EXPECT_TRUE(state.lightMask[1]);
+  EXPECT_FALSE(state.lightMask[2]);
+}
+
+TEST_F(GXFifoTest, ChanCtrl_Alpha0_NoLighting) {
+  GXSetChanCtrl(GX_ALPHA0, false, GX_SRC_VTX, GX_SRC_REG, 0, GX_DF_NONE, GX_AF_NONE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& cfg = g_gxState.colorChannelConfig[GX_ALPHA0];
+  EXPECT_FALSE(cfg.lightingEnabled);
+  EXPECT_EQ(cfg.matSrc, GX_SRC_REG);
+  EXPECT_EQ(cfg.ambSrc, GX_SRC_VTX);
+  EXPECT_EQ(cfg.attnFn, GX_AF_NONE);
+}
+
+TEST_F(GXFifoTest, ChanCtrl_Color1_SpecularLighting) {
+  GXSetChanCtrl(GX_COLOR1, true, GX_SRC_REG, GX_SRC_REG, GX_LIGHT2 | GX_LIGHT5, GX_DF_SIGN, GX_AF_SPEC);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& cfg = g_gxState.colorChannelConfig[GX_COLOR1];
+  EXPECT_TRUE(cfg.lightingEnabled);
+  EXPECT_EQ(cfg.matSrc, GX_SRC_REG);
+  EXPECT_EQ(cfg.ambSrc, GX_SRC_REG);
+  EXPECT_EQ(cfg.diffFn, GX_DF_NONE);
+  EXPECT_EQ(cfg.attnFn, GX_AF_SPEC);
+
+  auto& state = g_gxState.colorChannelState[GX_COLOR1];
+  EXPECT_FALSE(state.lightMask[0]);
+  EXPECT_FALSE(state.lightMask[1]);
+  EXPECT_TRUE(state.lightMask[2]);
+  EXPECT_FALSE(state.lightMask[3]);
+  EXPECT_FALSE(state.lightMask[4]);
+  EXPECT_TRUE(state.lightMask[5]);
+}
+
+TEST_F(GXFifoTest, ChanCtrl_AttenuationUsesSdkBitEncoding) {
+  GXSetChanCtrl(GX_COLOR0, true, GX_SRC_REG, GX_SRC_REG, 0, GX_DF_NONE, GX_AF_SPEC);
+  auto specBytes = capture_fifo();
+  GXSetChanCtrl(GX_COLOR0, true, GX_SRC_REG, GX_SRC_REG, 0, GX_DF_NONE, GX_AF_NONE);
+  auto noneBytes = capture_fifo();
+
+  ASSERT_EQ(specBytes.size(), 9u);
+  ASSERT_EQ(noneBytes.size(), 9u);
+  EXPECT_EQ((read_fifo_u32(specBytes, 5) >> 9) & 0x3, 0x1u);
+  EXPECT_EQ((read_fifo_u32(noneBytes, 5) >> 9) & 0x3, 0x2u);
+}
+
+TEST_F(GXFifoTest, ChanCtrl_DecodesSdkAttenuationBits) {
+  const std::vector<u8> bytes{
+      0x10, 0x00, 0x00, 0x10, 0x0E, 0x00, 0x00, 0x02, 0x00, // COLOR0: GX_AF_SPEC
+      0x10, 0x00, 0x00, 0x10, 0x0F, 0x00, 0x00, 0x04, 0x00, // COLOR1: GX_AF_NONE
+  };
+
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.colorChannelConfig[GX_COLOR0].attnFn, GX_AF_SPEC);
+  EXPECT_EQ(g_gxState.colorChannelConfig[GX_COLOR1].attnFn, GX_AF_NONE);
+}
+
+TEST_F(GXFifoTest, ChanCtrl_Color0A0_Compound) {
+  // GX_COLOR0A0 should set both GX_COLOR0 and GX_ALPHA0
+  GXSetChanCtrl(GX_COLOR0A0, true, GX_SRC_REG, GX_SRC_VTX, GX_LIGHT0, GX_DF_CLAMP, GX_AF_SPOT);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // Both COLOR0 and ALPHA0 should be configured identically
+  auto& cfgC = g_gxState.colorChannelConfig[GX_COLOR0];
+  EXPECT_TRUE(cfgC.lightingEnabled);
+  EXPECT_EQ(cfgC.matSrc, GX_SRC_VTX);
+  EXPECT_EQ(cfgC.ambSrc, GX_SRC_REG);
+  EXPECT_EQ(cfgC.diffFn, GX_DF_CLAMP);
+  EXPECT_EQ(cfgC.attnFn, GX_AF_SPOT);
+
+  auto& cfgA = g_gxState.colorChannelConfig[GX_ALPHA0];
+  EXPECT_TRUE(cfgA.lightingEnabled);
+  EXPECT_EQ(cfgA.matSrc, GX_SRC_VTX);
+  EXPECT_EQ(cfgA.ambSrc, GX_SRC_REG);
+  EXPECT_EQ(cfgA.attnFn, GX_AF_SPOT);
+
+  EXPECT_TRUE(g_gxState.colorChannelState[GX_COLOR0].lightMask[0]);
+  EXPECT_TRUE(g_gxState.colorChannelState[GX_ALPHA0].lightMask[0]);
+}
+
+TEST_F(GXFifoTest, ChanCtrl_Color1A1_Compound) {
+  GXSetChanCtrl(GX_COLOR1A1, false, GX_SRC_VTX, GX_SRC_VTX, 0, GX_DF_NONE, GX_AF_NONE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& cfgC = g_gxState.colorChannelConfig[GX_COLOR1];
+  EXPECT_FALSE(cfgC.lightingEnabled);
+  EXPECT_EQ(cfgC.ambSrc, GX_SRC_VTX);
+  EXPECT_EQ(cfgC.matSrc, GX_SRC_VTX);
+
+  auto& cfgA = g_gxState.colorChannelConfig[GX_ALPHA1];
+  EXPECT_FALSE(cfgA.lightingEnabled);
+  EXPECT_EQ(cfgA.ambSrc, GX_SRC_VTX);
+  EXPECT_EQ(cfgA.matSrc, GX_SRC_VTX);
+}
+
+// --- GXSetTexCoordGen2 (XF 0x1040-0x105F) ---
+
+TEST_F(GXFifoTest, TexCoordGen_Mtx2x4_Tex0) {
+  GXSetTexCoordGen2(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_TEXMTX0, GX_FALSE, GX_PTIDENTITY);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& tcg = g_gxState.tcgs[GX_TEXCOORD0];
+  EXPECT_EQ(tcg.type, GX_TG_MTX2x4);
+  EXPECT_EQ(tcg.src, GX_TG_TEX0);
+  EXPECT_EQ(tcg.mtx, GX_TEXMTX0);
+  EXPECT_EQ(tcg.postMtx, GX_PTIDENTITY);
+}
+
+TEST_F(GXFifoTest, TexCoordGen_Mtx3x4_Nrm) {
+  GXSetTexCoordGen2(GX_TEXCOORD1, GX_TG_MTX3x4, GX_TG_NRM, GX_TEXMTX0, GX_TRUE, GX_PTTEXMTX0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& tcg = g_gxState.tcgs[GX_TEXCOORD1];
+  EXPECT_EQ(tcg.type, GX_TG_MTX3x4);
+  EXPECT_EQ(tcg.src, GX_TG_NRM);
+  EXPECT_EQ(tcg.mtx, GX_TEXMTX0);
+  EXPECT_TRUE(tcg.normalize);
+  EXPECT_EQ(tcg.postMtx, GX_PTTEXMTX0);
+}
+
+TEST_F(GXFifoTest, TexCoordGen_SRTG_Color0) {
+  GXSetTexCoordGen2(GX_TEXCOORD0, GX_TG_SRTG, GX_TG_COLOR0, GX_TEXMTX0, GX_FALSE, GX_PTIDENTITY);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& tcg = g_gxState.tcgs[GX_TEXCOORD0];
+  EXPECT_EQ(tcg.type, GX_TG_SRTG);
+  EXPECT_EQ(tcg.src, GX_TG_COLOR0);
+  EXPECT_EQ(tcg.mtx, GX_TEXMTX0);
+}
+
+TEST_F(GXFifoTest, TexCoordGen_SRTG_Color1) {
+  GXSetTexCoordGen2(GX_TEXCOORD0, GX_TG_SRTG, GX_TG_COLOR1, GX_TEXMTX0, GX_FALSE, GX_PTIDENTITY);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& tcg = g_gxState.tcgs[GX_TEXCOORD0];
+  EXPECT_EQ(tcg.type, GX_TG_SRTG);
+  EXPECT_EQ(tcg.src, GX_TG_COLOR1);
+}
+
+TEST_F(GXFifoTest, TexCoordGen_NonZeroMtx) {
+  GXSetTexCoordGen2(GX_TEXCOORD0, GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX3, GX_FALSE, GX_PTTEXMTX5);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& tcg = g_gxState.tcgs[GX_TEXCOORD0];
+  EXPECT_EQ(tcg.type, GX_TG_MTX3x4);
+  EXPECT_EQ(tcg.src, GX_TG_TEX0);
+  EXPECT_EQ(tcg.mtx, GX_TEXMTX3);
+  EXPECT_EQ(tcg.postMtx, GX_PTTEXMTX5);
+}
+
+TEST_F(GXFifoTest, TexCoordGen_MultipleCoords) {
+  GXSetTexCoordGen2(GX_TEXCOORD0, GX_TG_MTX3x4, GX_TG_TEX0, GX_TEXMTX0, GX_FALSE, GX_PTTEXMTX0);
+  GXSetTexCoordGen2(GX_TEXCOORD1, GX_TG_MTX3x4, GX_TG_TEX1, GX_TEXMTX1, GX_FALSE, GX_PTTEXMTX1);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.tcgs[0].mtx, GX_TEXMTX0);
+  EXPECT_EQ(g_gxState.tcgs[0].postMtx, GX_PTTEXMTX0);
+  EXPECT_EQ(g_gxState.tcgs[0].src, GX_TG_TEX0);
+  EXPECT_EQ(g_gxState.tcgs[1].mtx, GX_TEXMTX1);
+  EXPECT_EQ(g_gxState.tcgs[1].postMtx, GX_PTTEXMTX1);
+  EXPECT_EQ(g_gxState.tcgs[1].src, GX_TG_TEX1);
+}
+
+TEST_F(GXFifoTest, TexCoordGen_HighCoord_MatIdxB) {
+  // TexCoord4+ uses matIdxB
+  GXSetTexCoordGen2(GX_TEXCOORD4, GX_TG_MTX2x4, GX_TG_TEX4, GX_TEXMTX5, GX_FALSE, GX_PTTEXMTX3);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& tcg = g_gxState.tcgs[GX_TEXCOORD4];
+  EXPECT_EQ(tcg.type, GX_TG_MTX2x4);
+  EXPECT_EQ(tcg.src, GX_TG_TEX4);
+  EXPECT_EQ(tcg.mtx, GX_TEXMTX5);
+  EXPECT_EQ(tcg.postMtx, GX_PTTEXMTX3);
+}
+
+TEST_F(GXFifoTest, TexCoordGen_Identity) {
+  GXSetTexCoordGen2(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, GX_FALSE, GX_PTIDENTITY);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& tcg = g_gxState.tcgs[GX_TEXCOORD0];
+  EXPECT_EQ(tcg.mtx, GX_IDENTITY);
+  EXPECT_EQ(tcg.postMtx, GX_PTIDENTITY);
+}
+
+// --- GXSetChanAmbColor / GXSetChanMatColor (XF 0x100A-0x100D) ---
+
+TEST_F(GXFifoTest, ChanAmbColor_Color0) {
+  GXColor amb = {64, 128, 192, 255};
+  GXSetChanAmbColor(GX_COLOR0, amb);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& state = g_gxState.colorChannelState[GX_COLOR0];
+  EXPECT_NEAR(state.ambColor[0], 64.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.ambColor[1], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.ambColor[2], 192.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.ambColor[3], 255.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, ChanMatColor_Color0) {
+  GXColor mat = {255, 0, 128, 64};
+  GXSetChanMatColor(GX_COLOR0, mat);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& state = g_gxState.colorChannelState[GX_COLOR0];
+  EXPECT_NEAR(state.matColor[0], 255.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.matColor[1], 0.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.matColor[2], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.matColor[3], 64.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, ChanAmbColor_Color1) {
+  GXColor amb = {10, 20, 30, 40};
+  GXSetChanAmbColor(GX_COLOR1, amb);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& state = g_gxState.colorChannelState[GX_COLOR1];
+  EXPECT_NEAR(state.ambColor[0], 10.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.ambColor[1], 20.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.ambColor[2], 30.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.ambColor[3], 40.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, ChanMatColor_Color1) {
+  GXColor mat = {100, 150, 200, 250};
+  GXSetChanMatColor(GX_COLOR1, mat);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& state = g_gxState.colorChannelState[GX_COLOR1];
+  EXPECT_NEAR(state.matColor[0], 100.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.matColor[1], 150.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.matColor[2], 200.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(state.matColor[3], 250.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, ChanAmbColor_Color0A0_Compound) {
+  // GX_COLOR0A0 should write to both COLOR0 and ALPHA0 XF registers
+  GXColor amb = {80, 160, 240, 128};
+  GXSetChanAmbColor(GX_COLOR0A0, amb);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& stateC = g_gxState.colorChannelState[GX_COLOR0];
+  EXPECT_NEAR(stateC.ambColor[0], 80.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateC.ambColor[1], 160.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateC.ambColor[2], 240.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateC.ambColor[3], 128.f / 255.f, 1.f / 255.f);
+  // ALPHA0 shares the same XF register as COLOR0, so should match
+  auto& stateA = g_gxState.colorChannelState[GX_ALPHA0];
+  EXPECT_NEAR(stateA.ambColor[0], 80.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateA.ambColor[3], 128.f / 255.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, ChanMatColor_Color1A1_Compound) {
+  GXColor mat = {32, 64, 96, 128};
+  GXSetChanMatColor(GX_COLOR1A1, mat);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& stateC = g_gxState.colorChannelState[GX_COLOR1];
+  EXPECT_NEAR(stateC.matColor[0], 32.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateC.matColor[1], 64.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateC.matColor[2], 96.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateC.matColor[3], 128.f / 255.f, 1.f / 255.f);
+
+  auto& stateA = g_gxState.colorChannelState[GX_ALPHA1];
+  EXPECT_NEAR(stateA.matColor[0], 32.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(stateA.matColor[3], 128.f / 255.f, 1.f / 255.f);
+}
+
+// ============================================================================
+// GXSetFog (BP 0xEE-0xF2) - Fog A/B/C parameters, type, and color
+// ============================================================================
+
+// --- Fog with perspective linear fog, typical parameters ---
+TEST_F(GXFifoTest, Fog_PerspLin_Typical) {
+  GXColor fogColor = {128, 200, 255, 255};
+  GXSetFog(GX_FOG_PERSP_LIN, 100.f, 900.f, 0.1f, 1000.f, fogColor);
+  auto bytes = capture_fifo();
+
+  // Should produce 5 BP writes (0xEE-0xF2): 5 * 5 = 25 bytes
+  ASSERT_EQ(bytes.size(), 25u);
+  // Verify BP opcodes and register IDs
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0xEE);
+  EXPECT_EQ(bytes[5], 0x61);
+  EXPECT_EQ(bytes[6], 0xEF);
+  EXPECT_EQ(bytes[10], 0x61);
+  EXPECT_EQ(bytes[11], 0xF0);
+  EXPECT_EQ(bytes[15], 0x61);
+  EXPECT_EQ(bytes[16], 0xF1);
+  EXPECT_EQ(bytes[20], 0x61);
+  EXPECT_EQ(bytes[21], 0xF2);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // Compute expected A, B, C from the SDK formula
+  float nearZ = 0.1f, farZ = 1000.f, startZ = 100.f, endZ = 900.f;
+  float A = (farZ * nearZ) / ((farZ - nearZ) * (endZ - startZ));
+  float B = farZ / (farZ - nearZ);
+  float C = startZ / (endZ - startZ);
+
+  // Allow tolerance for encoding precision loss (11-bit mantissa)
+  EXPECT_NEAR(g_gxState.fog.a, A, std::abs(A) * 1e-3f);
+  EXPECT_NEAR(g_gxState.fog.b, B, std::abs(B) * 1e-3f);
+  EXPECT_NEAR(g_gxState.fog.c, C, std::abs(C) * 1e-3f);
+  EXPECT_EQ(g_gxState.fog.type, GX_FOG_PERSP_LIN);
+  EXPECT_NEAR(g_gxState.fog.color[0], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.fog.color[1], 200.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.fog.color[2], 255.f / 255.f, 1.f / 255.f);
+}
+
+// --- Fog with degenerate parameters (nearZ == farZ) ---
+TEST_F(GXFifoTest, Fog_Degenerate_EqualDepths) {
+  GXColor fogColor = {0, 0, 0, 255};
+  GXSetFog(GX_FOG_PERSP_EXP, 0.f, 100.f, 10.f, 10.f, fogColor);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // When nearZ == farZ, SDK sets A=0, B=0.5, C=0
+  EXPECT_FLOAT_EQ(g_gxState.fog.a, 0.f);
+  EXPECT_NEAR(g_gxState.fog.b, 0.5f, 1e-3f);
+  EXPECT_FLOAT_EQ(g_gxState.fog.c, 0.f);
+  EXPECT_EQ(g_gxState.fog.type, GX_FOG_PERSP_EXP);
+}
+
+// --- Fog type: none ---
+TEST_F(GXFifoTest, Fog_None) {
+  GXColor fogColor = {64, 64, 64, 255};
+  GXSetFog(GX_FOG_NONE, 0.f, 0.f, 0.f, 0.f, fogColor);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.fog.type, GX_FOG_NONE);
+  EXPECT_FLOAT_EQ(g_gxState.fog.a, 0.f);
+  EXPECT_NEAR(g_gxState.fog.b, 0.5f, 1e-3f);
+  EXPECT_FLOAT_EQ(g_gxState.fog.c, 0.f);
+  EXPECT_NEAR(g_gxState.fog.color[0], 64.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.fog.color[1], 64.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.fog.color[2], 64.f / 255.f, 1.f / 255.f);
+}
+
+// --- Fog with perspective reverse exponential squared type ---
+TEST_F(GXFifoTest, Fog_PerspRevExp2) {
+  GXColor fogColor = {255, 0, 0, 255};
+  GXSetFog(GX_FOG_PERSP_REVEXP2, 50.f, 500.f, 1.f, 1000.f, fogColor);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  float nearZ = 1.f, farZ = 1000.f, startZ = 50.f, endZ = 500.f;
+  float A = (farZ * nearZ) / ((farZ - nearZ) * (endZ - startZ));
+  float B = farZ / (farZ - nearZ);
+  float C = startZ / (endZ - startZ);
+
+  EXPECT_NEAR(g_gxState.fog.a, A, std::abs(A) * 1e-3f);
+  EXPECT_NEAR(g_gxState.fog.b, B, std::abs(B) * 1e-3f);
+  EXPECT_NEAR(g_gxState.fog.c, C, std::abs(C) * 1e-3f);
+  EXPECT_EQ(g_gxState.fog.type, GX_FOG_PERSP_REVEXP2);
+  EXPECT_NEAR(g_gxState.fog.color[0], 1.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.fog.color[1], 0.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.fog.color[2], 0.f, 1.f / 255.f);
+}
+
+TEST_F(GXFifoTest, Fog_OrthoLin_UsesProjectionBitAndLinearDepth) {
+  GXColor fogColor = {32, 64, 96, 255};
+  GXSetFog(GX_FOG_ORTHO_LIN, 100.f, 900.f, 10.f, 1010.f, fogColor);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 25u);
+  ASSERT_EQ(bytes[15], 0x61);
+  ASSERT_EQ(bytes[16], 0xF1);
+  EXPECT_NE(read_fifo_u32(bytes, 16) & (1u << 20), 0u);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const float expectedA = (1010.f - 10.f) / (900.f - 100.f);
+  const float expectedC = (100.f - 10.f) / (900.f - 100.f);
+  EXPECT_EQ(g_gxState.fog.type, GX_FOG_ORTHO_LIN);
+  EXPECT_NEAR(g_gxState.fog.a, expectedA, expectedA * 1e-3f);
+  EXPECT_FLOAT_EQ(g_gxState.fog.b, 0.f);
+  EXPECT_NEAR(g_gxState.fog.c, expectedC, expectedC * 1e-3f);
+}
+
+TEST_F(GXFifoTest, FogRangeAdj_DecodesCenterAndCoefficientTable) {
+  GXFogAdjTable table{{0x101, 0x202, 0x303, 0x404, 0x505, 0x606, 0x707, 0x808, 0x909, 0xA0A}};
+  GXSetFogRangeAdj(GX_ENABLE, 320, &table);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 30u);
+  for (u32 i = 0; i < 5; ++i) {
+    EXPECT_EQ(bytes[i * 5], 0x61);
+    EXPECT_EQ(bytes[i * 5 + 1], 0xE9 + i);
+  }
+  EXPECT_EQ(bytes[25], 0x61);
+  EXPECT_EQ(bytes[26], 0xE8);
+
+  reset_gx_state();
+  g_gxState.dirty = 0;
+  decode_fifo(bytes);
+
+  EXPECT_TRUE(g_gxState.fog.rangeEnabled);
+  EXPECT_EQ(g_gxState.dirty, aurora::gx::DirtyPipeline | aurora::gx::DirtyUniform);
+  EXPECT_EQ(g_gxState.fog.rangeCenter, 320);
+  for (u32 i = 0; i < 10; ++i) {
+    EXPECT_EQ(g_gxState.fog.rangeK[i], table.r[i]);
+  }
+
+  GXSetFogRangeAdj(GX_ENABLE, 321, &table);
+  auto centerBytes = capture_fifo();
+  g_gxState.dirty = 0;
+  decode_fifo(centerBytes);
+  EXPECT_TRUE(g_gxState.fog.rangeEnabled);
+  EXPECT_EQ(g_gxState.dirty, aurora::gx::DirtyUniform);
+  EXPECT_EQ(g_gxState.fog.rangeCenter, 321);
+
+  GXSetFogRangeAdj(GX_DISABLE, 123, nullptr);
+  auto disableBytes = capture_fifo();
+  g_gxState.dirty = 0;
+  decode_fifo(disableBytes);
+  EXPECT_FALSE(g_gxState.fog.rangeEnabled);
+  EXPECT_EQ(g_gxState.dirty, aurora::gx::DirtyPipeline | aurora::gx::DirtyUniform);
+  EXPECT_EQ(g_gxState.fog.rangeCenter, 123);
+}
+
+// ============================================================================
+// GXSetIndTexMtx (BP 0x06-0x0E) - Indirect texture matrix parameters
+// ============================================================================
+
+// --- IndTexMtx 0 with half-scale diagonal matrix ---
+// Note: 11-bit signed range limits values to [-1.0, 0.999], so 1.0 is not representable.
+TEST_F(GXFifoTest, IndTexMtx0_HalfScale) {
+  f32 mtx[2][3] = {
+      {0.5f, 0.0f, 0.0f},
+      {0.0f, 0.5f, 0.0f},
+  };
+  GXSetIndTexMtx(GX_ITM_0, mtx, 0);
+  auto bytes = capture_fifo();
+
+  // Should produce 3 BP writes: 3 * 5 = 15 bytes
+  ASSERT_EQ(bytes.size(), 15u);
+  // Verify BP opcodes and register IDs (0x06, 0x07, 0x08 for matrix 0)
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0x06);
+  EXPECT_EQ(bytes[5], 0x61);
+  EXPECT_EQ(bytes[6], 0x07);
+  EXPECT_EQ(bytes[10], 0x61);
+  EXPECT_EQ(bytes[11], 0x08);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& info = g_gxState.indTexMtxs[0];
+  // 11-bit fixed-point (1/1024) precision
+  float tol = 1.0f / 1024.0f;
+  EXPECT_NEAR(info.mtx.m0.x, 0.5f, tol);
+  EXPECT_NEAR(info.mtx.m0.y, 0.0f, tol);
+  EXPECT_NEAR(info.mtx.m1.x, 0.0f, tol);
+  EXPECT_NEAR(info.mtx.m1.y, 0.5f, tol);
+  EXPECT_NEAR(info.mtx.m2.x, 0.0f, tol);
+  EXPECT_NEAR(info.mtx.m2.y, 0.0f, tol);
+  EXPECT_EQ(info.scaleExp, 0);
+}
+
+// --- IndTexMtx 1 with fractional values and positive scale ---
+TEST_F(GXFifoTest, IndTexMtx1_FractionalWithScale) {
+  f32 mtx[2][3] = {
+      {0.5f, 0.25f, -0.125f},
+      {-0.5f, 0.75f, 0.0f},
+  };
+  GXSetIndTexMtx(GX_ITM_1, mtx, 3);
+  auto bytes = capture_fifo();
+
+  // Register IDs for matrix 1: 0x09, 0x0A, 0x0B
+  ASSERT_EQ(bytes.size(), 15u);
+  EXPECT_EQ(bytes[1], 0x09);
+  EXPECT_EQ(bytes[6], 0x0A);
+  EXPECT_EQ(bytes[11], 0x0B);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& info = g_gxState.indTexMtxs[1];
+  float tol = 1.0f / 1024.0f;
+  EXPECT_NEAR(info.mtx.m0.x, 0.5f, tol);
+  EXPECT_NEAR(info.mtx.m0.y, -0.5f, tol);
+  EXPECT_NEAR(info.mtx.m1.x, 0.25f, tol);
+  EXPECT_NEAR(info.mtx.m1.y, 0.75f, tol);
+  EXPECT_NEAR(info.mtx.m2.x, -0.125f, tol);
+  EXPECT_NEAR(info.mtx.m2.y, 0.0f, tol);
+  EXPECT_EQ(info.scaleExp, 3);
+}
+
+// --- IndTexMtx 2 with negative scale exponent ---
+TEST_F(GXFifoTest, IndTexMtx2_NegativeScale) {
+  f32 mtx[2][3] = {
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+  };
+  GXSetIndTexMtx(GX_ITM_2, mtx, -5);
+  auto bytes = capture_fifo();
+
+  // Register IDs for matrix 2: 0x0C, 0x0D, 0x0E
+  ASSERT_EQ(bytes.size(), 15u);
+  EXPECT_EQ(bytes[1], 0x0C);
+  EXPECT_EQ(bytes[6], 0x0D);
+  EXPECT_EQ(bytes[11], 0x0E);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& info = g_gxState.indTexMtxs[2];
+  EXPECT_EQ(info.scaleExp, -5);
+}
+
+// --- IndTexMtx 0 does not affect matrix 1 ---
+TEST_F(GXFifoTest, IndTexMtx0_Isolation) {
+  f32 mtx0[2][3] = {
+      {0.5f, 0.0f, 0.0f},
+      {0.0f, 0.5f, 0.0f},
+  };
+  f32 mtx1[2][3] = {
+      {-1.0f, 0.0f, 0.0f},
+      {0.0f, -1.0f, 0.0f},
+  };
+  GXSetIndTexMtx(GX_ITM_0, mtx0, 1);
+  GXSetIndTexMtx(GX_ITM_1, mtx1, -2);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  float tol = 1.0f / 1024.0f;
+  // Matrix 0
+  EXPECT_NEAR(g_gxState.indTexMtxs[0].mtx.m0.x, 0.5f, tol);
+  EXPECT_NEAR(g_gxState.indTexMtxs[0].mtx.m1.y, 0.5f, tol);
+  EXPECT_EQ(g_gxState.indTexMtxs[0].scaleExp, 1);
+  // Matrix 1
+  EXPECT_NEAR(g_gxState.indTexMtxs[1].mtx.m0.x, -1.0f, tol);
+  EXPECT_NEAR(g_gxState.indTexMtxs[1].mtx.m1.y, -1.0f, tol);
+  EXPECT_EQ(g_gxState.indTexMtxs[1].scaleExp, -2);
+}
+
+TEST_F(GXFifoTest, TevIndTile_UsesTileSizeAndSpacing) {
+  GXSetTevIndTile(GX_TEVSTAGE0, GX_INDTEXSTAGE0, 16, 32, 16, 8, GX_ITF_4, GX_ITM_0, GX_ITB_NONE, GX_ITBA_OFF);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& stage = g_gxState.tevStages[0];
+  EXPECT_EQ(stage.indTexStage, GX_INDTEXSTAGE0);
+  EXPECT_EQ(stage.indTexFormat, GX_ITF_4);
+  EXPECT_EQ(stage.indTexMtxId, GX_ITM_0);
+  EXPECT_EQ(stage.indTexWrapS, GX_ITW_16);
+  EXPECT_EQ(stage.indTexWrapT, GX_ITW_32);
+  EXPECT_TRUE(stage.indTexUseOrigLOD);
+  EXPECT_FALSE(stage.indTexAddPrev);
+
+  const auto& mtx = g_gxState.indTexMtxs[0];
+  const float tol = 1.0f / 1024.0f;
+  EXPECT_NEAR(mtx.mtx.m0.x, 16.0f / 1024.0f, tol);
+  EXPECT_NEAR(mtx.mtx.m1.y, 8.0f / 1024.0f, tol);
+  EXPECT_EQ(mtx.scaleExp, 10);
+}
+
+// ============================================================================
+// SU Texture Coordinate Scale (BP 0x30-0x3F)
+// ============================================================================
+
+// --- GXSetTexCoordScaleManually sets width/height ---
+TEST_F(GXFifoTest, TexCoordScale_Manual_Coord0) {
+  GXSetTexCoordScaleManually(GX_TEXCOORD0, GX_TRUE, 256, 128);
+  auto bytes = capture_fifo();
+
+  // Two BP writes (suTs0 + suTs1): 2 * 5 = 10 bytes
+  ASSERT_EQ(bytes.size(), 10u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0x30); // suTs0[0]
+  EXPECT_EQ(bytes[5], 0x61);
+  EXPECT_EQ(bytes[6], 0x31); // suTs1[0]
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& tcs = g_gxState.texCoordScales[0];
+  EXPECT_EQ(tcs.scaleS, 255u); // width - 1
+  EXPECT_EQ(tcs.scaleT, 127u); // height - 1
+}
+
+// --- GXSetTexCoordScaleManually for coord 3 ---
+TEST_F(GXFifoTest, TexCoordScale_Manual_Coord3) {
+  GXSetTexCoordScaleManually(GX_TEXCOORD3, GX_TRUE, 512, 512);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 10u);
+  EXPECT_EQ(bytes[1], 0x36); // suTs0[3] = 0x30 + 3*2
+  EXPECT_EQ(bytes[6], 0x37); // suTs1[3] = 0x31 + 3*2
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& tcs = g_gxState.texCoordScales[3];
+  EXPECT_EQ(tcs.scaleS, 511u);
+  EXPECT_EQ(tcs.scaleT, 511u);
+}
+
+// --- GXSetTexCoordScaleManually with bias and cyl wrap ---
+TEST_F(GXFifoTest, TexCoordScale_BiasAndCylWrap) {
+  // Enable manual mode first, then set bias and cyl wrap
+  GXSetTexCoordScaleManually(GX_TEXCOORD0, GX_TRUE, 64, 64);
+  capture_fifo(); // discard
+
+  GXSetTexCoordBias(GX_TEXCOORD0, GX_TRUE, GX_FALSE);
+  auto biasBytes = capture_fifo();
+
+  GXSetTexCoordCylWrap(GX_TEXCOORD0, GX_FALSE, GX_TRUE);
+  auto cylBytes = capture_fifo();
+
+  // Each writes 2 BP regs
+  ASSERT_EQ(biasBytes.size(), 10u);
+  ASSERT_EQ(cylBytes.size(), 10u);
+
+  reset_gx_state();
+  decode_fifo(biasBytes);
+  decode_fifo(cylBytes);
+
+  const auto& tcs = g_gxState.texCoordScales[0];
+  EXPECT_TRUE(tcs.biasS);
+  EXPECT_FALSE(tcs.biasT);
+  EXPECT_FALSE(tcs.cylWrapS);
+  EXPECT_TRUE(tcs.cylWrapT);
+}
+
+// --- GXEnableTexOffsets ---
+TEST_F(GXFifoTest, TexCoordScale_TexOffsets) {
+  GXEnableTexOffsets(GX_TEXCOORD2, GX_TRUE, GX_TRUE);
+  auto bytes = capture_fifo();
+
+  // One BP write (suTs0 only): 5 bytes
+  ASSERT_EQ(bytes.size(), 5u);
+  EXPECT_EQ(bytes[1], 0x34); // suTs0[2] = 0x30 + 2*2
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  const auto& tcs = g_gxState.texCoordScales[2];
+  EXPECT_TRUE(tcs.lineOffset);
+  EXPECT_TRUE(tcs.pointOffset);
+}
+
+TEST_F(GXFifoTest, TexCoordScale_TexOffsets_Disabled) {
+  GXEnableTexOffsets(GX_TEXCOORD2, GX_FALSE, GX_FALSE);
+  auto bytes = capture_fifo();
+
+  ASSERT_EQ(bytes.size(), 5u);
+  EXPECT_EQ(bytes[1], 0x34);
+
+  reset_gx_state();
+  g_gxState.texCoordScales[2].lineOffset = true;
+  g_gxState.texCoordScales[2].pointOffset = true;
+  decode_fifo(bytes);
+
+  const auto& tcs = g_gxState.texCoordScales[2];
+  EXPECT_FALSE(tcs.lineOffset);
+  EXPECT_FALSE(tcs.pointOffset);
+}
+
+// --- Coord isolation: writing coord 0 doesn't affect coord 1 ---
+TEST_F(GXFifoTest, TexCoordScale_Isolation) {
+  GXSetTexCoordScaleManually(GX_TEXCOORD0, GX_TRUE, 100, 200);
+  GXSetTexCoordScaleManually(GX_TEXCOORD1, GX_TRUE, 300, 400);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.texCoordScales[0].scaleS, 99u);
+  EXPECT_EQ(g_gxState.texCoordScales[0].scaleT, 199u);
+  EXPECT_EQ(g_gxState.texCoordScales[1].scaleS, 299u);
+  EXPECT_EQ(g_gxState.texCoordScales[1].scaleT, 399u);
+}
+
+// ============================================================================
+// GXSetTexCopyDst
+// ============================================================================
+
+TEST_F(GXFifoTest, TexCopyDst_ConsumesMipmapFlag) {
+  GXSetTexCopyDst(64, 32, GX_TF_RGBA8, GX_TRUE);
+  GXSetColorUpdate(GX_FALSE);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.texCopyDstWidth, 64u);
+  EXPECT_EQ(g_gxState.texCopyDstHeight, 32u);
+  EXPECT_EQ(g_gxState.texCopyFmt, GX_TF_RGBA8);
+  EXPECT_TRUE(g_gxState.texCopyDstWide);
+  EXPECT_FALSE(g_gxState.colorUpdate);
+}
+
+// ============================================================================
+// GXSetCopyClear (BP 0x4F-0x51) - Clear color and depth
+// ============================================================================
+
+// --- Clear color and depth round-trip ---
+TEST_F(GXFifoTest, CopyClear_ColorAndDepth) {
+  GXColor color = {64, 128, 192, 255};
+  GXSetCopyClear(color, 0x00ABCDEF);
+  auto bytes = capture_fifo();
+
+  // 3 BP writes: 3 * 5 = 15 bytes
+  ASSERT_EQ(bytes.size(), 15u);
+  EXPECT_EQ(bytes[0], 0x61);
+  EXPECT_EQ(bytes[1], 0x4F); // R + A
+  EXPECT_EQ(bytes[5], 0x61);
+  EXPECT_EQ(bytes[6], 0x50); // B + G
+  EXPECT_EQ(bytes[10], 0x61);
+  EXPECT_EQ(bytes[11], 0x51); // Z
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.clearColor[0], 64.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[1], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[2], 192.f / 255.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[3], 255.f / 255.f, 1.f / 255.f);
+  EXPECT_EQ(g_gxState.clearDepth, 0x00ABCDEFu);
+}
+
+// --- Clear with black and zero depth ---
+TEST_F(GXFifoTest, CopyClear_BlackZeroDepth) {
+  GXColor color = {0, 0, 0, 0};
+  GXSetCopyClear(color, 0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.clearColor[0], 0.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[1], 0.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[2], 0.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[3], 0.f, 1.f / 255.f);
+  EXPECT_EQ(g_gxState.clearDepth, 0u);
+}
+
+// --- Clear with max depth ---
+TEST_F(GXFifoTest, CopyClear_MaxDepth) {
+  GXColor color = {255, 255, 255, 128};
+  GXSetCopyClear(color, 0xFFFFFF);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_NEAR(g_gxState.clearColor[0], 1.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[1], 1.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[2], 1.f, 1.f / 255.f);
+  EXPECT_NEAR(g_gxState.clearColor[3], 128.f / 255.f, 1.f / 255.f);
+  EXPECT_EQ(g_gxState.clearDepth, 0xFFFFFFu);
+}
+
+TEST_F(GXFifoTest, PeekZ_FallsBackToZeroAndRequestsSnapshot) {
+  g_gxState.clearDepth = 0x123456;
+
+  u32 z = 0;
+  GXPeekZ(10, 20, &z);
+
+  EXPECT_EQ(z, 0u);
+  EXPECT_FALSE(aurora::gfx::depth_peek::testing::snapshot_requested());
+
+  auto bytes = capture_fifo();
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_REQUEST_DEPTH_SNAPSHOT));
+  decode_fifo(bytes);
+  EXPECT_TRUE(aurora::gfx::depth_peek::testing::snapshot_requested());
+}
+
+TEST_F(GXFifoTest, PeekZ_ReturnsLatestCompletedSnapshot) {
+  aurora::gfx::depth_peek::testing::set_latest(2, 2, {0x000001, 0x000002, 0x000003, 0x01000004});
+
+  u32 z = 0;
+  GXPeekZ(1, 1, &z);
+
+  EXPECT_EQ(z, 0x000004u);
+  EXPECT_FALSE(aurora::gfx::depth_peek::testing::snapshot_requested());
+
+  auto bytes = capture_fifo();
+  decode_fifo(bytes);
+  EXPECT_TRUE(aurora::gfx::depth_peek::testing::snapshot_requested());
+}
+
+TEST_F(GXFifoTest, PeekZ_OutOfRangeFallsBackToZero) {
+  g_gxState.clearDepth = 0xabcdef;
+  aurora::gfx::depth_peek::testing::set_latest(1, 1, {0x000001});
+
+  u32 z = 0;
+  GXPeekZ(1, 0, &z);
+
+  EXPECT_EQ(z, 0u);
+  EXPECT_FALSE(aurora::gfx::depth_peek::testing::snapshot_requested());
+
+  auto bytes = capture_fifo();
+  decode_fifo(bytes);
+  EXPECT_TRUE(aurora::gfx::depth_peek::testing::snapshot_requested());
+}
+
+// ============================================================================
+// Composite tests (multiple state changes in a single FIFO stream)
+// ============================================================================
+
+TEST_F(GXFifoTest, Composite_BlendAndZMode) {
+  GXSetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_NOOP);
+  GXSetZMode(true, GX_LEQUAL, true);
+  GXSetAlphaCompare(GX_GREATER, 128, GX_AOP_AND, GX_ALWAYS, 0);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.blendMode, GX_BM_BLEND);
+  EXPECT_EQ(g_gxState.blendFacSrc, GX_BL_SRCALPHA);
+  EXPECT_EQ(g_gxState.blendFacDst, GX_BL_INVSRCALPHA);
+
+  EXPECT_TRUE(g_gxState.depthCompare);
+  EXPECT_EQ(g_gxState.depthFunc, GX_LEQUAL);
+  EXPECT_TRUE(g_gxState.depthUpdate);
+
+  EXPECT_EQ(g_gxState.alphaCompare.comp0, GX_GREATER);
+  EXPECT_EQ(g_gxState.alphaCompare.ref0, 128u);
+}
+
+// --- GXLoadTexMtxImm for PTTexMtx (XF 0x500-0x5EF) ---
+
+TEST_F(GXFifoTest, LoadPTTexMtx_Identity) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 1.0f;
+  mtx.m1[1] = 1.0f;
+  mtx.m2[2] = 1.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_PTTEXMTX0, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  // XF opcode 0x10, addr = (64 - 64) * 4 + 0x500 = 0x500, count = 12
+  ASSERT_GE(bytes.size(), 5u);
+  EXPECT_EQ(bytes[0], 0x10);
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.ptTexMtxs[0];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 1.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadPTTexMtx_ArbitraryValues) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 2.0f;  mtx.m0[1] = 0.5f;  mtx.m0[2] = 0.0f;  mtx.m0[3] = 10.0f;
+  mtx.m1[0] = -0.5f; mtx.m1[1] = 3.0f;  mtx.m1[2] = 0.0f;  mtx.m1[3] = 20.0f;
+  mtx.m2[0] = 0.0f;  mtx.m2[1] = 0.0f;  mtx.m2[2] = 1.5f;  mtx.m2[3] = -5.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_PTTEXMTX0, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.ptTexMtxs[0];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 2.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.5f);
+  EXPECT_FLOAT_EQ(decoded.m0[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m0[3], 10.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[0], -0.5f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 3.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[2], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[3], 20.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[0], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 1.5f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], -5.0f);
+}
+
+TEST_F(GXFifoTest, LoadPTTexMtx_DifferentSlots) {
+  aurora::Mat3x4<float> mtx0{};
+  mtx0.m0[0] = 1.0f;
+  mtx0.m1[1] = 1.0f;
+  mtx0.m2[2] = 1.0f;
+
+  aurora::Mat3x4<float> mtx5{};
+  mtx5.m0[0] = 5.0f;
+  mtx5.m1[1] = 6.0f;
+  mtx5.m2[2] = 7.0f;
+  mtx5.m0[3] = 100.0f;
+
+  GXLoadTexMtxImm(&mtx0, GX_PTTEXMTX0, GX_MTX3x4);
+  GXLoadTexMtxImm(&mtx5, GX_PTTEXMTX5, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // Slot 0
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[0].m0[0], 1.0f);
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[0].m1[1], 1.0f);
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[0].m2[2], 1.0f);
+
+  // Slot 5: GX_PTTEXMTX5 = 79, index = (79 - 64) / 3 = 5
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[5].m0[0], 5.0f);
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[5].m1[1], 6.0f);
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[5].m2[2], 7.0f);
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[5].m0[3], 100.0f);
+}
+
+TEST_F(GXFifoTest, LoadPTTexMtx_LastSlot) {
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 42.0f;
+  mtx.m1[1] = 43.0f;
+  mtx.m2[2] = 44.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_PTTEXMTX19, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  auto& decoded = g_gxState.ptTexMtxs[19];
+  EXPECT_FLOAT_EQ(decoded.m0[0], 42.0f);
+  EXPECT_FLOAT_EQ(decoded.m1[1], 43.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[2], 44.0f);
+  // Other elements should be zero (from reset)
+  EXPECT_FLOAT_EQ(decoded.m0[1], 0.0f);
+  EXPECT_FLOAT_EQ(decoded.m2[3], 0.0f);
+}
+
+TEST_F(GXFifoTest, LoadPTTexMtx_Isolation) {
+  // Loading PTTexMtx0 should not affect PTTexMtx1
+  aurora::Mat3x4<float> mtx{};
+  mtx.m0[0] = 99.0f;
+  mtx.m1[1] = 88.0f;
+  mtx.m2[2] = 77.0f;
+
+  GXLoadTexMtxImm(&mtx, GX_PTTEXMTX0, GX_MTX3x4);
+  auto bytes = capture_fifo();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  // Slot 0 should have our values
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[0].m0[0], 99.0f);
+  // Slot 1 should remain zeroed
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[1].m0[0], 0.0f);
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[1].m1[1], 0.0f);
+  EXPECT_FLOAT_EQ(g_gxState.ptTexMtxs[1].m2[2], 0.0f);
+}
+
+// ============================================================================
+// Composite / multi-command tests
+// ============================================================================
+
+TEST_F(GXFifoTest, Composite_TevSetup) {
+  // Set up a simple 1-stage TEV that passes through texture color
+  GXSetNumTevStages(1);
+  GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
+  GXSetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
+  GXSetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
+
+  // TEV order writes to dirty state, so flush before capture
+  auto bytes = flush_and_capture();
+
+  reset_gx_state();
+  decode_fifo(bytes);
+
+  EXPECT_EQ(g_gxState.numTevStages, 1u);
+  EXPECT_EQ(g_gxState.tevStages[0].texMapId, GX_TEXMAP0);
+  EXPECT_EQ(g_gxState.tevStages[0].texCoordId, GX_TEXCOORD0);
+  EXPECT_EQ(g_gxState.tevStages[0].channelId, GX_COLOR0A0);
+  EXPECT_EQ(g_gxState.tevStages[0].colorPass.d, GX_CC_TEXC);
+  EXPECT_EQ(g_gxState.tevStages[0].alphaPass.d, GX_CA_TEXA);
+}

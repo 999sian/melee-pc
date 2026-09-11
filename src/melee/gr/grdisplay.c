@@ -1,0 +1,153 @@
+#include "grdisplay.h"
+
+#include <melee/lb/forward.h>
+
+#include "ground.h"
+#include "inlines.h"
+#include <melee/cm/camera.h>
+#include <melee/ft/ftlib.h>
+#include <melee/lb/lbshadow.h>
+#include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/displayfunc.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/mtx.h>
+#include <sysdolphin/baselib/state.h>
+
+/* 1C5B90 */ static void grDisplay_801C5B90(HSD_JObj* jobj, Mtx vmtx, u32 arg2,
+                                            u32 rendermode);
+
+void grDisplay_801C5B90(HSD_JObj* jobj, Mtx vmtx, u32 flags, u32 rendermode)
+{
+    HSD_GObj* cur;
+    HSD_CObj* cobj;
+    Mtx mtx;
+    Vec3 fighter_pos;
+    u32 unused[6];
+
+    if (jobj != NULL) {
+        if (jobj->flags & JOBJ_INSTANCE) {
+            if (!(jobj->flags & JOBJ_HIDDEN)) {
+                HSD_JObj* child;
+                HSD_JObjSetupMatrix(jobj);
+                if ((child = jobj->child) != NULL && HSD_JObjMtxIsDirty(child))
+                {
+                    HSD_JObjSetupMatrixSub(child);
+                }
+
+                HSD_MtxInverseConcat(jobj->child->mtx, jobj->mtx, mtx);
+                cobj = HSD_CObjGetCurrent();
+                HSD_ASSERT(82, cobj);
+                PSMTXConcat(HSD_CObjGetViewingMtxPtrDirect(cobj), mtx, mtx);
+                grDisplay_801C5B90(jobj->child, mtx, flags, rendermode);
+            }
+        } else {
+            if (jobj->flags & (flags << 18)) {
+                for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
+                     cur != NULL; cur = cur->next)
+                {
+                    LbShadow* shadow = ftLib_800872B0(cur);
+                    ftLib_80086644(cur, &fighter_pos);
+                    if (Camera_80030B24() || stage_info.on_check_shadow_render(
+                                                 &fighter_pos, -1, jobj))
+                    {
+                        shadow->x0_b4 = false;
+                    } else {
+                        shadow->x0_b4 = true;
+                    }
+                }
+                lbShadow_8000EFEC();
+                HSD_JObjDisp(jobj, vmtx, flags, rendermode);
+            }
+            if (jobj->flags & (flags << 28)) {
+                for (jobj = jobj->child; jobj != NULL; jobj = jobj->next) {
+                    grDisplay_801C5B90(jobj, vmtx, flags, rendermode);
+                }
+            }
+        }
+    }
+}
+
+void grDisplay_801C5DB0(HSD_GObj* gobj, int code)
+{
+    Ground* gp;
+    HSD_GObj* camgobj;
+    HSD_GObj* foggobj;
+    HSD_Fog* fog;
+    int i;
+    HSD_GObj* fighter;
+    u32 unused[14];
+
+    gp = GET_GROUND(gobj);
+    if (gp->x11_flags.b012 == Camera_8003108C()) {
+        if (gp->x18 != NULL) {
+            if (((intptr_t) gp->x18 & ~0x7FFFFFFF) == 0) {
+                OSReport("oioi... %08x\n", gp->x18);
+            }
+            if (HSD_GObj_804D7818->hsd_obj != gp->x18->hsd_obj) {
+                HSD_CObj* cobj;
+                if (gp->x10_flags.b3 == 0) {
+                    return;
+                }
+                camgobj = Camera_80030A50();
+                if (camgobj == NULL) {
+                    return;
+                }
+
+                if ((cobj = GET_COBJ(camgobj)) == NULL) {
+                    return;
+                }
+
+                if (HSD_CObjGetCurrent() != cobj) {
+                    return;
+                }
+            }
+        } else if (Ground_801C2C8C(HSD_GObj_804D7818->hsd_obj) != false) {
+            return;
+        }
+
+        if (Camera_80030A78() == false && Camera_80030AC4() != false) {
+            if (gp->x10_flags.b2 == 0) {
+                HSD_FogSet(0);
+            }
+            HSD_StateInvalidate(-1);
+
+            if (gp->x10_flags.b5 != 0) {
+                HSD_JObj* jobj = GET_JOBJ(gobj);
+                grDisplay_801C5B90(jobj, NULL, HSD_GObj_80390EB8(code), 0);
+            } else {
+                for (fighter = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
+                     fighter != NULL; fighter = fighter->next)
+                {
+                    LbShadow* shadow = ftLib_800872B0(fighter);
+                    shadow->x0_b4 = 0;
+                    lbShadow_8000EEE0(fighter);
+                }
+                HSD_GObj_JObjCallback(gobj, code);
+            }
+
+            if (gp->x10_flags.b2 == 0 && Camera_80030A78() == false &&
+                Ground_801C1E18() != 0)
+            {
+                foggobj = Ground_801C1E84();
+                if (foggobj != NULL) {
+                    if (foggobj->hsd_obj != NULL) {
+                        HSD_FogSet(GET_FOG(foggobj));
+                    }
+                }
+            }
+        }
+    }
+}
+
+void grDisplay_801C5F60(HSD_GObj* gobj, int code)
+{
+    HSD_CObj* cobj = GET_COBJ(gobj);
+    if (HSD_CObjSetCurrent(cobj)) {
+        gobj->gxlink_prios = 8;
+        Camera_800310A0(0);
+        HSD_GObj_80390ED0(gobj, 7);
+        HSD_CObjEndCurrent();
+    }
+}

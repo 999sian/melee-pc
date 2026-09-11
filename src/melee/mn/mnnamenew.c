@@ -1,0 +1,2031 @@
+#include "mnnamenew.h"
+
+#include "inlines.h"
+#include "mncharsel.h"
+#include "mnmain.h"
+#include "mnname.h"
+#include "types.h"
+#include <dolphin/gx/GXStruct.h>
+#include <melee/gm/gm_1A3F.h>
+#include <melee/gm/gmmain_lib.h>
+#include <melee/gm/gmtoulib.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lbarchive.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbcardgame.h>
+#include <melee/lb/lblanguage.h>
+#include <melee/lb/lbspdisplay.h>
+#include <melee/sc/types.h>
+#include <sysdolphin/baselib/debug.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjplink.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/gobjuserdata.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/memory.h>
+#include <sysdolphin/baselib/random.h>
+#include <sysdolphin/baselib/sislib.h>
+
+typedef char* GlyphRow[4];
+
+typedef volatile char GlyphChar;
+
+/* 4D6C0C */ u8 mnNameNew_PortInUse;
+
+/// Maps keyboard cursor positions to jobj indices and glyph strings.
+/// Mirrors the key_jobj_ids/x34/xFC/character_bytes fields of
+/// MnNameNewDataLayout (data object at 0x803EDA7C).
+typedef struct MnNameNewKeyMap {
+    u16 key_jobj_ids[8];
+    GlyphChar* x34[50];
+    GlyphChar* xFC[50];
+    GlyphChar* character_bytes[50];
+} MnNameNewKeyMap;
+
+/// Lowercase/uppercase glyph variant rows for each key. Mirrors the
+/// lower_glyphs/upper_glyphs/x8CC fields of MnNameNewDataLayout (data
+/// object at 0x803EDCE4).
+typedef struct MnNameNewGlyphTable {
+    GlyphChar* lower_glyphs[50][4];
+    GlyphChar* upper_glyphs[50][4];
+} MnNameNewGlyphTable;
+
+typedef struct MnNameNewDataLayout {
+    AnimLoopSettings anim[3];
+    u16 key_jobj_ids[8];
+    char* x34[50];
+    char* xFC[50];
+    char* character_bytes[50];
+    GlyphRow lower_glyphs[50];
+    GlyphRow upper_glyphs[50];
+    Vec3 x8CC;
+    Vec3 x8D8;
+} MnNameNewDataLayout;
+
+extern StaticModelDesc mnNameNew_804A06F0;
+extern StaticModelDesc mnNameNew_804A0700;
+extern StaticModelDesc mnNameNew_804A0710;
+extern StaticModelDesc mnNameNew_804A0720[2];
+char mnNameNew_CurrentNameText[0x10];
+extern u8 mnNameNew_804D4F7C[8];
+HSD_GObj* mnNameNew_804D6C08;
+
+static AnimLoopSettings mnNameNew_803EDA58[3] = {
+    { 0.0f, 19.0f, -0.1f },
+    { 20.0f, 39.0f, -0.1f },
+    { 0.0f, 10.0f, -0.1f },
+};
+
+static f32 mnNameNew_804D4C10 = 10.0f;
+
+static MnNameNewKeyMap mnNameNew_KeyMap = {
+    { 3, 10, 11, 7, 9, 8, 5, 5 },
+    { "あ", "い", "う", "え", "お", "か", "き", "く", "け", "こ",
+      "さ", "し", "す", "せ", "そ", "た", "ち", "つ", "て", "と",
+      "な", "に", "ぬ", "ね", "の", "は", "ひ", "ふ", "へ", "ほ",
+      "ま", "み", "む", "め", "も", "や", "ゆ", "よ", "　", "　",
+      "ら", "り", "る", "れ", "ろ", "わ", "を", "ん", "ー", "。" },
+    { "ア", "イ", "ウ", "エ", "オ", "カ", "キ", "ク", "ケ", "コ",
+      "サ", "シ", "ス", "セ", "ソ", "タ", "チ", "ツ", "テ", "ト",
+      "ナ", "ニ", "ヌ", "ネ", "ノ", "ハ", "ヒ", "フ", "ヘ", "ホ",
+      "マ", "ミ", "ム", "メ", "モ", "ヤ", "ユ", "ヨ", "　", "　",
+      "ラ", "リ", "ル", "レ", "ロ", "ワ", "ヲ", "ン", "ー", "。" },
+    { "Ｊ", "Ｔ", "　", "９", "．", "Ｉ", "Ｓ", "　", "８", "＄",
+      "Ｈ", "Ｒ", "　", "７", "＆", "Ｇ", "Ｑ", "　", "６", "％",
+      "Ｆ", "Ｐ", "Ｚ", "５", "＠", "Ｅ", "Ｏ", "Ｙ", "４", "？",
+      "Ｄ", "Ｎ", "Ｘ", "３", "！", "Ｃ", "Ｍ", "Ｗ", "２", "＝",
+      "Ｂ", "Ｌ", "Ｖ", "１", "＋", "Ａ", "Ｋ", "Ｕ", "０", "－" },
+};
+
+/** @remarks The original defines mnNameNew_NullCharacter between the first
+ * two glyph literals of the table below, which C cannot express; the seed
+ * restores that literal-pool order.
+ */
+#ifdef MUST_MATCH
+static void order_sdata(void)
+{
+    (void) "ぁ";
+}
+#endif
+
+char mnNameNew_NullCharacter[1] = "";
+
+static MnNameNewGlyphTable mnNameNew_GlyphTable = {
+    {
+        { "あ", "ぁ", mnNameNew_NullCharacter },
+        { "い", "ぃ", mnNameNew_NullCharacter },
+        { "う", "ぅ", mnNameNew_NullCharacter },
+        { "え", "ぇ", mnNameNew_NullCharacter },
+        { "お", "ぉ", mnNameNew_NullCharacter },
+        { "か", "が", mnNameNew_NullCharacter },
+        { "き", "ぎ", mnNameNew_NullCharacter },
+        { "く", "ぐ", mnNameNew_NullCharacter },
+        { "け", "げ", mnNameNew_NullCharacter },
+        { "こ", "ご", mnNameNew_NullCharacter },
+        { "さ", "ざ", mnNameNew_NullCharacter },
+        { "し", "じ", mnNameNew_NullCharacter },
+        { "す", "ず", mnNameNew_NullCharacter },
+        { "せ", "ぜ", mnNameNew_NullCharacter },
+        { "そ", "ぞ", mnNameNew_NullCharacter },
+        { "た", "だ", mnNameNew_NullCharacter },
+        { "ち", "ぢ", mnNameNew_NullCharacter },
+        { "つ", "づ", "っ", mnNameNew_NullCharacter },
+        { "て", "で", mnNameNew_NullCharacter },
+        { "と", "ど", mnNameNew_NullCharacter },
+        { "な", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "に", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ぬ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ね", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "の", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "は", "ば", "ぱ", mnNameNew_NullCharacter },
+        { "ひ", "び", "ぴ", mnNameNew_NullCharacter },
+        { "ふ", "ぶ", "ぷ", mnNameNew_NullCharacter },
+        { "へ", "べ", "ぺ", mnNameNew_NullCharacter },
+        { "ほ", "ぼ", "ぽ", mnNameNew_NullCharacter },
+        { "ま", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "み", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "む", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "め", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "も", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "や", "ゃ", mnNameNew_NullCharacter },
+        { "ゆ", "ゅ", mnNameNew_NullCharacter },
+        { "よ", "ょ", mnNameNew_NullCharacter },
+        { "　", " ", mnNameNew_NullCharacter },
+        { "　", " ", mnNameNew_NullCharacter },
+        { "ら", mnNameNew_NullCharacter },
+        { "り", mnNameNew_NullCharacter },
+        { "る", mnNameNew_NullCharacter },
+        { "れ", mnNameNew_NullCharacter },
+        { "ろ", mnNameNew_NullCharacter },
+        { "わ", mnNameNew_NullCharacter },
+        { "を", mnNameNew_NullCharacter },
+        { "ん", mnNameNew_NullCharacter },
+        { "ー", mnNameNew_NullCharacter },
+        { "。", mnNameNew_NullCharacter },
+    },
+    {
+        { "ア", "ァ", mnNameNew_NullCharacter },
+        { "イ", "ィ", mnNameNew_NullCharacter },
+        { "ウ", "ゥ", mnNameNew_NullCharacter },
+        { "エ", "ェ", mnNameNew_NullCharacter },
+        { "オ", "ォ", mnNameNew_NullCharacter },
+        { "カ", "ガ", mnNameNew_NullCharacter },
+        { "キ", "ギ", mnNameNew_NullCharacter },
+        { "ク", "グ", mnNameNew_NullCharacter },
+        { "ケ", "ゲ", mnNameNew_NullCharacter },
+        { "コ", "ゴ", mnNameNew_NullCharacter },
+        { "サ", "ザ", mnNameNew_NullCharacter },
+        { "シ", "ジ", mnNameNew_NullCharacter },
+        { "ス", "ズ", mnNameNew_NullCharacter },
+        { "セ", "ゼ", mnNameNew_NullCharacter },
+        { "ソ", "ゾ", mnNameNew_NullCharacter },
+        { "タ", "ダ", mnNameNew_NullCharacter },
+        { "チ", "ヂ", mnNameNew_NullCharacter },
+        { "ツ", "ヅ", "ッ", mnNameNew_NullCharacter },
+        { "テ", "デ", mnNameNew_NullCharacter },
+        { "ト", "ド", mnNameNew_NullCharacter },
+        { "ナ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ニ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ヌ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ネ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ノ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ハ", "バ", "パ", mnNameNew_NullCharacter },
+        { "ヒ", "ビ", "ピ", mnNameNew_NullCharacter },
+        { "フ", "ブ", "プ", mnNameNew_NullCharacter },
+        { "ヘ", "ベ", "ペ", mnNameNew_NullCharacter },
+        { "ホ", "ボ", "ポ", mnNameNew_NullCharacter },
+        { "マ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ミ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ム", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "メ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "モ", mnNameNew_NullCharacter, mnNameNew_NullCharacter },
+        { "ヤ", "ャ", mnNameNew_NullCharacter },
+        { "ユ", "ュ", mnNameNew_NullCharacter },
+        { "ヨ", "ョ", mnNameNew_NullCharacter },
+        { "　", " ", mnNameNew_NullCharacter },
+        { "　", " ", mnNameNew_NullCharacter },
+        { "ラ", mnNameNew_NullCharacter },
+        { "リ", mnNameNew_NullCharacter },
+        { "ル", mnNameNew_NullCharacter },
+        { "レ", mnNameNew_NullCharacter },
+        { "ロ", mnNameNew_NullCharacter },
+        { "ワ", mnNameNew_NullCharacter },
+        { "ヲ", mnNameNew_NullCharacter },
+        { "ン", mnNameNew_NullCharacter },
+        { "～", mnNameNew_NullCharacter },
+        { "、", mnNameNew_NullCharacter },
+    },
+};
+
+Vec3 unk_vec = { -0.8f, 0.4f, 0.0f };
+static Vec3 mnNameNew_803EE330 = { -0.7f, 0.7f, 0.0f };
+
+void mnNameNew_8023B0F8(HSD_GObj* arg0, u8 arg1)
+{
+    HSD_JObj* jobj;
+    NameNewEntry* data;
+
+    PAD_STACK(8);
+
+    data = arg0->user_data;
+    jobj = data->jobjs[10];
+    if (arg1 == 0x33) {
+        HSD_JObjReqAnimAll(jobj, 1.0f);
+    } else if (data->mode == 0) {
+        HSD_JObjReqAnimAll(jobj, 2.0f);
+    } else {
+        HSD_JObjReqAnimAll(jobj, 0.0f);
+    }
+    HSD_JObjAnimAll(jobj);
+    jobj = data->jobjs[11];
+    if (arg1 == 0x34) {
+        HSD_JObjReqAnimAll(jobj, 1.0f);
+    } else if (data->mode == 1) {
+        HSD_JObjReqAnimAll(jobj, 2.0f);
+    } else {
+        HSD_JObjReqAnimAll(jobj, 0.0f);
+    }
+    HSD_JObjAnimAll(jobj);
+    jobj = data->jobjs[7];
+    if (arg1 == 0x35) {
+        HSD_JObjReqAnimAll(jobj, 1.0f);
+    } else if (data->mode == 2) {
+        HSD_JObjReqAnimAll(jobj, 2.0f);
+    } else {
+        HSD_JObjReqAnimAll(jobj, 0.0f);
+    }
+    HSD_JObjAnimAll(jobj);
+}
+
+void mnNameNew_8023B224(u8 arg0)
+{
+    NameNewEntry* data;
+    u8 name_index;
+
+    PAD_STACK(8);
+
+    data = mnNameNew_804D6C08->user_data;
+    name_index = data->name_index;
+    if (arg0 != 0) {
+        lbCardGame_UpdatePowerTime();
+    }
+    if (gm_GetCurrentGameMode() == GM_TOURNAMENT) {
+        HSD_SisLib_803A5E70();
+        mn_8022EBDC();
+        if (arg0 != 0) {
+            gm_80190FE4((s32) name_index);
+            return;
+        }
+        gm_80190FE4(0x78);
+        return;
+    }
+    if (gm_GetCurrentGameMode() == GM_MENU) {
+        mn_804D6BC8.cooldown = 5;
+        if (arg0 != 0 && GetNameCount() > 0x18) {
+            mnName_8023A9B4((u8) (data->name_index / 6));
+            return;
+        }
+        mnName_8023A9B4(0U);
+        return;
+    }
+    HSD_SisLib_803A5E70();
+    mn_8022EBDC();
+    mnCharSel_802640A0();
+}
+
+void mnNameNew_8023B314(NameNewEntry* arg0, s32 arg1)
+{
+    HSD_Text* text;
+    u8 idx;
+    s32 selection;
+
+    selection = arg1;
+    if (selection < 0x32) {
+        switch (arg0->mode) {
+        case 0:
+            selection = 0x33;
+            break;
+        case 1:
+            selection = 0x34;
+            break;
+        case 2:
+            selection = 0x35;
+            break;
+        }
+    }
+    text = arg0->desc_text;
+    idx = mnNameNew_804D4F7C[selection - 0x32];
+    if (text != NULL) {
+        if (text->sis_buffer == ((SIS**) HSD_SisLib_804D1124[0])[idx]) {
+            return;
+        }
+        HSD_SisLib_803A5CC4(arg0->desc_text);
+    }
+    text = HSD_SisLib_803A5ACC(0, (s32) mn_804D6BB4, -9.5f, 9.1f, 17.0f,
+                               364.68332f, 38.38772f);
+    arg0->desc_text = text;
+    text->font_size.x = 0.0521f;
+    text->font_size.y = 0.0521f;
+    HSD_SisLib_803A6368(text, (s32) idx);
+}
+
+static GXColor mnNameNew_804D4F68 = { 0, 0, 0, 0xFF };
+static GXColor mnNameNew_804D4F6C = { 0xA6, 0x81, 0x3D, 0xFF };
+static GXColor mnNameNew_804D4F70 = { 0, 0, 0, 0xFF };
+static GXColor mnNameNew_804D4F74 = { 0x74, 0x4F, 0x0B, 0xFF };
+static GXColor mnNameNew_804D4F78 = { 0, 0, 0, 0xFF };
+
+u8 mnNameNew_804D4F7C[8] = { 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'H' };
+
+GXColor const mnNameNew_804DBF44 = { 0xA6, 0x81, 0x3D, 0xFF };
+GXColor const mnNameNew_804DBF48 = { 0x00, 0x00, 0x00, 0xFF };
+
+static inline void mnNameNew_SetKeyColor(HSD_Text* text, s32 index,
+                                         GXColor* color_ptr, GXColor* color)
+{
+    *color = *color_ptr;
+    color_ptr = color;
+    HSD_SisLib_803A74F0(text, index, color_ptr);
+}
+
+HSD_Text* mnNameNew_KeySetup(NameNewEntry* arg0, u8 arg1)
+{
+    Vec3 text_pos;
+    GXColor key_color;
+    GXColor selected_key_color;
+    GXColor color;
+    MnNameNewDataLayout* layout;
+    s32 j;
+    HSD_Text* text;
+    HSD_JObj* ref1;
+    HSD_JObj* ref2;
+    char** str_table;
+    f32 x_range;
+    f32 y_range;
+    f32 pos_x;
+    f32 pos_y;
+    f32 pos_z;
+    f32 base_x;
+    f32 base_y;
+    f32 font_x;
+    f32 col_x;
+    s32 i;
+    HSD_JObj* key_jobj;
+    GXColor* color_ptr;
+
+    PAD_STACK(16);
+
+    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    key_color = mnNameNew_804DBF44;
+    selected_key_color = mnNameNew_804DBF48;
+
+    switch ((s32) arg1) {
+    case 0:
+        arg0->mode = 0;
+        str_table = layout->x34;
+        break;
+    case 1:
+        arg0->mode = 1;
+        str_table = layout->xFC;
+        break;
+    case 2:
+        arg0->mode = 2;
+        str_table = layout->character_bytes;
+        break;
+    }
+
+    if (arg0->key_text != NULL) {
+        HSD_SisLib_803A5CC4(arg0->key_text);
+    }
+    text = HSD_SisLib_803A6754(0, (s32) mn_804D6BB5);
+    arg0->key_text = text;
+
+    key_jobj = arg0->jobjs[16];
+    if (key_jobj == NULL) {
+        key_jobj = NULL;
+    } else {
+        key_jobj = key_jobj->child;
+    }
+    for (i = 0; i < 50; i++) {
+        if (i == 0x2D) {
+            break;
+        }
+        if (key_jobj == NULL) {
+            key_jobj = NULL;
+        } else {
+            key_jobj = key_jobj->next;
+        }
+    }
+
+    lb_8000B1CC(key_jobj, &layout->x8CC, &text_pos);
+    pos_x = text_pos.x;
+    pos_y = -text_pos.y;
+    pos_z = text_pos.z;
+    text->pos_x = pos_x;
+    text->pos_y = pos_y;
+    text->pos_z = pos_z;
+    text->font_size.x = 0.03f;
+    text->font_size.y = 0.04f;
+    text->text_color = mnNameNew_804D4F6C;
+
+    ref1 = arg0->jobjs[16];
+    if (ref1 == NULL) {
+        ref1 = NULL;
+    } else {
+        ref1 = ref1->child;
+    }
+    for (i = 0; i < 50; i++) {
+        if (i == 0x28) {
+            break;
+        }
+        if (ref1 == NULL) {
+            ref1 = NULL;
+        } else {
+            ref1 = ref1->next;
+        }
+    }
+
+    base_x = HSD_JObjGetTranslationX(key_jobj);
+    x_range = HSD_JObjGetTranslationX(ref1) - base_x;
+
+    ref2 = arg0->jobjs[16];
+    if (ref2 == NULL) {
+        ref2 = NULL;
+    } else {
+        ref2 = ref2->child;
+    }
+    for (i = 0; i < 50; i++) {
+        if (i == 0x2E) {
+            break;
+        }
+        if (ref2 == NULL) {
+            ref2 = NULL;
+        } else {
+            ref2 = ref2->next;
+        }
+    }
+
+    base_y = HSD_JObjGetTranslationY(key_jobj);
+    y_range = -(HSD_JObjGetTranslationY(ref2) - base_y);
+
+    j = 0;
+    for (; j < 0x32; j++) {
+        font_x = text->font_size.x;
+        col_x = (f32) (9 - (j / 5)) * x_range;
+        HSD_SisLib_803A6B98(text, col_x / font_x,
+                            ((f32) (j % 5) * y_range) / text->font_size.y,
+                            str_table[j]);
+        if (j == (s32) mn_804A04F0.hovered_selection) {
+            color_ptr = &selected_key_color;
+        } else {
+            color_ptr = &key_color;
+        }
+        mnNameNew_SetKeyColor(text, j, color_ptr, &color);
+    }
+
+    return text;
+}
+
+s32 mnNameNew_8023BAA8(NameNewEntry* arg0, s32 arg1, u8 arg2)
+{
+    u8 mode;
+
+    if (arg2 >= 0x32U && arg2 < 0x3AU) {
+        if (arg1 & 1) {
+            if (arg2 == 0x39) {
+                return ((arg0->last_key_sel / 5) * 5) + 4;
+            }
+            if (arg2 > 0x32U) {
+                return arg2 - 1;
+            }
+            return 0x38;
+        }
+        if (arg1 & 2) {
+            if (arg2 == 0x39) {
+                return (arg0->last_key_sel / 5) * 5;
+            }
+            if (arg2 == 0x38) {
+                return 0x32;
+            }
+            return arg2 + 1;
+        }
+        if (arg1 & 4) {
+            if (arg2 != 0x38 && arg2 != 0x39) {
+                return arg0->last_key_sel % 5;
+            }
+        } else if ((arg1 & 8) && arg2 != 0x38 && arg2 != 0x39) {
+            return (arg0->last_key_sel % 5) + 0x2D;
+        }
+    } else {
+        if (arg1 & 1) {
+            if ((arg2 % 5) != 0) {
+                return arg2 - 1;
+            }
+            return 0x39;
+        }
+        if (arg1 & 2) {
+            if ((s32) (arg2 % 5) == 4) {
+                return 0x39;
+            }
+            return arg2 + 1;
+        }
+        if (arg1 & 4) {
+            if ((s32) (arg2 / 5) < 9) {
+                return arg2 + 5;
+            }
+            mode = arg0->mode;
+            switch ((s32) mode) {
+            case 0:
+                return 0x33;
+            case 1:
+                return 0x34;
+            case 2:
+                return 0x35;
+            }
+        } else if (arg1 & 8) {
+            if ((arg2 / 5) != 0) {
+                return arg2 - 5;
+            }
+            mode = arg0->mode;
+            switch ((s32) mode) {
+            case 0:
+                return 0x33;
+            case 1:
+                return 0x34;
+            case 2:
+                return 0x35;
+            }
+        }
+    }
+    return (s32) arg2;
+}
+
+inline u8 GetAutoNameCharacter(u8** names, s32 char_idx)
+{
+    return (*names)[char_idx];
+}
+
+static inline s32 PickAutoNameInline(HSD_GObj* arg0)
+{
+    char* cur_text;
+    NameNewEntry* data;
+    u8** names;
+    s32 count;
+    s32 pick;
+    s32 dup;
+    s32 i;
+    u8 tmp;
+    s32 name_idx;
+    s8 ch;
+    u8** name_ptr;
+    char* text;
+    char* text_start;
+    s32 char_idx;
+    s8 null_ch;
+    s8 list_null_ch;
+
+    data = arg0->user_data;
+    cur_text = mnNameNew_CurrentNameText;
+
+    do {
+        dup = 0;
+        do {
+            list_null_ch = (s8) *mnNameNew_NullCharacter;
+            count = 0;
+            names = AutoNamesList;
+            while (list_null_ch != (s8) * *names) {
+                names++;
+                count++;
+            }
+            pick = HSD_Randi(count);
+        } while (IsNameUnique((char*) AutoNamesList[pick]) != 0);
+
+        if (pick == (s32) data->auto_history[0]) {
+            dup = 1;
+        } else if (pick == (s32) data->auto_history[1]) {
+            dup = 1;
+        } else if (pick == (s32) data->auto_history[2]) {
+            dup = 1;
+        } else if (pick == (s32) data->auto_history[3]) {
+            dup = 1;
+        } else if (pick == (s32) data->auto_history[4]) {
+            dup = 1;
+        }
+    } while (dup != 0);
+
+    name_idx = 0;
+    char_idx = name_idx;
+    cur_text[0] = *mnNameNew_NullCharacter;
+    text = text_start = cur_text;
+    cur_text[3] = *mnNameNew_NullCharacter;
+    cur_text[6] = *mnNameNew_NullCharacter;
+    cur_text[9] = *mnNameNew_NullCharacter;
+
+    name_ptr = &AutoNamesList[pick];
+    while ((null_ch = (s8) *mnNameNew_NullCharacter) !=
+           (ch = GetAutoNameCharacter(name_ptr, char_idx)))
+    {
+        text[0] = ch;
+        text[1] = GetAutoNameCharacter(name_ptr, char_idx + 1);
+        text[2] = *mnNameNew_NullCharacter;
+        char_idx += 2;
+        name_idx++;
+        text += 3;
+    }
+
+    text_start[name_idx * 3] = null_ch;
+
+    {
+        u8* history = data->auto_history;
+
+        tmp = history[0];
+        history[0] = (u8) pick;
+        for (i = 1; i < 5; i++) {
+            u8* entry = &history[i];
+            u8 next = *entry;
+            *entry = tmp;
+            tmp = next;
+        }
+    }
+
+    return (s32) null_ch;
+}
+
+#ifdef MUST_MATCH
+#pragma push
+#pragma auto_inline off
+#endif
+s32 PickAutoName(HSD_GObj* arg0)
+{
+    PAD_STACK(16);
+    return PickAutoNameInline(arg0);
+}
+
+#line 779 "mnnamenew.c"
+bool NameContainsOnlySpaces(void)
+{
+    s16 null_char;
+    char* text = mnNameNew_CurrentNameText;
+    s32 i;
+
+    for (i = 0; i < 4; i++) {
+        null_char = (s8) *mnNameNew_NullCharacter;
+        if (null_char != (s8) text[0]) {
+            if ((s8) * (char*) "　" != (s8) text[0] ||
+                ((GlyphChar*) "　")[1] != text[1])
+            {
+                return false;
+            }
+        }
+        text += 3;
+    }
+    return true;
+}
+
+static inline void CopyCurrentNameToNametag(struct NameTagData* nametag)
+{
+    s32 idx;
+    u8 ch;
+    u8* text;
+    s8 null_ch;
+    s32 i;
+
+    text = (u8*) mnNameNew_CurrentNameText;
+    idx = 0;
+    for (i = 0; i < 4; i++) {
+        u8* ptr;
+
+        null_ch = (s8) *mnNameNew_NullCharacter;
+        if (null_ch == (s8) *text) {
+            break;
+        }
+        ptr = text;
+        while ((null_ch = (s8) *mnNameNew_NullCharacter) != (s8) (ch = *ptr)) {
+            nametag->namedata[idx] = (s8) ch;
+            idx += 1;
+            ptr += 1;
+        }
+        text += 3;
+    }
+    nametag->namedata[idx] = (s8) *mnNameNew_NullCharacter;
+}
+
+s32 WriteCharactersForNameAtIndex(u8 arg0, s32 arg1)
+{
+    struct NameTagData* nametag;
+    s32 ret;
+
+    nametag = GetPersistentNameData((s32) arg0);
+    CopyCurrentNameToNametag(nametag);
+    ret = GetRumbleSettingOfPort(arg1);
+    nametag->rumble_enabled = ret;
+    return ret;
+}
+
+#ifdef MUST_MATCH
+#pragma pop
+#endif
+static inline char** AddCharacterToName_getGlyphs(GlyphRow* arg0, u8 arg1)
+{
+    return (char**) &arg0[arg1];
+}
+
+char* AddCharacterToName(char* arg0, u8 arg1, u8 arg2, u8 arg3)
+{
+    char ch;
+    char* dest;
+    char** table;
+    MnNameNewDataLayout* layout;
+
+    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    switch (arg3) {
+    case 0:
+    case 1: {
+        char null;
+        s32 idx;
+
+        if ((u8) (arg1 - 0x30) <= 1U) {
+            if ((arg2 % 2) != 0) {
+                table =
+                    AddCharacterToName_getGlyphs(layout->upper_glyphs, arg1);
+            } else {
+                table =
+                    AddCharacterToName_getGlyphs(layout->lower_glyphs, arg1);
+            }
+        } else if ((arg3 == 0 && (arg2 % 2) == 0) ||
+                   (arg3 == 1 && (arg2 % 2) != 0))
+        {
+            table = AddCharacterToName_getGlyphs(layout->lower_glyphs, arg1);
+        } else {
+            table = AddCharacterToName_getGlyphs(layout->upper_glyphs, arg1);
+        }
+        dest = arg0;
+
+        for (idx = 0; (null = *mnNameNew_NullCharacter & 0xFFFF) !=
+                      (ch = table[arg2 / 2][idx] & 0xFFU);
+             idx++)
+        {
+            dest[idx] = ch;
+        }
+        arg0[idx] = null;
+        break;
+    }
+    case 2:
+        arg0[0] = layout->character_bytes[arg1][0];
+        arg0[1] = layout->character_bytes[arg1][1];
+        arg0[2] = layout->character_bytes[arg1][2];
+        break;
+    }
+    return arg0;
+}
+
+void mnNameNew_GlyphVariantInput(HSD_GObj* gobj)
+{
+    NameNewEntry* data;
+    u32 buttons;
+    s32 count;
+    u16 old_hover;
+    u8 old_sel;
+    u8 cur_pos;
+    GlyphChar** table;
+    s32 total;
+    s8 null_ch;
+
+    PAD_STACK(12);
+
+    data = mnNameNew_804D6C08->user_data;
+    buttons = mn_80229624((u32) mnNameNew_PortInUse);
+    mn_804A04F0.buttons = buttons;
+    count = 0;
+    if (buttons & 0x200) {
+        HSD_GObjFree(data->variant_gobj);
+        data->variant_gobj = NULL;
+        AddCharacterToName(&mnNameNew_CurrentNameText[data->cursor_pos * 3],
+                           mn_804A04F0.hovered_selection,
+                           mn_804A04F0.confirmed_selection, data->mode);
+        sfxForward();
+        cur_pos = data->cursor_pos;
+        old_hover = mn_804A04F0.hovered_selection;
+        count = (s32) old_hover;
+        if (cur_pos < 3U) {
+            data->cursor_pos = (u8) (cur_pos + 1);
+        } else {
+            mn_804A04F0.hovered_selection = 0x39;
+        }
+        mnNameNew_8023CE4C();
+        if (((count != 0x30) && (count != 0x31)) &&
+            ((mn_804A04F0.confirmed_selection % 2) != 0))
+        {
+            if (data->mode == 0) {
+                data->mode = 1;
+            } else {
+                data->mode = 0;
+            }
+            mnNameNew_KeySetup(data, data->mode);
+            mnNameNew_8023B0F8(mnNameNew_804D6C08,
+                               mn_804A04F0.hovered_selection);
+            mnNameNew_8023B314(data, (s32) mn_804A04F0.hovered_selection);
+        }
+    } else {
+        if (buttons & 0x20) {
+            HSD_GObjFree(data->variant_gobj);
+            data->variant_gobj = NULL;
+            mnNameNew_8023CE4C();
+            return;
+        }
+        null_ch = (s8) *mnNameNew_NullCharacter;
+        table = mnNameNew_GlyphTable.lower_glyphs[data->x1];
+        while (null_ch != (s8) * *table) {
+            table++;
+            count++;
+        }
+        total = (0, count * 2);
+        old_sel = mn_804A04F0.confirmed_selection;
+        if (buttons & 1) {
+            if ((mn_804A04F0.confirmed_selection % 2) != 0) {
+                mn_804A04F0.confirmed_selection -= 1;
+            } else {
+                mn_804A04F0.confirmed_selection += 1;
+            }
+        } else if (buttons & 2) {
+            if ((mn_804A04F0.confirmed_selection % 2) != 0) {
+                mn_804A04F0.confirmed_selection -= 1;
+            } else {
+                mn_804A04F0.confirmed_selection += 1;
+            }
+        } else if (buttons & 4) {
+            if ((mn_804A04F0.confirmed_selection / 2) == 0) {
+                mn_804A04F0.confirmed_selection =
+                    (mn_804A04F0.confirmed_selection % 2) +
+                    ((total / 2 - 1) * 2);
+            } else {
+                mn_804A04F0.confirmed_selection -= 2;
+            }
+        } else if (buttons & 8) {
+            if ((mn_804A04F0.confirmed_selection / 2) == (total / 2 - 1)) {
+                mn_804A04F0.confirmed_selection =
+                    mn_804A04F0.confirmed_selection % 2;
+            } else {
+                mn_804A04F0.confirmed_selection += 2;
+            }
+        }
+        if (old_sel != mn_804A04F0.confirmed_selection) {
+            sfxMove();
+        }
+    }
+}
+
+static inline void copyName(char* name_text, char* name_buffer)
+{
+    char ch;
+    char* dest;
+    char* src;
+    char* dest_iter;
+    char* src_iter;
+    int len;
+    char null_char;
+    int i;
+
+    src = name_text;
+    dest = name_buffer;
+    len = 0;
+    for (i = 0; i < 4; i++) {
+        src_iter = src;
+        dest_iter = dest;
+        while ((s8) (null_char = *mnNameNew_NullCharacter) !=
+               (s8) (ch = *src_iter))
+        {
+            *dest_iter++ = ch;
+            dest++;
+            len++;
+            src_iter++;
+        }
+        src += 3;
+    }
+    name_buffer[len] = null_char;
+}
+
+static inline s32 mnNameNew_CountVariants(GlyphRow* glyphs, u8 selected_key)
+{
+    char** ptrs = glyphs[selected_key];
+    s32 count = 0;
+    s8 terminator = (s8) *mnNameNew_NullCharacter;
+
+    while (terminator != (s8) *ptrs[0]) {
+        ptrs++;
+        count++;
+    }
+    return count;
+}
+
+void mnNameNew_MainInput(HSD_GObj* arg0)
+{
+    char space_lead;
+    char unused[12];
+    char name_buffer[16];
+    NameNewEntry* data;
+    MnNameNewDataLayout* layout;
+    u32 buttons;
+    u16* hovered;
+    char* key_char;
+    s8 null_char;
+    s32 n;
+    u8 cursor;
+    PAD_STACK(12);
+
+    {
+        NameNewEntry* entry = mnNameNew_804D6C08->user_data;
+        data = entry;
+    }
+    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+
+    if (data->variant_gobj != NULL) {
+        mnNameNew_GlyphVariantInput(arg0);
+        return;
+    }
+
+    buttons = (mn_804A04F0.buttons = mn_80229624((u32) mnNameNew_PortInUse));
+    n = 0;
+
+    if (buttons & 0x200) {
+        u16 sel = *(hovered = &mn_804A04F0.hovered_selection);
+        if (sel < 0x32U) {
+            if (data->mode != 2 && sel < 0x32U) {
+                key_char = layout->lower_glyphs[(u8) sel][0];
+                space_lead = "　"[0];
+                if (space_lead == (s8) key_char[0] &&
+                    (s8) "　"[1] == (s8) key_char[1])
+                {
+                    n = 1;
+                } else {
+                    n = 0;
+                }
+                if (n == 0) {
+                    lbAudioAx_80024030(1);
+                    mn_804A04F0.confirmed_selection = 0;
+                    n = mnNameNew_CountVariants(layout->lower_glyphs,
+                                                (u8) *hovered);
+                    {
+                        u8 variant_count = (u8) (n * 2);
+                        data->variant_gobj = mnNameNew_GlyphVariantSetup(
+                            data, variant_count, *hovered & 0xFF);
+                    }
+                    return;
+                }
+                cursor = data->cursor_pos;
+                mnNameNew_CurrentNameText[cursor * 3] = "　"[0];
+                mnNameNew_CurrentNameText[cursor * 3 + 1] = "　"[1];
+                mnNameNew_CurrentNameText[cursor * 3 + 2] =
+                    *((GlyphChar*) mnNameNew_NullCharacter);
+                lbAudioAx_80024030(1);
+                if (data->cursor_pos < 3) {
+                    data->cursor_pos = (u8) (data->cursor_pos + 1);
+                } else {
+                    *hovered = 0x39;
+                }
+                mnNameNew_8023CE4C();
+                return;
+            }
+            AddCharacterToName(
+                &mnNameNew_CurrentNameText[data->cursor_pos * 3], sel, 0U,
+                data->mode);
+            lbAudioAx_80024030(1);
+            if (data->cursor_pos < 3) {
+                data->cursor_pos = (u8) (data->cursor_pos + 1);
+            } else {
+                *hovered = 0x39;
+            }
+            mnNameNew_8023CE4C();
+            return;
+        } else {
+            switch (sel) {
+            case 0x32:
+                lbAudioAx_80024030(0);
+                mnNameNew_8023B224(0U);
+                return;
+
+            case 0x33:
+                if (data->mode != 0) {
+                    lbAudioAx_80024030(1);
+                    data->mode = 0;
+                    mnNameNew_KeySetup(data, 0);
+                    mnNameNew_8023B0F8(mnNameNew_804D6C08, (u8) *hovered);
+                    return;
+                }
+                break;
+
+            case 0x34:
+                if (data->mode != 1) {
+                    lbAudioAx_80024030(1);
+                    data->mode = 1;
+                    mnNameNew_KeySetup(data, 1);
+                    mnNameNew_8023B0F8(mnNameNew_804D6C08, (u8) *hovered);
+                    return;
+                }
+                break;
+
+            case 0x35:
+                if (data->mode != 2) {
+                    lbAudioAx_80024030(1);
+                    data->mode = 2;
+                    mnNameNew_KeySetup(data, 2);
+                    mnNameNew_8023B0F8(mnNameNew_804D6C08, (u8) *hovered);
+                    return;
+                }
+                break;
+
+            case 0x36:
+                lbAudioAx_80024030(0);
+                cursor = data->cursor_pos;
+                (void) cursor;
+                {
+                    char* slot = &mnNameNew_CurrentNameText[cursor * 3];
+                    if ((s8) * ((GlyphChar*) mnNameNew_NullCharacter) ==
+                        (s8) slot[0])
+                    {
+                        n = 0;
+                    } else {
+                        n = 1;
+                    }
+                    if (n != 0) {
+                        slot[0] = *((GlyphChar*) mnNameNew_NullCharacter);
+                        mnNameNew_8023CE4C();
+                        return;
+                    }
+                }
+                if (cursor != 0) {
+                    mnNameNew_CurrentNameText[(u8) (cursor - 1) * 3] =
+                        *((GlyphChar*) mnNameNew_NullCharacter);
+                    data->cursor_pos = (u8) (data->cursor_pos - 1);
+                    mnNameNew_8023CE4C();
+                    return;
+                }
+                lbAudioAx_80024030(3);
+                return;
+
+            case 0x37:
+                lbAudioAx_80024030(1);
+                PickAutoName(mnNameNew_804D6C08);
+                null_char = (s8) * ((GlyphChar*) mnNameNew_NullCharacter);
+                {
+                    char* p = mnNameNew_CurrentNameText;
+                    if (null_char != (s8) *p) {
+                        n = 1;
+                        if (null_char != (s8) * (p += 3)) {
+                            n = 2;
+                            if (null_char != (s8) * (p += 3)) {
+                                n = 3;
+                                if (null_char != (s8) * (p += 3)) {
+                                    n = 4;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (n == 4) {
+                    data->cursor_pos = 3;
+                } else {
+                    data->cursor_pos = (u8) n;
+                }
+                mnNameNew_8023CE4C();
+                return;
+
+            case 0x38:
+            case 0x39:
+                copyName(mnNameNew_CurrentNameText, name_buffer);
+
+                if ((s8) mnNameNew_CurrentNameText[0] ==
+                    (s8) * ((GlyphChar*) mnNameNew_NullCharacter))
+                {
+                    n = 1;
+                } else {
+                    n = 0;
+                }
+                if (n == 0 && NameContainsOnlySpaces() == 0 &&
+                    IsNameUnique(name_buffer) == 0 &&
+                    IsNameNotAllowed(name_buffer) == 0)
+                {
+                    n = 1;
+                } else {
+                    n = 0;
+                }
+                if (n != 0) {
+                    lbAudioAx_80024030(1);
+                    {
+                        u8 name_index = data->name_index;
+                        CreateNameAtIndex((s32) name_index);
+                    }
+                    WriteCharactersForNameAtIndex(data->name_index,
+                                                  (s32) mn_802295AC());
+                    mnNameNew_8023B224(1U);
+                    return;
+                }
+                lbAudioAx_80024030(3);
+                return;
+            }
+        }
+    } else if (buttons & 0x100) {
+        if (mn_804A04F0.hovered_selection == 0x38 ||
+            mn_804A04F0.hovered_selection == 0x39)
+        {
+            copyName(mnNameNew_CurrentNameText, name_buffer);
+
+            if ((s8) mnNameNew_CurrentNameText[0] ==
+                (s8) * ((GlyphChar*) mnNameNew_NullCharacter))
+            {
+                n = 1;
+            } else {
+                n = 0;
+            }
+            if (n == 0 && NameContainsOnlySpaces() == 0 &&
+                IsNameUnique(name_buffer) == 0 &&
+                IsNameNotAllowed(name_buffer) == 0)
+            {
+                n = 1;
+            } else {
+                n = 0;
+            }
+            if (n != 0) {
+                lbAudioAx_80024030(1);
+                CreateNameAtIndex((s32) data->name_index);
+                WriteCharactersForNameAtIndex(data->name_index,
+                                              (s32) mn_802295AC());
+                mnNameNew_8023B224(1U);
+                return;
+            }
+            lbAudioAx_80024030(3);
+            return;
+        }
+        mn_804A04F0.hovered_selection = 0x39;
+        return;
+    } else if (buttons & 0xC0) {
+        lbAudioAx_80024030(1);
+        if (buttons & 0x40) {
+            u8 mode = data->mode;
+
+            if (mode != 0) {
+                data->mode = (u8) (data->mode - 1);
+            } else {
+                data->mode = 2;
+            }
+        } else {
+            if (data->mode < 2) {
+                data->mode = (u8) (data->mode + 1);
+            } else {
+                data->mode = 0;
+            }
+        }
+        mnNameNew_KeySetup(data, data->mode);
+        mnNameNew_8023B0F8(mnNameNew_804D6C08,
+                           (u8) mn_804A04F0.hovered_selection);
+        mnNameNew_8023B314(data, (s32) mn_804A04F0.hovered_selection);
+        return;
+    } else if (buttons & 0x20) {
+        lbAudioAx_80024030(0);
+        if ((s8) mnNameNew_CurrentNameText[0] ==
+            (s8) * ((GlyphChar*) mnNameNew_NullCharacter))
+        {
+            n = 1;
+        }
+        if (n != 0) {
+            mnNameNew_8023B224(0U);
+            return;
+        }
+        {
+            u8 cursor_pos = data->cursor_pos;
+            cursor = cursor_pos;
+        }
+        if ((s8) * ((GlyphChar*) mnNameNew_NullCharacter) ==
+            (s8) mnNameNew_CurrentNameText[cursor * 3])
+        {
+            n = 0;
+        } else {
+            n = 1;
+        }
+        if (n != 0) {
+            mnNameNew_CurrentNameText[cursor * 3] =
+                *((GlyphChar*) mnNameNew_NullCharacter);
+            mnNameNew_8023CE4C();
+            return;
+        }
+        if (cursor != 0) {
+            mnNameNew_CurrentNameText[(u8) (cursor - 1) * 3] =
+                *((GlyphChar*) mnNameNew_NullCharacter);
+            data->cursor_pos = (u8) (data->cursor_pos - 1);
+            mnNameNew_8023CE4C();
+            return;
+        }
+        lbAudioAx_80024030(3);
+        return;
+    } else {
+        u8 new_sel;
+        hovered = &mn_804A04F0.hovered_selection;
+        new_sel = mnNameNew_8023BAA8(data, (s32) buttons, (u8) *hovered);
+        if ((s32) new_sel != (s32) *hovered) {
+            lbAudioAx_80024030(2);
+            *hovered = (u16) new_sel;
+            if (new_sel < 0x32) {
+                data->last_key_sel = new_sel;
+            }
+        }
+    }
+}
+
+static inline NameNewEntry* mnNameNew_GetEntryData(void)
+{
+    return mnNameNew_804D6C08->user_data;
+}
+
+void mnNameNew_8023CE4C(void)
+{
+    Vec3 text_pos;
+    GXColor name_char_color;
+    GXColor* name_char_color_ptr[1];
+    NameNewEntry* data;
+    HSD_JObj* jobj_a;
+    HSD_JObj* jobj_b;
+    HSD_Text* old_text;
+    float y_minus;
+    f32 char_spacing;
+    f32 first_x;
+    s32 i;
+    HSD_Text* text;
+    f32 z;
+
+    data = mnNameNew_GetEntryData();
+    jobj_a = data->jobjs[14];
+    jobj_b = data->jobjs[15];
+    first_x = HSD_JObjGetTranslationX(jobj_a);
+    char_spacing = HSD_JObjGetTranslationX(jobj_b) - first_x;
+    if (data->name_disp_text != 0L) {
+        HSD_SisLib_803A5CC4(data->name_disp_text);
+    }
+    text = HSD_SisLib_803A6754(0, mn_804D6BB5);
+    lb_8000B1CC(jobj_a, &mnNameNew_803EE330, &text_pos);
+    y_minus = -text_pos.y;
+    z = text_pos.z;
+    name_char_color_ptr[0] = &name_char_color;
+    text->pos_x = text_pos.x;
+    i = 0;
+    text->pos_y = y_minus;
+    text->pos_z = z;
+    text->font_size.x = 0.04f;
+    text->font_size.y = 0.05f;
+    text->text_color = mnNameNew_804D4F6C;
+    for (; i < 4; i++) {
+        if ((s8) *mnNameNew_NullCharacter ==
+            (s8) mnNameNew_CurrentNameText[i * 3])
+        {
+            break;
+        }
+        HSD_SisLib_803A6B98(text, (char_spacing * (f32) i) / text->font_size.x,
+                            0.0f, &mnNameNew_CurrentNameText[i * 3]);
+        name_char_color = mnNameNew_804D4F78;
+        HSD_SisLib_803A74F0(text, i, name_char_color_ptr[0]);
+    }
+    data->name_disp_text = text;
+}
+
+void fn_8023CFC8(HSD_GObj* arg0)
+{
+    HSD_JObj* jobj;
+    HSD_JObj* root;
+    u8 new_var;
+    u8 old_sel;
+    float one;
+    s32 count;
+    GlyphVariantEntry* data;
+    u32 pad1;
+    u32 pad2;
+    GXColor key_color;
+    GXColor selected_key_color;
+
+    PAD_STACK(0x20);
+
+    data = arg0->user_data;
+    new_var = data->selection;
+    old_sel = new_var;
+    if (old_sel != mn_804A04F0.confirmed_selection) {
+        root = data->jobjs[4];
+        if (root == NULL) {
+            jobj = NULL;
+        } else {
+            jobj = root->child;
+        }
+        for (count = old_sel; count > 0; count--) {
+            if (jobj == NULL) {
+                jobj = NULL;
+            } else {
+                jobj = jobj->next;
+            }
+        }
+        root = jobj;
+        HSD_JObjReqAnimAll(root, 0.0f);
+        HSD_JObjAnimAll(root);
+        key_color = mnNameNew_804D4F74;
+        HSD_SisLib_803A74F0(data->text, (s32) data->selection, &key_color);
+        root = data->jobjs[4];
+        new_var = mn_804A04F0.confirmed_selection;
+        if (root == NULL) {
+            jobj = NULL;
+        } else {
+            jobj = root->child;
+        }
+        for (count = (s32) new_var; count > 0; count--) {
+            if (jobj == NULL) {
+                jobj = NULL;
+            } else {
+                jobj = jobj->next;
+            }
+        }
+        one = 1.0f;
+        HSD_JObjReqAnimAll(jobj, one);
+        HSD_JObjAnimAll(jobj);
+        selected_key_color = mnNameNew_804D4F70;
+        HSD_SisLib_803A74F0(data->text, (s32) mn_804A04F0.confirmed_selection,
+                            &selected_key_color);
+        data->selection = mn_804A04F0.confirmed_selection;
+    }
+}
+
+void fn_8023D0F8(void* arg0)
+{
+    GlyphVariantEntry* entry = arg0;
+    HSD_SisLib_803A5CC4(entry->text);
+    HSD_Free(arg0);
+}
+
+HSD_Text* mnNameNew_8023D130(GlyphVariantEntry* arg0, u16 arg1, u8 arg2,
+                             s32 arg3)
+{
+    f32 pos_z;
+    f32 y_range;
+    s32 i;
+    MnNameNewDataLayout* layout;
+    GXColor* color_ptr;
+    f32 col_x;
+    f32 pos_x;
+    HSD_JObj* jobj14;
+    HSD_JObj* jobj18;
+    HSD_Text* text;
+    HSD_JObj* jobj1C;
+    f32 font_x;
+    f32 x_range;
+    char** table_upper;
+    f32 pos_y;
+    char** table_lower;
+    Vec3 text_pos;
+    GXColor glyph_color;
+
+    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    text = HSD_SisLib_803A6754(0, (s32) mn_804D6BB4);
+    jobj14 = arg0->jobjs[4];
+    jobj18 = arg0->jobjs[5];
+    jobj1C = arg0->jobjs[6];
+    lb_8000B1CC(jobj14, &layout->x8CC, &text_pos);
+    pos_x = text_pos.x;
+    pos_y = -text_pos.y;
+    pos_z = text_pos.z;
+    text->pos_x = pos_x;
+    text->pos_y = pos_y;
+    text->pos_z = pos_z;
+    text->font_size.x = 0.03f;
+    text->font_size.y = 0.04f;
+    text->text_color = mnNameNew_804D4F6C;
+    x_range =
+        HSD_JObjGetTranslationX(jobj18) - HSD_JObjGetTranslationX(jobj14);
+    y_range =
+        -(HSD_JObjGetTranslationY(jobj1C) - HSD_JObjGetTranslationY(jobj14));
+    table_upper =
+        AddCharacterToName_getGlyphs(layout->upper_glyphs, (u8) arg3);
+    table_lower =
+        AddCharacterToName_getGlyphs(layout->lower_glyphs, (u8) arg3);
+    arg1 = (u8) arg1;
+    for (i = 0; i < (s32) arg1; i++) {
+        char* str;
+        if ((u8) (arg3 - 0x30) <= 1U) {
+            if ((i % 2) != 0) {
+                str = table_upper[i / 2];
+            } else {
+                str = table_lower[i / 2];
+            }
+        } else if ((arg2 == 0 && (i % 2) == 0) || (arg2 == 1 && (i % 2) != 0))
+        {
+            str = table_lower[i / 2];
+        } else {
+            str = table_upper[i / 2];
+        }
+        font_x = text->font_size.x;
+        col_x = (f32) (i / 2) * x_range;
+        HSD_SisLib_803A6B98(text, col_x / font_x,
+                            ((f32) (i % 2) * y_range) / text->font_size.y, str,
+                            font_x, col_x);
+        if (i == (s32) mn_804A04F0.confirmed_selection) {
+            color_ptr = &mnNameNew_804D4F70;
+        } else {
+            color_ptr = &mnNameNew_804D4F74;
+        }
+        mnNameNew_SetKeyColor(text, i, color_ptr, &glyph_color);
+    }
+    arg0->text = text;
+    return text;
+}
+
+static const Vec3 mnNameNew_803B8528 = { -0.5f, 0.7f, 0.0f };
+
+#ifdef MUST_MATCH
+#pragma push
+#pragma inline_depth(2)
+#endif
+static inline void GlyphVariantCount(u16 count, s32* out)
+{
+    count &= 0xFF;
+    *out = count;
+}
+
+static inline void AnimateGlyphVariant(HSD_JObj* variant,
+                                       GlyphVariantEntry* user_data, s32 i)
+{
+    HSD_JObjReqAnimAll(variant, (f32) (user_data->selection == i));
+    HSD_JObjAnimAll(variant);
+}
+
+static inline void CreateGlyphVariant(StaticModelDesc* variant_desc,
+                                      GlyphVariantEntry* user_data, s32 i,
+                                      HSD_JObj** out)
+{
+    HSD_JObj* variant;
+    variant = HSD_JObjLoadJoint(variant_desc->joint);
+    HSD_JObjAddAnimAll(variant, variant_desc->animjoint,
+                       variant_desc->matanim_joint,
+                       variant_desc->shapeanim_joint);
+    AnimateGlyphVariant(variant, user_data, i);
+    *out = variant;
+}
+
+HSD_GObj* mnNameNew_GlyphVariantSetup(NameNewEntry* arg0, u16 arg1, s32 arg2)
+{
+    HSD_JObj* jobj;
+    HSD_JObj* variant;
+    HSD_JObj* key_jobj;
+    HSD_JObj* ref_jobj;
+    s32 i;
+    s32 variant_count;
+    HSD_JObj* ref2;
+    Vec3 position;
+    Vec3 offset;
+    f32 dx;
+    f32 dy;
+    StaticModelDesc* setup_desc;
+    HSD_JObj* ref3;
+    HSD_GObj* gobj;
+    StaticModelDesc* variant_desc;
+
+    setup_desc = &mnNameNew_804A0710;
+    gobj = GObj_Create(6U, 7U, 0x80U);
+    jobj = HSD_JObjLoadJoint(setup_desc->joint);
+    HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
+    GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 6U, 0x80U);
+    HSD_GObj_SetupProc(gobj, fn_8023CFC8, 0U);
+    HSD_JObjAddAnimAll(jobj, setup_desc->animjoint, setup_desc->matanim_joint,
+                       setup_desc->shapeanim_joint);
+    HSD_JObjReqAnimAll(jobj, ((f32) (u8) arg1) / 2.0f);
+    HSD_JObjAnimAll(jobj);
+
+    {
+        GlyphVariantEntry* user_data = HSD_MemAlloc(sizeof(*user_data));
+        HSD_ASSERTREPORT(0x5B4, user_data, "Can't get user_data.\n");
+        GObj_InitUserData(gobj, 0U, fn_8023D0F8, user_data);
+
+        user_data->selection = mn_804A04F0.confirmed_selection;
+        for (i = 0; i < 7; i++) {
+            lb_80011E24(jobj, &user_data->jobjs[i], i, -1);
+        }
+
+        offset = mnNameNew_803B8528;
+
+        if ((u8) arg2 >= 0x32U && (u8) arg2 < 0x3AU) {
+            key_jobj =
+                arg0->jobjs[mnNameNew_KeyMap.key_jobj_ids[(u8) arg2 - 0x32]];
+        } else {
+            key_jobj = HSD_JObjGetChild(arg0->jobjs[16]);
+            for (i = 0; i < 50; i++) {
+                if (i == (s32) (u8) arg2) {
+                    break;
+                }
+                if (key_jobj == NULL) {
+                    key_jobj = NULL;
+                } else {
+                    key_jobj = key_jobj->next;
+                }
+            }
+        }
+
+        lb_8000B1CC(key_jobj, &offset, &position);
+        HSD_JObjSetTranslate(jobj, &position);
+
+        ref_jobj = user_data->jobjs[4];
+        ref2 = user_data->jobjs[5];
+        ref3 = user_data->jobjs[6];
+
+        dx = HSD_JObjGetTranslationX(ref2) - HSD_JObjGetTranslationX(ref_jobj);
+        dy = HSD_JObjGetTranslationY(ref3) - HSD_JObjGetTranslationY(ref_jobj);
+
+        variant_desc = mnNameNew_804A0720;
+        GlyphVariantCount(arg1, &variant_count);
+        i = 0;
+        for (; i < variant_count; i++) {
+            {
+                HSD_JObj* created;
+                CreateGlyphVariant(variant_desc, user_data, i, &created);
+                variant = created;
+            }
+            HSD_JObjSetTranslateX(variant, dx * (f32) (i / 2));
+            HSD_JObjSetTranslateY(variant, dy * (f32) (i % 2));
+            HSD_JObjAddChild(ref_jobj, variant);
+        }
+
+        mnNameNew_8023D130(user_data, arg1, arg0->mode, arg2);
+        return gobj;
+    }
+}
+#ifdef MUST_MATCH
+#pragma pop
+#endif
+
+s32 mnNameNew_8023DA08(NameNewEntry* arg0)
+{
+    AnimLoopSettings* anim;
+    f32* end_frame;
+    f32 frame;
+    s32 all_anims_done;
+    anim = mnNameNew_803EDA58;
+    all_anims_done = 1;
+    frame = mn_8022ED6C(arg0->jobjs[12], &anim[2]);
+    end_frame = &anim[2].end_frame;
+    if (frame < mnNameNew_803EDA58[2].end_frame) {
+        all_anims_done = 0;
+    }
+    if (mn_8022ED6C(arg0->jobjs[13], &anim[2]) < *end_frame) {
+        all_anims_done = 0;
+    }
+    frame = mn_8022EFD8(arg0->jobjs[4], anim);
+    end_frame = &mnNameNew_803EDA58->end_frame;
+    if (frame < mnNameNew_803EDA58->end_frame) {
+        all_anims_done = 0;
+    }
+    if (mn_8022EFD8(arg0->jobjs[2], anim) < *end_frame) {
+        all_anims_done = 0;
+    }
+    if (mn_8022EFD8(arg0->jobjs[6], anim) < *end_frame) {
+        all_anims_done = 0;
+    }
+    return all_anims_done;
+}
+
+void fn_8023DAEC(HSD_GObj* arg0)
+{
+    s32 all_anims_done;
+    NameNewEntry* data;
+    MnNameNewDataLayout* layout;
+    f32* end_frame;
+
+    PAD_STACK(8);
+
+    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    if ((data = arg0->user_data)->key_text != NULL) {
+        HSD_SisLib_803A5CC4(data->key_text);
+        data->key_text = NULL;
+    }
+    if (data->name_disp_text != NULL) {
+        HSD_SisLib_803A5CC4(data->name_disp_text);
+        data->name_disp_text = NULL;
+    }
+    if (data->desc_text != NULL) {
+        HSD_SisLib_803A5CC4(data->desc_text);
+        data->desc_text = NULL;
+    }
+    all_anims_done = 1;
+    if (mn_8022EFD8(data->jobjs[4], &layout->anim[1]) <
+        *(end_frame = &layout->anim[1].end_frame))
+    {
+        all_anims_done = 0;
+    }
+    if (mn_8022EFD8(data->jobjs[2], &layout->anim[1]) < *end_frame) {
+        all_anims_done = 0;
+    }
+    if (mn_8022EFD8(data->jobjs[6], &layout->anim[1]) < *end_frame) {
+        all_anims_done = 0;
+    }
+    if (all_anims_done != 0 || mn_804A04F0.x10 == 1) {
+        HSD_GObjFree(arg0);
+    }
+}
+
+#ifdef MUST_MATCH
+#pragma push
+#pragma dont_inline on
+#endif
+void fn_8023DBE8(HSD_GObj* arg0)
+{
+    MenuFlow* flow;
+    HSD_GObj* gobj;
+    NameNewEntry* data;
+    u16* hovered;
+    u16 hovered_value;
+    HSD_JObj* jobj;
+    HSD_JObj* parent;
+    HSD_GObjProc* proc;
+    char unused[4];
+    f32 frame;
+    GXColor normal_key_color;
+    GXColor highlighted_key_color;
+    u8 cursor;
+    u8 sel;
+    s32 i;
+
+    PAD_STACK(28);
+
+    flow = &mn_804A04F0;
+    gobj = arg0;
+    data = gobj->user_data;
+
+    if (flow->x10 != 1) {
+        HSD_JObjSetFlagsAll(data->jobjs[16], JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(data->jobjs[12], JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(data->jobjs[13], JOBJ_HIDDEN);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
+        proc = HSD_GObj_SetupProc(gobj, fn_8023DAEC, 0U);
+        proc->flags_3 = HSD_GObj_804D783C;
+        return;
+    }
+
+    mnNameNew_8023DA08(data);
+    cursor = data->x1;
+
+    if ((s32) cursor != (s32) * (hovered = &flow->hovered_selection)) {
+        if (cursor >= 0x32U && cursor < 0x3AU) {
+            jobj = data->jobjs[mnNameNew_KeyMap.key_jobj_ids[cursor - 0x32]];
+        } else {
+            parent = data->jobjs[16];
+            if (parent == NULL) {
+                jobj = NULL;
+            } else {
+                jobj = parent->child;
+            }
+            for (i = 0; i < 50; i++) {
+                if (i == (s32) cursor) {
+                    break;
+                }
+                if (jobj == NULL) {
+                    jobj = NULL;
+                } else {
+                    jobj = jobj->next;
+                }
+            }
+        }
+        frame = 0.0f;
+        HSD_JObjReqAnimAll(jobj, frame);
+        HSD_JObjAnimAll(jobj);
+        if (data->x1 < 0x32U) {
+            normal_key_color = mnNameNew_804D4F6C;
+            HSD_SisLib_803A74F0(data->key_text, (s32) data->x1,
+                                &normal_key_color);
+        }
+
+        sel = (u8) *hovered;
+        if (sel >= 0x32U && sel < 0x3AU) {
+            jobj = data->jobjs[mnNameNew_KeyMap.key_jobj_ids[sel - 0x32]];
+        } else {
+            parent = data->jobjs[16];
+            if (parent == NULL) {
+                jobj = NULL;
+            } else {
+                jobj = parent->child;
+            }
+            for (i = 0; i < 50; i++) {
+                if (i == (s32) sel) {
+                    break;
+                }
+                if (jobj == NULL) {
+                    jobj = NULL;
+                } else {
+                    jobj = jobj->next;
+                }
+            }
+        }
+        frame = 1.0f;
+        HSD_JObjReqAnimAll(jobj, frame);
+        HSD_JObjAnimAll(jobj);
+        hovered_value = *hovered;
+        if (hovered_value < 0x32U) {
+            highlighted_key_color = mnNameNew_804D4F68;
+            HSD_SisLib_803A74F0(data->key_text, (s32) hovered_value,
+                                &highlighted_key_color);
+        }
+        mnNameNew_8023B314(data, (s32) *hovered);
+        data->x1 = (u8) *hovered;
+        mnNameNew_8023B0F8(gobj, data->x1);
+    }
+
+    if ((mnNameNew_804D4C10 + (f32) data->cursor_pos) !=
+        mn_8022F298(data->jobjs[13]))
+    {
+        cursor = data->cursor_pos;
+        jobj = ((NameNewEntry*) gobj->user_data)->jobjs[13];
+        HSD_JObjReqAnimAll(jobj, mnNameNew_804D4C10 + (f32) cursor);
+        HSD_JObjAnimAll(jobj);
+    }
+}
+#ifdef MUST_MATCH
+#pragma pop
+#endif
+
+void mnNameNew_8023E0D8(NameNewEntry* arg0)
+{
+    MnNameNewDataLayout* layout;
+    AnimLoopSettings* anim;
+    HSD_JObj* jobj;
+    u16* jobj_ids;
+    s32 i;
+
+    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    anim = layout->anim;
+    jobj = arg0->jobjs[12];
+    HSD_JObjReqAnim(jobj, anim[2].start_frame);
+    HSD_JObjAnim(jobj);
+
+    jobj = arg0->jobjs[13];
+    HSD_JObjReqAnim(jobj, anim[2].start_frame);
+    HSD_JObjAnim(jobj);
+
+    jobj = arg0->jobjs[4];
+    HSD_JObjReqAnim(jobj, anim[0].start_frame);
+    HSD_JObjAnim(jobj);
+
+    jobj = arg0->jobjs[5];
+    HSD_JObjReqAnimAll(jobj, (f32) (arg0->x1 == 0x38));
+    HSD_JObjAnimAll(jobj);
+
+    jobj = arg0->jobjs[2];
+    HSD_JObjReqAnim(jobj, anim[0].start_frame);
+    HSD_JObjAnim(jobj);
+
+    jobj = arg0->jobjs[5];
+    HSD_JObjReqAnimAll(jobj, (f32) (arg0->x1 == 0x32));
+    HSD_JObjAnimAll(jobj);
+
+    jobj = arg0->jobjs[6];
+    HSD_JObjReqAnim(jobj, anim[0].start_frame);
+    HSD_JObjAnim(jobj);
+
+    jobj_ids = layout->key_jobj_ids;
+    for (i = 0x32; i < 0x3A; i++) {
+        jobj = arg0->jobjs[jobj_ids[i - 0x32]];
+        HSD_JObjReqAnimAll(jobj, (f32) (arg0->x1 == i));
+        HSD_JObjAnimAll(jobj);
+    }
+}
+
+s32 InitNameEntryUIState(NameNewEntry* arg0, s32 arg1)
+{
+    s32 result;
+    s8 count;
+    u8** names;
+    s8 null_char;
+
+    PAD_STACK(0x20);
+
+    arg0->x1 = (count = (u8) mn_804A04F0.hovered_selection);
+    result = lbLang_IsSavedLanguageUS();
+    if (result) {
+        arg0->mode = 2;
+    } else {
+        arg0->mode = 0;
+    }
+    count = 0;
+    arg0->cursor_pos = 0;
+    arg0->last_key_sel = arg0->x1;
+    arg0->variant_gobj = 0;
+    arg0->name_index = arg1;
+    arg0->key_text = 0;
+    arg0->name_disp_text = 0;
+    arg0->desc_text = 0;
+    null_char = (s8) *mnNameNew_NullCharacter;
+    names = AutoNamesList;
+    while (null_char != (s8) * *names) {
+        names++;
+        count++;
+    }
+    arg0->auto_history[0] = count;
+    arg0->auto_history[1] = count;
+    arg0->auto_history[2] = count;
+    arg0->auto_history[3] = count;
+    arg0->auto_history[4] = count;
+    return result;
+}
+
+static inline void mnNameNew_InitKeyJobjs(NameNewEntry* user_data,
+                                          HSD_JObj** child_out)
+{
+    s32 k;
+    HSD_JObj* key_jobj;
+    f32 x_range;
+    f32 y_range;
+
+    for (k = 0; k < 0x32; k++) {
+        key_jobj = HSD_JObjLoadJoint(mnNameNew_804A0700.joint);
+        HSD_JObjAddAnimAll(key_jobj, mnNameNew_804A0700.animjoint,
+                           mnNameNew_804A0700.matanim_joint,
+                           mnNameNew_804A0700.shapeanim_joint);
+        HSD_JObjReqAnimAll(key_jobj, (f32) ((u8) k == user_data->x1));
+        HSD_JObjAnimAll(key_jobj);
+        x_range = HSD_JObjGetTranslationX(user_data->jobjs[17]) -
+                  HSD_JObjGetTranslationX(user_data->jobjs[16]);
+        y_range = HSD_JObjGetTranslationY(user_data->jobjs[18]) -
+                  HSD_JObjGetTranslationY(user_data->jobjs[16]);
+        mnName_80239F5C(key_jobj, x_range * (f32) ((u8) k / 5));
+        mnName_80239EBC(key_jobj, y_range * (f32) ((u8) k % 5));
+        *child_out = key_jobj;
+        HSD_JObjAddChild(user_data->jobjs[16], *child_out);
+    }
+}
+
+void mnNameNew_8023E32C(s32 arg0)
+{
+    HSD_GObj* gobj;
+    HSD_JObj* root_jobj;
+    NameNewEntry* user_data;
+    s32 i;
+    StaticModelDesc* setup_desc;
+
+    PAD_STACK(8);
+
+    setup_desc = &mnNameNew_804A06F0;
+    gobj = GObj_Create(6U, 7U, 0x80U);
+    mnNameNew_804D6C08 = gobj;
+    root_jobj = HSD_JObjLoadJoint(setup_desc->joint);
+    HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, root_jobj);
+    GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4U, 0x80U);
+    HSD_GObj_SetupProc(gobj, (HSD_GObjEvent) fn_8023DBE8, 0U);
+    HSD_JObjAddAnimAll(root_jobj, setup_desc->animjoint,
+                       setup_desc->matanim_joint, setup_desc->shapeanim_joint);
+    HSD_JObjReqAnimAll(root_jobj, 0.0f);
+    HSD_JObjAnimAll(root_jobj);
+    user_data = HSD_MemAlloc(sizeof(*user_data));
+    HSD_ASSERTREPORT(0x717U, user_data, "Can't get user_data.\n");
+    GObj_InitUserData(gobj, 0U, HSD_Free, user_data);
+    InitNameEntryUIState(user_data, arg0);
+    for (i = 0; i < 0x13; i++) {
+        lb_80011E24(root_jobj, &user_data->jobjs[i], i, -1);
+    }
+    mnNameNew_8023E0D8(user_data);
+    {
+        HSD_JObj* child;
+        mnNameNew_InitKeyJobjs(user_data, &child);
+    }
+    user_data->key_text = mnNameNew_KeySetup(user_data, user_data->mode);
+    mnNameNew_8023B314(user_data, (s32) user_data->x1);
+    mnNameNew_8023B0F8(gobj, user_data->x1);
+}
+
+void mnNameNew_EnterFromMnName(UNK_T arg0)
+{
+    char unused[8];
+    char* text = mnNameNew_CurrentNameText;
+
+    mn_804A04F0.x10 = 1;
+    if (lbLang_IsSavedLanguageUS()) {
+        mn_804A04F0.hovered_selection = 0x2d;
+    } else {
+        mn_804A04F0.hovered_selection = 0;
+    }
+    mnNameNew_PortInUse = 4;
+    text[0] = *mnNameNew_NullCharacter;
+    text[3] = *mnNameNew_NullCharacter;
+    text[6] = *mnNameNew_NullCharacter;
+    text[9] = *mnNameNew_NullCharacter;
+    mnNameNew_8023E32C((s32) arg0);
+}
+
+void mnNameNew_EnterFromMnCharSel(HSD_Archive* arg0, s32 arg1)
+{
+    u8 name_count;
+    HSD_GObjProc* proc;
+    char* text;
+    s32 is_us;
+
+    PAD_STACK(16);
+
+    text = mnNameNew_CurrentNameText;
+
+    mn_804D6BC8.cooldown = 0x14;
+    mn_804D6BC8.x2 = 0;
+    mn_804D6BC8.x4 = 0;
+    mn_804A04F0.buttons = 0;
+    mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;
+    mn_804A04F0.cur_menu = 0x12;
+
+    if (lbLang_IsSavedLanguageUS()) {
+        mn_804A04F0.hovered_selection = 0x2D;
+    } else {
+        mn_804A04F0.hovered_selection = 0;
+    }
+
+    mn_804A04F0.x10 = 1;
+    HSD_SisLib_803A5E70();
+    mnNameNew_PortInUse = arg1;
+
+    lbArchive_LoadSections(
+        arg0,
+
+        // Background
+        (void**) &MenMainBack_Top.joint, "MenMainBack_Top_joint",
+        &MenMainBack_Top.animjoint, "MenMainBack_Top_animjoint",
+        &MenMainBack_Top.matanim_joint, "MenMainBack_Top_matanim_joint",
+        &MenMainBack_Top.shapeanim_joint, "MenMainBack_Top_shapeanim_joint",
+
+        // Scene
+        &MenMain_cam, "ScMenMain_cam_int1_camera", &MenMain_lights,
+        "ScMenMain_scene_lights", &MenMain_fog, "ScMenMain_fog",
+
+        // Panel
+        &MenMainPanel_Top.joint, "MenMainPanel_Top_joint",
+        &MenMainPanel_Top.animjoint, "MenMainPanel_Top_animjoint",
+        &MenMainPanel_Top.matanim_joint, "MenMainPanel_Top_matanim_joint",
+        &MenMainPanel_Top.shapeanim_joint, "MenMainPanel_Top_shapeanim_joint",
+
+        // Row 1
+        &mnNameNew_804A06F0.joint, "MenMainConEtNw_Top_joint",
+        &mnNameNew_804A06F0.animjoint, "MenMainConEtNw_Top_animjoint",
+        &mnNameNew_804A06F0.matanim_joint, "MenMainConEtNw_Top_matanim_joint",
+        &mnNameNew_804A06F0.shapeanim_joint,
+        "MenMainConEtNw_Top_shapeanim_joint",
+
+        // Row 2
+        &mnNameNew_804A0700.joint, "MenMainBaseEtNw_Top_joint",
+        &mnNameNew_804A0700.animjoint, "MenMainBaseEtNw_Top_animjoint",
+        &mnNameNew_804A0700.matanim_joint, "MenMainBaseEtNw_Top_matanim_joint",
+        &mnNameNew_804A0700.shapeanim_joint,
+        "MenMainBaseEtNw_Top_shapeanim_joint",
+
+        // Row 3
+        &mnNameNew_804A0710.joint, "MenMainSubEtNw_Top_joint",
+        &mnNameNew_804A0710.animjoint, "MenMainSubEtNw_Top_animjoint",
+        &mnNameNew_804A0710.matanim_joint, "MenMainSubEtNw_Top_matanim_joint",
+        &mnNameNew_804A0710.shapeanim_joint,
+        "MenMainSubEtNw_Top_shapeanim_joint",
+
+        // Row 4
+        &mnNameNew_804A0720[0].joint, "MenMainSbaseEtNw_Top_joint",
+        &mnNameNew_804A0720[0].animjoint, "MenMainSbaseEtNw_Top_animjoint",
+        &mnNameNew_804A0720[0].matanim_joint,
+        "MenMainSbaseEtNw_Top_matanim_joint",
+        &mnNameNew_804A0720[0].shapeanim_joint,
+        "MenMainSbaseEtNw_Top_shapeanim_joint",
+
+        NULL);
+
+    is_us = lbLang_IsSavedLanguageUS();
+
+    if (is_us) {
+        lbArchive_LoadSections(arg0, (void**) &AutoNamesList,
+                               "mnNameAutoNameUs", &NotAllowedNamesList,
+                               "mnNameRefuseNameUs", NULL);
+    } else {
+        lbArchive_LoadSections(arg0, (void**) &AutoNamesList, "mnNameAutoName",
+                               &NotAllowedNamesList, "mnNameRefuseName", NULL);
+    }
+
+    mn_8022C304();
+    mn_8022BCF8();
+    mn_8022BEDC(mn_8022BE34());
+    mn_80229B2C();
+    mn_80229DC0();
+
+    name_count = (u8) GetNameCount();
+
+    proc = HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U),
+                              (HSD_GObjEvent) mnNameNew_MainInput, 0U);
+    proc->flags_3 = HSD_GObj_804D783C;
+
+    text[0] = *mnNameNew_NullCharacter;
+    text[3] = *mnNameNew_NullCharacter;
+    text[6] = *mnNameNew_NullCharacter;
+    text[9] = *mnNameNew_NullCharacter;
+
+    mnNameNew_8023E32C((s32) name_count);
+    lbAudioAx_80023F28(gmMainLib_8015ECB0());
+}
+
+void mnNameNew_8023EA08(UNK_T arg0)
+{
+    mnNameNew_EnterFromMnCharSel((HSD_Archive*) arg0, 4);
+}
+
+static u8 mnNameNew_804D4F98[8] ATTRIBUTE_ALIGN(8) = { 0 };
+
+char* mnNameNew_803EE720[] ATTRIBUTE_ALIGN(8) = { (char*) mnNameNew_804D4F98 };
+char* mnNameNew_803EE724[] = { (char*) mnNameNew_804D4F98 };

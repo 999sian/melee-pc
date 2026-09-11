@@ -1,0 +1,278 @@
+#include "itsscope.h"
+
+#include <Runtime/platform.h>
+
+#include <melee/it/forward.h>
+
+#include <placeholder.h>
+
+#include "inlines.h"
+#include "itsscopebeam.h"
+#include <melee/it/inlines.h>
+#include <melee/it/it_26B1.h>
+#include <melee/it/it_2725.h>
+#include <melee/it/itCommonItems.h>
+#include <melee/it/item.h>
+#include <melee/it/itgroundcoll.h>
+
+#define GET_ATTRS(ip)                                                         \
+    ((itSScopeAttributes*) (ip)->xC4_article_data->x4_specialAttributes)
+
+ItemStateTable it_803F5F40[] = {
+    { -1, itSscope_UnkMotion0_Anim, itSscope_UnkMotion0_Phys,
+      itSscope_UnkMotion0_Coll },
+    { -1, itSscope_UnkMotion3_Anim, itSscope_UnkMotion1_Phys,
+      itSscope_UnkMotion3_Coll },
+    { -1, itSscope_UnkMotion2_Anim, itSscope_UnkMotion2_Phys, NULL },
+    { 0, itSscope_UnkMotion3_Anim, itSscope_UnkMotion3_Phys,
+      itSscope_UnkMotion3_Coll },
+    { -1, itSscope_UnkMotion4_Anim, itSscope_UnkMotion4_Phys,
+      itSscope_UnkMotion4_Coll },
+};
+
+HSD_GObj* it_80291BE0(Vec3* arg0)
+{
+    SpawnItem spawn;
+    Item_GObj* gobj;
+
+    spawn.kind = It_Kind_S_Scope;
+    Item_InitSpawn(&spawn, NULL, arg0, -1.0f);
+    gobj = Item_80268B5C(&spawn);
+    if (gobj != NULL) {
+        it_80292030(gobj);
+    }
+    return gobj;
+}
+
+void itSScope_Logic21_Spawned(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xD4C = *(s32*) ip->xC4_article_data->x4_specialAttributes;
+    it_802920B8(gobj);
+}
+
+void it_80291CCC(Item_GObj* gobj, Vec3* pos)
+{
+    itSScopeAttributes* attrs = GET_ATTRS(GET_ITEM(gobj));
+    pos->x = attrs->x34.x;
+    pos->y = attrs->x34.y;
+    pos->z = attrs->x34.z;
+}
+
+s32 it_80291CF4(Item_GObj* gobj, s32 arg1)
+{
+    itSScopeAttributes* attrs = GET_ATTRS(GET_ITEM(gobj));
+
+    if (arg1 <= attrs->x4) {
+        return 0;
+    }
+    if (arg1 < attrs->x8 * 8) {
+        return arg1 / 8;
+    }
+    return 9;
+}
+
+s32 it_80291D38(Item_GObj* gobj, s32 charge_level)
+{
+    Item* ip = GET_ITEM(gobj);
+    itSScopeAttributes* attrs = GET_ATTRS(ip);
+    switch (charge_level) {
+    case 0:
+        return attrs->xC[0];
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+        return attrs->xC[charge_level];
+    case 9:
+        return attrs->xC[9];
+    }
+}
+
+static inline int it_80291DAC_level(Item_GObj* gobj, int arg1)
+{
+    Item* ip = GET_ITEM(gobj);
+    itSScopeAttributes* attrs = ip->xC4_article_data->x4_specialAttributes;
+    if (arg1 <= attrs->x4) {
+        return 0;
+    } else if (arg1 < attrs->x8 * 8) {
+        return arg1 / 8;
+    } else {
+        return 9;
+    }
+}
+
+int it_80291DAC(Item_GObj* gobj, int arg1)
+{
+    Item* ip = GET_ITEM(gobj);
+    s32 level;
+    int cost;
+    int i;
+    PAD_STACK(12);
+
+    if (ip->xD4C <= 0) {
+        return -1;
+    }
+    level = it_80291DAC_level(gobj, arg1);
+    cost = it_80291D38(gobj, level);
+    if (ip->xD4C - cost < 0) {
+        while (level > 0) {
+            cost = it_80291D38(gobj, level);
+            if (ip->xD4C - cost == 0) {
+                return level;
+            }
+            if (ip->xD4C - cost > 0) {
+                return level + 1;
+            }
+            level--;
+        }
+    } else {
+        return level;
+    }
+}
+
+void it_80291F14(Item_GObj* gobj, int charge_level)
+{
+    Item* ip = GET_ITEM(gobj);
+    PAD_STACK(8);
+    ip->xD4C -= it_80291D38(gobj, charge_level);
+    if (ip->xD4C < 0) {
+        ip->xD4C = 0;
+    }
+}
+
+void it_80291FA8(Item_GObj* gobj, Vec3* pos, int charge_level, float scale)
+{
+    Item* ip = GET_ITEM(gobj);
+    PAD_STACK(8);
+    it_80291F14(gobj, charge_level);
+    it_80298DEC(ip->owner, pos, charge_level, scale);
+}
+
+void it_80292030(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    itResetVelocity(ip);
+    it_8026B390(gobj);
+    Item_80268E5C(gobj, 0, ITEM_ANIM_UPDATE);
+}
+
+bool itSscope_UnkMotion0_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itSscope_UnkMotion0_Phys(Item_GObj* gobj) {}
+
+bool itSscope_UnkMotion0_Coll(Item_GObj* gobj)
+{
+    it_8026D62C(gobj, it_802920B8);
+    return false;
+}
+
+void it_802920B8(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
+}
+
+bool itSscope_UnkMotion3_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itSscope_UnkMotion1_Phys(Item_GObj* gobj)
+{
+    ItemAttr* attrs = (GET_ITEM(gobj))->xCC_item_attr;
+    it_80272860(gobj, attrs->x10_fall_speed, attrs->x14_fall_speed_max);
+}
+
+bool itSscope_UnkMotion3_Coll(Item_GObj* gobj)
+{
+    if ((GET_ITEM(gobj))->xD4C != 0) {
+        it_8026E15C(gobj, it_80292030);
+        return 0;
+    }
+    return it_8026DF34(gobj);
+}
+
+void itSScope_Logic21_PickedUp(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 2, ITEM_ANIM_UPDATE);
+}
+
+bool itSscope_UnkMotion2_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itSscope_UnkMotion2_Phys(Item_GObj* gobj) {}
+
+void itSScope_Logic21_Dropped(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 3, 6);
+}
+
+void itSScope_Logic21_Thrown(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 3, 6);
+}
+
+void itSscope_UnkMotion3_Phys(Item_GObj* gobj)
+{
+    Item_ApplyFallingPhysics(gobj);
+}
+
+bool itSScope_Logic21_DmgDealt(Item_GObj* gobj)
+{
+    itColl_BounceOffVictim(gobj);
+    return false;
+}
+
+bool itSScope_Logic21_Clanked(Item_GObj* gobj)
+{
+    itColl_BounceOffVictim(gobj);
+    return false;
+}
+
+bool itSScope_Logic21_HitShield(Item_GObj* gobj)
+{
+    itColl_BounceOffVictim(gobj);
+    return false;
+}
+
+bool itSScope_Logic21_Reflected(Item_GObj* gobj)
+{
+    return it_80273030(gobj);
+}
+
+bool itSScope_Logic21_ShieldBounced(Item_GObj* gobj)
+{
+    return itColl_BounceOffShield(gobj);
+}
+
+void itSScope_Logic21_EnteredAir(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 4, ITEM_ANIM_UPDATE);
+}
+
+bool itSscope_UnkMotion4_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itSscope_UnkMotion4_Phys(Item_GObj* gobj) {}
+
+bool itSscope_UnkMotion4_Coll(Item_GObj* gobj)
+{
+    it_8026E8C4(gobj, it_80292030, it_802920B8);
+    return false;
+}
+
+void itSScope_Logic21_EvtUnk(Item_GObj* gobj, Item_GObj* ref_gobj)
+{
+    it_8026B894(gobj, ref_gobj);
+}

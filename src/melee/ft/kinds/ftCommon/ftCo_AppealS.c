@@ -1,0 +1,142 @@
+#include "ftCo_AppealS.h"
+
+#include <Runtime/platform.h>
+
+#include <melee/ft/forward.h>
+
+#include "ftCo_Attack1.h"
+#include "ftCo_Attack100.h"
+#include "ftCo_AttackHi3.h"
+#include "ftCo_AttackHi4.h"
+#include "ftCo_AttackLw3.h"
+#include "ftCo_AttackLw4.h"
+#include "ftCo_AttackS3.h"
+#include "ftCo_AttackS4.h"
+#include "ftCo_Escape.h"
+#include "ftCo_Guard.h"
+#include "ftCo_SpecialS.h"
+#include <melee/db/db.h>
+#include <melee/ft/fighter.h>
+#include <melee/ft/ft_081B.h>
+#include <melee/ft/ft_084E.h>
+#include <melee/ft/ft_0892.h>
+#include <melee/ft/ftdata.h>
+#include <melee/ft/inlines.h>
+#include <melee/ft/kinds/ftCLink/ftclink.h>
+#include <melee/ft/kinds/ftDrMario/ftdrmario.h>
+#include <melee/ft/kinds/ftKirby/ftkirby.h>
+#include <melee/ft/kinds/ftPeach/ftpeach.h>
+#include <melee/ft/kinds/ftZelda/ftzelda.h>
+#include <melee/ft/types.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/pl/plbonuslib.h>
+
+bool ftCo_800DE9B8(Fighter_GObj* gobj)
+{
+    if (GET_FIGHTER(gobj)->input.pressed_buttons & HSD_PAD_DPADUP) {
+        return true;
+    }
+    return false;
+}
+
+bool ftCo_800DE9D8(Fighter_GObj* gobj)
+{
+    if (ftCo_800DE9B8(gobj)) {
+        ftCo_800DEA28(gobj);
+        return true;
+    }
+    return false;
+}
+
+void ftCo_800DEA28(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    switch (fp->kind) {
+    case Ft_Kind_CLink:
+        ftCl_Init_80149318(gobj);
+        break;
+    case Ft_Kind_DrMario:
+        ftDr_Init_80149910(gobj);
+        break;
+    case Ft_Kind_Ganon: {
+        Vec3 pos;
+        lb_8000B1CC(fp->parts->joint, NULL, &pos);
+        lb_800119DC(&pos, 80, 1.0f, 0.003f, 1.0471976f);
+        ftCo_800DEBD0(gobj);
+    }
+    default:
+        ftCo_800DEBD0(gobj);
+        break;
+    }
+    pl_80040120(fp->player_id, fp->is_sub_fighter);
+}
+
+void ftCo_800DEAE8(Fighter_GObj* gobj, FtMotionId msid0, FtMotionId msid1)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    MotionState* ms = msid1 >= fp->x18
+                          ? &fp->x20_actionStateList[msid1 - fp->x18]
+                          : &fp->x1C_actionStateList[msid1];
+    fp->allow_interrupt = false;
+    if (fp->facing_dir == -1.0f && ftData_80085FD4(fp, ms->anim_id)->x8 != 0) {
+        Fighter_ChangeMotionState(gobj, msid1, 0, 0.0f, 1.0f, 0.0f, NULL);
+    } else {
+        Fighter_ChangeMotionState(gobj, msid0, 0, 0.0f, 1.0f, 0.0f, NULL);
+    }
+}
+
+void ftCo_800DEBD0(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (DbLevel >= DbLKind_DebugRom) {
+        if (fp->kind == Ft_Kind_Peach) {
+            ftPe_Init_8011B93C(gobj);
+        }
+        if (fp->kind == Ft_Kind_Zelda) {
+            ftZd_Init_801395C8(gobj);
+        }
+    }
+    if (fp->kind == Ft_Kind_Kirby) {
+        ftKb_SpecialN_800F5D04(gobj, true);
+    }
+    ftCo_800DEAE8(gobj, ftCo_MS_AppealSR, ftCo_MS_AppealSL);
+}
+
+void ftCo_AppealS_Anim(Fighter_GObj* gobj)
+{
+    if (!ftAnim_IsFramesRemaining(gobj)) {
+        ft_8008A2BC(gobj);
+    }
+}
+
+void ftCo_AppealS_IASA(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+
+    RETURN_IF(!fp->allow_interrupt);
+    RETURN_IF(ftCo_SpecialS_CheckInput(gobj));
+    RETURN_IF(ftCo_Attack100_CheckInput(gobj));
+    RETURN_IF(ftCo_800D6824(gobj));
+    RETURN_IF(ftCo_800D68C0(gobj));
+    RETURN_IF(ftCo_Catch_CheckInput(gobj));
+    RETURN_IF(ftCo_AttackS4_CheckInput(gobj));
+    RETURN_IF(ftCo_AttackHi4_CheckInput(gobj));
+    RETURN_IF(ftCo_AttackLw4_CheckInput(gobj));
+    RETURN_IF(ftCo_AttackS3_CheckInput(gobj));
+    RETURN_IF(ftCo_AttackHi3_CheckInput(gobj));
+    RETURN_IF(ftCo_AttackLw3_CheckInput(gobj));
+    RETURN_IF(ftCo_Attack1_CheckInput(gobj));
+    RETURN_IF(ftCo_80099794(gobj));
+    RETURN_IF(ftCo_80091A4C(gobj));
+}
+
+void ftCo_AppealS_Phys(Fighter_GObj* gobj)
+{
+    ft_80084FA8(gobj);
+}
+
+void ftCo_AppealS_Coll(Fighter_GObj* gobj)
+{
+    ft_80084104(gobj);
+}

@@ -1,0 +1,168 @@
+#include <Runtime/platform.h>
+
+#include <melee/lb/forward.h>
+#include <sysdolphin/baselib/forward.h>
+
+#include "granime.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "types.h"
+#include <dolphin/mtx.h>
+#include <melee/lb/lb_00F9.h>
+#include <sysdolphin/baselib/gobjproc.h>
+
+/* 223864 */ static void grTSeak_OnDemoInit(bool);
+/* 223868 */ static void grTSeak_OnInit(void);
+/* 2238D8 */ static void grTseak_OnLoad(void);
+/* 2238DC */ static void grTseak_OnStart(void);
+/* 223900 */ static bool grTSeak_80223900(void);
+/* 223908 */ static HSD_GObj* grTSeak_80223908(int);
+/* 2239F0 */ static void grTSeak_802239F0(Ground_GObj*);
+/* 223A1C */ static bool grTSeak_80223A1C(Ground_GObj*);
+/* 223A24 */ static void grTSeak_80223A24(Ground_GObj*);
+/* 223A28 */ static void grTSeak_80223A28(Ground_GObj*);
+/* 223A2C */ static void grTSeak_80223A2C(Ground_GObj*);
+/* 223A7C */ static bool grTSeak_80223A7C(Ground_GObj*);
+/* 223A84 */ static void grTSeak_80223A84(Ground_GObj*);
+/* 223AB8 */ static void grTSeak_80223AB8(Ground_GObj*);
+/* 223ABC */ static void grTSeak_80223ABC(Ground_GObj*);
+/* 223B0C */ static bool grTSeak_80223B0C(Ground_GObj*);
+/* 223B14 */ static void grTSeak_80223B14(Ground_GObj*);
+/* 223B34 */ static void grTSeak_80223B34(Ground_GObj*);
+/* 223B38 */ static DynamicsDesc* grTSeak_OnTouchLine(enum_t);
+/* 223B40 */ static bool grTSeak_OnCheckShadowRender(Vec3*, int, HSD_JObj*);
+
+static StageCallbacks grTSk_StageCallbacks[] = {
+    {
+        grTSeak_802239F0,
+        grTSeak_80223A1C,
+        grTSeak_80223A24,
+        grTSeak_80223A28,
+        0,
+    },
+    {
+        grTSeak_80223ABC,
+        grTSeak_80223B0C,
+        grTSeak_80223B14,
+        grTSeak_80223B34,
+        0,
+    },
+    {
+        grTSeak_80223A2C,
+        grTSeak_80223A7C,
+        grTSeak_80223A84,
+        grTSeak_80223AB8,
+        (1 << 31) | (1 << 30),
+    },
+    { 0 },
+};
+
+StageData grTSk_StageData = {
+    Gr_Kind_TSeak,
+    grTSk_StageCallbacks,
+    "/GrTSk.dat",
+    grTSeak_OnInit,
+    grTSeak_OnDemoInit,
+    grTseak_OnLoad,
+    grTseak_OnStart,
+    grTSeak_80223900,
+    grTSeak_OnTouchLine,
+    grTSeak_OnCheckShadowRender,
+    1,
+};
+
+void grTSeak_OnDemoInit(bool unk0) {}
+
+void grTSeak_OnInit(void)
+{
+    Ground_InitTargetStage(grTSeak_80223908);
+}
+
+void grTseak_OnLoad(void) {}
+
+void grTseak_OnStart(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+bool grTSeak_80223900(void)
+{
+    return false;
+}
+
+HSD_GObj* grTSeak_80223908(int arg0)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grTSk_StageCallbacks[arg0];
+
+    gobj = Ground_GetStageGObj(arg0);
+
+    if (gobj != NULL) {
+        Ground_SetupStageCallbacks(gobj, callbacks);
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 0xC3, arg0);
+    }
+
+    return gobj;
+}
+
+void grTSeak_802239F0(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grTSeak_80223A1C(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTSeak_80223A24(Ground_GObj* gobj) {}
+
+void grTSeak_80223A28(Ground_GObj* gobj) {}
+
+void grTSeak_80223A2C(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+bool grTSeak_80223A7C(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTSeak_80223A84(Ground_GObj* gobj)
+{
+    lb_800115F4();
+    Ground_801C2FE0(gobj);
+}
+
+void grTSeak_80223AB8(Ground_GObj* gobj) {}
+
+void grTSeak_80223ABC(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+bool grTSeak_80223B0C(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTSeak_80223B14(Ground_GObj* gobj)
+{
+    Ground_801C2FE0(gobj);
+}
+
+void grTSeak_80223B34(Ground_GObj* gobj) {}
+
+DynamicsDesc* grTSeak_OnTouchLine(enum_t arg0)
+{
+    return NULL;
+}
+
+bool grTSeak_OnCheckShadowRender(Vec3* arg0, int arg1, HSD_JObj* arg2)
+{
+    return true;
+}

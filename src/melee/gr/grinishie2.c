@@ -1,0 +1,789 @@
+#include "grinishie2.h"
+
+#include <Runtime/platform.h>
+
+#include <sysdolphin/baselib/forward.h>
+
+#include <placeholder.h>
+
+#include "granime.h"
+#include "grdisplay.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "stage.h"
+#include "types.h"
+#include <melee/cm/camera.h>
+#include <melee/gm/gm_unsplit.h>
+#include <melee/it/kinds/itkyasarin.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/mp/mplib.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/random.h>
+
+GrJoint grI2_803E4A60[] = {
+    { 0, 1, 1 },  { 12, 3, 1 },  { 13, 4, 1 },  { 14, 15, 0 }, { 3, 5, 0 },
+    { 4, 6, 0 },  { 5, 7, 0 },   { 6, 8, 0 },   { 7, 9, 0 },   { 8, 10, 0 },
+    { 9, 11, 0 }, { 10, 12, 0 }, { 11, 13, 0 }, { 2, 14, 0 },
+};
+StageCallbacks grI2_StageCallbacks[] = {
+    {
+        grInishie2_801FCDC8,
+        grInishie2_801FCDF4,
+        grInishie2_801FCDFC,
+        grInishie2_801FCE00,
+        0,
+    },
+    {
+        grInishie2_801FDE8C,
+        grInishie2_801FDED0,
+        grInishie2_801FDED8,
+        grInishie2_801FDFE4,
+        0,
+    },
+    {
+        grInishie2_801FCE04,
+        grInishie2_801FCF24,
+        grInishie2_801FCFCC,
+        grInishie2_801FD014,
+        0xC0000000,
+    },
+    {
+        grInishie2_801FD198,
+        grInishie2_801FD21C,
+        grInishie2_801FD224,
+        grInishie2_801FD364,
+        0,
+    },
+    {
+        grInishie2_801FD198,
+        grInishie2_801FD21C,
+        grInishie2_801FD224,
+        grInishie2_801FD364,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        0,
+    },
+    {
+        grInishie2_801FD4F0,
+        grInishie2_801FD64C,
+        grInishie2_801FD654,
+        grInishie2_801FD740,
+        0,
+    },
+};
+
+StageData grI2_StageData = {
+    Gr_Kind_Inishie2,
+    grI2_StageCallbacks,
+    "/GrI2.dat",
+    grInishie2_801FCBC4,
+    grInishie2_801FCBC0,
+    grInishie2_801FCCAC,
+    grInishie2_801FCCB0,
+    grInishie2_801FCCD4,
+    grInishie2_801FDFE8,
+    grInishie2_801FDFF0,
+    (1 << 0),
+    grI2_803E4A60,
+    ARRAY_SIZE(grI2_803E4A60),
+};
+
+struct grInishie2_YakumonoParam {
+    s16 unk0;
+    s16 unk2;
+    s16 unk4;
+    s16 unk6;
+    s16 unk8;
+    s16 unkA;
+    s16 unkC;
+    s16 unkE;
+    s16 unk10[2];
+    Vec3 unk14[2];
+    f32 unk2C;
+    Vec3 unk30[2];
+    s16 unk48;
+    s16 unk4A;
+};
+
+static struct grInishie2_YakumonoParam* yakumono_param;
+
+void grInishie2_801FCBC0(bool arg) {}
+
+void grInishie2_801FCBC4(void)
+{
+    yakumono_param = Ground_GetYakumonoParam();
+
+    stage_info.unk8C.b4 = 0;
+    stage_info.unk8C.b5 = 1;
+
+    grInishie2_801FCCDC(0);
+    grInishie2_801FCCDC(2);
+
+    mpLib_80057BC0(0);
+    mpLib_80057BC0(0xC);
+    mpLib_80057BC0(0xD);
+    mpLib_80057BC0(0xE);
+    mpLib_80057BC0(3);
+    mpLib_80057BC0(4);
+    mpLib_80057BC0(5);
+    mpLib_80057BC0(6);
+    mpLib_80057BC0(7);
+    mpLib_80057BC0(8);
+    mpLib_80057BC0(9);
+    mpLib_80057BC0(0xA);
+    mpLib_80057BC0(0xB);
+    mpLib_80057BC0(2);
+
+    Ground_801C39C0();
+    Ground_801C3BB4();
+    Camera_800311DC(1.0f);
+    Camera_800311CC(4000.0f);
+}
+
+void grInishie2_801FCCAC(void) {}
+
+void grInishie2_801FCCB0(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+bool grInishie2_801FCCD4(void)
+{
+    return false;
+}
+
+HSD_GObj* grInishie2_801FCCDC(int gobj_id)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grI2_StageCallbacks[gobj_id];
+
+    gobj = Ground_GetStageGObj(gobj_id);
+
+    if (gobj != NULL) {
+        Ground* gp = gobj->user_data;
+        gp->x8_callback = NULL;
+        gp->xC_callback = NULL;
+        GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0);
+
+        if (callbacks->callback3 != 0) {
+            gp->x1C_callback = (HSD_GObjEvent) callbacks->callback3;
+        }
+
+        if (callbacks->on_init != NULL) {
+            callbacks->on_init(gobj);
+        }
+
+        if (callbacks->gobj_proc != NULL) {
+            HSD_GObj_SetupProc(gobj, callbacks->gobj_proc, 4);
+        }
+
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", "grinishie2.c", 254,
+                 gobj_id);
+    }
+
+    return gobj;
+}
+
+void grInishie2_801FCDC8(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grInishie2_801FCDF4(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grInishie2_801FCDFC(Ground_GObj* gobj) {}
+
+void grInishie2_801FCE00(Ground_GObj* gobj) {}
+
+void grInishie2_801FCE04(Ground_GObj* gobj)
+{
+    Ground* gp;
+
+    gp = GET_GROUND(gobj);
+    grAnime_801C7FF8(gobj, 1, 7, 0, 0.0f, 1.0f);
+    grAnime_801C7FF8(gobj, 6, 7, 1, 0.0f, 1.0f);
+    grAnime_801C7FF8(gobj, 5, 7, 2, 0.0f, 1.0f);
+    gp->x8_callback = NULL;
+    gp->xC_callback = NULL;
+    grInishie2_801FD018(gobj);
+    grInishie2_801FD368(gobj);
+    grInishie2_801FD744(gobj);
+    Ground_801C4E70(Ground_801C3FA4(gobj, 9), Ground_801C3FA4(gobj, 0xC),
+                    Ground_801C3FA4(gobj, 8), Ground_801C3FA4(gobj, 0xB),
+                    Ground_801C3FA4(gobj, 0xA), Ground_801C3FA4(gobj, 0xD));
+    gp->u.inishie2.xC4_flags.b0 = 0;
+}
+
+bool grInishie2_801FCF24(Ground_GObj* gobj)
+{
+    return 0;
+}
+
+/// @todo this stage and mushroom kingdom 1 both change the music when there's
+/// less than 20 seconds, since this function is copy-pasted from
+/// grInishie1_801FCB10 then Ground_801C5A94 is probably getting a stage
+/// identifier of some kind
+void grInishie2_801FCF2C(HSD_GObj* gobj)
+{
+    Ground* gp;
+    u32 time_remaining;
+    s32 var_r3;
+
+    gp = GET_GROUND(gobj);
+    if (gp->u.inishie2.xC4_flags.b0 == 0) {
+        if (GetMatchTimer((int*) &time_remaining) != 0) {
+            if (time_remaining < 20) {
+                s32 temp_r3 = Ground_801C5A94();
+                if (temp_r3 == 0x29) {
+                    var_r3 = 0x2A;
+                } else if (temp_r3 == 0x2B) {
+                    var_r3 = 0x2C;
+                } else {
+                    var_r3 = -1;
+                }
+                lbAudioAx_80023F28(var_r3);
+                gp->u.inishie2.xC4_flags.b0 = 1;
+            }
+        } else {
+            gp->u.inishie2.xC4_flags.b0 = 1;
+        }
+    }
+}
+
+void grInishie2_801FCFCC(Ground_GObj* arg0)
+{
+    grInishie2_801FD0B4(arg0);
+    grInishie2_801FD3CC(arg0);
+    grInishie2_801FD7A8(arg0);
+    grInishie2_801FCF2C(arg0);
+    lb_800115F4();
+}
+
+void grInishie2_801FD014(Ground_GObj* gobj) {}
+
+#define test_random(val) ((val != 0) ? HSD_Randi(val) : 0)
+#define sign_inline(val) ((val == 0) ? -1.0f : 1.0f)
+
+void grInishie2_801FD018(HSD_GObj* gobj)
+{
+    Ground* gp;
+    gp = gobj->user_data;
+
+    gp->u.inishie2.xC4_flags.b1 = 1;
+    gp->u.inishie2.xC4_flags.b2 = 1;
+    gp->u.inishie2.xC6 =
+        yakumono_param->unk0 + test_random((int) yakumono_param->unk2);
+    gp->u.inishie2.xC8 =
+        yakumono_param->unk4 + test_random((int) yakumono_param->unk6);
+}
+
+void grInishie2_801FD0B4(HSD_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    if (gp->u.inishie2.xC4_flags.b1) {
+        s16 timer = gp->u.inishie2.xC6--;
+        if (timer < 0) {
+            HSD_GObj* new_gobj = grInishie2_801FCCDC(3);
+            mpLib_80057BC0(12);
+            gp->u.inishie2.xC4_flags.b1 = 0;
+            if (new_gobj != NULL) {
+                Ground* new_gp = GET_GROUND(new_gobj);
+                new_gp->u.inishie22.xCC = gobj;
+            }
+        }
+    }
+
+    if (gp->u.inishie2.xC4_flags.b2) {
+        s16 timer = gp->u.inishie2.xC8--;
+        if (timer < 0) {
+            HSD_GObj* new_gobj = grInishie2_801FCCDC(4);
+            mpLib_80057BC0(13);
+            gp->u.inishie2.xC4_flags.b2 = 0;
+            if (new_gobj != NULL) {
+                Ground* new_gp = GET_GROUND(new_gobj);
+                new_gp->u.inishie22.xCC = gobj;
+            }
+        }
+    }
+}
+
+void grInishie2_801FD198(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    Ground_JObjInline1(gobj);
+
+    gp->u.inishie2.xC4_flags.b0 = 0;
+
+    gp->u.inishie2.xC8 = gp->map_id - 3;
+    gp->u.inishie2.xC6 = yakumono_param->unk10[gp->u.inishie2.xC8];
+}
+
+bool grInishie2_801FD21C(Ground_GObj* gobj)
+{
+    return 0;
+}
+
+void grInishie2_801FD224(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    if (!gp->u.inishie2.xC4_flags.b0) {
+        s16 counter = gp->u.inishie2.xC6;
+        gp->u.inishie2.xC6 = counter - 1;
+
+        if (counter < 0) {
+            if (gp->u.inishie2.xC8 == 0) {
+                mpJointListAdd(0xC);
+            } else {
+                mpJointListAdd(0xD);
+            }
+
+            gp->u.inishie2.xC4_flags.b0 = 1;
+        }
+    }
+
+    Ground_801C2FE0(gobj);
+
+    gp = GET_GROUND(gobj);
+    if (grAnime_801C83D0(gobj, 0, 1)) { ///< @todo union irregularity
+        Ground* gp_2 = GET_GROUND(gp->u.inishie22.xCC);
+        if (gp->u.inishie2.xC8 == 0) {
+            gp_2->u.inishie2.xC4_flags.b1 = 1;
+            gp_2->u.inishie2.xC6 =
+                yakumono_param->unk0 + test_random((int) yakumono_param->unk2);
+        } else {
+            gp_2->u.inishie2.xC4_flags.b2 = 1;
+            gp_2->u.inishie2.xC8 =
+                yakumono_param->unk4 + test_random((int) yakumono_param->unk6);
+        }
+
+        Ground_801C4A08(gobj);
+    }
+}
+
+void grInishie2_801FD364(Ground_GObj* gobj) {}
+
+void grInishie2_801FD368(HSD_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    s32 rand_max;
+    s32 rand_val;
+
+    gp->u.inishie2.xC4_flags.b3 = 1;
+
+    rand_max = yakumono_param->unkA;
+    rand_val = test_random(rand_max);
+
+    gp->u.inishie2.xCA = yakumono_param->unk8 + rand_val;
+}
+
+void grInishie2_801FD3CC(HSD_GObj* gobj)
+{
+    HSD_GObj* gobj_2;
+    s16 counter;
+    Ground* gp = GET_GROUND(gobj);
+
+    if (gp->u.inishie2.xC4_flags.b3) {
+        counter = gp->u.inishie2.xCA;
+        gp->u.inishie2.xCA = counter - 1;
+        if (counter < 0) {
+            gobj_2 = grInishie2_801FCCDC(0xF);
+            gp->u.inishie2.xC4_flags.b3 = 0;
+            if (gobj_2 != NULL) {
+                Ground* gp_2 = gobj_2->user_data;
+                gp_2->u.inishie22.xC8 = gobj;
+            }
+        }
+    }
+}
+
+void grInishie2_801FD448(HSD_GObj* gobj)
+{
+    s32 rand_val;
+    s32 rand_max;
+    Ground* gp;
+    Ground* gp_2;
+
+    gp = GET_GROUND(gobj);
+    gp_2 = GET_GROUND(gp->u.inishie22.xC8);
+
+    gp_2->u.inishie2.xC4_flags.b3 = 1; // Set bit 4 (0x10)
+
+    rand_max = yakumono_param->unkA;
+    rand_val = test_random(rand_max);
+
+    gp_2->u.inishie2.xCA = (s16) (yakumono_param->unk8 + rand_val);
+
+    Ground_801C4A08(gobj);
+}
+
+void grInishie2_801FD4CC(HSD_GObj* gobj)
+{
+    mpLib_80057BC0(0xE);
+}
+
+/// probably chooses which side to spawn Birdo on
+void grInishie2_801FD4F0(Ground_GObj* gobj)
+{
+    Vec3 vec;
+    s32 spawn_side;
+    Ground* gp;
+    HSD_JObj* jobj;
+    HSD_JObj* temp_r29;
+    HSD_JObj* temp_r30;
+    PAD_STACK(12);
+
+    jobj = GET_JOBJ(gobj);
+    gp = GET_GROUND(gobj);
+    temp_r29 = jobj;
+    temp_r30 = jobj;
+    spawn_side = HSD_Randi(2);
+    mpJointListAdd(0xE);
+    if (spawn_side == 0) {
+        vec.x = yakumono_param->unk14[spawn_side].x +
+                Stage_GetBlastZoneRightOffset();
+    } else {
+        vec.x = yakumono_param->unk14[spawn_side].x +
+                Stage_GetBlastZoneLeftOffset();
+    }
+    vec.y = yakumono_param->unk14[spawn_side].y;
+    vec.z = yakumono_param->unk14[spawn_side].z;
+    HSD_JObjSetTranslate(temp_r29, &vec);
+    gp->u.inishie22.xC4 = it_802ECD3C(gobj, &vec, sign_inline(spawn_side));
+    Ground_801C2ED0(temp_r30, gp->map_id);
+}
+
+bool grInishie2_801FD64C(Ground_GObj* gobj)
+{
+    return 0;
+}
+
+void grInishie2_801FD654(Ground_GObj* gobj)
+{
+    Vec3 vec;
+    Ground* gp;
+    HSD_JObj* jobj;
+    PAD_STACK(4);
+
+    jobj = GET_JOBJ(gobj);
+    gp = GET_GROUND(gobj);
+    if (gp->u.inishie22.xC4 != 0) {
+        it_802ECD1C(gp->u.inishie22.xC4, &vec);
+        vec.y += yakumono_param->unk2C;
+        HSD_JObjSetTranslate(jobj, &vec);
+    }
+    Ground_801C2FE0(gobj);
+}
+
+void grInishie2_801FD740(Ground_GObj* gobj) {}
+
+void grInishie2_801FD744(HSD_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    gp->u.inishie2.xC4_flags.b4 = 1;
+
+    gp->u.inishie2.xCC =
+        yakumono_param->unkC + test_random((int) yakumono_param->unkE);
+}
+
+void grInishie2_801FD7A8(HSD_GObj* gobj)
+{
+    Ground* gp;
+    HSD_GObj* gobj_2;
+    s16 counter;
+
+    gp = GET_GROUND(gobj);
+
+    if (gp->u.inishie2.xC4_flags.b4) {
+        counter = gp->u.inishie2.xCC;
+        gp->u.inishie2.xCC = counter - 1;
+
+        if (counter < 0) {
+            gobj_2 = grInishie2_801FCCDC(1);
+            gp->u.inishie2.xC4_flags.b4 = 0;
+
+            if (gobj_2 != NULL) {
+                GET_GROUND(gobj_2)->u.inishie22.xC4 = gobj;
+            }
+        }
+    }
+}
+
+void grInishie2_801FD824(HSD_GObj* gobj)
+{
+    Vec3 spawn_pos;
+    s32 spawn_side;
+    Ground* gp;
+    PAD_STACK(0x10);
+
+    gp = GET_GROUND(gobj);
+    spawn_side = HSD_Randi(2);
+
+    mpJointListAdd(0);
+
+    if (spawn_side == 0) {
+        spawn_pos.x = yakumono_param->unk30[spawn_side].x +
+                      Stage_GetBlastZoneRightOffset();
+    } else {
+        spawn_pos.x = yakumono_param->unk30[spawn_side].x +
+                      Stage_GetBlastZoneLeftOffset();
+    }
+
+    spawn_pos.y = yakumono_param->unk30[spawn_side].y;
+    spawn_pos.z = yakumono_param->unk30[spawn_side].z;
+
+    if (spawn_side == 0) {
+        gp->u.inishie23.xC8_flags.b3 = 1;
+    } else {
+        gp->u.inishie23.xC8_flags.b3 = 0;
+    }
+
+    grAnime_801C8138(gobj, gp->map_id, gp->u.inishie23.xC8_flags.b3);
+
+    gp->u.inishie23.xC8_flags.b1 = 1;
+    gp->u.inishie23.xC8_flags.b0 = 0;
+    gp->u.inishie23.xC8_flags.b2 = 0;
+
+    gp->u.inishie2.xCA = 0;
+    gp->u.inishie2.xD8 = spawn_pos;
+
+    HSD_JObjSetTranslate(Ground_801C3FA4(gobj, 0), &spawn_pos);
+}
+
+void grInishie2_801FD9EC(HSD_GObj* gobj)
+{
+    HSD_JObj* jobj;
+    Ground* gp;
+    Vec3* temp_vec;
+    u8 temp_u8;
+    s32 var_r0;
+    s32 var_r3;
+    s32 var_r3_2;
+    s16 temp_r0;
+    PAD_STACK(48);
+
+    gp = gobj->user_data;
+
+    if (grAnime_801C83D0(gobj, 1, 1) != 0) {
+        if (gp->u.inishie23.xC8_flags.b1) {
+            f32 temp_f = GET_GROUND(gobj)->u.inishie23.xD8.x +
+                         GET_GROUND(gobj)->u.inishie23.xCC.x;
+
+            if (temp_f > Stage_GetCamBoundsRightOffset()) {
+                var_r0 = 2;
+            } else if (temp_f < Stage_GetCamBoundsLeftOffset()) {
+                var_r0 = 1;
+            } else {
+                var_r0 = 0;
+            }
+
+            if (var_r0 == 0) {
+                gp->u.inishie23.xC8_flags.b1 = 0;
+            }
+
+        } else {
+            if (!gp->u.inishie23.xC8_flags.b2) {
+                if (gp->u.inishie23.xCA < 2) {
+                    gp->u.inishie23.xC8_flags.b3 ^= 1;
+                } else {
+                    f32 temp_f = GET_GROUND(gobj)->u.inishie23.xD8.x +
+                                 GET_GROUND(gobj)->u.inishie23.xCC.x;
+
+                    if (temp_f > Stage_GetCamBoundsRightOffset()) {
+                        var_r3 = 2;
+                    } else if (temp_f < Stage_GetCamBoundsLeftOffset()) {
+                        var_r3 = 1;
+                    } else {
+                        var_r3 = 0;
+                    }
+
+                    if (var_r3 != 0) {
+                        gp->u.inishie23.xC8_flags.b2 = 1;
+                        gp->u.inishie23.xC8_flags.b3 = var_r3;
+                        gp->u.inishie23.xC8_flags.b0 = 1;
+                    } else {
+                        temp_r0 =
+                            yakumono_param->unk48 + yakumono_param->unk4A;
+
+                        var_r3_2 = test_random(temp_r0);
+
+                        if (var_r3_2 >= yakumono_param->unk48) {
+                            gp->u.inishie23.xC8_flags.b3 ^= 1;
+                        }
+                    }
+                }
+            }
+            gp->u.inishie23.xCA += 1;
+        }
+
+        grAnime_801C8138(gobj, gp->map_id, gp->u.inishie23.xC8_flags.b3);
+
+        gp = GET_GROUND(gobj);
+        jobj = Ground_801C3FA4(gobj, 0);
+        temp_vec = &gp->u.inishie23.xD8;
+        HSD_JObjSetTranslate(jobj, temp_vec);
+        HSD_JObjAddTranslationX(jobj, gp->u.inishie23.xCC.x);
+        HSD_JObjAddTranslationY(jobj, gp->u.inishie23.xCC.y);
+        HSD_JObjAddTranslationZ(jobj, gp->u.inishie23.xCC.z);
+        temp_vec = &gp->u.inishie23.xD8;
+        HSD_JObjGetTranslation(jobj, temp_vec);
+
+        return;
+    }
+
+    gp = GET_GROUND(gobj);
+    jobj = Ground_801C3FA4(gobj, 1);
+    temp_vec = &gp->u.inishie23.xCC;
+    HSD_JObjGetTranslation(jobj, temp_vec);
+}
+
+void grInishie2_801FDE8C(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObj* jobj = GET_JOBJ(gobj);
+    grInishie2_801FD824(gobj);
+    Ground_801C2ED0(jobj, gp->map_id);
+}
+
+bool grInishie2_801FDED0(Ground_GObj* gobj)
+{
+    return 0;
+}
+
+static inline bool checkBlastZone(Vec3* pos)
+{
+    if (pos->x > Stage_GetBlastZoneRightOffset()) {
+        return true;
+    } else if (pos->x < Stage_GetBlastZoneLeftOffset()) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static inline void grInishie2_801FDED8_inline(HSD_GObj* gobj)
+{
+    Vec3 pos;
+    Ground* gp = GET_GROUND(gobj);
+
+    lb_8000B1CC(Ground_801C3FA4(gobj, 0), NULL, &pos);
+
+    if ((checkBlastZone(&pos) != 0) && gp->u.inishie23.xC8_flags.b0) {
+        HSD_GObj* gobj_2 = gp->u.inishie22.xC4;
+        Ground* gp_2 = GET_GROUND(gobj_2);
+        gp_2->u.inishie2.xC4_flags.b4 = 1;
+        gp_2->u.inishie2.xCC =
+            (s16) (yakumono_param->unkC +
+                   grInishie2_801FDFB4(yakumono_param->unkE));
+        Ground_801C4A08(gobj);
+    }
+}
+
+void grInishie2_801FDED8(Ground_GObj* gobj)
+{
+    Ground_801C2FE0(gobj);
+    grInishie2_801FD9EC(gobj);
+
+    grInishie2_801FDED8_inline(gobj);
+}
+
+s32 grInishie2_801FDFB4(s32 arg0)
+{
+    if (arg0 != 0) {
+        return HSD_Randi(arg0);
+    }
+    return 0;
+}
+
+void grInishie2_801FDFE4(Ground_GObj* gobj) {}
+
+DynamicsDesc* grInishie2_801FDFE8(enum_t arg)
+{
+    return 0;
+}
+
+bool grInishie2_801FDFF0(Vec3* arg, int arg0, HSD_JObj* jobj)
+{
+    return 1;
+}

@@ -1,0 +1,126 @@
+#include "itgamewatchparachute.h"
+
+#include <melee/it/forward.h>
+
+#include "inlines.h"
+#include <melee/ft/kinds/ftGameWatch/ftgamewatchattackair.h>
+#include <melee/it/inlines.h>
+#include <melee/it/it_26B1.h>
+#include <melee/it/item.h>
+
+ItemStateTable it_803F78F8[] = {
+    {
+        0,
+        itGamewatchparachute_UnkMotion1_Anim,
+        NULL,
+        NULL,
+    },
+    {
+        1,
+        itGamewatchparachute_UnkMotion1_Anim,
+        NULL,
+        NULL,
+    },
+};
+
+HSD_GObj* it_802C6C38(Item_GObj* parent, Vec3* pos, enum_t part,
+                      float facing_dir)
+{
+    SpawnItem spawn;
+    Item_GObj* result;
+
+    spawn.kind = It_Kind_GameWatch_Parachute;
+    Item_InitSpawn(&spawn, parent, pos, facing_dir);
+    result = Item_80268B18(&spawn);
+    if (result != NULL) {
+        Item* item = GET_ITEM(result);
+        void** attr = item->xC4_article_data->x4_specialAttributes;
+        Item_AttachGameWatchArticle(parent, part, result, attr);
+        return result;
+    }
+    return NULL;
+}
+
+void itGameWatchParachute_Logic74_Destroyed(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    if (ip->owner != NULL) {
+        ftGw_AttackAirN_ItemParachuteSetFlag(ip->owner);
+    }
+}
+
+void it_802C6D6C(Item_GObj* item_gobj)
+{
+    int pad[1];
+    Item* item = GET_ITEM(item_gobj);
+
+    if (item != NULL) {
+        if (item->owner != NULL) {
+            ftGw_AttackAirN_ItemParachuteSetFlag(item->owner);
+        }
+        Item_8026A8EC(item_gobj);
+    }
+}
+
+void it_802C6DB8(Item_GObj* gobj)
+{
+    it_8026B724(gobj);
+}
+
+void it_802C6DD8(Item_GObj* gobj)
+{
+    it_8026B73C(gobj);
+}
+
+void itGameWatchParachute_Logic74_PickedUp(Item_GObj* item_gobj)
+{
+    Item* temp_r3;
+
+    temp_r3 = item_gobj->user_data;
+    temp_r3->xDAC_itcmd_var0 = 0;
+    if (temp_r3->owner != NULL) {
+        Item_80268E5C(item_gobj, 0, ITEM_ANIM_UPDATE);
+        Item_802694CC(item_gobj);
+    }
+}
+
+void it_802C6E50(Item_GObj* gobj)
+{
+    PAD_STACK(8);
+    it_8026BB44(gobj);
+    Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
+}
+
+bool itGamewatchparachute_UnkMotion1_Anim(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    bool remove;
+    PAD_STACK(8);
+
+    if (ip->x5CC_currentAnimFrame == 30.0f) {
+        if (ip->owner != NULL) {
+            ftGw_AttackAirN_ItemParachuteSetFlag(ip->owner);
+        }
+        return true;
+    }
+
+    if (ip->owner != NULL) {
+        remove = ftGw_AttackAirN_ItemCheckParachuteRemove(ip->owner);
+    } else {
+        remove = true;
+    }
+
+    if (remove) {
+        if (GET_ITEM(gobj)->owner != NULL) {
+            ftGw_AttackAirN_ItemParachuteSetFlag(GET_ITEM(gobj)->owner);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+void itGameWatchParachute_Logic74_EvtUnk(Item_GObj* gobj, Item_GObj* ref_gobj)
+{
+    it_8026B894(gobj, ref_gobj);
+}

@@ -1,0 +1,16 @@
+#include "ft_0BEF.h"
+
+#include <Runtime/platform.h>
+
+#include "fighter.h"
+#include "kinds/ftCommon/forward.h"
+#include "types.h"
+
+void ftCo_800BEFD4(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    Fighter_ChangeMotionState(gobj, ftCo_MS_DeadUpFallIce, Ft_MF_None, 0, 1, 0,
+                              NULL);
+    fp->x2219_b2 = true;
+    fp->x2219_b1 = true;
+}

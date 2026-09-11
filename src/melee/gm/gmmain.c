@@ -1,0 +1,228 @@
+
+#include <Runtime/platform.h>
+
+#include <sysdolphin/baselib/forward.h>
+
+#include "gm_unsplit.h"
+#include "gmmain_lib.h"
+#include "types.h"
+#include <dolphin/card.h>
+#include <dolphin/dvd.h>
+#include <dolphin/gx.h>
+#include <dolphin/os.h>
+#include <dolphin/pad.h>
+#include <dolphin/vi.h>
+#include <melee/db/db.h>
+#include <melee/lb/lb_0195.h>
+#include <melee/lb/lbarq.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbcardgame.h>
+#include <melee/lb/lbcardnew.h>
+#include <melee/lb/lbdvd.h>
+#include <melee/lb/lbheap.h>
+#include <melee/lb/lblanguage.h>
+#include <melee/lb/lbmemory.h>
+#include <melee/lb/lbmthp.h>
+#include <melee/lb/lbsnap.h>
+#include <melee/lb/lbtime.h>
+#include <sysdolphin/baselib/controller.h>
+#include <sysdolphin/baselib/debug.h>
+#include <sysdolphin/baselib/hsd_392C.h>
+#include <sysdolphin/baselib/hsd_3933.h>
+#include <sysdolphin/baselib/initialize.h>
+#include <sysdolphin/baselib/random.h>
+#include <sysdolphin/baselib/sislib.h>
+#include <sysdolphin/baselib/video.h>
+
+static u32 arena_size;
+static bool gmMain_804D6594;
+
+static HSD_PadData gmMain_8046B108[5];
+static HSD_PadRumbleListData gmMain_8046B1F8[12];
+
+static void gmMain_8015FD24(void)
+{
+    PADSetSpec(5);
+    HSD_PadInit(5, gmMain_8046B108, 12, gmMain_8046B1F8);
+    HSD_PadLibData.clamp_stickType = 0;
+    HSD_PadLibData.clamp_stickShift = 1;
+    HSD_PadLibData.clamp_stickMax = 80;
+    HSD_PadLibData.clamp_stickMin = 0;
+    HSD_PadLibData.scale_stick = 80;
+    HSD_PadLibData.clamp_analogLRShift = 1;
+    HSD_PadLibData.clamp_analogLRMax = 140;
+    HSD_PadLibData.clamp_analogLRMin = 0;
+    HSD_PadLibData.scale_analogLR = 140;
+}
+
+static void gmMain_8015FDA0(u32 arg) {}
+
+/// set debug level
+static void gmMain_8015FDA4(void)
+{
+    if (DVDConvertPathToEntrynum("/develop.ini") != -1) {
+        db_804D6B20 = true;
+        if (db_gameLaunchButtonState & HSD_PAD_X) {
+            enum_t level = DbLevel;
+            switch (level) {
+            case DbLKind_NoDebugRom:
+                level = DbLKind_DebugRom;
+                break;
+            case DbLKind_DebugDevelop:
+                level = DbLKind_Develop;
+                break;
+            case DbLKind_DebugRom:
+                level = DbLKind_NoDebugRom;
+                break;
+            case DbLKind_Develop:
+                level = DbLKind_DebugDevelop;
+                break;
+            default:
+                level = DbLKind_DebugDevelop;
+                break;
+            }
+            DbLevel = level;
+        } else if (db_gameLaunchButtonState & HSD_PAD_Y) {
+            enum_t level = DbLevel;
+            switch (level) {
+            case DbLKind_NoDebugRom:
+                level = DbLKind_DebugRom;
+                break;
+            case DbLKind_DebugDevelop:
+                level = DbLKind_Develop;
+                break;
+            default:
+                break;
+            }
+            DbLevel = level;
+            db_804D6B20 = false;
+        }
+    } else {
+        HSD_ASSERT(210, DbLevel == DbLKind_NoDebugRom);
+        DbLevel = DbLKind_Master;
+    }
+}
+
+/// @remarks Can safely be ignored when building with GCC
+static void init_spr_unk(void)
+{
+#ifdef MWERKS_GEKKO
+#define MTSPR(spr, val)                                                       \
+    asm { li r3, val }                                                           \
+    asm                                                                       \
+    {                                                                         \
+        oris r3, r3, val                                                      \
+    }                                                                         \
+    asm { mtspr spr, r3 }
+
+    MTSPR(0x392, 4);
+    MTSPR(0x393, 5);
+    MTSPR(0x394, 6);
+    MTSPR(0x395, 7);
+#endif
+}
+
+#ifdef __GNUC__
+/// stub function auto-called from main to set up EABI environment
+void __eabi(void) {}
+#endif
+
+#ifdef TARGET_PC
+int melee_main(void)
+#else
+int main(void)
+#endif
+{
+    char* unused_format_string = "Data %lx\n";
+    u32 _[2];
+
+    OSInit();
+    VIInit();
+    DVDInit();
+    PADInit();
+#ifdef TARGET_PC
+    CARDInit("GALE", "01");
+#else
+    CARDInit();
+#endif
+    OSInitAlarm();
+    db_GetGameLaunchButtonState();
+    gmMain_8015FDA4();
+    if (OSGetConsoleSimulatedMemSize() / (1024 * 1024) == 48) {
+        OSAllocFromArenaHi(0x01800000, 4);
+    }
+    arena_size = (intptr_t) OSGetArenaHi() - (intptr_t) OSGetArenaLo();
+    HSD_SetInitParameter(HSD_INIT_XFB_MAX_NUM, 2);
+    HSD_SetInitParameter(HSD_INIT_RENDER_MODE_OBJ, &GXNtsc480IntDf);
+    HSD_SetInitParameter(HSD_INIT_FIFO_SIZE, 0x40000);
+    HSD_SetInitParameter(HSD_INIT_HEAP_MAX_NUM, 4);
+    db_SetupCrashHandler();
+    HSD_AllocateXFB(2, &GXNtsc480IntDf);
+    HSD_GXSetFifoObj(GXInit(HSD_AllocateFifo(0x40000), 0x40000));
+    HSD_InitComponent();
+    GXSetMisc(1, 8);
+    *seed_ptr = OSGetTick();
+    lbAudioAx_8002838C();
+    lb_80019AAC(&gmMain_8015FD24);
+    HSD_VISetUserPostRetraceCallback(&gmMain_8015FDA0);
+    HSD_VISetUserGXDrawDoneCallback(&HSD_VIDrawDoneXFB);
+    HSD_VISetBlack(0);
+    lbMemory_8001564C();
+    lbHeap_80015F3C();
+    lbDvd_80018F68();
+    lbArq_80014D2C();
+    lb_8001C5BC();
+    lb_8001D21C();
+    lbSnap_8001E290();
+    gmMainLib_8015FCC0();
+    lbMthp_8001F87C();
+    HSD_SisLib_803A6048(0xC000);
+    gmMainLib_8015FBA4();
+
+    if (DbLevel != DbLKind_Master && db_gameLaunchButtonState & HSD_PAD_R &&
+        hsd_803931A4(-1))
+    {
+        hsd_80393A54(1);
+        while (!hsd_80393A04()) {
+            OSReport("please setup server for USB\n");
+            hsd_80392E80();
+        }
+    }
+
+    db_InitScreenshot();
+    OSReport("# ---------------------------------------------\n");
+    OSReport("#    Super Smash Bros. Melee\n");
+    OSReport("#\n");
+    OSReport("# Distribution %d\n", lbLang_GetLanguageSetting());
+    OSReport("# Language %d\n", lbLang_GetSavedLanguage());
+    OSReport("# DbLevel %d\n", DbLevel);
+    OSReport("# Arena Size %d MB\n", arena_size / (1024 * 1024));
+    {
+        uintptr_t free_aram_start;
+        uintptr_t free_aram_end;
+        lbMemory_800154BC(&free_aram_start, &free_aram_end);
+        OSReport("# ARAM Free Size %d MB\n",
+                 (free_aram_end - free_aram_start) / (1024 * 1024));
+    }
+    OSReport("# %s\n", db_build_timestamp);
+    {
+        struct datetime dt;
+        gm_801692E8(lbTime_GetTimeInSeconds(), &dt);
+        OSReport("# GC Calendar Year %d Month %d Day %d\n", dt.year, dt.month,
+                 dt.day);
+        OSReport("#             Hour %d Min %d Sec %d \n", dt.hour, dt.minute,
+                 dt.second);
+    }
+    OSReport("#\n\n");
+    gmMain_804D6594 = false;
+    if (gmMain_804D6594) {
+        db_DisableItemSpawns();
+    } else {
+        db_EnableItemSpawns();
+    }
+
+    init_spr_unk();
+
+    db_ClearFPUExceptions();
+    gm_801A4510();
+}

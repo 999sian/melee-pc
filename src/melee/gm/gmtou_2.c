@@ -1,0 +1,1232 @@
+#include "gmtou_2.h"
+
+#include <melee/ft/forward.h>
+#include <melee/pl/forward.h>
+
+#include <placeholder.h>
+
+#include "gm_1601.h"
+#include "gm_1A3F.h"
+#include "gmmain_lib.h"
+#include "gmscene.h"
+#include "gmtoulib.h"
+#include "types.h"
+#include <dolphin/os.h>
+#include <melee/lb/lbarchive.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbdvd.h>
+#include <melee/lb/types.h>
+#include <melee/mn/inlines.h>
+#include <melee/mn/mnmain.h>
+#include <melee/sc/types.h>
+#include <sysdolphin/baselib/controller.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/sislib.h>
+
+/// @todo .sdata2 order hack
+#ifdef MUST_MATCH
+static void sdata2_order(void)
+{
+    (void) -19.5f;
+    (void) 13.0f;
+    (void) 6.5f;
+    (void) 19.5f;
+    (void) 2.0f;
+    (void) S32_TO_F32;
+    (void) 10000.0f;
+    (void) 0.0f;
+    (void) U32_TO_F32;
+    (void) 1.0f;
+    (void) 4.5f;
+    (void) 3.0f;
+    (void) 666.0f;
+    (void) 201.0f;
+    (void) 0.300000012f;
+    (void) 10.1000004f;
+    (void) 0.00999999978f;
+    (void) 5.99999714f;
+    (void) 21.5f;
+    (void) 0.400000006f;
+    (void) 0.200000003f;
+    (void) -6.0f;
+    (void) 10.0f;
+    (void) -197.0f;
+    (void) 15.0f;
+    (void) 6.0f;
+    (void) -152.0f;
+    (void) 17.0f;
+    (void) -172.0f;
+    (void) -2.5f;
+    (void) 73.0f;
+    (void) 152.0f;
+    (void) 240.0f;
+    (void) 270.0f;
+    (void) 480.0f;
+    (void) 0.99000001f;
+    (void) 320.0f;
+    (void) 261.0f;
+    (void) -11.0f;
+    (void) 2.799999f;
+    (void) 4.30000019f;
+    (void) 0.00100000005f;
+    (void) 4.0f;
+    (void) -2.0f;
+    (void) 0.100000001f;
+    (void) 0.349999994f;
+    (void) 0.600000024f;
+    (void) 0.0549449995f;
+    (void) 0.0799999982f;
+    (void) 0.0f;
+}
+#endif
+
+/* 4D6688 */ static HSD_Archive* lbl_804D6688;
+/* 479A58 */ static TmAnimTimers lbl_80479A58;
+/* 4D668C */ static HSD_Archive* lbl_804D668C;
+/* 4D6690 */ static SceneDesc* lbl_804D6690;
+/* 4D6694 */ static SceneDesc* lbl_804D6694;
+
+struct lbl_803DA2E0_t lbl_803DA2E0 = {
+    {
+        0x00, 0x01, 0x02, 0x03, 0x05, 0x06, 0x0C, 0x06, 0x06,
+        0x07, 0x09, 0x08, 0x06, 0x09, 0x04, 0x09, 0x0A, 0x0B,
+        0x0C, 0x02, 0x0C, 0x06, 0x07, 0x09, 0x0C,
+    },
+};
+
+const TmAnimFrameTable lbl_803B7D18 = {
+    { { 0, 30, 0 },
+      { 50, 59, 0 },
+      { 60, 70, 1 },
+      { 90, 100, 0 },
+      { 110, 130, 0 },
+      { 150, 160, 0 } },
+};
+
+/* 3B7D3C */ const s32 lbl_803B7D3C[5] = { 0, 1, 2, 3, 0 };
+
+static inline f32 gmTournament_GetPlayerX(u8 player_count, s32 player)
+{
+    if ((s32) player_count == 4) {
+        return (13.0f * (f32) player) + -19.5f;
+    }
+    if ((s32) player_count == 3) {
+        return 6.5f + ((13.0f * (f32) player) - 19.5f);
+    }
+    return 6.5f + ((13.0f * (2.0f * (f32) player)) - 19.5f);
+}
+
+static inline void gmTournament_SetPlayerX(f32* x, u8 player_count, s32 player)
+{
+    if ((s32) player_count == 4) {
+        *x = (13.0f * (f32) player) + -19.5f;
+    } else if ((s32) player_count == 3) {
+        *x = 6.5f + ((13.0f * (f32) player) - 19.5f);
+    } else {
+        *x = 6.5f + ((13.0f * (2.0f * (f32) player)) - 19.5f);
+    }
+}
+
+void fn_8019BA08(u8 idx, HSD_JObj* jobj)
+{
+    TmData* tmd = gm_GetTournamentData();
+    s32 i;
+
+    if (tmd->x4B8[idx].x2 != 0) {
+        jobj = HSD_JObjGetChild(jobj);
+        HSD_JObjSetTranslateZ(jobj, 10000.0f);
+        for (i = 1; i <= 0xc; i++) {
+            jobj = HSD_JObjGetNext(jobj);
+            HSD_JObjSetTranslateZ(jobj, 10000.0f);
+        }
+        return;
+    }
+
+    jobj = HSD_JObjGetChild(jobj);
+    HSD_JObjSetTranslateZ(jobj, 10000.0f);
+
+    if (lbl_803DA2E0.x0[tmd->x4B8[idx].x1] == 0) {
+        HSD_JObjSetTranslateZ(jobj, 0.0f);
+        for (i = 1; i <= 0xc; i++) {
+            jobj = HSD_JObjGetNext(jobj);
+            HSD_JObjSetTranslateZ(jobj, 10000.0f);
+        }
+        return;
+    }
+
+    for (i = 1; i <= 0xc; i++) {
+        jobj = HSD_JObjGetNext(jobj);
+        HSD_JObjSetTranslateZ(jobj, 10000.0f);
+        if (lbl_803DA2E0.x0[tmd->x4B8[idx].x1] == i) {
+            s32 j;
+            HSD_JObjSetTranslateZ(jobj, 0.0f);
+            for (j = i + 1; j <= 12; j++) {
+                jobj = HSD_JObjGetNext(jobj);
+                HSD_JObjSetTranslateZ(jobj, 10000.0f);
+            }
+            return;
+        }
+    }
+}
+
+void fn_8019BF18(HSD_GObj* gobj)
+{
+    HSD_JObj* jobj = GET_JOBJ(gobj);
+
+    if (lbl_80479A58.x4 > 800) {
+        lbl_80479A58.x4 = 0;
+    }
+
+    fn_8019044C(jobj, lbl_80479A58.x4);
+    lbl_80479A58.x4++;
+}
+
+void fn_8019BF8C(HSD_GObj* gobj)
+{
+    s32 selection;
+    HSD_JObj* jobj;
+
+    selection = gm_GetTournamentData()->cur_option;
+    jobj = GET_JOBJ(gobj);
+    if ((selection <= 0x1A) || (selection >= 0x1F)) {
+        if (lbl_80479A58.xE > 0x77U) {
+            lbl_80479A58.xE = 0x5A;
+        }
+    } else if ((selection <= 0x1E) && (lbl_80479A58.xE > 0x9FU)) {
+        lbl_80479A58.xE = 0x82;
+    }
+
+    fn_8019044C(jobj, lbl_80479A58.xE);
+    lbl_80479A58.xE++;
+}
+
+void fn_8019C048(HSD_GObj* gobj)
+{
+    TmAnimFrameTable table;
+    TmData* tmd;
+    HSD_JObj* jobj;
+    s32 idx;
+    f32 x;
+    u8 players;
+    u8 state;
+    u8 start_frame, cur_frame, end_frame, loop_flag;
+
+    tmd = gm_GetTournamentData();
+    idx = fn_8018F62C(gobj);
+    {
+        HSD_JObj* jobj_tmp = gobj->hsd_obj;
+        jobj = jobj_tmp;
+    }
+
+    table = lbl_803B7D18;
+
+    if ((s8) (u8) HSD_PadMasterStatus[(u8) idx].err != 0) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        HSD_SisLib_803A7548(tmd->x524[2], idx, 0.0f, 0.0f);
+        return;
+    }
+
+    HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+
+    if (lbl_80479A58.x1D[idx].x0 == 4) {
+        HSD_SisLib_803A7548(tmd->x524[2], idx, 0.0f, 0.0f);
+    } else {
+        HSD_SisLib_803A7548(tmd->x524[2], idx, 1.0f, 1.0f);
+    }
+
+    players = tmd->x30;
+    if ((s32) players == 4) {
+        x = (13.0f * (f32) idx) + -19.5f;
+    } else if ((s32) players == 3) {
+        x = 6.5f + ((13.0f * (f32) idx) - 19.5f);
+    } else {
+        x = 6.5f + ((13.0f * (2.0f * (f32) idx)) - 19.5f);
+    }
+
+    HSD_JObjSetTranslateX(jobj, x);
+
+    tmd->x524[2]->hidden = 0;
+
+    lbl_80479A58.x1D[idx].a = table.states[lbl_80479A58.x1D[idx].x0].start;
+    lbl_80479A58.x1D[idx].c = table.states[lbl_80479A58.x1D[idx].x0].end;
+    lbl_80479A58.x1D[idx].x2 = table.states[lbl_80479A58.x1D[idx].x0].loop;
+
+    if (lbl_80479A58.x1D[idx].b < lbl_80479A58.x1D[idx].a) {
+        lbl_80479A58.x1D[idx].b = lbl_80479A58.x1D[idx].a;
+    }
+
+    if (lbl_80479A58.x1D[idx].b < lbl_80479A58.x1D[idx].c) {
+        lbl_80479A58.x1D[idx].b++;
+    } else {
+        lbl_80479A58.x1D[idx].x1 = 1;
+        if (lbl_80479A58.x1D[idx].x2 != 0) {
+            lbl_80479A58.x1D[idx].b = lbl_80479A58.x1D[idx].a;
+        } else {
+            lbl_80479A58.x1D[idx].b = lbl_80479A58.x1D[idx].c;
+        }
+    }
+
+    state = lbl_80479A58.x1D[idx].x0;
+    if (state == 0 && lbl_80479A58.x38[idx] == 6) {
+        if (lbl_80479A58.x1D[idx].x1 != 0 && tmd->x4B8[idx].x0 != 0) {
+            lbl_80479A58.x1D[idx].x0 = 1;
+            lbl_80479A58.x1D[idx].x1 = 0;
+        }
+    }
+
+    state = lbl_80479A58.x1D[idx].x0;
+    if (state == 1) {
+        if (lbl_80479A58.x1D[idx].x1 != 0) {
+            lbl_80479A58.x1D[idx].x0 = 2;
+            lbl_80479A58.x1D[idx].x1 = 0;
+        }
+    }
+
+    fn_8019044C(jobj, (f32) lbl_80479A58.x1D[idx].b);
+}
+
+void fn_8019C3EC(HSD_GObj* gobj)
+{
+    s32 idx;
+    f32 var_f1;
+    TmData* tmd;
+    HSD_JObj* jobj;
+
+    tmd = gm_GetTournamentData();
+    idx = fn_8018F62C(gobj);
+    jobj = GET_JOBJ(gobj);
+    if (HSD_PadMasterStatus[(u8) idx].err != 0) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        return;
+    }
+    HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+
+    var_f1 = gmTournament_GetPlayerX(tmd->x30, idx);
+    fn_8018FDC4(jobj, 4.5f + var_f1, 3.0f, 666.0f);
+    if (lbl_80479A58.x1D[idx].x0 == 4) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+    }
+    fn_8019BA08(idx, jobj);
+}
+
+static inline TmData* GetTmData(void)
+{
+    return gm_GetTournamentData();
+}
+
+void fn_8019C570(HSD_GObj* gobj)
+{
+    u64 idx;
+    HSD_JObj* jobj;
+    TmData* tmd = GetTmData();
+
+    idx = fn_8018F62C(gobj);
+    jobj = GET_JOBJ(gobj);
+    if (HSD_PadMasterStatus[(u8) idx].err != 0) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        return;
+    }
+    HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+    if (lbl_80479A58.x1D[idx].x0 == 4) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+    }
+    if (tmd->x4B8[idx].x2 != 0) {
+        jobj = HSD_JObjGetChild(jobj);
+        jobj = HSD_JObjGetNext(jobj);
+        fn_8019044C(jobj, 201.0f);
+        return;
+    }
+    jobj = HSD_JObjGetChild(jobj);
+    jobj = HSD_JObjGetNext(jobj);
+    fn_8019044C(jobj, fn_8018F71C(tmd->x4B8[idx].x1, tmd->x4B8[idx].x3));
+}
+
+void fn_8019C6AC(HSD_GObj* gobj)
+{
+    HSD_JObj* jobj;
+    TmData* unused = GetTmData();
+
+    jobj = GET_JOBJ(gobj);
+
+    if (lbl_80479A58.xF > 60) {
+        lbl_80479A58.xF = 60;
+    }
+
+    fn_8019044C(jobj, (lbl_80479A58.xF + gm_804771C4.match_type * 100 + 100));
+    lbl_80479A58.xF++;
+}
+
+void fn_8019C744(HSD_GObj* gobj)
+{
+    TmData* tmd;
+    s32 idx;
+    HSD_JObj* jobj;
+    f32 var_f1;
+
+    tmd = gm_GetTournamentData();
+    idx = fn_8018F62C(gobj);
+    jobj = GET_JOBJ(gobj);
+
+    var_f1 = gmTournament_GetPlayerX(tmd->x30, idx);
+    fn_8018FDC4(jobj, 0.3f + var_f1, 10.1f, 666.0f);
+
+    if (lbl_80479A58.x1D[idx].x0 == 4) {
+        if (lbl_80479A58.x10[idx] < 0x28U) {
+            lbl_80479A58.x10[idx]++;
+        }
+        HSD_JObjSetTranslateY(jobj, lbl_803DA2E0.x20[lbl_80479A58.x10[idx]]);
+    } else {
+        lbl_80479A58.x10[idx] = 0;
+    }
+
+    if ((HSD_PadMasterStatus[(u8) idx].err != 0) && (tmd->x4B8[idx].x0 != 1)) {
+        HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        var_f1 = gmTournament_GetPlayerX(tmd->x30, idx);
+        fn_8018FDC4(jobj, 0.3f + var_f1, 10.1f, 666.0f);
+    }
+}
+
+void fn_8019CA38(HSD_GObj* gobj)
+{
+    s32 idx;
+    f32 var_f1;
+    HSD_JObj* jobj;
+    TmData* tmd;
+
+    tmd = gm_GetTournamentData();
+    idx = fn_8018F62C(gobj);
+    jobj = GET_JOBJ(gobj);
+    if (HSD_PadMasterStatus[(u8) idx].err != 0) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        return;
+    }
+
+    HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+    gmTournament_SetPlayerX(&var_f1, tmd->x30, idx);
+    fn_8018FDC4(jobj, var_f1, 666.0f, 666.0f);
+    if (lbl_80479A58.x1D[idx].x0 == 2) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+    }
+
+    if ((u32) lbl_80479A58.x6[idx] < 600) {
+        lbl_80479A58.x6[idx]++;
+    } else {
+        lbl_80479A58.x6[idx] = 0;
+    }
+    fn_8019044C(jobj, lbl_80479A58.x6[idx]);
+}
+
+void fn_8019CBFC(HSD_GObj* gobj)
+{
+    TmData* unused = GetTmData();
+    HSD_JObj* jobj = GET_JOBJ(gobj);
+
+    fn_8019044C(jobj, lbl_80479A58.x1C + 0x14);
+    if (lbl_80479A58.x1C < 0xAU) {
+        lbl_80479A58.x1C++;
+    }
+}
+
+void fn_8019CC74(HSD_GObj* gobj)
+{
+    s32 idx;
+    f32 var_f1;
+    TmData* tmd;
+    HSD_JObj* jobj;
+
+    tmd = gm_GetTournamentData();
+    idx = fn_8018F62C(gobj);
+    jobj = GET_JOBJ(gobj);
+    if (HSD_PadMasterStatus[(u8) idx].err == 0) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        return;
+    }
+    HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+
+    gmTournament_SetPlayerX(&var_f1, tmd->x30, idx);
+    fn_8018FDC4(jobj, var_f1, 666.0f, 0.01f);
+}
+
+void fn_8019CDBC(HSD_GObj* gobj)
+{
+    f32 sp28;
+    f32 sp24;
+    u8 temp_r27;
+    TmData* tmd = gm_GetTournamentData();
+    HSD_JObj* jobj = HSD_GObjGetHSDObj(gobj);
+    u32 idx = fn_8018F62C(gobj);
+    PAD_STACK(12);
+
+    sp28 = HSD_JObjGetTranslationX(jobj);
+    temp_r27 = tmd->x37[idx].xE;
+    sp24 = (5.999997f * temp_r27) - 21.5f;
+    mn_8022F410(&sp28, &sp24, 0.4f);
+
+    switch (mn_8022F410(&sp28, &sp24, 0.2f)) {
+    case 1:
+        fn_8018FDC4(jobj, sp28, 19.5f, -6.0f);
+        HSD_SisLib_803A746C(tmd->x534[idx], 0, 10.0f * sp28, -197.0f);
+        tmd->x534[idx]->pos_z = -6.0f;
+        break;
+    case -1:
+        fn_8018FDC4(jobj, sp28, 15.0f, 6.0f);
+        HSD_SisLib_803A746C(tmd->x534[idx], 0, 10.0f * sp28, -152.0f);
+        tmd->x534[idx]->pos_z = 6.0f;
+        break;
+    default:
+    case 0:
+        tmd->x37[idx].xF = tmd->x37[idx].xE;
+        fn_8018FDC4(jobj, sp28, 17.0f, 0.01f);
+        HSD_SisLib_803A746C(tmd->x534[idx], 0, 10.0f * sp28, -172.0f);
+        tmd->x534[idx]->pos_z = 0.01f;
+        break;
+    }
+    if (tmd->x37[idx].x5 != 0) {
+        fn_8019044C(jobj, 201.0f);
+        return;
+    }
+    fn_8019044C(jobj, fn_8018F71C(tmd->x37[idx].x3, tmd->x37[idx].x7));
+}
+
+void fn_8019CFA4(HSD_GObj* gobj)
+{
+    TmData* data;
+    HSD_JObj* jobj;
+
+    data = GetTmData();
+    /// @todo is there a different inline here? seems cursed
+    jobj = HSD_JObjGetNext(HSD_JObjGetNext(HSD_JObjGetChild(GET_JOBJ(gobj))));
+    // jobj = GET_JOBJ(gobj);
+
+    // jobj = HSD_JObjGetChild(jobj);
+    // jobj = HSD_JObjGetNext(jobj);
+
+    // if (jobj == NULL) {
+    //     jobj = NULL;
+    // } else {
+    //     jobj = jobj->next;
+    // }
+
+    fn_8019044C(jobj, data->x2E);
+    jobj = HSD_JObjGetNext(jobj);
+    fn_8019044C(jobj, data->x30);
+}
+
+void fn_8019D074(HSD_GObj* gobj)
+{
+    s32 idx;
+    f32 var_f1;
+    TmData* tmd;
+    HSD_JObj* jobj;
+
+    tmd = gm_GetTournamentData();
+    idx = fn_8018F62C(gobj);
+    jobj = GET_JOBJ(gobj);
+    if (HSD_PadMasterStatus[(u8) idx].err != 0) {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        return;
+    }
+    HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+    gmTournament_SetPlayerX(&var_f1, tmd->x30, idx);
+    fn_8018FDC4(jobj, var_f1, 666.0f, 666.0f);
+}
+
+static inline HSD_JObj* gmTournament_GetJObj(HSD_GObj* gobj)
+{
+    return gobj->hsd_obj;
+}
+
+void fn_8019D1BC(void)
+{
+    HSD_JObj* jobj;
+    TmData* tmd;
+    HSD_GObj* gobj;
+    HSD_JObj* c;
+    s32 i;
+    f32 pos;
+    f32 var_f1;
+    f32 anim;
+    Vec2 name_font_size;
+    char name_buf[16][0x14];
+
+    tmd = gm_GetTournamentData();
+
+    for (i = 0; i < (s32) tmd->x30; i++) {
+        {
+            HSD_GObj* first_gobj;
+            HSD_JObj* first_c;
+            HSD_JObj* first_jobj;
+
+            first_c = gmTournament_GetJObj(
+                first_gobj = fn_8019035C(0, lbl_804D6694->models[12], 0, 0x1A,
+                                         2, 1, fn_8019C048, (f32) i));
+            first_jobj = first_gobj->hsd_obj;
+            HSD_JObjSetTranslateY(first_c, -2.5f);
+            fn_8018FBD8(first_gobj, i);
+
+            c = HSD_JObjGetChild(first_jobj);
+            HSD_MObjRemoveAnimByFlags(c->u.dobj->mobj, 4);
+            c = HSD_JObjGetChild(first_jobj);
+            c = HSD_JObjGetNext(c);
+            HSD_MObjRemoveAnimByFlags(c->u.dobj->mobj, 4);
+            c = HSD_JObjGetChild(first_jobj);
+            c = HSD_JObjGetNext(c);
+            c = HSD_JObjGetNext(c);
+            HSD_MObjRemoveAnimByFlags(c->u.dobj->mobj, 4);
+        }
+
+        if (tmd->x30 == 4) {
+            pos = 73.0f + (240.0f * (f32) i + 152.0f);
+        } else if (tmd->x30 == 3) {
+            pos = 73.0f + (240.0f * (f32) i + 270.0f);
+        } else {
+            pos = 73.0f + (480.0f * (f32) i + 270.0f);
+        }
+
+        fn_8018ECA8((s32) tmd->x4B8[i].x6, (s32) tmd->x4B8[i].x0, 5,
+                    0.99f * (pos - 320.0f) - 261.0f, -11.0f, 5);
+        tmd->x524[2]->hidden = 1;
+
+        gobj = fn_8019035C(0, lbl_804D6694->models[10], 0, 0x1A, 2, 1,
+                           fn_8019C3EC, pos);
+        jobj = gobj->hsd_obj;
+        (void) jobj;
+        HSD_JObjSetTranslateY(jobj, -2.5f);
+        fn_8018FBD8(gobj, i);
+        fn_8019BA08((u8) i, jobj);
+
+        gobj = fn_8019035C(0, lbl_804D6694->models[4], 0, 0x1A, 2, 1,
+                           fn_8019C570, pos);
+        jobj = gobj->hsd_obj;
+        fn_8018FBD8(gobj, i);
+
+        var_f1 = gmTournament_GetPlayerX(tmd->x30, i);
+        fn_8018FDC4(jobj, var_f1 - 2.799999f, 4.3f, 0.001f);
+
+        if (tmd->x4B8[i].x2 != 0) {
+            c = HSD_JObjGetChild(jobj);
+            c = HSD_JObjGetNext(c);
+            fn_8019044C(c, 201.0f);
+        } else {
+            c = HSD_JObjGetChild(jobj);
+            c = HSD_JObjGetNext(c);
+            fn_8019044C(c, fn_8018F71C(tmd->x4B8[i].x1, tmd->x4B8[i].x3));
+        }
+
+        gobj = fn_8019035C(0, lbl_804D6694->models[9], 0, 0x1A, 2, 1,
+                           fn_8019C744, pos);
+        jobj = gobj->hsd_obj;
+        HSD_JObjSetTranslateY(jobj, -2.5f);
+        fn_8018FBD8(gobj, i);
+
+        if (tmd->x4B8[i].x0 == 0) {
+            anim = (f32) i;
+        } else {
+            anim = 4.0f;
+        }
+        fn_8019044C(jobj, anim);
+
+        gobj = fn_8019035C(0, lbl_804D6694->models[8], 0, 0x1A, 2, 1,
+                           fn_8019CA38, 0.0f);
+        jobj = gobj->hsd_obj;
+        HSD_JObjSetTranslateY(jobj, -2.5f);
+        fn_8018FBD8(gobj, i);
+
+        gobj = fn_8019035C(0, lbl_804D6694->models[14], 0, 0x1A, 2, 1,
+                           fn_8019CC74, anim);
+        jobj = GET_JOBJ(gobj);
+        HSD_JObjSetTranslateY(jobj, -2.5f);
+        fn_8018FBD8(gobj, i);
+
+        if (tmd->x31 != 0) {
+            gobj = fn_8019035C(0, lbl_804D6694->models[11], 0, 0x1A, 2, 1,
+                               fn_8019D074, anim);
+            {
+                HSD_JObj* created_jobj = GET_JOBJ(gobj);
+                jobj = created_jobj;
+            }
+            c = jobj;
+            HSD_JObjSetTranslateY(c, -2.0f);
+            fn_8018FBD8(gobj, i);
+            fn_8019044C(jobj, (f32) tmd->x4B8[i].x5);
+        }
+    }
+
+    fn_8019035C(0, lbl_804D6694->models[1], 0, 0x1A, 2, 1, fn_8019CFA4, 0.0f);
+    fn_8019035C(0, lbl_804D6694->models[5], 0, 0x1A, 2, 1, fn_8019C6AC, 0.0f);
+
+    {
+        HSD_JObj* j16;
+        j16 = GET_JOBJ(fn_8019035C(0, lbl_804D6694->models[0], 0, 0x1A, 2, 1,
+                                   NULL, 0.0f));
+        j16 = HSD_JObjGetChild(j16);
+        j16 = HSD_JObjGetNext(j16);
+        j16 = HSD_JObjGetNext(j16);
+        j16 = HSD_JObjGetNext(j16);
+        j16 = HSD_JObjGetNext(j16);
+        j16 = HSD_JObjGetNext(j16);
+        {
+            for (i = 0; i <= 0x28; i++) {
+                fn_8019044C(j16, (f32) (i + 10));
+                lbl_803DA2E0.x20[i] = HSD_JObjGetTranslationY(j16);
+            }
+        }
+    }
+
+    fn_8019035C(0, lbl_804D6694->models[6], 0, 0x1A, 2, 1, fn_8019CBFC, 0.0f);
+
+    for (i = 0; i < (s32) tmd->x2E; i++) {
+        gobj = fn_8019035C(0, lbl_804D6694->models[3], 0, 0x1A, 2, 1,
+                           fn_8019CDBC, 0.0f);
+        jobj = GET_JOBJ(gobj);
+        fn_8018FDC4(jobj, (5.999997f * (f32) tmd->x37[i].xF) - 21.5f, 17.0f,
+                    0.01f);
+
+        if (tmd->x37[i].x5 != 0) {
+            fn_8019044C(jobj, 201.0f);
+        } else {
+            fn_8019044C(jobj, fn_8018F71C(tmd->x37[i].x3, tmd->x37[i].x7));
+        }
+
+        fn_8018FBD8(gobj, i);
+        fn_8018F00C(name_buf[i], tmd->x37[i].x9);
+
+        name_font_size.x = 0.1f;
+        name_font_size.y = 0.1f;
+
+        tmd->x534[i] = HSD_SisLib_803A6754(0, (s32) lbl_804D663C);
+        tmd->x534[i]->default_kerning = 1;
+        tmd->x534[i]->x4C = 1;
+        {
+            HSD_Text* text = tmd->x534[i];
+            text->font_size.x = name_font_size.x;
+            text->font_size.y = name_font_size.y;
+        }
+        tmd->x534[i]->default_alignment = 1;
+        HSD_SisLib_803A6B98(tmd->x534[i],
+                            10.0f * ((5.999997f * (f32) i) - 21.5f), -172.0f,
+                            name_buf[i]);
+        HSD_SisLib_803A7548(tmd->x534[i], 0, 0.35f, 0.6f);
+    }
+}
+
+void fn_8019DD60(void)
+{
+    HSD_GObj* gobj;
+    HSD_Text* text;
+    TmData* tmd;
+    s32 i;
+    PAD_STACK(16);
+
+    tmd = gm_GetTournamentData();
+    if (tmd->x2C == 0) {
+        if ((s32) gm_804771C4.match_type == 1) {
+            lbAudioAx_800237A8(0x7545, 0x7F, 0x40);
+        } else {
+            lbAudioAx_800237A8(0x7546, 0x7F, 0x40);
+        }
+    }
+    tmd->x2C = 0;
+    gobj = fn_80190174(lbl_804D6690->cameras->desc);
+    fn_801901F8(lbl_804D6690->cameras->desc);
+    fn_801902F0((s32) gobj);
+    fn_8019027C((UNK_T) lbl_804D6690->lights);
+    fn_8019035C(0, lbl_804D6690->models[5], 0, 0x1A, 2, 1, fn_8019BF18, 0.0f);
+    fn_8019035C(0, lbl_804D6690->models[4], 0, 0x1A, 2, 1, fn_8019BF8C, 0.0f);
+    tmd->x524[2] = HSD_SisLib_803A6754(0, (s32) lbl_804D663C);
+    tmd->x524[2]->default_kerning = 1;
+    text = tmd->x524[2];
+    text->font_size.x = 0.054945f;
+    text->font_size.y = 0.08f;
+    tmd->x524[2]->default_alignment = 1;
+    fn_8019D1BC();
+    gobj = GObj_Create(0xE, 0x1A, 0);
+    {
+        HSD_Fog* tmp = HSD_FogLoadDesc(lbl_804D6690->fogs->desc);
+        HSD_GObjObject_80390A70(gobj, (u8) HSD_GObj_FogKind, tmp);
+    }
+    GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 0, 0);
+
+    lbl_80479A58.x0 = 0;
+    lbl_80479A58.x4 = 0;
+    lbl_80479A58.xE = 0x50;
+    lbl_80479A58.xF = 0;
+    for (i = 0; i < (s32) tmd->x30; i++) {
+        lbl_80479A58.x18[i] = 0;
+        lbl_80479A58.x6[i] = 0;
+        lbl_80479A58.x10[i] = 0;
+        lbl_80479A58.x1D[i].a = 0;
+        lbl_80479A58.x1D[i].b = 0;
+        lbl_80479A58.x1D[i].c = 0x1E;
+        lbl_80479A58.x1D[i].x1 = 0;
+        lbl_80479A58.x1D[i].x2 = 0;
+        lbl_80479A58.x1D[i].x0 = 0;
+        lbl_80479A58.x38[i] = 6;
+    }
+}
+
+static inline s32 get_match_player_index(s32 player)
+{
+    TmData* tmd = gm_GetTournamentData();
+    s32 i;
+
+    for (i = 0; i < (s32) tmd->x2E; i++) {
+        if (player == (s32) tmd->x37[i].xE) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+static inline s32 get_match_player_index_xF(s32 player)
+{
+    TmData* tmd = gm_GetTournamentData();
+    s32 i;
+
+    for (i = 0; i < (s32) tmd->x2E; i++) {
+        if (player == (s32) tmd->x37[i].xF) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+void gm_Scene_TouAlt_OnFrame(void)
+{
+    TmVsData vsdata;
+    TmData* tmd;
+    s32 confirmed;
+    s32 i, j;
+    u32 buttons;
+    u32 pressed;
+    PAD_STACK(4);
+
+    confirmed = 0;
+    tmd = gm_GetTournamentData();
+    fn_8018F674(4);
+    fn_8018F640(4);
+
+    if (mn_8022F218() != 0) {
+        sfxBack();
+        mn_8022F268();
+        gm_801A4B60();
+        gm_ChangeGameModeAfterCurrentScene(GM_MENU);
+        return;
+    }
+
+    for (i = 0; i < (s32) tmd->x30; i++) {
+        if (lbl_80479A58.x1D[i].x0 == 2 && lbl_80479A58.x1D[i].b >= 0x3CU &&
+            (s8) (u8) HSD_PadMasterStatus[(u8) i].err == 0)
+        {
+            confirmed += 1;
+        }
+    }
+
+    if (confirmed == (s32) tmd->x30) {
+        lbl_80479A58.x0 += 1;
+        if (lbl_80479A58.x0 >= 0x1EU) {
+            for (j = 0; j < (s32) tmd->x2E; j++) {
+                tmd->x37[j].xF = tmd->x37[j].xE;
+            }
+            fn_801965C4();
+        }
+    } else {
+        lbl_80479A58.x0 = 0;
+
+        for (i = 0; i < (s32) tmd->x30; i++) {
+            if ((s8) (u8) HSD_PadMasterStatus[(u8) i].err == 0) {
+                buttons = fn_8018F640(i);
+                pressed = fn_8018F674(i);
+
+                /* Abort combo check */
+                if (fn_8018F6A8(i) & PAD_BUTTON_B) {
+                    lbl_80479A58.x18[i] = (u8) (lbl_80479A58.x18[i] + 1);
+                    if (lbl_80479A58.x18[i] > 0x5AU) {
+                        sfxForward();
+                        gm_SetNextGameModeStateId(0U);
+                        gm_801A4B60();
+                        return;
+                    }
+                    goto check_confirm;
+                }
+                lbl_80479A58.x18[i] = 0;
+
+            check_confirm: {
+                u8 status = lbl_80479A58.x1D[i].x0;
+                if (status != 2 && status != 1) {
+                    if ((fn_8018F6A8(i) & PAD_TRIGGER_L) &&
+                        (fn_8018F6A8(i) & PAD_TRIGGER_R))
+                    {
+                        j = get_match_player_index(i);
+                        tmd->x37[j].x5 = 1;
+                        tmd->x4B8[i].x2 = 1;
+                    }
+
+                    if (pressed & (PAD_BUTTON_LEFT | PAD_STICK_LEFT)) {
+                        u8 chr;
+                        sfxMove();
+
+                        j = get_match_player_index(i);
+                        tmd->x37[j].x5 = 0;
+                        tmd->x4B8[i].x2 = 0;
+
+                        chr = tmd->x4B8[i].x1;
+                        do {
+                            if (chr != 0) {
+                                chr -= 1;
+                            } else {
+                                chr = fn_8018F6DC(0x19);
+                            }
+                        } while (gm_IsCKindUnlocked(
+                                     (u8) fn_8018F6FC((CSSIconHud) chr)) == 0);
+                        tmd->x4B8[i].x1 = chr;
+
+                        j = get_match_player_index(i);
+                        tmd->x37[j].x3 = tmd->x4B8[i].x1;
+
+                        j = get_match_player_index(i);
+                        tmd->x4B8[i].x3 = 0;
+                        tmd->x37[j].x7 = 0;
+
+                    } else if (pressed & (PAD_BUTTON_RIGHT | PAD_STICK_RIGHT))
+                    {
+                        u8 chr;
+                        sfxMove();
+
+                        j = get_match_player_index(i);
+                        tmd->x37[j].x5 = 0;
+                        tmd->x4B8[i].x2 = 0;
+
+                        chr = tmd->x4B8[i].x1;
+                        do {
+                            if ((s32) chr < fn_8018F6DC(0x19)) {
+                                chr += 1;
+                            } else {
+                                chr = fn_8018F6DC(0);
+                            }
+                        } while (gm_IsCKindUnlocked(
+                                     (u8) fn_8018F6FC((CSSIconHud) chr)) == 0);
+                        tmd->x4B8[i].x1 = chr;
+
+                        j = get_match_player_index(i);
+                        tmd->x37[j].x3 = tmd->x4B8[i].x1;
+
+                        j = get_match_player_index(i);
+                        tmd->x4B8[i].x3 = 0;
+                        tmd->x37[j].x7 = 0;
+                    }
+                }
+            }
+
+                if (buttons & (PAD_BUTTON_A | PAD_BUTTON_START)) {
+                    if (lbl_80479A58.x1D[i].x0 != 2) {
+                        u16 char_id;
+                        sfxForward();
+                        lbl_80479A58.x1D[i].x0 = 1;
+                        char_id = tmd->x4B8[i].x6;
+                        if (char_id <= 0x78U) {
+                            gm_80167858(i, (s32) char_id, 0xB, 0x14);
+                        } else {
+                            gm_80167858(i, 0x78, 0xB, 0x14);
+                        }
+                    }
+                } else if (buttons & PAD_BUTTON_B) {
+                    if (lbl_80479A58.x1D[i].x0 == 2) {
+                        sfxBack();
+                        lbl_80479A58.x1D[i].x0 = 3;
+                    }
+                } else {
+                    u8 color_status = lbl_80479A58.x1D[i].x0;
+                    if (color_status != 2 && color_status != 1) {
+                        if (buttons & PAD_BUTTON_X) {
+                            /* Down: increment color */
+                            if ((s32) tmd->x4B8[i].x3 <
+                                (s32) (gm_GetNumCostumesForCKind(
+                                           (u8) fn_8018F6FC(
+                                               (CSSIconHud) tmd->x4B8[i].x1)) -
+                                       1))
+                            {
+                                tmd->x4B8[i].x3 += 1;
+                            }
+
+                            j = get_match_player_index(i);
+                            tmd->x37[j].x7 = tmd->x4B8[i].x3;
+
+                        } else if (buttons & PAD_BUTTON_Y) {
+                            /* Up: decrement color */
+                            u8 color = tmd->x4B8[i].x3;
+                            if (color != 0) {
+                                tmd->x4B8[i].x3 = color - 1;
+                            }
+
+                            j = get_match_player_index(i);
+                            tmd->x37[j].x7 = tmd->x4B8[i].x3;
+                        }
+                    }
+                }
+            }
+        }
+
+        {
+            s32 stage;
+            if (fn_80196564(tmd) != 0) {
+                stage = fn_8019655C();
+            } else {
+                stage = (s32) tmd->x28;
+            }
+            vsdata.stkind = (u32) stage;
+        }
+        for (i = 0; i < 4; i++) {
+            vsdata.slot_type[i] = (Gm_PKind) tmd->x4B8[i].x0;
+            vsdata.char_id[i] = fn_8018F6FC((CSSIconHud) tmd->x4B8[i].x1);
+            vsdata.color[i] = (u32) tmd->x4B8[i].x3;
+        }
+        fn_8019EE80(&vsdata);
+    }
+}
+
+void gm_8019ECAC_OnEnter_inline(void)
+{
+    lbl_804D6688 = lbArchive_80016DBC("GmTou1p", &lbl_804D6690,
+                                      "ScGamTour_scene_data", 0);
+    lbl_804D668C = lbArchive_80016DBC("GmTou4p", &lbl_804D6694,
+                                      "ScGamTour_scene_data", 0);
+    HSD_SisLib_803A62A0(0, fn_8018F5F0(), "SIS_TournamentData");
+}
+
+void gm_8019E634(void)
+{
+    struct Indices {
+        s32 values[4];
+    } indices;
+    s32 results[4];
+    TmData* tmd;
+    s32 hmn_cpu;
+    s32 i, j;
+
+    tmd = gm_GetTournamentData();
+    hmn_cpu = tmd->hmn_cpu_count;
+
+    indices = *(struct Indices*) lbl_803B7D3C;
+
+    /* Get match results per player */
+    for (i = 0; i < (s32) tmd->x30; i++) {
+        results[i] = fn_80166CBC(&gm_80477738, i);
+    }
+
+    /* Bubble sort results, keeping indices in parallel */
+    for (i = 0; i < (s32) (tmd->x30 - 1); i++) {
+        for (j = 0; j < (s32) ((tmd->x30 - 1) - i); j++) {
+            if (results[j] > results[j + 1]) {
+                s32 tr = results[j];
+                s32 ti = indices.values[j];
+                results[j] = results[j + 1];
+                indices.values[j] = indices.values[j + 1];
+                results[j + 1] = tr;
+                indices.values[j + 1] = ti;
+            }
+        }
+    }
+
+    /* Handicap adjustment */
+    if (gmMainLib_GetGameRules()->handicap == 1) {
+        u8 hbuf[4] = { 0 };
+
+        /* Read handicap from x37 entries */
+        for (i = 0; i < 4; i++) {
+            if (i < (s32) tmd->x30) {
+                j = get_match_player_index_xF(results[i]);
+                hbuf[i] = tmd->x37[j].x2;
+            }
+        }
+
+        fn_80169000(&gm_80477738, hbuf);
+
+        /* Write back adjusted handicap */
+        for (i = 0; i < 4; i++) {
+            if (i < (s32) tmd->x30) {
+                s32 id = results[i];
+                j = get_match_player_index_xF(id);
+                tmd->x37[j].x2 = hbuf[i];
+            }
+        }
+    }
+
+    /* Assign bracket positions */
+    if ((s32) gm_804771C4.match_type == 1) {
+        /* Team mode */
+        for (i = 0; i < hmn_cpu; i++) {
+            s32 id = indices.values[i];
+            j = get_match_player_index_xF(id);
+            tmd->x37[j].xE = (tmd->x2E - 1) - i;
+
+            {
+                s32 next_id = tmd->x30 + i;
+                id = next_id;
+            }
+            j = get_match_player_index_xF(id);
+            tmd->x37[j].xE = indices.values[i];
+        }
+    } else {
+        /* FFA mode */
+        for (i = 0; i < hmn_cpu; i++) {
+            s32 id = indices.values[(tmd->x30 - 1) - i];
+            j = get_match_player_index_xF(id);
+            tmd->x37[j].xE = (tmd->x2E - 1) - i;
+
+            id = tmd->x30 + i;
+            j = get_match_player_index_xF(id);
+            tmd->x37[j].xE = indices.values[(tmd->x30 - 1) - i];
+        }
+    }
+
+    /* Adjust remaining bracket positions */
+    for (i = tmd->x30 + hmn_cpu; i < (s32) tmd->x2E; i++) {
+        j = get_match_player_index_xF(i);
+        tmd->x37[j].xE -= hmn_cpu;
+    }
+
+    /* Copy x37 data to x4B8 */
+    for (i = 0; i < (s32) tmd->x30; i++) {
+        j = get_match_player_index(i);
+        tmd->x4B8[i].x6 = tmd->x37[j].x9;
+
+        j = get_match_player_index(i);
+        tmd->x4B8[i].x5 = tmd->x37[j].x2;
+
+        j = get_match_player_index(i);
+        tmd->x4B8[i].x1 = tmd->x37[j].x3;
+
+        j = get_match_player_index(i);
+        tmd->x4B8[i].x0 = tmd->x37[j].x0;
+
+        j = get_match_player_index(i);
+        tmd->x4B8[i].x3 = tmd->x37[j].x7;
+
+        j = get_match_player_index(i);
+        tmd->x4B8[i].x2 = tmd->x37[j].x5;
+    }
+
+    /* Debug output + audio preloading */
+    {
+        u64 audio_mask;
+        s32 k;
+        audio_mask = 8;
+        for (k = 0; k < (s32) tmd->x30; k++) {
+            audio_mask |= lbAudioAx_80026E84((CharacterKind) tmd->x4B8[k].x1);
+            OSReport("ckind:%d\n", (s32) tmd->x4B8[k].x1);
+        }
+        lbAudioAx_80026F2C(0x16);
+        lbAudioAx_8002702C(6, audio_mask);
+        lbAudioAx_80027168();
+    }
+}
+
+void gm_Scene_TouAlt_OnEnter(void* arg0)
+{
+    struct {
+        StKind stkind;
+        CharacterKind char_id[4];
+        u32 color[4];
+    } local;
+    TmData* tmd;
+    s32 i;
+    u64 audio_mask;
+    s32 j;
+    PAD_STACK(4);
+
+    tmd = gm_GetTournamentData();
+    lbAudioAx_80026F2C(0x12);
+    lbAudioAx_8002702C(2, 8);
+    lbAudioAx_80027168();
+    lbAudioAx_80027648();
+    gm_GetTournamentData();
+    gm_8019ECAC_OnEnter_inline();
+    fn_8019DD60();
+    lbAudioAx_80027648();
+    lbAudioAx_80023F28(gmMainLib_8015ECB0());
+
+    for (i = 0; i < 4; i++) {
+        if (tmd->x4B8[i].x0 != 3) {
+            local.char_id[i] = fn_8018F6FC(tmd->x4B8[i].x1);
+            local.color[i] = tmd->x4B8[i].x3;
+        }
+    }
+
+    fn_80196510();
+    if (fn_80196564(tmd)) {
+        local.stkind = fn_8019655C();
+    } else {
+        local.stkind = tmd->x28;
+    }
+    fn_80196594(tmd);
+    lbDvd_SetupVsPreloadCache();
+
+    audio_mask = 0;
+    for (j = 0; j < 4; j++) {
+        if (tmd->x4B8[j].x0 != 3) {
+            audio_mask |= lbAudioAx_80026E84(local.char_id[j]);
+        }
+    }
+    audio_mask |= lbAudioAx_80026EBC(local.stkind);
+    lbAudioAx_80026F2C(0x1C);
+    lbAudioAx_8002702C(0xC, audio_mask);
+    lbAudioAx_80027168();
+    lbAudioAx_80023F28(gmMainLib_8015ECB0());
+}
+
+void gm_Scene_TouAlt_OnExit(void* arg0)
+{
+    lbArchive_80016EFC(lbl_804D6688);
+    lbArchive_80016EFC(lbl_804D668C);
+}
+
+void fn_8019EE80(TmVsData* arg0)
+{
+    struct GameCache* game_cache;
+    s32 i;
+
+    game_cache = &lbDvd_GetPreloadCacheScene()->game_cache;
+    for (i = 0; i < gm_GetTournamentData()->x30; i++) {
+        game_cache->entries[i].char_id = arg0->char_id[i];
+        game_cache->entries[i].color = arg0->color[i];
+    }
+
+    if (!fn_80196594(gm_GetTournamentData())) {
+        game_cache->stkind = arg0->stkind;
+    }
+
+    lbDvd_80018254();
+}
+
+void fn_8019EF08(TmVsData* arg0)
+{
+    struct GameCache* game_cache;
+    s32 i;
+
+    game_cache = &lbDvd_GetPreloadCacheScene()->game_cache;
+    for (i = 0; i < 4; i++) {
+        if (arg0->slot_type[i] != Gm_PKind_NA) {
+            game_cache->entries[i].char_id = arg0->char_id[i];
+            game_cache->entries[i].color = arg0->color[i];
+        }
+    }
+
+    lbDvd_80018254();
+}
+
+/// @todo .data order hack
+#ifdef MUST_MATCH
+static void order_data_1(void)
+{
+    (void) "ScGamTour_scene_data";
+    (void) "ckind:%d\n";
+}
+#endif

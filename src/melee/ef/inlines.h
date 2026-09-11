@@ -1,0 +1,10 @@
+#ifndef MELEE_EF_INLINES_H
+#define MELEE_EF_INLINES_H
+
+#ifdef M2C
+#define GET_EFFECT(gobj) ((EF_Effect*) HSD_GObjGetUserData((HSD_GObj*) gobj))
+#else
+#define GET_EFFECT(gobj) ((EF_Effect*) HSD_GObjGetUserData(gobj))
+#endif
+
+#endif

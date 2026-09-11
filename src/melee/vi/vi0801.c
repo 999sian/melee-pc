@@ -1,0 +1,176 @@
+#include "vi0801.h"
+
+#include "vi.h"
+#include <melee/cm/camera.h>
+#include <melee/ef/efasync.h>
+#include <melee/ef/eflib.h>
+#include <melee/gm/gm_unsplit.h>
+#include <melee/gr/grbigblueroute.h>
+#include <melee/gr/ground.h>
+#include <melee/gr/stage.h>
+#include <melee/it/item.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/lb_013B.h>
+#include <melee/lb/lbarchive.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbspdisplay.h>
+#include <melee/mp/mpcoll.h>
+#include <melee/pl/player.h>
+#include <melee/sc/types.h>
+#include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/lobj.h>
+
+static SceneDesc* un_804D6FB8;
+static GXColor un_804D6FBC;
+
+HSD_JObj* un_804A2EA8[24];
+
+s32 un_80400128[23][2] = { { 1, 2 }, { 1, 3 }, { 1, 4 },  { 1, 5 },  { 1, 6 },
+                           { 1, 7 }, { 1, 8 }, { 1, 9 },  { 1, 10 }, { 0, 2 },
+                           { 0, 3 }, { 0, 4 }, { 0, 5 },  { 0, 6 },  { 0, 7 },
+                           { 0, 8 }, { 0, 9 }, { 0, 10 }, { 0, 11 }, { 2, 2 },
+                           { 2, 3 }, { 2, 4 }, { 2, 5 } };
+
+static void vi0801_8031ED70(HSD_GObj* gobj, int unused)
+{
+    GXColor* colors;
+
+    PAD_STACK(8);
+
+    if (HSD_CObjSetCurrent(gobj->hsd_obj) != 0) {
+        colors = &un_804D6FBC;
+        HSD_SetEraseColor(colors->r, colors->g, colors->b, colors->a);
+        HSD_CObjEraseScreen(gobj->hsd_obj, 1, 0, 1);
+        Camera_800310A0(2);
+        gobj->gxlink_prios = 9;
+        HSD_GObj_80390ED0(gobj, 7);
+        Camera_800310A0(1);
+        gobj->gxlink_prios = 8;
+        HSD_GObj_80390ED0(gobj, 7);
+        Camera_800310A0(0);
+        gobj->gxlink_prios = 8;
+        HSD_GObj_80390ED0(gobj, 7);
+        gobj->gxlink_prios = 0x8A1;
+        HSD_GObj_80390ED0(gobj, 7);
+        HSD_CObjEndCurrent();
+    }
+}
+
+void vi0801_8031EE60(HSD_GObj* gobj)
+{
+    HSD_JObjAnimAll(GET_JOBJ(gobj));
+}
+
+void vi0801_8031EE84(void)
+{
+    HSD_GObj* gobj;
+    HSD_JObj* jobj;
+    HSD_JObj* temp;
+    s32 i, j;
+
+    for (i = 0; un_804D6FB8->models[i] != NULL; i++) {
+        gobj = GObj_Create(0xE, 0xF, 0);
+        jobj = HSD_JObjLoadJoint(un_804D6FB8->models[i]->joint);
+        temp = jobj;
+        HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, temp);
+        GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
+        gm_8016895C(jobj, un_804D6FB8->models[i],
+                    (un_804D6FB8->models[i] != NULL) * 0);
+        HSD_JObjReqAnimAll(temp, 0.0F);
+        HSD_JObjAnimAll(jobj);
+        HSD_GObj_SetupProc(gobj, vi0801_8031EE60, 23);
+
+        for (j = 0; j < 23; j++) {
+            if (i == un_80400128[j][0]) {
+                lb_80011E24(jobj, (&un_804A2EA8[j]), un_80400128[j][1], -1);
+            }
+        }
+    }
+
+    lbAudioAx_80026F2C(0x18);
+    lbAudioAx_8002702C(8, 0x200000000000ULL);
+    lbAudioAx_80027168();
+    lbAudioAx_80027648();
+}
+
+void vi0801_8031EFE4(HSD_GObj* gobj)
+{
+    HSD_CObj* cobj = gobj->hsd_obj;
+    HSD_CObjAnim(cobj);
+    if (cobj->aobj->curr_frame == 75.0F || cobj->aobj->curr_frame == 160.0F) {
+        vi_8031C9B4(0xC, 0);
+    }
+    if (cobj->aobj->curr_frame == 120.0F) {
+        vi_8031C9B4(0x10, 0);
+    }
+    if (cobj->aobj->curr_frame == cobj->aobj->end_frame) {
+        lb_800145F4();
+        gm_801A4B60();
+    }
+}
+
+void vi0801_Scene_OnEnter(void* unused)
+{
+    HSD_CObj* cobj;
+    HSD_GObj* gobj;
+    HSD_Fog* fog;
+    HSD_LObj* lobj;
+    HSD_GObj* gobj2;
+
+    lbAudioAx_800236DC();
+    efLib_Init();
+    efAsync_LoadSync(0);
+    lbAudioAx_80023F28(0x5B);
+    lbAudioAx_80024E50(1);
+
+    lbArchive_LoadSymbols("Vi0801.dat", &un_804D6FB8, "visual0801Scene", NULL);
+
+    gobj = GObj_Create(0x13, 0x14, 0);
+    cobj =
+        lb_80013B14((HSD_CameraDescPerspective*) un_804D6FB8->cameras->desc);
+    HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
+    GObj_SetupGXLinkMax(gobj, vi0801_8031ED70, 8);
+    HSD_CObjAddAnim(cobj, un_804D6FB8->cameras->anims[0]);
+    HSD_CObjReqAnim(cobj, 0.0f);
+    HSD_CObjAnim(cobj);
+    HSD_GObj_SetupProc(gobj, vi0801_8031EFE4, 0);
+
+    vi0801_8031EE84();
+
+    Camera_Init(6);
+    lb_8000FCDC();
+    mpColl_80041C78();
+    Ground_801C0378(0x40);
+    Stage_802251E8(St_Kind_BigBlueRoute, 0);
+    Item_80266FA8();
+    Item_80266FCC();
+    Stage_8022524C();
+    Stage_8022532C(St_Kind_BigBlueRoute, 0);
+
+    gobj = GObj_Create(0xB, 3, 0);
+    fog = HSD_FogLoadDesc(un_804D6FB8->fogs->desc);
+    HSD_GObjObject_80390A70(gobj, (u8) HSD_GObj_FogKind, fog);
+    GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 0, 0);
+    un_804D6FBC = fog->color;
+
+    gobj2 = GObj_Create(0xB, 3, 0);
+    lobj = lb_80011AC4(un_804D6FB8->lights);
+    HSD_GObjObject_80390A70(gobj2, (u8) HSD_GObj_LightKind, lobj);
+    GObj_SetupGXLink(gobj2, HSD_GObj_LObjCallback, 0, 0);
+
+    grBigBlueRoute_8020DAB4(un_804A2EA8, 0.5f, 0x17);
+
+    Player_InitAllPlayers();
+    lbAudioAx_80024E50(0);
+}
+
+void vi0801_Scene_OnFrame(void)
+{
+    vi_8031CAAC();
+}

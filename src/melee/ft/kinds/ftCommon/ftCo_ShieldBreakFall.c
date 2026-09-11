@@ -1,0 +1,37 @@
+#include "ftCo_ShieldBreakFall.h"
+
+#include <Runtime/platform.h>
+
+#include <melee/ft/forward.h>
+
+#include "ftCo_ShieldBreakDown.h"
+#include <melee/ft/fighter.h>
+#include <melee/ft/ft_081B.h>
+#include <melee/ft/ft_084E.h>
+#include <melee/ft/ftcommon.h>
+
+void ftCo_80098D90(Fighter_GObj* gobj)
+{
+    Fighter* fp = gobj->user_data;
+    Fighter_ChangeMotionState(gobj, ftCo_MS_ShieldBreakFall,
+                              Ft_MF_KeepColAnimHitStatus | Ft_MF_SkipModel |
+                                  Ft_MF_Unk06 | Ft_MF_SkipMatAnim |
+                                  Ft_MF_SkipColAnim,
+                              0, 1, 0, NULL);
+    ftCommon_ClampAirDrift(fp);
+    ftCommon_8007EBAC(fp, 8, 0);
+}
+
+void ftCo_ShieldBreakFall_Anim(Fighter_GObj* gobj) {}
+
+void ftCo_ShieldBreakFall_IASA(Fighter_GObj* gobj) {}
+
+void ftCo_ShieldBreakFall_Phys(Fighter_GObj* gobj)
+{
+    ft_80084EEC(gobj);
+}
+
+void ftCo_ShieldBreakFall_Coll(Fighter_GObj* gobj)
+{
+    ft_80082C74(gobj, ftCo_80098E3C);
+}

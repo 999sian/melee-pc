@@ -1,0 +1,105 @@
+#include "ftwaitanim.h"
+
+#include "ftanim.h"
+#include "ftdata.h"
+#include "ftdynamics.h"
+#include "inlines.h"
+#include <melee/it/it_26B1.h>
+#include <sysdolphin/baselib/debug.h>
+#include <sysdolphin/baselib/random.h>
+
+bool ftCo_8008A698(Fighter* fp)
+{
+    if (fp->item_gobj != NULL && itGetHoldKind(fp->item_gobj) != 2) {
+        return true;
+    }
+    return false;
+}
+
+void ftCo_8008A6D8(Fighter_GObj* gobj, s32 anim_id)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (anim_id != -1) {
+        struct Fighter_WaitAnimData* anim = &fp->x24[anim_id];
+        u8(*blend_data)[2] = &fp->x28[anim_id];
+        ftData_80085CD8(fp, fp, anim_id);
+        fp->anim_id = anim_id;
+        ftCo_8009E7B4(fp, blend_data);
+        fp->x3E4_fighterCmdScript.u = anim->xC;
+        fp->x3E4_fighterCmdScript.loop_count = 0;
+        if (fp->x590 != NULL) {
+            fp->x594_s32 = anim->x10_animCurrFlags;
+            ftAnim_8006EBE8(gobj, 0.0F, 1.0F, (*blend_data)[0]);
+        }
+        fp->x3E4_fighterCmdScript.timer = 0.0f;
+        ftAnim_8006EBA4(gobj);
+    }
+}
+
+static inline bool inlineA0(Fighter* fp)
+{
+    if (fp->anim_id == 2 || fp->anim_id == 31) {
+        return true;
+    }
+    return false;
+}
+
+static inline enum_t getAnimID(WaitStruct* arg1)
+{
+    WaitStruct* wait_data = arg1;
+    int max = HSD_Randi(100) + 1;
+    int count = 0;
+    while (wait_data->u.i.x != -1) {
+        count += wait_data->u.i.y;
+        if (max <= count) {
+            return (enum_t) wait_data->u.p.x;
+        }
+        wait_data += 1;
+    }
+    HSD_ASSERTREPORT(86, 0, "wait anim data illegal!!\n", max);
+}
+
+void ftCo_8008A7A8(Fighter_GObj* gobj, WaitStruct* arg1)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (!ftAnim_IsFramesRemaining(gobj)) {
+        if (arg1 == NULL ||
+            (fp->item_gobj != NULL && fp->kind != Ft_Kind_Mewtwo &&
+             fp->kind != Ft_Kind_Fox))
+        {
+            enum_t temp;
+            temp = fp->anim_id;
+            ftCo_8008A6D8(gobj, fp->anim_id);
+            return;
+        }
+        {
+            enum_t temp, anim_id;
+            do {
+                temp = anim_id = getAnimID(arg1);
+            } while (!inlineA0(fp) && fp->anim_id == temp);
+
+            /// @todo Manually inlined ftCo_8008A6D8 here, not clean but only
+            ///       way I could make it match
+            {
+                u8(*blend_data)[2];
+                struct Fighter_WaitAnimData* anim;
+                Fighter* fp = GET_FIGHTER(gobj);
+                if (temp != -1) {
+                    anim = &fp->x24[temp];
+                    blend_data = &fp->x28[temp];
+                    ftData_80085CD8(fp, fp, anim_id);
+                    fp->anim_id = anim_id;
+                    ftCo_8009E7B4(fp, blend_data);
+                    fp->x3E4_fighterCmdScript.u = anim->xC;
+                    fp->x3E4_fighterCmdScript.loop_count = 0;
+                    if (fp->x590 != NULL) {
+                        fp->x594_s32 = anim->x10_animCurrFlags;
+                        ftAnim_8006EBE8(gobj, 0.0F, 1.0F, (*blend_data)[0]);
+                    }
+                    fp->x3E4_fighterCmdScript.timer = 0.0f;
+                    ftAnim_8006EBA4(gobj);
+                }
+            }
+        }
+    }
+}

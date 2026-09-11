@@ -1,0 +1,163 @@
+#include "grtzelda.h"
+
+#include <Runtime/platform.h>
+
+#include <melee/lb/forward.h>
+#include <sysdolphin/baselib/forward.h>
+
+#include "granime.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "types.h"
+#include <dolphin/mtx.h>
+#include <melee/lb/lb_00F9.h>
+#include <sysdolphin/baselib/gobjproc.h>
+
+void grTZelda_OnDemoInit(bool);                           /* static */
+void grTZelda_OnInit(void);                               /* static */
+void grTZelda_OnLoad(void);                               /* static */
+void grTZelda_OnStart(void);                              /* static */
+bool grTZelda_80223EC8(void);                             /* static */
+HSD_GObj* grTZelda_80223ED0(int);                         /* static */
+void grTZelda_80223FB8(Ground_GObj*);                     /* static */
+bool grTZelda_80223FE4(Ground_GObj*);                     /* static */
+void grTZelda_80223FEC(Ground_GObj*);                     /* static */
+void grTZelda_80223FF0(Ground_GObj*);                     /* static */
+void grTZelda_80223FF4(Ground_GObj*);                     /* static */
+bool grTZelda_80224044(Ground_GObj*);                     /* static */
+void grTZelda_8022404C(Ground_GObj*);                     /* static */
+void grTZelda_80224080(Ground_GObj*);                     /* static */
+void grTZelda_80224084(Ground_GObj*);                     /* static */
+bool grTZelda_802240D4(Ground_GObj*);                     /* static */
+void grTZelda_802240DC(Ground_GObj*);                     /* static */
+void grTZelda_802240FC(Ground_GObj*);                     /* static */
+DynamicsDesc* grTZelda_OnTouchLine(enum_t);               /* static */
+bool grTZelda_OnCheckShadowRender(Vec3*, int, HSD_JObj*); /* static */
+
+static StageCallbacks grTZd_StageCallbacks[4] = {
+    { grTZelda_80223FB8, grTZelda_80223FE4, grTZelda_80223FEC,
+      grTZelda_80223FF0, 0 },
+    { grTZelda_80224084, grTZelda_802240D4, grTZelda_802240DC,
+      grTZelda_802240FC, 0 },
+    { grTZelda_80223FF4, grTZelda_80224044, grTZelda_8022404C,
+      grTZelda_80224080, (1 << 31) | (1 << 30) },
+    { NULL, NULL, NULL, NULL, 0 }
+};
+
+StageData grTZd_StageData = {
+    Gr_Kind_TZelda,
+    grTZd_StageCallbacks,
+    "/GrTZd.dat",
+    grTZelda_OnInit,
+    grTZelda_OnDemoInit,
+    grTZelda_OnLoad,
+    grTZelda_OnStart,
+    grTZelda_80223EC8,
+    grTZelda_OnTouchLine,
+    grTZelda_OnCheckShadowRender,
+    1,
+};
+
+void grTZelda_OnDemoInit(bool unused) {}
+
+void grTZelda_OnInit(void)
+{
+    Ground_InitTargetStage(grTZelda_80223ED0);
+}
+
+void grTZelda_OnLoad(void) {}
+
+void grTZelda_OnStart(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+bool grTZelda_80223EC8(void)
+{
+    return false;
+}
+
+HSD_GObj* grTZelda_80223ED0(int arg0)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grTZd_StageCallbacks[arg0];
+
+    gobj = Ground_GetStageGObj(arg0);
+
+    if (gobj != NULL) {
+        Ground_SetupStageCallbacks(gobj, callbacks);
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 0xC3, arg0);
+    }
+
+    return gobj;
+}
+
+void grTZelda_80223FB8(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grTZelda_80223FE4(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTZelda_80223FEC(Ground_GObj* gobj) {}
+
+void grTZelda_80223FF0(Ground_GObj* gobj) {}
+
+void grTZelda_80223FF4(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+bool grTZelda_80224044(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTZelda_8022404C(Ground_GObj* gobj)
+{
+    lb_800115F4();
+    Ground_801C2FE0(gobj);
+}
+
+void grTZelda_80224080(Ground_GObj* gobj) {}
+
+void grTZelda_80224084(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+bool grTZelda_802240D4(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTZelda_802240DC(Ground_GObj* gobj)
+{
+    Ground_801C2FE0(gobj);
+}
+
+void grTZelda_802240FC(Ground_GObj* gobj) {}
+
+DynamicsDesc* grTZelda_OnTouchLine(enum_t arg0)
+{
+    return NULL;
+}
+
+bool grTZelda_OnCheckShadowRender(Vec3* arg0, int arg1, HSD_JObj* arg2)
+{
+    return true;
+}
+
+/* Warning: struct HSD_Spline is not defined (only forward-declared) */
+/* Warning: struct _HSD_Rvalue is not defined (only forward-declared) */
+/* Warning: struct _HSD_RObjDesc is not defined (only forward-declared) */
+/* Warning: struct _HSD_ExpDesc is not defined (only forward-declared) */
+/* Warning: struct _HSD_ByteCodeExpDesc is not defined (only forward-declared)
+ */
+/* Warning: struct _HSD_IKHintDesc is not defined (only forward-declared) */

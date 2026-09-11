@@ -1,0 +1,61 @@
+#include "ftCo_ShieldBreakFly.h"
+
+#include <Runtime/platform.h>
+
+#include <melee/ft/forward.h>
+#include <sysdolphin/baselib/forward.h>
+
+#include "ftCo_ShieldBreakDown.h"
+#include "ftCo_ShieldBreakFall.h"
+#include "inlines.h"
+#include <dolphin/mtx.h>
+#include <melee/ft/fighter.h>
+#include <melee/ft/ft_081B.h>
+#include <melee/ft/ft_084E.h>
+#include <melee/ft/ft_0877.h>
+#include <melee/ft/ftanim.h>
+#include <melee/ft/ftcoll.h>
+#include <melee/ft/ftcommon.h>
+#include <melee/ft/types.h>
+
+void ftCo_80098B20(Fighter_GObj* gobj)
+{
+    Fighter* fp = gobj->user_data;
+    ftCommon_8007D5D4(fp);
+    Fighter_ChangeMotionState(gobj, 205, 64, 0, 1, 0, NULL);
+    ftAnim_8006EBA4(gobj);
+    fp->self_vel.x = 0;
+    fp->self_vel.y = fp->co_attrs.shield_break_initial_velocity;
+    if (fp->kind == Ft_Kind_Purin) {
+        fp->x2222_b3 = true;
+    }
+    ftCo_SpawnEf(gobj, fp->parts[fp->ft_data->x8->x11].joint, 0, 1051);
+    ft_PlaySFX(fp, 130, 127, 64);
+    ftCommon_8007EBAC(fp, 24, 0U);
+    ftColl_8007B62C(gobj, 2);
+}
+
+void ftCo_ShieldBreakFly_Anim(Fighter_GObj* gobj)
+{
+    if (!ftAnim_IsFramesRemaining(gobj)) {
+        ftCo_80098D90(gobj);
+    }
+}
+
+void ftCo_ShieldBreakFly_IASA(HSD_GObj* gobj) {}
+
+void ftCo_ShieldBreakFly_Phys(Fighter_GObj* gobj)
+{
+    ft_80084EEC(gobj);
+}
+
+void ftCo_ShieldBreakFly_Coll(Fighter_GObj* gobj)
+{
+    ft_80082C74(gobj, ftCo_80098E3C);
+}
+
+void ftCo_80098C9C(Fighter_GObj* gobj)
+{
+    u8 _[8] = { 0 };
+    ftCo_80098B20(gobj);
+}

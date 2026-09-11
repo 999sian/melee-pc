@@ -1,0 +1,1369 @@
+#include "gmmain_lib.h"
+
+#include <Runtime/platform.h>
+
+#include <placeholder.h>
+
+#include "forward.h"
+#include "gm_unsplit.h"
+#include "gmhomerun.h"
+#include "types.h"
+#include <dolphin/os/OSReset.h>
+#include <dolphin/pad.h>
+#include <melee/db/db.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbcardnew.h>
+#include <melee/lb/lblanguage.h>
+#include <melee/lb/lbtime.h>
+#include <melee/mn/mnname.h>
+#include <melee/ty/toy.h>
+#include <sysdolphin/baselib/random.h>
+#include <sysdolphin/baselib/video.h>
+
+/* 15D888 */ static void gmMainLib_8015D888(u32);
+/* 46B0F0 */ struct gmMainLib_8046B0F0_t gmMainLib_8046B0F0;
+/* 45A6C0 */ struct gmm_x0 gmMainLib_8045A6C0[2];
+/* 4D3EE0 */ struct gmm_x0* gmMainLib_804D3EE0 = gmMainLib_8045A6C0;
+
+GameRules gmMainLib_DefaultGameRules = {
+    0,
+    0x34,
+    0,  // mode
+    2,  // time limit
+    3,  // stock count
+    0,  // handicap
+    10, // damage ratio
+    0,
+    0,     // stock time limit
+    false, // friendly fire
+    true,  // pause
+    0,     // score display
+    0,     // unk_xc
+    0,     // xD
+    8,     // xE
+    8,     // xF
+    0,     // unk_x10
+    0,     // x11
+    8,     // x12
+    0,     // x13
+    /* unk_14 */ -1,
+};
+
+struct GamePrefs gmMainLib_DefaultGamePrefs = {
+    2, U64_MAX, { true, true, true, true }, 0, true, LANG_JP, U32_MAX,
+};
+
+GXRenderModeObj gmMainLib_803D4A80 = {
+    VI_TVMODE_NTSC_PROG,
+    0x280,
+    0x1E0,
+    0x1E0,
+    0x28,
+    0,
+    0x280,
+    0x1E0,
+    VI_XFBMODE_SF,
+    0,
+    0,
+    {
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+        { 6, 6 },
+    },
+    { 8, 8, 0xA, 0xC, 0xA, 8, 8 },
+};
+
+#ifdef MUST_MATCH
+static void order_bss(void)
+{
+    (void) gmMainLib_8045A6C0;
+    (void) gmMainLib_8046B0F0;
+}
+#endif
+
+GameRules* gmMainLib_GetGameRules(void)
+{
+    return &gmMainLib_804D3EE0->x1850;
+}
+
+struct gmm_x1868* gmMainLib_GetSaveData(void)
+{
+    return &gmMainLib_804D3EE0->thing;
+}
+
+void* gmMainLib_8015CC4C(void)
+{
+    return &gmMainLib_GetSaveData()->x2FF8;
+}
+
+struct GamePrefs* gmMainLib_GetGamePrefs(void)
+{
+    return &gmMainLib_GetSaveData()->x1CB0;
+}
+
+struct FighterData* GetPersistentFighterData(SelectableCharacterKind selkind)
+{
+    struct FighterData* base = gmMainLib_GetSaveData()->x1F2C;
+    return &base[selkind];
+}
+
+void* gmMainLib_GetTrophyFlags(void)
+{
+    return gmMainLib_GetSaveData()->trophy_flags;
+}
+
+void* gmMainLib_GetTrophyCategoryFlags(void)
+{
+    return &gmMainLib_GetSaveData()->trophy_category_flags;
+}
+
+s16* gmMainLib_GetTrophyCount(void)
+{
+    return &gmMainLib_GetSaveData()->trophy_count;
+}
+
+struct NameTagData* GetPersistentNameData(s32 arg0)
+{
+    struct NameTagDataBank* base = &gmMainLib_GetSaveData()->x2FF8[0];
+    struct NameTagData* inner = base[arg0 / 19].inner;
+    return &inner[arg0 % 19];
+}
+
+void* gmMainLib_8015CCE4(void)
+{
+    return &gmMainLib_804D3EE0->unk_44;
+}
+
+u32* gmMainLib_8015CCF0(void)
+{
+    return &gmMainLib_GetSaveData()->x1A48;
+}
+
+void* gmMainLib_8015CCFC(void)
+{
+    return &gmMainLib_GetSaveData()->x1A4C;
+}
+
+void* gmMainLib_GetVsPlayContestants(void)
+{
+    return &gmMainLib_GetSaveData()->x1A30;
+}
+
+void* gmMainLib_GetVsPlayTime(void)
+{
+    return &gmMainLib_GetSaveData()->x1A34;
+}
+
+void* gmMainLib_GetCombinedVSPlayTime(void)
+{
+    return &gmMainLib_GetSaveData()->x1A38;
+}
+
+u32* gmMainLib_GetTimeMatchTotal(void)
+{
+    return &gmMainLib_GetSaveData()->time_matches;
+}
+
+u32* gmMainLib_GetStockMatchTotal(void)
+{
+    return &gmMainLib_GetSaveData()->stock_matches;
+}
+
+u32* gmMainLib_GetCoinMatchTotal(void)
+{
+    return &gmMainLib_GetSaveData()->coin_matches;
+}
+
+u32* gmMainLib_GetBonusMatchTotal(void)
+{
+    return &gmMainLib_GetSaveData()->bonus_matches;
+}
+
+u32* gmMainLib_GetStaminaMatchTotal(void)
+{
+    return &gmMainLib_GetSaveData()->stamina_matches;
+}
+
+u32* gmMainLib_GetMatchResetCounter(void)
+{
+    return &gmMainLib_GetSaveData()->match_resets;
+}
+
+void* gmMainLib_GetSingleplayerTime(void)
+{
+    return &gmMainLib_GetSaveData()->x1A3C;
+}
+
+void* gmMainLib_8015CD80(void)
+{
+    return &gmMainLib_GetSaveData()->x1A44;
+}
+
+void* gmMainLib_GetPowerCount(void)
+{
+    return &gmMainLib_GetSaveData()->x1A50;
+}
+
+int* gm_GetPowerTime(void)
+{
+    return &gmMainLib_GetSaveData()->x1A54;
+}
+
+void* gmMainLib_GetTotalDamage(void)
+{
+    return &gmMainLib_GetSaveData()->x1A58;
+}
+
+s32* gmMainLib_GetKOTotal(void)
+{
+    return &gmMainLib_GetSaveData()->x1A5C;
+}
+
+void* gmMainLib_GetSelfDestructTotal(void)
+{
+    return &gmMainLib_GetSaveData()->x1A60;
+}
+
+struct gmm_x0_528_t* gmMainLib_8015CDC8(void)
+{
+    return &gmMainLib_804D3EE0->vs.unk_51C;
+}
+
+struct gmm_x0_528_t* gmMainLib_8015CDD4(void)
+{
+    return &gmMainLib_804D3EE0->vs.unk_522;
+}
+
+struct gmm_x0_528_t* gmMainLib_8015CDE0(void)
+{
+    return &gmMainLib_804D3EE0->vs.unk_528;
+}
+
+void gmMainLib_8015CDEC(void)
+{
+    ssize_t i;
+    for (i = 0; i < Gm_Player_NumMax; i++) {
+        s8* ptr = gmMainLib_8015CE44(i, GM_NAMETAG_NONE);
+        if (ptr != 0) {
+            *ptr = 5;
+        }
+    }
+}
+
+s8* gmMainLib_8015CE44(s32 arg0, s32 arg1)
+{
+    if (arg1 == GM_NAMETAG_NONE) {
+        if (arg0 < PAD_MAX_CONTROLLERS) {
+            return &gmMainLib_804D3EE0->modes.nametags[arg0];
+        }
+        return 0;
+    } else {
+        struct NameTagDataBank* base = &gmMainLib_GetSaveData()->x2FF8[0];
+        struct NameTagData* inner = &base[arg1 / 19].inner[0];
+        return &inner[arg1 % 19].x1A2;
+    }
+}
+
+void gmMainLib_8015CEB4(s32 arg0)
+{
+    gmMainLib_GetSaveData()->x1A68 |= (1LL << arg0);
+}
+
+bool gmMainLib_8015CEFC(int arg0)
+{
+    if (gmMainLib_804D3EE0->thing.x1A68 & (1LL << arg0)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+s32 gmMainLib_8015CF5C(s32 arg0)
+{
+    return gmMainLib_GetSaveData()->x1A70[arg0];
+}
+
+void gmMainLib_8015CF70(s32 arg0, s32 arg1)
+{
+    gmMainLib_GetSaveData()->x1A70[arg0] = arg1;
+}
+
+void gmMainLib_8015CF84(void)
+{
+    gmMainLib_GetSaveData()->x1B3C = 1;
+}
+
+bool gmMainLib_8015CF94(void)
+{
+    if (gmMainLib_GetSaveData()->x1B3C) {
+        return true;
+    }
+    return false;
+}
+
+s8* gmMainLib_8015CFB4(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x78;
+}
+
+s32 gmMainLib_8015CFCC(u8 arg0)
+{
+    return (1 << arg0) & gmMainLib_8015ED98()->xC;
+}
+
+void gmMainLib_8015D00C(u8 arg0)
+{
+    u8 _[12];
+
+    struct FighterData* base = &gmMainLib_804D3EE0->thing.x1F2C[0];
+    base[arg0].x7A.b0 = true;
+    gmMainLib_8015ED98()->xC |= 1 << arg0;
+}
+
+s32* gmMainLib_8015D06C(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x84;
+}
+
+s32* gmMainLib_8015D084(u8 selkind)
+{
+    return &gmMainLib_8015EDBC()->xB0[selkind];
+}
+
+s32* gmMainLib_8015D0C0(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x88;
+}
+
+bool gmMainLib_8015D0D8(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b4;
+}
+
+s32 gmMainLib_8015D0F4(u8 arg0)
+{
+    s32 x10 = gmMainLib_8015ED98()->x10;
+    return x10 & (1 << arg0);
+}
+
+void gmMainLib_8015D134(u8 arg0)
+{
+    u8 _[12];
+
+    struct FighterData* base = &gmMainLib_804D3EE0->thing.x1F2C[0];
+    base[arg0].x7C.b4 = true;
+    gmMainLib_8015ED98()->x10 |= 1 << arg0;
+}
+
+u8* gmMainLib_8015D194(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x80;
+}
+
+s32 gmMainLib_8015D1AC(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b789;
+}
+
+void gmMainLib_8015D1C8(u8 arg0, int stocks)
+{
+    GetPersistentFighterData(arg0)->x7C.b789 = stocks;
+}
+
+s32* gmMainLib_8015D1E8(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x8C;
+}
+
+bool gmMainLib_8015D200(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b5;
+}
+
+s32 gmMainLib_8015D21C(u8 arg0)
+{
+    s32 x14 = gmMainLib_8015ED98()->x14;
+    return x14 & (1 << arg0);
+}
+
+void gmMainLib_8015D25C(u8 arg0)
+{
+    u8 _[12];
+
+    struct FighterData* base = &gmMainLib_804D3EE0->thing.x1F2C[0];
+    base[arg0].x7C.b5 = true;
+    gmMainLib_8015ED98()->x14 |= 1 << arg0;
+}
+
+u8* gmMainLib_8015D2BC(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x81;
+}
+
+s32 gmMainLib_8015D2D4(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b10_to_12;
+}
+
+void gmMainLib_8015D2F0(u8 arg0, int stocks)
+{
+    GetPersistentFighterData(arg0)->x7C.b10_to_12 = stocks;
+}
+
+s32* gmMainLib_8015D310(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x90;
+}
+
+bool gmMainLib_8015D328(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b6;
+}
+
+s32 gmMainLib_8015D344(u8 arg0)
+{
+    s32 x18 = gmMainLib_8015ED98()->x18;
+    return x18 & (1 << arg0);
+}
+
+void gmMainLib_8015D384(u8 arg0)
+{
+    u8 _[12];
+
+    struct FighterData* base = &gmMainLib_804D3EE0->thing.x1F2C[0];
+    base[arg0].x7C.b6 = true;
+    gmMainLib_8015ED98()->x18 |= 1 << arg0;
+}
+
+u8* gmMainLib_8015D3E4(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x82;
+}
+
+s32 gmMainLib_8015D3FC(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b13_to_15;
+}
+
+void gmMainLib_8015D418(u8 arg0, int stocks)
+{
+    GetPersistentFighterData(arg0)->x7C.b13_to_15 = stocks;
+}
+
+u32* gmMainLib_8015D438(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x94;
+}
+
+s32* gmMainLib_8015D450(u8 arg0)
+{
+    return &gmMainLib_8015EDBC()->x4C[arg0 & 255];
+}
+
+bool gmMainLib_8015D48C(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b0;
+}
+
+s32 gmMainLib_8015D4A8(u8 arg0)
+{
+    s32 x1C = gmMainLib_8015ED98()->x1C;
+    return x1C & (1 << arg0);
+}
+
+void gmMainLib_8015D4E8(u8 arg0, s32 arg1)
+{
+    GetPersistentFighterData(arg0)->x7C.b0 = arg1;
+}
+
+bool gmMainLib_8015D508(void)
+{
+    struct gmm_x1868* base = gmMainLib_GetSaveData();
+    s32 i;
+    for (i = 0; i < 25; ++i) {
+        struct FighterData* _x1F2C = base->x1F2C;
+        if (!_x1F2C[(u8) i].x7C.b0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool gmMainLib_8015D5DC(void)
+{
+    s32 i;
+    for (i = 0; i < 0x19; i++) {
+        s32 j = gmMainLib_8015EDB0()->x4;
+        s32 k = 1 << (u8) i;
+        if ((j & k) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool gmMainLib_8015D640(void)
+{
+    s32 i;
+    for (i = 0; i < 0x19; i++) {
+        s32 j = gmMainLib_8015EDBC()->x8;
+        s32 k = 1 << (u8) i;
+        if ((j & k) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+s32* gmMainLib_8015D6A4(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x98;
+}
+
+bool gmMainLib_8015D6BC(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b1;
+}
+
+void gmMainLib_8015D6D8(u8 arg0, s32 arg1)
+{
+    GetPersistentFighterData(arg0)->x7C.b1 = arg1;
+}
+
+s32* gmMainLib_8015D6F8(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x9C;
+}
+
+bool gmMainLib_8015D710(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b2;
+}
+
+void gmMainLib_8015D72C(u8 arg0, s32 arg1)
+{
+    GetPersistentFighterData(arg0)->x7C.b2 = arg1;
+}
+
+u16* gmMainLib_8015D74C(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.xA0;
+}
+
+bool gmMainLib_8015D764(u8 arg0)
+{
+    return GetPersistentFighterData(arg0)->x7C.b3;
+}
+
+void gmMainLib_8015D780(u8 arg0)
+{
+    GetPersistentFighterData(arg0)->x7C.b3 = 1;
+}
+
+u16* gmMainLib_8015D7A4(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.xA2;
+}
+
+s32* gmMainLib_8015D7BC(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.xA4;
+}
+
+s32* gmMainLib_8015D7D4(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.xA8;
+}
+
+u16* gmMainLib_8015D7EC(u8 arg0)
+{
+    return &GetPersistentFighterData(arg0)->x7C.x7E;
+}
+
+u32* gmMainLib_8015D804(s32 arg0)
+{
+    struct gmm_x1868* thing = gmMainLib_GetSaveData();
+    return &thing->x1B80[arg0];
+}
+
+s32 gmMainLib_8015D818(u32 arg0)
+{
+    u8 _[40];
+
+    if (gmMainLib_8015D94C(arg0) == 0) {
+        struct gmm_x1868* base = &gmMainLib_804D3EE0->thing;
+        u32* q = &base->x1B80[arg0];
+        *q = lbTime_GetTimeInSeconds();
+        gmMainLib_8015D888(arg0);
+        gmMainLib_8015D8FC(arg0);
+        return 1;
+    }
+    return 0;
+}
+
+void gmMainLib_8015D888(u32 arg0)
+{
+    u32* thing = &gmMainLib_GetSaveData()->x1B40[0];
+    thing[arg0 / 32] |= (1 << (arg0 % 32));
+}
+
+void gmMainLib_8015D8B0(u32 arg0)
+{
+    u32* thing = &gmMainLib_GetSaveData()->x1B40[0];
+    thing[arg0 / 32] &= ~(1 << (arg0 % 32));
+}
+
+s32 gmMainLib_8015D8D8(u32 arg0)
+{
+    u32* thing = &gmMainLib_GetSaveData()->x1B40[0];
+    return thing[arg0 / 32] & (1 << (arg0 % 32));
+}
+
+void gmMainLib_8015D8FC(u32 arg0)
+{
+    u32* thing = &gmMainLib_GetSaveData()->x1B4C[0];
+    thing[arg0 / 32] |= (1 << (arg0 % 32));
+}
+
+void gmMainLib_8015D924(u32 arg0)
+{
+    u32* thing = &gmMainLib_GetSaveData()->x1B4C[0];
+    thing[arg0 / 32] &= ~(1 << (arg0 % 32));
+}
+
+int gmMainLib_8015D94C(u32 arg0)
+{
+    u32* thing = &gmMainLib_GetSaveData()->x1B4C[0];
+    u32 flag = thing[arg0 / 32];
+    return flag & (1 << (arg0 % 32));
+}
+
+u32* gmMainLib_8015D970(ssize_t idx)
+{
+    u32* base = &gmMainLib_804D3EE0->unk_6C[0];
+    return &base[idx];
+}
+
+/// https://decomp.me/scratch/CJy8X
+bool gmMainLib_8015D984(u32 arg0)
+{
+    PAD_STACK(16);
+
+    if (gmMainLib_8015DA90(arg0) == 0) {
+        u32* temp_r31 = (u32*) gmMainLib_804D3EE0;
+        temp_r31 += arg0;
+        temp_r31 = (u32*) ((u8*) temp_r31 + 0x6C);
+        *temp_r31 = lbTime_GetTimeInSeconds();
+
+        gmMainLib_8015D9F4(arg0);
+        gmMainLib_8015DA40(arg0);
+        return true;
+    }
+
+    return false;
+}
+
+void gmMainLib_8015D9F4(u32 arg0)
+{
+    s32* base = &gmMainLib_804D3EE0->unk_44;
+    base[arg0 / 32] |= (1 << (arg0 % 32));
+}
+
+s32 gmMainLib_8015DA1C(u32 arg0)
+{
+    s32* base = &gmMainLib_804D3EE0->unk_44;
+    return (1 << (arg0 % 32)) & base[arg0 / 32];
+}
+
+void gmMainLib_8015DA40(u32 arg0)
+{
+    u32* base = &gmMainLib_GetSaveData()->x1B58[0];
+    base[arg0 / 32] |= (1 << (arg0 % 32));
+}
+
+void gmMainLib_8015DA68(u32 arg0)
+{
+    u32* base = &gmMainLib_GetSaveData()->x1B58[0];
+    base[arg0 / 32] &= ~(1 << (arg0 % 32));
+}
+
+int gmMainLib_8015DA90(u32 arg0)
+{
+    u32* base = &gmMainLib_GetSaveData()->x1B58[0];
+    u32* qwe = &base[arg0 / 32];
+    return *qwe & (1 << (arg0 % 32));
+}
+
+void gmMainLib_8015DAB4(u32 arg0)
+{
+    u32* base = &gmMainLib_GetSaveData()->x1C88[0];
+    base[arg0 / 32] |= (1 << (arg0 % 32));
+}
+
+bool gmMainLib_8015DADC(u32 arg0)
+{
+    u32* base = &gmMainLib_GetSaveData()->x1C88[0];
+    return (1 << (arg0 % 32)) & base[arg0 / 32];
+}
+
+u8 gmMainLib_8015DB00(void)
+{
+    return gmMainLib_804D3EE0->unk_1;
+}
+
+void gmMainLib_8015DB0C(u8 arg0)
+{
+    gmMainLib_804D3EE0->unk_1 = arg0;
+}
+
+void gmMainLib_8015DB18(void)
+{
+    gmMainLib_804D3EE0->unk_1 += 1;
+}
+
+void gmMainLib_8015DB2C(u8 arg0)
+{
+    struct gmm_x0* gmmthing = gmMainLib_804D3EE0;
+    gmmthing->x39[arg0] = lbTime_8000AF74(gmMainLib_804D3EE0->x39[arg0], 1);
+}
+
+u8 gmMainLib_8015DB6C(u8 arg0)
+{
+    return gmMainLib_804D3EE0->x39[arg0];
+}
+
+void gmMainLib_8015DB80(void)
+{
+    int i;
+    for (i = 0; i < 11; i++) {
+        gmMainLib_804D3EE0->x39[(u8) i] = 0;
+    }
+}
+
+static inline void gmMainLib_AdjustNameTags(VsModeData* vmd, u8 tag)
+{
+    u8* ptr;
+    s32 i;
+
+    for (i = 0; i < 6; i++) {
+        ptr = &vmd->start.players[i].nametag;
+        if (vmd->start.players[i].nametag == tag) {
+            *ptr = GM_NAMETAG_NONE;
+        } else if (*ptr > tag && *ptr != GM_NAMETAG_NONE) {
+            *ptr -= 1;
+        }
+    }
+}
+
+inline void gmMainLib_AdjustNameTag(u8* tag_ptr, u8 tag)
+{
+    if (*tag_ptr == tag) {
+        *tag_ptr = GM_NAMETAG_NONE;
+    } else if (*tag_ptr > tag && *tag_ptr != GM_NAMETAG_NONE) {
+        *tag_ptr = *tag_ptr - 1;
+    }
+}
+
+/// As #gmMainLib_AdjustNameTag, but clears the slot instead of marking it
+/// unassigned.
+inline void gmMainLib_ClearNameTag(u8* tag_ptr, u8 tag)
+{
+    if (*tag_ptr == tag) {
+        *tag_ptr = 0;
+    } else if (*tag_ptr > tag && *tag_ptr != GM_NAMETAG_NONE) {
+        *tag_ptr = *tag_ptr - 1;
+    }
+}
+
+void gmMainLib_8015DBF4(s32 arg0)
+{
+    struct gmm_x0_vsdata* vs;
+    struct gmm_x0_vsmodes* base;
+    GameRules* gr;
+
+    vs = &gmMainLib_804D3EE0->vs;
+    base = &gmMainLib_804D3EE0->modes;
+    gmMainLib_AdjustNameTag(&gmMainLib_8015CDC8()->nametag, (u8) arg0);
+    gmMainLib_AdjustNameTag(&gmMainLib_804D3EE0->vs.unk_522.nametag,
+                            (u8) arg0);
+    gmMainLib_AdjustNameTag(&gmMainLib_804D3EE0->vs.unk_528.nametag,
+                            (u8) arg0);
+    gmMainLib_AdjustNameTag(&vs->unk_530.nametag, (u8) arg0);
+    gmMainLib_AdjustNameTag(&gmMainLib_804D3EE0->vs.unk_530.unk_584.unk_586,
+                            (u8) arg0);
+
+    gmMainLib_AdjustNameTags(&gmHomeRun_VsModeData, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_1490, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_D10, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->vs_melee, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_6D0, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->vs_invisible, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->vs_camera, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->vs_fixed_camera, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_BD0, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_E50, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_F90, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->vs_stamina, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_1210, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->vs_lightning, (u8) arg0);
+    gmMainLib_AdjustNameTags(&base->unk_1490, (u8) arg0);
+
+    gr = &gmMainLib_804D3EE0->x1850;
+    gmMainLib_ClearNameTag(&gr->unk_x10, (u8) arg0);
+    gmMainLib_ClearNameTag(&gr->x11, (u8) arg0);
+    gmMainLib_ClearNameTag(&gr->x13, (u8) arg0);
+}
+
+static inline void
+SetPlayerHandicaps(struct PlayerInitData* p0, struct PlayerInitData* p1,
+                   struct PlayerInitData* p2, struct PlayerInitData* p3,
+                   struct PlayerInitData* p4, struct PlayerInitData* p5)
+{
+    p5->handicap = p4->handicap = p3->handicap = p2->handicap = p1->handicap =
+        p0->handicap = 9;
+}
+
+void gmMainLib_8015EA80(void)
+{
+    struct gmMainLib_8015EA80_modes {
+        u8 pad[8];
+        VsModeData modes[13];
+    }* data =
+        (struct gmMainLib_8015EA80_modes*) gmMainLib_804D3EE0->modes.nametags;
+    struct PlayerInitData* players;
+    s32 i;
+
+    PAD_STACK(0x90);
+
+    gmMainLib_8015CDEC();
+    for (i = 0; i < 6; i++) {
+        players = data->modes[i].start.players;
+        SetPlayerHandicaps(&players[0], &players[1], &players[2], &players[3],
+                           &players[4], &players[5]);
+    }
+    for (i = 7; i < 13; i++) {
+        players = data->modes[i].start.players;
+        SetPlayerHandicaps(&players[0], &players[1], &players[2], &players[3],
+                           &players[4], &players[5]);
+    }
+}
+
+int gmMainLib_8015ECB0(void)
+{
+    return gmMainLib_804D3EE0->x1850.bgm;
+}
+
+void gmMainLib_8015ECBC(void)
+{
+    u8 _[4];
+
+    GameRules* rules = &gmMainLib_804D3EE0->x1850;
+    if (gm_80164600() && gm_80164ABC()) {
+        if (HSD_Randi(4) != 0) {
+            rules->bgm = 0x34;
+        } else {
+            rules->bgm = 0x36;
+        }
+    } else {
+        rules->bgm = 0x34;
+    }
+}
+
+int gmMainLib_8015ED30(void)
+{
+    return gmMainLib_804D3EE0->x1850.unk_xc;
+}
+
+int GetRumbleSettingOfPort(ssize_t port)
+{
+    return gmMainLib_GetSaveData()->x1CB0.rumble_enabled[port];
+}
+
+void gmMainLib_SetRumbleEnabled(ssize_t port, bool enabled)
+{
+    gmMainLib_GetGamePrefs()->rumble_enabled[port] = enabled;
+}
+
+s32 gmMainLib_8015ED5C(void)
+{
+    return gmMainLib_804D3EE0->x1850.unk_14;
+}
+
+void gmMainLib_8015ED68(ssize_t port)
+{
+    gmMainLib_804D3EE0->x1850.unk_14 = port;
+}
+
+u8 gmMainLib_8015ED74(void)
+{
+    return gmMainLib_GetGamePrefs()->sound_balance;
+}
+
+void gmMainLib_8015ED80(s8 arg0)
+{
+    gmMainLib_GetGamePrefs()->sound_balance = arg0;
+}
+
+u16* gmMainLib_GetUnlockedCharactersBitmaskPtr(void)
+{
+    return &gmMainLib_GetSaveData()->unlocked_characers_bitmask;
+}
+
+struct gmm_retval_ED98* gmMainLib_8015ED98(void)
+{
+    return &gmMainLib_GetSaveData()->unk_8;
+}
+
+u16* gmMainLib_8015EDA4(void)
+{
+    return &gmMainLib_GetSaveData()->x186A;
+}
+
+struct gmm_retval_EDB0* gmMainLib_8015EDB0(void)
+{
+    return &gmMainLib_GetSaveData()->unk_28;
+}
+
+struct gmm_retval_EDBC* gmMainLib_8015EDBC(void)
+{
+    return &gmMainLib_GetSaveData()->unk_30;
+}
+
+struct gmm_x1868_1A8_t* gmMainLib_8015EDC8(void)
+{
+    return &gmMainLib_GetSaveData()->unk_1A8;
+}
+
+s32 gmMainLib_8015EDD4(void)
+{
+    return gmMainLib_GetSaveData()->x186C & 4;
+}
+
+void gmMainLib_8015EDE4(void)
+{
+    gmMainLib_GetSaveData()->x186C |= 4;
+}
+
+void gmMainLib_8015EDF8(void)
+{
+    gmMainLib_GetSaveData()->x186C &= 0xFFFFFFFB;
+}
+
+s32 gmMainLib_8015EE0C(void)
+{
+    return gmMainLib_GetSaveData()->x186C & 1;
+}
+
+void gmMainLib_8015EE1C(void)
+{
+    gmMainLib_GetSaveData()->x186C |= 1;
+}
+
+void gmMainLib_8015EE30(void)
+{
+    gmMainLib_GetSaveData()->x186C &= 0xFFFFFFFE;
+}
+
+s32 gmMainLib_8015EE44(void)
+{
+    return gmMainLib_GetSaveData()->x186C & 2;
+}
+
+void gmMainLib_8015EE54(void)
+{
+    gmMainLib_GetSaveData()->x186C |= 2;
+}
+
+void gmMainLib_8015EE68(void)
+{
+    gmMainLib_GetSaveData()->x186C &= 0xFFFFFFFD;
+    gmMainLib_GetGamePrefs()->stage_mask =
+        gmMainLib_DefaultGamePrefs.stage_mask;
+}
+
+s32 gmMainLib_8015EE90(void)
+{
+    return gmMainLib_GetSaveData()->x186C & 8;
+}
+
+void gmMainLib_8015EEA0(void)
+{
+    gmMainLib_GetSaveData()->x186C |= 8;
+}
+
+void gmMainLib_8015EEB4(void)
+{
+    gmMainLib_GetSaveData()->x186C &= 0xFFFFFFF7;
+}
+
+void gmMainLib_8015EEC8(void)
+{
+    int i;
+    PAD_STACK(0x10);
+
+    for (i = 0; i < SELKIND_COUNT; i++) {
+        struct FighterData* data = GetPersistentFighterData(i);
+        memzero(&data->x7C, sizeof(data->x7C));
+    }
+    memzero(&gmMainLib_GetSaveData()->x1A68, 0xD8);
+}
+
+void gmMainLib_8015EF30(struct gmMainLib_8015EF30_s* arg0)
+{
+    arg0->x0 = 0;
+    arg0->x4 = 0;
+    arg0->x8 = 0;
+    arg0->xC = 0;
+    arg0->x10 = 0;
+    arg0->x18 = 0;
+    arg0->x1A = 0;
+    arg0->x1C = 0;
+    arg0->x1E = 0;
+    arg0->x20 = 0;
+    arg0->x24 = 0;
+    arg0->x14 = 0;
+    arg0->x28 = 0;
+    arg0->x2C = 0;
+    arg0->x30 = 0;
+    arg0->x34 = 0;
+    arg0->x3C = 0;
+    arg0->x40 = 0;
+    arg0->x38 = 0;
+}
+
+void InitializePersistentNameData(s32 arg0)
+{
+    struct NameTagData* data;
+    struct NameTagDataBank* bank;
+    int i;
+
+    PAD_STACK(16);
+
+    bank = gmMainLib_804D3EE0->thing.x2FF8;
+    data = &bank[(u8) arg0 / 19].inner[(u8) arg0 % 19];
+    for (i = 0; i < 120; i++) {
+        data->vs_kos[i] = 0;
+    }
+    gmMainLib_8015EF30((struct gmMainLib_8015EF30_s*) &data->sd_count);
+    for (i = 0; i < 25; i++) {
+        data->play_time_by_fighter[i] = 0;
+    }
+    data->x1A2 = 5;
+}
+
+static inline struct FighterData*
+GetPersistentFighterDataBase(struct gmm_x1868* data)
+{
+    return data->x1F2C;
+}
+
+static inline void ResetAllPersistentFighterData(void)
+{
+    s32 i;
+
+    for (i = 0; i < 0x19; i++) {
+        int j = 0;
+        u8 k = i;
+        struct FighterData* base =
+            GetPersistentFighterDataBase(&gmMainLib_804D3EE0->thing);
+        for (; 0x19 > j; j++) {
+            base[k].fighter_kos[j] = 0;
+        }
+        gmMainLib_8015EF30((struct gmMainLib_8015EF30_s*) &base[k].sd_count);
+    }
+}
+
+static inline void ResetPersistentFighterData(s32 i)
+{
+    int j = 0;
+    struct FighterData* base =
+        GetPersistentFighterDataBase(&gmMainLib_804D3EE0->thing);
+    for (; 0x19 > j; j++) {
+        base[(u8) i].fighter_kos[j] = 0;
+    }
+    gmMainLib_8015EF30((struct gmMainLib_8015EF30_s*) &base[(u8) i].sd_count);
+}
+
+void gmMainLib_8015F150(void)
+{
+    s32 i;
+
+    for (i = 0; i < 0x19; i++) {
+        ResetPersistentFighterData(i);
+    }
+}
+
+void gmMainLib_8015F260(void)
+{
+    s32 i;
+
+    PAD_STACK(16);
+
+    for (i = 0; i < 120; i++) {
+        struct NameTagData* data;
+        struct NameTagDataBank* bank;
+
+        int j;
+        bank = gmMainLib_804D3EE0->thing.x2FF8;
+        data = &bank[(u8) i / 19].inner[(u8) i % 19];
+
+        for (j = 0; j < 120; j++) {
+            data->vs_kos[j] = 0;
+        }
+        gmMainLib_8015EF30((struct gmMainLib_8015EF30_s*) &data->sd_count);
+        for (j = 0; j < 25; j++) {
+            data->play_time_by_fighter[j] = 0;
+        }
+        data->x1A2 = 5;
+    }
+}
+
+void gmMainLib_8015F464(void)
+{
+    memzero(gmMainLib_8015ED98(), sizeof(*gmMainLib_8015ED98()));
+}
+
+void gmMainLib_8015F490(void)
+{
+    memzero(gmMainLib_8015EDB0(), sizeof(*gmMainLib_8015EDB0()));
+}
+
+void gmMainLib_8015F4BC(void)
+{
+    memzero(gmMainLib_8015EDBC(), sizeof(*gmMainLib_8015EDBC()));
+}
+
+u32 gmMainLib_8015F4E8(void)
+{
+    return GetRumbleSettingOfPort(5);
+}
+
+void gmMainLib_8015F4F4(u8 arg0)
+{
+    gmMainLib_GetSaveData()->x1CB0.deflicker = arg0;
+}
+
+struct gmMainLib_8046B0F0_t gmMainLib_8046B0F0;
+
+void gmMainLib_8015F500(void)
+{
+    GXRenderModeObj* var_r0;
+    GXRenderModeObj* var_r3;
+
+    if (gmMainLib_8046B0F0.progressive) {
+        if (gmMainLib_8015F4E8() != 0) {
+            var_r0 = &gmMainLib_803D4A80;
+        } else {
+            var_r0 = &GXNtsc480Prog;
+        }
+        var_r3 = var_r0;
+    } else {
+        if (gmMainLib_8015F4E8() != 0) {
+            var_r0 = &GXNtsc480IntDf;
+        } else {
+            var_r0 = &GXNtsc480Int;
+        }
+        var_r3 = var_r0;
+    }
+    HSD_VISetConfigure(var_r3);
+}
+
+void gmMainLib_8015F588(bool arg0)
+{
+    GXRenderModeObj* var_r0;
+    GXRenderModeObj* var_r3;
+
+    if (gmMainLib_8046B0F0.progressive) {
+        if (arg0) {
+            var_r0 = &gmMainLib_803D4A80;
+        } else {
+            var_r0 = &GXNtsc480Prog;
+        }
+        var_r3 = var_r0;
+    } else {
+        if (arg0) {
+            var_r0 = &GXNtsc480IntDf;
+        } else {
+            var_r0 = &GXNtsc480Int;
+        }
+        var_r3 = var_r0;
+    }
+    HSD_VISetConfigure(var_r3);
+}
+
+static s8 gmMainLib_804D3EE4[] = { 0 };
+
+void gmMainLib_8015F600(int arg0, int arg1)
+{
+    s32 lang;
+    PAD_STACK(80);
+
+    if (arg0 == 1) {
+        ResetAllPersistentFighterData();
+
+        memzero(&gmMainLib_804D3EE0->thing.trophy_count, 0x25C);
+        Toy_80311960();
+
+        if (arg1 == 0) {
+            Toy_803124BC();
+            Toy_SetUnlockState((s32) (s16) Toy_80305058(2, 0x63, 0, 100.0f),
+                               1);
+        }
+
+        gmMainLib_804D3EE0->thing.x1CB0 = gmMainLib_DefaultGamePrefs;
+
+        {
+            switch (lbLang_GetLanguageSetting()) {
+            case 0:
+                lang = 0;
+                break;
+            case 1:
+                lang = 1;
+                break;
+            }
+            lbLang_SetSavedLanguage(lang);
+        }
+
+        memzero(&gmMainLib_804D3EE0->thing, 0x448);
+        gm_801623FC(0x32);
+        gm_IncrementPowerCount();
+
+        if (arg1 == 0 && Toy_803048C0(0xA5) > 0 && gm_80164430(0x14U) == 0) {
+            gm_80164504(0x14U);
+        }
+    } else {
+        s32 bank_offset = (arg0 - 2) * 19;
+        s32 j = 0;
+
+        do {
+            struct NameTagData* data;
+            struct NameTagDataBank* bank;
+            s32 idx;
+            idx = j + bank_offset;
+
+            InitializePersistentNameData(idx);
+
+            bank = gmMainLib_804D3EE0->thing.x2FF8;
+            {
+                struct NameTagData* tmp =
+                    &bank[(u8) idx / 19].inner[(u8) idx % 19];
+                data = tmp;
+            }
+            {
+                char* src = mnName_8023749C((s32) (u8) idx);
+                if (src != NULL) {
+                    s32 k = 0;
+                    char c;
+                    while (gmMainLib_804D3EE4[0] != (s8) (c = *src)) {
+                        data->namedata[k] = c;
+                        k++;
+                        src++;
+                    }
+                    data->namedata[k] = gmMainLib_804D3EE4[0];
+                } else {
+                    data->namedata[0] = gmMainLib_804D3EE4[0];
+                }
+            }
+            data->rumble_enabled = true;
+            j++;
+        } while (j < 19);
+    }
+}
+
+#ifdef MUST_MATCH
+#pragma push
+#pragma inline_depth(3)
+#endif
+void gmMainLib_8015FA34(s32 arg0)
+{
+    GXRenderModeObj* var_r3;
+    s32 i;
+
+    PAD_STACK(50);
+
+    for (i = 1; i < 9; i++) {
+        if ((arg0 != 0 && arg0 != 2) || lb_8001B6E0(i) != 0) {
+            gmMainLib_8015F600(i, 0);
+        } else if (i == 1 && !gmMainLib_8046B0F0.skip_intro) {
+            gm_IncrementPowerCount();
+        }
+    }
+    if (DbLevel > DbLKind_DebugDevelop && db_804D6B20 != 0) {
+        gmMainLib_804D3EE0->thing.x186C = 0xFF;
+        gm_80164F18();
+        gm_8016468C();
+        gm_8017297C();
+        gm_801741FC();
+    }
+    lbAudioAx_80028690();
+    gmMainLib_8015F500();
+}
+#ifdef MUST_MATCH
+#pragma pop
+#endif
+void gmMainLib_8015FB68(void)
+{
+    gmMainLib_804D3EE0->thing.x186C = 0;
+    gm_8016505C();
+    gm_801647D0();
+    gm_801729EC();
+    gm_80174238();
+    Toy_80311960();
+}
+
+#ifdef MUST_MATCH
+#pragma push
+#pragma dont_inline on
+#endif
+void gmMainLib_8015FBA4(void)
+{
+    int i;
+
+    memzero(gmMainLib_804D3EE0, 0x10A30);
+    if (DVDConvertPathToEntrynum("/usa.ini") != -1) {
+        lbLang_SetLanguageSetting(1);
+        lbLang_SetSavedLanguage(1);
+    } else {
+        lbLang_SetLanguageSetting(0);
+        lbLang_SetSavedLanguage(0);
+    }
+
+    gmMainLib_8045A6C0[0].x1850 = gmMainLib_DefaultGameRules;
+    for (i = 1; i < 9; i++) {
+        gmMainLib_8015F600(i, 1);
+    }
+    lbAudioAx_80028690();
+    gmMainLib_8015F500();
+}
+#ifdef MUST_MATCH
+#pragma pop
+#endif
+
+int gmMainLib_8015FC74(void)
+{
+    int temp_r30;
+
+    temp_r30 = gmMainLib_8046B0F0.x10;
+    gmMainLib_8046B0F0.x10 = lbTime_GetTimeInSeconds();
+    return gmMainLib_8046B0F0.x10 - temp_r30;
+}
+
+void gmMainLib_8015FCC0(void)
+{
+    struct gmMainLib_8046B0F0_t* tmp = &gmMainLib_8046B0F0;
+    tmp->skip_intro = OSGetResetCode() == 0x80000000 ? true : false;
+    tmp->resetting = false;
+    tmp->progressive = false;
+    tmp->xC = 0;
+    tmp->x10 = lbTime_GetTimeInSeconds();
+}

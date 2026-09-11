@@ -1,0 +1,178 @@
+#include "gmgiant.h"
+
+#include "gm_unsplit.h"
+#include "gmmain_lib.h"
+#include "gmmovieend.h"
+#include "gmvsmelee.h"
+#include "types.h"
+#include <melee/if/if_2FD9.h>
+
+GameModeState gm_Mode_GiantVs_States[] = {
+    {
+        0,
+        3,
+        0,
+        gm_801B8FB8,
+        gm_801B8FE4,
+        {
+            GS_CSS,
+            &gmVsMelee_CssData,
+            &gmVsMelee_CssData,
+        },
+    },
+    {
+        1,
+        3,
+        0,
+        gm_801B900C,
+        gm_801B9034,
+        {
+            GS_SSS,
+            &gmVsMelee_SssData,
+            &gmVsMelee_SssData,
+        },
+    },
+    {
+        2,
+        3,
+        0,
+        gm_801B9084,
+        gm_801B90B8,
+        {
+            GS_VS,
+            &gmVsMelee_StartData,
+            &gmVsMelee_VsExitInfo,
+        },
+    },
+    {
+        3,
+        3,
+        0,
+        gm_801B90E0,
+        gm_801B9114,
+        {
+            GS_SUDDEN_DEATH,
+            &gmVsMelee_StartData,
+            &gmVsMelee_SuddenDeathExitInfo,
+        },
+    },
+    {
+        4,
+        3,
+        0,
+        gm_801B9134,
+        gm_801B9154,
+        {
+            GS_RESULTS,
+            &gmVsMelee_ResultsEnterData,
+            NULL,
+        },
+    },
+    {
+        0x80,
+        2,
+        0,
+        gm_ModeState_Approach_OnEnter,
+        NULL,
+        {
+            GS_APPROACH,
+            &gmVsMelee_ApproachData,
+            &gmVsMelee_ApproachData,
+        },
+    },
+    {
+        0x81,
+        2,
+        0,
+        gm_ModeState_ApproachVs_OnEnter,
+        gm_ModeState_ApproachVs_OnExit,
+        {
+            GS_VS,
+            &gmVsMelee_StartData,
+            &gmVsMelee_VsExitInfo,
+        },
+    },
+    {
+        0xC0,
+        2,
+        0,
+        gm_ModeState_Prize_OnEnter,
+        gm_ModeState_Prize_OnExit,
+        {
+            GS_PRIZE_INTERFACE,
+            &if_Scene_Prize_EnterData,
+            NULL,
+        },
+    },
+    { -1 },
+};
+
+void gm_801B8FB8(GameModeState* scene)
+{
+    gmVsMelee_EnterCss(scene, &gmMainLib_804D3EE0->modes.unk_F90, 4);
+}
+
+void gm_801B8FE4(GameModeState* scene)
+{
+    gmVsMelee_ExitCss(scene, &gmMainLib_804D3EE0->modes.unk_F90);
+}
+
+void gm_801B900C(GameModeState* scene)
+{
+    gmVsMelee_EnterSss(scene, &gmMainLib_804D3EE0->modes.unk_F90);
+}
+
+void gm_801B9034(GameModeState* scene)
+{
+    gmVsMelee_ExitSss(scene, &gmMainLib_804D3EE0->modes.unk_F90, 0);
+}
+
+void fn_801B9060(PlayerInitData* arg0, PlayerInitData* unused)
+{
+    arg0->model_scale = 1.8f;
+    arg0->defense_ratio = 1.0f;
+    arg0->attack_ratio = 1.5f;
+    arg0->xB = 2;
+}
+
+void gm_801B9084(GameModeState* scene)
+{
+    VsModeData* data = &gmMainLib_804D3EE0->modes.unk_F90;
+    gmVsMelee_EnterVs(scene, data, NULL, fn_801B9060);
+}
+
+void gm_801B90B8(GameModeState* scene)
+{
+    gmVsMelee_ExitVs(scene, 4U, 3U);
+}
+
+void gm_801B90E0(GameModeState* scene)
+{
+    VsModeData* data = &gmMainLib_804D3EE0->modes.unk_F90;
+    gmVsMelee_EnterSuddenDeath(scene, data, NULL, fn_801B9060);
+}
+
+void gm_801B9114(GameModeState* scene)
+{
+    gmVsMelee_ExitSuddenDeath(scene);
+}
+
+void gm_801B9134(GameModeState* scene)
+{
+    gmVsMelee_EnterResults(scene);
+}
+
+void gm_801B9154(GameModeState* scene)
+{
+    gmVsMelee_ExitResults(scene, &gmMainLib_804D3EE0->modes.unk_F90, 0);
+}
+
+void gm_Mode_GiantVs_OnInit(void)
+{
+    gm_InitVsMode(&gmMainLib_804D3EE0->modes.unk_F90);
+}
+
+void gm_Mode_GiantVs_OnLoad(void)
+{
+    gmVsMelee_ResetKOCounts();
+}

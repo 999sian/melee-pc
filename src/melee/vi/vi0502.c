@@ -1,0 +1,232 @@
+#include "vi0502.h"
+
+#include <melee/ft/forward.h>
+
+#include "types.h"
+#include "vi.h"
+#include <dolphin/gx.h>
+#include <melee/cm/camera.h>
+#include <melee/ef/efasync.h>
+#include <melee/ef/eflib.h>
+#include <melee/ft/ftdemo.h>
+#include <melee/gm/gm_unsplit.h>
+#include <melee/gr/grlib.h>
+#include <melee/gr/ground.h>
+#include <melee/gr/stage.h>
+#include <melee/it/item.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/lb_013B.h>
+#include <melee/lb/lbarchive.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbshadow.h>
+#include <melee/lb/lbspdisplay.h>
+#include <melee/mp/mpcoll.h>
+#include <melee/pl/player.h>
+#include <melee/sc/types.h>
+#include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/lobj.h>
+#include <sysdolphin/baselib/mtx.h>
+#include <sysdolphin/baselib/wobj.h>
+
+typedef struct Vi0502Data {
+    Vec3 initial_pos;
+    char vi0502_dat[12];
+    char visual0502_scene[16];
+    char irals_dat[16];
+} Vi0502Data;
+
+extern Vi0502Data un_804000D0;
+
+static SceneDesc* un_804D6F90;
+static HSD_Archive* un_804D6F94;
+static HSD_Archive* un_804D6F98;
+static HSD_Archive* un_804D6F9C;
+static GXColor erase_colors_vi0502;
+static HSD_GObj* kirby_gobj;
+ViCharaDesc* un_804D6FA8[2];
+
+void un_8031E110(int arg0, int arg1, int arg2)
+{
+    u8* p;
+
+    *(u8*) &un_804D6FA8 = arg0;
+    p = (u8*) &un_804D6FA8;
+    p[1] = arg1;
+    p[3] = arg2;
+}
+
+void vi0502_8031E124(CharacterKind player_kind, int player_costume,
+                     int kirby_costume)
+{
+    HSD_JObj* jobj;
+    HSD_JObj* jobj2;
+    VecMtxPtr pmtx;
+
+    Camera_Init(6);
+    PAD_STACK(32);
+    lb_8000FCDC();
+    mpColl_80041C78();
+    Ground_801C0378(0x40);
+    Stage_802251E8(St_Kind_Greens, 0);
+    Item_80266FA8();
+    Item_80266FCC();
+    Ground_SetParamY(0.7f);
+    Stage_8022524C();
+    Stage_8022532C(St_Kind_Greens, 0);
+
+    ftDemo_ObjAllocInit();
+    Player_InitAllPlayers();
+
+    Player_80036E20(player_kind, un_804D6F94, 3);
+    Player_SetPlayerCharacter(0, player_kind);
+    Player_SetCostumeId(0, player_costume);
+    Player_SetPlayerId(0, 0);
+    Player_SetSlottype(0, Gm_PKind_Demo);
+    Player_SetFacingDirection(0, 1.0f);
+    Player_80032768(0, &un_804000D0.initial_pos);
+    Player_80036F34(0, 8);
+
+    Player_80036E20(CKind_Kirby, un_804D6F9C, 7);
+    Player_SetPlayerCharacter(1, CKind_Kirby);
+    Player_SetCostumeId(1, kirby_costume);
+    Player_SetPlayerId(1, 0);
+    Player_SetSlottype(1, Gm_PKind_Demo);
+    Player_SetFacingDirection(1, -1.0f);
+    Player_80036F34(1, 14);
+
+    kirby_gobj = Player_GetEntity(1);
+    jobj = GET_JOBJ(kirby_gobj);
+    HSD_JObjReqAnimAll(jobj, 120.0f);
+    HSD_JObjAnimAll(jobj);
+    jobj2 = GET_JOBJ(kirby_gobj);
+    pmtx = grLib_801C9A10();
+    HSD_JObjGetTranslation2(jobj2, &pmtx[1]);
+
+    HSD_JObjReqAnimAll(jobj, 0.0f);
+
+    lbAudioAx_80026F2C(0x1C);
+    lbAudioAx_8002702C(12, 0x80000004000);
+    lbAudioAx_80027168();
+    lbAudioAx_80027648();
+}
+
+void vi0502_8031E304(HSD_GObj* gobj)
+{
+    HSD_JObjAnimAll(GET_JOBJ(gobj));
+}
+
+static void vi0502_GObj_OnRender(HSD_GObj* gobj, UNUSED int code)
+{
+    PAD_STACK(8);
+    lbShadow_8000F38C(0);
+    vi_RunCamera(gobj, (u8*) &erase_colors_vi0502, 0x281);
+}
+
+void vi0502_GObj_OnProc(HSD_GObj* gobj)
+{
+    HSD_CObj* cobj;
+
+    cobj = GET_COBJ(gobj);
+    HSD_CObjAnim(cobj);
+
+    if (30.0f == cobj->eyepos->aobj->curr_frame) {
+        vi_8031C9B4(14, 0);
+        lbAudioAx_800237A8(430009, 0x7F, 0x40);
+    }
+    if (cobj->eyepos->aobj->curr_frame == cobj->eyepos->aobj->end_frame) {
+        lb_800145F4();
+        gm_801A4B60();
+    }
+}
+
+void vi0502_Scene_OnEnter(void* arg)
+{
+    u8 char_index;
+    Vi0502Data* data;
+    u8 costume1;
+    u8 costume2;
+    HSD_Fog* fog;
+    HSD_GObj* fog_gobj;
+    HSD_LObj* lobj;
+    HSD_GObj* light_gobj;
+    HSD_CObj* cobj;
+    HSD_GObj* camera_gobj;
+    int i;
+    HSD_JObj* new_var;
+    HSD_GObj* model_gobj;
+    HSD_JObj* jobj;
+    ViCharaDesc* desc;
+
+    desc = (ViCharaDesc*) arg;
+    data = &un_804000D0;
+    lbAudioAx_800236DC();
+    efLib_Init();
+    efAsync_LoadSync(0);
+
+    char_index = desc->p1_char_index;
+
+    un_804D6F9C = lbArchive_LoadSymbols(data->vi0502_dat, &un_804D6F90,
+                                        data->visual0502_scene, NULL);
+    un_804D6F94 =
+        lbArchive_LoadSymbols(viGetCharAnimByIndex(char_index), NULL);
+    un_804D6F98 = lbArchive_LoadSymbols(data->irals_dat, NULL);
+
+    fog_gobj = GObj_Create(0xB, 3, 0);
+    fog = HSD_FogLoadDesc(un_804D6F90->fogs->desc);
+    HSD_GObjObject_80390A70(fog_gobj, HSD_GObj_FogKind, fog);
+    GObj_SetupGXLink(fog_gobj, HSD_GObj_FogCallback, 0, 0);
+    erase_colors_vi0502 = fog->color;
+
+    light_gobj = GObj_Create(0xB, 3, 0);
+    lobj = lb_80011AC4(un_804D6F90->lights);
+    HSD_GObjObject_80390A70(light_gobj, HSD_GObj_LightKind, lobj);
+    GObj_SetupGXLink(light_gobj, HSD_GObj_LObjCallback, 0, 0);
+
+    camera_gobj = GObj_Create(0x13, 0x14, 0);
+    cobj =
+        lb_80013B14((HSD_CameraDescPerspective*) un_804D6F90->cameras->desc);
+    HSD_GObjObject_80390A70(camera_gobj, HSD_GObj_CameraKind, cobj);
+    GObj_SetupGXLinkMax(camera_gobj,
+                        (void (*)(HSD_GObj*, int)) vi0502_GObj_OnRender, 5);
+    HSD_CObjAddAnim(cobj, un_804D6F90->cameras->anims[0]);
+    HSD_CObjReqAnim(cobj, 0.0F);
+    HSD_CObjAnim(cobj);
+    HSD_GObj_SetupProc(camera_gobj, vi0502_GObj_OnProc, 0);
+
+    for (i = 0; un_804D6F90->models[i] != NULL; i++) {
+        model_gobj = GObj_Create(0xE, 0xF, 0);
+        jobj = HSD_JObjLoadJoint(un_804D6F90->models[i]->joint);
+        new_var = jobj;
+        HSD_GObjObject_80390A70(model_gobj, HSD_GObj_JObjKind, new_var);
+        GObj_SetupGXLink(model_gobj, HSD_GObj_JObjCallback, 9, 0);
+        gm_8016895C(jobj, un_804D6F90->models[i],
+                    (un_804D6F90->models[i] != NULL) * 0);
+        HSD_JObjReqAnimAll(new_var, 0.0F);
+        HSD_JObjAnimAll(jobj);
+        HSD_GObj_SetupProc(model_gobj, vi0502_8031E304, 0x17);
+    }
+
+    char_index = desc->p1_char_index;
+    costume1 = desc->p1_costume_index;
+    costume2 = desc->p2_costume_index;
+    vi0502_8031E124(char_index, costume1, costume2);
+}
+
+void vi0502_Scene_OnFrame(void)
+{
+    vi_8031CAAC();
+}
+
+Vi0502Data un_804000D0 = {
+    { 0, -3.0f, 0 },
+    "Vi0502.dat",
+    "visual0502Scene",
+    "IrAls.dat",
+};

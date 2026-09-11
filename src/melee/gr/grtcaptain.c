@@ -1,0 +1,173 @@
+#include "grtcaptain.h"
+
+#include <Runtime/platform.h>
+
+#include <melee/lb/forward.h>
+#include <sysdolphin/baselib/forward.h>
+
+#include "granime.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "types.h"
+#include <dolphin/mtx.h>
+#include <melee/lb/lb_00F9.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjproc.h>
+
+static void grTCaptain_OnDemoInit(int);
+static void grTCaptain_OnInit(void);
+static void grTCaptain_OnLoad(void);
+static void grTCaptain_OnStart(void);
+static bool grTCaptain_8021FCFC(void);
+static HSD_GObj* grTCaptain_8021FD04(int gobj_id);
+static void grTCaptain_8021FDEC(Ground_GObj* gobj);
+static bool grTCaptain_8021FE18(Ground_GObj*);
+static void grTCaptain_8021FE20(Ground_GObj*);
+static void grTCaptain_8021FE24(Ground_GObj*);
+static void grTCaptain_8021FE28(Ground_GObj* gobj);
+static bool grTCaptain_8021FE78(Ground_GObj*);
+static void grTCaptain_8021FE80(Ground_GObj* gobj);
+static void grTCaptain_8021FEB4(Ground_GObj*);
+static void grTCaptain_8021FEB8(Ground_GObj* gobj);
+static bool grTCaptain_8021FF08(Ground_GObj*);
+static void grTCaptain_8021FF10(Ground_GObj*);
+static void grTCaptain_8021FF30(Ground_GObj*);
+static DynamicsDesc* grTCaptain_OnTouchLine(enum_t);
+static bool grTCaptain_OnCheckShadowRender(Vec3*, int, HSD_JObj*);
+
+static StageCallbacks grTCa_StageCallbacks[] = {
+    {
+        grTCaptain_8021FDEC,
+        grTCaptain_8021FE18,
+        grTCaptain_8021FE20,
+        grTCaptain_8021FE24,
+        0,
+    },
+    {
+        grTCaptain_8021FEB8,
+        grTCaptain_8021FF08,
+        grTCaptain_8021FF10,
+        grTCaptain_8021FF30,
+        0,
+    },
+    {
+        grTCaptain_8021FE28,
+        grTCaptain_8021FE78,
+        grTCaptain_8021FE80,
+        grTCaptain_8021FEB4,
+        (1 << 30) | (1 << 31),
+    },
+    { 0 },
+};
+
+StageData grTCa_StageData = {
+    Gr_Kind_TCaptain,
+    grTCa_StageCallbacks,
+    "/GrTCa.dat",
+    grTCaptain_OnInit,
+    grTCaptain_OnDemoInit,
+    grTCaptain_OnLoad,
+    grTCaptain_OnStart,
+    grTCaptain_8021FCFC,
+    grTCaptain_OnTouchLine,
+    grTCaptain_OnCheckShadowRender,
+    (1 << 0),
+    NULL,
+    0,
+};
+
+static void grTCaptain_OnDemoInit(int unused) {}
+
+static void grTCaptain_OnInit(void)
+{
+    Ground_InitTargetStage(grTCaptain_8021FD04);
+}
+static void grTCaptain_OnLoad(void) {}
+
+static void grTCaptain_OnStart(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+static bool grTCaptain_8021FCFC(void)
+{
+    return false;
+}
+
+static HSD_GObj* grTCaptain_8021FD04(int gobj_id)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grTCa_StageCallbacks[gobj_id];
+
+    gobj = Ground_GetStageGObj(gobj_id);
+
+    if (gobj != NULL) {
+        Ground_SetupStageCallbacks(gobj, callbacks);
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 215, gobj_id);
+    }
+
+    return gobj;
+}
+
+static void grTCaptain_8021FDEC(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+static bool grTCaptain_8021FE18(Ground_GObj* arg0)
+{
+    return false;
+}
+
+static void grTCaptain_8021FE20(Ground_GObj* arg0) {}
+
+static void grTCaptain_8021FE24(Ground_GObj* arg0) {}
+
+static void grTCaptain_8021FE28(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+static bool grTCaptain_8021FE78(Ground_GObj* arg0)
+{
+    return false;
+}
+
+static void grTCaptain_8021FE80(Ground_GObj* gobj)
+{
+    lb_800115F4();
+    Ground_801C2FE0(gobj);
+}
+
+static void grTCaptain_8021FEB4(Ground_GObj* arg0) {}
+
+static void grTCaptain_8021FEB8(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+static bool grTCaptain_8021FF08(Ground_GObj* arg0)
+{
+    return false;
+}
+
+static void grTCaptain_8021FF10(Ground_GObj* arg0)
+{
+    Ground_801C2FE0(arg0);
+}
+
+static void grTCaptain_8021FF30(Ground_GObj* argo) {}
+
+static DynamicsDesc* grTCaptain_OnTouchLine(enum_t arg0)
+{
+    return NULL;
+}
+
+static bool grTCaptain_OnCheckShadowRender(Vec3* arg0, int arg1,
+                                           HSD_JObj* arg2)
+{
+    return true;
+}

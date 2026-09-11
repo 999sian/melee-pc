@@ -1,0 +1,188 @@
+#include "vi0102.h"
+
+#include <melee/sc/forward.h>
+#include <sysdolphin/baselib/forward.h>
+
+#include <placeholder.h>
+
+#include "types.h"
+#include "vi.h"
+#include <dolphin/gx.h>
+#include <melee/cm/camera.h>
+#include <melee/ef/efasync.h>
+#include <melee/ef/eflib.h>
+#include <melee/ft/ftdemo.h>
+#include <melee/gm/gm_unsplit.h>
+#include <melee/gr/ground.h>
+#include <melee/gr/stage.h>
+#include <melee/it/item.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/lb_013B.h>
+#include <melee/lb/lbarchive.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbshadow.h>
+#include <melee/lb/lbspdisplay.h>
+#include <melee/mp/mpcoll.h>
+#include <melee/pl/player.h>
+#include <melee/sc/types.h>
+#include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/wobj.h>
+
+static SceneDesc* un_804D6F30;
+static GXColor erase_colors_vi0102;
+static HSD_Archive* un_804D6F38;
+u8 un_804D6F3C[8];
+
+static Vec3 initial_pos = { 0, 0, 0 };
+
+void vi0102_8031CB00(int mario_costume, int luigi_costume)
+{
+    Camera_Init(6);
+    lb_8000FCDC();
+    mpColl_80041C78();
+    Ground_801C0378(0x40);
+    Stage_802251E8(St_Kind_Castle, 0);
+    Item_80266FA8();
+    Item_80266FCC();
+    Stage_8022524C();
+    Stage_8022532C(St_Kind_Castle, 0);
+
+    ftDemo_ObjAllocInit();
+    Player_InitAllPlayers();
+
+    // Setup Mario
+    Player_80036E20(CKind_Mario, un_804D6F38, 4);
+    Player_SetPlayerCharacter(0, CKind_Mario);
+    Player_SetCostumeId(0, mario_costume);
+    Player_SetPlayerId(0, 0);
+    Player_SetSlottype(0, Gm_PKind_Demo);
+    Player_SetFacingDirection(0, 1.0f);
+    Player_80032768(0, &initial_pos);
+    Player_80036F34(0, 9);
+
+    // Setup Luigi
+    Player_80036E20(CKind_Luigi, un_804D6F38, 4);
+    Player_SetPlayerCharacter(1, CKind_Luigi);
+    Player_SetCostumeId(1, luigi_costume);
+    Player_SetPlayerId(1, 0);
+    Player_SetSlottype(1, Gm_PKind_Demo);
+    Player_SetFacingDirection(1, 1.0f);
+    Player_80032768(1, &initial_pos);
+    Player_80036F34(1, 9);
+
+    lbAudioAx_80026F2C(0x18);
+    lbAudioAx_8002702C(8, 0x400000000);
+    lbAudioAx_80027168();
+    lbAudioAx_80027648();
+}
+
+void vi0102_JObjCallback(HSD_GObj* gobj)
+{
+    HSD_JObjAnimAll(GET_JOBJ(gobj));
+}
+
+void vi0102_CameraCallback(HSD_GObj* gobj, int unused)
+{
+    PAD_STACK(8);
+    lbShadow_8000F38C(0);
+    vi_RunCamera(gobj, (u8*) &erase_colors_vi0102, 0x881);
+}
+
+/// Used to force float ordering of file
+#ifdef MUST_MATCH
+static f32 unused(void)
+{
+    return 0.0f;
+}
+#endif
+
+static void vi0102_RunFrame(HSD_GObj* gobj)
+{
+    HSD_CObj* cobj;
+
+    cobj = gobj->hsd_obj;
+    HSD_CObjAnim(cobj);
+
+    if (190.0f == cobj->eyepos->aobj->curr_frame) {
+        vi_8031C9B4(0x21, 0);
+    }
+    if (cobj->eyepos->aobj->curr_frame == cobj->eyepos->aobj->end_frame) {
+        lb_800145F4();
+        gm_801A4B60();
+    }
+}
+
+void vi0102_Scene_OnEnter(void* arg)
+{
+    int i;
+    HSD_CObj* cobj;
+    HSD_GObj* cam_gobj;
+
+    HSD_JObj* tmp;
+    HSD_JObj* jobj;
+    HSD_GObj* joint_gobj;
+
+    HSD_Fog* fog;
+    HSD_GObj* fog_gobj;
+
+    HSD_LObj* lobj;
+    HSD_GObj* light_gobj;
+
+    ViCharaDesc* desc = (ViCharaDesc*) arg;
+
+    lbAudioAx_800236DC();
+    efLib_Init();
+    efAsync_LoadSync(0);
+    lbAudioAx_80023F28(0x56);
+    lbAudioAx_80024E50(1);
+    un_804D6F38 = lbArchive_LoadSymbols("Vi0102.dat", &un_804D6F30,
+                                        "visual0102Scene", 0);
+
+    cam_gobj = GObj_Create(0x13, 0x14, 0);
+    cobj =
+        lb_80013B14((HSD_CameraDescPerspective*) un_804D6F30->cameras[0].desc);
+    HSD_GObjObject_80390A70(cam_gobj, HSD_GObj_CameraKind, cobj);
+    GObj_SetupGXLinkMax(cam_gobj, vi0102_CameraCallback, 0x8);
+    HSD_CObjAddAnim(cobj, un_804D6F30->cameras[0].anims[0]);
+    HSD_CObjReqAnim(cobj, 0.0F);
+    HSD_CObjAnim(cobj);
+    HSD_GObj_SetupProc(cam_gobj, vi0102_RunFrame, 0);
+
+    for (i = 0; un_804D6F30->models[i] != NULL; i++) {
+        joint_gobj = GObj_Create(0xE, 0xF, 0);
+        jobj = HSD_JObjLoadJoint(un_804D6F30->models[i]->joint);
+        tmp = jobj;
+        HSD_GObjObject_80390A70(joint_gobj, HSD_GObj_JObjKind, tmp);
+        GObj_SetupGXLink(joint_gobj, HSD_GObj_JObjCallback, 0xB, 0);
+        gm_8016895C(jobj, un_804D6F30->models[i],
+                    (un_804D6F30->models[i] != NULL) * 0);
+        HSD_JObjReqAnimAll(tmp, 0.0F);
+        HSD_JObjAnimAll(jobj);
+        HSD_GObj_SetupProc(joint_gobj, vi0102_JObjCallback, 0x17);
+    }
+
+    vi0102_8031CB00(desc->p1_costume_index, desc->p2_costume_index);
+
+    fog_gobj = GObj_Create(0xA, 0x3, 0);
+    fog = HSD_FogLoadDesc(un_804D6F30->fogs[0].desc);
+    HSD_GObjObject_80390A70(fog_gobj, HSD_GObj_FogKind, fog);
+    GObj_SetupGXLink(fog_gobj, HSD_GObj_FogCallback, 0, 0);
+    erase_colors_vi0102 = fog->color;
+
+    light_gobj = GObj_Create(0xB, 0x3, 0);
+    lobj = lb_80011AC4(un_804D6F30->lights);
+    HSD_GObjObject_80390A70(light_gobj, HSD_GObj_LightKind, lobj);
+    GObj_SetupGXLink(light_gobj, HSD_GObj_LObjCallback, 0, 0);
+
+    lbAudioAx_80024E50(0);
+}
+
+void vi0102_Scene_OnFrame(void)
+{
+    vi_8031CAAC();
+}

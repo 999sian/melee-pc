@@ -1,0 +1,160 @@
+#include "ft_084E.h"
+
+#include <math.h>
+
+#include "fighter.h"
+#include "ftcommon.h"
+
+void ft_80084E1C(Fighter_GObj* gobj, float threshold, float drift_max,
+                 float target_max)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftCo_DatAttrs* co_attrs = getFtAttrs(fp);
+    float drift;
+    float target_vel;
+
+    ftCommon_CheckFallFast(fp);
+    if (fp->fall_fast) {
+        ftCommon_FallFast(fp);
+    } else {
+        ftCommon_Fall(fp, co_attrs->gravity, co_attrs->terminal_velocity);
+    }
+
+    if (ABS(fp->input.lstick[0].x) >= threshold) {
+        drift = fp->input.lstick[0].x * drift_max;
+        target_vel = fp->input.lstick[0].x * target_max;
+    } else {
+        target_vel = 0.0F;
+        drift = 0.0F;
+    }
+    ftCommon_CalcSelfAccel_AccelToVelClamped(fp, drift, target_vel,
+                                             co_attrs->aerial_friction);
+}
+
+void ft_80084EEC(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftCo_DatAttrs* co_attrs = getFtAttrs(fp);
+
+    ftCommon_Fall(fp, co_attrs->gravity, co_attrs->terminal_velocity);
+    ftCommon_CalcSelfAccel_Deaccel(fp, co_attrs->aerial_friction);
+}
+
+void ft_80084F3C(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftCo_DatAttrs* co = &fp->co_attrs;
+    f32 friction = co->ground_friction;
+    PAD_STACK(8);
+    if (ABS(fp->gr_vel) > co->walk_max_vel) {
+        friction *= p_ftCommonData->friction_when_above_walk_speed;
+    }
+    ftCommon_CalcGroundAccel_Deaccel(fp, friction);
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
+}
+
+void ft_80084FA8(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftCo_DatAttrs* co = &fp->co_attrs;
+    f32 var_f2 = fp->gr_vel;
+    f32 var_f1 = co->ground_friction;
+    if (var_f2 < 0.0F) {
+        var_f2 = -var_f2;
+    }
+    if (var_f2 > co->walk_max_vel) {
+        var_f1 *= p_ftCommonData->friction_when_above_walk_speed;
+    }
+    ft_80085030(gobj, var_f1, fp->facing_dir);
+}
+
+void ft_80085004(Fighter_GObj* gobj)
+{
+    ftCo_DatAttrs* co_attrs;
+    Fighter* fp = GET_FIGHTER(gobj);
+    co_attrs = &fp->co_attrs;
+
+    ft_80085030(gobj, co_attrs->ground_friction, fp->facing_dir1);
+}
+
+void ft_80085030(Fighter_GObj* gobj, float gr_friction, float facing_dir)
+{
+    Fighter* fp = gobj->user_data;
+    if (fp->x594_b0) {
+        fp->xE4_ground_accel_1 =
+            fp->x6A4_transNOffset.z * facing_dir - fp->gr_vel;
+    } else {
+        ftCommon_CalcGroundAccel_Deaccel(fp, gr_friction);
+    }
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
+}
+
+void ft_80085088(Fighter_GObj* gobj)
+{
+    ftCo_DatAttrs* co_attrs;
+    Fighter* fp = GET_FIGHTER(gobj);
+    co_attrs = &fp->co_attrs;
+
+    ft_800850E0(gobj, co_attrs->ground_friction, fp->facing_dir);
+}
+
+void ft_800850B4(Fighter_GObj* gobj)
+{
+    ftCo_DatAttrs* co_attrs;
+    Fighter* fp = GET_FIGHTER(gobj);
+    co_attrs = &fp->co_attrs;
+
+    ft_800850E0(gobj, co_attrs->ground_friction, fp->facing_dir1);
+}
+
+void ft_800850E0(Fighter_GObj* gobj, float arg8, float arg9)
+{
+    Fighter* fp = gobj->user_data;
+    if (fp->x594_b0) {
+        fp->gr_vel = fp->x6A4_transNOffset.z * arg9;
+    } else {
+        ftCommon_CalcGroundAccel_Deaccel(fp, arg8);
+    }
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
+}
+
+void ft_80085134(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->self_vel.x = fp->x6A4_transNOffset.z * fp->facing_dir;
+    fp->self_vel.y = fp->x6A4_transNOffset.y;
+}
+
+void ft_80085154(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    f32 lstick_x = cosf(fp->lstick_angle);
+    f32 lstick_y = sinf(fp->lstick_angle);
+    f32 temp_f0 = fp->x6A4_transNOffset.y;
+    f32 temp_f3 = fp->x6A4_transNOffset.z * fp->facing_dir;
+    fp->self_vel.x = (temp_f3 * lstick_x) - (temp_f0 * lstick_y);
+    fp->self_vel.y = (temp_f3 * lstick_y) + (temp_f0 * lstick_x);
+}
+
+void ft_800851C0(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->self_vel.y = fp->x6A4_transNOffset.y;
+}
+
+void ft_800851D0(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->x197C != NULL) {
+        fp->self_vel.y =
+            fp->x6A4_transNOffset.y * ((f32*) Fighter_804D6520)[5];
+    } else {
+        fp->self_vel.y = fp->x6A4_transNOffset.y;
+    }
+}
+
+void ft_80085204(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->self_vel.x = fp->x6A4_transNOffset.z * fp->facing_dir;
+}

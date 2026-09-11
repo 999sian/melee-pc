@@ -1,0 +1,781 @@
+#include "groldpupupu.h"
+
+#include <sysdolphin/baselib/forward.h>
+
+#include <placeholder.h>
+
+#include "forward.h"
+#include "granime.h"
+#include "grmaterial.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include <melee/cm/camera.h>
+#include <melee/ft/ftdevice.h>
+#include <melee/ft/ftlib.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <sysdolphin/baselib/debug.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/random.h>
+
+struct grOldpupupu_YakumonoParam {
+    s16 x0;
+    s16 x2;
+    s16 x4;
+    s16 x6;
+    int x8;
+    int xC;
+    f32 x10;
+    f32 x14;
+    f32 x18;
+    f32 x1C;
+    f32 x20;
+    f32 x24;
+    f32 x28;
+    f32 x2C;
+    f32 x30;
+};
+
+static struct grOldpupupu_YakumonoParam* yakumono_param;
+
+static void* grOp_804D6A9C;
+
+static int grOp_804D48A0[1][2] = { { 4, 0 } };
+static int grOp_804D48A8[1][2] = { { 5, 1 } };
+static int grOp_804D48B0[1][2] = { { 2, 3 } };
+typedef struct grOldPupupuSpawnDesc {
+    s8 x0;
+    s8 x1;
+    s16 x2;
+} grOldPupupuSpawnDesc;
+
+StageCallbacks grOp_StageCallbacks[] = {
+    {
+        grOldPupupu_8021099C,
+        grOldPupupu_802109C8,
+        grOldPupupu_802109D0,
+        grOldPupupu_802109D4,
+        0,
+    },
+    {
+        grOldPupupu_802109D8,
+        grOldPupupu_80210A1C,
+        grOldPupupu_80210A24,
+        grOldPupupu_80210B00,
+        0,
+    },
+    {
+        grOldPupupu_80210BE4,
+        grOldPupupu_80210C2C,
+        grOldPupupu_80210C34,
+        grOldPupupu_80210C78,
+        0,
+    },
+    {
+        grOldPupupu_80211110,
+        grOldPupupu_8021118C,
+        grOldPupupu_80211194,
+        grOldPupupu_80211198,
+        0,
+    },
+    {
+        grOldPupupu_80210B04,
+        grOldPupupu_80210B48,
+        grOldPupupu_80210B50,
+        grOldPupupu_80210B54,
+        0,
+    },
+    {
+        grOldPupupu_80210B58,
+        grOldPupupu_80210BB8,
+        grOldPupupu_80210BC0,
+        grOldPupupu_80210BE0,
+        (1 << 30) | (1 << 31),
+    },
+    {
+        grOldPupupu_80211C10,
+        grOldPupupu_80211C14,
+        grOldPupupu_80211C1C,
+        grOldPupupu_80211C9C,
+        0,
+    },
+    {
+        grOldPupupu_8021119C,
+        grOldPupupu_80211284,
+        grOldPupupu_802113E0,
+        grOldPupupu_80211C0C,
+        0,
+    },
+    {
+        grOldPupupu_80210C7C,
+        grOldPupupu_80210D08,
+        grOldPupupu_80210D10,
+        grOldPupupu_8021110C,
+        0,
+    },
+};
+
+StageData grOp_StageData = {
+    Gr_Kind_OldPupupu,
+    grOp_StageCallbacks,
+    "/GrOp.dat",
+    grOldPupupu_802107E0,
+    grOldPupupu_802107DC,
+    grOldPupupu_80210884,
+    grOldPupupu_80210888,
+    grOldPupupu_802108AC,
+    grOldPupupu_80211CA0,
+    grOldPupupu_80211CA8,
+    (1 << 0),
+    NULL,
+    0,
+};
+
+void grOldPupupu_802107DC(bool arg) {}
+
+void grOldPupupu_802107E0(void)
+{
+    PAD_STACK(8);
+
+    yakumono_param = Ground_GetYakumonoParam();
+    stage_info.unk8C.b4 = 0;
+    stage_info.unk8C.b5 = 1;
+    grOldPupupu_802108B4(0);
+    grOldPupupu_802108B4(3);
+    grOldPupupu_802108B4(7);
+    grOldPupupu_802108B4(5);
+    grOldPupupu_802108B4(4);
+    grOldPupupu_802108B4(6);
+    grOldPupupu_802108B4(1);
+    grOldPupupu_802108B4(8);
+    Ground_801C39C0();
+    Ground_801C3BB4();
+    grOp_804D6A9C = NULL;
+}
+
+void grOldPupupu_80210884(void) {}
+
+void grOldPupupu_80210888(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+bool grOldPupupu_802108AC(void)
+{
+    return false;
+}
+/// Spells out #Ground_SetupStageCallbacks so that this function stays
+/// out-of-line in #grOldPupupu_80210D10.
+HSD_GObj* grOldPupupu_802108B4(int arg0)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grOp_StageCallbacks[arg0];
+
+    gobj = Ground_GetStageGObj(arg0);
+
+    if (gobj != NULL) {
+        Ground* gp = GET_GROUND(gobj);
+        gp->x8_callback = NULL;
+        gp->xC_callback = NULL;
+        GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0);
+        if (callbacks->callback3 != NULL) {
+            gp->x1C_callback = callbacks->callback3;
+        }
+        if (callbacks->on_init != NULL) {
+            callbacks->on_init(gobj);
+        }
+        if (callbacks->gobj_proc != NULL) {
+            HSD_GObj_SetupProc(gobj, callbacks->gobj_proc, 4);
+        }
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 217, arg0);
+    }
+
+    return gobj;
+}
+
+static grOldPupupuSpawnDesc grOp_803E67B0[10] = {
+    { -1, 1, 1 }, { 1, 1, 3 },   { 1, 1, 5 },  { -1, 1, 7 },  { -1, 0, 9 },
+    { 1, 0, 11 }, { -1, 0, 13 }, { 1, 0, 15 }, { -1, 0, 17 }, { 1, 0, 19 },
+};
+
+static int grOp_803E67D8[3] = { 0, 1, 2 };
+static Vec3 grOp_803E67E4[2] = { { -1.0F, 0.0F, 0.0F }, { 1.0F, 0.0F, 0.0F } };
+
+void grOldPupupu_8021099C(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grOldPupupu_802109C8(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grOldPupupu_802109D0(Ground_GObj* arg) {}
+
+void grOldPupupu_802109D4(Ground_GObj* arg) {}
+
+void grOldPupupu_802109D8(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    gp->u.oldpupupu.xC4 = 0;
+    gp->u.oldpupupu.xC8 = 0;
+    gp->u.oldpupupu.xCC = 0;
+    gp->u.oldpupupu.xD0 = 1;
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grOldPupupu_80210A1C(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grOldPupupu_80210A24(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    if ((int) grOp_804D6A9C == 0 && gp->u.oldpupupu.xD0 == 1) {
+        gp->u.oldpupupu.xD0 = 0;
+        switch (gp->u.oldpupupu.xC8) {
+        case 0:
+            grAnime_801C8138(
+                gobj, gp->map_id,
+                grOp_804D48A0[gp->u.oldpupupu.xCC][gp->u.oldpupupu.xD4]);
+            break;
+        case 1:
+            grAnime_801C8138(
+                gobj, gp->map_id,
+                grOp_804D48B0[gp->u.oldpupupu.xCC][gp->u.oldpupupu.xD4]);
+            break;
+        case 2:
+            grAnime_801C8138(
+                gobj, gp->map_id,
+                grOp_804D48A8[gp->u.oldpupupu.xCC][gp->u.oldpupupu.xD4]);
+            break;
+        }
+    }
+}
+
+void grOldPupupu_80210B00(Ground_GObj* arg) {}
+
+void grOldPupupu_80210B04(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    gp->x10_flags.b5 = 1;
+}
+
+bool grOldPupupu_80210B48(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grOldPupupu_80210B50(Ground_GObj* arg) {}
+
+void grOldPupupu_80210B54(Ground_GObj* arg) {}
+
+void grOldPupupu_80210B58(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    Ground_JObjInline1(gobj);
+    gp->x11_flags.b012 = 1;
+}
+
+bool grOldPupupu_80210BB8(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grOldPupupu_80210BC0(Ground_GObj* gobj)
+{
+    lb_800115F4();
+}
+
+void grOldPupupu_80210BE0(Ground_GObj* arg) {}
+
+void grOldPupupu_80210BE4(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObjSetFlagsAll(GET_JOBJ(gobj), JOBJ_HIDDEN);
+    gp->x11_flags.b012 = 2;
+}
+
+bool grOldPupupu_80210C2C(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grOldPupupu_80210C34(Ground_GObj* gobj)
+{
+    PAD_STACK(8);
+    if (grAnime_801C83D0(gobj, 0, 7) != 0) {
+        Ground_801C4A08(gobj);
+    }
+}
+
+void grOldPupupu_80210C78(Ground_GObj* arg) {}
+
+void grOldPupupu_80210C7C(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    s16 x2, x0;
+
+    x2 = yakumono_param->x2;
+    x0 = yakumono_param->x0;
+    gp->u.oldpupupu2.xC4 =
+        x2 > x0   ? x0 + (x2 - x0 != 0 ? HSD_Randi(x2 - x0) : 0)
+        : x2 < x0 ? x2 + (x0 - x2 != 0 ? HSD_Randi(x0 - x2) : 0)
+                  : x2;
+}
+
+bool grOldPupupu_80210D08(Ground_GObj* gobj)
+{
+    return false;
+}
+
+static inline HSD_JObj* grOldPupupu_GetSpawnJObj(HSD_GObj* gobj)
+{
+    HSD_JObj* jobj = gobj->hsd_obj;
+    (void) jobj;
+    HSD_ASSERT(0x216, jobj);
+    return jobj;
+}
+
+void grOldPupupu_80210D10(Ground_GObj* gobj)
+{
+    f32 cam_left;
+    f32 cam_right;
+    f32 cam_center;
+    HSD_JObj* jobj;
+    Ground* gp;
+    f32 direction;
+    f32 y;
+    f32 z;
+    f32 x;
+    f32 step;
+    s16 timer;
+    s16 min_respawn;
+    s16 respawn;
+    s32 count;
+    s32 i;
+    s32 index;
+
+    PAD_STACK(8);
+    /// @todo Reusing @p gobj as the pointer carrier selects retail registers.
+    gobj = (Ground_GObj*) GET_GROUND(gobj);
+    gp = (Ground*) gobj;
+    timer = gp->u.oldpupupu2.xC4;
+    gp->u.oldpupupu2.xC4 = timer - 1;
+    if (timer < 0) {
+        direction = Ground_801C0498();
+        {
+            s32 tmp = HSD_Randi(10);
+            index = tmp;
+        }
+        if (grOp_803E67B0[index].x1 != 0 && HSD_Randi(5) == 0) {
+            count = 3;
+        } else {
+            count = 1;
+        }
+        Camera_800307D0(&cam_left, &cam_center, &cam_right);
+        if (grOp_803E67B0[index].x0 == 1) {
+            step = -10.0F;
+            if (cam_right < 200.0F) {
+                cam_right = 200.0F;
+            }
+            x = -(((f32) count * step) - (50.0F + cam_right));
+        } else {
+            step = 10.0F;
+            if (cam_left > -200.0F) {
+                cam_left = -200.0F;
+            }
+            x = -(((f32) count * step) - (cam_left - 50.0F));
+        }
+        {
+            f32 rand = HSD_Randf();
+            y = direction *
+                (((f32) yakumono_param->x4 * ((2.0F * rand) - 1.0F)) + 20.0F);
+        }
+        z = -150.0F * direction;
+        for (i = 0; i < count; i++) {
+            HSD_GObj* spawn;
+            spawn = grOldPupupu_802108B4(2);
+            if (spawn != NULL) {
+                jobj = grOldPupupu_GetSpawnJObj(spawn);
+                HSD_JObjSetTranslateX(jobj, direction * x);
+                HSD_JObjSetTranslateY(jobj, y);
+                HSD_JObjSetTranslateZ(jobj, z);
+                grAnime_801C7FF8(spawn, 0, 7, 0, 40.0F * (f32) i, 1.0F);
+                HSD_JObjClearFlagsAll(
+                    Ground_801C3FA4(spawn, grOp_803E67B0[index].x2),
+                    JOBJ_HIDDEN);
+            }
+            x += step;
+        }
+
+        respawn = yakumono_param->x2;
+        min_respawn = yakumono_param->x0;
+        respawn = respawn > min_respawn
+                      ? min_respawn + (respawn - min_respawn != 0
+                                           ? HSD_Randi(respawn - min_respawn)
+                                           : 0)
+                  : respawn < min_respawn
+                      ? respawn + (min_respawn - respawn != 0
+                                       ? HSD_Randi(min_respawn - respawn)
+                                       : 0)
+                      : respawn;
+        gp->u.oldpupupu2.xC4 = respawn;
+    }
+}
+
+void grOldPupupu_8021110C(Ground_GObj* arg) {}
+
+void grOldPupupu_80211110(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    HSD_JObj* jobj = gobj->hsd_obj;
+    PAD_STACK(16);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    ((Ground*) gobj->user_data)->x10_flags.b2 = 0;
+    grMaterial_801C8858(jobj, 0x28000000U);
+    gp->x11_flags.b012 = 2;
+}
+
+bool grOldPupupu_8021118C(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grOldPupupu_80211194(Ground_GObj* arg) {}
+
+void grOldPupupu_80211198(Ground_GObj* arg) {}
+
+static inline int randrange(int min, int max)
+{
+    int diff;
+    int rng;
+
+    if (min > max) {
+        diff = min - max;
+        rng = (diff != 0) ? HSD_Randi(diff) : 0;
+        rng = max + rng;
+    } else if (min < max) {
+        diff = max - min;
+        rng = (diff != 0) ? HSD_Randi(diff) : 0;
+        rng = min + rng;
+    } else {
+        rng = min;
+    }
+    return rng;
+}
+
+void grOldPupupu_8021119C(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+
+    ftCo_800C06E8(gobj, 0xA, fn_802112F4);
+    gp->u.oldpupupu.xC4 = 0;
+    gp->u.oldpupupu.xC8 = 0;
+    gp->u.oldpupupu.xCC = 0;
+    gp->u.oldpupupu.xD0 = randrange(yakumono_param->xC, yakumono_param->x8);
+    gp->u.oldpupupu.xD4 = 1;
+    gp->u.oldpupupu.xE0 = 0;
+    gp->u.oldpupupu.xD8 = 1;
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    gp->x11_flags.b012 = 1;
+}
+
+bool grOldPupupu_80211284(Ground_GObj* gobj)
+{
+    return false;
+}
+
+bool grOldPupupu_8021128C(Vec* vec, f32 maxX, f32 minX, f32 maxY, f32 minY)
+{
+    float maxY_actual;
+    float maxX_actual;
+    if (maxX > minX) {
+        maxX_actual = maxX;
+    } else {
+        maxX_actual = minX;
+        minX = maxX;
+    }
+    if (maxY > minY) {
+        maxY_actual = maxY;
+    } else {
+        maxY_actual = minY;
+        minY = maxY;
+    }
+    if (minX < vec->x && vec->x < maxX_actual) {
+        if (minY < vec->y && vec->y < maxY_actual) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool fn_802112F4(Ground_GObj* gobj, HSD_GObj* fighter_gobj, Vec3* vel)
+{
+    Vec3 pos;
+    Ground* gp;
+
+    ftLib_80086644(fighter_gobj, &pos);
+    vel->y = 0.0F;
+    vel->z = 0.0F;
+
+    gp = GET_GROUND(gobj);
+    switch (gp->u.oldpupupu.xDC) {
+    case 1:
+        if (grOldPupupu_8021128C(&pos, yakumono_param->x1C,
+                                 yakumono_param->x20, yakumono_param->x24,
+                                 yakumono_param->x28) == true)
+        {
+            vel->x = -yakumono_param->x10;
+            return true;
+        }
+        break;
+    case 2:
+        if (grOldPupupu_8021128C(&pos, yakumono_param->x18,
+                                 yakumono_param->x14, yakumono_param->x24,
+                                 yakumono_param->x28) == true)
+        {
+            vel->x = yakumono_param->x10;
+            return true;
+        }
+        break;
+    }
+
+    vel->x = 0.0F;
+    return false;
+}
+
+static int grOp_804D48C8[1][2] = { { 4, 0 } };
+static int grOp_804D48D0[1][2] = { { 5, 1 } };
+static int grOp_804D48D8[1][2] = { { 2, 3 } };
+static int grOp_804D48E0[1][2] = { { 1, 0 } };
+
+static inline void grOldPupupu_SyncSecondary(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    Ground* other_gp = Ground_GetMapGObj(1)->user_data;
+    other_gp->u.oldpupupu.xC4 = gp->u.oldpupupu.xC4;
+    other_gp->u.oldpupupu.xC8 = gp->u.oldpupupu.xC8;
+    other_gp->u.oldpupupu.xCC = 0;
+    other_gp->u.oldpupupu.xD4 = gp->u.oldpupupu.xD8;
+    other_gp->u.oldpupupu.xD0 = 1;
+}
+
+static inline void grOldPupupu_Advance(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    gp->u.oldpupupu.xC4 += 1;
+    if (gp->u.oldpupupu.xC4 >= 3) {
+        gp->u.oldpupupu.xC4 = 0;
+    }
+    gp->u.oldpupupu.xC8 = grOp_803E67D8[gp->u.oldpupupu.xC4];
+    gp->u.oldpupupu.xD4 = 1;
+}
+
+void grOldPupupu_802113E0(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+
+    if ((int) grOp_804D6A9C == 0) {
+        gp->u.oldpupupu.xE0 += 1;
+        gp->u.oldpupupu.xDC = 0;
+
+        switch (gp->u.oldpupupu.xC8) {
+        case 0:
+            if (gp->u.oldpupupu.xD4 != 0) {
+                gp->u.oldpupupu.xD4 = 0;
+                gp->u.oldpupupu.xCC = 0;
+                gp->u.oldpupupu.xD0 =
+                    randrange(yakumono_param->xC, yakumono_param->x8);
+                grAnime_801C8138(
+                    gobj, gp->map_id,
+                    grOp_804D48C8[gp->u.oldpupupu.xCC][gp->u.oldpupupu.xD8]);
+                grOldPupupu_SyncSecondary(gobj);
+                gp->u.oldpupupu.xCC = randrange((s32) yakumono_param->x30,
+                                                (s32) yakumono_param->x2C);
+            }
+
+            gp->u.oldpupupu.xD0 -= 1;
+            if (grAnime_801C83D0(gobj, 0, 7) != 0) {
+                if (gp->u.oldpupupu.xD0 > 0) {
+                    gp->u.oldpupupu.xCC -= 1;
+                    if (gp->u.oldpupupu.xCC <= 0) {
+                        gp->u.oldpupupu.xCC = 0;
+                        grAnime_801C8138(gobj, gp->map_id,
+                                         grOp_804D48C8[gp->u.oldpupupu.xCC]
+                                                      [gp->u.oldpupupu.xD8]);
+                        gp->u.oldpupupu.xCC =
+                            randrange((s32) yakumono_param->x30,
+                                      (s32) yakumono_param->x2C);
+                    }
+                    grOldPupupu_SyncSecondary(gobj);
+                    return;
+                }
+
+                {
+                    Ground* other_gp;
+
+                    grOldPupupu_Advance(gobj);
+                    /* grOldPupupu_SyncSecondary would recolor gp here. */
+                    gp = gobj->user_data;
+                    other_gp = Ground_GetMapGObj(1)->user_data;
+                    other_gp->u.oldpupupu.xC4 = gp->u.oldpupupu.xC4;
+                    other_gp->u.oldpupupu.xC8 = gp->u.oldpupupu.xC8;
+                    other_gp->u.oldpupupu.xCC = 0;
+                    other_gp->u.oldpupupu.xD4 = gp->u.oldpupupu.xD8;
+                    other_gp->u.oldpupupu.xD0 = 1;
+                    return;
+                }
+            }
+            break;
+
+        case 1:
+            if (gp->u.oldpupupu.xD4 != 0) {
+                struct {
+                    u8 pad[148];
+                    Vec3 pos;
+                    u8 tail[16];
+                } stack;
+                s32 side;
+                f32 side_f;
+
+                gp->u.oldpupupu.xCC = 0;
+                HSD_JObjGetTranslation(gobj->hsd_obj, &stack.pos);
+                if (ftLib_800864A8(&stack.pos, NULL) == 1.0F) {
+                    side = 1;
+                } else {
+                    side = 0;
+                }
+                side_f = side;
+                if ((f32) gp->u.oldpupupu.xD8 == side_f) {
+                    gp->u.oldpupupu.xC8 = 2;
+                    gp->u.oldpupupu.xD4 = 0;
+                    gp->u.oldpupupu.xCC = 0;
+                    gp->u.oldpupupu.xD0 = 0;
+                    grAnime_801C8138(gobj, gp->map_id,
+                                     grOp_804D48D0[gp->u.oldpupupu.xCC]
+                                                  [gp->u.oldpupupu.xD8]);
+                    grOldPupupu_Advance(gobj);
+                    grOldPupupu_SyncSecondary(gobj);
+                    grOldPupupu_SyncSecondary(gobj);
+                } else {
+                    gp->u.oldpupupu.xD8 = side_f;
+                    gp->u.oldpupupu.xD4 = 0;
+                    gp->u.oldpupupu.xCC = 0;
+                    gp->u.oldpupupu.xD0 = 0;
+                    grAnime_801C8138(gobj, gp->map_id,
+                                     grOp_804D48D8[gp->u.oldpupupu.xCC]
+                                                  [gp->u.oldpupupu.xD8]);
+                    grOldPupupu_SyncSecondary(gobj);
+                }
+            }
+
+            if (gp->u.oldpupupu.xC8 == 1 && grAnime_801C83D0(gobj, 0, 7) != 0)
+            {
+                grOldPupupu_Advance(gobj);
+                grOldPupupu_SyncSecondary(gobj);
+                return;
+            }
+            break;
+
+        case 2:
+            if (gp->u.oldpupupu.xD4 != 0) {
+                gp->u.oldpupupu.xD4 = 0;
+                gp->u.oldpupupu.xCC = 0;
+                gp->u.oldpupupu.xD0 = 0;
+                grAnime_801C8138(
+                    gobj, gp->map_id,
+                    grOp_804D48D0[gp->u.oldpupupu.xCC][gp->u.oldpupupu.xD8]);
+                grOldPupupu_SyncSecondary(gobj);
+            }
+
+            if (grAnime_801C83D0(gobj, 0, 7) == 0) {
+                gp->u.oldpupupu.xD0 += 1;
+                if (gp->u.oldpupupu.xD0 == 0x2D) {
+                    lbAudioAx_800237A8(gp->u.oldpupupu.xD8 == 0 ? 0x72BF0
+                                                                : 0x72BF1,
+                                       0x7F, 0x40);
+                }
+                if (gp->u.oldpupupu.xD0 > 0x2D && gp->u.oldpupupu.xD0 < 0x140)
+                {
+                    Camera_RequestQuake(QuakeKind_Loop, NULL);
+                    gp->u.oldpupupu.xDC = gp->u.oldpupupu.xD8 + 1;
+                    if ((gp->u.oldpupupu.xD0 % 10) == 0) {
+                        gp = gobj->user_data;
+                        if (gp->u.oldpupupu.xD8 == 0) {
+                            lb_80011A50(
+                                &grOp_803E67E4[gp->u.oldpupupu.xD8], 0xF, 0.5F,
+                                0.0F, 0.0F, yakumono_param->x20,
+                                yakumono_param->x24, yakumono_param->x1C,
+                                yakumono_param->x28);
+                        } else {
+                            lb_80011A50(
+                                &grOp_803E67E4[gp->u.oldpupupu.xD8], 0xF, 0.5F,
+                                0.0F, 0.0F, yakumono_param->x14,
+                                yakumono_param->x24, yakumono_param->x18,
+                                yakumono_param->x28);
+                        }
+                        return;
+                    }
+                }
+            } else {
+                grOldPupupu_Advance(gobj);
+                grOldPupupu_SyncSecondary(gobj);
+            }
+            break;
+        }
+    }
+}
+
+void grOldPupupu_80211C0C(Ground_GObj* arg) {}
+
+void grOldPupupu_80211C10(Ground_GObj* arg) {}
+
+bool grOldPupupu_80211C14(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grOldPupupu_80211C1C(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    Ground* other_gp = Ground_GetMapGObj(7)->user_data;
+    PAD_STACK(8);
+
+    if (other_gp->u.oldpupupu.xC8 == 2 && other_gp->u.oldpupupu.xD4 != 0) {
+        grAnime_801C8138(gobj, gp->map_id,
+                         grOp_804D48E0[other_gp->u.oldpupupu.xCC]
+                                      [other_gp->u.oldpupupu.xD8]);
+    }
+}
+
+void grOldPupupu_80211C9C(Ground_GObj* arg) {}
+
+DynamicsDesc* grOldPupupu_80211CA0(enum_t gobj)
+{
+    return false;
+}
+
+bool grOldPupupu_80211CA8(Vec3* a, int arg, HSD_JObj* joint)
+{
+    Vec3 b;
+
+    lb_8000B1CC(joint, NULL, &b);
+
+    if (a->y > b.y) {
+        return true;
+    } else {
+        return false;
+    }
+}

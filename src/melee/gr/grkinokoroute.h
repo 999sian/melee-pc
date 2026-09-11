@@ -1,0 +1,46 @@
+#ifndef GALE01_20741C
+#define GALE01_20741C
+
+#include <Runtime/platform.h>
+
+#include <melee/ft/forward.h>
+#include <melee/gr/forward.h>
+#include <melee/lb/forward.h>
+
+#include <dolphin/mtx.h>
+
+/* 20741C */ void grKinokoRoute_8020741C(bool);
+/* 207420 */ void grKinokoRoute_80207420(void);
+/* 207490 */ void grKinokoRoute_80207490(void);
+/* 2074D8 */ void grKinokoRoute_802074D8(void);
+/* 207544 */ bool grKinokoRoute_80207544(void);
+/* 20754C */ Ground_GObj* grKinokoRoute_8020754C(int);
+/* 207634 */ void grKinokoRoute_80207634(Ground_GObj*);
+/* 2078E8 */ bool grKinokoRoute_802078E8(Ground_GObj*);
+/* 2078F0 */ void grKinokoRoute_802078F0(Ground_GObj*);
+/* 207A94 */ void grKinokoRoute_80207A94(Ground_GObj*);
+/* 207A98 */ void grKinokoRoute_80207A98(Ground_GObj*);
+/* 207ACC */ bool grKinokoRoute_80207ACC(Ground_GObj*);
+/* 207AD4 */ void grKinokoRoute_80207AD4(Ground_GObj*);
+/* 207AD8 */ void grKinokoRoute_80207AD8(Ground_GObj*);
+/* 207ADC */ void grKinokoRoute_80207ADC(Ground_GObj*);
+/* 207B20 */ bool grKinokoRoute_80207B20(Ground_GObj*);
+/* 207B28 */ void grKinokoRoute_80207B28(Ground_GObj*);
+/* 207B2C */ void grKinokoRoute_80207B2C(Ground_GObj*);
+/* 207B30 */ void grKinokoRoute_80207B30(Ground_GObj*);
+/* 207B5C */ void grKinokoRoute_80207B5C(Ground_GObj*);
+/* 207C80 */ bool grKinokoRoute_80207C80(Ground_GObj*);
+/* 207C88 */ void grKinokoRoute_80207C88(Ground_GObj*);
+/* 208368 */ void grKinokoRoute_80208368(Ground_GObj*);
+/* 20836C */ void grKinokoRoute_8020836C(Ground_GObj*, int);
+/* 208480 */ bool grKinokoRoute_80208480(bool);
+/* 2084B4 */ void grKinokoRoute_802084B4(Ground_GObj*);
+/* 208564 */ void grKinokoRoute_80208564(Ground_GObj*);
+/* 208660 */ bool grKinokoRoute_80208660(int unused, Fighter_GObj*);
+/* 2086EC */ void grKinokoRoute_802086EC(Vec3*, f32);
+/* 208754 */ DynamicsDesc* grKinokoRoute_80208754(enum_t);
+/* 20875C */ bool grKinokoRoute_8020875C(Vec3*, int arg, HSD_JObj* jobj);
+/* 2087B0 */ float grKinokoRoute_802087B0(void);
+/* 3E584C */ extern StageData grNKr_StageData;
+
+#endif

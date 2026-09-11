@@ -1,0 +1,14 @@
+#ifndef GALE01_31CB00
+#define GALE01_31CB00
+
+#include <sysdolphin/baselib/forward.h>
+
+/* 31CB00 */ void vi0102_8031CB00(int, int);
+/* 31CC68 */ void vi0102_JObjCallback(HSD_GObj*);
+/* 31CC8C */ void vi0102_CameraCallback(HSD_GObj* gobj, int unused);
+/* 31CD20 */ void vi0102_8031CD20(HSD_GObj*);
+/* 31CD94 */ void vi0102_Scene_OnEnter(void*);
+/* 31D000 */ void vi0102_Scene_OnFrame(void);
+/* 4D6F3C */ extern u8 un_804D6F3C[8];
+
+#endif

@@ -1,0 +1,1083 @@
+#include "tylist.h"
+
+#include <Runtime/platform.h>
+
+#include <placeholder.h>
+
+#include "toy.h"
+#include "types.h"
+#include <dolphin/mtx.h>
+#include <dolphin/os.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_0146.h>
+#include <melee/lb/lbspdisplay.h>
+#include <melee/mn/inlines.h>
+#include <melee/mn/mnmain.h>
+#include <sysdolphin/baselib/archive.h>
+#include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/controller.h>
+#include <sysdolphin/baselib/displayfunc.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjplink.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/lobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/sislib.h>
+#include <sysdolphin/baselib/tobj.h>
+#include <sysdolphin/baselib/wobj.h>
+
+/* 312834 */ static char* _tyList_80312834(char* buf, u32 num);
+/* 312904 */ static void _tyList_80312904(void*, s8);
+/* 312BAC */ static void _tyList_80312BAC(TyListState* state, s8 arg1);
+/* 312E88 */ static void _tyList_80312E88(struct TyListArg* arg, float delta);
+/* 31305C */ static s32 _tyList_8031305C(void* a, TyListState* state,
+                                         s8 movedFlag);
+/* 313358 */ static void _tyList_80313358(TyListState* state, s8 arg2, s8 arg3,
+                                          s8 arg4);
+/* 313464 */ static void _tyList_80313464(struct TyListArg* arg);
+/* 313508 */ static void* _tyList_80313508(HSD_GObj* parent, char* symbol_name,
+                                           float x, float y, float z);
+/* 313774 */ static void _tyList_80313774(void);
+/* 31438C */ static void _tyList_8031438C(HSD_GObj* arg0);
+/* 314504 */ static void _tyList_80314504(HSD_GObj* gobj, int);
+/* 31457C */ static void _tyList_8031457C(void);
+/* 3148E4 */ static void _tyList_803148E4(s32 arg0);
+/* 4A2AC0 */ static TyListState _tyList_804A2AC0;
+/* 4A2D6C */ static TyListGobjEntry _tyList_804A2D6C;
+/* 4A2D84 */ static HSD_GObj* _tyList_804A2D84[5];
+/* 4D6EE8 */ static s32 _tyList_804D6EE8;
+/* 4D6EEC */ static s32 _tyList_804D6EEC;
+
+/// @todo .data order hack
+#ifdef MUST_MATCH
+static void order_data_0(void)
+{
+    /*  +0 */ (void) "Pos : %f, %f,%f\n";
+    /* +14 */ (void) "WinSize = %f, %f\n";
+    /* +28 */ (void) "WinScale = %f, %f\n";
+    /* +3C */ (void) "FontSize = %f, %f\n";
+    /* +50 */ (void) "ToyFigureListMarkN_Top_joint";
+    /* +70 */ (void) "tylist.c";
+}
+#endif
+
+/// Formats a number into a string buffer using digit glyphs from the font.
+char* _tyList_80312834(char* buf, u32 num)
+{
+    u8* lookup = ((SisFontData*) HSD_SisLib_804D1124[0])->digits;
+    u32 idx;
+    u32 original = num;
+
+    if (num >= 100) {
+        idx = (num / 100) * 2;
+        *buf++ = lookup[idx];
+        *buf++ = lookup[idx + 1];
+        num = num % 100;
+    }
+
+    if (num >= 10) {
+        idx = (num / 10) * 2;
+        *buf++ = lookup[idx];
+        *buf++ = lookup[idx + 1];
+        num = num % 10;
+    } else if (original >= 100) {
+        *buf++ = lookup[0];
+        *buf++ = lookup[1];
+    }
+
+    idx = num * 2;
+    *buf++ = lookup[idx];
+    *buf++ = lookup[idx + 1];
+    *buf = 0;
+    return buf;
+}
+
+void _tyList_80312904(void* arg0, s8 arg1)
+{
+    TyListState* state = &_tyList_804A2AC0;
+    TyListRow* row = (TyListRow*) arg0;
+    f32 f30;
+    f32 f29;
+    f32 f31;
+    s32 skip;
+    u8* digits;
+    HSD_Text* text;
+    PAD_STACK(0x60);
+
+    if (row->idx == -1) {
+        return;
+    }
+
+    if (Toy_GetTrophyTotal() < 0xB) {
+        s8 v = row->x24;
+        if (v == -1 || v == state->entryCount - 2) {
+            skip = 0;
+        } else {
+            skip = 1;
+        }
+    } else {
+        skip = 1;
+    }
+
+    if (skip == 0) {
+        return;
+    }
+
+    f30 = HSD_JObjGetTranslationX(row->jobj) - 6.5f;
+    f29 = (-row->x30 - HSD_JObjGetTranslationY(state->gobj->hsd_obj)) - 0.41f;
+    f31 = HSD_JObjGetTranslationZ(state->gobj->hsd_obj);
+
+    if (arg1 != 0x63) {
+        if (row->x24 == arg1) {
+            row->text0->text_color = lb_ColorBlack;
+            row->text1->text_color = lb_ColorBlack;
+            row->text2->text_color = lb_ColorBlack;
+        } else {
+            row->text0->text_color = lb_ColorWhite;
+            row->text1->text_color = lb_ColorWhite;
+            row->text2->text_color = lb_ColorWhite;
+        }
+    }
+
+    text = row->text0;
+    text->pos_x = f30;
+    text->pos_y = f29;
+    text->pos_z = f31;
+    text = row->text0;
+    text->font_size.x = 0.028f;
+    text->font_size.y = 0.029f;
+    row->text0->default_kerning = 1;
+    HSD_SisLib_803A6368(row->text0, Toy_803082F8(row->idx));
+
+    text = row->text1;
+    text->pos_x = 14.7f + f30;
+    text->pos_y = f29;
+    text->pos_z = f31;
+    text = row->text1;
+    text->font_size.x = 0.028f;
+    text->font_size.y = 0.029f;
+    HSD_SisLib_803A6368(row->text1, 0x13B);
+
+    digits = ((u8**) ((char*) HSD_SisLib_804D1124[0] + 0x4B8))[row->x28];
+    _tyList_80312834((char*) digits, Toy_803048C0(Toy_80308354(row->idx)));
+
+    row->text2->default_alignment = 2;
+    row->text2->default_kerning = 1;
+    text = row->text2;
+    text->pos_x = 10.5f + f30;
+    text->pos_y = f29;
+    text->pos_z = f31;
+    text = row->text2;
+    text->font_size.x = 0.038f;
+    text->font_size.y = 0.029f;
+    HSD_SisLib_803A6368(row->text2, row->x28 + 0x12E);
+}
+
+void _tyList_80312BAC(TyListState* state, s8 arg1)
+{
+    s16 old_idx;
+    s32 i;
+    TyListArg* first_row;
+    TyListArg* row;
+    ToyED8Data* archive = Toy_sbss_804D6ED8;
+    s32 trophy_idx;
+
+    old_idx = Toy_sbss_804D6EDC[state->selectedIdx];
+    Toy_803067BC(state->x29B, state->x29C);
+    state->selectedIdx = Toy_803062BC(old_idx);
+
+    if (Toy_GetTrophyTotal() <= 0xA) {
+        trophy_idx = state->selectedIdx;
+        i = 0;
+        while (i < state->x278->x24 + 1) {
+            if (--trophy_idx < 0) {
+                trophy_idx = Toy_GetTrophyTotal() - 1;
+            }
+            i++;
+        }
+    } else {
+        trophy_idx = state->selectedIdx;
+        i = 0;
+        while (i < state->x278->x24 + 1) {
+            if (--trophy_idx < 0) {
+                trophy_idx = Toy_GetTrophyTotal() - 1;
+            }
+            i++;
+        }
+    }
+
+    first_row = state->x270;
+    row = first_row;
+    if (state->jobj != NULL) {
+        HSD_JObjSetTranslateY(state->jobj, first_row->x30);
+    }
+
+    for (i = 0; i < state->entryCount; i++) {
+        row->idx = trophy_idx;
+        _tyList_80312904(row, arg1);
+        _tyList_80313464(row);
+        if (row->x24 >= 0 && row->x24 < state->entryCount - 2 &&
+            row->idx == Toy_GetTrophyTotal() - 1)
+        {
+            if (state->jobj != NULL) {
+                HSD_JObjSetTranslateY(state->jobj, row->x30);
+            }
+        }
+        row = row->links[1];
+        trophy_idx++;
+        if (trophy_idx >= Toy_GetTrophyTotal()) {
+            trophy_idx = 0;
+        }
+    }
+
+    i = 0;
+    while (i < 3) {
+        if (i == state->x29B) {
+            HSD_JObjReqAnim(archive->jobjs[i], 1.0f);
+        } else {
+            HSD_JObjReqAnim(archive->jobjs[i], 0.0f);
+        }
+        HSD_AObjSetRate(archive->jobjs[i]->u.dobj->mobj->tobj->aobj, 0.0f);
+        HSD_JObjAnim(archive->jobjs[i]);
+        i++;
+    }
+}
+
+void _tyList_80312E88(TyListArg* arg, float delta)
+{
+    int i;
+    PAD_STACK(8);
+
+    arg->x30 += delta;
+
+    if (delta == 999.0f) {
+        arg->x30 = arg->x2C;
+    } else if (delta < 0.0f) {
+        if (arg->x30 < arg->x2C) {
+            arg->x30 = arg->x2C;
+        }
+    } else {
+        if (arg->x30 > arg->x2C) {
+            arg->x30 = arg->x2C;
+        }
+    }
+
+    for (i = 0; i < 3; i++) {
+        if (arg->jobjs[i] == NULL) {
+            continue;
+        }
+        if (i == 2) {
+            continue;
+        }
+        HSD_JObjSetTranslateY(arg->jobjs[i], arg->x30);
+
+        if (arg->idx == Toy_GetTrophyTotal() - 1) {
+            HSD_JObjSetTranslateY(_tyList_804A2AC0.jobj, arg->x30);
+        }
+    }
+
+    _tyList_80312904(arg, 0x63);
+    _tyList_80313464(arg);
+}
+
+s32 _tyList_8031305C(void* a, TyListState* state, s8 movedFlag)
+{
+    TyListArg* entry;
+    f32 delta;
+    int i;
+    PAD_STACK(0xC);
+    i = state->x29F > 0;
+    if (i) {
+        delta = state->x2A4;
+        if (state->x2A1 == 0) {
+            delta *= -1.0f;
+        }
+        entry = state->entries;
+        i = 0;
+        while (i < state->entryCount) {
+            s8 x2A1 = state->x2A1;
+            if ((x2A1 != 0 || entry->x24 != -1) &&
+                (x2A1 != 1 || state->entryCount - 1 != entry->x24))
+            {
+                _tyList_80312E88(entry, delta);
+            }
+            entry++;
+            i++;
+        }
+        state->x29F--;
+        if (state->x29F == 0) {
+            i = 0;
+            entry = state->entries;
+            while (i < state->entryCount) {
+                _tyList_80312E88(entry, 999.0f);
+                if (state->x2A1 == 0) {
+                    entry->x24--;
+                    if (entry->x24 < -1) {
+                        entry->x24 = (state->entryCount - 2);
+                    }
+                } else {
+                    entry->x24++;
+                    if (entry->x24 >= state->entryCount - 1) {
+                        entry->x24 = -1;
+                    }
+                }
+                entry = entry->links[1];
+                i++;
+            }
+            if (state->x2A1 == 0) {
+                state->x270->idx = state->x274->idx + 1;
+                if (state->x270->idx >= Toy_GetTrophyTotal()) {
+                    state->x270->idx = 0;
+                }
+                _tyList_80312904(state->x270, _tyList_804A2D6C.x0C);
+                state->x278 = state->x278->links[1];
+                state->selectedIdx = state->x278->idx;
+                state->x270 = state->x270->links[1];
+                state->x274 = state->x274->links[1];
+            } else {
+                state->x274->idx = state->x270->idx - 1;
+                if (state->x274->idx < 0) {
+                    state->x274->idx = Toy_GetTrophyTotal() - 1;
+                }
+                _tyList_80312904(entry, _tyList_804A2D6C.x0C);
+                state->x278 = state->x278->links[0];
+                state->selectedIdx = state->x278->idx;
+                state->x270 = state->x270->links[0];
+                state->x274 = state->x274->links[0];
+            }
+            if (state->x29E > 0) {
+                state->x29E--;
+            }
+            if (state->x29E == 0) {
+                HSD_JObjClearFlagsAll(state->x288, JOBJ_HIDDEN);
+                _tyList_80312904(state->x278, state->x278->x24);
+                if (HSD_PadCopyStatus->button & HSD_PAD_XY) {
+                    state->x2A0 = 5;
+                } else {
+                    state->x2A0 = 0;
+                }
+            }
+            if (movedFlag != 0) {
+                sfxMove();
+            }
+        }
+    }
+    return state->x29F;
+}
+
+void _tyList_80313358(TyListState* state, s8 arg2, s8 arg3, s8 arg4)
+{
+    int i;
+
+    if (arg2 != -1) {
+        state->x29E = arg2;
+        state->x2A1 = arg4;
+    }
+
+    state->x29F = arg3;
+    state->x2A4 = state->x2A8 / arg3;
+
+    if (state->x2A1 == 0) {
+        for (i = 0; i < state->entryCount; i++) {
+            TyListArg* entry = &state->entries[i];
+            TyListArg* sub = entry->links[0];
+            entry->x2C = sub->x30;
+            _tyList_80312904(entry, state->entryCount + 1);
+        }
+    } else {
+        for (i = 0; i < state->entryCount; i++) {
+            TyListArg* entry = &state->entries[i];
+            TyListArg* sub = entry->links[1];
+            entry->x2C = sub->x30;
+            _tyList_80312904(entry, state->entryCount + 1);
+        }
+    }
+}
+
+void _tyList_80313464(TyListArg* arg)
+{
+    TyListState* state = &_tyList_804A2AC0;
+    s32 val;
+    PAD_STACK(24);
+
+    val = Toy_sbss_804D6EDC[arg->idx];
+
+    Toy_803083D8(arg->jobjs[2], val);
+
+    if (arg->jobjs[1] != NULL) {
+        HSD_JObjUnref(arg->jobjs[1]);
+        arg->jobjs[1] = NULL;
+    }
+
+    if (Toy_80304924(val) != 0) {
+        arg->jobjs[1] =
+            _tyList_80313508(state->gobj, "ToyFigureListMarkN_Top_joint",
+                             -8.4f, arg->x30, 0.0f);
+    }
+}
+
+/// @todo Suspicious return
+void* _tyList_80313508(HSD_GObj* parent, char* symbol_name, float x, float y,
+                       float z)
+{
+    HSD_JObj* jobj;
+    ToyED8Data* archive;
+    void* joint;
+    PAD_STACK(8);
+
+    archive = Toy_sbss_804D6ED8;
+    joint = HSD_ArchiveGetPublicAddress(archive->archive, symbol_name);
+
+    if (joint == NULL) {
+        OSPanic(__FILE__, 823,
+                "*** Can't Get Public Address!(tyList Model)\n");
+    } else {
+        jobj = HSD_JObjLoadJoint(joint);
+
+        if (x || y || z) {
+            HSD_JObjSetTranslateX(jobj, x);
+            HSD_JObjSetTranslateY(jobj, y);
+            HSD_JObjSetTranslateZ(jobj, z);
+        }
+
+        if (parent != NULL) {
+            HSD_JObj* parentJobj = GET_JOBJ(parent);
+            HSD_JObj* child;
+            HSD_JObjAddChild(parentJobj, jobj);
+            child = parentJobj->child;
+            while (child->next != NULL) {
+                child = child->next;
+            }
+            return child;
+        } else {
+            HSD_GObj* gobj;
+            gobj = GObj_Create(6, 7, 0);
+            HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
+            GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0x39, 0);
+            return gobj;
+        }
+    }
+}
+
+void _tyList_80313774(void)
+{
+    TyListState* state = &_tyList_804A2AC0;
+    TyModeState* mode = (TyModeState*) Toy_804A284C;
+    ToyGlobalsS_* disp = (ToyGlobalsS_*) Toy_sbss_804D6EE0;
+    TyArchiveData* archive = (TyArchiveData*) Toy_sbss_804D6ED8;
+    TyListGobjEntry* state_tail = &_tyList_804A2D6C;
+    TyListArg* entry;
+    HSD_JObj* root_jobj;
+    f32 pos;
+    f32 step;
+    s32 idx;
+    s32 entry_count;
+    s32 i;
+    s32 trophy_total;
+
+    PAD_STACK(0x38);
+
+    state->selectedIdx = Toy_804A284C[0x12A];
+    state->x29B = mode->x1;
+    state->x29C = mode->x2;
+
+    if (Toy_GetTrophyTotal() <= 0xA) {
+        state_tail->x0C = state_tail->x0D = mode->x3;
+    } else {
+        state_tail->x0C = state_tail->x0D = mode->x3;
+    }
+
+    trophy_total = Toy_GetTrophyTotal();
+    if (Toy_GetTrophyTotal() <= 0xA) {
+        state->entryCount = trophy_total + 2;
+        entry_count = trophy_total + 2;
+        idx = Toy_803062BC(((ToyListEntry*) disp->x140)->prev->trophy_id);
+    } else {
+        state->entryCount = 0xC;
+        entry_count = 0xC;
+        idx = Toy_803062BC(((ToyListEntry*) disp->x140)->prev->trophy_id);
+    }
+
+    for (i = 0; i < entry_count; i++) {
+        entry = &state->entries[i];
+        if (i == 0) {
+            entry->links[0] = &state->entries[entry_count - 1];
+        } else {
+            entry->links[0] = &state->entries[i - 1];
+        }
+        if (i == entry_count - 1) {
+            entry->links[1] = &state->entries[0];
+        } else {
+            entry->links[1] = &state->entries[i + 1];
+        }
+    }
+
+    if (Toy_GetTrophyTotal() <= 0xA) {
+        state->x278 = &state->entries[1];
+        state->x270 = &state->entries[0];
+        state->x274 = &state->entries[state->entryCount - 1];
+    } else {
+        state->x278 = &state->entries[1];
+        state->x270 = &state->entries[0];
+        state->x274 = &state->entries[state->entryCount - 1];
+    }
+
+    state->gobj = (HSD_GObj*) _tyList_80313508(
+        NULL, "ToyFigurePanel_listpos01_joint", 0.0f, 0.0f, 0.0f);
+    root_jobj = GET_JOBJ(state->gobj);
+    HSD_JObjGetTranslationX(root_jobj);
+    step = HSD_JObjGetTranslationY(root_jobj);
+    HSD_JObjGetTranslationZ(root_jobj);
+    step = 5.11f - step;
+    pos = -step;
+    state->x2A8 = step;
+
+    entry = &state->entries[0];
+    for (i = 0; i < state->entryCount; i++) {
+        entry->x28 = i;
+        entry->jobjs[0] = _tyList_80313508(
+            state->gobj, "ToyFigureListBase_Top_joint", 0.0f, pos, 0.0f);
+        entry->jobjs[2] = HSD_JObjGetChild(entry->jobjs[0]);
+        Toy_80306A48(entry->jobjs[0], NULL,
+                     "ToyFigureListBase_Top_matanim_joint", NULL,
+                     archive->data, 0);
+        entry->texts[0] = HSD_SisLib_803A5ACC(0, _tyList_804D6EE8, 0.0f, 0.0f,
+                                              17.2f, 640.0f, 64.0f);
+        entry->texts[1] = HSD_SisLib_803A5ACC(0, _tyList_804D6EE8, 0.0f, 0.0f,
+                                              17.2f, 64.0f, 64.0f);
+        entry->texts[2] = HSD_SisLib_803A5ACC(0, _tyList_804D6EE8, 0.0f, 0.0f,
+                                              17.2f, 192.0f, 64.0f);
+        entry->x30 = pos;
+        entry->x24 = i - 1;
+        entry->idx = (s16) idx;
+        idx++;
+        if (idx >= Toy_GetTrophyTotal()) {
+            idx = 0;
+        }
+        pos += step;
+        entry = entry->links[1];
+    }
+
+    state->selectedIdx = state->x278->idx;
+    state->jobj =
+        _tyList_80313508(state->gobj, "ToyFigureListBaseend_Top_joint", 0.0f,
+                         state->entries[0].x30, 0.0f);
+    if (Toy_GetTrophyTotal() <= 0xA) {
+        state->x288 = _tyList_80313508(
+            state->gobj, "ToyFigureListCursor_Top_joint", 0.0f,
+            state->entries[state_tail->x0C + 1].x30, 0.0f);
+    } else {
+        state->x288 = _tyList_80313508(
+            state->gobj, "ToyFigureListCursor_Top_joint", 0.0f,
+            state->entries[state_tail->x0C + 1].x30, 0.0f);
+    }
+
+    for (i = 0; i < state_tail->x0C; i++) {
+        _tyList_80313358(state, 0, 1, 1);
+        _tyList_8031305C(state_tail, state, 0);
+    }
+
+    entry = &state->entries[0];
+    for (i = 0; i < state->entryCount; i++) {
+        if (entry->x24 == state_tail->x0C) {
+            state->selectedIdx = entry->idx;
+            state->x278 = entry;
+            break;
+        }
+        entry++;
+    }
+
+    _tyList_80312BAC(state, state_tail->x0C);
+}
+
+static inline s32 get_repeat_count(void)
+{
+    return _tyList_804A2AC0.x29D;
+}
+
+static inline void tyList_80313BD8_inline(TyListState* state,
+                                          TyListGobjEntry* g)
+{
+    int i;
+    TyListArg* p = state->entries;
+    for (i = 0; i < state->entryCount; p++, i++) {
+        if (p->x24 == g->x0C) {
+            state->selectedIdx = p->idx;
+            state->x278 = p;
+            sfxMove();
+            HSD_JObjSetTranslateY(state->x288, p->x30);
+        }
+        _tyList_80312904(p, _tyList_804A2D6C.x0C);
+    }
+}
+
+static void _tyList_80313BD8(HSD_GObj* gobj)
+{
+    TyListState* state;
+    TyListGobjEntry* g;
+    f32 f30;
+    f32 f31;
+    s8 v;
+
+    state = &_tyList_804A2AC0;
+    g = &_tyList_804A2D6C;
+
+    if (Toy_GetTrophyTotal() > 10) {
+        if (_tyList_8031305C(&_tyList_804A2D6C, state, 1) != 0) {
+            return;
+        }
+        if (state->x2A0 != 0) {
+            state->x2A0--;
+            return;
+        }
+        if (state->x29E != 0) {
+            s32 d = get_repeat_count();
+            s32 half = d / 2;
+            s32 r;
+            if ((d % 2) != 0) {
+                if (state->x29E <= half) {
+                    r = 5 - state->x29E;
+                } else {
+                    r = 4 - (d - state->x29E);
+                }
+            } else if (state->x29E == half) {
+                r = 4 - (d - (state->x29E + 1));
+            } else if (state->x29E < half) {
+                r = 4 - state->x29E;
+            } else {
+                r = 4 - (d - state->x29E);
+            }
+            if (r < 2) {
+                r = 2;
+            }
+            _tyList_80313358(state, -1, r, -1);
+            return;
+        }
+    }
+
+    f30 = Toy_80305D00();
+    f31 = Toy_80305DB0();
+    if (f30 < -0.8f) {
+        g->x12++;
+        f30 = -1.0f;
+        f31 = 0.0f;
+    } else if (f30 > 0.8f) {
+        g->x12++;
+        f30 = 1.0f;
+        f31 = 0.0f;
+    } else if (f31 < -0.6f || (Toy_80305C44() & 4)) {
+        g->x12++;
+        f30 = 0.0f;
+        f31 = 1.0f;
+    } else if (f31 > 0.6f || (Toy_80305C44() & 8)) {
+        g->x12++;
+        f30 = 0.0f;
+        f31 = -1.0f;
+    } else {
+        f31 = 0.0f;
+        g->x0F = 0;
+        f30 = f31;
+        g->x12 = 0;
+        g->x14 = 6;
+        g->x13 = 0;
+        g->x11 = 0;
+        g->x10 = 0;
+    }
+
+    if (mn_8022F218() != 0) {
+        sfxBack();
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
+        Toy_80310660(0);
+        _tyList_803148E4(0);
+        mn_8022F268();
+        ((TyModeState*) Toy_804A284C)->x4 = 1;
+        return;
+    }
+
+    if (Toy_80305B88() & 0x200) {
+        sfxBack();
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
+        Toy_80310660(0);
+        _tyList_803148E4(0);
+        ((TyModeState*) Toy_804A284C)->x4 = 1;
+        return;
+    }
+
+    if (Toy_GetTrophyTotal() == 0) {
+        return;
+    }
+
+    if (Toy_80305B88() & 0x1100) {
+        sfxForward();
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
+        Toy_80310660(0);
+        _tyList_803148E4(1);
+        Toy_80310324();
+        return;
+    }
+
+    if (g->x12 > g->x14) {
+        g->x12 = g->x14 + 1;
+        g->x14 = 3;
+        g->x0F = 0;
+    }
+
+    if ((f30 < 0.0f && f30 != g->x10) || (Toy_80305B88() & 0x41)) {
+        g->x10 = f30;
+        state->x29B--;
+        if (state->x29B < 0) {
+            state->x29B = 2;
+        }
+        _tyList_80312BAC(state, g->x0C);
+        sfxForward();
+        return;
+    }
+
+    if ((f30 > 0.0f && f30 != g->x10) || (Toy_80305B88() & 0x22)) {
+        g->x10 = f30;
+        state->x29B++;
+        if (state->x29B >= 3) {
+            state->x29B = 0;
+        }
+        _tyList_80312BAC(state, g->x0C);
+        sfxForward();
+        return;
+    }
+
+    if (Toy_GetTrophyTotal() < 2) {
+        return;
+    }
+
+    if (Toy_GetTrophyTotal() > 10) {
+        if (Toy_80305C44() & 0x400) {
+            HSD_JObjSetFlagsAll(state->x288, JOBJ_HIDDEN);
+            if (state->x274->idx == 0 ||
+                state->x274->links[0]->idx + 9 < Toy_GetTrophyTotal())
+            {
+                _tyList_80313358(state, 9, 4, 0);
+            } else {
+                _tyList_80313358(
+                    state, Toy_GetTrophyTotal() - state->x274->idx, 4, 0);
+            }
+            state->x29D = state->x29E;
+            return;
+        }
+        if (Toy_80305C44() & 0x800) {
+            HSD_JObjSetFlagsAll(state->x288, JOBJ_HIDDEN);
+            if (state->x270->idx == Toy_GetTrophyTotal() - 1 ||
+                state->x270->links[1]->idx - 9 > 0)
+            {
+                _tyList_80313358(state, 9, 4, 1);
+            } else {
+                _tyList_80313358(state, state->x270->links[1]->idx, 4, 1);
+            }
+            state->x29D = state->x29E;
+            return;
+        }
+    }
+
+    if (!f31) {
+        return;
+    }
+    if (g->x0F != 0) {
+        return;
+    }
+    g->x0F = 1;
+    g->x0C += f31;
+    if (g->x0C < 0) {
+        g->x0C = 0;
+    } else if (g->x0C > state->entryCount - 3) {
+        g->x0C = state->entryCount - 3;
+    }
+
+    if (g->x0C != g->x0D) {
+        g->x12 = 0;
+        g->x13 = 0;
+        g->x11 = f31;
+        tyList_80313BD8_inline(state, g);
+        g->x0D = g->x0C;
+        return;
+    }
+
+    if (Toy_GetTrophyTotal() <= 10) {
+        return;
+    }
+    if (g->x11 == 0) {
+        g->x13 = 5;
+        g->x12 = g->x14 + 1;
+        g->x14 = 3;
+        g->x0F = 0;
+    }
+    g->x11 = f31;
+    v = g->x13;
+    if (v == 0) {
+        g->x13 = 1;
+        return;
+    }
+    if (v < 5) {
+        g->x13 = v + 1;
+        return;
+    }
+
+    {
+        int i;
+        TyListArg* p = state->entries;
+        for (i = 0; i < state->entryCount; p++, i++) {
+            _tyList_80312904(p, state->entryCount);
+        }
+    }
+    HSD_JObjSetFlagsAll(state->x288, JOBJ_HIDDEN);
+    if (f31 > 0.0f) {
+        _tyList_80313358(state, 1, 6, 0);
+    } else {
+        _tyList_80313358(state, 1, 6, 1);
+    }
+}
+
+void _tyList_8031438C(HSD_GObj* gobj)
+{
+    TyListState* state = &_tyList_804A2AC0;
+    TyListGobjEntry* entry = &_tyList_804A2D6C;
+    ToyED8Data* archive = Toy_sbss_804D6ED8;
+    s32 i;
+    HSD_Text* new_var;
+
+    PAD_STACK(0x18);
+
+    if (entry->x16) {
+        if (entry->x16 > 1) {
+            for (i = 0; i < 3; i++) {
+                if (i == state->x29B) {
+                    HSD_JObjReqAnim(archive->jobjs[i], 1.0f);
+                } else {
+                    HSD_JObjReqAnim(archive->jobjs[i], 0.0f);
+                }
+                HSD_AObjSetRate(archive->jobjs[0]->u.dobj->mobj->tobj->aobj,
+                                0.0f);
+            }
+            HSD_JObjAnimAll(archive->x0[10]);
+        } else {
+            TyListWaitData* wait_data = (TyListWaitData*) entry->x4;
+            if (wait_data != NULL) {
+                wait_data->x24 = 0;
+                wait_data->x20 = 0x42100000;
+            }
+            state->x290 = HSD_SisLib_803A6754(3, _tyList_804D6EEC);
+            state->x290->pos_z = 17.2f;
+            new_var = state->x290;
+            state->x290->font_size.x = 0.038f;
+            new_var->font_size.y = 0.029f;
+            state->x290->default_kerning = 1;
+            state->x290->default_alignment = (double) 2;
+            HSD_SisLib_803A6B98(state->x290, 290.0f, 320.0f, "%d",
+                                Toy_GetTrophyTotal());
+        }
+        entry->x16--;
+        return;
+    }
+
+    HSD_GObjProc_RemoveAllProcs(gobj);
+    HSD_GObj_SetupProc(entry->x0, _tyList_80313BD8, 0);
+    HSD_GObj_80390CD4(entry->x0);
+}
+
+void _tyList_80314504(HSD_GObj* gobj, int unused)
+{
+    TyListData* data = (TyListData*) gobj;
+
+    if (HSD_CObjSetCurrent(data->cobj) != 0) {
+        HSD_SetEraseColor(0, 0, 0, 0xFF);
+        HSD_CObjEraseScreen(data->cobj, 1, 0, 0);
+        HSD_GObj_80390ED0(gobj, 7);
+        HSD_FogSet(0);
+        HSD_CObjEndCurrent();
+    }
+}
+
+void _tyList_8031457C(void)
+{
+    TyListGobjEntry* entry = &_tyList_804A2D6C;
+    ToyED8Data* archive = Toy_sbss_804D6ED8;
+    HSD_CameraDescPerspective* desc;
+    HSD_CObj* cobj;
+    u8 kind;
+    UNUSED unsigned char pad[8];
+    HSD_RectS16 viewport;
+    Scissor scissor;
+    Vec3 interest;
+    Vec3 eye;
+    PAD_STACK(8);
+
+    /// @todo Is this really a reference to
+    ///       #Toy_str_ScMenFigure_cam_int1_camera, or de-duplicated?
+    desc = HSD_ArchiveGetPublicAddress(archive->archive,
+                                       Toy_str_ScMenFigure_cam_int1_camera);
+    if (desc != NULL) {
+        entry->x0 = GObj_Create(1, 2, 0);
+        cobj = lb_80013B14(desc);
+        kind = HSD_GObj_CameraKind;
+        HSD_GObjObject_80390A70(entry->x0, kind, cobj);
+        GObj_SetupGXLinkMax(entry->x0, Toy_80306954, 0);
+        entry->x0->gxlink_prios = 0x9010000000000000ULL;
+        HSD_GObj_SetupProc(entry->x0, _tyList_8031438C, 0);
+        HSD_GObj_80390CD4(entry->x0);
+        entry->x16 = 0x1A;
+    }
+    _tyList_804D6EEC =
+        HSD_SisLib_803A611C(3, entry->x0, 0xC, 0xC, 0, 0x3F, 0, 0);
+    if (desc != NULL) {
+        entry->x4 = GObj_Create(1, 2, 0);
+        cobj = lb_80013B14(desc);
+        kind = HSD_GObj_CameraKind;
+        HSD_GObjObject_80390A70(entry->x4, kind, cobj);
+        GObj_SetupGXLinkMax(entry->x4, _tyList_80314504, 0);
+        entry->x4->gxlink_prios = 0x0210000000000000ULL;
+        interest.x = 1.1f;
+        interest.y = -0.24f;
+        interest.z = 0.0f;
+        HSD_CObjSetInterest(cobj, &interest);
+        eye.x = 1.1f;
+        eye.y = -0.24f;
+        eye.z = 40.0596313f;
+        HSD_CObjSetEyePosition(cobj, &eye);
+        viewport.xmin = 0x76;
+        viewport.ymin = 0x4E;
+        viewport.xmax = 0x230;
+        viewport.ymax = 0x19C;
+        HSD_CObjSetViewport(cobj, &viewport);
+        viewport.ymin = 0x60;
+        if (Toy_GetTrophyTotal() < 10) {
+            viewport.ymax = Toy_GetTrophyTotal() * 0x1E + 0x60;
+        } else {
+            viewport.ymax = 0x18A;
+        }
+        scissor.left = viewport.xmin;
+        scissor.right = viewport.xmax;
+        scissor.top = viewport.ymin;
+        scissor.bottom = viewport.ymax;
+        HSD_CObjSetScissor(cobj, &scissor);
+        _tyList_804D6EE8 =
+            HSD_SisLib_803A611C(0, entry->x4, 0xB, 0xB, 0, 0x3E, 0, 0);
+    }
+}
+
+void tyList_803147C4(void)
+{
+    TyListState* state;
+    TyArchiveData* archive;
+    LightList** jobj;
+    u8 new_var;
+    HSD_GObj** gobj;
+
+    memzero(&_tyList_804A2D6C, sizeof(_tyList_804A2D6C));
+    _tyList_8031457C();
+    memzero(&_tyList_804A2D84, sizeof(_tyList_804A2D84));
+    {
+        TyArchiveData* loaded_archive = (TyArchiveData*) Toy_sbss_804D6ED8;
+        TyArchiveData* archive_data = loaded_archive;
+        archive = archive_data;
+    }
+    gobj = _tyList_804A2D84;
+
+    if (archive->data == NULL) {
+        OSReport("*** BG data aren't being loaded!\n");
+        OSPanic(__FILE__, 1590, "");
+    }
+
+    jobj =
+        HSD_ArchiveGetPublicAddress(archive->data, "ScMenFigure_scene_lights");
+    if (jobj != NULL) {
+        *gobj = GObj_Create(2, 3, 0);
+        HSD_GObjObject_80390A70(*gobj, new_var = HSD_GObj_LightKind,
+                                Toy_LoadLObjList(jobj, 0));
+        GObj_SetupGXLink(*gobj, HSD_GObj_LObjCallback, 52, 0);
+    }
+
+    Toy_80307470(0);
+    if (Toy_GetTrophyTotal() != 0) {
+        memzero(&_tyList_804A2AC0, sizeof(_tyList_804A2AC0));
+        _tyList_80313774();
+    }
+    HSD_PadRenewStatus();
+}
+
+void _tyList_803148E4(s32 arg0)
+{
+    TyListState* state = &_tyList_804A2AC0;
+    TyListGobjEntry* entry = &_tyList_804A2D6C;
+    TyArchiveData* archive;
+    HSD_GObj** gobj_2C4;
+    PAD_STACK(8);
+
+    gobj_2C4 = _tyList_804A2D84;
+    archive = (TyArchiveData*) Toy_sbss_804D6ED8;
+
+    if (Toy_GetTrophyTotal() != 0) {
+        if (arg0 != 0) {
+            TyModeState* mode = (TyModeState*) Toy_804A284C;
+            ((s16*) Toy_804A284C)[0x12A] = state->selectedIdx;
+            ((s16*) Toy_804A284C)[0x12B] =
+                Toy_sbss_804D6EDC[state->selectedIdx];
+            mode->x1 = state->x29B;
+            mode->x2 = state->x29C;
+            mode->x3 = entry->x0C;
+        } else {
+            if (Toy_GetTrophyTotal() != 0) {
+                s16 val = Toy_sbss_804D6EDC[state->selectedIdx];
+                Toy_803067BC(0, 0);
+                state->selectedIdx = Toy_803062BC(val);
+            }
+            {
+                TyModeState* mode = (TyModeState*) Toy_804A284C;
+                ((s16*) Toy_804A284C)[0x12A] = state->selectedIdx;
+                ((s16*) Toy_804A284C)[0x12B] =
+                    Toy_sbss_804D6EDC[state->selectedIdx];
+                mode->x1 = 0;
+                mode->x2 = 0;
+                mode->x3 = 0;
+            }
+        }
+
+        if (Toy_80304924(Toy_sbss_804D6EDC[state->selectedIdx]) != 0) {
+            Toy_80304988(Toy_sbss_804D6EDC[state->selectedIdx]);
+        }
+    }
+
+    if (state->gobj != NULL) {
+        if (arg0 != 0) {
+            HSD_GObjFree(state->gobj);
+        }
+        state->gobj = NULL;
+    }
+
+    if (arg0 != 0) {
+        HSD_SisLib_803A5E70();
+    }
+
+    if (archive->gobj != NULL) {
+        if (arg0 != 0) {
+            HSD_GObjFree(archive->gobj);
+        }
+        archive->gobj = NULL;
+    }
+
+    if (*gobj_2C4 != NULL && arg0 != 0) {
+        HSD_GObjFree(*gobj_2C4);
+    }
+
+    if (entry->x0 != NULL) {
+        HSD_GObjProc_RemoveAllProcs(entry->x0);
+        if (arg0 != 0) {
+            HSD_GObjFree(entry->x0);
+        }
+    }
+
+    if (entry->x4 != NULL && arg0 != 0) {
+        HSD_GObjFree(entry->x4);
+    }
+}

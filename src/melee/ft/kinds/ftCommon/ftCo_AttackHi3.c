@@ -1,0 +1,69 @@
+#include "ftCo_AttackHi3.h"
+
+#include <Runtime/platform.h>
+
+#include "forward.h"
+#include "ftCo_ItemThrow.h"
+#include "ftCo_Wait.h"
+#include <dolphin/mtx.h>
+#include <melee/ft/fighter.h>
+#include <melee/ft/ft_081B.h>
+#include <melee/ft/ft_084E.h>
+#include <melee/ft/ft_0892.h>
+#include <melee/ft/ftanim.h>
+#include <melee/ft/ftcommon.h>
+#include <melee/ft/types.h>
+
+/* 08BA38 */ static void doEnter(Fighter_GObj* gobj);
+
+bool ftCo_AttackHi3_CheckInput(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->input.pressed_buttons & HSD_PAD_A) {
+        if (fp->input.lstick[0].y >=
+                p_ftCommonData->attackhi3_stick_threshold_y &&
+            ftCo_GetLStickAngle(fp) > p_ftCommonData->x20_radians)
+        {
+            if (fp->item_gobj != NULL && ftCo_80094E54(fp)) {
+                ftCo_800957F4(gobj, ftCo_MS_LightThrowHi);
+                return true;
+            }
+            doEnter(gobj);
+            return true;
+        }
+    }
+    return false;
+}
+
+void doEnter(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->allow_interrupt = false;
+    Fighter_ChangeMotionState(gobj, ftCo_MS_AttackHi3, Ft_MF_None, 0, 1, 0,
+                              NULL);
+    ftAnim_8006EBA4(gobj);
+}
+
+void ftCo_AttackHi3_Anim(Fighter_GObj* arg0)
+{
+    if (!ftAnim_IsFramesRemaining(arg0)) {
+        ft_8008A2BC(arg0);
+    }
+}
+
+void ftCo_AttackHi3_IASA(Fighter_GObj* gobj)
+{
+    if (GET_FIGHTER(gobj)->allow_interrupt) {
+        ftCo_Wait_IASA(gobj);
+    }
+}
+
+void ftCo_AttackHi3_Phys(Fighter_GObj* gobj)
+{
+    ft_80084F3C(gobj);
+}
+
+void ftCo_AttackHi3_Coll(Fighter_GObj* gobj)
+{
+    ft_80084104(gobj);
+}

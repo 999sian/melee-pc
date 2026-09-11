@@ -1,0 +1,158 @@
+#include "grfigure2.h"
+
+#include <Runtime/platform.h>
+
+#include "granime.h"
+#include "grfigure1.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "types.h"
+#include <dolphin/mtx.h>
+#include <melee/lb/lb_00F9.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjproc.h>
+
+/* 20E274 */ static void grFigure2_8020E274(void);
+/* 20E2E4 */ static void grFigure2_OnLoad(void);
+/* 20E2E8 */ static void grFigure2_OnStart(void);
+/* 20E30C */ static bool grFigure2_8020E30C(void);
+/* 20E314 */ static HSD_GObj* grFigure2_8020E314(int gobj_id);
+/* 20E3FC */ static void grFigure2_8020E3FC(Ground_GObj* gobj);
+/* 20E428 */ static bool grFigure2_8020E428(Ground_GObj*);
+/* 20E430 */ static void grFigure2_8020E430(Ground_GObj* gobj);
+/* 20E434 */ static void grFigure2_8020E434(Ground_GObj*);
+/* 20E438 */ static void grFigure2_8020E438(Ground_GObj* gobj);
+/* 20E464 */ static bool grFigure2_8020E464(Ground_GObj*);
+/* 20E46C */ static void grFigure2_8020E46C(Ground_GObj* gobj);
+/* 20E490 */ static void grFigure2_8020E490(Ground_GObj*);
+/* 20E494 */ static void grFigure2_8020E494(Ground_GObj* gobj);
+/* 20E4E4 */ static bool grFigure2_8020E4E4(Ground_GObj*);
+/* 20E4EC */ static void grFigure2_8020E4EC(Ground_GObj* gobj);
+/* 20E4F0 */ static void grFigure2_8020E4F0(Ground_GObj*);
+/* 20E4F4 */ static DynamicsDesc* grFigure2_8020E4F4(enum_t arg0);
+/* 20E4FC */ static bool grFigure2_8020E4FC(Vec3* vector, int number,
+                                            HSD_JObj* jobj);
+
+static StageCallbacks grEF2_StageCallbacks[3] = {
+    { grFigure2_8020E3FC, grFigure2_8020E428, grFigure2_8020E430,
+      grFigure2_8020E434, 0UL },
+    { grFigure2_8020E438, grFigure2_8020E464, grFigure2_8020E46C,
+      grFigure2_8020E490, 0xC0000000 },
+    { grFigure2_8020E494, grFigure2_8020E4E4, grFigure2_8020E4EC,
+      grFigure2_8020E4F0, 0UL }
+};
+
+StageData grEF2_StageData = {
+    Gr_Kind_Figure2,
+    grEF2_StageCallbacks,
+    "/GrEF2.dat",
+    grFigure2_8020E274,
+    grFigure1_8020E270,
+    grFigure2_OnLoad,
+    grFigure2_OnStart,
+    grFigure2_8020E30C,
+    grFigure2_8020E4F4,
+    grFigure2_8020E4FC,
+    1,
+    NULL,
+    0,
+};
+
+static void* yakumono_param;
+
+static void grFigure2_8020E274(void)
+{
+    yakumono_param = Ground_GetYakumonoParam();
+    stage_info.unk8C.b4 = 0;
+    stage_info.unk8C.b5 = 1;
+    grFigure2_8020E314(0);
+    grFigure2_8020E314(2);
+    grFigure2_8020E314(1);
+    Ground_801C39C0();
+    Ground_801C3BB4();
+}
+static void grFigure2_OnLoad(void) {}
+
+static void grFigure2_OnStart(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+static bool grFigure2_8020E30C(void)
+{
+    return false;
+}
+
+static HSD_GObj* grFigure2_8020E314(int gobj_id)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grEF2_StageCallbacks[gobj_id];
+
+    gobj = Ground_GetStageGObj(gobj_id);
+
+    if (gobj != NULL) {
+        Ground_SetupStageCallbacks(gobj, callbacks);
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 196, gobj_id);
+    }
+
+    return gobj;
+}
+static void grFigure2_8020E3FC(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+static bool grFigure2_8020E428(Ground_GObj* arg0)
+{
+    return false;
+}
+
+static void grFigure2_8020E430(Ground_GObj* gobj) {}
+
+static void grFigure2_8020E434(Ground_GObj* arg0) {}
+
+static void grFigure2_8020E438(Ground_GObj* gobj)
+{
+    Ground* gp = gobj->user_data;
+    Ground_801C2ED0(gobj->hsd_obj, gp->map_id);
+}
+
+static bool grFigure2_8020E464(Ground_GObj* arg0)
+{
+    return false;
+}
+
+static void grFigure2_8020E46C(Ground_GObj* gobj)
+{
+    Ground_801C2FE0(gobj);
+    lb_800115F4();
+}
+
+static void grFigure2_8020E490(Ground_GObj* arg0) {}
+
+static void grFigure2_8020E494(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+static bool grFigure2_8020E4E4(Ground_GObj* arg0)
+{
+    return false;
+}
+
+static void grFigure2_8020E4EC(Ground_GObj* gobj) {}
+
+static void grFigure2_8020E4F0(Ground_GObj* arg0) {}
+
+static DynamicsDesc* grFigure2_8020E4F4(enum_t arg0)
+{
+    return NULL;
+}
+
+static bool grFigure2_8020E4FC(Vec3* vector, int number, HSD_JObj* jobj)
+{
+    return true;
+}

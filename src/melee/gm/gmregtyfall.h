@@ -1,0 +1,33 @@
+#ifndef MELEE_GM_REG_TY_FALL_H
+#define MELEE_GM_REG_TY_FALL_H
+
+#include <melee/sc/forward.h>
+#include <sysdolphin/baselib/forward.h>
+
+#include <placeholder.h>
+
+/* 1A659C */ bool gm_801A659C(int);
+/* 1A6630 */ void gm_801A6630(int);
+/* 1A6664 */ void fn_801A6664(HSD_GObj*);
+/* 1A6844 */ void fn_801A6844(HSD_GObj*);
+/* 1A6868 */ void fn_801A6868(HSD_GObj*);
+/* 1A68D8 */ UNK_RET gm_801A68D8(UNK_PARAMS);
+/* 1A6A48 */ void fn_801A6A48(HSD_GObj*, int);
+/* 1A6ACC */ void fn_801A6ACC(HSD_GObj*, int);
+/* 1A6B6C */ void fn_801A6B6C(HSD_GObj*);
+/* 1A6C30 */ void fn_801A6C30(HSD_GObj*);
+/* 1A6C54 */ UNK_RET gm_801A6C54(UNK_PARAMS);
+/* 1A6D78 */ void fn_801A6D78(HSD_GObj*, int);
+/* 1A6DC0 */ UNK_RET gm_801A6DC0(UNK_PARAMS);
+/* 1A6EE4 */ UNK_RET gm_801A6EE4(UNK_PARAMS);
+/* 1A7070 */ void gm_Scene_ToyFall_OnEnter(void* unused);
+/* 1A79D4 */ void gm_Scene_ToyFall_OnFrame(void);
+
+/* 4D6798 */ extern HSD_Joint* gm_804D6798;
+/* 4D679C */ extern HSD_Archive* gm_804D679C;
+/* 4D67A0 */ extern SceneDesc* gm_804D67A0;
+/* 4D67A4 */ extern SceneDesc* gm_804D67A4;
+/* 4D67A8 */ extern SceneDesc* gm_804D67A8;
+/* 4D67AC */ extern SceneDesc* gm_804D67AC;
+
+#endif

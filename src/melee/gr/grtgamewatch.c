@@ -1,0 +1,148 @@
+
+#include "grtgamewatch.h"
+
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "types.h"
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/types.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjproc.h>
+
+StageCallbacks grTGw_StageCallbacks[] = {
+    { grTGameWatch_8022429C, grTGameWatch_802242C8, grTGameWatch_802242D0,
+      grTGameWatch_802242D4, 0 },
+    { grTGameWatch_80224368, grTGameWatch_802243B8, grTGameWatch_802243C0,
+      grTGameWatch_802243E0, 0 },
+    { grTGameWatch_802242D8, grTGameWatch_80224328, grTGameWatch_80224330,
+      grTGameWatch_80224364, 0xC0000000 },
+    { NULL, NULL, NULL, NULL, 0 }
+};
+
+StageData grTGw_StageData = {
+    Gr_Kind_TGamewatch,
+    grTGw_StageCallbacks,
+    "/GrTGw.dat",
+    grTGameWatch_80224114,
+    grTGameWatch_80224110,
+    grTgamewatch_UnkStage0_OnLoad,
+    grTgamewatch_UnkStage0_OnStart,
+    grTGameWatch_802241AC,
+    grTGameWatch_802243E4,
+    grTGameWatch_802243EC,
+    (1 << 0),
+};
+
+void grTGameWatch_80224110(bool unused)
+{
+    return;
+}
+
+void grTGameWatch_80224114(void)
+{
+    Ground_InitTargetStage(grTGameWatch_802241B4);
+}
+
+void grTgamewatch_UnkStage0_OnLoad(void)
+{
+    return;
+}
+
+void grTgamewatch_UnkStage0_OnStart(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+bool grTGameWatch_802241AC(void)
+{
+    return false;
+}
+
+HSD_GObj* grTGameWatch_802241B4(int id)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grTGw_StageCallbacks[id];
+
+    gobj = Ground_GetStageGObj(id);
+
+    if (gobj != NULL) {
+        Ground_SetupStageCallbacks(gobj, callbacks);
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 195, id);
+    }
+
+    return gobj;
+}
+
+void grTGameWatch_8022429C(Ground_GObj* gobj)
+{
+    Ground* gp = (Ground*) HSD_GObjGetUserData(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grTGameWatch_802242C8(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTGameWatch_802242D0(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grTGameWatch_802242D4(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grTGameWatch_802242D8(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+bool grTGameWatch_80224328(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTGameWatch_80224330(Ground_GObj* gobj)
+{
+    lb_800115F4();
+    Ground_801C2FE0(gobj);
+}
+
+void grTGameWatch_80224364(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grTGameWatch_80224368(Ground_GObj* gobj)
+{
+    Ground_JObjInline1(gobj);
+}
+
+bool grTGameWatch_802243B8(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grTGameWatch_802243C0(Ground_GObj* gobj)
+{
+    Ground_801C2FE0(gobj);
+}
+
+void grTGameWatch_802243E0(Ground_GObj* gobj)
+{
+    return;
+}
+
+DynamicsDesc* grTGameWatch_802243E4(enum_t unused)
+{
+    return NULL;
+}
+
+bool grTGameWatch_802243EC(Vec3* vec, int arg1, HSD_JObj* jobj)
+{
+    return true;
+}

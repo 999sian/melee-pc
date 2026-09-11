@@ -1,0 +1,354 @@
+#include "ft_0C31.h"
+
+#include <placeholder.h>
+
+#include "fighter.h"
+#include "forward.h"
+#include "ft_081B.h"
+#include "ftcolanim.h"
+#include "ftcoll.h"
+#include "ftcommon.h"
+#include "kinds/ftCommon/forward.h"
+#include "kinds/ftCommon/types.h"
+#include "types.h"
+#include <dolphin/mtx.h>
+#include <melee/ef/efasync.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/pl/player.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/jobj.h>
+
+/* 0C63BC */ static void fn_800C63BC(Fighter_GObj* gobj);
+/* 0C63E0 */ static void fn_800C63E0(Fighter_GObj* gobj);
+
+void ftCo_800C61B0(Fighter_GObj* gobj)
+{
+    Fighter* fp;
+    HSD_JObj* jobj;
+
+    fp = GET_FIGHTER(gobj);
+    jobj = GET_JOBJ(gobj);
+
+    fp->mv.co.entry.timer = Player_GetUnk4C(fp->player_id);
+
+    HSD_JObjGetScale(jobj, &fp->mv.co.entry.x8);
+    fp->mv.co.entry.x14.x = fp->mv.co.entry.x8.x;
+    fp->mv.co.entry.x14.y = p_ftCommonData->x6C4;
+    fp->mv.co.entry.x14.z = fp->mv.co.entry.x8.z;
+    HSD_JObjSetScale(jobj, &fp->mv.co.entry.x14);
+
+    fp->mv.co.common.x4.x = fp->cur_pos.y;
+    Fighter_ChangeMotionState(gobj, ftCo_MS_Entry, 0, 0.0F, 1.0F, 0.0F, NULL);
+    fp->invisible = true;
+    fp->x2219_b1 = true;
+    fp->x221E_b1 = true;
+    fp->x221E_b2 = true;
+    fp->x221F_b1 = true;
+    ft_80084CB0(fp, &fp->mv.co.entry.x2C);
+}
+
+void ftCo_Entry_Anim(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->mv.co.entry.timer == 0) {
+        ftCo_800C6408(gobj);
+    }
+    --fp->mv.co.entry.timer;
+}
+
+void ftCo_Entry_IASA(Fighter_GObj* gobj) {}
+
+void ftCo_Entry_Phys(Fighter_GObj* gobj) {}
+
+void fn_800C63BC(Fighter_GObj* gobj)
+{
+    ftCommon_8007D7FC(GET_FIGHTER(gobj));
+}
+
+void fn_800C63E0(Fighter_GObj* gobj)
+{
+    ftCommon_8007D5D4(GET_FIGHTER(gobj));
+}
+
+void ftCo_Entry_Coll(Fighter_GObj* gobj) {}
+
+void ftCo_800C6408(Fighter_GObj* gobj)
+{
+    Vec3 sp48;
+
+    Fighter* temp_r29_3;
+    Fighter* temp_r31;
+    f32 temp_f0;
+    f32 temp_f0_2;
+    s32 var_r3;
+    s32 var_r3_2;
+    s32 var_r3_3;
+
+    Quaternion sp2C;
+    Vec3 sp20;
+
+    u32 temp_r4;
+    u32 temp_r4_2;
+    u32 temp_r4_3;
+    Fighter* fp;
+
+    temp_r31 = GET_FIGHTER(gobj);
+    temp_r31->mv.co.entry.timer = p_ftCommonData->x6BC;
+    Fighter_ChangeMotionState(gobj, ftCo_MS_EntryStart, 0, 0.0F, 1.0F, 0.0F,
+                              NULL);
+    temp_r31->x2219_b1 = true;
+    if (!temp_r31->is_sub_fighter) {
+        ftCommon_SetAccessory(temp_r31, Fighter_804D6514);
+        temp_f0 = temp_r31->x34_scale.y * temp_r31->co_attrs.trophy_scale;
+        sp48.z = temp_f0;
+        sp48.y = temp_f0;
+        sp48.x = temp_f0;
+        temp_r31->mv.co.entry.x24 = temp_f0;
+
+        HSD_JObjSetScale(temp_r31->x20A0_accessory, &sp48);
+
+        sp2C.w = 0.0F;
+        sp2C.z = 0.0F;
+        sp2C.x = 0.0F;
+        sp2C.y = 1.5707963267948966 * temp_r31->facing_dir;
+
+        HSD_JObjSetRotation(temp_r31->x20A0_accessory, &sp2C);
+
+        temp_f0_2 = 1.497345 * sp48.y;
+        temp_r31->mv.co.entry.x28 = temp_f0_2;
+        temp_r31->mv.co.entry.x20 = temp_f0_2;
+        temp_r29_3 = gobj->user_data;
+        sp20.x = -(temp_r29_3->facing_dir * ftCommon_800804EC(temp_r29_3) -
+                   temp_r29_3->cur_pos.x);
+        sp20.y = temp_r29_3->cur_pos.y;
+        sp20.z = temp_r29_3->cur_pos.z;
+
+        HSD_JObjSetTranslate(temp_r29_3->x20A0_accessory, &sp20);
+    }
+    temp_r31->accessory1_cb = fn_800C69F4;
+
+    fp = GET_FIGHTER(gobj);
+    efAsync_Spawn(gobj, &fp->x60C, 3, 0x43E, gobj->hsd_obj,
+                  &temp_r31->mv.co.entry.x8);
+    lbAudioAx_80024304(0x8B);
+    ftCo_800BFFD0(temp_r31, 0x75, 0);
+}
+
+void ftCo_EntryStart_Anim(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    --fp->mv.co.entry.timer;
+    if (fp->mv.co.entry.timer == 0) {
+        ftCo_800C6B6C(gobj);
+    }
+}
+
+void ftCo_EntryStart_IASA(Fighter_GObj* gobj) {}
+
+void ftCo_EntryStart_Phys(Fighter_GObj* gobj)
+{
+    Vec3 sp20;
+
+    Fighter* temp_r31;
+    f32 temp_f1;
+    f32 temp_f31;
+    f32 temp_f4;
+    int temp_r6;
+    int var_r3;
+    int var_r3_2;
+    u32 temp_r4;
+
+    temp_r31 = GET_FIGHTER(gobj);
+    temp_r6 = p_ftCommonData->x6BC;
+    temp_f4 = p_ftCommonData->x6C4;
+    temp_f31 = (f32) (temp_r6 - temp_r31->mv.co.entry.timer) / temp_r6;
+    temp_r31->mv.co.entry.x14.y =
+        (temp_f31 * (temp_r31->mv.co.entry.x8.y - temp_f4)) + temp_f4;
+
+    HSD_JObjSetScale(gobj->hsd_obj, &temp_r31->mv.co.entry.x14);
+
+    if (!temp_r31->is_sub_fighter) {
+        temp_f1 = temp_r31->mv.co.entry.x24;
+        sp20.x = temp_f1;
+        sp20.y = temp_f1 * temp_f31;
+        sp20.z = temp_f1;
+        HSD_JObjSetScale(temp_r31->x20A0_accessory, &sp20);
+        temp_r31->mv.co.entry.x28 = temp_r31->mv.co.entry.x20 * temp_f31;
+        temp_r31->cur_pos.y =
+            temp_r31->mv.co.entry.x4 + temp_r31->mv.co.entry.x28;
+    } else {
+        Fighter_GObj* gobj = Player_GetEntityAtIndex(temp_r31->player_id, 0);
+        temp_r31->cur_pos.y = GET_FIGHTER(gobj)->cur_pos.y;
+    }
+}
+
+void ftCo_EntryStart_Coll(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    PAD_STACK(8);
+    if (!fp->is_sub_fighter) {
+        fp->mv.co.entry.x2C.bottom = -fp->mv.co.entry.x28;
+    } else {
+        HSD_GObj* gobj = Player_GetEntityAtIndex(fp->player_id, 0);
+        Fighter* fp2 = GET_FIGHTER(gobj);
+        fp->mv.co.entry.x2C.bottom = -fp2->mv.co.entry.x28;
+    }
+    if (fp->ground_or_air == GA_Air) {
+        ft_80083E64(gobj, &fp->mv.co.entry.x2C, fn_800C63BC);
+    } else {
+        ft_800846B0(gobj, &fp->mv.co.entry.x2C, fn_800C63E0);
+    }
+}
+
+void fn_800C69F4(Fighter_GObj* gobj)
+{
+    u8 _[8];
+    Vec3 sp20;
+    Fighter* temp_r31;
+    Fighter* temp_r31_2;
+    HSD_GObj* temp_r3;
+    Fighter* temp_r3_2;
+
+    temp_r31 = GET_FIGHTER(gobj);
+    if (!temp_r31->is_sub_fighter) {
+        temp_r3 = Player_GetEntityAtIndex((s32) temp_r31->player_id, 1);
+        if (temp_r3 != NULL) {
+            temp_r3_2 = GET_FIGHTER(temp_r3);
+            if (!temp_r3_2->x221F_b3) {
+                if (temp_r3_2->cur_pos.y > temp_r31->cur_pos.y) {
+                    temp_r31->cur_pos.y = temp_r3_2->cur_pos.y;
+                }
+            }
+        }
+        temp_r31_2 = GET_FIGHTER(gobj);
+        sp20.x = -(temp_r31_2->facing_dir * ftCommon_800804EC(temp_r31_2) -
+                   temp_r31_2->cur_pos.x);
+        sp20.y = temp_r31_2->cur_pos.y;
+        sp20.z = temp_r31_2->cur_pos.z;
+        HSD_JObjSetTranslateWithMtxDirtyOutOfLine(temp_r31_2->x20A0_accessory,
+                                                  &sp20);
+    } else {
+        HSD_GObj* gobj = Player_GetEntityAtIndex(temp_r31->player_id, 0);
+        Fighter* fp2 = GET_FIGHTER(gobj);
+        temp_r31->cur_pos.y = fp2->cur_pos.y;
+        ;
+    }
+}
+
+void(HSD_JObjSetMtxDirty)(HSD_JObj* jobj)
+{
+    if (jobj == NULL || HSD_JObjMtxIsDirty(jobj)) {
+        return;
+    }
+    HSD_JObjSetMtxDirtySub(jobj);
+}
+
+void ftCo_800C6B6C(Fighter_GObj* gobj)
+{
+    Fighter* temp_r31 = GET_FIGHTER(gobj);
+    temp_r31->mv.co.entry.timer = p_ftCommonData->x6C0;
+
+    HSD_JObjSetScale(GET_JOBJ(gobj), &temp_r31->mv.co.entry.x8);
+
+    if (!temp_r31->is_sub_fighter) {
+        temp_r31->cur_pos.y =
+            temp_r31->mv.co.entry.x4 + temp_r31->mv.co.entry.x20;
+    } else {
+        HSD_GObj* gobj2 = Player_GetEntityAtIndex(temp_r31->player_id, 0);
+        Fighter* fp2 = GET_FIGHTER(gobj2);
+        temp_r31->cur_pos.y = fp2->cur_pos.y;
+    }
+    Fighter_ChangeMotionState(gobj, ftCo_MS_EntryEnd, 0x3000, 0.0F, 1.0F, 0.0F,
+                              NULL);
+    temp_r31->x2219_b1 = true;
+    temp_r31->accessory1_cb = fn_800C6F34;
+}
+
+void ftCo_EntryEnd_Anim(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    --fp->mv.co.entry.timer;
+    if (fp->mv.co.entry.timer == 0) {
+        if (Player_GetFlagsBit4(fp->player_id)) {
+            ftColl_8007B760(gobj, p_ftCommonData->x6C8);
+        }
+        ftCommon_8007D92C(gobj);
+    }
+}
+
+void ftCo_EntryEnd_IASA(Fighter_GObj* gobj) {}
+
+void ftCo_EntryEnd_Phys(Fighter_GObj* gobj)
+{
+    Vec3 sp1C;
+    Fighter* fp;
+    f32 temp_f31;
+    f32 temp_f3;
+    u32 temp_r4;
+
+    fp = GET_FIGHTER(gobj);
+    if (!fp->is_sub_fighter) {
+        temp_f31 = (f32) fp->mv.co.entry.timer / (f32) p_ftCommonData->x6BC;
+        temp_f3 = fp->mv.co.entry.x24;
+        sp1C.x = temp_f3;
+        sp1C.y = temp_f3 * temp_f31;
+        sp1C.z = temp_f3;
+        HSD_JObjSetScale(fp->x20A0_accessory, &sp1C);
+        fp->mv.co.entry.x28 = fp->mv.co.entry.x20 * temp_f31;
+        fp->cur_pos.y = fp->mv.co.entry.x4 + fp->mv.co.entry.x28;
+    } else {
+        HSD_GObj* gobj2 = Player_GetEntityAtIndex(fp->player_id, 0);
+        Fighter* fp2 = GET_FIGHTER(gobj2);
+        fp->cur_pos.y = fp2->cur_pos.y;
+    }
+}
+
+void ftCo_EntryEnd_Coll(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    PAD_STACK(4);
+    if (!fp->is_sub_fighter) {
+        fp->mv.co.entry.x2C.bottom = -fp->mv.co.entry.x28;
+    } else {
+        HSD_GObj* gobj2 = Player_GetEntityAtIndex(fp->player_id, 0);
+        Fighter* fp2 = GET_FIGHTER(gobj2);
+        fp->mv.co.entry.x2C.bottom = -fp2->mv.co.entry.x28;
+    }
+    if (fp->ground_or_air == GA_Air) {
+        ft_80083E64(gobj, &fp->mv.co.entry.x2C, fn_800C63BC);
+    } else {
+        ft_800846B0(gobj, &fp->mv.co.entry.x2C, fn_800C63E0);
+    }
+}
+
+void fn_800C6F34(Fighter_GObj* gobj)
+{
+    Fighter* fp;
+    Fighter_GObj* temp_r3;
+    Fighter* temp_r3_2;
+    u8 _[8];
+    Vec3 sp20;
+
+    fp = GET_FIGHTER(gobj);
+    if (!fp->is_sub_fighter) {
+        temp_r3 = Player_GetEntityAtIndex(fp->player_id, 1);
+        if (temp_r3 != NULL) {
+            temp_r3_2 = GET_FIGHTER(temp_r3);
+            if (!temp_r3_2->x221F_b3) {
+                if (temp_r3_2->cur_pos.y > fp->cur_pos.y) {
+                    fp->cur_pos.y = temp_r3_2->cur_pos.y;
+                }
+            }
+        }
+        fp = GET_FIGHTER(gobj);
+        sp20.x = -((fp->facing_dir * ftCommon_800804EC(fp)) - fp->cur_pos.x);
+        sp20.y = fp->cur_pos.y;
+        sp20.z = fp->cur_pos.z;
+
+        HSD_JObjSetTranslateWithMtxDirtyOutOfLine(fp->x20A0_accessory, &sp20);
+    } else {
+        HSD_GObj* gobj2 = Player_GetEntityAtIndex(fp->player_id, 0);
+        Fighter* fp2 = GET_FIGHTER(gobj2);
+        fp->cur_pos.y = fp2->cur_pos.y;
+    }
+}

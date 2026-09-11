@@ -1,0 +1,113 @@
+#include "ftCo_CaptureWaitKirby.h"
+
+#include "ftCo_Attack100.h"
+#include "ftCo_CaptureCut.h"
+#include <melee/ft/fighter.h>
+#include <melee/ft/ftcoll.h>
+#include <melee/ft/ftcommon.h>
+#include <melee/ft/kinds/ftKirby/ftkirby.h>
+#include <sysdolphin/baselib/jobj.h>
+
+void ftCo_800BD620(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    Fighter* victim_fp = GET_FIGHTER(fp->victim_gobj);
+    fp->x2226_b2 = false;
+    ftCo_800DB368(victim_fp, fp);
+    Fighter_ChangeMotionState(gobj, ftCo_MS_CaptureWaitKirby,
+                              Ft_MF_SkipModel | Ft_MF_SkipMatAnim, 0, 1, 0,
+                              NULL);
+    Fighter_UpdateModelScale(gobj);
+    fp->accessory1_cb = ftCo_800DB464;
+    fp->invisible = true;
+    ftColl_8007B62C(gobj, 2);
+    ftCommon_8007D5D4(fp);
+    ftCommon_8007E2F4(fp, 0x1FF);
+    ftAnim_8006EBA4(gobj);
+    ftCommon_8007E2FC(gobj);
+}
+
+static inline void inlineA0(Fighter* fp, int arg1)
+{
+    fp->x671_timer_lstick_tilt_y = 254;
+    ftKb_SpecialN_800F598C(fp->victim_gobj, arg1);
+}
+
+void ftCo_CaptureWaitKirby_Anim(Fighter_GObj* gobj) {}
+void ftCo_800BD6EC_noinline(Fighter_GObj* gobj);
+void ftCo_800BD6EC_noinline(Fighter_GObj* gobj)
+{
+    ftCo_800BD6EC(gobj);
+}
+
+#ifdef MUST_MATCH
+#pragma push
+#pragma force_active on
+#endif
+void ftCo_800BD6EC(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->input.lstick[0].y >= p_ftCommonData->tap_jump_threshold &&
+        fp->x671_timer_lstick_tilt_y < p_ftCommonData->tap_jump_window)
+    {
+        inlineA0(fp, +1);
+        return;
+    }
+    if (fp->input.lstick[0].y <= p_ftCommonData->x464 &&
+        fp->x671_timer_lstick_tilt_y < p_ftCommonData->x468 &&
+        ftKb_SpecialN_800F597C(fp->victim_gobj))
+    {
+        inlineA0(fp, -1);
+        ftKb_SpecialN_800F5954(fp->victim_gobj);
+    }
+}
+#ifdef MUST_MATCH
+#pragma pop
+#endif
+
+static inline void inlineB0(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    s32 value;
+    float lstick_x = fp->input.lstick[0].x;
+    if (lstick_x < 0) {
+        lstick_x = -lstick_x;
+    }
+    if (lstick_x >= p_ftCommonData->dash_smash_stick_threshold &&
+        fp->x670_timer_lstick_tilt_x <
+            p_ftCommonData->dash_smash_window + p_ftCommonData->x44)
+    {
+        fp->x670_timer_lstick_tilt_x = 254;
+        if (fp->input.lstick[0].x < 0.0f) {
+            value = -1;
+        } else {
+            value = 1;
+        }
+        ftKb_SpecialN_800F5A04(fp->victim_gobj, value);
+    }
+}
+
+void ftCo_CaptureWaitKirby_IASA(Fighter_GObj* gobj)
+{
+    s32 pad;
+    Fighter* fp = GET_FIGHTER(gobj);
+    HSD_JObj* jobj = GET_JOBJ(gobj);
+    if (ftKb_SpecialN_800F5A38(fp->victim_gobj, gobj->user_data)) {
+        ftCo_800BD6EC_noinline(gobj);
+        inlineB0(gobj);
+    }
+    fp->grab_timer -= ftKb_SpecialN_800F5B00(fp->victim_gobj);
+    fp->mv.co.capturekirby.x18 =
+        ftCommon_GrabMash(fp, ftKb_SpecialN_800F5B10(fp->victim_gobj));
+    if (fp->grab_timer <= 0) {
+        Fighter_GObj* victim_gobj = fp->victim_gobj;
+        fp->facing_dir = ftKb_SpecialN_800F5A60(victim_gobj);
+        HSD_JObjSetScale(jobj, &fp->mv.co.capturekirby.scale);
+        ftCo_CaptureCut_Enter(gobj);
+        ftCo_800DA698(victim_gobj, 0);
+    }
+}
+
+void ftCo_CaptureWaitKirby_Phys(Fighter_GObj* gobj) {}
+
+void ftCo_CaptureWaitKirby_Coll(Fighter_GObj* gobj) {}

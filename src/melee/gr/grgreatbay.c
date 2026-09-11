@@ -1,0 +1,1207 @@
+#include "grgreatbay.h"
+
+#include <Runtime/platform.h>
+
+#include <placeholder.h>
+
+#include "forward.h"
+#include "granime.h"
+#include "grdisplay.h"
+#include "grlib.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "stage.h"
+#include <melee/ft/ft_0877.h>
+#include <melee/ft/ftdevice.h>
+#include <melee/ft/ftlib.h>
+#include <melee/it/item.h>
+#include <melee/it/itspawn.h>
+#include <melee/it/kinds/ittincle.h>
+#include <melee/it/types.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/types.h>
+#include <melee/mp/mplib.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/psstructs.h>
+#include <sysdolphin/baselib/random.h>
+
+/* 1F5914 */ static void grGreatBay_801F5914(void* user_data, int joint_id,
+                                             CollData* coll, int coll_x50,
+                                             mpLib_GroundEnum ground_kind,
+                                             float delta_y);
+/* 1F60C4 */ static void grGreatBay_801F60C4(void* user_data, int joint_id,
+                                             CollData* coll, int coll_x50,
+                                             mpLib_GroundEnum ground_kind,
+                                             float delta_y);
+
+GrJoint grGb_803E3E60[] = { { 0, 2, 49 }, { 1, 1, 2 },  { 2, 1, 3 },
+                            { 4, 1, 34 }, { 3, 1, 38 }, { 5, 10, 0 } };
+
+StageCallbacks grGb_StageCallbacks[11] = {
+    {
+        grGreatBay_801F4404,
+        grGreatBay_801F4430,
+        grGreatBay_801F4438,
+        grGreatBay_801F443C,
+        0,
+    },
+    {
+        // turtle
+        grGreatBay_801F4694,
+        grGreatBay_801F4994,
+        grGreatBay_801F499C,
+        grGreatBay_801F545C,
+        0,
+    },
+    {
+        // main stage
+        grGreatBay_801F454C,
+        grGreatBay_801F4650,
+        grGreatBay_801F4658,
+        grGreatBay_801F4690,
+        0xC0000000,
+    },
+    {
+        // background
+        grGreatBay_801F4440,
+        grGreatBay_801F44A0,
+        grGreatBay_801F44A8,
+        grGreatBay_801F44AC,
+        0,
+    },
+    {
+        // foreground water
+        grGreatBay_801F44B0,
+        grGreatBay_801F4510,
+        grGreatBay_801F4518,
+        grGreatBay_801F451C,
+        0,
+    },
+    {
+        // giant 1
+        grGreatBay_801F598C,
+        grGreatBay_801F59F0,
+        grGreatBay_801F59F8,
+        grGreatBay_801F59FC,
+        0,
+    },
+    {
+        // giant 2
+        grGreatBay_801F598C,
+        grGreatBay_801F59F0,
+        grGreatBay_801F59F8,
+        grGreatBay_801F59FC,
+        0,
+    },
+    {
+        // giant 3
+        grGreatBay_801F598C,
+        grGreatBay_801F59F0,
+        grGreatBay_801F59F8,
+        grGreatBay_801F59FC,
+        0,
+    },
+    {
+        // giant 4
+        grGreatBay_801F598C,
+        grGreatBay_801F59F0,
+        grGreatBay_801F59F8,
+        grGreatBay_801F59FC,
+        0,
+    },
+    {
+        // moon
+        grGreatBay_801F5A00,
+        grGreatBay_801F5AF0,
+        grGreatBay_801F5AF8,
+        grGreatBay_801F5D48,
+        0,
+    },
+    {
+        // tingle
+        grGreatBay_801F5460,
+        grGreatBay_801F55F8,
+        grGreatBay_801F5600,
+        grGreatBay_801F5988,
+        0,
+    },
+};
+
+StageData grGb_StageData = {
+    Gr_Kind_GreatBay,
+    grGb_StageCallbacks,
+    "/GrGb.dat",
+    grGreatBay_801F4240,
+    grGreatBay_801F423C,
+    grGreatBay_801F42D0,
+    grGreatBay_801F42D4,
+    grGreatBay_801F42F8,
+    grGreatBay_801F680C,
+    grGreatBay_801F6814,
+    (1 << 0),
+    grGb_803E3E60,
+    6,
+};
+
+typedef struct grGb_StageAttr {
+    /* 0x00 */ s16 moon_fall_wait_a;
+    /* 0x02 */ s16 moon_fall_wait_b;
+    /* 0x04 */ f32 floatfloor_landing_rate;
+    /* 0x08 */ f32 floatfloor_slant_mul;
+    /* 0x0C */ f32 floatfloor_slant_add;
+    /* 0x10 */ f32 floatfloor_slant_limit;
+    /* 0x14 */ f32 floatfloor_slant_rate;
+    /* 0x18 */ f32 floatfloor_slant_reb_rate;
+    /* 0x1C */ f32 floatfloor_slide_mul;
+    /* 0x20 */ f32 floatfloor_slide_add;
+    /* 0x24 */ f32 floatfloor_slide_limit;
+    /* 0x28 */ f32 floatfloor_slide_rate;
+    /* 0x2C */ f32 floatfloor_slide_reb_rate;
+    /* 0x30 */ f32 floatfloor_down_mul;
+    /* 0x34 */ f32 floatfloor_down_add;
+    /* 0x38 */ f32 floatfloor_down_limit;
+    /* 0x3C */ f32 floatfloor_down_up_rate;
+    /* 0x40 */ f32 floatfloor_down_down_rate;
+    /* 0x44 */ s16 kame_wait_frame_a;
+    /* 0x46 */ s16 kame_wait_frame_b;
+    /* 0x48 */ s16 kame_rebirth_frame_a;
+    /* 0x4A */ s16 kame_rebirth_frame_b;
+    /* 0x4C */ f32 kame_x;
+    /* 0x50 */ f32 kame_y;
+    /* 0x54 */ f32 kame_x_offset_init;
+    /* 0x58 */ f32 kame_x_lr_offset_a;
+    /* 0x5C */ f32 kame_x_lr_offset_b;
+    /* 0x60 */ f32 kame_x_fb_offset_a;
+    /* 0x64 */ f32 kame_x_fb_offset_b;
+    /* 0x68 */ f32 kame_scale;
+    /* 0x6C */ f32 kame_ud_scale;
+    /* 0x70 */ s16 kame_dir_prob[4];
+    /* 0x78 */ f32 kame_item_prob;
+    /* 0x7C */ struct {
+        s16 kind;
+        s16 weight;
+    } items[10];
+} grGb_StageAttr;
+
+typedef struct grGb_804D69E0_t {
+    grGb_StageAttr* x0;
+} grGb_804D69E0_t;
+grGb_804D69E0_t grGb_804D69E0;
+
+void grGreatBay_801F423C(bool unused)
+{
+    return;
+}
+
+void grGreatBay_801F4240(void)
+{
+    grGb_804D69E0.x0 = Ground_GetYakumonoParam();
+    stage_info.unk8C.b4 = false;
+    stage_info.unk8C.b5 = true;
+    grGreatBay_801F4300(0);
+    grGreatBay_801F4300(3);
+    grGreatBay_801F4300(4);
+    grGreatBay_801F4300(2);
+    grGreatBay_801F4300(1);
+    grGreatBay_801F4300(9);
+    grGreatBay_801F4300(10);
+    Ground_801C39C0();
+    Ground_801C3BB4();
+}
+
+void grGreatBay_801F42D0(void) {}
+
+void grGreatBay_801F42D4(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+bool grGreatBay_801F42F8(void)
+{
+    return false;
+}
+
+HSD_GObj* grGreatBay_801F4300(int gobj_id)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grGb_StageCallbacks[gobj_id];
+
+    gobj = Ground_GetStageGObj(gobj_id);
+
+    if (gobj != NULL) {
+        Ground* gp = gobj->user_data;
+        gp->x8_callback = NULL;
+        gp->xC_callback = NULL;
+        GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0);
+        if (callbacks->callback3 != NULL) {
+            gp->x1C_callback = callbacks->callback3;
+        }
+        if (callbacks->on_init != NULL) {
+            callbacks->on_init(gobj);
+        }
+        if (callbacks->gobj_proc != NULL) {
+            if (gobj_id == 10) {
+                HSD_GObj_SetupProc(gobj, callbacks->gobj_proc, 5);
+            } else {
+                HSD_GObj_SetupProc(gobj, callbacks->gobj_proc, 4);
+            }
+        }
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 247, gobj_id);
+    }
+
+    return gobj;
+}
+
+void grGreatBay_801F4404(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grGreatBay_801F4430(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F4438(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F443C(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F4440(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    grAnime_801C77FC(gobj, 0, 7);
+    gp->x11_flags.b012 = 1;
+}
+
+bool grGreatBay_801F44A0(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F44A8(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F44AC(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F44B0(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    grAnime_801C77FC(gobj, 0, 7);
+    gp->x11_flags.b012 = 3;
+}
+
+bool grGreatBay_801F4510(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F4518(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F451C(Ground_GObj* gobj)
+{
+    return;
+}
+
+void fn_801F4520(HSD_GObj* gobj)
+{
+    ftCo_800C07F8(gobj, 6, grGreatBay_801F6708);
+}
+
+void grGreatBay_801F454C(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    Ground_JObjInline1(gobj);
+    gp->x8_callback = NULL;
+    gp->x11_flags.b012 = 1;
+    gp->xC_callback = NULL;
+    gp->x10_flags.b5 = 1;
+
+    Ground_801C4E70(Ground_801C3FA4(gobj, 4), Ground_801C3FA4(gobj, 1),
+                    Ground_801C3FA4(gobj, 3), Ground_801C3FA4(gobj, 2),
+                    Ground_801C3FA4(gobj, 6), Ground_801C3FA4(gobj, 5));
+    mpLib_80057BC0(1);
+    grGreatBay_801F5D4C(gobj);
+    Ground_801C10B8(gobj, fn_801F4520);
+}
+
+bool grGreatBay_801F4650(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F4658(Ground_GObj* gobj)
+{
+    grGreatBay_801F5E28(gobj);
+    Ground_801C2FE0(gobj);
+    lb_800115F4();
+}
+
+void grGreatBay_801F4690(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F4694(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObj* jobj = GET_JOBJ(gobj);
+    Vec3 scale;
+    s16 max_val, min_val;
+    f32 factor;
+
+    Ground_801C2ED0(jobj, gp->map_id);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+
+    HSD_JObjGetScale(jobj, &scale);
+    factor = grGb_804D69E0.x0->kame_scale;
+    scale.x *= factor;
+    scale.y *= factor;
+    scale.z *= factor;
+    HSD_JObjSetScale(jobj, &scale);
+
+    HSD_JObjSetTranslateX(jobj, grGb_804D69E0.x0->kame_x +
+                                    grGb_804D69E0.x0->kame_x_offset_init);
+    HSD_JObjSetTranslateY(jobj, grGb_804D69E0.x0->kame_y);
+
+    gp->u.greatbay.xCC = HSD_JObjGetTranslationY(Ground_801C3FA4(gobj, 2));
+
+    gp->u.greatbay.xC4 = 0;
+    gp->u.greatbay.xC5.b0123456 = 0;
+
+    max_val = grGb_804D69E0.x0->kame_wait_frame_b;
+    min_val = grGb_804D69E0.x0->kame_wait_frame_a;
+    gp->u.greatbay.xC6 = rand_range(max_val, min_val);
+
+    gp->u.greatbay.xC5.b7 = 1;
+    gp->u.greatbay.xC8 = NULL;
+    gp->x10_flags.b5 = 1;
+    gp->x11_flags.b012 = 1;
+}
+
+bool grGreatBay_801F4994(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F499C(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObj* jobj = GET_JOBJ(gobj);
+    HSD_JObj* trans_jobj = Ground_801C3FA4(gobj, 2);
+    HSD_JObj* jobj3 = Ground_801C3FA4(gobj, 3);
+    Vec3 pos;
+
+    HSD_ASSERT(529, jobj);
+    HSD_ASSERT(530, trans_jobj);
+
+    switch (gp->u.greatbay.xC4) {
+    case 0: {
+        if (gp->u.greatbay.xC6 < 0) {
+            if (grAnime_801C84A4(gobj, 0, 7)) {
+                gp->u.greatbay.xC4 = 1;
+                grAnime_801C8138(gobj, gp->map_id, 1);
+                gp->u.greatbay.xC6 = 0;
+                mpLib_80058044(2);
+                mpLib_80058044(3);
+                mpLib_80058044(4);
+                mpLib_80058044(1);
+            }
+        } else {
+            gp->u.greatbay.xC6--;
+        }
+        break;
+    }
+    case 1: {
+        s16 timer = gp->u.greatbay.xC6;
+        gp->u.greatbay.xC6 = timer + 1;
+        if (timer == 90) {
+            Ground_801C53EC(0x57E42);
+            lb_8000B1CC(jobj, NULL, &pos);
+            gp->u.greatbay.xC8 = grLib_801C96F8(0x7531, 0x1E, &pos);
+        }
+        if (grAnime_801C83D0(gobj, 0, 7)) {
+            gp->u.greatbay.xC4 = 3;
+            gp->u.greatbay.xC6 =
+                rand_range(grGb_804D69E0.x0->kame_rebirth_frame_b,
+                           grGb_804D69E0.x0->kame_rebirth_frame_a);
+            grAnime_801C7A04(gobj, 0, 7, 0.0f);
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+            if (gp->u.greatbay.xC8 != NULL) {
+                grLib_801C9874(gp->u.greatbay.xC8);
+                gp->u.greatbay.xC8 = NULL;
+            }
+        }
+        break;
+    }
+    case 2: {
+        Vec3 pos2;
+        HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        gp->u.greatbay.xC6++;
+        if (gp->u.greatbay.xC6 == 60) {
+            Ground_801C53EC(0x57E41);
+            lb_8000B1CC(jobj, NULL, &pos2);
+            gp->u.greatbay.xC8 = grLib_801C96F8(0x7531, 0x1E, &pos2);
+        }
+        {
+            if (gp->u.greatbay.xC6 == 60 || gp->u.greatbay.xC6 == 120) {
+                HSD_JObj* j = Ground_801C3FA4(gobj, 34);
+                if (j != NULL) {
+                    grLib_801C97DC(0x7533, 0x1E, j);
+                }
+            }
+        }
+        {
+            if (gp->u.greatbay.xC6 == 90 || gp->u.greatbay.xC6 == 150) {
+                HSD_JObj* j = Ground_801C3FA4(gobj, 38);
+                if (j != NULL) {
+                    grLib_801C97DC(0x7533, 0x1E, j);
+                }
+            }
+        }
+        if (grAnime_801C83D0(gobj, 0, 7)) {
+            gp->u.greatbay.xC4 = 0;
+            gp->u.greatbay.xC6 =
+                rand_range(grGb_804D69E0.x0->kame_wait_frame_b,
+                           grGb_804D69E0.x0->kame_wait_frame_a);
+            grAnime_801C8138(gobj, gp->map_id, 0);
+            mpLib_80057FDC(2);
+            mpLib_80057FDC(3);
+            mpLib_80057FDC(4);
+            mpLib_80057FDC(1);
+            if (gp->u.greatbay.xC8 != NULL) {
+                grLib_801C9874(gp->u.greatbay.xC8);
+                gp->u.greatbay.xC8 = NULL;
+            }
+        }
+        break;
+    }
+    case 3: {
+        s16 timer = gp->u.greatbay.xC6;
+        gp->u.greatbay.xC6 = timer - 1;
+        if (timer < 0) {
+            gp->u.greatbay.xC4 = 2;
+            grAnime_801C8138(gobj, gp->map_id, 2);
+            gp->u.greatbay.xC6 = 0;
+            gp->u.greatbay.xC5.b7 = 0;
+            gp->u.greatbay.xC5.b0123456 =
+                grGreatBay_801F62F8(gp->u.greatbay.xC5.b0123456);
+            switch (gp->u.greatbay.xC5.b0123456) {
+            case 1: {
+                HSD_JObjSetTranslateX(
+                    jobj,
+                    grGb_804D69E0.x0->kame_x +
+                        rand_range(grGb_804D69E0.x0->kame_x_fb_offset_b,
+                                   grGb_804D69E0.x0->kame_x_fb_offset_a));
+                mpLib_80057BC0(2);
+                mpLib_80057BC0(3);
+                mpLib_80057BC0(4);
+                mpJointListAdd(1);
+                break;
+            }
+            case 2:
+                HSD_ASSERT(652, 0);
+                break;
+            case 0: {
+                HSD_JObjSetTranslateX(
+                    jobj,
+                    grGb_804D69E0.x0->kame_x +
+                        rand_range(grGb_804D69E0.x0->kame_x_lr_offset_b,
+                                   grGb_804D69E0.x0->kame_x_lr_offset_a));
+                mpJointListAdd(2);
+                mpJointListAdd(3);
+                mpJointListAdd(4);
+                mpLib_80057BC0(1);
+                break;
+            }
+            case 3: {
+                HSD_JObjSetTranslateX(
+                    jobj,
+                    grGb_804D69E0.x0->kame_x +
+                        rand_range(grGb_804D69E0.x0->kame_x_fb_offset_b,
+                                   grGb_804D69E0.x0->kame_x_fb_offset_a));
+                mpLib_80057BC0(2);
+                mpLib_80057BC0(3);
+                mpLib_80057BC0(4);
+                mpJointListAdd(1);
+                break;
+            }
+            }
+        }
+        break;
+    }
+    }
+
+    {
+        f32 y = HSD_JObjGetTranslationY(trans_jobj);
+        if (gp->u.greatbay.xCC != y) {
+            y *= grGb_804D69E0.x0->kame_ud_scale;
+            HSD_JObjSetTranslateY(trans_jobj, y);
+            gp->u.greatbay.xCC = y;
+        }
+    }
+
+    switch (gp->u.greatbay.xC5.b0123456) {
+    case 1:
+        HSD_JObjSetRotationY(jobj3, 1.5707964f);
+        break;
+    case 2:
+        HSD_ASSERT(692, 0);
+        break;
+    case 0:
+        HSD_JObjSetRotationY(trans_jobj, 0.0f);
+        break;
+    case 3:
+        HSD_JObjSetRotationY(jobj3, -1.5707964f);
+        break;
+    }
+
+    Ground_801C2FE0(gobj);
+    grGreatBay_801F660C(gobj);
+    mpLib_80055E24(2);
+
+    if (gp->u.greatbay.xC4 == 2 && !gp->u.greatbay.xC5.b7) {
+        gp->u.greatbay.xC5.b7 = grGreatBay_801F63F4(gobj);
+    }
+}
+
+void grGreatBay_801F545C(Ground_GObj* gobj)
+{
+    return;
+}
+
+static inline void grGreatBay_801F5460_inline(Ground_GObj* gobj,
+                                              HSD_JObj* jobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    Ground_801C2ED0(jobj, gp->map_id);
+    gp->xC_callback = NULL;
+    mpJointSetCb1(5, gp, grGreatBay_801F5914);
+    mpJointListAdd(5);
+}
+
+void grGreatBay_801F5460(Ground_GObj* gobj)
+{
+    HSD_JObj* jobj = gobj->hsd_obj;
+    Ground* gp = gobj->user_data;
+
+    grGreatBay_801F5460_inline(gobj, jobj);
+    HSD_JObjSetTranslateX(jobj, 1000.0f);
+    HSD_JObjSetTranslateY(jobj, 1000.0f);
+    Ground_801C2FE0(gobj);
+    mpLib_80057424(5);
+    gp->u.greatbay4.xF0 = it_802ECA70(gobj);
+    gp->u.greatbay4.xC4 = 0;
+    gp->u.greatbay4.xC8 = 0;
+    gp->u.greatbay4.xD0 = 0;
+    gp->u.greatbay4.xCC = 0;
+    gp->u.greatbay4.xD8 = 0;
+    gp->u.greatbay4.xDC = 0;
+    gp->u.greatbay4.xE0 = 0.0f;
+}
+
+bool grGreatBay_801F55F8(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F5600(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObj* jobj = gobj->hsd_obj;
+    Vec3 pos;
+
+    it_802ECCA4(gp->u.greatbay4.xF0, &gp->u.greatbay4.xC4,
+                &gp->u.greatbay4.xE4);
+    if (gp->u.greatbay4.xE4.y < -50.0f) {
+        it_802EC830(gp->u.greatbay4.xF0);
+        mpLib_80057424(5);
+        gp->u.greatbay4.xF0 = it_802ECA70(gobj);
+        gp->u.greatbay4.xC4 = 0;
+        gp->u.greatbay4.xC8 = 0;
+        gp->u.greatbay4.xD0 = 0;
+        gp->u.greatbay4.xCC = 0;
+        gp->u.greatbay4.xD8 = 0;
+        gp->u.greatbay4.xDC = 0;
+        gp->u.greatbay4.xE0 = 0.0f;
+        return;
+    }
+    it_802ECC98(gp->u.greatbay4.xF0, gp->u.greatbay4.xE0);
+    switch (gp->u.greatbay4.xC4) {
+    case 1:
+        mpJointListAdd(5);
+        Ground_801C2FE0(gobj);
+        break;
+    case 2:
+    case 5:
+        if (gp->u.greatbay4.xD8 != 0 && gp->u.greatbay4.xD4 == 0) {
+            it_802EBD14(gp->u.greatbay4.xF0);
+        }
+        break;
+    case 4:
+        if (gp->u.greatbay4.xD8 == 0) {
+            it_802EBFAC(gp->u.greatbay4.xF0);
+        } else if (gp->u.greatbay4.xDC != gp->u.greatbay4.xD8) {
+            it_802EBD14(gp->u.greatbay4.xF0);
+        }
+        break;
+    case 6:
+    case 7:
+        if (gp->u.greatbay4.xCC == 0 && it_802ECC8C(gp->u.greatbay4.xF0) == 0)
+        {
+            pos = gp->u.greatbay4.xE4;
+            pos.y += 10.0f;
+            grLib_801C96F8(0x7534, 0x1E, &pos);
+            Ground_801C53EC(0x57E4A);
+            gp->u.greatbay4.xCC = 1;
+        }
+        mpLib_80057BC0(5);
+        break;
+    case 8:
+        if (gp->u.greatbay4.xD0 == 0 && gp->u.greatbay4.xE4.y <= 0.0f) {
+            gp->u.greatbay4.xD0 = 1;
+            grLib_801C96F8(0x7537, 0x1E, &gp->u.greatbay4.xE4);
+            Ground_801C53EC(0x57E48);
+        }
+        break;
+    case 9:
+        if (gp->u.greatbay4.xC8 != gp->u.greatbay4.xC4) {
+            Ground_801C53EC(0x57E47);
+        }
+        break;
+    case 12:
+        if (gp->u.greatbay4.xC8 != gp->u.greatbay4.xC4) {
+            gp->u.greatbay4.xCC = 0;
+            mpJointListAdd(5);
+        }
+        if (gp->u.greatbay4.xD8 != 0) {
+            it_802EBD14(gp->u.greatbay4.xF0);
+        }
+        break;
+    }
+    gp->u.greatbay4.xC8 = gp->u.greatbay4.xC4;
+    HSD_JObjSetTranslate(jobj, &gp->u.greatbay4.xE4);
+    Ground_801C2FE0(gobj);
+    gp->u.greatbay4.xDC = gp->u.greatbay4.xD8;
+    gp->u.greatbay4.xD8 = 0;
+    gp->u.greatbay4.xE0 = 0.0f;
+    Ground_801C2FE0(gobj);
+}
+
+/// @copydoc mpLib_JointCollisionCallback
+void grGreatBay_801F5914(void* user_data, int joint_id, CollData* coll,
+                         int coll_x50, mpLib_GroundEnum ground_kind,
+                         float delta_y)
+{
+    Ground* gp = user_data;
+    s32 temp_r0;
+    PAD_STACK(12);
+
+    temp_r0 = coll->x34_flags.b1234;
+    if (temp_r0 == 1 ||
+    /// @todo Redundant cast necessary to match
+#ifdef MUST_MATCH
+        (s32) temp_r0 == 2 ||
+#else
+        temp_r0 == 2 ||
+#endif
+        temp_r0 == 3)
+    {
+        gp->u.greatbay.xD4 = ((u32) coll->env_flags & Collide_LedgeGrabMask);
+        gp->u.greatbay.xD8 += 1;
+        gp->u.greatbay.xE0 += coll_x50 / 100.0f;
+    }
+}
+
+void grGreatBay_801F5988(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F598C(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    grAnime_801C7A04(gobj, 0, 7, 0.0f);
+    gp->x11_flags.b012 = 2;
+}
+
+bool grGreatBay_801F59F0(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F59F8(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F59FC(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F5A00(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    s16 max_val, min_val;
+
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    grAnime_801C7A04(gobj, 0, 7, 0.0f);
+    gp->u.greatbay2.gobjs[0] = grGreatBay_801F4300(5);
+    gp->u.greatbay2.gobjs[1] = grGreatBay_801F4300(6);
+    gp->u.greatbay2.gobjs[2] = grGreatBay_801F4300(7);
+    gp->u.greatbay2.gobjs[3] = grGreatBay_801F4300(8);
+
+    max_val = grGb_804D69E0.x0->moon_fall_wait_b;
+    min_val = grGb_804D69E0.x0->moon_fall_wait_a;
+    gp->u.greatbay2.x10 = rand_range(max_val, min_val);
+
+    gp->x11_flags.b012 = 2;
+}
+
+bool grGreatBay_801F5AF0(Ground_GObj* gobj)
+{
+    return false;
+}
+
+void grGreatBay_801F5AF8(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObj* jobj = GET_JOBJ(gobj);
+    s32 i;
+    PAD_STACK(8);
+
+    if (gp->u.greatbay2.x10 > 0) {
+        gp->u.greatbay2.x10 = gp->u.greatbay2.x10 - 1;
+        if (gp->u.greatbay2.x10 == 0) {
+            grAnime_801C8138(gobj, gp->map_id, 0);
+            grAnime_801C7A04(gobj, 0, 7, 1.0f);
+            for (i = 0; i < 4; i++) {
+                HSD_GObj* g = gp->u.greatbay2.gobjs[i];
+                if (g != NULL) {
+                    Ground* child_gp = GET_GROUND(g);
+                    if (child_gp != NULL) {
+                        grAnime_801C8138(gp->u.greatbay2.gobjs[i],
+                                         child_gp->map_id, 0);
+                        grAnime_801C7A04(gp->u.greatbay2.gobjs[i], 0, 7, 1.0f);
+                    }
+                }
+            }
+            gp->u.greatbay2.x12.b0 = 0;
+            gp->u.greatbay2.x12.b1 = 0;
+            gp->u.greatbay2.x12.b2 = 0;
+            gp->u.greatbay2.x12.b3 = 0;
+        }
+    } else {
+        f32 frame = Ground_801C3F20(jobj);
+        if (!gp->u.greatbay2.x12.b0 && frame > 0.0f) {
+            gp->u.greatbay2.x12.b0 = 1;
+        }
+        if (!gp->u.greatbay2.x12.b1 && frame > 0.0f) {
+            gp->u.greatbay2.x12.b1 = 1;
+        }
+        if (!gp->u.greatbay2.x12.b2 && frame > 0.0f) {
+            gp->u.greatbay2.x12.b2 = 1;
+        }
+        if (!gp->u.greatbay2.x12.b3 && frame > 0.0f) {
+            gp->u.greatbay2.x12.b3 = 1;
+        }
+        if (lb_8000B134(GET_JOBJ(gobj))) {
+            grAnime_801C7A04(gobj, 0, 7, 0.0f);
+            for (i = 0; i < 4; i++) {
+                if (gp->u.greatbay2.gobjs[i] != NULL) {
+                    grAnime_801C7A04(gp->u.greatbay2.gobjs[i], 0, 7, 0.0f);
+                }
+            };
+            gp->u.greatbay2.x10 =
+                rand_range(grGb_804D69E0.x0->moon_fall_wait_b,
+                           grGb_804D69E0.x0->moon_fall_wait_a);
+        }
+    }
+}
+
+void grGreatBay_801F5D48(Ground_GObj* gobj)
+{
+    return;
+}
+
+void grGreatBay_801F5D4C(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObj* jobj;
+    PAD_STACK(16);
+
+    mpJointSetCb1(0, gp, grGreatBay_801F60C4);
+    jobj = Ground_801C3FA4(gobj, 49);
+    gp->u.greatbay3.jobj = jobj;
+    if (jobj != NULL) {
+        gp->u.greatbay3.translation.x =
+            HSD_JObjGetTranslationX(gp->u.greatbay3.jobj);
+        gp->u.greatbay3.translation.y =
+            HSD_JObjGetTranslationY(gp->u.greatbay3.jobj);
+    } else {
+        HSD_ASSERT(1132, 0);
+    }
+    gp->u.greatbay3.translation.z = 0.0f;
+    gp->u.greatbay3.xD0 = 0.0f;
+    gp->u.greatbay3.xD4 = 0.0f;
+    gp->u.greatbay3.xD8 = 0.0f;
+    gp->u.greatbay3.xDC = 0.0f;
+    gp->u.greatbay3.xE0 = 0.0f;
+}
+
+void grGreatBay_801F5E28(HSD_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    HSD_JObj* jobj = gp->u.greatbay3.jobj;
+    PAD_STACK(8);
+
+    if (jobj != NULL) {
+        f32 delta, factor;
+
+        delta = gp->u.greatbay3.translation.z - gp->u.greatbay3.xD8;
+        if (-gp->u.greatbay3.xD8 * delta < 0.0f) {
+            factor = grGb_804D69E0.x0->floatfloor_slant_rate;
+        } else {
+            factor = grGb_804D69E0.x0->floatfloor_slant_reb_rate;
+        }
+        gp->u.greatbay3.xD8 += delta * factor;
+
+        delta = gp->u.greatbay3.xD0 - gp->u.greatbay3.xDC;
+        if (-gp->u.greatbay3.xDC * delta < 0.0f) {
+            factor = grGb_804D69E0.x0->floatfloor_slide_rate;
+        } else {
+            factor = grGb_804D69E0.x0->floatfloor_slide_reb_rate;
+        }
+        gp->u.greatbay3.xDC += delta * factor;
+
+        delta = gp->u.greatbay3.xD4 - gp->u.greatbay3.xE0;
+        if (delta < 0.0f) {
+            factor = grGb_804D69E0.x0->floatfloor_down_down_rate;
+        } else {
+            factor = grGb_804D69E0.x0->floatfloor_down_up_rate;
+        }
+        gp->u.greatbay3.xE0 += delta * factor;
+
+        HSD_JObjSetRotationZ(jobj, gp->u.greatbay3.xD8);
+        HSD_JObjSetTranslateX(jobj, gp->u.greatbay3.translation.x +
+                                        gp->u.greatbay3.xDC);
+        HSD_JObjSetTranslateY(jobj, gp->u.greatbay3.translation.y +
+                                        gp->u.greatbay3.xE0);
+
+        gp->u.greatbay3.translation.z = 0.0f;
+        gp->u.greatbay3.xD0 = 0.0f;
+        gp->u.greatbay3.xD4 = 0.0f;
+    }
+}
+
+/// @copydoc mpLib_JointCollisionCallback
+void grGreatBay_801F60C4(void* user_data, int joint_id, CollData* coll,
+                         int coll_x50, mpLib_GroundEnum ground_kind,
+                         float delta_y)
+{
+    Ground* gp = user_data;
+    s32 temp_r0;
+    PAD_STACK(4);
+
+    temp_r0 = coll->x34_flags.b1234;
+    if (temp_r0 == 1 || temp_r0 == 3) {
+        HSD_JObj* jobj;
+        if (ground_kind == 1) {
+            coll_x50 = (s32) ((f32) coll_x50 *
+                              grGb_804D69E0.x0->floatfloor_landing_rate);
+        }
+        if ((jobj = gp->u.greatbay3.jobj) != NULL) {
+            f32 dx, abs_dx;
+            Vec3 pos;
+            f32 t, rot_amount, disp_amount, y_amount;
+            lb_8000B1CC(jobj, NULL, &pos);
+            dx = coll->cur_pos.x - pos.x;
+            t = ABS(dx) / 15.0f;
+            if (t > 1.0f) {
+                t = 1.0f;
+            }
+            rot_amount =
+                t * (0.017453292f *
+                     (coll_x50 * grGb_804D69E0.x0->floatfloor_slant_mul +
+                      grGb_804D69E0.x0->floatfloor_slant_add));
+            disp_amount =
+                t * (coll_x50 * grGb_804D69E0.x0->floatfloor_slide_mul +
+                     grGb_804D69E0.x0->floatfloor_slide_add);
+            y_amount = coll_x50 * grGb_804D69E0.x0->floatfloor_down_mul +
+                       grGb_804D69E0.x0->floatfloor_down_add;
+            if (dx < 0.0f) {
+                gp->u.greatbay3.translation.z += rot_amount;
+                {
+                    f32 max = grGb_804D69E0.x0->floatfloor_slant_limit;
+                    if (gp->u.greatbay3.translation.z > max) {
+                        gp->u.greatbay3.translation.z = max;
+                    }
+                }
+                gp->u.greatbay3.xD0 += disp_amount;
+                {
+                    f32 max = grGb_804D69E0.x0->floatfloor_slide_limit;
+                    if (gp->u.greatbay3.xD0 > max) {
+                        gp->u.greatbay3.xD0 = max;
+                    }
+                }
+            } else {
+                gp->u.greatbay3.translation.z -= rot_amount;
+                if (gp->u.greatbay3.translation.z <
+                    -grGb_804D69E0.x0->floatfloor_slant_limit)
+                {
+                    gp->u.greatbay3.translation.z =
+                        -grGb_804D69E0.x0->floatfloor_slant_limit;
+                }
+                gp->u.greatbay3.xD0 -= disp_amount;
+                if (gp->u.greatbay3.xD0 <
+                    -grGb_804D69E0.x0->floatfloor_slide_limit)
+                {
+                    gp->u.greatbay3.xD0 =
+                        -grGb_804D69E0.x0->floatfloor_slide_limit;
+                }
+            }
+            gp->u.greatbay3.xD4 -= y_amount;
+            if (gp->u.greatbay3.xD4 < -grGb_804D69E0.x0->floatfloor_down_limit)
+            {
+                gp->u.greatbay3.xD4 = -grGb_804D69E0.x0->floatfloor_down_limit;
+            }
+        }
+    }
+}
+
+s32 grGreatBay_801F62F8(s32 current)
+{
+    s32 result;
+    grGb_StageAttr* attr;
+    s32 total;
+    s32 rand;
+    s32 i = 0;
+
+    do {
+        current += 0;
+        attr = grGb_804D69E0.x0;
+        total = attr->kame_dir_prob[0] + attr->kame_dir_prob[1] +
+                attr->kame_dir_prob[3] + attr->kame_dir_prob[2];
+        rand = ZRANDI(total);
+
+        attr = grGb_804D69E0.x0;
+        if ((rand -= attr->kame_dir_prob[2]) < 0) {
+            result = 1;
+        } else if (0 > (rand -= attr->kame_dir_prob[1])) {
+            result = 2;
+        } else if ((rand -= attr->kame_dir_prob[0]) < 0) {
+            result = 0;
+        } else if ((rand -= attr->kame_dir_prob[3]) < 0) {
+            result = 3;
+        } else {
+            HSD_ASSERT(1277, 0);
+        }
+
+        if (current != result) {
+            goto done;
+        }
+    } while (i++ <= 1000);
+    result = 0;
+
+done:
+    return result;
+}
+
+const Vec3 grGb_803B81C8 = { 0.99f, 35.72f, 0.0f };
+const SpawnItem grGb_803B81D4 = {
+    NULL,                 // 0
+    NULL,                 // 4
+    -1,                   // 8
+    -1,                   // C
+    1,                    // 10
+    { 0.0f, 0.0f, 0.0f }, // 14
+    { 0.0f, 0.0f, 0.0f }, // 20
+    { 0.0f, 0.0f, 0.0f }, // 2C
+    -1.0f,                // 38
+    0,                    // 3C
+    0,                    // 40
+    0,                    // 44
+    0x80,                 // 45
+    0,                    // 46
+    0,                    // 47
+    0,                    // 48
+};
+
+bool grGreatBay_801F63F4(Ground_GObj* gobj)
+{
+    Vec3 rot;
+    Vec3 pos;
+    s32 padding;
+    SpawnItem spawn;
+    HSD_JObj* jobj;
+    s32 total, i, rand;
+    s32 selected;
+    PAD_STACK(4);
+
+    rot = grGb_803B81C8;
+    jobj = Ground_801C3FA4(gobj, 2);
+    if (jobj == NULL) {
+        return false;
+    }
+    lb_8000B1CC(jobj, &rot, &pos);
+    pos.z = 0.0f;
+    if (pos.y <= Stage_GetBlastZoneBottomOffset()) {
+        return false;
+    }
+    if (HSD_Randf() > grGb_804D69E0.x0->kame_item_prob) {
+        return true;
+    }
+
+    total = 0;
+    for (i = 0; i < 10; i++) {
+        s16 item_id = grGb_804D69E0.x0->items[i].kind;
+        if (item_id != -1 && it_8026D324(item_id)) {
+            total += grGb_804D69E0.x0->items[i].weight;
+        }
+    }
+
+    if (total == 0) {
+        return true;
+    }
+
+    selected = -1;
+    rand = ZRANDI(total);
+
+    for (i = 0; i < 10; i++) {
+        s16 item_id = grGb_804D69E0.x0->items[i].kind;
+        if (item_id != -1 && it_8026D324(item_id)) {
+            rand -= grGb_804D69E0.x0->items[i].weight;
+            if (rand < 0) {
+                selected = grGb_804D69E0.x0->items[i].kind;
+                break;
+            }
+        }
+    }
+    if (selected == -1) {
+        return true;
+    }
+
+    spawn = grGb_803B81D4;
+    spawn.kind = selected;
+    spawn.pos = spawn.prev_pos = pos;
+    Item_80268B18(&spawn);
+    return true;
+}
+
+s16 grGb_803E4048[][2] = {
+    { 32, 20 }, { 23, 18 }, { 22, 15 }, { 29, 16 },
+    { 28, 17 }, { 27, 19 }, { 39, 21 }, { 0, 0 },
+};
+
+void grGreatBay_801F660C(Ground_GObj* gobj)
+{
+    HSD_JObj* jobj;
+    u32 i;
+    Vec3 pos;
+
+    for (i = 0; i < 7; i++) {
+        jobj = Ground_801C3FA4(gobj, grGb_803E4048[i][1]);
+        HSD_ASSERT(1398, jobj);
+        lb_8000B1CC(jobj, NULL, &pos);
+        mpVtxSetPos(grGb_803E4048[i][0], pos.x, pos.y);
+    }
+}
+
+bool grGreatBay_801F66A4(void)
+{
+    HSD_GObj* gobj;
+    Ground* gp;
+
+    if (stage_info.grkind == Gr_Kind_GreatBay) {
+        gobj = Ground_GetMapGObj(1);
+        if (gobj != NULL) {
+            gp = GET_GROUND(gobj);
+            if (gp != NULL) {
+                if (gp->u.greatbay.xC4 != 0) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool grGreatBay_801F6708(u32 unk, HSD_GObj* gobj)
+{
+    Vec3 current;
+    Vec3 previous;
+    f32 arg;
+    PAD_STACK(8);
+
+    ftLib_80086644(gobj, &current);
+    ftLib_80086684(gobj, &previous);
+    if (ft_80087838(gobj) == false) {
+        if (current.y < -5.0f) {
+            if (previous.y > -5.0f) {
+                arg = ftLib_80086B80(gobj) / 10.0f;
+                current.y = -5.0f;
+                grGreatBay_801F67A4(&current, arg);
+                Ground_801C53EC(0x57E40);
+            }
+        }
+    }
+
+    return false;
+}
+
+void grGreatBay_801F67A4(Vec3* vec, f32 arg8)
+{
+    HSD_psAppSRT* temp_r3_2;
+    HSD_Generator* temp_r3;
+
+    temp_r3 = grLib_801C96F8(0x7537, 0x1E, vec);
+    if (temp_r3 != NULL) {
+        temp_r3_2 = temp_r3->appsrt;
+        temp_r3_2->scale.x *= arg8;
+        temp_r3_2->scale.y *= arg8;
+        temp_r3_2->scale.z *= arg8;
+    }
+}
+
+DynamicsDesc* grGreatBay_801F680C(enum_t unused)
+{
+    return NULL;
+}
+
+bool grGreatBay_801F6814(Vec3* a, int _, HSD_JObj* joint)
+{
+    Vec3 b;
+    lb_8000B1CC(joint, NULL, &b);
+
+    if (a->y > b.y) {
+        return true;
+    } else {
+        return false;
+    }
+}

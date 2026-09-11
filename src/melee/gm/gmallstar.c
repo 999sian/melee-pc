@@ -1,0 +1,824 @@
+#include "gmallstar.h"
+
+#include "gm_18A1.h"
+#include "gm_unsplit.h"
+#include "gmmain_lib.h"
+#include "gmregcommon.h"
+#include <dolphin/types.h>
+#include <melee/gr/ground.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbbgflash.h>
+#include <melee/lb/lbdvd.h>
+#include <sysdolphin/baselib/random.h>
+
+typedef struct AllStarOpponent {
+    /* +0 */ u8 stages[2];
+    /* +2 */ u8 stage;
+    /* +3 */ u8 character;
+} AllStarOpponent;
+
+typedef struct AllstarRoundInfo {
+    /* +0 */ s32 start;
+    /* +4 */ s32 count;
+} AllstarRoundInfo;
+
+extern CSSData gmClassic_80470708;
+extern DebugGameOverData gmClassic_80470850;
+extern MatchExitInfo gmClassic_8047086C;
+extern StartMeleeData gmClassic_80472AF8;
+
+GameModeState gm_Mode_AllStar_States[] = {
+    {
+        0,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        1,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        8,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        9,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x10,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x11,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x18,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x19,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x20,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x21,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x28,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x29,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x30,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x31,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x38,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x39,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x40,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x41,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x48,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x49,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x50,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x51,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x58,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x59,
+        3,
+        0,
+        gm_801B5ACC,
+        gm_801B5E7C,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x60,
+        3,
+        0,
+        gm_801B5624,
+        gm_801B59AC,
+        {
+            GS_VS,
+            &gmClassic_80472AF8,
+            &gmClassic_8047086C,
+        },
+    },
+    {
+        0x68,
+        3,
+        0,
+        NULL,
+        gm_801B607C,
+        {
+            GS_COMING_SOON,
+            NULL,
+            NULL,
+        },
+    },
+    {
+        0x69,
+        3,
+        0,
+        gm_801B5EB4,
+        gm_801B5EE4,
+        {
+            GS_GAMEOVER,
+            &gmClassic_80470850,
+            &gmClassic_80470850,
+        },
+    },
+    {
+        0x70,
+        3,
+        0,
+        gm_801B5F50,
+        gm_801B5FB4,
+        {
+            GS_CSS,
+            &gmClassic_80470708,
+            &gmClassic_80470708,
+        },
+    },
+    {
+        -1,
+    },
+};
+
+/// @todo Should be length ::CKind_Playable_Count
+static AllStarOpponent gm_803DEBE8[CKind_Playable_Count - 1] = {
+    { { 0xB1, 0xB1 }, 0, 8 },    { { 0xB2, 0xB2 }, 0, 1 },
+    { { 0xB3, 0xB3 }, 0, 6 },    { { 0xB4, 0xB4 }, 0, 0x10 },
+    { { 0xB5, 0xB5 }, 0, 0x11 }, { { 0xB6, 0xB6 }, 0, 4 },
+    { { 0xB7, 0xB7 }, 0, 2 },    { { 0xB8, 0xB8 }, 0, 0xD },
+    { { 0xB9, 0xB9 }, 0, 7 },    { { 0xBA, 0xBA }, 0, 0 },
+    { { 0xBB, 0xBB }, 0, 0xB },  { { 0xBC, 0xBC }, 0, 0xF },
+    { { 0xBD, 0xBD }, 0, 0xE },  { { 0xBE, 0xBE }, 0, 0xC },
+    { { 0xBF, 0xBF }, 0, 0x12 }, { { 0xC0, 0xC0 }, 0, 9 },
+    { { 0xC1, 0xC1 }, 0, 0xA },  { { 0xC2, 0xC2 }, 0, 5 },
+    { { 0xC3, 0xC3 }, 0, 0x16 }, { { 0xC4, 0xC4 }, 0, 0x15 },
+    { { 0xC5, 0xC5 }, 0, 0x14 }, { { 0xC6, 0xC6 }, 0, 0x18 },
+    { { 0xC7, 0xC7 }, 0, 0x17 }, { { 0xC9, 0xC9 }, 0, 0x19 },
+    { { 0xC8, 0xC8 }, 0, 3 }
+};
+
+static AllstarRoundInfo gm_803DEC4C[13] = {
+    { 0, 1 },  { 1, 1 },  { 2, 1 },  { 3, 1 },  { 4, 2 },  { 6, 2 },  { 8, 2 },
+    { 10, 2 }, { 12, 3 }, { 15, 3 }, { 18, 3 }, { 21, 3 }, { 24, 1 },
+};
+
+static u8 gm_80490940[CKind_Playable_Count - 1];
+
+static inline void gm_801B5324_inline(s8* char_ids, AllStarOpponent* opp_data,
+                                      s32 round)
+{
+    s32 i;
+
+    for (i = 0; i < 3; i++) {
+        char_ids[i] = ChKind_None;
+    }
+    for (i = 0; i < gm_803DEC4C[round].count; i++) {
+        char_ids[i] = opp_data[i].character;
+    }
+}
+
+void gm_801B5324(UnkAllstarData* arg0, s32 arg1)
+{
+    s8 chars[3];
+    u8 colors[3];
+    s8* chars_ptr;
+    s32 is_last_round;
+    AllStarOpponent* opp_data;
+    struct GameCache* gc;
+    s32 slot_idx;
+    s32 i;
+    u64 audio;
+    PAD_STACK(4);
+
+    is_last_round = 0;
+
+    {
+        u32 start = gm_803DEC4C[arg1].start;
+        opp_data = &gm_803DEBE8[start];
+    }
+
+    gm_801B5324_inline(chars, opp_data, arg1);
+
+    for (i = 0; i < 3; i++) {
+        colors[i] = arg0->x0.x54(arg1, arg0->x0.x0.cpu_level, (u8) i);
+    }
+
+    gmRegSetupEnemyColorTable(arg0->x0.x0.ckind, arg0->x0.x0.color, chars,
+                              colors);
+
+    chars_ptr = chars;
+    if (arg1 == 0xC) {
+        chars_ptr[0] = CKind_GameWatch;
+        colors[0] = 0;
+        is_last_round = 1;
+        chars_ptr[1] = CKind_GameWatch;
+        colors[1] = 0;
+        chars_ptr[2] = CKind_GameWatch;
+        colors[2] = 0;
+    }
+
+    gc = &lbDvd_GetPreloadCacheScene()->game_cache;
+    lbDvd_80018C6C();
+    slot_idx = 0;
+    gc->entries[slot_idx].char_id = (s32) arg0->x0.x0.ckind;
+    gc->entries[slot_idx].color = arg0->x0.x0.color;
+    slot_idx++;
+    lbDvd_80018254();
+    lbDvd_80018C2C(0xC7);
+    lbDvd_80017700(4);
+
+    for (i = 0; i < 3; i++) {
+        if (chars[i] != ChKind_None) {
+            gc->entries[slot_idx].char_id = chars[i];
+            if (is_last_round != 0) {
+                gc->entries[slot_idx].color = 0xFF;
+            } else {
+                gc->entries[slot_idx].color = colors[i];
+            }
+            slot_idx++;
+        }
+    }
+
+    gc->stkind = opp_data->stage;
+    lbDvd_80018254();
+
+    audio = lbAudioAx_80026E84((CharacterKind) arg0->x0.x0.ckind);
+    {
+        s32 j;
+        for (j = 0; j < 3; j++) {
+            audio |= lbAudioAx_80026E84(chars[j]);
+        }
+    }
+
+    audio |= lbAudioAx_80026EBC(opp_data->stage);
+    lbAudioAx_80026F2C(0x1C);
+    lbAudioAx_8002702C(0xC, audio);
+    lbAudioAx_80027168();
+}
+
+static inline void gm_801B5624_inline(s8* char_ids, AllStarOpponent* opp_data,
+                                      u16 round)
+{
+    s32 i;
+
+    for (i = 0; i < 3; i++) {
+        char_ids[i] = ChKind_None;
+    }
+    for (i = 0; i < gm_803DEC4C[round].count; i++) {
+        char_ids[i] = opp_data[i].character;
+    }
+}
+
+void gm_801B5624(GameModeState* arg0)
+{
+    s8 chars[3];
+    StartMeleeData* data;
+    UnkAllstarData* allstar;
+    AllStarOpponent* opp_data;
+    u16 round;
+    u8 color;
+    PAD_STACK(8);
+
+    data = gm_GetGameModeStateEnterData(arg0);
+    allstar = &gm_80473A18;
+    round = gm_8017BE84(arg0->id);
+
+    {
+        u32 start = gm_803DEC4C[round].start;
+        opp_data = &gm_803DEBE8[start];
+    }
+
+    gm_801B5624_inline(chars, opp_data, round);
+
+    allstar->x0.xB = 4;
+    allstar->x0.x8 = 0;
+
+    round = gm_8017BE84(arg0->id);
+    {
+        AllStarOpponent* opp = &gm_803DEBE8[gm_803DEC4C[round].start];
+        color = gm_80490940[((uintptr_t) opp - (uintptr_t) gm_803DEBE8) /
+                            sizeof(gm_803DEBE8[0])];
+    }
+
+    round = gm_8017BE84(arg0->id);
+
+    gm_8017CE34(data, &allstar->x0, chars, 0, 0, 0, 0, (s32) opp_data->stage,
+                (s32) round, (s32) color);
+
+    data->rules.timer_enabled = 1;
+    data->rules.timer_counts_up = 1;
+    data->rules.x1_0 = 1;
+    data->rules.time_limit = (s32) allstar->x9C / GM_FPS;
+    data->rules.x14 = ((s32) allstar->x9C % GM_FPS) + 1;
+    data->rules.x20 &= 0xFFFFFFFFFFFBFCFFULL;
+
+    if (arg0->id == 0) {
+        data->players[0].xC_b1 = 1;
+    } else {
+        data->players[0].xC_b1 = 0;
+    }
+
+    if (arg0->id == 0x60) {
+        u8* cpu_level = &allstar->x0.x0.cpu_level;
+        f32 f31;
+        f32 f30;
+        u8 opp_count;
+
+        f30 = gm_8018A1D8(0xC, *cpu_level);
+        f31 = gm_8018A188(0xC, *cpu_level);
+        opp_count = gm_8018A228(0xC, *cpu_level, 0);
+
+        gm_8016A22C(CKind_GameWatch, ChKind_None, ChKind_None, 0, 0, 0, 1, 0,
+                    0, (u8) data->players[0].ckind, data->players[0].color,
+                    (s32) opp_count, 0x19, 5, 1, 0, 1, f31, f30);
+
+        data->rules.x4_5 = 1;
+        data->rules.x0_3 = 6;
+        gm_8016A21C(&data->rules);
+    }
+
+    data->players[0].damage = allstar->x74;
+    gm_LoadRumbleEnabled(data);
+    allstar->x0.x0.mode = arg0->id;
+}
+
+void gm_801B59AC(GameModeState* arg0)
+{
+    MatchExitInfo* exit = gm_GetGameModeStateExitData(arg0);
+    u8 idx = arg0->id;
+    s32 result = exit->x8;
+    UnkAllstarData* data = &gm_80473A18;
+    u16 round = gm_8017BE84(idx);
+    AllStarOpponent* opp = &gm_803DEBE8[gm_803DEC4C[round].start];
+    u32 i =
+        ((uintptr_t) opp - (uintptr_t) gm_803DEBE8) / sizeof(gm_803DEBE8[0]);
+
+    if (result != 0) {
+        gm_80490940[i] = 2;
+    } else {
+        gm_80490940[i] = 1;
+    }
+    data->x74 = exit->match_end.player_standings[0].percent;
+    data->x9C += exit->match_end.frame_count;
+    if (gm_8017D7AC(exit, &data->x0, 0x69) != 0 && arg0->id == 0x60) {
+        gm_8017CBAC((UnkAdventureData*) data, gmMainLib_8015CDE0(), 0x17);
+    }
+}
+
+void fn_801B5AA8(int arg0)
+{
+    lbBgFlash_8002063C(0x78);
+}
+
+static inline void gm_801B5ACC_inline1(AllstarRoundInfo* ri)
+{
+    s32 end_idx = ri[1].start;
+    AllStarOpponent* opp = &gm_803DEBE8[end_idx];
+
+    while (end_idx < (s32) ARRAY_SIZE(gm_803DEBE8)) {
+        gm_8016A998((s8) opp->character, 0);
+        opp++;
+        end_idx++;
+    }
+}
+
+void gm_801B5ACC(GameModeState* arg0)
+{
+    s8 chars[3];
+    u8 color;
+    u16 round;
+    StartMeleeData* data;
+    u16 rest_round;
+    s32 i;
+    PAD_STACK(7 * 4);
+
+    chars[0] = ChKind_None;
+    chars[1] = ChKind_None;
+    chars[2] = ChKind_None;
+    data = gm_GetGameModeStateEnterData(arg0);
+    gm_80473A18.x0.x8 |= (1 << 7);
+
+    round = gm_8017BE84(arg0->id);
+    {
+        AllStarOpponent* opp = &gm_803DEBE8[gm_803DEC4C[round].start];
+        color = gm_80490940[((uintptr_t) opp - (uintptr_t) gm_803DEBE8) /
+                            sizeof(gm_803DEBE8[0])];
+    }
+
+    gm_8017CE34(data, &gm_80473A18.x0, chars, 0, 0, 0, 0, 85, 0, (s32) color);
+
+    data->rules.timer_enabled = 0;
+    data->rules.timer_counts_up = 1;
+    data->rules.x1_0 = 1;
+    data->rules.time_limit = (s32) gm_80473A18.x9C / GM_FPS;
+    data->rules.x14 = (s32) gm_80473A18.x9C % GM_FPS;
+    data->rules.xD = GM_NAMETAG_NONE;
+    data->players[0].damage = gm_80473A18.x74;
+    data->players[0].xD_b2 = 1;
+    data->rules.x7 = 9;
+    rest_round = gm_8017BE84(arg0->id);
+
+    {
+        UnkAllstarData* allstar = &gm_80473A18;
+        AllstarRoundInfo* ri = &gm_803DEC4C[rest_round];
+
+        for (i = 0; i < ri->count; i++) {
+            u8* slot_ptr;
+            s32 slot;
+            UnkAllstarData* p;
+            do {
+                slot = HSD_Randi(CKind_Playable_Count);
+                slot_ptr = (p = (UnkAllstarData*) ((u8*) allstar + slot))->x76;
+            } while ((s32) *slot_ptr != ChKind_None);
+            *slot_ptr = gm_803DEBE8[i + ri->start].character;
+        }
+
+        for (i = 0; i < (&gm_803DEC4C[rest_round])[1].count; i++) {
+            gm_80473A18.x96[i] =
+                gm_803DEBE8[(&gm_803DEC4C[rest_round])[1].start + i].character;
+        }
+
+        gm_80473A18._94[1] = (u8) i;
+        gm_80473A18._94[0] = (u8) (rest_round + 1);
+        data->players[0].xC_b1 = 0;
+        data->rules.x1_2 = 1;
+        data->rules.x1_3 = 1;
+        data->rules.x4_4 = 0;
+        gm_LoadRumbleEnabled(data);
+        gm_8016A92C(&data->rules);
+
+        gm_801B5ACC_inline1(&gm_803DEC4C[rest_round]);
+
+        gm_801B5324(allstar, (s32) rest_round + 1);
+        data->rules.on_match_end = (void (*)(u8))(Event) fn_801B5AA8;
+    }
+}
+
+void gm_801B5E7C(GameModeState* arg0)
+{
+    MatchExitInfo* exit = gm_GetGameModeStateExitData(arg0);
+    gm_80473A18.x74 = exit->match_end.player_standings[0].percent;
+    gm_8017D7AC(exit, &gm_80473A18.x0, 0x69);
+}
+
+void gm_801B5EB4(GameModeState* arg0)
+{
+    DebugGameOverData* data = gm_GetGameModeStateEnterData(arg0);
+    gm_8017C9A8(data, &gm_80473A18.x0, 2);
+}
+
+void gm_801B5EE4(GameModeState* arg0)
+{
+    DebugGameOverData* data = gm_GetGameModeStateExitData(arg0);
+    UnkAllstarData* allstar = &gm_80473A18;
+    gm_8017CA38(data, &allstar->x0, gmMainLib_8015CDE0(), 2);
+    if (data->xC != 0) {
+        allstar->x74 = 0;
+    }
+}
+
+void gm_801B5F50(GameModeState* arg0)
+{
+    CSSData* css;
+    struct gmm_x0_528_t* settings;
+
+    css = gm_GetGameModeStateEnterData(arg0);
+    settings = gmMainLib_8015CDE0();
+    gm_801B06B0(css, 0xD, settings->c_kind, settings->stocks, settings->color,
+                settings->nametag, settings->cpu_level,
+                gm_80473A18.x0.x0.slot);
+    lbDvd_SetupVsPreloadCache();
+}
+
+void gm_801B5FB4(GameModeState* arg0)
+{
+    CSSData* css = gm_GetGameModeStateExitData(arg0);
+    struct gmm_x0_528_t* settings = gmMainLib_8015CDE0();
+    UnkAllstarData* allstar = &gm_80473A18;
+
+    if (css->pending_scene_change == 2) {
+        gm_ChangeGameModeAfterCurrentScene(GM_MENU);
+        return;
+    }
+    gm_801B0730(css, &settings->c_kind, &settings->stocks, &settings->color,
+                &settings->nametag, &settings->cpu_level);
+    allstar->x0.x0.ckind = settings->c_kind;
+    allstar->x0.x0.color = settings->color;
+    allstar->x0.x0.cpu_level = settings->cpu_level;
+    allstar->x0.x0.stocks = settings->stocks;
+    allstar->x0.x0.nametag = settings->nametag;
+    gm_SetNextGameModeStateId((settings->x5 * 8) & 0xF8);
+    gm_80168F88();
+    gm_801B5324(allstar, settings->x5);
+}
+
+void gm_801B607C(GameModeState* unused)
+{
+    gm_SetPendingGameMode(GM_MENU);
+    gm_SetNewGameModePending();
+}
+
+void gm_Mode_AllStar_OnLoad(void)
+{
+    UnkAllstarData* data;
+    u32 index;
+    AllStarOpponent tmp;
+    PAD_STACK(8);
+
+    data = &gm_80473A18;
+    gmMainLib_8015CDE0();
+    gm_8017C984(data);
+
+    {
+        int i;
+        for (i = 0; i < ARRAY_SIZE(gm_80490940); i++) {
+            gm_80490940[i] = 0;
+        }
+    }
+
+    gm_8017DB58(data->x0.xC.x24);
+    data->x0.x0.slot = gm_801677F0();
+    data->x0.x48 = gm_8018A160;
+    data->x0.x4C = gm_8018A228;
+    data->x0.x50 = gm_8018A290;
+    data->x0.x54 = gm_8018A25C;
+    data->x0.x58 = NULL;
+    data->x0.x64 = gm_8018A2C4;
+    data->x0.x68 = gm_8018A314;
+
+    for (index = 0; index < ARRAY_SIZE(gm_803DEBE8); index++) {
+        AllStarOpponent* opponent = &gm_803DEBE8[index];
+        opponent->stage = opponent->stages[HSD_Randi(2)];
+    }
+
+    for (index = 0; index < 0x17; index++) {
+        u32 rand_offset = HSD_Randi(0x18 - index);
+        tmp = gm_803DEBE8[index];
+        {
+            AllStarOpponent* swap = &gm_803DEBE8[index + rand_offset];
+            gm_803DEBE8[index] = *swap;
+            *swap = tmp;
+        }
+    }
+
+    data->x74 = 0;
+    data->x9C = 0;
+    {
+        int i;
+        for (i = 0; i < CKind_Playable_Count; i++) {
+            gm_80473A18.x76[i] = ChKind_None;
+        }
+    }
+
+    {
+        u8* p = gm_80473A18.x90;
+        p[0] = 1;
+        p[1] = 1;
+        p[2] = 1;
+        p[3] = 1;
+    }
+
+    gm_SetGameModeStateId(0x70U);
+    gm_80172174();
+    Ground_801C5A28();
+}
+
+void gm_Mode_AllStar_OnInit(void)
+{
+    struct gmm_x0_528_t* settings = gmMainLib_8015CDE0();
+    settings->c_kind = ChKind_None;
+    settings->color = 0;
+    settings->stocks = 1;
+    settings->cpu_level = 0;
+    settings->nametag = GM_NAMETAG_NONE;
+    settings->x5 = 0;
+}

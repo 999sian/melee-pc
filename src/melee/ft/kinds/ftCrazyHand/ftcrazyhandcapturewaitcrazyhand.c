@@ -1,0 +1,37 @@
+#include "ftcrazyhandcapturewaitcrazyhand.h"
+
+#include <Runtime/platform.h>
+
+#include <sysdolphin/baselib/forward.h>
+
+#include <melee/ft/fighter.h>
+#include <melee/ft/ftcommon.h>
+#include <melee/ft/inlines.h>
+#include <melee/ft/kinds/ftCommon/ftCo_CaptureCut.h>
+#include <melee/ft/types.h>
+
+void ftCh_GrabUnk1_8015B778(HSD_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    Fighter_ChangeMotionState(gobj, 0x152, 0, 0.0f, 1.0f, 0.0f, NULL);
+    fp->invisible = true;
+    ftCommon_8007E2F4(fp, 511);
+    fp->x2220_b3 = true;
+    ftAnim_8006EBA4(gobj);
+}
+
+void ftCh_GrabUnk1_8015B800(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->invisible = false;
+    fp->facing_dir = -fp->facing_dir;
+    ftCo_CaptureCut_Enter(gobj);
+}
+
+void ftCo_CaptureWaitCrazyHand_Anim(HSD_GObj* gobj) {}
+
+void ftCo_CaptureWaitCrazyHand_IASA(HSD_GObj* gobj) {}
+
+void ftCo_CaptureWaitCrazyHand_Phys(HSD_GObj* gobj) {}
+
+void ftCo_CaptureWaitCrazyHand_Coll(HSD_GObj* gobj) {}

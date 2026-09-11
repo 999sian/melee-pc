@@ -1,0 +1,330 @@
+#include "vi1201v1.h"
+
+#include <sysdolphin/baselib/forward.h>
+
+#include "vi.h"
+#include <melee/cm/camera.h>
+#include <melee/ef/efasync.h>
+#include <melee/ef/eflib.h>
+#include <melee/ef/efsync.h>
+#include <melee/ft/ftdemo.h>
+#include <melee/gm/gm_1601.h>
+#include <melee/gm/gm_unsplit.h>
+#include <melee/gr/ground.h>
+#include <melee/gr/stage.h>
+#include <melee/it/item.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_00F9.h>
+#include <melee/lb/lb_013B.h>
+#include <melee/lb/lbarchive.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbshadow.h>
+#include <melee/lb/lbspdisplay.h>
+#include <melee/mn/mnmain.h>
+#include <melee/mp/mpcoll.h>
+#include <melee/pl/player.h>
+#include <melee/sc/types.h>
+#include <melee/ty/toy.h>
+#include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjplink.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/lobj.h>
+
+/* 4D6FE0 */ static SceneDesc* un_804D6FE0;
+/* 4D6FE4 */ static SceneDesc* un_804D6FE4;
+/* 4D6FE8 */ static HSD_Archive* un_804D6FE8;
+/* 4D6FEC */ static HSD_Joint* un_804D6FEC;
+/* 4D6FF0 */ static HSD_JObj* un_804D6FF0;
+/* 4D6FF4 */ static GXColor un_804D6FF4;
+/* 4D6FF8 */ static s32 un_804D6FF8;
+/* 4D6FFC */ static u8 un_804D6FFC;
+/* 4D6FFD */ static u8 un_804D6FFD;
+/* 4D7000 */ static void* un_804D7000;
+/* 4D7004 */ u8 un_804D7004[8]; ///< @todo #ViCharaDesc?
+
+Vec3 player_spawn = { 0.0f, 0.0f, 0.0f };
+
+void un_8031F980(int arg0, int arg1)
+{
+    un_804D7004[0] = arg0;
+    un_804D7004[1] = arg1;
+}
+
+void un_8031F990(HSD_GObj* gobj)
+{
+    HSD_JObjAnimAll(GET_JOBJ(gobj));
+}
+
+void un_8031F9B4(HSD_GObj* gobj)
+{
+    HSD_JObjAnimAll(GET_JOBJ(gobj));
+}
+
+/// @todo .sdata2 order hack
+#ifdef MUST_MATCH
+static void order_sdata2(void)
+{
+    (void) 0.55f;
+    (void) 1.0f;
+}
+#endif
+
+void un_8031F9D8(CharacterKind char_index, int costume_id)
+{
+    PAD_STACK(16);
+
+    ftDemo_ObjAllocInit();
+    Player_InitAllPlayers();
+    Player_80036E20(char_index, un_804D6FE8, 0);
+    Player_SetPlayerCharacter(0, char_index);
+    Player_SetCostumeId(0, costume_id);
+    Player_SetPlayerId(0, 0);
+    Player_SetSlottype(0, 2);
+    Player_SetFacingDirection(0, 0.0f);
+    Player_80032768(0, &player_spawn);
+    Player_80036F34(0, 1);
+    un_804D7000 = Player_GetEntity(0);
+    lbAudioAx_80026F2C(0x18);
+    lbAudioAx_8002702C(0x8, (u64) 0x20 << 48);
+    lbAudioAx_80027168();
+    lbAudioAx_80027648();
+}
+
+void fn_8031FAA8(HSD_GObj* gobj)
+{
+    HSD_JObj* jobj;
+    Vec3 pos;
+    f32 scale_x;
+    f32 scale_y;
+    HSD_JObj* child;
+    PAD_STACK(4);
+
+    HSD_JObjAnimAll(gobj->hsd_obj);
+    jobj = gobj->hsd_obj;
+    if (mn_8022F298(jobj) != 120.0f) {
+        return;
+    }
+    lb_80011E24(jobj, &child, 1, -1);
+    jobj = child;
+    HSD_JObjGetTranslation2(jobj, &pos);
+    scale_x = 0.0f;
+    scale_y = 1.0f;
+
+    efSync_Spawn(0x42B, gobj, &pos, &scale_x, &scale_y, 0x00FFFFFF,
+                 0x00808080);
+    lbAudioAx_800237A8(0x61, 0x7F, 0x40);
+}
+void fn_8031FB90(HSD_GObj* gobj)
+{
+    PAD_STACK(8);
+    if (un_804D7000 != NULL) {
+        lbShadow_8000F38C(0);
+    }
+    vi_RunCamera(gobj, (u8*) &un_804D6FF4, 0x881);
+}
+
+void fn_8031FC30(HSD_GObj* gobj)
+{
+    HSD_CObj* cobj = GET_COBJ(gobj);
+    HSD_CObjAnim(cobj);
+    if (cobj->aobj->curr_frame == 120.0F) {
+        vi_8031C9B4(0xD, 0);
+    }
+    if (cobj->aobj->curr_frame == 100.0F) {
+        un_8031F9D8(un_804D6FFC, un_804D6FFD);
+    }
+    if (cobj->aobj->curr_frame == cobj->aobj->end_frame) {
+        lb_800145F4();
+        gm_801A4B60();
+    }
+}
+
+void fn_8031FCBC(HSD_GObj* gobj)
+{
+    if ((f32) un_804D6FF8 >= 100.0F) {
+        HSD_GObjFree(gobj);
+    } else {
+        un_804D6FF8 = un_804D6FF8 + 1;
+    }
+}
+
+static inline void un_8031FD18_SetupScene(void)
+{
+    s32 i;
+    HSD_GObj* gobj;
+    HSD_JObj* jobj;
+
+    for (i = 0; un_804D6FE0->models[i] != NULL; i++) {
+        gobj = GObj_Create(0xE, 0xF, 0);
+        jobj = HSD_JObjLoadJoint(un_804D6FE0->models[i]->joint);
+        HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
+        GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
+        gm_8016895C(jobj, un_804D6FE0->models[i],
+                    (un_804D6FE0->models[i] != NULL) * 0);
+        HSD_JObjReqAnimAll(jobj, 0.0f);
+        HSD_JObjAnimAll(jobj);
+        HSD_GObj_SetupProc(gobj, fn_8031FAA8, 0);
+        lb_80011E24(jobj, &un_804D6FF0, 3, -1);
+    }
+
+    Camera_Init(6);
+    lb_8000FCDC();
+    mpColl_80041C78();
+    Ground_801C0378(0x40);
+}
+
+static inline void un_8031FD18_SetupCamera(void)
+{
+    HSD_GObj* camera_gobj;
+    HSD_CObj* cobj;
+
+    camera_gobj = GObj_Create(0x13, 0x14, 0);
+    cobj =
+        lb_80013B14((HSD_CameraDescPerspective*) un_804D6FE0->cameras->desc);
+    HSD_GObjObject_80390A70(camera_gobj, HSD_GObj_CameraKind, cobj);
+    GObj_SetupGXLinkMax(camera_gobj,
+                        (void (*)(HSD_GObj*, int))(Event) fn_8031FB90, 8);
+    HSD_CObjAddAnim(cobj, un_804D6FE0->cameras->anims[0]);
+    HSD_CObjReqAnim(cobj, 0.0f);
+    HSD_CObjAnim(cobj);
+    HSD_GObj_SetupProc(camera_gobj, fn_8031FC30, 0);
+}
+
+static inline void un_8031FD18_SetupKoopa(void)
+{
+    HSD_GObj* koopa_gobj;
+    HSD_JObj* jobj;
+
+    koopa_gobj = GObj_Create(0xE, 0xF, 0);
+    jobj = HSD_JObjLoadJoint(un_804D6FEC);
+    HSD_GObjObject_80390A70(koopa_gobj, HSD_GObj_JObjKind, jobj);
+    GObj_SetupGXLink(koopa_gobj, HSD_GObj_JObjCallback, 0xB, 0);
+
+    HSD_JObjSetScaleX(jobj, 0.55f);
+    HSD_JObjSetScaleY(jobj, 0.55f);
+    HSD_JObjSetScaleZ(jobj, 0.55f);
+
+    lb_8000C1C0(jobj, un_804D6FF0);
+    lb_8000C290(jobj, un_804D6FF0);
+    HSD_GObj_SetupProc(koopa_gobj, un_8031F9B4, 0);
+}
+
+static inline void un_8031FD18_LoadAssets(const u8* input)
+{
+    u8 char_index;
+
+    char_index = input[0];
+
+    un_804D6FE8 = lbArchive_LoadSymbols("Vi1201v1.dat", &un_804D6FE0,
+                                        "visual1201v1Scene", NULL);
+    lbArchive_LoadSymbols("TyKoopa.dat", &un_804D6FEC,
+                          "ToyKoopaModel_TopN_joint", NULL);
+    lbArchive_LoadSymbols("GmRgStnd.dat", &un_804D6FE4, "standScene", NULL);
+    Toy_803124BC();
+    un_804D6FE8 = lbArchive_LoadSymbols(gm_80160438(char_index), NULL);
+}
+
+static inline void un_8031FD18_SetupStand(void)
+{
+    HSD_GObj* stand_gobj;
+    HSD_JObj* jobj;
+    HSD_JObj* child;
+    f32 scale;
+
+    stand_gobj = GObj_Create(0xE, 0xF, 0);
+    jobj = HSD_JObjLoadJoint(un_804D6FE4->models[0]->joint);
+    HSD_GObjObject_80390A70(stand_gobj, HSD_GObj_JObjKind, jobj);
+    GObj_SetupGXLink(stand_gobj, HSD_GObj_JObjCallback, 0xB, 0);
+    HSD_GObj_SetupProc(stand_gobj, un_8031F990, 0);
+
+    if (jobj == NULL) {
+        child = NULL;
+    } else {
+        child = jobj->child;
+    }
+
+    HSD_JObjSetTranslateXWithMtxDirty(child, -Toy_803060BC(0x1E, 0));
+    HSD_JObjSetTranslateYWithMtxDirty(child, -Toy_803060BC(0x1E, 1));
+    HSD_JObjSetTranslateZWithMtxDirty(child, -Toy_803060BC(0x1E, 2));
+
+    scale = -Toy_803060BC(0x1E, 5);
+    HSD_JObjSetRotationYWithMtxDirty(child, scale);
+
+    scale = 0.55f * (Toy_803060BC(0x1E, 4) * (1.0f / Toy_803060BC(0x1E, 3)));
+
+    HSD_JObjSetScaleXWithMtxDirty(child, scale);
+    HSD_JObjSetScaleYWithMtxDirty(child, scale);
+    HSD_JObjSetScaleZWithMtxDirty(child, scale);
+
+    lb_8000C1C0(jobj, un_804D6FF0);
+    lb_8000C290(jobj, un_804D6FF0);
+}
+
+/// @todo .data order hack
+#ifdef MUST_MATCH
+static void order_data(void)
+{
+    (void) "!(jobj->flags & JOBJ_USE_QUATERNION)";
+}
+#endif
+
+void vi1201v1_Scene_OnEnter(void* arg)
+{
+    u8* input = arg;
+    HSD_Fog* fog;
+    HSD_GObj* fog_gobj;
+    HSD_LObj* lobj;
+    HSD_GObj* light_gobj;
+    PAD_STACK(8);
+
+    un_804D6FFC = input[0];
+    un_804D6FFD = input[1];
+    un_804D7000 = (void*) 0U;
+
+    lbAudioAx_800236DC();
+    efLib_Init();
+    efAsync_LoadSync(0);
+    lbAudioAx_80023F28(0x59);
+    lbAudioAx_80024E50(1);
+
+    un_8031FD18_LoadAssets(input);
+
+    un_8031FD18_SetupCamera();
+
+    un_8031FD18_SetupScene();
+    Stage_802251E8(St_Kind_Last, 0);
+    Item_80266FA8();
+    Item_80266FCC();
+    Stage_8022524C();
+    Stage_8022532C(St_Kind_Last, 0x19);
+
+    un_8031FD18_SetupKoopa();
+
+    un_8031FD18_SetupStand();
+
+    fog_gobj = GObj_Create(0xB, 3, 0);
+    fog = HSD_FogLoadDesc(un_804D6FE0->fogs->desc);
+    HSD_GObjObject_80390A70(fog_gobj, HSD_GObj_FogKind, fog);
+    GObj_SetupGXLink(fog_gobj, HSD_GObj_FogCallback, 0, 0);
+    HSD_GObj_SetupProc(fog_gobj, fn_8031FCBC, 0);
+    un_804D6FF4 = fog->color;
+    un_804D6FF8 = 0;
+
+    light_gobj = GObj_Create(0xB, 3, 0);
+    lobj = lb_80011AC4(un_804D6FE0->lights);
+    HSD_GObjObject_80390A70(light_gobj, HSD_GObj_LightKind, lobj);
+    GObj_SetupGXLink(light_gobj, HSD_GObj_LObjCallback, 0, 0);
+
+    lbAudioAx_80024E50(0);
+}
+
+void vi1201v1_Scene_OnFrame(void)
+{
+    vi_8031CAAC();
+}

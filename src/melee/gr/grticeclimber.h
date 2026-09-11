@@ -1,0 +1,8 @@
+#ifndef GALE01_220F10
+#define GALE01_220F10
+
+#include <melee/gr/forward.h>
+
+/* 3E8AF4 */ extern StageData grTIc_StageData;
+
+#endif

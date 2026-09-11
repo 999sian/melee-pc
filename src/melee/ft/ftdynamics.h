@@ -1,0 +1,34 @@
+#ifndef GALE01_09CB40
+#define GALE01_09CB40
+
+#include <Runtime/platform.h>
+
+#include <melee/ft/forward.h>
+#include <melee/ft/kinds/ftKirby/forward.h>
+
+/* 09CF84 */ void ftCo_8009CF84(Fighter* fp);
+/* 09D074 */ void ftCo_8009D074(Fighter* fp);
+/* 09D704 */ void ftCo_8009D704(Fighter* fp);
+/* 09DC54 */ void ftCo_8009DC54(Fighter* fp);
+/* 09E0A8 */ void ftCo_8009E0A8(HSD_GObj* gobj);
+/* 09E0D4 */ void ftCo_UnloadDynamicBones(Fighter* fp);
+/* 09E140 */ void ftCo_8009E140(Fighter* fp, bool);
+/* 09E318 */ enum_t ftCo_8009E318(Fighter_GObj*, Fighter_Part, float);
+/* 09E714 */ bool ftCo_8009E714(Fighter_GObj* gobj, Fighter_Part part,
+                                int arg2, float x, float y, float arg5,
+                                float arg6, float arg7);
+/* 09E7B4 */ void ftCo_8009E7B4(Fighter* fp, u8 (*)[2]);
+/* 09EAF8 */ void ftCo_8009EAF8(HSD_GObj* gobj);
+
+/// @todo
+/* 09D18C */ void ftCo_8009D18C(Fighter* fp);
+/* 09D2A4 */ void ftCo_8009D2A4(Fighter* fp);
+/* 09D3BC */ void ftCo_8009D3BC(Fighter* fp);
+/* 09D4D4 */ void ftCo_8009D4D4(Fighter* fp);
+/* 09D5EC */ void ftCo_8009D5EC(Fighter* fp);
+/* 09D81C */ void ftCo_8009D81C(Fighter* fp);
+/* 09D920 */ void ftCo_8009D920(Fighter* fp);
+/* 09DA38 */ void ftCo_8009DA38(ftKb_Fighter* fp);
+/* 09DB50 */ void ftCo_8009DB50(Fighter* fp);
+
+#endif

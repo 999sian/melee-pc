@@ -1,0 +1,10 @@
+.buildcache/
+.DS_Store
+.idea/
+.cache/
+.vscode/
+.vs/
+build/
+cmake-build-*/
+CMakeUserPresets.json
+out/

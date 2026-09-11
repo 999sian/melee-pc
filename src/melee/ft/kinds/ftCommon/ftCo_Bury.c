@@ -1,0 +1,432 @@
+#include "ftCo_Bury.h"
+
+#include <Runtime/platform.h>
+
+#include <melee/ft/forward.h>
+#include <melee/gr/forward.h>
+#include <melee/lb/forward.h>
+
+#include <placeholder.h>
+
+#include "forward.h"
+#include "ftCo_AirCatch.h"
+#include "ftCo_Attack100.h"
+#include "ftCo_AttackAir.h"
+#include "ftCo_BarrelWait.h"
+#include "ftCo_Damage.h"
+#include "ftCo_EscapeAir.h"
+#include "ftCo_Fall.h"
+#include "ftCo_HammerJump.h"
+#include "ftCo_HammerWait.h"
+#include "ftCo_ItemThrow.h"
+#include "ftCo_JumpAerial.h"
+#include "ftCo_Lift.h"
+#include "ftCo_SpecialAir.h"
+#include "ftCo_Throw.h"
+#include "types.h"
+#include <dolphin/mtx.h>
+#include <melee/ef/efsync.h>
+#include <melee/ft/fighter.h>
+#include <melee/ft/ft_081B.h>
+#include <melee/ft/ftanim.h>
+#include <melee/ft/ftcoll.h>
+#include <melee/ft/ftcommon.h>
+#include <melee/ft/ftparts.h>
+#include <melee/ft/kinds/ftCaptain/types.h>
+#include <melee/ft/types.h>
+#include <melee/gr/ground.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lbcollision.h>
+#include <melee/mp/mplib.h>
+#include <melee/pl/player.h>
+#include <melee/pl/plbonuslib.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/jobj.h>
+
+/// @todo .sdata2 order hack
+#ifdef MUST_MATCH
+static void order_sdata2(void)
+{
+    (void) U32_TO_F32;
+    (void) S32_TO_F32;
+    (void) 0.0F;
+    (void) 1.0F;
+}
+#endif
+
+void ftCo_800C0874(Fighter_GObj* gobj, UNK_T arg1, ftCommon_BuryType arg2)
+{
+    switch (arg2) {
+    case BuryType_Unk2:
+        ftCo_8009EB18(gobj);
+    default:
+        break;
+    }
+}
+
+void ftCo_800C08A0(Fighter_GObj* gobj, Fighter_GObj* arg1, DynamicsDesc* arg2,
+                   ftCommon_BuryType arg3)
+{
+    float f;
+    FighterHurtCapsule* p_hurt;
+    struct SmallerHitCapsule hit;
+    int hurt_idx;
+    Fighter* fp = GET_FIGHTER(gobj);
+    f = ftColl_800765F0(fp, NULL, arg2->count);
+    hurt_idx = 0;
+    switch (arg3) {
+    case BuryType_Unk2:
+        break;
+    case BuryType_Unk1:
+        fp->bury_timer_1 = p_ftCommonData->bury_timer_unk1;
+        break;
+    case BuryType_Unk3:
+        fp->bury_timer_2 = p_ftCommonData->bury_timer_unk3;
+        break;
+    default:
+        break;
+    }
+    if (ftColl_80076640(fp, &f) != 0) {
+        ftColl_80076764(3, arg3, arg1, arg2, fp, &fp->hurt_capsules[hurt_idx]);
+        lbColl_80008D30((HitCapsule*) &hit, (lbColl_80008D30_arg1*) arg2);
+        ftColl_80078384(fp, &fp->hurt_capsules[hurt_idx], (HitCapsule*) &hit);
+    }
+    pl_8003EC30(fp->player_id, fp->is_sub_fighter, arg3, f);
+}
+
+void ftCo_800C09B4(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->bury_grkind = stage_info.grkind;
+    fp->bury_timer_1 = 0;
+    switch (fp->bury_grkind) {
+    case Gr_Kind_OldKongo:
+    case Gr_Kind_Kongo:
+        fp->bury_timer_2 = 0;
+        return;
+    case Gr_Kind_ShrineRoute:
+    case Gr_Kind_Pushon:
+    case Gr_Kind_Zebes:
+        fp->bury_timer_2 = 0;
+        return;
+    default:
+        break;
+    }
+}
+
+bool ftCo_800C0A28(Fighter_GObj* gobj, UNK_T arg1, ftCommon_BuryType arg2)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    switch (arg2) {
+    case BuryType_Unk2: {
+        if (fp->bury_timer_2 != 0 || fp->motion_id == ftCo_MS_BarrelWait ||
+            fp->x1A6A & 0x20 || fp->x2224_b2)
+        {
+            return false;
+        }
+        break;
+    }
+    case BuryType_Unk3: {
+        if (fp->bury_timer_2 != 0) {
+            return false;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+    return true;
+}
+
+void ftCo_800C0A98(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->bury_timer_1 != 0) {
+        --fp->bury_timer_1;
+    }
+    switch (fp->bury_grkind) {
+    case Gr_Kind_OldKongo:
+    case Gr_Kind_Kongo:
+        if (fp->bury_timer_2 != 0) {
+            --fp->bury_timer_2;
+            return;
+        }
+        break;
+    case Gr_Kind_ShrineRoute:
+    case Gr_Kind_Pushon:
+    case Gr_Kind_Zebes:
+        if (fp->bury_timer_2 != 0) {
+            --fp->bury_timer_2;
+            return;
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void ftCo_800C0B20(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    int hurt_idx;
+    DynamicsDesc* unk_anim;
+    if (fp->bury_timer_1 == 0) {
+        CollData* coll = &fp->coll_data;
+        unk_anim = NULL;
+        if (fp->coll_data.env_flags & (Collide_FloorPush | Collide_FloorHug)) {
+            unk_anim = Ground_801C5700(coll->floor.index);
+        }
+        if (coll->env_flags & Collide_CeilingMask) {
+            unk_anim = Ground_801C5700(coll->ceiling.index);
+        }
+        if (coll->env_flags & Collide_RightWallMask) {
+            unk_anim = Ground_801C5700(coll->right_facing_wall.index);
+        }
+        if (coll->env_flags & Collide_LeftWallMask) {
+            unk_anim = Ground_801C5700(coll->left_facing_wall.index);
+        }
+        if (unk_anim != NULL) {
+            HitCapsule hit;
+            float f;
+            fp = GET_FIGHTER(gobj);
+            f = ftColl_800765F0(fp, NULL, unk_anim->count);
+            hurt_idx = 0;
+            fp->bury_timer_1 = p_ftCommonData->bury_timer_unk1;
+            if (ftColl_80076640(fp, &f)) {
+                ftColl_80076764(3, 1, 0, unk_anim, fp,
+                                &fp->hurt_capsules[hurt_idx]);
+
+                /// @todo Eliminate cast
+                lbColl_80008D30(&hit, (lbColl_80008D30_arg1*) unk_anim);
+
+                ftColl_80078384(fp, &fp->hurt_capsules[hurt_idx], &hit);
+            }
+            pl_8003EC30(fp->player_id, fp->is_sub_fighter, 1, f);
+        }
+    }
+}
+
+bool ftCo_800C0C88(ftCommon_BuryType arg0)
+{
+    switch (arg0) {
+    case BuryType_Unk1:
+    case BuryType_Unk3:
+        return true;
+    default:
+    case BuryType_Unk2:
+        return false;
+    }
+}
+
+bool ftCo_800C0CB8(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->dmg.x1860_element == HitElement_Ground &&
+        fp->ground_or_air == GA_Ground && !fp->x2227_b6)
+    {
+        ftCo_800C0D0C(gobj);
+        return true;
+    }
+    return false;
+}
+
+void ftCo_800C0D0C(Fighter_GObj* gobj)
+{
+    Vec3 joint_pos;
+    Vec3 hip_pos;
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftCommon_8007DB58(gobj);
+    ftCo_8009750C(gobj);
+    ftCo_800DD168(gobj);
+    ftCo_8008DCE0(gobj, -1, 0);
+    ftCommon_8007D7FC(fp);
+    Fighter_ChangeMotionState(gobj, ftCo_MS_Bury,
+                              Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim, 0, 1, 0,
+                              NULL);
+    ftCommon_8007E2FC(gobj);
+    ftCommon_InitGrab(
+        fp, 0,
+        (fp->dmg.x1830_percent * p_ftCommonData->x60C) +
+            ((p_ftCommonData->x5FC *
+              (p_ftCommonData->x600 - Player_GetHandicap(fp->player_id))) +
+             p_ftCommonData->x5F8 +
+             (p_ftCommonData->x604 *
+              (p_ftCommonData->x608 - (Player_80033BB8(fp->player_id) + 1)))));
+    ftCommon_8007E2F4(fp, 0x1FF);
+    fp->x221D_b5 = true;
+    fp->x2220_b3 = true;
+    fp->x2224_b4 = true;
+    fp->mv.co.bury.x0 = p_ftCommonData->x5F4;
+    fp->mv.co.bury.x20 = fp->coll_data.floor.index;
+    ft_80084CB0(fp, &fp->mv.co.bury.coll_box);
+    lb_8000B1CC(fp->parts->joint, NULL, &joint_pos);
+    lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, FtPart_HipN)].joint, NULL,
+                &hip_pos);
+    {
+        float y = hip_pos.y - joint_pos.y;
+        fp->mv.co.bury.x1C = y / p_ftCommonData->x5F4;
+        fp->mv.co.bury.translate = fp->cur_pos;
+        efSync_Spawn(1095, gobj, &fp->cur_pos, &fp->x34_scale.y);
+    }
+    fp->x2219_b0 = true;
+}
+
+void ftCo_Bury_Anim(Fighter_GObj* gobj)
+{
+    Fighter* fp;
+    PAD_STACK(8);
+    fp = GET_FIGHTER(gobj);
+    fp->grab_timer -= p_ftCommonData->x610;
+    ftCommon_GrabMash(fp, p_ftCommonData->x614);
+    if (fp->grab_timer <= 0) {
+        ftCo_800C13BC(gobj);
+    }
+    --fp->mv.co.bury.x0;
+    if (fp->mv.co.bury.x0 == 0) {
+        ftCo_800C124C(gobj);
+    }
+}
+
+void ftCo_Bury_IASA(Fighter_GObj* gobj) {}
+
+static inline Vec3* ftCo_Bury_GetTranslate(Fighter* fp)
+{
+    return &fp->mv.co.bury.translate;
+}
+
+void ftCo_800C0FCC(HSD_GObj* arg0, Fighter_GObj* arg1)
+{
+    Fighter* fp = GET_FIGHTER(arg1);
+    if (mpLib_80054ED8(fp->mv.co.bury.x20)) {
+        Vec3 normal;
+        Vec3 offset;
+        HSD_JObj* jobj = GET_JOBJ(arg0);
+        mpLineGetNormal(fp->mv.co.bury.x20, &normal);
+        HSD_JObjSetRotationZ(jobj, atan2f(-normal.x, normal.y));
+        if (mpGetSpeed(fp->coll_data.floor.index, &fp->mv.co.bury.translate,
+                       &offset))
+        {
+            PSVECAdd(ftCo_Bury_GetTranslate(fp), &offset,
+                     &fp->mv.co.bury.translate);
+            HSD_JObjSetTranslate(jobj, &fp->mv.co.bury.translate);
+        }
+    }
+}
+
+#define MY_MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+void ftCo_Bury_Phys(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftCollisionBox* box = &fp->mv.co.bury.coll_box;
+    float mv_x18_x = MY_MIN(box->right.y, box->left.y);
+    box->bottom += fp->mv.co.bury.x1C;
+    if (1 + box->bottom > mv_x18_x) {
+        box->bottom = mv_x18_x - 1;
+    }
+}
+
+void ftCo_Bury_Coll(Fighter_GObj* gobj)
+{
+    Fighter* fp;
+    PAD_STACK(8);
+    fp = GET_FIGHTER(gobj);
+    if (!ft_80082888(gobj, &fp->mv.co.bury.coll_box) ||
+        fp->mv.co.bury.x20 != fp->coll_data.floor.index ||
+        Ground_801C5700(fp->mv.co.bury.x20) != NULL)
+    {
+        ftCo_800C13BC(gobj);
+    }
+}
+
+void ftCo_800C124C(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    Fighter_ChangeMotionState(
+        gobj, ftCo_MS_BuryWait,
+        Ft_MF_KeepGfx | Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim, 0, 1, 0, NULL);
+    ftCommon_8007E2FC(gobj);
+    ftCommon_8007E2F4(fp, 0x1FF);
+    fp->x221D_b5 = true;
+    fp->x2220_b3 = true;
+    fp->x2224_b4 = true;
+}
+
+void ftCo_BuryWait_Anim(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->grab_timer -= p_ftCommonData->x610;
+    ftCommon_GrabMash(fp, p_ftCommonData->x614);
+    if (fp->grab_timer <= 0) {
+        ftCo_800C13BC(gobj);
+    }
+}
+
+void ftCo_BuryWait_IASA(Fighter_GObj* gobj) {}
+
+void ftCo_BuryWait_Phys(Fighter_GObj* gobj) {}
+
+void ftCo_BuryWait_Coll(Fighter_GObj* gobj)
+{
+    PAD_STACK(0x10);
+    ftCo_Bury_Coll(gobj);
+}
+
+void ftCo_800C13BC(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (ftCo_800C5240(gobj)) {
+        ftCo_800C5A98(gobj);
+        return;
+    }
+    ftCommon_8007D5D4(fp);
+    fp->self_vel.x = 0;
+    fp->self_vel.y = p_ftCommonData->x618;
+    fp->mv.co.buryjump.x0 = 0;
+    Fighter_ChangeMotionState(gobj, ftCo_MS_BuryJump, Ft_MF_None, 0, 1, 0,
+                              NULL);
+    ftCommon_8007E2F4(fp, 0x1FF);
+    ftColl_8007B7A4(gobj, p_ftCommonData->x620);
+}
+
+void ftCo_BuryJump_Anim(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->mv.co.buryjump.x0 += 1;
+    if (!ftAnim_IsFramesRemaining(gobj)) {
+        ftCo_Fall_Enter(gobj);
+    }
+}
+
+void ftCo_BuryJump_IASA(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->mv.ca.specials.grav >= p_ftCommonData->x61C) {
+        RETURN_IF(ftCo_SpecialAir_CheckInput(gobj));
+        RETURN_IF(ftCo_80095328(gobj, NULL));
+        RETURN_IF(ftCo_800D7100(gobj));
+        RETURN_IF(ftCo_800C3B10(gobj));
+        RETURN_IF(ftCo_80099A58(gobj));
+        RETURN_IF(ftCo_AttackAir_CheckItemThrowInput(gobj));
+        RETURN_IF(ftCo_800D705C(gobj));
+        RETURN_IF(ftCo_800CB870(gobj));
+    }
+}
+
+void ftCo_BuryJump_Phys(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    PAD_STACK(8);
+    ftCommon_Fall(fp, fp->co_attrs.gravity, fp->co_attrs.terminal_velocity);
+    ftCommon_CalcSelfAccel_Drift(fp);
+}
+
+void ftCo_BuryJump_Coll(Fighter_GObj* gobj)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->self_vel.y >= 0) {
+        ft_80082D40(gobj, fp->self_vel.y);
+    } else {
+        ftCo_AirCatchHit_Coll(gobj);
+    }
+}

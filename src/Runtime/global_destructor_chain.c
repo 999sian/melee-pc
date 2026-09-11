@@ -1,0 +1,23 @@
+#include "global_destructor_chain.h"
+
+#include "platform.h"
+
+typedef void (*Destructor)(void*, int);
+typedef struct DestructorChain {
+    struct DestructorChain* next;
+    Destructor destructor;
+    void* object;
+} DestructorChain;
+DestructorChain* __global_destructor_chain;
+
+void __destroy_global_chain(void)
+{
+    while (__global_destructor_chain) {
+        DestructorChain* cur = __global_destructor_chain;
+        __global_destructor_chain = cur->next;
+        cur->destructor(cur->object, -1);
+    }
+}
+
+SECTION_DTORS static void* const __destroy_global_chain_reference =
+    __destroy_global_chain;

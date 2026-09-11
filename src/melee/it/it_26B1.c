@@ -1,0 +1,1177 @@
+#include "it_26B1.h"
+
+#include <sysdolphin/baselib/forward.h>
+
+#include <math.h>
+
+#include "forward.h"
+#include "inlines.h"
+#include "it_2725.h"
+#include "it_3F14.h"
+#include "itanimlist.h"
+#include "itCommonItems.h"
+#include "item.h"
+#include "ithitbox.h"
+#include "itspawn.h"
+#include "kinds/itbat.h"
+#include "kinds/itbombhei.h"
+#include "kinds/itbox.h"
+#include "kinds/itfflower.h"
+#include "kinds/itflipper.h"
+#include "kinds/itheart.h"
+#include "kinds/itkusudama.h"
+#include "kinds/itlinkbomb.h"
+#include "kinds/itmarumine.h"
+#include "kinds/itmsbomb.h"
+#include "kinds/itrabbitc.h"
+#include "kinds/itsscope.h"
+#include "kinds/itsword.h"
+#include "kinds/ittomato.h"
+#include "types.h"
+#include <melee/ft/ftlib.h>
+#include <melee/ft/types.h>
+#include <melee/gm/gm_unsplit.h>
+#include <melee/lb/lb_00B0.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/jobj.h>
+
+#if MUST_MATCH
+static inline float my_sqrtf(float x)
+{
+    f64 _half = 0.5;
+
+    if (x > 0) {
+        vf32 y;
+        // returns an approximation to
+        f64 guess = __frsqrte(x);
+        // now have 12 sig bits
+        guess = 0.5 * guess * (3.0 - guess * guess * x);
+        // now have 24 sig bits
+        guess = 0.5 * guess * (3.0 - guess * guess * x);
+        // now have 32 sig bits
+        guess = 0.5 * guess * (3.0 - guess * guess * x);
+        y = x * guess;
+        return y;
+    }
+    return x;
+}
+#else
+#define my_sqrtf(x) sqrtf(x)
+#endif
+
+/// Apply Item Damage
+f32 it_8026B1D4(HSD_GObj* gobj, HitCapsule* itemHitboxUnk)
+{
+    f32 ret = itemHitboxUnk->damage;
+    const Item* ip = gobj->user_data;
+    if (ip->xDC8_word.flags.x14 != 0) {
+        f32 itemSpeed = my_sqrtf(ip->x40_vel.x * ip->x40_vel.x +
+                                 ip->x40_vel.y * ip->x40_vel.y +
+                                 ip->x40_vel.z * ip->x40_vel.z);
+
+        ret += itemSpeed * it_804D6D28->x80_float[5];
+        ret += it_804D6D28->x80_float[6];
+        if (ret <= 1.0) {
+            return ret = 1;
+        }
+    }
+    return ret;
+}
+
+/// Copy Item position vector
+void it_8026B294(HSD_GObj* gobj, Vec3* pos)
+{
+    Item* temp_item;
+
+    temp_item = gobj->user_data;
+    *pos = temp_item->pos;
+}
+
+/// Check if item is heavy
+bool itIsHeavy(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+
+    if (temp_item->xCC_item_attr->x0_is_heavy) {
+        return true;
+    }
+
+    return false;
+}
+
+/// Check if item is heavy again?
+bool it_8026B2D8(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    if (temp_item->xCC_item_attr->x0_is_heavy == 1) {
+        return true;
+    }
+    return false;
+}
+
+/// Get Item ID
+ItemKind itGetKind(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    return temp_item->kind;
+}
+
+/// Return flag from Item Attributes
+enum_t it_8026B30C(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    return ip->xCC_item_attr->x0_78;
+}
+
+/// Return item hold kind
+Item_HoldKinds itGetHoldKind(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    return temp_item->xCC_item_attr->x0_hold_kind;
+}
+
+/// Return item damage multiplier
+f32 itGetDamageMultiplier(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    return temp_item->xCC_item_attr->x1C_damage_mul;
+}
+
+/// Unknown item position math, related to velocity?
+void it_8026B344(HSD_GObj* gobj, Vec3* pos)
+{
+    Item* ip;
+
+    ip = gobj->user_data;
+    pos->x = ((ip->facing_dir * ip->xBCC_unk.x) + ip->pos.x);
+    pos->y = (ip->pos.y + ip->xBCC_unk.y);
+    pos->z = ip->pos.z;
+}
+
+/// Return item's X-Axis grab range?
+f32 itGetGrabRangeX(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    return temp_item->xBD4_grabRange.x;
+}
+
+/// Return item's Y-Axis grab range?
+f32 itGetGrabRangeY(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    return temp_item->xBD4_grabRange.y;
+}
+
+/// Toggle item flag 0x15 in 0xDC8 word ON
+void it_8026B390(HSD_GObj* gobj)
+{
+    Item* temp_item;
+
+    temp_item = gobj->user_data;
+    temp_item->xDC8_word.flags.x15 = 1;
+}
+
+/// Toggle item flag 0x15 in 0xDC8 word OFF
+void it_8026B3A8(HSD_GObj* gobj)
+{
+    Item* temp_item;
+
+    temp_item = gobj->user_data;
+    temp_item->xDC8_word.flags.x15 = 0;
+}
+
+/// Count identical item GObj entities?
+int it_8026B3C0(ItemKind kind)
+{
+    Item* temp_item;
+    HSD_GObj* unkItemGObj;
+
+    int i = 0;
+    unkItemGObj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
+
+    while (unkItemGObj != NULL) {
+        temp_item = unkItemGObj->user_data;
+
+        if (temp_item->kind == kind) {
+            ++i;
+        }
+
+        unkItemGObj = unkItemGObj->next;
+    }
+    return i;
+}
+
+/// Store Item article pointer to table
+void it_8026B3F8(Article* article, s32 kind)
+{
+    it_804D6D38[kind - It_Kind_Kuriboh] = article;
+}
+
+/// Store Stage Item article pointer to table
+void it_8026B40C(Article* article, s32 kind)
+{
+    it_804A0F60[kind - It_Kind_Old_Kuri] = article;
+}
+
+/// Item Damage Math
+float it_8026B424(int damage)
+{
+    ItemCommonData* itCommonData = it_804D6D28;
+    return (int) ((damage * itCommonData->xB8) + itCommonData->xBC);
+}
+
+/// Get heal value of healing items
+s32 it_8026B47C(HSD_GObj* gobj)
+{
+    s32 kind;
+    Item* temp_item;
+
+    temp_item = gobj->user_data;
+    kind = temp_item->kind;
+    switch (kind) {
+    case It_Kind_Heart:
+        return temp_item->xDD4_itemVar.heart.xDD4_heal;
+    case It_Kind_Tomato:
+        return temp_item->xDD4_itemVar.tomato.heal_amount;
+    case It_Kind_Foods:
+        return temp_item->xDD4_itemVar.foods.heal_amount;
+    case It_Kind_Lucky_Egg:
+        return temp_item->xDD4_itemVar.egg.heal_amount;
+    case It_Kind_WhispyHealApple:
+        return temp_item->xDD4_itemVar.whispyapple.xDD4_heal;
+    default:
+        return 0;
+    }
+}
+
+/// Check if item is a healing item
+bool it_8026B4F0(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    ItemKind kind = temp_item->kind;
+
+    switch (kind) {
+    case It_Kind_Heart:
+    case It_Kind_Tomato:
+    case It_Kind_Foods:
+    case It_Kind_Coin:
+    case It_Kind_Lucky_Egg:
+    case It_Kind_WhispyHealApple:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// Get unknown float from 0x0 of item's special attributes
+float it_8026B54C(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    itUnkAttributes* unk_attr =
+        temp_item->xC4_article_data->x4_specialAttributes;
+
+    return unk_attr->x0_float;
+}
+
+/// Identical to 0x8026B54C but likely using a different itAttributes struct
+float it_8026B560(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    itUnkAttributes* unk_attr =
+        temp_item->xC4_article_data->x4_specialAttributes;
+    return unk_attr->x0_float;
+}
+
+/// Get unknown float from 0x4 of item's special attributes
+float it_8026B574(HSD_GObj* gobj)
+{
+    Item* temp_item = gobj->user_data;
+    itUnkAttributes* unk_attr =
+        temp_item->xC4_article_data->x4_specialAttributes;
+    return unk_attr->x4_float;
+}
+
+/// Get unknown integer from itCommonData
+s32 it_8026B588(void)
+{
+    return it_804D6D28->xDC;
+}
+
+/// Check if item can fire projectiles and if ammo is remaining
+bool it_8026B594(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    ItemKind kind = ip->kind;
+
+    switch (kind) {
+    case It_Kind_L_Gun:
+    case It_Kind_S_Scope:
+    case It_Kind_StarRod:
+    case It_Kind_LipStick:
+    case It_Kind_F_Flower:
+        if (ip->xD4C <= 0) {
+            return true;
+        }
+
+    default:
+    case It_Kind_Harisen: // Why though
+        return false;
+    }
+}
+
+/// Unknown item camera check?
+HSD_GObj* it_8026B5E4(Vec3* vector, Vec3* vector2, HSD_GObj* gobj)
+{
+    HSD_GObj* unk_gobj;
+
+    unk_gobj = ftLib_8008627C(vector, gobj);
+    if (unk_gobj != NULL) {
+        ftLib_800866DC(unk_gobj, vector2);
+    }
+    return unk_gobj;
+}
+
+/// Unknown item camera check 2?
+Fighter_GObj* it_8026B634(Vec3* arg0, Vec3* arg1, Item_GObj* arg2, f32 farg0)
+{
+    Fighter_GObj* gobj = ftLib_80086368(arg0, arg2, farg0);
+    if (gobj != NULL) {
+        ftLib_800866DC(gobj, arg1);
+    }
+    return gobj;
+}
+
+/// Get facing direction of fighter (?) with #NULL
+float it_8026B684(Vec3* pos)
+{
+    return ftLib_800864A8(pos, NULL);
+}
+
+/// Get facing direction of fighter (?) with variable argument
+float it_8026B6A8(Vec3* pos, HSD_GObj* arg1)
+{
+    return ftLib_800864A8(pos, arg1);
+}
+
+/// Check if item is a stage item?
+bool it_8026B6C8(HSD_GObj* gobj)
+{
+    s32 kind;
+    s32 itemID_2;
+    s32 itemID_3;
+    Item* ip;
+
+    ip = gobj->user_data;
+    kind = ip->kind;
+    if (((kind >= It_Kind_Kuriboh) && (kind < It_Kind_Octarock_Stone)) ||
+        ((itemID_2 = ip->kind, ((itemID_2 < It_Kind_Old_Kuri) == false)) &&
+         (itemID_2 < It_Kind_Arwing_Laser)))
+    {
+        itemID_3 = ip->kind;
+        if ((itemID_3 != It_Kind_Kyasarin_Egg) &&
+            (itemID_3 != It_Kind_WhispyApple))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Set item's hitlag frames
+void it_8026B718(HSD_GObj* gobj, f32 hitlagFrames)
+{
+    Item* ip = gobj->user_data;
+    ip->xCBC_hitlagFrames = hitlagFrames;
+}
+
+/// Toggle bit 3 of 0xDC8 word ON
+void it_8026B724(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    ip->xDC8_word.flags.x3 = true;
+}
+
+/// Toggle bits in 0xDC8 word
+void it_8026B73C(HSD_GObj* gobj)
+{
+    Item* ip;
+
+    ip = gobj->user_data;
+    if (ip->xDC8_word.flags.x7 != 0) {
+        ip->xDC8_word.flags.x5 = 1;
+    }
+    if (ip->xDC8_word.flags.x3 != 0) {
+        ip->xDC8_word.flags.x3 = 0;
+    }
+}
+
+/// Bitwise operations in 0xDC8 word
+bool it_8026B774(HSD_GObj* gobj, u8 arg1)
+{
+    Item* ip = gobj->user_data;
+
+    if (ip->xDC8_word.flags.xF & (1 << arg1)) {
+        return true;
+    }
+    return false;
+}
+
+/// Get Item State ID
+s32 itGetMotionId(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    return ip->msid;
+}
+
+/// Get Item Team ID
+u8 itGetTeamId(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    return ip->x20_team_id;
+}
+
+/// Get flag 0x14 of 0xDC8 word
+s32 it_8026B7BC(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    return ip->xDC8_word.flags.x14;
+}
+
+/// Get 0x1C of Item - something to do with stale moves?
+s32 it_8026B7CC(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    return ip->x1C;
+}
+
+/// Get unknown var from global data
+s32 it_8026B7D8(void)
+{
+    return it_804D6D0C;
+}
+
+/// Get unknown var from global data
+s32 it_8026B7E0(void)
+{
+    return it_804D6D08;
+}
+
+/// Get bit 1 of 0xDC8 word
+s32 it_8026B7E8(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    return ip->xDC8_word.flags.x1;
+}
+
+static inline void RunCallbackUnk(HSD_GObjInteraction proc, HSD_GObj* gobj0,
+                                  HSD_GObj* gobj1)
+{
+    if (proc != NULL) {
+        proc(gobj0, gobj1);
+    }
+}
+
+/// Remove item from player on death?
+void it_8026B7F8(HSD_GObj* fighter_gobj)
+{
+    u8 _[8];
+
+    HSD_GObj *cur, *owner;
+    for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM]; cur != NULL;
+         cur = cur->next)
+    {
+        Item* ip = GET_ITEM(cur);
+        owner = ip->owner;
+        RunCallbackUnk(ip->xB8_itemLogicTable->evt_unk, cur, fighter_gobj);
+
+        if (ip->xDC8_word.flags.x13 && owner == fighter_gobj) {
+            Item_8026A8EC(cur);
+        }
+    }
+}
+
+/// Remove all GObj interaction references from item
+/// @returns Whether or not @p ref_gobj was the #Item::owner.
+bool it_8026B894(HSD_GObj* gobj, HSD_GObj* ref_gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    bool result = false;
+
+    if (ip->owner == ref_gobj) {
+        ip->owner = NULL;
+        result = true;
+    }
+
+    if (ip->xC64_reflectGObj == ref_gobj) {
+        ip->xC64_reflectGObj = NULL;
+    }
+
+    if (ip->xC90_absorbGObj == ref_gobj) {
+        ip->xC90_absorbGObj = NULL;
+    }
+
+    if (ip->xCEC_fighterGObj == ref_gobj) {
+        ip->xCEC_fighterGObj = NULL;
+        ip->xCB0_source_ply = 6;
+    }
+
+    if (ip->xCF4_fighterGObjUnk == ref_gobj) {
+        ip->xCF4_fighterGObjUnk = NULL;
+    }
+
+    if (ip->toucher == ref_gobj) {
+        ip->toucher = NULL;
+    }
+
+    return result;
+}
+
+/// Return result of unk item check
+s32 it_8026B924(HSD_GObj* gobj)
+{
+    s32 result;
+    Item* ip = GET_ITEM(gobj);
+    enum_t kind = ip->kind;
+    result = -1;
+    switch (kind) {
+    case It_Kind_Freeze:
+    case It_Kind_Foods:
+    case It_Kind_MSBomb:
+    case It_Kind_Flipper:
+    case It_Kind_LipStick:
+    case It_Kind_Harisen:
+        break;
+    case It_Kind_S_Scope:
+    case It_Kind_StarRod:
+    case It_Kind_L_Gun:
+    case It_Kind_F_Flower:
+        result = ip->xD4C;
+    }
+    return result;
+}
+
+/// Return float result of item kind and state checks
+f32 it_8026B960(HSD_GObj* gobj)
+{
+    s32 kind;
+    f32 unk_timer = -1.0f;
+    Item* ip;
+
+    ip = gobj->user_data;
+    kind = ip->kind;
+    switch (kind) {
+    case It_Kind_BombHei:
+        if ((s32) ip->msid != 0xB) {
+            unk_timer = ip->xDD4_itemVar.bombhei.xDEC;
+        }
+        break;
+    case It_Kind_Link_Bomb:
+        if ((s32) ip->msid != 5) {
+            unk_timer = ip->xD44_lifeTimer;
+        }
+    }
+    return unk_timer;
+}
+
+/// Transfer item on character transformation (Zelda <-> Sheik)
+void it_8026B9A8(HSD_GObj* gobj, HSD_GObj* arg1, Fighter_Part arg2)
+{
+    Vec3 vec;
+    Item* ip = GET_ITEM(gobj);
+    ItemStateArray* states = ip->xC4_article_data->xC_itemStates;
+
+    ItemStateDesc* state_desc;
+
+    /// @todo Not enough stack for #GET_JOBJ.
+    HSD_JObj* jobj0 = gobj->hsd_obj;
+
+    state_desc = &states->x0_itemStateDesc[ip->anim_id];
+    vec.x = vec.y = vec.z = 0.0f;
+    it_8027429C(gobj, &vec);
+    it_802742F4(gobj, arg1, arg2);
+
+    {
+        ItemStateDesc* temp_stateDesc;
+        HSD_JObj* jobj1;
+
+        jobj1 = NULL;
+        ip->xD54_throwNum -= 1;
+        ip->xDC8_word.flags.x14 = 0;
+
+        if (ip->anim_id != -1) {
+            ip->xD0_itemStateDesc = state_desc;
+            if (ip->xD0_itemStateDesc != NULL) {
+                HSD_JObjRemoveAnimAll(jobj0);
+                if (ip->xC8_joint != NULL) {
+                    jobj1 = (jobj0 == NULL) ? NULL : jobj0->child;
+
+                    lb_8000B804(jobj1, ip->xC8_joint->child);
+                }
+                temp_stateDesc = ip->xD0_itemStateDesc;
+                HSD_JObjAddAnimAll(jobj0, temp_stateDesc->x0_anim_joint,
+                                   temp_stateDesc->x4_matanim_joint,
+                                   temp_stateDesc->x8_parameters);
+                lb_8000BA0C(jobj0, ip->x5D0_animFrameSpeed);
+                HSD_JObjReqAnimAll(jobj0, 0.0f);
+                Item_80268E40(ip, state_desc);
+            }
+
+            HSD_JObjAnimAll(jobj0);
+            it_80279BE0(gobj);
+            it_802799E4(gobj);
+            return;
+        }
+    }
+
+    HSD_JObjRemoveAnimAll(jobj0);
+    ip->x524_cmd.u = NULL;
+}
+
+/// Multiply item's scale
+void it_8026BAE8(HSD_GObj* gobj, f32 scl_mul)
+{
+    f32 scl;
+    Item* ip;
+    HSD_JObj* item_jobj;
+
+    ip = gobj->user_data;
+    item_jobj = gobj->hsd_obj;
+    scl = scl_mul * ip->xCC_item_attr->x60_scale;
+    ip->scl = scl;
+    it_80272F7C(item_jobj, scl);
+}
+
+/// Clear JObj flags on item model
+void it_8026BB20(HSD_GObj* gobj)
+{
+    it_80272A18(gobj->hsd_obj);
+}
+
+/// Set JObj flags on item model
+void it_8026BB44(HSD_GObj* gobj)
+{
+    it_80272A3C(gobj->hsd_obj);
+}
+
+/// Adjust item's position to fp bone
+void it_8026BB68(HSD_GObj* fighter_gobj, Vec3* pos)
+{
+    ftLib_80086990(fighter_gobj, pos);
+}
+
+/// Adjust item's position based on ECB?
+void it_8026BB88(HSD_GObj* gobj, Vec3* pos)
+{
+    Item* ip = GET_ITEM(gobj);
+    ftECB* ecb = &ip->x378_itemColl.ecb;
+
+    /// @todo Why is this always zero? Stripped something?
+    f32 offset_xz = 0.0f;
+
+    f32 offset_y = 0.5f * (ecb->top.y + ecb->bottom.y);
+
+    pos->x = ip->pos.x + offset_xz;
+    pos->y = ip->pos.y + offset_y;
+    pos->z = ip->pos.z + offset_xz;
+}
+
+/// Adjust item's ECB position?
+void it_8026BBCC(HSD_GObj* gobj, Vec3* pos)
+{
+    Item* ip = gobj->user_data;
+    CollData* coll_data = &ip->x378_itemColl;
+    ftECB* ecb = &coll_data->xE4_ecb;
+
+    /// @todo Why is this always zero? Stripped something?
+    f32 offset_xz = 0.0f;
+
+    f32 offset_y = 0.5f * (ecb->top.y + ecb->bottom.y);
+
+    pos->x = coll_data->last_pos.x + offset_xz;
+    pos->y = coll_data->last_pos.y + offset_y;
+    pos->z = coll_data->last_pos.z + offset_xz;
+}
+
+/// Check if item owner is a fighter + decrement hitlag
+void it_8026BC14(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    if (ip->owner != NULL && ftLib_80086960(ip->owner)) {
+        ftLib_80086A4C(ip->owner, ip->xCBC_hitlagFrames - 1);
+    }
+}
+
+/// @returns #Item::xDD0_flag::bits::b0 of @p gobj.
+bool it_8026BC68(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    return ip->xDD0_flag.b0;
+}
+
+/// @returns #Item::owner of @p gobj.
+HSD_GObj* itGetOwner(HSD_GObj* gobj) // Get item owner
+{
+    Item* ip = GET_ITEM(gobj);
+    return ip->owner;
+}
+
+/// @returns #Item::xD88_attackID of @p gobj.
+s32 itGetAttackId(HSD_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    return ip->xD88_attackID;
+}
+
+/// Unknown item ECB / position update
+void it_8026BC90(HSD_GObj* gobj, Vec3* pos)
+{
+    pos->z = 0;
+    pos->y = 0;
+    pos->x = 0;
+
+    if (gobj != NULL && ftLib_80086960(gobj)) {
+        ftLib_80086644(gobj, pos);
+    }
+}
+
+/// Unsets #Item::xDCD_flag::bits::b2 of @p gobj.
+void it_8026BCF4(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDCD_flag.b2 = false;
+}
+
+/// Sets #Item::xDCD_flag::bits::b2 of @p gobj.
+void it_8026BD0C(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDCD_flag.b2 = true;
+}
+
+/// Sets #Item::xDD0_flag::bits::b3 of @p gobj.
+void it_8026BD24(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDD0_flag.b3 = true;
+}
+
+/// Sets #Item::xDCC_flag::bits::b3 of @p gobj.
+void it_8026BD3C(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDCC_flag.b3 = true;
+}
+
+/// Unsets #Item::xDCC_flag::bits::b3 of @p gobj.
+void it_8026BD54(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDCC_flag.b3 = 0;
+}
+
+/// Sets #Item::xDCD_flag::bits::b3 of @p gobj.
+void it_8026BD6C(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDCD_flag.b3 = true;
+}
+
+/// Sets #Item::xDCD_flag::bits::b4 of @p gobj.
+void it_8026BD84(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDCD_flag.b4 = true;
+}
+
+/// Sets #Item::xDC8_word::flags::x1A of @p gobj.
+void it_8026BD9C(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDC8_word.flags.x1A = true;
+}
+
+/// 0x8026BDB4 // Identical to previous function except for the toggle bit
+void it_8026BDB4(HSD_GObj* gobj) // Toggle 0x1A of 0xDC8 word OFF
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xDC8_word.flags.x1A = false;
+}
+
+/// Toggles several item flags.
+void it_8026BDCC(HSD_GObj* gobj)
+{
+    /// @todo Each of these is an inlined function. Some are already defined.
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDD0_flag.b3 = false;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDCC_flag.b3 = true;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDCD_flag.b3 = false;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDCD_flag.b4 = false;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDC8_word.flags.x1A = true;
+    }
+}
+
+/// Toggle several item flags. The inverse of #it_8026BDCC.
+void it_8026BE28(HSD_GObj* gobj)
+{
+    /// @todo Each of these is an inlined function. Some are already defined.
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDD0_flag.b3 = true;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDCC_flag.b3 = false;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDCD_flag.b3 = true;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDCD_flag.b4 = true;
+    }
+
+    {
+        Item* ip = GET_ITEM(gobj);
+        ip->xDC8_word.flags.x1A = false;
+    }
+}
+
+HSD_GObj* it_8026BE84(BobOmbRain* bobOmbRain)
+{
+    enum_t bobomb_id;
+    enum_t kind0;
+    enum_t kind1;
+    Item* ip;
+    Item* item_data_2;
+    Item* item_data_3;
+    Item* item_data_4;
+    Item* item_data_5;
+
+    HSD_GObj* gobj = NULL;
+
+    if (gm_8016B238() && bobOmbRain->x14 != 6) {
+        return NULL;
+    }
+
+    bobomb_id = bobOmbRain->x14;
+
+    switch (bobomb_id) {
+    case 1:
+        if (it_8026D324(It_Kind_Box)) {
+            gobj = it_80286088(bobOmbRain->x0);
+        }
+
+        break;
+
+    case 20:
+        gobj = itFlipper_Spawn(bobOmbRain->x4);
+        break;
+
+    case 8:
+        gobj =
+            it_80283AE4(bobOmbRain->x0, &bobOmbRain->x8_vec, bobOmbRain->x18);
+        if (gobj != NULL) {
+            u8 _[8];
+
+            ip = GET_ITEM(gobj);
+            kind0 = ip->kind;
+            switch (kind0) {
+            case It_Kind_Heart:
+                it_80283BD4(gobj);
+                break;
+            case It_Kind_Tomato:
+                it_8028428C(gobj);
+                break;
+            }
+        }
+        break;
+
+    case 9:
+        gobj =
+            it_802841B4(bobOmbRain->x0, &bobOmbRain->x8_vec, bobOmbRain->x18);
+        if (gobj != NULL) {
+            ip = GetItemData(gobj);
+            kind1 = ip->kind;
+
+            switch (kind1) {
+            case It_Kind_Heart:
+                it_80283BD4(gobj);
+                break;
+
+            case It_Kind_Tomato:
+                it_8028428C(gobj);
+                break;
+            }
+        }
+        break;
+
+    case 4:
+        if (it_8026D324(It_Kind_Kusudama)) {
+            gobj = it_802896CC(&bobOmbRain->x8_vec);
+            if (gobj != NULL) {
+                it_80274F10(gobj);
+            }
+        }
+        break;
+
+    case 12:
+        gobj = itSword_Spawn(&bobOmbRain->x8_vec);
+        if (gobj != NULL) {
+            it_80274F10(gobj);
+        }
+        break;
+
+    case 21:
+        gobj = it_80291BE0(&bobOmbRain->x8_vec);
+        if (gobj != NULL) {
+            it_80274F10(gobj);
+        }
+
+        break;
+
+    case 25:
+        gobj = it_80292D48(&bobOmbRain->x8_vec);
+        if (gobj != NULL) {
+            it_80274F10(gobj);
+        }
+        break;
+
+    case 31:
+        gobj = it_80294DC0(&bobOmbRain->x8_vec);
+        if (gobj != NULL) {
+            it_80274F10(gobj);
+        }
+        break;
+
+    case 11:
+        gobj = it_80284854(&bobOmbRain->x8_vec);
+        if (gobj != NULL) {
+            it_80274F10(gobj);
+        }
+        break;
+
+    case 6:
+        it_8027D670(&bobOmbRain->x8_vec);
+
+    default:
+        gobj = NULL;
+        break;
+    }
+
+    if (gobj != NULL && bobOmbRain->x1C.b0) {
+        ip = gobj->user_data;
+        ip->xDD0_flag.b3 = true;
+
+        item_data_2 = gobj->user_data;
+        item_data_2->xDCC_flag.b3 = false;
+
+        item_data_3 = gobj->user_data;
+        item_data_3->xDCD_flag.b3 = true;
+
+        item_data_4 = gobj->user_data;
+        item_data_4->xDCD_flag.b4 = true;
+
+        item_data_5 = gobj->user_data;
+        item_data_5->xDC8_word.flags.x1A = false;
+    }
+
+    return gobj;
+}
+
+/// Get item's CollData pointer
+CollData* it_8026C100(HSD_GObj* gobj)
+{
+    CollData* collDataPtr = NULL;
+
+    switch (it_80272D40(gobj)) {
+    case 0:
+        collDataPtr = ftLib_80086984(gobj);
+        break;
+    case 1: {
+        Item* ip = GET_ITEM(gobj);
+        collDataPtr = &ip->x378_itemColl;
+        break;
+    }
+    }
+    return collDataPtr;
+}
+
+/// Check if Hammer item's head should break off
+void it_8026C16C(HSD_GObj* gobj, bool is_headless)
+{
+    Item* ip = GET_ITEM(gobj);
+
+    if (ip->xD4C <= 0) {
+        it_802725D4(gobj);
+    } else if (is_headless) {
+        it_80272784(gobj);
+    } else {
+        it_802725D4(gobj);
+    }
+}
+
+/// Check if item has a hitbox
+bool it_8026C1B4(HSD_GObj* gobj)
+{
+    return it_80275870(gobj);
+}
+
+u32 it_8026C1D4(void)
+{
+    itLGun_ItemVars* lgun = it_804D6D24[It_Kind_L_Gun]->x4_specialAttributes;
+    return lgun->timer;
+}
+
+/// Check if item has grabbed a GObj?
+bool it_8026C1E8(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+
+    if (ip->grab_victim != NULL ||
+        (ip->xDC8_word.flags.x13 && ip->owner != NULL))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+/// Get item owner's port number
+void it_8026C220(HSD_GObj* gobj, HSD_GObj* fighter_gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->xCB0_source_ply = ftLib_80086BE0(fighter_gobj);
+}
+
+/// Find the closest item to the given position?
+/// @remarks Used by Samus's Homing Missile to lock onto certain items.
+/// @returns The nearest #HSD_GObj to @p pos that fits the criteria.
+HSD_GObj* it_8026C258(Vec3* pos, f32 facing_dir)
+{
+    f32 min_sq_dist = F32_MAX;
+    HSD_GObj *cur, *result = NULL;
+    for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM]; cur != NULL;
+         cur = cur->next)
+    {
+        Item* ip = GET_ITEM(cur);
+
+        // Might not actually be (exclusively) hold kind in the end???
+        enum_t hold_kind = ip->hold_kind;
+
+        // Decide lock-on type for Samus Missile?
+        if ((hold_kind == ITEM_UNK_MATO || hold_kind == ITEM_UNK_LOCKON ||
+             /// @todo Why is this cast to @c s16 necessary?
+             (s16) (hold_kind == ITEM_UNK_ENEMY) || hold_kind == ITEM_UNK_7) &&
+            ip->grab_victim == NULL &&
+            (!ip->xDC8_word.flags.x13 || ip->owner == NULL) &&
+            (facing_dir != -1 || !(ip->pos.x > pos->x)) &&
+            (facing_dir != +1 || !(ip->pos.x < pos->x)))
+        {
+            f32 dist_x = pos->x - ip->pos.x;
+            f32 dist_y = pos->y - ip->pos.y;
+            f32 sq_dist = dist_x * dist_x + dist_y * dist_y;
+
+            if (sq_dist < min_sq_dist) {
+                min_sq_dist = sq_dist;
+                result = cur;
+            }
+        }
+    }
+
+    return result;
+}
+
+/// Unknown item position / ECB update
+void it_8026C334(HSD_GObj* gobj, Vec3* pos)
+{
+    Item* ip = GET_ITEM(gobj);
+    f32 offset_xz = 0.0f;
+    f32 offset_y = ip->x378_itemColl.ecb.bottom.y;
+
+    pos->x = ip->pos.x + offset_xz;
+    pos->y = ip->pos.y + offset_y;
+    pos->z = ip->pos.z + offset_xz;
+}
+
+/// Run bomb item explosion callbacks
+void it_8026C368(HSD_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+
+    if (ip->x378_itemColl.x34_flags.b7) {
+        ItemKind kind = ip->kind;
+        switch (kind) {
+        case It_Kind_BombHei:
+            it_8027D730(gobj);
+            return;
+
+        case It_Kind_MSBomb:
+            it_8028FE90(gobj);
+            return;
+
+        case It_Kind_Link_Bomb:
+        case It_Kind_CLink_Bomb:
+            it_8029D968(gobj);
+            return;
+
+        case It_PKind_Marumine:
+            it_802D09D0(gobj);
+            return;
+
+        default:
+            ip->destroy_type = 0;
+            Item_8026A8EC(gobj);
+        }
+    }
+}
+
+/// Toggle bit 3 of 0xDC8 ON for all active item GObjs?
+void it_8026C3FC(void)
+{
+    HSD_GObj* cur;
+    for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM]; cur != NULL;
+         cur = cur->next)
+    {
+        it_8026B724(cur);
+    }
+}
+
+/// Toggle bits in 0xDC8 for all active item GObjs?
+void it_8026C42C(void)
+{
+    HSD_GObj* cur;
+    for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM]; cur != NULL;
+         cur = cur->next)
+    {
+        Item* ip = GET_ITEM(cur);
+
+        if (ip->xDC8_word.flags.x7) {
+            ip->xDC8_word.flags.x5 = true;
+        }
+
+        if (ip->xDC8_word.flags.x3) {
+            ip->xDC8_word.flags.x3 = false;
+        }
+    }
+}

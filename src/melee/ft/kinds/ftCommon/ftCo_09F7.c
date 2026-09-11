@@ -1,0 +1,325 @@
+#include "ftCo_09F7.h"
+
+#include <math.h>
+#include <placeholder.h>
+
+#include <melee/ef/efasync.h>
+#include <melee/ft/fighter.h>
+#include <melee/ft/ftcmdscript.h>
+#include <melee/ft/ftparts.h>
+#include <melee/ft/inlines.h>
+#include <melee/ft/types.h>
+#include <sysdolphin/baselib/random.h>
+
+struct _m2c_stack_ftCo_8009F834 {
+    /* 0x00 */ char pad_0[0x7C];
+    /* 0x7C */ f32 sp7C; /* inferred */
+    /* 0x80 */ f32 sp80; /* inferred */
+    /* 0x84 */ f32 sp84; /* inferred */
+    /* 0x88 */ f32 sp88; /* inferred */
+    /* 0x8C */ f32 sp8C; /* inferred */
+    /* 0x90 */ f32 sp90; /* inferred */
+    /* 0x94 */ f32 sp94; /* inferred */
+    /* 0x98 */ f32 sp98; /* inferred */
+    /* 0x9C */ f32 sp9C; /* inferred */
+    /* 0xA0 */ f32 spA0; /* inferred */
+    /* 0xA4 */ f32 spA4; /* inferred */
+    /* 0xA8 */ f32 spA8; /* inferred */
+    /* 0xAC */ f32 spAC; /* inferred */
+    /* 0xB0 */ f32 spB0; /* inferred */
+    /* 0xB4 */ char pad_B4[0x1C];
+}; /* size = 0xD0 */
+
+/*  args:
+gobj
+gfx_id
+bone
+use_common_bone_id
+destroy_on_state_change
+offset
+range
+*/
+void ftCo_8009F834(Fighter_GObj* gobj, int arg1, enum Fighter_Part part,
+                   int arg3, int arg4, Vec3* arg5, Vec3* arg6, f32 arg7)
+{
+    Vec3 spA8;
+    Vec3 sp9C;
+    f32 sp98;
+    f32 sp94;
+    f32 sp90;
+    Vec3 sp84;
+    f32 sp80;
+    f32 sp7C;
+    int gfx_id;
+    Fighter* fp;
+    f32 rand_val;
+    f32 scale_y;
+    f32 z_spread;
+    f32 z_range;
+    f32 floor_angle;
+    f32 random_or_angle;
+    u8 temp_r3;
+    PAD_STACK(68);
+
+    gfx_id = arg1;
+    fp = gobj->user_data;
+    if (arg4 == 0) {
+        goto block_2;
+    }
+    fp->x2219_b0 = true;
+block_2:
+    if (part != 0x8D) {
+        goto block_5;
+    }
+
+    part = ((int*) fp->ft_data->x54)[fp->x2220_b0];
+
+    fp->x2220_b0++;
+    if (fp->x2220_b0 < 5) {
+        goto block_9;
+    }
+    fp->x2220_b0 = 0;
+    goto block_9;
+block_5:
+    if (part != 0x8E) {
+        goto block_7;
+    }
+    part = fp->ft_data->x8->x10;
+    goto block_9;
+block_7:
+    if (arg3 == 0) {
+        goto block_9;
+    }
+    part = ftParts_GetBoneIndex(fp, part);
+block_9:
+    if (gfx_id < 0x250) {
+        goto block_11;
+    }
+    if ((gfx_id / 1000) != 0x1E) {
+        goto block_12;
+    }
+block_11:
+    spA8 = *arg5;
+    rand_val = HSD_Randf();
+    spA8.x += 2.0f * arg6->x * (rand_val - 0.5f);
+    rand_val = HSD_Randf();
+    spA8.y += 2.0f * arg6->y * (rand_val - 0.5f);
+    rand_val = HSD_Randf();
+    z_spread = 2.0f * arg6->z;
+    spA8.z += z_spread * (rand_val - 0.5f);
+    efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 2, gfx_id,
+                  fp->parts[part].joint, &spA8);
+    return;
+block_12:
+    switch (gfx_id) {
+    case 0x402:
+    case 0x403:
+    case 0x409:
+    case 0x412:
+    case 0x413:
+    case 0x414:
+    case 0x422:
+    case 0x487:
+    case 0x4D1:
+    case 0x4E5:
+    case 0x4E6:
+    case 0x4FE:
+    case 0x500:
+    case 0x501:
+    case 0x502: {
+        HSD_JObj* joint = fp->parts[part].joint;
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 0, gfx_id, joint);
+        return;
+    }
+    case 0x446:
+    case 0x448:
+    case 0x4E1: {
+        HSD_JObj* joint = fp->parts[part].joint;
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 7, gfx_id, joint, arg5);
+        return;
+    }
+    case 0x415:
+    case 0x41E:
+    case 0x428:
+    case 0x429:
+    case 0x42A: {
+        f32* attrs = &fp->ft_data->x0->x168;
+        HSD_JObj* joint = fp->parts[part].joint;
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 3, gfx_id, joint, attrs);
+        return;
+    }
+    case 0x495:
+        goto block_64;
+    case 0x49D:
+        goto block_65;
+    case 0x438:
+    case 0x439:
+        goto block_66;
+    case 0x423:
+    case 0x424:
+    case 0x4C1:
+    case 0x4C2:
+    case 0x4C4:
+    case 0x4C5:
+        goto block_67;
+    default:
+        goto block_70;
+    }
+block_64: {
+    HSD_JObj* joint = fp->parts[part].joint;
+    efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 3, gfx_id, joint,
+                  &fp->facing_dir);
+}
+    return;
+block_65:
+    sp9C = *arg5;
+    sp98 = 0.017453292f * (256.0f * arg6->x);
+    efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 6, gfx_id,
+                  fp->parts[part].joint, &sp9C, &fp->facing_dir, &sp98);
+    return;
+block_66:
+    scale_y = fp->x34_scale.y;
+    sp94 = scale_y * fp->co_attrs.x144;
+    efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 3, 0x438,
+                  fp->parts[part].joint, &sp94);
+    return;
+block_67:
+    sp90 = 0.0f;
+    if (fp->ground_or_air == GA_Ground) {
+        floor_angle = atan2f(-fp->coll_data.floor.normal.x,
+                             fp->coll_data.floor.normal.y);
+        sp90 = floor_angle;
+    }
+    {
+        HSD_JObj* joint = fp->parts[part].joint;
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 3, gfx_id, joint, &sp90);
+    }
+    return;
+block_70:
+    sp84 = *arg5;
+    random_or_angle = HSD_Randf();
+    sp84.x += 2.0f * arg6->x * (random_or_angle - 0.5f);
+    random_or_angle = HSD_Randf();
+    sp84.y += 2.0f * arg6->y * (random_or_angle - 0.5f);
+    random_or_angle = HSD_Randf();
+    z_range = 2.0f * arg6->z;
+    sp84.z += z_range * (random_or_angle - 0.5f);
+    switch (gfx_id) {
+    case 0x3E8: {
+        HSD_JObj* joint = fp->parts[part].joint;
+        ftCommonData* data = p_ftCommonData;
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 5, gfx_id, joint, &sp84,
+                      &data->x564);
+        return;
+    }
+    case 0x3E9:
+    case 0x3EA:
+    case 0x3EB:
+    case 0x3EC:
+    case 0x3F3:
+    case 0x3F4:
+    case 0x3F6:
+    case 0x3FA:
+    case 0x3FB:
+    case 0x3FC:
+    case 0x405:
+    case 0x407:
+    case 0x40C:
+    case 0x40D:
+    case 0x40E:
+    case 0x40F:
+    case 0x410:
+    case 0x411:
+    case 0x416:
+    case 0x41C:
+    case 0x41D:
+    case 0x41F:
+    case 0x421:
+    case 0x425:
+    case 0x426:
+    case 0x44B:
+    case 0x4E2:
+    case 0x4E3:
+    case 0x4E4: {
+        HSD_JObj* joint = fp->parts[part].joint;
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 2, gfx_id, joint, &sp84);
+        return;
+    }
+    case 0x404:
+    case 0x406: {
+        sp80 = 0.0f;
+        if (fp->ground_or_air == GA_Ground) {
+            random_or_angle = atan2f(-fp->coll_data.floor.normal.x,
+                                     fp->coll_data.floor.normal.y);
+            sp80 = random_or_angle;
+        }
+        {
+            HSD_JObj* joint = fp->parts[part].joint;
+            efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 5, gfx_id, joint,
+                          &sp84, &sp80);
+        }
+        return;
+    }
+    case 0x513:
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 8, 2,
+                      fp->parts[part].joint, &sp84);
+        return;
+    case 0x514:
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 8, 3,
+                      fp->parts[part].joint, &sp84);
+        return;
+    case 0x515:
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 8, 4,
+                      fp->parts[part].joint, &sp84);
+        return;
+    case 0x3ED:
+    case 0x3EF:
+    case 0x3F0:
+    case 0x3F1:
+    case 0x3F2:
+    case 0x3F5:
+    case 0x3FE:
+    case 0x400:
+    case 0x401:
+    case 0x4D9: {
+        HSD_JObj* joint = fp->parts[part].joint;
+        efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 5, gfx_id, joint, &sp84,
+                      &fp->facing_dir);
+        return;
+    }
+    case 0x3F7:
+    case 0x3F8:
+    case 0x3F9:
+    case 0x3FD:
+    case 0x3FF: {
+        sp7C = 0.0f;
+        if (fp->ground_or_air == GA_Ground) {
+            random_or_angle = atan2f(-fp->coll_data.floor.normal.x,
+                                     fp->coll_data.floor.normal.y);
+            sp7C = random_or_angle;
+        }
+        {
+            HSD_JObj* joint = fp->parts[part].joint;
+            efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 6, gfx_id, joint,
+                          &sp84, &fp->facing_dir, &sp7C);
+        }
+        return;
+    }
+    default:
+        OSReport("no effect from animlist %d\n", gfx_id);
+        return;
+    }
+}
+
+void ftCo_800A0098(Fighter* arg0)
+{
+    ftCo_800B46B8(arg0, 0x80, 0);
+    ftCo_800B46B8(arg0, 0x81, 0);
+    ftCo_800B46B8(arg0, 0x8E, 1);
+    ftCo_800B46B8(arg0, 0x91, 0xB0);
+    ftCo_800B46B8(arg0, 0x8E, 1);
+    ftCo_800B46B8(arg0, 0x81, 0);
+    ftCo_800B46B8(arg0, 0x8E, 0xA);
+    ftCo_800B46B8(arg0, 0x80, 0);
+    ftCo_800B463C(arg0, 0x7F);
+}

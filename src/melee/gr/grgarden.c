@@ -1,0 +1,415 @@
+#include "grgarden.h"
+
+#include <Runtime/platform.h>
+
+#include "granime.h"
+#include "grlib.h"
+#include "grmaterial.h"
+#include "ground.h"
+#include "grzakogenerator.h"
+#include "inlines.h"
+#include "stage.h"
+#include "types.h"
+#include <melee/ft/ftdevice.h>
+#include <melee/ft/ftlib.h>
+#include <melee/gm/gmvs.h>
+#include <melee/it/item.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lb_00F9.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/psstructs.h>
+#include <sysdolphin/baselib/random.h>
+
+struct grGarden_YakumonoParam {
+    float x0;
+    float x4;
+    int x8;
+    int xC;
+    int x10;
+    int x14;
+    float x18;
+    float x1C;
+};
+
+StageCallbacks grGd_StageCallbacks[] = {
+    { grGarden_80202D60, grGarden_80202D8C, grGarden_80202D94,
+      grGarden_80202D98, 0 },
+    { grGarden_80203004, grGarden_80203090, grGarden_80203098,
+      grGarden_802031A0, 0 }, // cranky kong
+    { grGarden_80202DC8, grGarden_80202E40, grGarden_80202E48,
+      grGarden_80202E68, 0xC0000000 }, // main stage
+    { grGarden_802031A4, grGarden_80203248, grGarden_80203250,
+      grGarden_80203494, 0 }, // klaptrap
+    { grGarden_80202E6C, grGarden_80202F34, grGarden_80202F3C,
+      grGarden_80202F40, 0 }, // background
+    { grGarden_80202F44, grGarden_80202F94, grGarden_80202F9C,
+      grGarden_80202FA0, 0 }, // birds
+    { grGarden_80202FA4, grGarden_80202FF4, grGarden_80202FFC,
+      grGarden_80203000, 0 } // water
+};
+
+StageData grGd_StageData = {
+    Gr_Kind_Garden,
+    grGd_StageCallbacks,
+    "/GrGd.dat",
+    grGarden_80202B70,
+    grGarden_80202B6C,
+    grGarden_80202C24,
+    grGarden_80202C4C,
+    grGarden_80202C70,
+    grGarden_802035C8,
+    grGarden_802035D0,
+    1,
+    0,
+    0,
+};
+
+static struct grGarden_YakumonoParam* yakumono_param;
+
+void grGarden_80202B6C(bool arg) {}
+
+void grGarden_80202B70(void)
+{
+    yakumono_param = Ground_GetYakumonoParam();
+    stage_info.unk8C.b4 = false;
+    stage_info.unk8C.b5 = true;
+    grGarden_80202C78(0);
+    grGarden_80202C78(4);
+    grGarden_80202C78(5);
+    grGarden_80202C78(6);
+    grGarden_80202C78(1);
+    grGarden_80202C78(3);
+    grGarden_80202C78(2);
+    Ground_801C39C0();
+    Ground_801C3BB4();
+    if ((Stage_80225194() != 62) && gm_8016B238() == 0) {
+        Ground_801C53EC(0x64194);
+    }
+}
+
+void grGarden_80202C24(void)
+{
+    Ground_801C53EC(0x64193);
+}
+
+void grGarden_80202C4C(void)
+{
+    grZakoGenerator_801CAE04(NULL);
+}
+
+bool grGarden_80202C70(void)
+{
+    return false;
+}
+
+HSD_GObj* grGarden_80202C78(int gobj_id)
+{
+    HSD_GObj* gobj;
+    StageCallbacks* callbacks = &grGd_StageCallbacks[gobj_id];
+
+    gobj = Ground_GetStageGObj(gobj_id);
+
+    if (gobj != NULL) {
+        Ground_SetupStageCallbacks(gobj, callbacks);
+    } else {
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 0xE3, gobj_id);
+    }
+
+    return gobj;
+}
+
+void grGarden_80202D60(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+}
+
+bool grGarden_80202D8C(Ground_GObj* arg)
+{
+    return false;
+}
+
+void grGarden_80202D94(Ground_GObj* arg) {}
+
+void grGarden_80202D98(Ground_GObj* arg) {}
+
+void grGarden_80202D9C(Ground_GObj* arg)
+{
+    ftCo_800C06E8(arg, 4, grGarden_8020349C);
+}
+
+void grGarden_80202DC8(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    gp->x8_callback = NULL;
+    gp->xC_callback = NULL;
+    Ground_801C10B8(gobj, grGarden_80202D9C);
+    gp->x11_flags.b012 = 1;
+    gp->x10_flags.b5 = 1;
+}
+
+bool grGarden_80202E40(Ground_GObj* arg)
+{
+    return false;
+}
+
+void grGarden_80202E48(Ground_GObj* arg)
+{
+    lb_800115F4();
+}
+
+void grGarden_80202E68(Ground_GObj* arg) {}
+
+void grGarden_80202E6C(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    gp->x8_callback = NULL;
+    gp->xC_callback = NULL;
+    gp->x11_flags.b012 = 1;
+    Ground_801C4E70(Ground_801C3FA4(gobj, 4), Ground_801C3FA4(gobj, 3),
+                    Ground_801C3FA4(gobj, 7), Ground_801C3FA4(gobj, 6),
+                    Ground_801C3FA4(gobj, 10), Ground_801C3FA4(gobj, 9));
+}
+
+bool grGarden_80202F34(Ground_GObj* arg)
+{
+    return false;
+}
+
+void grGarden_80202F3C(Ground_GObj* arg) {}
+
+void grGarden_80202F40(Ground_GObj* arg) {}
+
+void grGarden_80202F44(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    gp->x8_callback = NULL;
+    gp->xC_callback = NULL;
+    gp->x11_flags.b012 = 1;
+}
+
+bool grGarden_80202F94(Ground_GObj* arg)
+{
+    return false;
+}
+
+void grGarden_80202F9C(Ground_GObj* arg) {}
+
+void grGarden_80202FA0(Ground_GObj* arg) {}
+
+void grGarden_80202FA4(Ground_GObj* gobj)
+{
+    Ground* gp = GET_GROUND(gobj);
+    grAnime_801C8138(gobj, gp->map_id, 0);
+    gp->x8_callback = NULL;
+    gp->xC_callback = NULL;
+    gp->x11_flags.b012 = 2;
+}
+
+bool grGarden_80202FF4(Ground_GObj* arg)
+{
+    return false;
+}
+
+void grGarden_80202FFC(Ground_GObj* arg) {}
+
+void grGarden_80203000(Ground_GObj* arg) {}
+
+void grGarden_80203004(Ground_GObj* gobj)
+{
+    int iVar1;
+    Ground* gp = GET_GROUND(gobj);
+    gp->u.garden.xc4 = 0;
+    iVar1 = yakumono_param->x8;
+    iVar1 = (iVar1 != 0) ? HSD_Randi(iVar1) : 0;
+    gp->u.garden.xc8 = iVar1 + 1;
+    grAnime_801C8138(gobj, gp->map_id, gp->u.garden.xc4);
+    gp->x8_callback = NULL;
+    gp->xC_callback = NULL;
+    gp->x11_flags.b012 = 1;
+}
+
+bool grGarden_80203090(Ground_GObj* arg)
+{
+    return false;
+}
+
+void grGarden_80203098(Ground_GObj* gobj)
+{
+    int iVar1;
+    Ground* gp = GET_GROUND(gobj);
+    if (grAnime_801C83D0(gobj, 0, 7) || grAnime_801C84A4(gobj, 0, 7)) {
+        if (gp->u.garden.xc8 == 0) {
+            gp->u.garden.xc4 = gp->u.garden.xc4 + 1;
+            if (3 < gp->u.garden.xc4) {
+                gp->u.garden.xc4 = 0;
+            }
+            if (gp->u.garden.xc4 == 0) {
+                if (yakumono_param->x8 != 0) {
+                    iVar1 = HSD_Randi(yakumono_param->x8);
+                } else {
+                    iVar1 = 0;
+                }
+                gp->u.garden.xc8 = iVar1 + 1;
+            } else if (gp->u.garden.xc4 == 2) {
+                if (yakumono_param->xC != 0) {
+                    iVar1 = HSD_Randi(yakumono_param->xC);
+                } else {
+                    iVar1 = 0;
+                }
+                gp->u.garden.xc8 = iVar1 + 1;
+            }
+            grAnime_801C8138(gobj, gp->map_id, gp->u.garden.xc4);
+        } else {
+            gp->u.garden.xc8 = gp->u.garden.xc8 - 1;
+        }
+    }
+}
+
+void grGarden_802031A0(Ground_GObj* arg) {}
+
+void grGarden_802031A4(Ground_GObj* gobj)
+{
+    int iVar1;
+    Ground* gp = GET_GROUND(gobj);
+    gp->u.garden2.xc4 = grMaterial_801C8CFC(0, 0, gp, Ground_801C3FA4(gobj, 8),
+                                            grGarden_80203498, 0, 0);
+    if (yakumono_param->x14 != 0) {
+        iVar1 = HSD_Randi(yakumono_param->x14);
+    } else {
+        iVar1 = 0;
+    }
+    gp->u.garden2.xcc = yakumono_param->x10 + iVar1;
+    gp->u.garden2.xc8 = 0;
+    gp->x8_callback = NULL;
+    gp->xC_callback = NULL;
+    gp->x11_flags.b012 = 1;
+}
+
+bool grGarden_80203248(Ground_GObj* arg)
+{
+    return false;
+}
+
+void grGarden_80203250(Ground_GObj* gobj)
+{
+    int iVar1;
+    int iVar4;
+    float fVar1;
+    float dVar1;
+    Ground* gp = gobj->user_data;
+    HSD_JObj* jobj = Ground_801C3FA4(gobj, 0);
+
+    switch (gp->u.garden2.xc8) {
+    case 0:
+        if (gp->u.garden2.xcc == 0) {
+            Item_80268E5C(gp->u.garden2.xc4, 2, 2);
+            grAnime_801C8138(gobj, gp->map_id, 0);
+            dVar1 = yakumono_param->x18;
+            iVar1 = (yakumono_param->x1C - yakumono_param->x18) < 0.0f
+                        ? -(yakumono_param->x1C - yakumono_param->x18)
+                        : (yakumono_param->x1C - yakumono_param->x18);
+
+            if (iVar1 != 0) {
+                iVar1 = HSD_Randi(iVar1);
+            } else {
+                iVar1 = 0;
+            }
+            dVar1 += iVar1;
+            HSD_JObjSetTranslateX(jobj, dVar1);
+            gp->u.garden2.xcc = 0;
+            gp->u.garden2.xc8 = 1;
+        } else {
+            gp->u.garden2.xcc = gp->u.garden2.xcc - 1;
+        }
+        break;
+    case 1:
+        iVar4 = gp->u.garden2.xcc;
+        if (iVar4 == 38 || iVar4 == 148) {
+            Ground_801C53EC(410001);
+        } else if (iVar4 == 110 || iVar4 == 210) {
+            Ground_801C53EC(410002);
+        }
+        if (grAnime_801C83D0(gobj, 0, 7)) {
+            Item_80268E5C(gp->u.garden2.xc4, 0, 2);
+            HSD_JObjRemoveAnimAll(jobj);
+            if (yakumono_param->x14 != 0) {
+                iVar1 = HSD_Randi(yakumono_param->x14);
+            } else {
+                iVar1 = 0;
+            }
+            gp->u.garden2.xcc = yakumono_param->x10 + iVar1;
+            gp->u.garden2.xc8 = 0;
+        }
+        gp->u.garden2.xcc = gp->u.garden2.xcc + 1;
+        break;
+    }
+}
+
+void grGarden_80203494(Ground_GObj* arg) {}
+
+void grGarden_80203498(Item_GObj* item_gobj, Ground* gp) {}
+
+bool grGarden_8020349C(u32 unk, HSD_GObj* player, Vec3* water)
+{
+    bool uVar1;
+    float dVar3;
+    Vec3 current;
+    Vec3 previous;
+    dVar3 = yakumono_param->x0;
+    ftLib_80086644(player, &current);
+    ftLib_80086684(player, &previous);
+    if (current.y < dVar3) {
+        if (previous.y > dVar3) {
+            dVar3 = ftLib_80086B80(player) / 10.0f;
+            current.y = -30.0f;
+            grGarden_80203560(dVar3, &current);
+            Ground_801C53EC(410000);
+        }
+        uVar1 = true;
+        water->x = yakumono_param->x4;
+        water->y = 0.0f;
+        water->z = 0.0f;
+    } else {
+        uVar1 = false;
+    }
+    return uVar1;
+}
+
+void grGarden_80203560(float param1, Vec3* vec)
+{
+    HSD_Generator* gen = grLib_801C96F8(0x753A, 0x1E, vec);
+    if (gen != NULL) {
+        HSD_psAppSRT* srt = gen->appsrt;
+        srt->scale.x *= param1;
+        srt->scale.y *= param1;
+        srt->scale.z *= param1;
+    }
+}
+
+DynamicsDesc* grGarden_802035C8(enum_t arg)
+{
+    return NULL;
+}
+
+bool grGarden_802035D0(Vec3* a, int b, HSD_JObj* jobj)
+{
+    Vec3 vec;
+    lb_8000B1CC(jobj, NULL, &vec);
+    if (a->y > vec.y) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+f32 grGarden_80203624(void)
+{
+    return -20.0f;
+}

@@ -1,0 +1,1317 @@
+#include "mndiagram2.h"
+
+#include <sysdolphin/baselib/forward.h>
+
+#include <stdbool.h>
+
+#include "inlines.h"
+#include "mndiagram.h"
+#include "mndiagram3.h"
+#include "mnmain.h"
+#include "types.h"
+#include <melee/gm/gm_1601.h>
+#include <melee/gm/gmmain_lib.h>
+#include <melee/lb/lb_00B0.h>
+#include <melee/lb/lbaudio_ax.h>
+#include <melee/lb/lbspdisplay.h>
+#include <sysdolphin/baselib/debug.h>
+#include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/gobjgxlink.h>
+#include <sysdolphin/baselib/gobjobject.h>
+#include <sysdolphin/baselib/gobjplink.h>
+#include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/gobjuserdata.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/memory.h>
+#include <sysdolphin/baselib/sislib.h>
+
+static GXColor mnDiagram2_804D4FB8 = { 0, 0, 0, 0xFF };
+static GXColor mnDiagram2_804D4FBC = { 0xFF, 0xC8, 0, 0xFF };
+
+static MnDiagram2RowLayout mnDiagram2_803EEAD0 = {
+    { -2.5f, 0.3f, 0.0f },
+    { -2.2f, 0.5f, 0.0f },
+    { -1.0f, 0.5f, 0.0f },
+    { -2.0f, 0.0f, 0.0f },
+    {
+        74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85,
+        86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97,
+    },
+    {
+        122, 122, 122, 124, 124, 124, 124, 124, 122, 122,    122,    0xFFFF,
+        124, 123, 126, 126, 126, 126, 125, 125, 125, 0xFFFF, 0xFFFF, 0xFFFF,
+    },
+};
+
+static AnimLoopSettings mnDiagram2_803EEB60[2] = {
+    { 10.0f, 19.0f, -0.1f },
+    { 0.0f, 199.0f, 0.0f },
+};
+
+static HSD_GObj* mnDiagram2_804D6C18;
+
+/* GetPersistentNameData and GetPersistentFighterData are in gm/gmmain_lib.h */
+
+/* From mnname.c; this TU sees a narrower GetNameText parameter (codegen
+ * requires the u8 view; same per-TU declaration as mnvibration.c). */
+char* GetNameText(u8 slot);
+int GetNameCount(void);
+
+/* Wrapper macros for index functions */
+#define mnDiagram_GetNameByIndex_s(x) ((int) mnDiagram_GetNameByIndex(x))
+#define mnDiagram_GetFighterByIndex_s(x) ((int) mnDiagram_GetFighterByIndex(x))
+#define mnDiagram_GetFighterByIndex_BBC(x) mnDiagram_GetFighterByIndex_s(x)
+
+/* Diagram2 struct is defined in mn/types.h */
+
+/// @brief Checks if stat type uses time format (H:MM:SS).
+/// @param stat_type The stat type index (VSRecordsStatType)
+/// @return true if stat should display as time
+/// @details Only VSSTAT_PLAY_TIME (0x0B) uses time display format.
+bool mnDiagram2_IsTimeStat(u8 stat_type)
+{
+    switch (stat_type) {
+    case VSSTAT_PLAY_TIME:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// @brief Checks if stat type is a distance stat (shown in feet).
+/// @param stat_type The stat type index (VSRecordsStatType)
+/// @return true if stat shows distance in ft.
+/// @details Distance stats: Walk, Run, Fall, Peak Height (0x0E-0x11).
+bool mnDiagram2_IsDistanceStat(u8 stat_type)
+{
+    switch (stat_type) {
+    case VSSTAT_WALK_DISTANCE:
+    case VSSTAT_RUN_DISTANCE:
+    case VSSTAT_FALL_DISTANCE:
+    case VSSTAT_PEAK_HEIGHT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// @brief Checks if stat type is a percentage stat.
+/// @param stat_type The stat type index (VSRecordsStatType)
+/// @return true if stat displays with decimal percentage
+/// @details Percentage stats: Hit %, Play %, Avg Players (0x03, 0x0C, 0x0D).
+bool mnDiagram2_IsPercentageStat(u8 stat_type)
+{
+    switch (stat_type) {
+    case VSSTAT_HIT_PERCENTAGE:
+    case VSSTAT_PLAY_PERCENTAGE:
+    case VSSTAT_AVG_PLAYERS:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// @brief Checks if stat type displays as icon only (no numeric value).
+/// @param stat_type The stat type index (VSRecordsStatType)
+/// @return true if stat displays character icons only
+/// @details Icon-only stats: Most/2nd/Least played fighter (0x15-0x17).
+///          These are only shown in Name mode and display a character icon.
+bool mnDiagram2_IsIconOnlyStat(u8 stat_type)
+{
+    switch (stat_type) {
+    case VSSTAT_MOST_PLAYED:
+    case VSSTAT_SECOND_PLAYED:
+    case VSSTAT_LEAST_PLAYED:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// @brief Clears all stat row text objects and icon JObjs.
+/// @param gobj The diagram GObj
+void mnDiagram2_ClearStatRows(HSD_GObj* gobj)
+{
+    Diagram2* ptr;
+    Diagram2* data;
+    int i;
+    HSD_JObj* jobj;
+
+    ptr = data = (Diagram2*) HSD_GObjGetUserData(gobj);
+
+    for (i = 0; i < 10; i++) {
+        if (data->row_labels[i] != NULL) {
+            HSD_SisLib_803A5CC4(ptr->row_labels[i]);
+            data->row_labels[i] = NULL;
+        }
+        if (data->row_values[i] != NULL) {
+            HSD_SisLib_803A5CC4(ptr->row_values[i]);
+            data->row_values[i] = NULL;
+        }
+        if (data->row_icons[i] != NULL) {
+            HSD_SisLib_803A5CC4(ptr->row_icons[i]);
+            data->row_icons[i] = NULL;
+        }
+    }
+
+    jobj = HSD_JObjGetChild(data->icon_parent);
+    if (jobj != NULL) {
+        HSD_JObjRemoveAll(jobj);
+    }
+}
+
+/// @brief Updates the header display with fighter/name icon and text.
+/// @param gobj The diagram GObj
+/// @param is_name_mode 0 = Fighter mode, 1 = Name mode
+/// @param entity_idx Fighter or Name selection index
+void mnDiagram2_UpdateHeader(HSD_GObj* gobj, u8 is_name_mode, u8 entity_idx)
+{
+    Vec3 sp18;
+    Diagram2* data;
+    HSD_Text* text;
+    void* tmp;
+    HSD_JObj* jobj;
+    u8 nametag_slot_or_selkind;
+    PAD_STACK(4);
+
+    data = gobj->user_data;
+    if (is_name_mode != 0) {
+        nametag_slot_or_selkind = mnDiagram_GetNameByIndex(entity_idx);
+    } else {
+        nametag_slot_or_selkind = mnDiagram_GetFighterByIndex(entity_idx);
+    }
+
+    if (is_name_mode == 0) {
+        tmp = data->x18;
+        if (tmp == NULL) {
+            tmp = NULL;
+        } else {
+            tmp = ((HSD_JObj*) tmp)->child;
+        }
+        jobj = tmp;
+        if (jobj != NULL) {
+            HSD_JObjRemoveAll(jobj);
+        }
+        HSD_JObjAddChild(data->x18, mnDiagram_CreateFighterIcon(
+                                        nametag_slot_or_selkind, 0));
+    }
+
+    if (data->header_text != NULL) {
+        HSD_SisLib_803A5CC4(data->header_text);
+    }
+
+    text = HSD_SisLib_803A6754(0, 1);
+    data->header_text = text;
+
+    if (is_name_mode != 0) {
+        lb_8000B1CC(data->x24, &mnDiagram2_803EEAD0.header_pos, &sp18);
+    } else {
+        lb_8000B1CC(data->x1C, &mnDiagram2_803EEAD0.header_pos, &sp18);
+    }
+
+    {
+        f32 font = 0.045f;
+        text->font_size.x = font;
+        text->font_size.y = font;
+    }
+    text->text_color = mnDiagram2_804D4FB8;
+    {
+        f32 ny = -sp18.y;
+        f32 z = sp18.z;
+        text->pos_x = sp18.x;
+        text->pos_y = ny;
+        text->pos_z = z;
+    }
+    text->default_alignment = 1;
+
+    if (is_name_mode != 0) {
+        HSD_SisLib_803A6B98(text, 0.0f, 0.0f,
+                            GetNameText(nametag_slot_or_selkind));
+    } else {
+        gm_80160B40(text, gm_SelKindToCKind(nametag_slot_or_selkind), 0);
+    }
+}
+
+static inline Diagram2* getCurrentDiagramData(void)
+{
+    return mnDiagram2_804D6C18->user_data;
+}
+
+/// @brief Clears and repopulates stat rows based on current selection.
+/// @details Reads is_name_mode to determine which entity index to use.
+static inline void mnDiagram2_RefreshStatRows(void)
+{
+    HSD_GObj* d = mnDiagram2_804D6C18;
+    Diagram2* data = getCurrentDiagramData();
+    u8 entity_idx;
+
+    mnDiagram2_ClearStatRows(d);
+    if (data->is_name_mode != 0) {
+        entity_idx = data->selected_name_idx;
+    } else {
+        entity_idx = data->selected_fighter_idx;
+    }
+    mnDiagram2_PopulateStatRows(d, (u8) data->scroll_offset,
+                                data->is_name_mode, entity_idx);
+}
+
+static inline void saveDiagramSelection(void)
+{
+    Diagram2* data = mnDiagram2_804D6C18->user_data;
+    gmMainLib_GetGameRules()->x12 = data->selected_fighter_idx;
+    gmMainLib_GetGameRules()->x13 = data->selected_name_idx;
+    gmMainLib_GetGameRules()->xD = data->is_name_mode;
+}
+
+static inline void updateDiagramMode(u8 is_name_mode)
+{
+    HSD_GObj* gobj = mnDiagram2_804D6C18;
+    Diagram2* data = gobj->user_data;
+    u8 entity_idx;
+    if (is_name_mode != 0) {
+        HSD_JObjSetFlagsAll(data->fighter_mode_header, JOBJ_HIDDEN);
+        HSD_JObjClearFlagsAll(data->name_mode_header, JOBJ_HIDDEN);
+    } else {
+        HSD_JObjClearFlagsAll(data->fighter_mode_header, JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(data->name_mode_header, JOBJ_HIDDEN);
+    }
+    if (is_name_mode != 0) {
+        entity_idx = data->selected_name_idx;
+    } else {
+        entity_idx = data->selected_fighter_idx;
+    }
+    mnDiagram2_UpdateHeader(gobj, is_name_mode, entity_idx);
+}
+
+/// @brief Handles input for the VS Records character details page.
+/// @param gobj The diagram GObj (unused, uses global mnDiagram2_804D6C18)
+/// @details Input mapping:
+///   - Up/Down: Scroll stat rows
+///   - Left/Right: Change character/name selection
+///   - B: Exit to main menu
+///   - L/R shoulder: Cycle to prev/next VS Records page
+///   - L/R triggers: Toggle Fighter/Name mode
+void mnDiagram2_HandleInput(HSD_GObj* gobj)
+{
+    Diagram2* data;
+    int result;
+    u8 entity_idx;
+    int selection;
+    PAD_STACK(40);
+
+    data = getCurrentDiagramData();
+    result = mn_804A04F0.buttons = mn_80229624(4);
+
+    if (result & 0x20) {
+        sfxBack();
+        mn_804A04F0.entering_menu = 0;
+        saveDiagramSelection();
+        mn_80229894(0x1C, 0, 3);
+        mnDiagram2_ClearStatRows(mnDiagram2_804D6C18);
+        return;
+    }
+
+    if (result & 0xC0) {
+        sfxForward();
+        saveDiagramSelection();
+        mnDiagram2_ClearStatRows(mnDiagram2_804D6C18);
+        HSD_GObjFree(gobj);
+        if (result & 0x40) {
+            mnDiagram_Init(0, 0);
+            return;
+        }
+        mnDiagram3_Init(NULL);
+        return;
+    }
+
+    if (result & 0xC00) {
+        if (GetNameCount() == 0) {
+            lbAudioAx_80024030(3);
+            return;
+        }
+        sfxForward();
+        data->is_name_mode = data->is_name_mode == 0 ? 1 : 0;
+        if (data->is_name_mode == 0 && (s32) (data->scroll_offset + 10) > 0x15)
+        {
+            data->scroll_offset = 0;
+        }
+        mnDiagram2_RefreshStatRows();
+        if (data->is_name_mode != 0) {
+            entity_idx = data->selected_name_idx;
+        } else {
+            entity_idx = data->selected_fighter_idx;
+        }
+        mnDiagram2_UpdateHeader(mnDiagram2_804D6C18, data->is_name_mode,
+                                entity_idx);
+        updateDiagramMode(data->is_name_mode);
+        return;
+    }
+
+    if (data->is_name_mode != 0) {
+        GetNameCount();
+        if (result & 1) {
+            if (data->scroll_offset != 0) {
+                sfxMove();
+                data->scroll_offset = data->scroll_offset - 1;
+                mnDiagram2_RefreshStatRows();
+            }
+        } else if (result & 2) {
+            if ((s32) (data->scroll_offset + 10) < 0x18) {
+                sfxMove();
+                data->scroll_offset = data->scroll_offset + 1;
+                mnDiagram2_RefreshStatRows();
+            }
+        } else if (result & 4) {
+            selection = mnDiagram_GetPrevNameIndex(data->selected_name_idx);
+            if ((s32) data->selected_name_idx != selection) {
+                sfxMove();
+                data->selected_name_idx = selection;
+                mnDiagram2_RefreshStatRows();
+                mnDiagram2_UpdateHeader(mnDiagram2_804D6C18,
+                                        data->is_name_mode,
+                                        data->selected_name_idx);
+            }
+        } else if (result & 8) {
+            selection = mnDiagram_GetNextNameIndex(data->selected_name_idx);
+            if ((s32) data->selected_name_idx != selection) {
+                sfxMove();
+                data->selected_name_idx = selection;
+                mnDiagram2_RefreshStatRows();
+                mnDiagram2_UpdateHeader(mnDiagram2_804D6C18,
+                                        data->is_name_mode,
+                                        data->selected_name_idx);
+            }
+        }
+    } else {
+        mnDiagram_CountUnlockedFighters();
+        if (result & 1) {
+            if (data->scroll_offset != 0) {
+                sfxMove();
+                data->scroll_offset = data->scroll_offset - 1;
+                mnDiagram2_RefreshStatRows();
+            }
+        } else if (result & 2) {
+            if ((s32) (data->scroll_offset + 10) < 0x15) {
+                sfxMove();
+                data->scroll_offset = data->scroll_offset + 1;
+                mnDiagram2_RefreshStatRows();
+            }
+        } else if (result & 4) {
+            selection =
+                mnDiagram_GetPrevFighterIndex(data->selected_fighter_idx);
+            if ((s32) data->selected_fighter_idx != selection) {
+                sfxMove();
+                data->selected_fighter_idx = selection;
+                mnDiagram2_RefreshStatRows();
+                mnDiagram2_UpdateHeader(mnDiagram2_804D6C18,
+                                        data->is_name_mode,
+                                        data->selected_fighter_idx);
+            }
+        } else if (result & 8) {
+            selection =
+                mnDiagram_GetNextFighterIndex(data->selected_fighter_idx);
+            if ((s32) data->selected_fighter_idx != selection) {
+                sfxMove();
+                data->selected_fighter_idx = selection;
+                mnDiagram2_RefreshStatRows();
+                mnDiagram2_UpdateHeader(mnDiagram2_804D6C18,
+                                        data->is_name_mode,
+                                        data->selected_fighter_idx);
+            }
+        }
+    }
+}
+
+/// @brief Retrieves a stat value for a fighter or name entry.
+/// @param is_name_mode 0 = Fighter mode, 1 = Name mode
+/// @param stat_type Stat category (0x00-0x17), passed as HSD_GObj* due to ABI
+/// @param entity_idx Fighter or Name index
+/// @return The stat value for the given category and entity
+int mnDiagram2_GetStatValue(u8 is_name_mode, u8 stat_type, u8 entity_idx)
+{
+    u8 typeVal;
+    u8 idxVal;
+    u16 val16;
+
+    typeVal = stat_type;
+    idxVal = entity_idx;
+
+    switch (typeVal) {
+    case VSSTAT_TOTAL_KOS:
+        if (is_name_mode) {
+            return mnDiagram_GetNameTotalKOs(idxVal);
+        }
+        return mnDiagram_GetFighterTotalKOs(idxVal);
+
+    case VSSTAT_TOTAL_FALLS:
+        if (is_name_mode) {
+            return mnDiagram_GetNameTotalFalls(idxVal);
+        }
+        return mnDiagram_GetFighterTotalFalls(idxVal);
+
+    case VSSTAT_SD_COUNT:
+        if (is_name_mode) {
+            val16 = GetPersistentNameData(idxVal)->sd_count;
+        } else {
+            val16 = GetPersistentFighterData(idxVal)->sd_count;
+        }
+        return val16;
+
+    case VSSTAT_HIT_PERCENTAGE:
+        return mnDiagram_GetHitPercentage(is_name_mode, idxVal);
+
+    case VSSTAT_DAMAGE_DEALT:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->damage_dealt;
+        }
+        return GetPersistentFighterData(idxVal)->damage_dealt;
+
+    case VSSTAT_DAMAGE_TAKEN:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->damage_taken;
+        }
+        return GetPersistentFighterData(idxVal)->damage_taken;
+
+    case VSSTAT_DAMAGE_RECOVERED:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->damage_recovered;
+        }
+        return GetPersistentFighterData(idxVal)->damage_recovered;
+
+    case VSSTAT_PEAK_DAMAGE:
+        if (is_name_mode) {
+            val16 = GetPersistentNameData(idxVal)->peak_damage;
+        } else {
+            val16 = GetPersistentFighterData(idxVal)->peak_damage;
+        }
+        return val16;
+
+    case VSSTAT_MATCH_COUNT:
+        if (is_name_mode) {
+            val16 = GetPersistentNameData(idxVal)->match_count;
+        } else {
+            val16 = GetPersistentFighterData(idxVal)->match_count;
+        }
+        return val16;
+
+    case VSSTAT_VICTORIES:
+        if (is_name_mode) {
+            val16 = GetPersistentNameData(idxVal)->victories;
+        } else {
+            val16 = GetPersistentFighterData(idxVal)->victories;
+        }
+        return val16;
+
+    case VSSTAT_LOSSES:
+        if (is_name_mode) {
+            val16 = GetPersistentNameData(idxVal)->losses;
+        } else {
+            val16 = GetPersistentFighterData(idxVal)->losses;
+        }
+        return val16;
+
+    case VSSTAT_PLAY_TIME:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->play_time;
+        }
+        return GetPersistentFighterData(idxVal)->play_time;
+
+    case VSSTAT_PLAY_PERCENTAGE:
+        return mnDiagram_GetPlayPercentage(is_name_mode, idxVal);
+
+    case VSSTAT_AVG_PLAYERS:
+        return mnDiagram_GetAveragePlayerCount(is_name_mode, idxVal);
+
+    case VSSTAT_WALK_DISTANCE:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->walk_distance;
+        }
+        return GetPersistentFighterData(idxVal)->walk_distance;
+
+    case VSSTAT_RUN_DISTANCE:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->run_distance;
+        }
+        return GetPersistentFighterData(idxVal)->run_distance;
+
+    case VSSTAT_FALL_DISTANCE:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->fall_distance;
+        }
+        return GetPersistentFighterData(idxVal)->fall_distance;
+
+    case VSSTAT_PEAK_HEIGHT:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->peak_height;
+        }
+        return GetPersistentFighterData(idxVal)->peak_height;
+
+    case VSSTAT_COINS_COLLECTED:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->coins_collected;
+        }
+        return GetPersistentFighterData(idxVal)->coins_collected;
+
+    case VSSTAT_COINS_SWIPED:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->coins_swiped;
+        }
+        return GetPersistentFighterData(idxVal)->coins_swiped;
+
+    case VSSTAT_COINS_LOST:
+        if (is_name_mode) {
+            return GetPersistentNameData(idxVal)->coins_lost;
+        }
+        return GetPersistentFighterData(idxVal)->coins_lost;
+
+    case VSSTAT_MOST_PLAYED:
+        return mnDiagram_GetRankedFighterForName(
+            0, idxVal, (void*) mnDiagram_GetNamePlayTimeByFighter);
+
+    case VSSTAT_SECOND_PLAYED:
+        return mnDiagram_GetRankedFighterForName(
+            1, idxVal, (void*) mnDiagram_GetNamePlayTimeByFighter);
+
+    case VSSTAT_LEAST_PLAYED:
+        return mnDiagram_GetLeastPlayedFighter(idxVal);
+
+    default:
+        break;
+    }
+}
+
+/// @brief Creates a single stat row entry in the VS Records display.
+/// @param gobj The diagram GObj
+/// @param is_name_mode 0 = Fighter mode, 1 = Name mode
+/// @param stat_type Stat category index (0-23)
+/// @param row_idx Row position (0-9, 10 visible rows)
+/// @param entity_idx Fighter or Name index for stat lookup
+void mnDiagram2_CreateStatRow(HSD_GObj* gobj, u8 is_name_mode, u8 stat_type,
+                              u8 row_idx, u8 entity_idx)
+{
+    u32 row;
+    f32 px;
+    f32 py;
+    f32 pz;
+    HSD_Text* text2;
+    HSD_JObj* jobj;
+    int unit_glyph_id;
+    Diagram2* data;
+    MnDiagram2RowLayout* base;
+    HSD_Text* text;
+    f32 f31;
+    u8 str[8];
+    f32 f30;
+    Vec3 position;
+    u8 entity = entity_idx;
+
+    data = gobj->user_data;
+    base = &mnDiagram2_803EEAD0;
+
+    f31 = HSD_JObjGetTranslationY(data->row0_ref);
+    f30 = HSD_JObjGetTranslationY(data->row1_ref) - f31;
+
+    lb_8000B1CC(data->row0_ref, &base->label_pos, &position);
+
+    {
+        f32 ny;
+        f32 row_y_offset;
+
+        row = row_idx;
+        ny = -position.y;
+        row_y_offset = -f30 * (f32) row;
+        text = HSD_SisLib_803A5ACC(0, 1, position.x, ny + row_y_offset,
+                                   position.z, 320.0f, 240.0f);
+
+        {
+            data->row_labels[row_idx] = text;
+
+            {
+                HSD_SisLib_803A6368(text, base->label_ids[stat_type]);
+
+                {
+                    unit_glyph_id = base->unit_glyph_ids[stat_type];
+                    if (unit_glyph_id != 0xFFFF) {
+                        lb_8000B1CC(data->row0_ref, &base->label_pos,
+                                    &position);
+                        text2 = HSD_SisLib_803A5ACC(0, 1, 12.0f + position.x,
+                                                    -position.y + row_y_offset,
+                                                    position.z, 1.0f, 1.0f);
+
+                        data->row_icons[row_idx] = text2;
+                        text2->default_alignment = 1;
+                        text2->text_color = mnDiagram2_804D4FBC;
+
+                        if (mnDiagram2_IsDistanceStat(stat_type) &&
+                            mnDiagram_IsDistanceOverflow(
+                                mnDiagram2_GetStatValue(is_name_mode,
+                                                        stat_type, entity)))
+                        {
+                            HSD_SisLib_803A6368(text2, 0x7F);
+                        } else {
+                            HSD_SisLib_803A6368(text2, unit_glyph_id);
+                        }
+                    }
+                }
+
+                {
+                    if (mnDiagram2_IsIconOnlyStat(stat_type) &&
+                        (u32) mnDiagram2_GetStatValue(is_name_mode, stat_type,
+                                                      entity) < SELKIND_COUNT)
+                    {
+                        jobj = mnDiagram_CreateFighterIcon(
+                            mnDiagram2_GetStatValue(is_name_mode, stat_type,
+                                                    entity),
+                            0);
+                        HSD_JObjSetTranslateX(jobj, base->icon_pos.x);
+                        HSD_JObjSetTranslateY(jobj, (f30 * (f32) row_idx) +
+                                                        base->icon_pos.y);
+                        HSD_JObjSetTranslateZ(jobj, base->icon_pos.z);
+
+                        HSD_JObjAddChild(data->icon_parent, jobj);
+                        return;
+                    }
+                }
+
+                {
+                    text2 = HSD_SisLib_803A6754(0, 1);
+                    data->row_values[row_idx] = text2;
+                    text2->font_size.x = 0.03f;
+                    text2->font_size.y = 0.035f;
+                    lb_8000B1CC(data->icon_parent, &base->value_pos,
+                                &position);
+                    {
+                        px = position.x;
+                        py = -position.y + row_y_offset;
+                        pz = position.z;
+                        text2->pos_x = px;
+                        text2->pos_y = py;
+                        text2->pos_z = pz;
+                    }
+                    text2->text_color = mnDiagram2_804D4FBC;
+                    text2->default_alignment = 2;
+
+                    if (mnDiagram2_IsTimeStat(stat_type)) {
+                        int val = mnDiagram2_GetStatValue(is_name_mode,
+                                                          stat_type, entity);
+                        {
+                            u32 unsigned_val = (u32) val;
+                            if (unsigned_val > 0x927BF) {
+                                val = 0x927BF;
+                            }
+                        }
+                        mnDiagram_FormatTime((char*) str, val);
+                    } else {
+                        if (mnDiagram2_IsDistanceStat(stat_type)) {
+                            u32 val = mnDiagram2_GetStatValue(
+                                is_name_mode, stat_type, entity);
+                            val = mnDiagram_ConvertDistanceForDisplay(val);
+                            if (val > 0x98967F) {
+                                val = 0x98967F;
+                            }
+                            mnDiagram_IntToStr((char*) str, val);
+                        } else {
+                            if (mnDiagram2_IsPercentageStat(stat_type)) {
+                                int val = mnDiagram2_GetStatValue(
+                                    is_name_mode, stat_type, entity);
+                                if ((u32) val > 0xF423F) {
+                                    val = 0xF423F;
+                                }
+                                mnDiagram_FormatDecimalNumber((char*) str, val,
+                                                              2);
+                            } else {
+                                if (mnDiagram2_IsIconOnlyStat(stat_type)) {
+                                    str[0] = mnDiagram2_804D4FD0[0];
+                                    str[1] = mnDiagram2_804D4FD0[1];
+                                    str[2] = mnDiagram2_804D4FD0[2];
+                                } else {
+                                    int val = mnDiagram2_GetStatValue(
+                                        is_name_mode, stat_type, entity);
+                                    if ((u32) val > 0x98967F) {
+                                        val = 0x98967F;
+                                    }
+                                    mnDiagram_FormatDecimalNumber((char*) str,
+                                                                  val, 0);
+                                }
+                            }
+                        }
+                    }
+
+                    HSD_SisLib_803A6B98(text2, 0.0f, 0.0f, (char*) str);
+                }
+            }
+        }
+    }
+}
+
+/// SJIS "－", written into the stat string when a value is unavailable.
+u8 mnDiagram2_804D4FD0[3] = { 0x81, 0x7C, 0 };
+
+/// @brief Populates all 10 visible stat rows in the diagram.
+/// @param gobj The diagram GObj
+/// @param scroll_offset Current scroll position (stat type offset)
+/// @param is_name_mode 0 = Fighter mode, 1 = Name mode
+/// @param entity_idx Fighter or Name selection index
+void mnDiagram2_PopulateStatRows(HSD_GObj* gobj, u8 scroll_offset,
+                                 u8 is_name_mode, u8 entity_idx)
+{
+    int limit;
+    int idx;
+    int i;
+    int var_r28;
+
+    if (is_name_mode != 0) {
+        var_r28 = mnDiagram_GetNameByIndex(entity_idx);
+    } else {
+        var_r28 = mnDiagram_GetFighterByIndex(entity_idx);
+    }
+
+    if (is_name_mode != 0) {
+        limit = 0x18;
+    } else {
+        limit = 0x15;
+    }
+
+    i = 0;
+    idx = scroll_offset;
+    do {
+        int val;
+        if (idx >= limit) {
+            val = idx - limit;
+        } else {
+            val = idx;
+        }
+        mnDiagram2_CreateStatRow(gobj, is_name_mode, val, i, (u8) var_r28);
+        i++;
+        idx++;
+    } while (i < 10);
+}
+
+typedef struct MnDiagram2DataLayout {
+    u8 stat_name_ids[0x90];
+    AnimLoopSettings anim[2];
+} MnDiagram2DataLayout;
+
+/// @brief Animation completion callback - destroys GObj when animation ends.
+void mnDiagram2_OnAnimComplete(HSD_GObj* gobj)
+{
+    Diagram2* data;
+    HSD_JObj* jobj;
+    AnimLoopSettings* table;
+
+    data = HSD_GObjGetUserData(gobj);
+    jobj = data->xC;
+    table = mnDiagram2_803EEB60;
+    if (mn_8022ED6C(jobj, table) >= table->end_frame) {
+        HSD_GObjFree(gobj);
+    }
+}
+/// @brief Updates navigation arrow visibility based on scroll/selection state.
+/// @param gobj The diagram GObj
+/// @details Shows/hides arrows:
+///   - down_arrow (x34): hidden when at bottom
+///   - up_arrow (x38): hidden when scroll_offset == 0
+///   - left_arrow (x3C): hidden when at first selection
+///   - right_arrow (x40): hidden when at last selection
+void mnDiagram2_UpdateScrollArrows(HSD_GObj* gobj)
+{
+    Diagram2* data;
+    HSD_JObj* jobj;
+    MnDiagram2DataLayout* base;
+
+    base = (MnDiagram2DataLayout*) &mnDiagram2_803EEAD0;
+    data = HSD_GObjGetUserData(gobj);
+
+    jobj = data->down_arrow;
+    mn_8022ED6C(jobj, &base->anim[1]);
+    if (data->is_name_mode) {
+        if (data->scroll_offset + 10 < 0x18) {
+            HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        }
+    } else {
+        if (data->scroll_offset + 10 < 0x15) {
+            HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        }
+    }
+
+    jobj = data->up_arrow;
+    mn_8022ED6C(jobj, &base->anim[1]);
+    if (data->scroll_offset) {
+        HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+    } else {
+        HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+    }
+
+    jobj = data->left_arrow;
+    mn_8022ED6C(jobj, &base->anim[1]);
+    if (data->is_name_mode) {
+        if (data->selected_name_idx) {
+            HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        }
+    } else {
+        if (data->selected_fighter_idx != 0) {
+            HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        }
+    }
+
+    jobj = data->right_arrow;
+    mn_8022ED6C(jobj, &base->anim[1]);
+    if (data->is_name_mode != 0) {
+        if (data->selected_name_idx !=
+            mnDiagram_GetNextNameIndex(data->selected_name_idx))
+        {
+            HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        }
+    } else {
+        if (data->selected_fighter_idx !=
+            mnDiagram_GetNextFighterIndex(data->selected_fighter_idx))
+        {
+            HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        }
+    }
+}
+/// @brief Per-frame callback that updates scroll arrows or starts exit
+/// animation.
+/// @param gobj The diagram GObj
+void mnDiagram2_Think(HSD_GObj* gobj)
+{
+    Diagram2* data;
+    u8* src;
+    u8 mode;
+    PAD_STACK(8);
+
+    src = (u8*) &mn_804A04F0;
+    data = gobj->user_data;
+    mode = src[0];
+    if (mode != 0x1E || src[0x10] != 1) {
+        if (mode == 0x1E) {
+            HSD_GObjFree(gobj);
+        } else {
+            HSD_GObjProc* proc;
+
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
+            proc = HSD_GObj_SetupProc(gobj, mnDiagram2_OnAnimComplete, 0);
+            proc->flags_3 = HSD_GObj_804D783C;
+            HSD_JObjSetFlagsAll(((HSD_JObj**) data)[4], JOBJ_HIDDEN);
+            if (data->header_text != NULL) {
+                HSD_SisLib_803A5CC4(data->header_text);
+                data->header_text = NULL;
+            }
+            return;
+        }
+    }
+    mnDiagram2_UpdateScrollArrows(gobj);
+}
+/// @brief GObj destructor callback that frees user data.
+/// @param data The user data to free
+void mnDiagram2_FreeUserData(Diagram2* data)
+{
+    if (data->header_text != NULL) {
+        HSD_SisLib_803A5CC4(data->header_text);
+    }
+    HSD_Free(data);
+}
+/// @brief Initializes user data fields to default values.
+/// @param arg The user data struct to initialize
+void mnDiagram2_InitUserData(void* arg, int unused)
+{
+    Diagram2* data = arg;
+    u8* src = (u8*) &mn_804A04F0;
+    int i;
+
+    data->saved_menu = src[0];
+    data->saved_selection = *(u16*) (src + 2);
+    data->anim_state = 1;
+    data->scroll_offset = 0;
+    data->selected_fighter_idx = 0;
+    data->selected_name_idx = 0;
+    data->is_name_mode = gmMainLib_GetGameRules()->xD;
+
+    for (i = 0; i < 10; i++) {
+        data->row_labels[i] = NULL;
+        data->row_values[i] = NULL;
+        data->row_icons[i] = NULL;
+    }
+
+    data->header_text = NULL;
+}
+
+/// @brief Creates the VS Records diagram GObj and populates initial stat rows.
+/// @param arg0 Unused parameter
+void mnDiagram2_Create(int arg0)
+{
+    int entity_val;
+    Diagram2* user_data;
+    u8 entity_idx;
+    HSD_GObj* gobj;
+    Diagram2* new_var;
+    int j;
+    int threshold;
+    mnDiagram_ArchiveData* archive = &mnDiagram_804A0834;
+    int scroll;
+    int i;
+    u32 is_name;
+    HSD_JObj* jobj;
+    int offset;
+    Diagram2* user_data2;
+    HSD_JObj** cursor;
+
+    gobj = GObj_Create(6, 7, 0x80);
+    mnDiagram2_804D6C18 = gobj;
+    jobj = HSD_JObjLoadJoint(archive->x0);
+    HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
+    GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 6, 0x80);
+    HSD_JObjAddAnimAll(jobj, archive->x4, archive->x8, archive->xC);
+    HSD_JObjReqAnimAll(jobj, 0.0f);
+
+    user_data = (Diagram2*) HSD_MemAlloc(sizeof(Diagram2));
+    HSD_ASSERTREPORT(0x3E6, user_data, "Can't get user_data.\n");
+    mnDiagram2_InitUserData(user_data, arg0);
+    GObj_InitUserData(gobj, 0, (void (*)(void*)) mnDiagram2_FreeUserData,
+                      user_data);
+
+    i = (offset = 0);
+    cursor = (HSD_JObj**) user_data + i;
+    do {
+        lb_80011E24(jobj, cursor + 2, i, -1);
+        i++;
+        cursor++;
+    } while (i < 15);
+
+    HSD_GObj_SetupProc(gobj, mnDiagram2_Think, 0);
+
+    new_var = user_data;
+    if ((is_name = user_data->is_name_mode) != 0) {
+        entity_idx = new_var->selected_name_idx;
+    } else {
+        entity_idx = new_var->selected_fighter_idx;
+    }
+    scroll = user_data->scroll_offset & 0xFF;
+    if (is_name) {
+        entity_val = mnDiagram_GetNameByIndex(entity_idx);
+    } else {
+        entity_val = mnDiagram_GetFighterByIndex(entity_idx);
+    }
+    if (is_name != 0) {
+        threshold = 0x18;
+    } else {
+        threshold = 0x15;
+    }
+
+    j = 0;
+    do {
+        if (scroll >= threshold) {
+            offset = scroll - threshold;
+        } else {
+            offset = scroll;
+        }
+        mnDiagram2_CreateStatRow(gobj, is_name, offset, j, entity_val);
+        scroll++;
+        j++;
+    } while (j < 10);
+
+    {
+        u32 mode = user_data->is_name_mode;
+        is_name = mode;
+    }
+    user_data2 = gobj->user_data;
+    if (is_name) {
+        HSD_JObjSetFlagsAll(user_data2->fighter_mode_header, JOBJ_HIDDEN);
+        HSD_JObjClearFlagsAll(user_data2->name_mode_header, JOBJ_HIDDEN);
+    } else {
+        HSD_JObjClearFlagsAll(user_data2->fighter_mode_header, JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(user_data2->name_mode_header, JOBJ_HIDDEN);
+    }
+
+    if ((u8) is_name) {
+        entity_idx = user_data2->selected_name_idx;
+    } else {
+        entity_idx = user_data2->selected_fighter_idx;
+    }
+    mnDiagram2_UpdateHeader(gobj, is_name, entity_idx);
+}
+
+/// @brief Entry point for VS Records page 2 - initializes diagram and input
+/// handler.
+void mnDiagram2_Init(void)
+{
+    MenuFlow* data = &mn_804A04F0;
+    HSD_GObjProc* gobj;
+
+    data->x10 = 1;
+    data->hovered_selection = 0;
+    mnDiagram2_Create(0);
+    gobj =
+        HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80), mnDiagram2_HandleInput, 0);
+    gobj->flags_3 = HSD_GObj_804D783C;
+}
+
+/// @brief Returns the fighter at rank N for a given stat type.
+/// @param stat_type The stat type to rank by
+/// @param rank The rank to retrieve (0 = highest, 1 = second highest, etc.)
+/// @return Fighter ID at the given rank, or SELKIND_COUNT if no data
+u8 mnDiagram2_GetRankedFighter(u8 stat_type, u8 rank)
+{
+    int j;
+    mnDiagram2_SortEntry entries[SELKIND_COUNT];
+    mnDiagram2_SortEntry temp;
+    int i;
+    int k;
+    int maxIdx;
+    int neg1;
+    SelectableCharacterKind selkind;
+
+    i = 0;
+    neg1 = -1;
+
+    for (i = 0; i < SELKIND_COUNT; i++) {
+        selkind = mnDiagram_GetFighterByIndex(i);
+        entries[i].idx = selkind;
+        if (mn_IsFighterUnlocked(selkind) != 0) {
+            entries[i].xC = mnDiagram2_GetStatValue(0, stat_type, selkind);
+            entries[i].x8 = 0;
+        } else {
+            entries[i].xC = neg1;
+            entries[i].x8 = neg1;
+        }
+    }
+
+    // Selection sort with insertion shift
+    for (i = 0; i < SELKIND_COUNT; i++) {
+        k = i + 1;
+        maxIdx = i;
+        while (k < SELKIND_COUNT) {
+            // Skip entries with -1 value
+            if (entries[k].value != (u64) neg1) {
+                // Update if entries[k] > entries[maxIdx] OR entries[i] == -1
+                if (entries[k].value > entries[maxIdx].value ||
+                    entries[i].value == (u64) neg1)
+                {
+                    maxIdx = k;
+                }
+            }
+            k++;
+        }
+
+        if (maxIdx != i) {
+            temp = entries[maxIdx];
+
+            for (j = maxIdx; j > i; j--) {
+                entries[j] = entries[j - 1];
+            }
+            entries[i] = temp;
+        }
+    }
+
+    // Return
+    if (entries[rank].value == (u64) -1) {
+        return SELKIND_COUNT;
+    }
+    return entries[rank].idx;
+}
+
+/// @brief Returns the name entry at rank N for a given stat type.
+/// @param stat_type The stat type to rank by
+/// @param rank The rank to retrieve (0 = highest, 1 = second highest, etc.)
+/// @return Name ID at the given rank, or 0x78 if rank exceeds name count
+u8 mnDiagram2_GetRankedName(u8 stat_type, u8 rank)
+{
+    mnDiagram2_SortEntry entries[120];
+    mnDiagram2_SortEntry temp;
+    mnDiagram2_SortEntry* base;
+    mnDiagram2_SortEntry* ptr;
+    int count;
+    int i;
+    int j;
+    int maxIdx;
+    int zero;
+
+    count = GetNameCount();
+    if ((s32) rank >= count) {
+        return 0x78;
+    }
+
+    base = entries;
+    ptr = base;
+    i = 0;
+    zero = 0;
+    while (i < count) {
+        ptr->idx = mnDiagram_GetNameByIndex(i);
+        ptr->xC =
+            mnDiagram2_GetStatValue(1, stat_type, mnDiagram_GetNameByIndex(i));
+        i++;
+        ptr->x8 = zero;
+        ptr++;
+    }
+
+    i = 0;
+    while (i < count) {
+        j = i + 1;
+        maxIdx = i;
+        while (j < count) {
+            if (entries[maxIdx].value < entries[j].value) {
+                maxIdx = j;
+            }
+            j++;
+        }
+
+        if (maxIdx != i) {
+            ptr = &entries[maxIdx];
+            temp = *ptr;
+
+            for (j = maxIdx; j > i; j--) {
+                *ptr = *(ptr - 1);
+                ptr--;
+            }
+            *base = temp;
+        }
+        base++;
+        i++;
+    }
+
+    return entries[rank].idx;
+}
+
+/// @brief Computes aggregated fighter ranking across all saved names for icon
+/// stats.
+/// @param type Stat type (0x15=Most Played, 0x16=2nd Most, 0x17=Least Played)
+/// @param idx Rank index to retrieve
+void mnDiagram2_GetAggregatedFighterRank(mnDiagram2_SortEntry* out, u8 type,
+                                         u8 idx)
+{
+    mnDiagram2_SortEntry entries[SELKIND_COUNT];
+    mnDiagram2_SortEntry temp;
+    mnDiagram2_SortEntry* base;
+    mnDiagram2_SortEntry* curr;
+    int count;
+    mnDiagram2_SortEntry* ptr;
+    int i;
+    int j;
+    int k;
+    int zero;
+    int n;
+    int m;
+    int res;
+
+    base = entries;
+    ptr = base;
+    n = 0;
+    zero = 0;
+
+    do {
+        ptr->idx = mnDiagram_GetFighterByIndex(n);
+        n++;
+        ptr->xC = zero;
+        ptr->x8 = zero;
+        ptr++;
+    } while (n < SELKIND_COUNT);
+
+    count = GetNameCount();
+
+    for (i = 0; i < count; i++) {
+        switch ((s32) type) {
+        case 0x15:
+            res = mnDiagram_GetRankedFighterForName(
+                0, i, (void*) mnDiagram_GetNamePlayTimeByFighter);
+            break;
+        case 0x16:
+            res = mnDiagram_GetRankedFighterForName(
+                1, i, (void*) mnDiagram_GetNamePlayTimeByFighter);
+            break;
+        case 0x17:
+            res = mnDiagram_GetLeastPlayedFighter((u8) i);
+            break;
+        }
+
+        if (res != SELKIND_COUNT) {
+            ptr = base;
+            k = 0;
+            for (m = SELKIND_COUNT; m > 0; m--) {
+                if (res == ptr->idx) {
+                    entries[k].value += 1;
+                    break;
+                }
+                ptr++;
+                k++;
+            }
+        }
+    }
+
+    // Bubble sort
+    for (j = 0; j < SELKIND_COUNT; j++) {
+        k = j + 1;
+        curr = &entries[k];
+        while (k < SELKIND_COUNT) {
+            if (base->value < curr->value) {
+                temp = *base;
+                *base = *curr;
+                *curr = temp;
+            }
+            curr++;
+            k++;
+        }
+        base++;
+    }
+
+    // Write result to output buffer
+    if (entries[idx].value != 0) {
+        *out = entries[idx];
+    } else {
+        entries[idx].idx = SELKIND_COUNT;
+        *out = entries[idx];
+    }
+}
+
+/// @brief Clears the detail view (Diagram3 popup) by freeing text objects and
+/// removing the ranking-popup JObj's children.
+/// @param gobj The GObj holding the Diagram3 user data (mnDiagram3_804D6C20)
+void mnDiagram2_ClearDetailView(HSD_GObj* gobj)
+{
+    Diagram3* data;
+    Diagram3* ptr;
+    int i;
+    void* tmp;
+    HSD_JObj* jobj;
+
+    ptr = (data = HSD_GObjGetUserData(gobj));
+
+    if (data->title_text != NULL) {
+        HSD_SisLib_803A5CC4(data->title_text);
+        data->title_text = NULL;
+    }
+
+    for (i = 0; i < 5; i++) {
+        if (data->row_icons[i] != NULL) {
+            HSD_SisLib_803A5CC4(ptr->row_icons[i]);
+            data->row_icons[i] = NULL;
+        }
+    }
+
+    if (data->value_text != NULL) {
+        HSD_SisLib_803A5CC4(data->value_text);
+        data->value_text = NULL;
+    }
+
+    tmp = data->jobjs[6];
+    if (tmp == NULL) {
+        tmp = NULL;
+    } else {
+        tmp = data->jobjs[6]->child;
+    }
+    jobj = tmp;
+    if (jobj != NULL) {
+        HSD_JObjRemoveAll(jobj);
+    }
+}

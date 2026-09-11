@@ -1,0 +1,235 @@
+#include "itharisen.h"
+
+#include <Runtime/platform.h>
+
+#include <placeholder.h>
+
+#include <melee/it/inlines.h>
+#include <melee/it/it_26B1.h>
+#include <melee/it/it_2725.h>
+#include <melee/it/item.h>
+#include <melee/it/itgroundcoll.h>
+
+ItemStateTable it_803F5FF0[] = {
+    { -1, itHarisen_UnkMotion0_Anim, itHarisen_UnkMotion0_Phys,
+      itHarisen_UnkMotion0_Coll },
+    { -1, itHarisen_UnkMotion8_Anim, itHarisen_UnkMotion1_Phys,
+      itHarisen_UnkMotion1_Coll },
+    { -1, itHarisen_UnkMotion6_Anim, itHarisen_UnkMotion6_Phys, NULL },
+    { 0, itHarisen_UnkMotion6_Anim, itHarisen_UnkMotion6_Phys, NULL },
+    { 1, itHarisen_UnkMotion6_Anim, itHarisen_UnkMotion6_Phys, NULL },
+    { 2, itHarisen_UnkMotion6_Anim, itHarisen_UnkMotion6_Phys, NULL },
+    { 3, itHarisen_UnkMotion6_Anim, itHarisen_UnkMotion6_Phys, NULL },
+    { 4, itHarisen_UnkMotion8_Anim, itHarisen_UnkMotion8_Phys,
+      itHarisen_UnkMotion7_Coll },
+    { 4, itHarisen_UnkMotion8_Anim, itHarisen_UnkMotion8_Phys,
+      itHarisen_UnkMotion8_Coll },
+    { -1, itHarisen_UnkMotion9_Anim, itHarisen_UnkMotion9_Phys,
+      itHarisen_UnkMotion9_Coll },
+};
+
+void it_802927E8(Item_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    HSD_JObj* item_jobj = gobj->hsd_obj;
+    itHarisen_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    f32 scale = attrs->x0_scale * ip->xCC_item_attr->x60_scale;
+    ip->scl = scale;
+    it_80272F7C(item_jobj, scale);
+}
+
+void it_8029282C(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->scl = ip->xCC_item_attr->x60_scale;
+    Item_8026849C(gobj);
+}
+
+void itHarisen_Logic24_Spawned(Item_GObj* gobj)
+{
+    it_8029290C(gobj);
+}
+
+void it_8029287C(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    it_8026B390(gobj);
+    itResetVelocity(ip);
+    Item_80268E5C(gobj, 0, ITEM_ANIM_UPDATE);
+}
+
+bool itHarisen_UnkMotion0_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itHarisen_UnkMotion0_Phys(Item_GObj* gobj) {}
+
+bool itHarisen_UnkMotion0_Coll(Item_GObj* gobj)
+{
+    it_8026D62C(gobj, it_8029290C);
+    return false;
+}
+
+void it_8029290C(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
+}
+
+bool itHarisen_UnkMotion8_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itHarisen_UnkMotion1_Phys(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ItemAttr* attrs = ip->xCC_item_attr;
+    it_80272860(gobj, attrs->x10_fall_speed, attrs->x14_fall_speed_max);
+}
+
+bool itHarisen_UnkMotion1_Coll(Item_GObj* gobj)
+{
+    it_8026E15C(gobj, it_8029287C);
+    return false;
+}
+
+void it_80292998(Item_GObj* gobj, f32 frameSpeed)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->x5D0_animFrameSpeed = frameSpeed;
+    Item_80268E5C(gobj, 3, ITEM_ANIM_UPDATE);
+}
+
+void it_802929C8(Item_GObj* gobj, f32 frameSpeed)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->x5D0_animFrameSpeed = frameSpeed;
+    Item_80268E5C(gobj, 4, ITEM_ANIM_UPDATE);
+}
+
+void it_802929F8(Item_GObj* gobj, f32 frameSpeed)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->x5D0_animFrameSpeed = frameSpeed;
+    Item_80268E5C(gobj, 5, ITEM_ANIM_UPDATE);
+}
+
+void it_80292A28(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    ip->x5D0_animFrameSpeed = 1.0f;
+    Item_80268E5C(gobj, 6, ITEM_ANIM_UPDATE);
+}
+
+void itHarisen_Logic24_PickedUp(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 2, ITEM_ANIM_UPDATE);
+}
+
+bool itHarisen_UnkMotion6_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itHarisen_UnkMotion6_Phys(Item_GObj* gobj) {}
+
+/// Reset harisen scale and animation speed when dropped.
+/// @todo Fake match: the `ip = gobj->user_data` reload at line 126 suggests an
+/// inline function boundary. The pattern `ip->scl = ...; it_8026B390(gobj);`
+/// is likely wrapped in an inline like:
+///   static inline void itResetScaleAndFlag(Item_GObj* gobj) {
+///       Item* ip = gobj->user_data;
+///       ip->scl = ip->xCC_item_attr->x60_scale;
+///       it_8026B390(gobj);
+///   }
+/// This inline isn't used elsewhere in the codebase yet, so we can't confirm.
+void itHarisen_Logic24_Dropped(Item_GObj* gobj)
+{
+    Item* ip = gobj->user_data;
+    PAD_STACK(8);
+    ip->x5D0_animFrameSpeed = 1.0F;
+    ip = gobj->user_data;
+    ip->scl = ip->xCC_item_attr->x60_scale;
+    Item_8026849C(gobj);
+    Item_80268E5C(gobj, 8, 6);
+}
+
+bool itHarisen_UnkMotion8_Coll(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+
+    if (ip->xD4C != 0) {
+        it_8026E15C(gobj, it_8029287C);
+        return false;
+    }
+    return it_8026DF34(gobj);
+}
+
+void itHarisen_Logic24_Thrown(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 7, 6);
+}
+
+void itHarisen_UnkMotion8_Phys(Item_GObj* gobj)
+{
+    Item_ApplyFallingPhysics(gobj);
+}
+
+bool itHarisen_UnkMotion7_Coll(Item_GObj* gobj)
+{
+    it_8026E15C(gobj, it_8029287C);
+    return false;
+}
+
+bool itHarisen_Logic24_DmgDealt(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    if (ip->msid == 7 || ip->msid == 8) {
+        itColl_BounceOffVictim(gobj);
+    }
+    return false;
+}
+
+void itHarisen_Logic24_EnteredAir(Item_GObj* gobj)
+{
+    Item_80268E5C(gobj, 9, ITEM_ANIM_UPDATE);
+}
+
+bool itHarisen_UnkMotion9_Anim(Item_GObj* gobj)
+{
+    return false;
+}
+
+void itHarisen_UnkMotion9_Phys(Item_GObj* gobj) {}
+
+bool itHarisen_UnkMotion9_Coll(Item_GObj* gobj)
+{
+    it_8026E8C4(gobj, it_8029287C, it_8029290C);
+    return false;
+}
+
+bool itHarisen_Logic24_Clanked(Item_GObj* gobj)
+{
+    return itHarisen_Logic24_DmgDealt(gobj);
+}
+
+bool itHarisen_Logic24_Reflected(Item_GObj* gobj)
+{
+    return it_80273030(gobj);
+}
+
+bool itHarisen_Logic24_HitShield(Item_GObj* gobj)
+{
+    return itHarisen_Logic24_DmgDealt(gobj);
+}
+
+bool itHarisen_Logic24_ShieldBounced(Item_GObj* gobj)
+{
+    return itColl_BounceOffShield(gobj);
+}
+
+void itHarisen_Logic24_EvtUnk(Item_GObj* gobj, Item_GObj* ref_gobj)
+{
+    it_8026B894(gobj, ref_gobj);
+}

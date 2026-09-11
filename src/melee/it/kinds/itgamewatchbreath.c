@@ -1,0 +1,109 @@
+#include "itgamewatchbreath.h"
+
+#include <melee/it/forward.h>
+
+#include "inlines.h"
+#include <melee/ft/kinds/ftGameWatch/ftgamewatchattackair.h>
+#include <melee/it/inlines.h>
+#include <melee/it/it_26B1.h>
+#include <melee/it/item.h>
+#include <melee/it/types.h>
+
+ItemStateTable it_803F7938[] = {
+    { 0, itGamewatchbreath_UnkMotion1_Anim, NULL, NULL },
+    { 1, itGamewatchbreath_UnkMotion1_Anim, NULL, NULL }
+};
+
+HSD_GObj* it_802C720C(HSD_GObj* parent, Vec3* pos, Fighter_Part part,
+                      float dir)
+{
+    SpawnItem spawn;
+    Item_GObj* result;
+
+    spawn.kind = It_Kind_GameWatch_Breath;
+    Item_InitSpawn(&spawn, parent, pos, dir);
+    result = Item_80268B18(&spawn);
+    if (result != NULL) {
+        Item* item = GET_ITEM(result);
+        void** attr = item->xC4_article_data->x4_specialAttributes;
+        Item_AttachGameWatchArticle(parent, part, result, attr);
+        return result;
+    }
+    return NULL;
+}
+
+void itGameWatchBreath_Logic76_Destroyed(Item_GObj* item_gobj)
+{
+    Item* item = GET_ITEM(item_gobj);
+    if (item->owner != NULL) {
+        ftGw_AttackAirN_ItemSparkySetFlag(item->owner);
+    }
+}
+
+void it_802C7340(Item_GObj* item_gobj)
+{
+    int pad[1];
+    Item* item = GET_ITEM(item_gobj);
+
+    if (item != NULL) {
+        if (item->owner != NULL) {
+            ftGw_AttackAirN_ItemSparkySetFlag(item->owner);
+        }
+        Item_8026A8EC(item_gobj);
+    }
+}
+
+void it_802C738C(Item_GObj* item_gobj)
+{
+    it_8026B724(item_gobj);
+}
+
+void it_802C73AC(Item_GObj* item_gobj)
+{
+    it_8026B73C(item_gobj);
+}
+
+void itGameWatchBreath_Logic76_PickedUp(Item_GObj* item_gobj)
+{
+    Item* temp_r3;
+
+    temp_r3 = item_gobj->user_data;
+    temp_r3->xDAC_itcmd_var0 = 0;
+    if (temp_r3->owner != NULL) {
+        Item_80268E5C(item_gobj, 0, ITEM_ANIM_UPDATE);
+        Item_802694CC(item_gobj);
+    }
+}
+
+void it_802C7424(Item_GObj* item_gobj)
+{
+    Item_80268E5C(item_gobj, 1, ITEM_ANIM_UPDATE);
+}
+
+bool itGamewatchbreath_UnkMotion1_Anim(Item_GObj* item_gobj)
+{
+    int pad[3];
+    Item* item;
+    bool var_r3;
+
+    item = GET_ITEM(item_gobj);
+    if (item->owner != NULL) {
+        var_r3 = ftGw_AttackAirN_ItemCheckSparkyRemove(item->owner);
+    } else {
+        var_r3 = true;
+    }
+    if (var_r3) {
+        item = GET_ITEM(item_gobj);
+        if (item->owner != NULL) {
+            ftGw_AttackAirN_ItemSparkySetFlag(item->owner);
+        }
+        return true;
+    }
+    return false;
+}
+
+void itGameWatchBreath_Logic76_EvtUnk(Item_GObj* item_gobj,
+                                      Item_GObj* ref_gobj)
+{
+    it_8026B894(item_gobj, ref_gobj);
+}

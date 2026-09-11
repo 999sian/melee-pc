@@ -1,0 +1,221 @@
+#include "itsscopebeam.h"
+
+#include <math.h>
+
+#include <melee/db/db.h>
+#include <melee/it/inlines.h>
+#include <melee/it/it_26B1.h>
+#include <melee/it/it_2725.h>
+#include <melee/it/item.h>
+#include <melee/it/itgroundcoll.h>
+#include <melee/lb/lbvector.h>
+#include <sysdolphin/baselib/random.h>
+
+ItemStateTable it_803F6568[] = {
+    { 0, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 1, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 2, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 3, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 4, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 5, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 6, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 7, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 8, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+    { 9, itSscopebeam_UnkMotion9_Anim, itSscopebeam_UnkMotion9_Phys,
+      itSscopebeam_UnkMotion9_Coll },
+};
+
+void it_80298DEC(Fighter_GObj* gobj, Vec* vec, int arg2, float arg3)
+{
+    HSD_GObj* n;
+    SpawnItem si;
+    si.kind = It_Kind_S_Scope_Beam;
+    si.prev_pos = *vec;
+    si.prev_pos.z = 0.0f;
+    it_8026BB68(gobj, &si.pos);
+    si.facing_dir = arg3;
+    si.x3C_damage = 0;
+    si.vel.x = si.vel.y = si.vel.z = 0.0f;
+    si.x0_parent_gobj = gobj;
+    si.x4_parent_gobj2 = si.x0_parent_gobj;
+    si.x44_flag.b0 = 1;
+    si.x40 = 0;
+    n = Item_80268B18(&si);
+    if (n != NULL) {
+        Item* ip = GET_ITEM(n);
+        ip->xDD4_itemVar.scopebeam.x0 = arg2;
+        it_80298ED0(n, gobj);
+        db_80225DD8(n, gobj);
+    }
+}
+
+void it_80298ED0(HSD_GObj* projectile, HSD_GObj* owner)
+{
+    Item* it = GET_ITEM(projectile);
+    ScopeBeamFloats* data;
+    HSD_JObj* jobj = GET_JOBJ(projectile);
+    ScopeBeamAttrs* attrs = it->xC4_article_data->x4_specialAttributes;
+    Vec3 scale;
+
+    it->owner = owner;
+    data = &attrs->floats[it->xDD4_itemVar.scopebeam.x0];
+    it_8026B3A8(projectile);
+    switch (it->xDD4_itemVar.scopebeam.x0) {
+    case 0:
+        Item_80268E5C(projectile, 0, ITEM_ANIM_UPDATE);
+        break;
+    case 1:
+        Item_80268E5C(projectile, 1, ITEM_ANIM_UPDATE);
+        break;
+    case 2:
+        Item_80268E5C(projectile, 2, ITEM_ANIM_UPDATE);
+        break;
+    case 3:
+        Item_80268E5C(projectile, 3, ITEM_ANIM_UPDATE);
+        break;
+    case 4:
+        Item_80268E5C(projectile, 4, ITEM_ANIM_UPDATE);
+        break;
+    case 5:
+        Item_80268E5C(projectile, 5, ITEM_ANIM_UPDATE);
+        break;
+    case 6:
+        Item_80268E5C(projectile, 6, ITEM_ANIM_UPDATE);
+        break;
+    case 7:
+        Item_80268E5C(projectile, 7, ITEM_ANIM_UPDATE);
+        break;
+    case 8:
+        Item_80268E5C(projectile, 8, ITEM_ANIM_UPDATE);
+        break;
+    case 9:
+        Item_80268E5C(projectile, 9, ITEM_ANIM_UPDATE);
+        break;
+    }
+
+    it->x40_vel.x = data->velocity * it->facing_dir;
+    scale.x = scale.y = scale.z = data->scale;
+    HSD_JObjSetScale(jobj, &scale);
+    it_80275158(projectile, data->lifetime);
+}
+
+bool itSscopebeam_UnkMotion9_Anim(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    s32 index = ip->xDD4_itemVar.scopebeam.x0;
+    ScopeBeamAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    ScopeBeamFloats* data = &attrs->floats[index];
+
+    if (ip->xD44_lifeTimer == data->lifetime) {
+        if (ip->x5D4_hitboxes[0].hit.state >= HitCapsule_Enabled) {
+            ip->x5D4_hitboxes[0].hit.scale =
+                ip->x5D4_hitboxes[0].hit.scale * data->scale;
+        }
+    }
+
+    ip->xD44_lifeTimer = ip->xD44_lifeTimer - 1.0f;
+
+    if (ip->xD44_lifeTimer <= 0.0f) {
+        ip->xD44_lifeTimer = 0.0f;
+        return true;
+    }
+
+    return false;
+}
+
+void itSscopebeam_UnkMotion9_Phys(Item_GObj* gobj) {}
+
+bool itSscopebeam_UnkMotion9_Coll(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    CollData* coll = &ip->x378_itemColl;
+    ScopeBeamAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    CollData saved_coll;
+    Vec3 vel;
+    Vec3 axis;
+    s32 result;
+    f32 saved_vel_x;
+    Vec3 saved_pos = ip->pos;
+    saved_coll = *coll;
+    saved_vel_x = ip->x40_vel.x;
+
+    result = it_8026DAA8(gobj);
+
+    if (result & 0xE) {
+        return true;
+    }
+
+    if ((result & 1) && (coll->env_flags & 0x18000)) {
+        f32 angle = -atan2f(coll->floor.normal.x, coll->floor.normal.y);
+
+        if (ABS(angle) <= MTXDegToRad(1)) {
+            ip->pos = saved_pos;
+            *coll = saved_coll;
+            it_8026D9A0(gobj);
+        } else if (ABS(angle) <= attrs->x78) {
+            f32 rand;
+            vel.x = ip->x40_vel.x * attrs->x7C;
+            vel.y = vel.z = 0.0f;
+            axis.x = axis.y = 0.0f;
+            axis.z = 1.0f;
+            rand = HSD_Randf();
+            lbVector_RotateAboutUnitAxis(
+                &vel, &axis,
+                (2.0f * angle) + (ip->facing_dir * (attrs->x78 * rand)));
+            ip->x40_vel.x = vel.x;
+            ip->x40_vel.y = vel.y;
+            if (ip->x40_vel.y <= 0.0f) {
+                ip->x40_vel.x = saved_vel_x;
+                ip->x40_vel.y = 0.0f;
+            }
+        } else {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool itSScopeBeam_Logic38_DmgDealt(Item_GObj* arg0)
+{
+    return true;
+}
+
+bool itSScopeBeam_Logic38_Clanked(Item_GObj* arg0)
+{
+    return true;
+}
+
+bool itSScopeBeam_Logic38_HitShield(Item_GObj* arg0)
+{
+    return true;
+}
+
+bool itSScopeBeam_Logic38_Absorbed(Item_GObj* arg0)
+{
+    return true;
+}
+
+bool itSScopeBeam_Logic38_ShieldBounced(Item_GObj* gobj)
+{
+    return itColl_BounceOffShield(gobj);
+}
+
+bool itSScopeBeam_Logic38_Reflected(Item_GObj* gobj)
+{
+    return it_80273030(gobj);
+}
+
+void itSScopeBeam_Logic38_EvtUnk(Item_GObj* gobj, Item_GObj* ref_gobj)
+{
+    it_8026B894(gobj, ref_gobj);
+}

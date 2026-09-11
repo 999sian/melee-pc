@@ -1,0 +1,123 @@
+#include "itgamewatchjudge.h"
+
+#include <melee/it/forward.h>
+
+#include <math.h>
+#include <placeholder.h>
+
+#include "inlines.h"
+#include <melee/db/db.h>
+#include <melee/ft/ftlib.h>
+#include <melee/ft/kinds/ftGameWatch/ftgamewatchspecials.h>
+#include <melee/it/inlines.h>
+#include <melee/it/it_26B1.h>
+#include <melee/it/it_2725.h>
+#include <melee/it/item.h>
+#include <melee/it/itzako.h>
+#include <sysdolphin/baselib/jobj.h>
+
+ItemStateTable it_803F7968[] = {
+    { 0, itGamewatchjudge_UnkMotion0_Anim, NULL, NULL },
+};
+
+HSD_GObj* it_802C7774(float facing_dir, HSD_GObj* parent_gobj, Vec3* pos,
+                      s32 part, u32 arg4)
+{
+    HSD_GObj* new_gobj;
+    SpawnItem si;
+    PAD_STACK(4);
+
+    si.kind = It_Kind_GameWatch_Judge;
+    Item_InitSpawn(&si, parent_gobj, pos, facing_dir);
+
+    new_gobj = Item_80268B18(&si);
+    if (new_gobj != NULL) {
+        void** special_attrs =
+            GET_ITEM(new_gobj)->xC4_article_data->x4_specialAttributes;
+        Item_8026AB54(new_gobj, parent_gobj, part);
+        it_80273670(new_gobj, 0, (f32) (s32) (arg4 + 1));
+        it_802C78B8(new_gobj);
+        db_80225DD8(new_gobj, (Fighter_GObj*) parent_gobj);
+        it_8027CE64(new_gobj, parent_gobj, *special_attrs);
+        return new_gobj;
+    }
+    return NULL;
+}
+
+void it_802C78B8(Item_GObj* item_gobj)
+{
+    Item* ip = GET_ITEM(item_gobj);
+    HSD_JObj* jobj = GET_JOBJ(item_gobj);
+    if (ip->owner != NULL) {
+        f32 facing = ftLib_800865C0(ip->owner);
+        HSD_JObj* child = HSD_JObjGetChild(HSD_JObjGetChild(jobj));
+        if (facing == 1.0f) {
+            HSD_JObjSetRotationY(child, M_PI);
+        } else {
+            HSD_JObjSetRotationY(child, 0.0f);
+        }
+    }
+}
+
+void itGameWatchJudge_Logic77_Destroyed(Item_GObj* gobj)
+{
+    Item* ip = GET_ITEM(gobj);
+    if (ip->owner != NULL) {
+        ftGw_SpecialS_ItemJudgementSetFlag(ip->owner);
+    }
+}
+
+void it_802C7A84(Item_GObj* item_gobj)
+{
+    Item* item = GET_ITEM(item_gobj);
+
+    if (item != NULL) {
+        itGameWatchJudge_Logic77_Destroyed(item_gobj);
+        Item_8026A8EC(item_gobj);
+    }
+}
+
+void it_802C7AD0(Item_GObj* gobj)
+{
+    it_8026B724(gobj);
+}
+
+void it_802C7AF0(Item_GObj* gobj)
+{
+    it_8026B73C(gobj);
+}
+
+void it_2725_Logic77_PickedUp(Item_GObj* item_gobj)
+{
+    Item* it = GET_ITEM(item_gobj);
+    it->xDB0_itcmd_var1 = 0;
+    it->xDAC_itcmd_var0 = 0;
+    if (it->owner != NULL) {
+        Item_80268E5C(item_gobj, 0, ITEM_ANIM_UPDATE);
+    }
+}
+
+bool itGamewatchjudge_UnkMotion0_Anim(Item_GObj* item_gobj)
+{
+    bool remove;
+    PAD_STACK(8);
+    it_802C78B8(item_gobj);
+    {
+        Item* ip = GET_ITEM(item_gobj);
+        if (ip->owner != NULL) {
+            remove = ftGw_SpecialS_ItemCheckJudgementRemove(ip->owner);
+        } else {
+            remove = true;
+        }
+    }
+    if (remove) {
+        itGameWatchJudge_Logic77_Destroyed(item_gobj);
+        return true;
+    }
+    return false;
+}
+
+void itGameWatchJudge_Logic77_EvtUnk(Item_GObj* gobj, Item_GObj* ref_gobj)
+{
+    it_8026B894(gobj, ref_gobj);
+}

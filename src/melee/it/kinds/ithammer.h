@@ -1,0 +1,20 @@
+#ifndef GALE01_293D94
+#define GALE01_293D94
+
+#include <melee/it/forward.h>
+#include <sysdolphin/baselib/forward.h>
+
+#include <melee/it/kinds/types.h>
+
+/* 293D94 */ void it_80293D94(Item_GObj* gobj);
+/* 293DCC */ int it_80293DCC(Item_GObj* gobj);
+/* 293E34 */ void it_80293E34(Item_GObj* gobj);
+/* 293F58 */ void itHammer_Logic28_Spawned(HSD_GObj* gobj);
+/* 293F84 */ void it_80293F84(Item_GObj* gobj);
+/* 2940FC */ void itHammer_Logic28_PickedUp(HSD_GObj* gobj);
+/* 2941F8 */ void itHammer_Logic28_Dropped(HSD_GObj* gobj);
+/* 2942B0 */ void itHammer_Logic28_EnteredAir(HSD_GObj* gobj);
+/* 294344 */ void itHammer_Logic28_EvtUnk(Item_GObj* gobj, HSD_GObj* gobj2);
+/* 3F6150 */ extern ItemStateTable it_803F6150[];
+
+#endif
