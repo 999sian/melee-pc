@@ -595,6 +595,26 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
                     s32 temp_r5_2 = efLib_AnimCount;
                     efLib_AnimCount++;
                     ((HSD_JObj**) efLib_AnimQueue)[temp_r5_2] = jobj;
+                    /* MELEE_EF_QUEUE=1: the readers used a 4-byte stride
+                     * while this writer uses sizeof(pointer). They only agree
+                     * for index 0, so report how deep the queue actually
+                     * gets: any index above 0 means the old readers were
+                     * fetching a half-pointer. */
+                    if (getenv("MELEE_EF_QUEUE") != NULL) {
+                        static unsigned long hits, deep;
+                        hits++;
+                        if (temp_r5_2 > 0) {
+                            deep++;
+                        }
+                        /* Report EVERY deep write: those are exactly the
+                         * ones the old 4-byte-stride readers got wrong. A
+                         * first-N sample would miss them. */
+                        if (temp_r5_2 > 0 || hits % 2000 == 0) {
+                            OSReport("efqueue: write idx=%d (writes=%lu,"
+                                     " idx>0=%lu)\n",
+                                     (int) temp_r5_2, hits, deep);
+                        }
+                    }
                     if (efLib_AnimCount >= 32) {
                         HSD_ASSERTREPORT(224, 0, "Over Anime Call\n");
                     }

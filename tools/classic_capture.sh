@@ -14,7 +14,7 @@ log=${1:-/tmp/classic_capture.log}
 secs=${2:-150}
 : >"$log"
 
-MELEE_HEAP_CHECK=1 MELEE_SCENE_LOG=1 MELEE_ARCHIVE_LOG=1 SDL_VIDEO_DRIVER=x11 \
+MELEE_HEAP_CHECK=1 MELEE_SCENE_LOG=1 MELEE_ARCHIVE_LOG=1 MELEE_EF_QUEUE=1 SDL_VIDEO_DRIVER=x11 \
 	MELEE_WINDOW_TITLE=melee-pc-test build/melee ../melee.ciso >"$log" 2>&1 &
 gpid=$!
 
@@ -32,4 +32,6 @@ grep -a 'Cannot open archive' "$log" | head -3 || true
 echo "--- archive anomalies:      $(grep -ac '^ARCHIVE [A-Za-z]*:' "$log" || true)"
 echo "--- GmRegClr loads:         $(grep -ac 'GmRegClr' "$log" || true)"
 grep -a 'scene_model:' "$log" | head -4 || true
-grep -a 'GmRegClr\|Cannot find symbol\|^ARCHIVE [A-Za-z]*:' "$log" | head -6 || true
+echo "--- effect-queue deep writes: $(grep -ac 'efqueue: write idx=[1-9]' "$log" || true)"
+grep -a 'efqueue: write idx=[1-9]' "$log" | head -4 || true
+grep -a 'GmRegClr\|Cannot find symbol\|^ARCHIVE [A-Za-z]*:' "$log" | head -4 || true
