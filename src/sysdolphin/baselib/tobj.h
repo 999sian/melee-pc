@@ -150,6 +150,10 @@ struct HSD_TObj {
     struct _HSD_TexLODDesc* lod;
     HSD_AObj* aobj;
     DiscU32* imagetbl; /* disc array of DISC_PTR(HSD_ImageDesc) slots */
+    /* Length of imagetbl. The animation writes a frame index straight into
+     * imagetbl[n] with no bounds information available at the use site, so
+     * carry the count the descriptor already has. 0 means "unknown". */
+    u16 n_imagetbl;
     struct _HSD_Tlut** tluttbl;
     u8 tlut_no;
     Mtx mtx;

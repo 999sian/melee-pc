@@ -82,6 +82,7 @@ void HSD_TObjAddAnim(HSD_TObj* tobj, HSD_TexAnim* texanim)
             }
             tobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, ta->aobjdesc));
             tobj->imagetbl = DP(DiscU32, ta->imagetbl);
+            tobj->n_imagetbl = ta->n_imagetbl;
 
             if (tobj->tluttbl != NULL) {
                 for (i = 0; tobj->tluttbl[i]; i++) {
@@ -159,6 +160,23 @@ static void TObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
         int n;
         HSD_ASSERT(276, tobj->imagetbl);
         n = (int) val->fv;
+        /* An out-of-range frame index reads past the image table and installs
+         * a garbage HSD_ImageDesc, which draws as a white or corrupt texture.
+         * Keep the previous frame instead of indexing out of bounds. */
+        if (tobj->n_imagetbl != 0 && (n < 0 || n >= (int) tobj->n_imagetbl)) {
+            static int log_cached = -1;
+            if (log_cached < 0) {
+                log_cached = getenv("MELEE_TEXANIM_LOG") != NULL;
+            }
+            if (log_cached) {
+                static unsigned long bad;
+                OSReport("texanim: frame %d out of range (n_imagetbl=%u,"
+                         " fv=%g) [%lu]\n",
+                         n, (unsigned) tobj->n_imagetbl, (double) val->fv,
+                         ++bad);
+            }
+            break;
+        }
         if (tobj->imagetbl[n].v) {
             tobj->imagedesc = DP(HSD_ImageDesc, tobj->imagetbl[n].v);
         }
