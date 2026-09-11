@@ -5809,7 +5809,7 @@ void Toy_80310324(void)
 
     memzero(_Toy_sbss_804D6E68, sizeof(*_Toy_sbss_804D6E68));
     _Toy_8030FA50();
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(Toy_sbss_804D6ED4, sizeof(TyLightArray_));
     Toy_80306D70(0);
     _Toy_80307018();
 
@@ -6307,7 +6307,7 @@ void _Toy_803114E8(void)
             i++;
         } while (i < 9);
 
-        memzero(data, 0x18);
+        memzero(data, sizeof(*data) * 6);
         *data = GObj_Create(0, 0, 0);
         HSD_GObj_SetupProc(*data, (void (*)(HSD_GObj*)) _Toy_80310B48, 0);
         HSD_GObj_80390CD4(*data);

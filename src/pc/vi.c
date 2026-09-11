@@ -27,6 +27,7 @@ static BOOL s_black;
 static bool s_in_frame;
 
 void pc_os_run_alarms(void);
+void aurora_heap_check(void);
 
 void pc_frame_boundary(void)
 {
@@ -38,6 +39,7 @@ void pc_frame_boundary(void)
         aurora_end_frame();
         s_in_frame = false;
     }
+    aurora_heap_check(); /* no-op unless MELEE_HEAP_CHECK is set */
     if (fps_log < 0) {
         fps_log = getenv("MELEE_FPS") != NULL;
         fps_t0 = SDL_GetTicks();

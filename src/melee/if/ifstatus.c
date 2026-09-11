@@ -905,7 +905,7 @@ void ifStatus_802F66A4(void)
         if (reset != 0) {
 #endif
             ifStatus_804D6D60 = 0;
-            memzero(hud, 0x258);
+            memzero(hud, offsetof(HudIndex, unk258));
 #ifdef MUST_MATCH
         }
     }

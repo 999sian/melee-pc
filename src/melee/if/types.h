@@ -286,8 +286,4 @@ struct IfStockData {
     struct IfStockStealAnim anim[2];
 };
 
-struct IfStockDataOffset {
-    u8 x0[0x204];
-};
-
 #endif

@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <sysdolphin/baselib/random.h>
 #include <melee/ft/forward.h>
 #include <melee/pl/forward.h>
 
@@ -341,6 +343,13 @@ void gm_SetupTitleDemo(void)
     s32 prev;
     u8 cur_id;
 
+#ifdef TARGET_PC
+    /* MELEE_SEED: reseed here so the attract demo (fighters, stage, match)
+     * replays identically regardless of how long the title screen ran. */
+    if (getenv("MELEE_SEED") != NULL) {
+        *seed_ptr = (u32) strtoul(getenv("MELEE_SEED"), NULL, 0);
+    }
+#endif
     count = 0;
     c = 0;
     do {

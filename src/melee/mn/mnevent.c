@@ -710,7 +710,7 @@ void mnEvent_8024E524(s32 event_idx)
     f32 y_a;
     f32 y_b;
 
-    strs = (char*) &mnEvent_803EF740;
+    strs = mnEvent_803EF7A0;
     assets = mnEvent_804A08F8;
 
     gobj = GObj_Create(6, 7, 0x80);
@@ -724,8 +724,8 @@ void mnEvent_8024E524(s32 event_idx)
 
     user_data = HSD_MemAlloc(sizeof(MnEventData));
     if (user_data == NULL) {
-        OSReport(strs + 0x70);
-        __assert(strs + 0x88, 0x39B, strs + 0x94);
+        OSReport(strs + 0x10);
+        __assert(strs + 0x28, 0x39B, strs + 0x34);
     }
     mnEvent_8024E420(user_data, event_idx);
     GObj_InitUserData(gobj, 0, HSD_Free, user_data);
@@ -750,7 +750,7 @@ void mnEvent_8024E838(int event_idx, int first_time)
 {
     HSD_GObjProc* proc;
     void** arr = mnEvent_804A08F8;
-    char* base = (char*) &mnEvent_803EF740;
+    char* base = mnEvent_803EF7A0;
 
     mn_804D6BC8.cooldown = 5;
     mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;
@@ -767,9 +767,9 @@ void mnEvent_8024E838(int event_idx, int first_time)
     mnEvent_804D6C60 = NULL;
     {
         HSD_Archive* archive = mn_804D6BB8;
-        lbArchive_LoadSections(archive, arr, base + 0xA0, arr + 1, base + 0xB8,
-                               arr + 2, base + 0xD4, arr + 3, base + 0xF4,
-                               arr + 4, base + 0x118, 0);
+        lbArchive_LoadSections(archive, arr, base + 0x40, arr + 1, base + 0x58,
+                               arr + 2, base + 0x74, arr + 3, base + 0x94,
+                               arr + 4, base + 0xB8, 0);
     }
 
     if (first_time == 0) {

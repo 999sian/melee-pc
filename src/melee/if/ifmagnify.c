@@ -1,5 +1,6 @@
 #include "ifmagnify.h"
 
+#include <stddef.h>
 #include <math.h>
 
 #include "if_2FD9.h"
@@ -597,7 +598,7 @@ void ifMagnify_802FC870(void)
     HSD_Archive** archive;
     s32 i;
 
-    memzero(&ifMagnify_804A1DE0, 0x74);
+    memzero(&ifMagnify_804A1DE0, offsetof(struct ifMagnify, image_descs));
     ifMagnify_802FC7C0(&ifMagnify_804A1DE0);
     archive = ifAll_GetArchive();
     lbArchive_LoadSections(*archive, (void**) &ifMagnify_804A1DE0,

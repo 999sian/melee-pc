@@ -63,17 +63,19 @@ static bool itColl_chkECBOverlap(f32 pos_x, f32 pos_y, itECB* ecb_a,
 
 const Quaternion it_803B8560 = { 0.0f, 0.0f, 1.0f, 0.0f };
 
-typedef struct ItCollDynamicsDesc {
+typedef struct DISC_STRUCT ItCollDynamicsDesc {
     s32 bone_id;
-    Vec3 offset;
+    DiscVec3 offset;
     f32 size;
 } ItCollDynamicsDesc;
+DISC_ASSERT_SIZE(ItCollDynamicsDesc, 0x14);
 
-typedef struct ItCollDynamics {
+typedef struct DISC_STRUCT ItCollDynamics {
     u8 _pad[8];
     s32 count;
-    ItCollDynamicsDesc* descs;
+    DISC_PTR(ItCollDynamicsDesc) descs;
 } ItCollDynamics;
+DISC_ASSERT_SIZE(ItCollDynamics, 0x10);
 
 void it_8026F9A0(void)
 {
@@ -1054,11 +1056,11 @@ void it_8027163C(Item_GObj* item_gobj)
         index = 0;
         while (cnt < it_dynams->count) {
             struct xB6C_t* vars = &item->xB6C_vars[cnt];
-            ItCollDynamicsDesc* bone_dyn_desc = &it_dynams->descs[index];
+            ItCollDynamicsDesc* bone_dyn_desc = &DP(ItCollDynamicsDesc, it_dynams->descs)[index];
             vars->xB90 = bone_dyn_desc->bone_id;
             vars->xB7C =
                 item->xBBC_dynamicBoneTable->bones[bone_dyn_desc->bone_id];
-            vars->xB6C = bone_dyn_desc->offset;
+            DISC_VEC3_GET(vars->xB6C, bone_dyn_desc->offset);
             vars->xB78 = bone_dyn_desc->size;
             index++;
             cnt++;

@@ -1826,7 +1826,7 @@ void tyDisplay_Scene_OnEnter(void* arg0)
     _tyDisplay_804D6F14 = HSD_MemAlloc(sizeof(*_tyDisplay_804D6F14));
     _tyDisplay_804D6F18 = HSD_MemAlloc(sizeof(*_tyDisplay_804D6F18));
     _tyDisplay_804D6F1C = HSD_MemAlloc(sizeof(*_tyDisplay_804D6F1C));
-    Toy_sbss_804D6ED4 = HSD_MemAlloc(0xE4);
+    Toy_sbss_804D6ED4 = HSD_MemAlloc(sizeof(TyLightArray_));
 
     cfg = _tyDisplay_804D6F18;
     data = _tyDisplay_804D6F1C;
@@ -1854,7 +1854,7 @@ void tyDisplay_Scene_OnEnter(void* arg0)
     Toy_8031263C();
     memzero(_tyDisplay_804D6F1C, sizeof(*_tyDisplay_804D6F1C));
     memzero(_tyDisplay_804D6F18, sizeof(*_tyDisplay_804D6F18));
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(Toy_sbss_804D6ED4, sizeof(TyLightArray_));
 
     cfg->x08 = Toy_GetTrophyTotal();
 

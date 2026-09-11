@@ -1544,7 +1544,9 @@ void grCorneria_801DFC2C(Ground_GObj* gobj)
 
     gp->u.corneria.xC6.value = 0;
     gp->u.corneria.offset_y.flags.b0 = 0;
-    memzero(&gp->u.corneria.xC8, 0x18);
+    memzero(&gp->u.corneria.xC8,
+            offsetof(struct grCorneria_GroundVars, offset_y) -
+                offsetof(struct grCorneria_GroundVars, xC8));
     gp->u.corneria.xC4.value = 0;
     gp->x11_flags.b012 = 1;
 }

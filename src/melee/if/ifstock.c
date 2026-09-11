@@ -49,17 +49,11 @@ int ifStock_802F7EFC(int arg0, int arg1)
     struct ifStock_804A1378* stock;
     struct IfStockData* arg1_data;
     struct IfStockData* arg0_data;
-    struct IfStockDataOffset* arg0_base;
-    struct IfStockDataOffset* arg1_base;
     int slot;
     int i, j;
     stock = &ifStock_804A1378;
-    arg0_base =
-        (struct IfStockDataOffset*) ((struct IfStockData*) stock + arg0);
-    arg1_base =
-        (struct IfStockDataOffset*) ((struct IfStockData*) stock + arg1);
-    arg0_data = (struct IfStockData*) ++arg0_base;
-    arg1_data = (struct IfStockData*) ++arg1_base;
+    arg0_data = (struct IfStockData*) &stock->x204[arg0];
+    arg1_data = (struct IfStockData*) &stock->x204[arg1];
     if (Player_GetStocks(arg1) == 0) {
         return 1;
     }
@@ -120,19 +114,11 @@ int ifStock_802F7EFC(int arg0, int arg1)
     return 0;
 }
 
-/// @todo remove these cursed macros for something proper.
-/// Per-player animation data, addressed as a 0x54-byte element from the struct
-/// base with the x204 array offset applied afterwards.
-#define ifStock_802F8298_elem(p)                                              \
-    ((struct IfStockDataOffset*) ((struct ifStock_804A1378_x204*) stock + (p)))
-#define ifStock_802F8298_data_in(e, p)                                        \
-    ((struct ifStock_804A1378_x204*) (((e) = ifStock_802F8298_elem(p)) + 1))
-#define ifStock_802F8298_data_at(p) ifStock_802F8298_data_in(elem, p)
-#define ifStock_802F8298_data ifStock_802F8298_data_at(user_data->player)
-/// The same element, with the array offset committed before the field
-/// accesses.
-#define ifStock_802F8298_player_data(p)                                       \
-    ((elem = ifStock_802F8298_elem(p)), (struct ifStock_804A1378_x204*) ++elem)
+/* Per-player animation data (the decomp reaches it through a fixed 0x204
+ * byte offset; the field is the same thing). */
+#define ifStock_802F8298_data_in(e, p) (&stock->x204[p])
+#define ifStock_802F8298_data (&stock->x204[user_data->player])
+#define ifStock_802F8298_player_data(p) (&stock->x204[p])
 
 static inline f32 ifStock_802F8298_tobj_frame(u8 player)
 {
@@ -173,8 +159,6 @@ void ifStock_802F8298(HSD_GObj* gobj)
     HSD_JObj* jobj2;
     HSD_JObj* steal_jobj;
     struct ifStock_804A1378_x204* data;
-    struct IfStockDataOffset* elem;
-    struct IfStockDataOffset* other;
     Vec3 vecA, vecB, vecC, vecD;
 
     if (stock->player[user_data->player].stocks <= 5) {

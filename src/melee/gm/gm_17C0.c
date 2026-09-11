@@ -353,7 +353,7 @@ void gm_8017C838(void)
 
 void gm_8017C984(UNK_T arg0)
 {
-    memzero(arg0, 0x74);
+    memzero(arg0, sizeof(struct Unk1PData));
 }
 
 static const u8 lbl_803B7C08[3][5] = {

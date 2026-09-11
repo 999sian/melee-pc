@@ -1008,36 +1008,45 @@ struct grZebes_GroundVars3 {
     /*  +4 gp+C8 */ s32 xC8;
 };
 
+/* Brinstar acid state, shared by the two acid Grounds (zebes4 is exactly
+ * this; the zebes5 Ground overlays it at gp+C8). */
+typedef struct grZe_AcidState {
+    /* +00 */ u8 x00_state;
+    /* +01 */ u8 x01_next;
+    /* +02 */ s16 x02_timer;
+    /* +04 */ f32 x04_base_x;
+    /* +08 */ f32 x08_offset;
+    /* +0C */ f32 x0C_velocity;
+    /* +10 */ f32 x10_damage;
+    /* +14 */ HSD_JObj* x14_jobj1;
+    /* +18 */ HSD_JObj* x18_jobj2;
+    /* +1C */ Item_GObj* x1C_mat;
+    /* +20 */ s16 x20_anim_idx;
+} grZe_AcidState;
+
 struct grZebes_GroundVars4 {
-    /* +00 gp+C4 */ u8 xC4;
-    /* +01 gp+C5 */ u8 xC5;
-    /* +02 gp+C6 */ u16 xC6;
-    /* +04 gp+C8 */ f32 xC8;
-    /* +08 gp+CC */ f32 xCC;
-    /* +0C gp+D0 */ f32 xD0;
-    /* +10 gp+D4 */ f32 xD4;
-    /* +14 gp+D8 */ u32 xD8;
-    /* +18 gp+DC */ u32 xDC;
-    /* +1C gp+E0 */ u32 xE0;
-    /* +20 gp+E4 */ s16 xE4;
+    /* +00 gp+C4 */ grZe_AcidState acid;
     /* +22 gp+E6 */ s16 xE6;
     /* +24 gp+E8 */ s32 xE8;
-    /* +28 gp+EC */ u32 xEC;
+    /* +28 gp+EC */ grZakoGenerator_Config* xEC;
 };
 
 struct grZebes_GroundVars5 {
     /* +00 gp+C4 */ s16 xC4;
     /* +02 gp+C6 */ s16 xC6;
-    /* +04 gp+C8 */ u32 xC8;
-    /* +08 gp+CC */ f32 xCC;
-    /* +0C gp+D0 */ f32 xD0;
-    /* +10 gp+D4 */ f32 xD4;
-    /* +14 gp+D8 */ f32 xD8;
-    /* +18 gp+DC */ u32 xDC;
-    /* +1C gp+E0 */ u32 xE0;
-    /* +20 gp+E4 */ u32 xE4;
-    /* +24 gp+E8 */ s16 xE8;
-    /* +26 gp+EA */ s16 xEA;
+    union {
+        struct {
+            /* +04 gp+C8 */ u32 xC8;
+            /* +08 gp+CC */ f32 xCC;
+            /* +0C gp+D0 */ f32 xD0;
+            /* +10 gp+D4 */ f32 xD4;
+            /* +14 gp+D8 */ f32 xD8;
+            /* +18 gp+DC */ HSD_LObj* xDC; /* acid light, see grZebes_801DA254 */
+            /* +24 gp+E8 */ s16 xE8;
+            /* +26 gp+EA */ s16 xEA;
+        };
+        grZe_AcidState acid; /* the acid Ground's view of +04..+27 */
+    };
     /* +28 gp+EC */ u32 xEC;
     /* +2C gp+F0 */ u32 xF0;
     /* +30 gp+F4 */ s16 xF4;
@@ -1632,7 +1641,8 @@ struct grCastle_GroundVars11 {
 };
 
 struct grCastle_GroundVars12 {
-    /* +00 gp+C4 */ u32 xC4[3];
+    /* Same slots as grCastle_GroundVars2 (host pointers on PC). */
+    /* +00 gp+C4 */ HSD_GObj* xC4[3];
     /* +0C gp+D0 */ s16 xD0;
     /* +0E gp+D2 */ s16 xD2;
 };

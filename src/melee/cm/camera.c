@@ -197,7 +197,9 @@ void Camera_Init(int n_subjects)
     game_camera.nearz = 0.1f;
     game_camera.farz = 16384.0f;
     game_camera.mode = CAMERA_STANDARD;
-    memzero(game_camera.quake_frames_left, 0x224);
+    memzero(game_camera.quake_frames_left,
+            offsetof(struct Camera, x2B0) -
+                offsetof(struct Camera, quake_frames_left));
     game_camera.quake_scale = 1.0f;
     game_camera.x2BC = 1.0f;
     game_camera.x2C0 = -1.0f;
@@ -926,12 +928,11 @@ void Camera_ApplyQuake(CameraBounds* bounds, CameraTransformState* state)
     f32 input_x;
     f32 input_y;
     f32 depth_ratio;
-    struct CameraStaticData {
-        CameraModeCallbacks callbacks;
-        HSD_WObjDesc interest;
-        HSD_WObjDesc eyepos;
+    /* The decomp reaches cm_803BCB64 by walking past the adjacent statics
+     * from cm_803BCB18; refer to it directly. */
+    struct {
         HSD_CameraDescPerspective desc;
-    }* data = (struct CameraStaticData*) &cm_803BCB18;
+    }* data = (void*) &cm_803BCB64;
 
     input_x = game_camera.quake_offset.x * game_camera.quake_scale;
     input_y = game_camera.quake_offset.y * game_camera.quake_scale;

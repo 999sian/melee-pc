@@ -305,10 +305,10 @@ void fn_80169A84(u8 arg0, s8* arg1, s8* arg2)
         do {
             s8* q;
             u8 tmp;
-            q = &lbl_8046B488.x0 + HSD_Randi(0x1B);
-            tmp = q[0x1C0];
+            q = &lbl_8046B488.x1C0[HSD_Randi(0x1B)];
+            tmp = q[0];
             i += 1;
-            q[0x1C0] = (u8) *p;
+            q[0] = (u8) *p;
             *p = tmp;
             p += 1;
         } while (i < CKind_Playable_Count);
@@ -330,13 +330,13 @@ void fn_80169A84(u8 arg0, s8* arg1, s8* arg2)
         }
 
         {
-            s8* q;
+
             s32 idx = 0;
             s8 result;
             p = arg1;
             arg1 = arg2;
             while (*arg1 != -2) {
-                while ((result = (q = &lbl_8046B488.x0 + idx)[0x1C0]) == -1) {
+                while ((result = lbl_8046B488.x1C0[idx]) == -1) {
                     idx = (idx + 1) % 27;
                 }
                 result = Player_800325C8(result, 0);
@@ -609,7 +609,7 @@ void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
     struct gm_8016A22C_header* header;
     u8 x7_tmp;
 
-    memzero(gp, 0x1C0);
+    memzero(gp, offsetof(struct lbl_8046B488_t, x1C0));
 
     lbl_8046B488.x0 = k0;
     lbl_8046B488.x1 = k1;

@@ -1557,14 +1557,14 @@ void tyFigupon_Scene_OnEnter(void* arg0)
     u8 kind;
     PAD_STACK(16);
 
-    _tyFigupon_804D6EF0 = HSD_MemAlloc(0x34);
+    _tyFigupon_804D6EF0 = HSD_MemAlloc(sizeof(*_tyFigupon_804D6EF0));
     _tyFigupon_804D6EF4 = HSD_MemAlloc(sizeof(*_tyFigupon_804D6EF4));
-    _tyFigupon_804D6EF8 = HSD_MemAlloc(0x18);
-    Toy_sbss_804D6ED4 = HSD_MemAlloc(0xE4);
-    memzero(_tyFigupon_804D6EF0, 0x34);
+    _tyFigupon_804D6EF8 = HSD_MemAlloc(sizeof(ToyListEntry));
+    Toy_sbss_804D6ED4 = HSD_MemAlloc(sizeof(TyLightArray_));
+    memzero(_tyFigupon_804D6EF0, sizeof(*_tyFigupon_804D6EF0));
     memzero(_tyFigupon_804D6EF4, sizeof(*_tyFigupon_804D6EF4));
-    memzero(_tyFigupon_804D6EF8, 0x18);
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(_tyFigupon_804D6EF8, sizeof(ToyListEntry));
+    memzero(Toy_sbss_804D6ED4, sizeof(TyLightArray_));
     data = _tyFigupon_804D6EF0;
     Toy_sbss_804D6EC8 = NULL;
     ef4 = _tyFigupon_804D6EF4;
@@ -1595,7 +1595,7 @@ void tyFigupon_Scene_OnEnter(void* arg0)
             }
         }
     }
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(Toy_sbss_804D6ED4, sizeof(TyLightArray_));
     Toy_80306D70(0);
     _tyFigupon_8031753C();
     joint = HSD_ArchiveGetPublicAddress(ef4->archive,

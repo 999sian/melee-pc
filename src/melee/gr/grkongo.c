@@ -1122,42 +1122,44 @@ void grKongo_801D77E0(HSD_GObj* gobj, s32 arg1)
         gp->u.kongo.xD4 = 0.0f;
         gp->u.kongo.xD8 = 0.0f;
     } else {
-        Ground* q = gp;
-        for (i = 2; i != 0; i--) {
-            if (q->u.kongo.xC4 > 0.0f) {
-                if (q->u.kongo.xC8 > 0.0f) {
+        /* Two (angle, velocity) pairs: xC4/xC8 and xD4/xD8. */
+        f32* pairs[2] = { &gp->u.kongo.xC4, &gp->u.kongo.xD4 };
+        for (i = 0; i < 2; i++) {
+            f32* angle = pairs[i];
+            f32* vel = pairs[i] + 1;
+            if ((*angle) > 0.0f) {
+                if ((*vel) > 0.0f) {
                     step = 0.017453292f * yakumono_param->unkB4;
                 } else {
                     step = (0.017453292f * yakumono_param->unkB4) / 2.0f;
                 }
-                q->u.kongo.xC8 -= step;
-            } else if (q->u.kongo.xC4 < 0.0f) {
-                if (q->u.kongo.xC8 < 0.0f) {
+                (*vel) -= step;
+            } else if ((*angle) < 0.0f) {
+                if ((*vel) < 0.0f) {
                     step = 0.017453292f * yakumono_param->unkB4;
                 } else {
                     step = (0.017453292f * yakumono_param->unkB4) / 2.0f;
                 }
-                q->u.kongo.xC8 += step;
+                (*vel) += step;
             }
-            q->u.kongo.xC4 += q->u.kongo.xC8;
+            (*angle) += (*vel);
             limit = 0.017453292f * (yakumono_param->unkB8 -
                                     0.017453292f * yakumono_param->unkAC);
-            if (q->u.kongo.xC4 > limit) {
-                q->u.kongo.xC4 = limit;
-                q->u.kongo.xC8 = 0.0f;
-            } else if (q->u.kongo.xC4 < -limit) {
-                q->u.kongo.xC4 = -limit;
-                q->u.kongo.xC8 = 0.0f;
-            } else if (ABS(q->u.kongo.xC4) <
+            if ((*angle) > limit) {
+                (*angle) = limit;
+                (*vel) = 0.0f;
+            } else if ((*angle) < -limit) {
+                (*angle) = -limit;
+                (*vel) = 0.0f;
+            } else if (ABS((*angle)) <
                        0.017453292f * yakumono_param->unkB4)
             {
-                if (ABS(q->u.kongo.xC8) < 0.017453292f * yakumono_param->unkB4)
+                if (ABS((*vel)) < 0.017453292f * yakumono_param->unkB4)
                 {
-                    q->u.kongo.xC4 = 0.0f;
-                    q->u.kongo.xC8 = 0.0f;
+                    (*angle) = 0.0f;
+                    (*vel) = 0.0f;
                 }
             }
-            q = (Ground*) ((u8*) q + 0x10);
         }
     }
     HSD_JObjSetRotationZ(gp->u.kongo3.xCC, gp->u.kongo.xC4);

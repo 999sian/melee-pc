@@ -1487,7 +1487,7 @@ static inline void grCastle_PickSatellite(Ground* gp, s32* wp)
     }
     gp->u.castle12.xD0 = slot;
 
-    sat_gp = (Ground*) ((HSD_GObj*) gp->u.castle12.xC4[gp->u.castle12.xD0])
+    sat_gp = (Ground*) gp->u.castle12.xC4[gp->u.castle12.xD0]
                  ->user_data;
 
     {
@@ -1521,14 +1521,14 @@ void grCastle_801CF868(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     s32* wp;
 
-    if ((gp->u.castle12.xC4[0] != 0 || gp->u.castle12.xC4[1] != 0 ||
-         gp->u.castle12.xC4[2] != 0) &&
+    if ((gp->u.castle12.xC4[0] != NULL || gp->u.castle12.xC4[1] != NULL ||
+         gp->u.castle12.xC4[2] != NULL) &&
         (gp->u.castle12.xD0 == -1 ||
-         (((HSD_GObj*) gp->u.castle12.xC4[gp->u.castle12.xD0]) != NULL &&
-          ((Ground*) ((HSD_GObj*) gp->u.castle12.xC4[gp->u.castle12.xD0])
+         (gp->u.castle12.xC4[gp->u.castle12.xD0] != NULL &&
+          ((Ground*) gp->u.castle12.xC4[gp->u.castle12.xD0]
                ->user_data) != NULL &&
           *(s16*) &(
-               (Ground*) ((HSD_GObj*) gp->u.castle12.xC4[gp->u.castle12.xD0])
+               (Ground*) gp->u.castle12.xC4[gp->u.castle12.xD0]
                    ->user_data)
                   ->u.castle2.xC4 == 0)))
     {

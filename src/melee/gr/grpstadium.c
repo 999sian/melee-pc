@@ -1201,7 +1201,7 @@ HSD_GObj* grStadium_801D2BEC(void)
     gobj->gxlink_prios = 2;
     text = HSD_MemAlloc(sizeof(*text));
     GObj_InitUserData(gobj, 3, HSD_Free, text);
-    memzero(text, 0x18);
+    memzero(text, sizeof(text->desc));
     lb_800121FC(&text->desc, 0xFA, 0xA0, 4, 0x7D2);
     archive = grDatFiles_GetArchive();
     HSD_SisLib_803A611C(1, gobj, 9, 0xD, 0, 1, 0, 1);

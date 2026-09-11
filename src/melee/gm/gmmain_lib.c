@@ -1015,7 +1015,9 @@ void gmMainLib_8015EEC8(void)
         struct FighterData* data = GetPersistentFighterData(i);
         memzero(&data->x7C, sizeof(data->x7C));
     }
-    memzero(&gmMainLib_GetSaveData()->x1A68, 0xD8);
+    memzero(&gmMainLib_GetSaveData()->x1A68,
+            offsetof(struct gmm_x1868, x1B40) -
+                offsetof(struct gmm_x1868, x1A68));
 }
 
 void gmMainLib_8015EF30(struct gmMainLib_8015EF30_s* arg0)
@@ -1211,7 +1213,9 @@ void gmMainLib_8015F600(int arg0, int arg1)
     if (arg0 == 1) {
         ResetAllPersistentFighterData();
 
-        memzero(&gmMainLib_804D3EE0->thing.trophy_count, 0x25C);
+        memzero(&gmMainLib_804D3EE0->thing.trophy_count,
+                offsetof(struct gmm_x1868, x1F2C) -
+                    offsetof(struct gmm_x1868, trophy_count));
         Toy_80311960();
 
         if (arg1 == 0) {
@@ -1234,7 +1238,8 @@ void gmMainLib_8015F600(int arg0, int arg1)
             lbLang_SetSavedLanguage(lang);
         }
 
-        memzero(&gmMainLib_804D3EE0->thing, 0x448);
+        memzero(&gmMainLib_804D3EE0->thing,
+                offsetof(struct gmm_x1868, x1CB0));
         gm_801623FC(0x32);
         gm_IncrementPowerCount();
 
@@ -1329,7 +1334,7 @@ void gmMainLib_8015FBA4(void)
 {
     int i;
 
-    memzero(gmMainLib_804D3EE0, 0x10A30);
+    memzero(gmMainLib_804D3EE0, sizeof(gmMainLib_8045A6C0));
     if (DVDConvertPathToEntrynum("/usa.ini") != -1) {
         lbLang_SetLanguageSetting(1);
         lbLang_SetSavedLanguage(1);

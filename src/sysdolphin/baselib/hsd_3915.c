@@ -297,8 +297,8 @@ void hsd_80391E18(const u8* list, f32 x1, f32 y1, f32 x2, f32 y2)
 
         GXBegin(0xA8, 0, 2);
 
-        GXWGFifo.f32 = prev_x;
-        GXWGFifo.f32 = prev_y;
+        GXTexCoord1f32(prev_x);
+        GXTexCoord1f32(prev_y);
 
         prev_x = t * dx + x1;
         prev_y = t * dy + y1;

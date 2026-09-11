@@ -1836,7 +1836,7 @@ struct Fighter {
 };
 ASSERT_SIZE(struct Fighter, 0x23EC);
 
-struct gmScriptEventDefault {
+struct DISC_STRUCT gmScriptEventDefault {
     u32 opcode : 6;
     u32 value1 : 26;
 };

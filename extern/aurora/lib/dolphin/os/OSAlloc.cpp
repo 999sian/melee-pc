@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 #include "../../logging.hpp"
 
@@ -36,6 +38,30 @@ static HeapDesc* sHeapArray = nullptr;
 static int sNumHeaps = 0;
 static u8* sArenaStart = nullptr;
 static u8* sArenaEnd = nullptr;
+
+// melee-pc: MELEE_HEAP_CHECK=1 appends a 32-byte canary to every allocation and
+// verifies all of them on each alloc/free (and from pc_frame_boundary via
+// aurora_heap_check), so heap stomps are caught near the culprit.
+static const bool sCanary = getenv("MELEE_HEAP_CHECK") != nullptr;
+constexpr u8 kCanaryByte = 0xC5;
+
+static void checkCanaries(const char* where) {
+  if (!sCanary || sHeapArray == nullptr) {
+    return;
+  }
+  for (int h = 0; h < sNumHeaps; ++h) {
+    for (Cell* c = sHeapArray[h].allocated; c != nullptr; c = c->next) {
+      const u8* canary = reinterpret_cast<const u8*>(c) + c->size - kAlignment;
+      for (u32 i = 0; i < kAlignment; ++i) {
+        if (canary[i] != kCanaryByte) {
+          AllocLog.fatal("heap stomp detected at {}: cell {} (user {}, size {}) canary at {}", where,
+                         static_cast<const void*>(c), static_cast<const void*>(reinterpret_cast<const u8*>(c) + kHeaderSize),
+                         c->size, static_cast<const void*>(canary));
+        }
+      }
+    }
+  }
+}
 
 static uintptr_t roundUp32(const uintptr_t value) {
   return (value + (kAlignment - 1)) & ~(static_cast<uintptr_t>(kAlignment - 1));
@@ -344,7 +370,9 @@ void* OSAllocFromHeap(OSHeapHandle heap, u32 size) {
   }
 
   auto& hd = sHeapArray[heap];
-  const auto requested = static_cast<s32>(roundUp32(static_cast<uintptr_t>(size) + kHeaderSize));
+  checkCanaries("alloc");
+  const auto requested =
+      static_cast<s32>(roundUp32(static_cast<uintptr_t>(size) + kHeaderSize + (sCanary ? kAlignment : 0)));
 
   Cell* cell = hd.freeList;
   while (cell != nullptr && cell->size < requested) {
@@ -376,6 +404,9 @@ void* OSAllocFromHeap(OSHeapHandle heap, u32 size) {
 
   cell->owner = &hd;
   hd.allocated = addFront(hd.allocated, cell);
+  if (sCanary) {
+    memset(reinterpret_cast<u8*>(cell) + cell->size - kAlignment, kCanaryByte, kAlignment);
+  }
   return reinterpret_cast<u8*>(cell) + kHeaderSize;
 }
 
@@ -393,10 +424,13 @@ void OSFreeToHeap(OSHeapHandle heap, void* ptr) {
     return;
   }
 
+  checkCanaries("free");
   hd.allocated = extract(hd.allocated, cell);
   cell->owner = nullptr;
   hd.freeList = insertAndCoalesce(hd.freeList, cell);
 }
+
+extern "C" void aurora_heap_check(void) { checkCanaries("frame"); }
 
 OSHeapHandle OSSetCurrentHeap(OSHeapHandle heap) {
   const auto prev = __OSCurrHeap;

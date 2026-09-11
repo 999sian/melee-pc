@@ -47,7 +47,6 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
     mnDiagram2_SortEntry fighter_rank;
     mnDiagram2_SortEntry rank_value;
     Diagram3* data;
-    mnDiagram3_DataTable* table;
     HSD_JObj* row0;
     f32 neg_spacing;
     f32 row_spacing;
@@ -64,8 +63,6 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
     u16* unit_glyph_ids;
 
     data = gobj->user_data;
-    table = (mnDiagram3_DataTable*) &mnDiagram3_803EEC10;
-
     {
         u8 offset;
         u8 scroll;
@@ -95,7 +92,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
         {
             u32 max_distance;
 
-            unit_glyph_ids = table->stats.unit_glyph_ids;
+            unit_glyph_ids = mnDiagram3_803EEC4C.unit_glyph_ids;
             (void) row_spacing;
             row_spacing = row_spacing - divider;
             max_distance = 0x5F5E0FF;
@@ -109,7 +106,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         if (!mnDiagram2_IsIconOnlyStat(stat_type)) {
                             if (i == 0) {
                                 lb_8000B1CC(data->jobjs[6],
-                                            &table->positions.xC, &position);
+                                            &mnDiagram3_803EEC28.xC, &position);
                                 title_text = HSD_SisLib_803A6754(0, 1);
                                 data->title_text = title_text;
                                 title_text->font_size.x = 0.035f;
@@ -145,7 +142,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                 }
 
                 if (i == 0) {
-                    lb_8000B1CC(data->jobjs[6], &table->positions.x18,
+                    lb_8000B1CC(data->jobjs[6], &mnDiagram3_803EEC28.x18,
                                 &position);
                     value_text = HSD_SisLib_803A6754(0, 1);
                     data->value_text = value_text;
@@ -235,7 +232,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         continue;
                     }
 
-                    lb_8000B1CC(data->jobjs[6], &table->positions.x18,
+                    lb_8000B1CC(data->jobjs[6], &mnDiagram3_803EEC28.x18,
                                 &position);
                     {
                         HSD_Text* icon_text;
@@ -295,8 +292,8 @@ static inline u8 mnDiagram3_GetRowStat(Diagram3* data, u8 offset, u8 row)
     return (u8) value;
 }
 
-static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
-                                               Vec3* pos, int count)
+static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, Vec3* pos,
+                                               int count)
 {
     f32 spacing;
     int i;
@@ -306,7 +303,7 @@ static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
     base_idx = data->scroll_offset;
     spacing = HSD_JObjGetTranslationY(data->jobjs[9]) -
               HSD_JObjGetTranslationY(data->jobjs[8]);
-    lb_8000B1CC(data->jobjs[8], (Vec3*) (base + 0x18), pos);
+    lb_8000B1CC(data->jobjs[8], &mnDiagram3_803EEC28.x0, pos);
     i = 0;
     do {
         text = HSD_SisLib_803A5ACC(0, 1, pos->x - 6.5f,
@@ -315,7 +312,7 @@ static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
         data->row_labels[i] = text;
         HSD_SisLib_803A6368(
             text,
-            ((u16*) (base + 0x3C))[mnDiagram3_GetRowStat(data, base_idx, i)]);
+            mnDiagram3_803EEC4C.label_ids[mnDiagram3_GetRowStat(data, base_idx, i)]);
         i++;
     } while (i < count);
 }
@@ -339,7 +336,6 @@ static inline void mnDiagram3_PositionPopup(HSD_JObj* popup, u8 n,
 
 void mnDiagram3_HandleInput(HSD_GObj* gobj)
 {
-    char* base = (char*) &mnDiagram3_803EEC10;
     Diagram3* data = mnDiagram3_804D6C20->user_data;
     u32 input = Menu_GetAllInputs();
     /* The reconstructed inlines leave a 248-byte frame without these
@@ -393,7 +389,7 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
         data = mnDiagram3_804D6C20->user_data;
         mnDiagram3_ClearRowLabels(data);
         data = mnDiagram3_804D6C20->user_data;
-        mnDiagram3_RebuildRowLabels(data, base, &mode_label_pos, 10);
+        mnDiagram3_RebuildRowLabels(data, &mode_label_pos, 10);
         mnDiagram3_RefreshRankings(mnDiagram3_804D6C20);
         return;
     }
@@ -418,7 +414,7 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
             data = mnDiagram3_804D6C20->user_data;
             mnDiagram3_ClearRowLabels(data);
             data = mnDiagram3_804D6C20->user_data;
-            mnDiagram3_RebuildRowLabels(data, base, &up_label_pos, 10);
+            mnDiagram3_RebuildRowLabels(data, &up_label_pos, 10);
             mnDiagram3_RefreshRankings(mnDiagram3_804D6C20);
         }
     } else if (input & 2) {
@@ -444,7 +440,7 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
             data = mnDiagram3_804D6C20->user_data;
             mnDiagram3_ClearRowLabels(data);
             data = mnDiagram3_804D6C20->user_data;
-            mnDiagram3_RebuildRowLabels(data, base, &down_label_pos, 10);
+            mnDiagram3_RebuildRowLabels(data, &down_label_pos, 10);
             mnDiagram3_RefreshRankings(mnDiagram3_804D6C20);
         }
     }

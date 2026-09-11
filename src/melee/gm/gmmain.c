@@ -1,4 +1,5 @@
 
+#include <stdlib.h>
 #include <Runtime/platform.h>
 
 #include <sysdolphin/baselib/forward.h>
@@ -162,6 +163,12 @@ int main(void)
     HSD_InitComponent();
     GXSetMisc(1, 8);
     *seed_ptr = OSGetTick();
+#ifdef TARGET_PC
+    /* MELEE_SEED=<n>: deterministic RNG for reproducing bugs. */
+    if (getenv("MELEE_SEED") != NULL) {
+        *seed_ptr = (u32) strtoul(getenv("MELEE_SEED"), NULL, 0);
+    }
+#endif
     lbAudioAx_8002838C();
     lb_80019AAC(&gmMain_8015FD24);
     HSD_VISetUserPostRetraceCallback(&gmMain_8015FDA0);

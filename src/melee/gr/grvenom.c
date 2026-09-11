@@ -557,9 +557,7 @@ Ground_GObj* grVenom_80203EAC(int gobj_id)
 {
     Ground_GObj* gobj;
     Ground* gp;
-    grVe_Data* base = &grVe_803E5348;
-    StageCallbacks* callbacks =
-        &((StageCallbacks*) ((char*) base + 0x44))[gobj_id];
+    StageCallbacks* callbacks = &grVe_StageCallbacks[gobj_id];
 
     gobj = Ground_GetStageGObj(gobj_id);
 
@@ -585,14 +583,15 @@ Ground_GObj* grVenom_80203EAC(int gobj_id)
     return gobj;
 }
 
-/// Per-state map animation ids, read via the stage data base pointer
-/// (`base[state + 0x7A]`, see #grVenom_802053B0); trailing entries are
-/// the zero/3/6 words observed in the reference object.
-static int grVe_803E5530[53] = {
-    -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0, 0, 0, 0, 0, 0,
-    0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,
-    0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  3, 3, 3, 3, 6,
-};
+/// Per-state map animation ids (`base[state + 0x7A]` in the reference).
+static int grVe_803E5530[12] = { -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+/// Per-type Arwing spawn offsets (`base + 0x218 + type * 12`); all zero in
+/// the reference object.
+static Vec3 grVe_803E5560[12] = { 0 };
+
+/// Stage gobj id per Arwing group (`base[group + 170]`).
+static int grVe_803E55F0[5] = { 3, 3, 3, 3, 6 };
 
 void grVenom_80203F98(Ground_GObj* gobj)
 {
@@ -1025,7 +1024,7 @@ void grVenom_80204F1C(Ground_GObj* arg) {}
 
 void grVenom_80204F20(Ground_GObj* arg0)
 {
-    s32* base = (s32*) &grVe_803E5348;
+    int* arwing_types = grVe_803E5348.arwing.arwing_type;
     Ground* gp = arg0->user_data;
     HSD_JObj* jobj = arg0->hsd_obj;
     HSD_GObj* other;
@@ -1035,7 +1034,7 @@ void grVenom_80204F20(Ground_GObj* arg0)
 
     grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8 = grVe_804D6A34] = arg0;
 
-    other = grVenom_80203EAC(base[base[gp->u.venom.xC8 + 14] + 170]);
+    other = grVenom_80203EAC(grVe_803E55F0[grVe_803E5380[gp->u.venom.xC8]]);
     if (other != NULL) {
         Ground* other_gp = other->user_data;
         other_gp->x10_flags.b2 = 0;
@@ -1048,7 +1047,7 @@ void grVenom_80204F20(Ground_GObj* arg0)
     }
 
     scale = Ground_801C0498();
-    state = base[gp->u.venom.xC8 + 11];
+    state = arwing_types[gp->u.venom.xC8];
     if (state >= 8) {
         goto check_scale_uniform;
     }
@@ -1085,40 +1084,19 @@ bool grVenom_802052D8(Ground_GObj* arg)
     return false;
 }
 
-/// @todo VenomSpawnData struct should be defined in gr/types.h or grvenom.h
-typedef struct {
-    u8 pad[0x218];
-    f32 x;
-    f32 y;
-    f32 z;
-} VenomSpawnData;
-
 void grVenom_802052E0(Ground_GObj* gobj, Vec3* pos)
 {
-    u8* new_var2;
     Vec3 jobj_pos;
-    s32* spawn_table = (s32*) &grVe_803E5348;
     Ground* gp;
     HSD_JObj* jobj;
-    s32* new_var;
-    s32* new_var4;
-    u32 spawn_idx;
-    struct grVenom_GroundVars* new_var3;
-    s32 data_idx;
-    VenomSpawnData* spawn_data;
+    Vec3* spawn_data;
 
     if (gobj != NULL) {
         gp = gobj->user_data;
         Ground_GetMapGObj(5);
         jobj = Ground_801C3FA4(gobj, 5);
         lb_8000B1CC(jobj, NULL, &jobj_pos);
-        new_var = spawn_table;
-        new_var4 = spawn_table;
-        new_var2 = (u8*) new_var4;
-        new_var3 = &gp->u.venom;
-        spawn_idx = (*new_var3).xC8;
-        data_idx = new_var[spawn_idx + 11];
-        spawn_data = (VenomSpawnData*) (new_var2 + data_idx * 12);
+        spawn_data = &grVe_803E5560[grVe_803E5348.arwing.arwing_type[gp->u.venom.xC8]];
         pos->x = jobj_pos.x + spawn_data->x;
         pos->y = jobj_pos.y + spawn_data->y;
         pos->z = jobj_pos.z + spawn_data->z;
@@ -1133,28 +1111,25 @@ void grVenom_802053B0(Ground_GObj* gobj)
 {
     Vec3 sp28;
     Vec3 sp1C;
-    s32* ptr;
+    int* arwing_types;
     Ground* gp2;
     s32 state;
     HSD_JObj* jobj;
-    s32* base;
     Ground* gp;
     PAD_STACK(0x10);
 
     gp = gobj->user_data;
-    base = (s32*) &grVe_803E5348;
-    jobj = gobj->hsd_obj;
-    ptr = base + gp->u.venom.xC8;
+    arwing_types = grVe_803E5348.arwing.arwing_type;
 
     if (grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8] == gobj) {
         if (gp->u.venom.xD4 == 1) {
             gp->u.venom.xD4 = 0;
             grAnime_801C8138(gobj, gp->map_id,
-                             base[base[gp->u.venom.xC8 + 11] + 0x7A]);
+                             grVe_803E5530[arwing_types[gp->u.venom.xC8]]);
             return;
         }
 
-        state = ptr[11];
+        state = arwing_types[gp->u.venom.xC8];
         if (state >= 8) {
             goto check_far;
         }
@@ -1369,30 +1344,6 @@ s32 grVenom_80205E84(Vec3* pos)
 static const Vec3 grVe_803B82D0 = { 0.0F, 0.0F, 0.0F };
 static const Vec3 grVe_803B82DC = { 0.0F, 0.0F, 0.0F };
 
-typedef struct grVe_AnimData {
-    u8 pad0[0x2FC];
-    s32 anim_args[5][2];
-    u8 pad324[0x358 - 0x324];
-    s32 anim_ids[5];
-} grVe_AnimData;
-
-typedef struct grVe_AnimArg {
-    u8 pad0[0x2FC];
-    s32 value;
-} grVe_AnimArg;
-
-/// Steps the anim-arg row/column words on the stage-data base pointer and
-/// reads through the struct field so the +0x2FC displacement lands on the
-/// load itself. Evidence: the reference object computes the address with
-/// two adds on the base register and loads `lwz rD, 0x2FC(rA)`; direct 2D
-/// array indexing re-associates to an `lwzx` indexed load instead.
-static inline s32 grVe_GetAnimArg(s32 fire_kind, Ground* gp,
-                                  grVe_AnimData* anim_data)
-{
-    anim_data = (grVe_AnimData*) ((s32*) anim_data + gp->u.venom.xF4 * 2);
-    anim_data = (grVe_AnimData*) ((s32*) anim_data + fire_kind);
-    return ((volatile grVe_AnimArg*) anim_data)->value;
-}
 
 void grVenom_80205F30(Ground_GObj* gobj)
 {
@@ -1408,8 +1359,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
     Ground* other_gp;
     HSD_GObj* other;
     HSD_JObj* tmp_jobj;
-    s32* base;
-    s32* entry;
+    int* arwing_types;
     s32 state;
     s32 fire_kind;
     s32 slot;
@@ -1417,7 +1367,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
     s32 type_idx;
     HSD_JObj* helper;
 
-    base = (s32*) &grVe_803E5348;
+    arwing_types = grVe_803E5348.arwing.arwing_type;
     gp = gobj->user_data;
     jobj = gobj->hsd_obj;
     sp94 = grVe_803B82D0;
@@ -1428,14 +1378,13 @@ void grVenom_80205F30(Ground_GObj* gobj)
         return;
     }
 
-    entry = base + gp->u.venom.xC8;
     if (grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8] != NULL) {
-        if (entry[14] == 4) {
+        if (grVe_803E5380[gp->u.venom.xC8] == 4) {
             tmp_jobj = Ground_801C3FA4(gobj, 1);
             HSD_JObjSetRotationZ(tmp_jobj, 0.0F);
         }
 
-        state = base[gp->u.venom.xC8 + 11];
+        state = arwing_types[gp->u.venom.xC8];
         switch (state) {
         case 1:
         case 2:
@@ -1462,7 +1411,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
                 if (gp->u.venom.xF8 <= 0) {
                     gp->u.venom.xF4 = HSD_Randi(4) + 1;
                     fire_kind = -1;
-                    switch (base[GET_GROUND(gobj)->u.venom.xC8 + 14]) {
+                    switch (grVe_803E5380[GET_GROUND(gobj)->u.venom.xC8]) {
                     case 0:
                         break;
                     case 1:
@@ -1475,17 +1424,16 @@ void grVenom_80205F30(Ground_GObj* gobj)
                         break;
                     }
                     {
-                        grVe_AnimData* anim_data = (grVe_AnimData*) base;
-                        s32 idx0 = base[gp->u.venom.xC8 + 14];
+                        s32 idx0 = grVe_803E5380[gp->u.venom.xC8];
                         s32 anim_arg =
-                            grVe_GetAnimArg(fire_kind, gp, anim_data);
-                        s32 anim_id = anim_data->anim_ids[idx0];
+                            grVe_803E5644[gp->u.venom.xF4 * 2 + fire_kind];
+                        s32 anim_id = grVe_803E56A0[idx0];
                         grAnime_801C8098(gobj, anim_id, 7, anim_arg, 0.0F,
                                          1.0F);
                     }
                 } else {
-                    s32 idx0 = base[gp->u.venom.xC8 + 14];
-                    s32 anim_id = base[idx0 + 0xD6];
+                    s32 idx0 = grVe_803E5380[gp->u.venom.xC8];
+                    s32 anim_id = grVe_803E56A0[idx0];
                     tmp_jobj = Ground_801C3FA4(gobj, anim_id);
                     HSD_JObjSetRotationZ(tmp_jobj, 0.0F);
                 }
@@ -1505,10 +1453,8 @@ void grVenom_80205F30(Ground_GObj* gobj)
                 Ground_GetMapGObj(5);
                 lb_8000B1CC(Ground_801C3FA4(other, 5), NULL, &sp64);
                 {
-                    VenomSpawnData* spawn_data =
-                        (VenomSpawnData*) (base +
-                                           base[other_gp->u.venom.xC8 + 11] *
-                                               3);
+                    Vec3* spawn_data =
+                        &grVe_803E5560[arwing_types[other_gp->u.venom.xC8]];
                     sp94.x = sp64.x + spawn_data->x;
                     sp94.y = sp64.y + spawn_data->y;
                     sp94.z = sp64.z + spawn_data->z;
@@ -1520,8 +1466,8 @@ void grVenom_80205F30(Ground_GObj* gobj)
             HSD_JObjSetTranslate(jobj, &sp94);
 
             {
-                s32 idx0 = base[gp->u.venom.xC8 + 14];
-                s32 anim_id = base[idx0 + 0xD6];
+                s32 idx0 = grVe_803E5380[gp->u.venom.xC8];
+                s32 anim_id = grVe_803E56A0[idx0];
                 lb_8000B1CC(Ground_801C3FA4(gobj, anim_id), NULL, &sp94);
             }
             if (gp->u.venom.linked_gobj != NULL) {
@@ -1533,8 +1479,8 @@ void grVenom_80205F30(Ground_GObj* gobj)
 
             {
                 f32 rot_z;
-                s32 idx0 = base[gp->u.venom.xC8 + 14];
-                s32 anim_id = base[idx0 + 0xD6];
+                s32 idx0 = grVe_803E5380[gp->u.venom.xC8];
+                s32 anim_id = grVe_803E56A0[idx0];
                 helper = Ground_801C3FA4(gobj, anim_id);
                 rot_z = HSD_JObjGetRotationZ(helper);
                 if (gp->u.venom.linked_gobj != NULL) {
@@ -1551,7 +1497,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
         case 11:
             if (!(gp->u.venom.xF0 & 7) && HSD_Randi(8) == 0) {
                 gp->u.venom.xFC = 0;
-                type_idx = base[gp->u.venom.xC8 + 11];
+                type_idx = arwing_types[gp->u.venom.xC8];
                 switch (type_idx) {
                 case 8:
                     if (gp->u.venom.xF0 > 0x3C && gp->u.venom.xF0 < 0xE6) {
@@ -1589,11 +1535,8 @@ void grVenom_80205F30(Ground_GObj* gobj)
                     Ground_GetMapGObj(5);
                     lb_8000B1CC(Ground_801C3FA4(far_other, 5), NULL, &sp50);
                     {
-                        VenomSpawnData* spawn_data =
-                            (VenomSpawnData*) (base +
-                                               base[far_other_gp->u.venom.xC8 +
-                                                    11] *
-                                                   3);
+                        Vec3* spawn_data =
+                            &grVe_803E5560[arwing_types[far_other_gp->u.venom.xC8]];
                         sp94.x = sp50.x + spawn_data->x;
                         sp94.y = sp50.y + spawn_data->y;
                         sp94.z = sp50.z + spawn_data->z;
@@ -1623,7 +1566,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
                     sp88.y += 5.0F;
                     lbAudioAx_800237A8(0x6B6C9, 0x7F, 0x40);
                     fire_kind = -1;
-                    switch (base[GET_GROUND(gobj)->u.venom.xC8 + 14]) {
+                    switch (grVe_803E5380[GET_GROUND(gobj)->u.venom.xC8]) {
                     case 0:
                         break;
                     case 1:

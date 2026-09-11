@@ -495,9 +495,10 @@ void grBigBlueRoute_8020C238(Ground_GObj* gobj)
         }
     }
 
-    gp->u.car.car_info = HSD_MemAlloc(0x554);
+    gp->u.car.car_info =
+        HSD_MemAlloc(sizeof(union grBigBlueRoute_RouteStorage));
     HSD_ASSERT(0x2A2, gp->u.car.car_info);
-    memzero(gp->u.car.car_info, 0x554);
+    memzero(gp->u.car.car_info, sizeof(union grBigBlueRoute_RouteStorage));
 
     gp->u.car.x10A = 0;
     gp->u.car.x108 = 0;

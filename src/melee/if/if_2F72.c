@@ -464,5 +464,5 @@ void if_802F7E7C(void)
         }
     }
 
-    memzero(base, 0x34);
+    memzero(lbl_804A1340, sizeof(lbl_804A1340));
 }

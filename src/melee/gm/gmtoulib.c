@@ -1714,15 +1714,10 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
 
     gobj = GObj_Create(9, 0x14, 1);
     {
-        typedef struct CObjData {
-            f32 pos[9];
-            struct lbl_803D9DD0_t cobj_data;
-        } CObjData;
         HSD_CObj* cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &cam);
-        CObjData* cobj_data = (CObjData*) &lbl_803D9DAC;
-        cobj_data->cobj_data.cobj = cobj;
+        lbl_803D9DD0.cobj = cobj;
         {
-            HSD_CObj** cobj_ptr = &cobj_data->cobj_data.cobj;
+            HSD_CObj** cobj_ptr = &lbl_803D9DD0.cobj;
             u8* kind_ptr = &HSD_GObj_CameraKind;
             HSD_GObjObject_80390A70(gobj, *kind_ptr, *cobj_ptr);
         }
