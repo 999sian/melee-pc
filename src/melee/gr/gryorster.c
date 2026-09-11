@@ -57,7 +57,7 @@ StageData grYt_StageData = {
     0,
 };
 
-typedef struct YorsterParams {
+typedef struct DISC_STRUCT YorsterParams {
     f32 x00;
     f32 x04;
     f32 x08;

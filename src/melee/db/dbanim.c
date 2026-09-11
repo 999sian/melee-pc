@@ -110,7 +110,7 @@ void fn_UpdateAnimationInfo(void)
             }
             if (ft->motion_id < 0x155) {
                 DevText_Printf(text, "%d %s", ft->player_id,
-                               db_motionstate_names[ft->motion_id]);
+                               DB_NAME(db_motionstate_names, ft->motion_id));
             } else {
                 DevText_Printf(text, "%d %d", ft->player_id, ft->motion_id);
             }
@@ -118,7 +118,7 @@ void fn_UpdateAnimationInfo(void)
             if (ft->anim_id != -1) {
                 if (ft->anim_id < 0x127) {
                     DevText_Printf(text, "%s",
-                                   db_submotion_names[ft->anim_id]);
+                                   DB_NAME(db_submotion_names, ft->anim_id));
                 } else {
                     DevText_Printf(text, "%d", ft->anim_id);
                 }

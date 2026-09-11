@@ -36,10 +36,10 @@ StageData grTGn_StageData = {
     (1 << 0),
 };
 
-typedef struct grTGn_YakumonoParam {
-    DynamicsDesc* x0;
-    DynamicsDesc* x4;
-    DynamicsDesc* x8;
+typedef struct DISC_STRUCT grTGn_YakumonoParam {
+    DISC_PTR(DynamicsDesc) x0;
+    DISC_PTR(DynamicsDesc) x4;
+    DISC_PTR(DynamicsDesc) x8;
 } grTGn_YakumonoParam;
 
 static grTGn_YakumonoParam* yakumono_param;
@@ -166,15 +166,15 @@ DynamicsDesc* grTGanon_802249B4(enum_t arg0)
             i = mpLineGetKind(arg0);
 
             if (i == CollLine_Ceiling) {
-                return yakumono_param->x0;
+                return DP(DynamicsDesc, yakumono_param->x0);
             }
 
             if (i == CollLine_RightWall) {
-                return yakumono_param->x4;
+                return DP(DynamicsDesc, yakumono_param->x4);
             }
 
             if (i == CollLine_LeftWall) {
-                return yakumono_param->x8;
+                return DP(DynamicsDesc, yakumono_param->x8);
             }
 
             return NULL;

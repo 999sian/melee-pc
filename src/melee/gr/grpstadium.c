@@ -38,7 +38,7 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/wobj.h>
 
-static struct grPStadium_YakumonoParam {
+static struct DISC_STRUCT grPStadium_YakumonoParam {
     int x0;
     int x4;
     int x8;

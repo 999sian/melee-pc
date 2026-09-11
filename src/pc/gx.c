@@ -34,13 +34,6 @@ u16 GXReadDrawSync(void)
     return s_draw_sync_token;
 }
 
-/* GXSetDrawDone posts a token that fires the draw-done callback once the FIFO
- * worker reaches it. GXDrawDone drains synchronously, which implies it. */
-void GXWaitDrawDone(void)
-{
-    GXDrawDone();
-}
-
 /* Fog adjustment for non-square projections; aurora's fog is analytic. */
 void GXInitFogAdjTable(GXFogAdjTable* table, u16 width, f32 projmtx[4][4])
 {

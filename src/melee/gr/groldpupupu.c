@@ -22,7 +22,7 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grOldpupupu_YakumonoParam {
+struct DISC_STRUCT grOldpupupu_YakumonoParam {
     s16 x0;
     s16 x2;
     s16 x4;

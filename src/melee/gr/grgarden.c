@@ -23,7 +23,7 @@
 #include <sysdolphin/baselib/psstructs.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grGarden_YakumonoParam {
+struct DISC_STRUCT grGarden_YakumonoParam {
     float x0;
     float x4;
     int x8;

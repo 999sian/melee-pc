@@ -111,14 +111,15 @@ StageData grCs_StageData = {
     2,
 };
 
-typedef struct grCastleParams_Entry {
+typedef struct DISC_STRUCT grCastleParams_Entry {
     /* 0x00 */ s16 x0;
     /* 0x02 */ u8 pad_x2[2];
     /* 0x04 */ f32 x4;
-    /* 0x08 */ Vec3 rot;
+    /* 0x08 */ DiscVec3 rot;
 } grCastleParams_Entry;
+DISC_ASSERT_SIZE(grCastleParams_Entry, 0x14);
 
-struct grCastle_YakumonoParam {
+struct DISC_STRUCT grCastle_YakumonoParam {
     /* 0x000 */ s16 x0;
     /* 0x002 */ s16 x2;
     /* 0x004 */ s16 x4;
@@ -164,6 +165,7 @@ struct grCastle_YakumonoParam {
     /* 0x13C */ f32 x13C;
     /* 0x140 */ f32 x140;
 };
+DISC_ASSERT_SIZE(struct grCastle_YakumonoParam, 0x144);
 
 typedef struct grCastle_PlatSubObj {
     /* 0x00 */ HSD_JObj* jobj;

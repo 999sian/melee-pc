@@ -25,7 +25,7 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grFourside_YakumonoParam {
+struct DISC_STRUCT grFourside_YakumonoParam {
     /* 00 */ int heli_wait;
     /* 04 */ int heli_wait_add;
     /* 08 */ int heli_stay_time;

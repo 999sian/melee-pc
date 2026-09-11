@@ -38,7 +38,7 @@
 #include <sysdolphin/baselib/random.h>
 #include <sysdolphin/baselib/sislib.h>
 
-struct grCorneria_YakumonoParam {
+struct DISC_STRUCT grCorneria_YakumonoParam {
     /* 0x00 */ f32 x0;
     /* 0x04 */ f32 x4;
     /* 0x08 */ f32 x8;
@@ -70,6 +70,7 @@ struct grCorneria_YakumonoParam {
     /* 0x84 */ s32 x84;
     /* 0x88 */ f32 x88;
 };
+DISC_ASSERT_SIZE(struct grCorneria_YakumonoParam, 0x8C);
 
 /* 1DD654 */ static void grCorneria_801DD654(Ground_GObj*);
 /* 1DD658 */ static void grCorneria_801DD658(Ground_GObj*);

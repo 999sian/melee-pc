@@ -132,6 +132,22 @@ typedef struct StageCallbacks {
     /*  +C */ void (*callback3)(Ground_GObj*);
     /* +10 */ union {
         /* +10 */ u32 flags;
+        /* Stage tables initialize `flags` numerically (e.g. 0xC0000000), so
+         * flags_b0 must be bit 31: MWCC packs MSB-first; on little-endian
+         * that is bit 7 of the last byte. */
+#ifdef TARGET_PC
+        struct {
+            u8 _pad[3];
+            u8 flags_b7 : 1;
+            u8 flags_b6 : 1;
+            u8 flags_b5 : 1;
+            u8 flags_b4 : 1;
+            u8 flags_b3 : 1;
+            u8 flags_b2 : 1;
+            u8 flags_b1 : 1;
+            u8 flags_b0 : 1;
+        };
+#else
         struct {
             /* +10:0 */ u8 flags_b0 : 1;
             /* +10:1 */ u8 flags_b1 : 1;
@@ -142,6 +158,7 @@ typedef struct StageCallbacks {
             /* +10:6 */ u8 flags_b6 : 1;
             /* +10:7 */ u8 flags_b7 : 1;
         };
+#endif
     };
 } StageCallbacks;
 

@@ -9,6 +9,9 @@
 #include <dolphin/os.h>
 #include <dolphin/vi.h>
 
+#include <SDL3/SDL_timer.h>
+
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "pc/pc.h"
@@ -27,18 +30,38 @@ void pc_os_run_alarms(void);
 
 void pc_frame_boundary(void)
 {
+    static int fps_log = -1;
+    static u64 fps_t0;
+    static u32 fps_n;
+
     if (s_in_frame) {
         aurora_end_frame();
         s_in_frame = false;
+    }
+    if (fps_log < 0) {
+        fps_log = getenv("MELEE_FPS") != NULL;
+        fps_t0 = SDL_GetTicks();
+    }
+    if (fps_log) {
+        u64 now = SDL_GetTicks();
+        fps_n++;
+        if (now - fps_t0 >= 1000) {
+            fprintf(stderr, "fps %.1f\n", fps_n * 1000.0 / (double) (now - fps_t0));
+            fps_t0 = now;
+            fps_n = 0;
+        }
     }
 
     const AuroraEvent* event = aurora_update();
     while (event != NULL && event->type != AURORA_NONE) {
         if (event->type == AURORA_EXIT) {
             pc_exit_requested = true;
+        } else if (event->type == AURORA_SDL_EVENT) {
+            pc_keyboard_event(&event->sdl);
         }
         ++event;
     }
+    pc_keyboard_apply();
     if (pc_exit_requested) {
         exit(0);
     }

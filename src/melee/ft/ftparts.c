@@ -605,8 +605,8 @@ void ftParts_80074B6C(Fighter* fp, FtPartsVis* vis, int idx,
             int r25 = (int) fp->x5F4_arr[i].idx; // r25
             int j;                               // r24
             for (j = 0; j < lookup[i].x0; j++) {
-                TempS* r27 = &lookup[i].x4[j]; // r27
-                u8* r0 = r27->x4;              // r0
+                TempS* r27 = &DP(TempS, lookup[i].x4)[j]; // r27
+                u8* r0 = DP(u8, r27->x4);              // r0
                 if (j == r25) {
                     int k; // r20
                     for (k = 0; k < r27->x0; k++) {
@@ -635,8 +635,8 @@ void ftParts_80074CA0(FtPartsVis* vis, int idx, DObjList* dobj_list)
                 TempS* r26; // r26
                 int k;      // r22
                 u8* r29;    // r29
-                r26 = &lookup[i].x4[j];
-                r29 = r26->x4;
+                r26 = &DP(TempS, lookup[i].x4)[j];
+                r29 = DP(u8, r26->x4);
                 for (k = 0; k < r26->x0; k++) {
                     HSD_DObjClearFlags(dobj_list->data[r29[k]], 1);
                 }
@@ -657,8 +657,8 @@ void ftParts_80074D7C(FtPartsVis* vis, int idx, DObjList* dobj_list)
                 TempS* r26; // r26
                 int k;      // r22
                 u8* r29;    // r29
-                r26 = &lookup[i].x4[j];
-                r29 = r26->x4;
+                r26 = &DP(TempS, lookup[i].x4)[j];
+                r29 = DP(u8, r26->x4);
                 for (k = 0; k < r26->x0; k++) {
                     HSD_DObjSetFlags(dobj_list->data[r29[k]], 1);
                 }

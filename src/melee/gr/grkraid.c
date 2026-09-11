@@ -10,7 +10,7 @@
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grKraid_YakumonoParam {
+struct DISC_STRUCT grKraid_YakumonoParam {
     u32 map_time_min;
     u32 map_time_max;
     s32 map_time_acl;

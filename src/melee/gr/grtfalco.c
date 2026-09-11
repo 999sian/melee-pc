@@ -76,11 +76,11 @@ StageData grTFc_StageData = {
     0,
 };
 
-struct grTFalco_YakumonoParam {
-    UNK_T unk_0;
-    UNK_T unk_4;
-    UNK_T unk_8;
-    UNK_T unk_C;
+struct DISC_STRUCT grTFalco_YakumonoParam {
+    DISC_PTR(DynamicsDesc) unk_0;
+    DISC_PTR(DynamicsDesc) unk_4;
+    DISC_PTR(DynamicsDesc) unk_8;
+    DISC_PTR(DynamicsDesc) unk_C;
 };
 
 static struct grTFalco_YakumonoParam* yakumono_param;
@@ -188,19 +188,19 @@ DynamicsDesc* grTFalco_80220ACC(enum_t arg0)
             i = mpLineGetKind(arg0);
 
             if (i == CollLine_Floor) {
-                return yakumono_param->unk_0;
+                return DP(DynamicsDesc, yakumono_param->unk_0);
             }
 
             if (i == CollLine_Ceiling) {
-                return yakumono_param->unk_4;
+                return DP(DynamicsDesc, yakumono_param->unk_4);
             }
 
             if (i == CollLine_RightWall) {
-                return yakumono_param->unk_8;
+                return DP(DynamicsDesc, yakumono_param->unk_8);
             }
 
             if (i == CollLine_LeftWall) {
-                return yakumono_param->unk_C;
+                return DP(DynamicsDesc, yakumono_param->unk_C);
             }
 
             return NULL;

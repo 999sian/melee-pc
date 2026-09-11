@@ -17,7 +17,7 @@ typedef struct grBb_TrackEntry {
     Vec3 delta;
 } grBb_TrackEntry;
 
-typedef struct grBb_YakumonoParam {
+typedef struct DISC_STRUCT grBb_YakumonoParam {
     f32 x0;
     f32 x4;
     f32 x8;
@@ -94,8 +94,9 @@ typedef struct grBb_YakumonoParam {
     f32 x128;
     f32 x12C;
     f32 x130;
-    Vec3 x134_translate;
+    DiscVec3 x134_translate;
     f32 x140_scale;
 } grBb_YakumonoParam;
+DISC_ASSERT_SIZE(grBb_YakumonoParam, 0x144);
 
 #endif

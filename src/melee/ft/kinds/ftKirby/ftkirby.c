@@ -3723,8 +3723,8 @@ u8* ftKb_SpecialN_800F1420(Fighter_GObj* gobj, const u32* arg1)
     u8* p;
     for (i = 0; i < lookup->x0; i++) {
         int j;
-        TempS* entry = &lookup->x4[i];
-        p = entry->x4;
+        TempS* entry = &DP(TempS, lookup->x4)[i];
+        p = DP(u8, entry->x4);
 
         for (j = 0; j < entry->x0; j++, p++) {
             HSD_DObj* dobj = fp->u.kb.hat.x14.data[*p];

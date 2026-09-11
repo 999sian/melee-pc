@@ -35,7 +35,7 @@ typedef struct grVe_Data {
     } arwing;
 } grVe_Data;
 
-struct grVenom_YakumonoParam {
+struct DISC_STRUCT grVenom_YakumonoParam {
     f32 x0;
     f32 x4;
     f32 x8;

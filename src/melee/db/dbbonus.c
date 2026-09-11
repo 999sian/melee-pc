@@ -94,9 +94,9 @@ static void fn_80228E54(int arg0, int arg1, int arg2)
                 return;
             }
             if (gmDecisionGetType(bonus) == 0) {
-                DevText_Printf(text, "%s", db_bonus_names[bonus]);
+                DevText_Printf(text, "%s", DB_NAME(db_bonus_names, bonus));
             } else {
-                DevText_Printf(text, "%s : %d", db_bonus_names[bonus],
+                DevText_Printf(text, "%s : %d", DB_NAME(db_bonus_names, bonus),
                                pl_80039418(arg0, bonus));
             }
             y_pos += 1;

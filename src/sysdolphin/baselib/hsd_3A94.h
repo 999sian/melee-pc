@@ -7,6 +7,11 @@
 
 #include <dolphin/card.h>
 
+/// Everything the game addresses lives below 4GB, so the card work area
+/// stores pointers in 32-bit slots. Stores truncate, loads must zero-extend.
+#define PTR_TO_U32(p) ((u32) (uintptr_t) (p))
+#define U32_TO_PTR(T, v) ((T) (uintptr_t) (u32) (v))
+
 typedef struct CardFileData {
     u8* ptr;
 } CardFileData;
@@ -81,7 +86,12 @@ typedef struct CardState {
 /* 3B2674 */ s32 hsd_803B2674(CardState* state);
 /* 3B26CC */ s32 fn_803B26CC(CardState* state, s32 file_id, s32 seq_num,
                              s32 version, void (*callback)(s32, s32));
-/* 4D1138 */ extern u8 hsd_804D1138[0x10];
+/// One contiguous 0x1510-byte card work area: CardContext head (0x10), 128
+/// CardCmd slots (0x1200) and 32 HsdCmdEntry (0x300). The other two names
+/// are views into it.
+/* 4D1138 */ extern u8 hsd_804D1138[0x1510];
+/* 4D1148 */ #define hsd_804D1148 ((u32(*)[9]) (hsd_804D1138 + 0x10))
+/* 4D2348 */ #define hsd_804D2348 (*(u8(*)[0x300]) (hsd_804D1138 + 0x1210))
 /* 4D2E70 */ extern u8 hsd_804D2E70[2084];
 /* 4D7990 */ extern s32 hsd_804D7990;
 /* 4D7994 */ extern s32 hsd_804D7994;

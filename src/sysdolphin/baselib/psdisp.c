@@ -1885,7 +1885,7 @@ void psDispParticles(u32 target_link, u32 sw)
                 f32 scale_s;
                 f32 scale_t;
                 GXTexFmt fmt;
-                u8** tex_table;
+                const DiscU32* tex_table;
                 u32 width;
                 u32 height;
 
@@ -2039,18 +2039,11 @@ void psDispParticles(u32 target_link, u32 sw)
                         }
                     }
 
-                    if (((HSD_PSFormGroup***) psNumCmdList)[pp->bank] !=
-                            NULL &&
-                        (form_group =
-                             ((HSD_PSFormGroup***)
-                                  psNumCmdList)[pp->bank][pp->texGroup]) !=
-                            NULL
-#ifdef MUST_MATCH
-                        && form_group->formTable != NULL
-#endif
-                    )
+                    if (psNumCmdList[pp->bank] != NULL &&
+                        (form_group = PS_FORMGROUP(pp->bank, pp->texGroup)) !=
+                            NULL)
                     {
-                        form = form_group->formTable[pp->poseNum];
+                        form = DP(u8, form_group->formTable[pp->poseNum]);
                     } else {
                         form = NULL;
                     }
@@ -2084,10 +2077,10 @@ void psDispParticles(u32 target_link, u32 sw)
                                               GX_TG_TEX0, GX_TEXMTX0, GX_FALSE,
                                               GX_PTIDENTITY);
                         }
-                        tex_group = psTexGroupArray[pp->bank][pp->texGroup];
+                        tex_group = PS_TEXGROUP(pp->bank, pp->texGroup);
                         if (tex_group != NULL) {
                             fmt = tex_group->fmt;
-                            tex_table = tex_group->texTable;
+                            tex_table = (const DiscU32*) tex_group->texTable;
                             width = tex_group->width;
                             height = tex_group->height;
                         } else {
@@ -2097,21 +2090,21 @@ void psDispParticles(u32 target_link, u32 sw)
                             tex_table = NULL;
                         }
                         if (tex_table != NULL) {
-                            image = tex_table[pp->poseNum];
+                            image = DP(void, tex_table[pp->poseNum].v);
                         } else {
                             image = NULL;
                         }
                         if ((fmt == GX_TF_C4) || (fmt == GX_TF_C8)) {
                             if (tex_table != NULL) {
-                                void** palettes =
-                                    (void**) &tex_table[tex_group->num];
+                                const DiscU32* palettes =
+                                    &tex_table[tex_group->num];
                                 if (palettes != NULL) {
                                     if (pp->palNum != 0xFF) {
-                                        tlut = palettes[pp->palNum];
+                                        tlut = DP(void, palettes[pp->palNum].v);
                                     } else if (!(pp->kind & ComTLUT)) {
-                                        tlut = palettes[pp->poseNum];
+                                        tlut = DP(void, palettes[pp->poseNum].v);
                                     } else {
-                                        tlut = palettes[0];
+                                        tlut = DP(void, palettes[0].v);
                                     }
                                     if (tlut != sp79C) {
                                         tlut_obj.fmt = (GXTlutFmt) (u8)

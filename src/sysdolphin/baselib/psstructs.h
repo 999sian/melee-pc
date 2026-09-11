@@ -32,8 +32,12 @@ enum HSD_ParticleKind {
     DispLighting = 1 << 31
 };
 
+/* The three record types below live inside particle data banks (.dat
+ * archives) and are read in place; pointer members are 32-bit slots that
+ * psInitDataBankLocate relocates to host addresses. */
+
 /* size: 0x1C */
-typedef struct _HSD_PSTexGroup {
+typedef struct DISC_STRUCT _HSD_PSTexGroup {
     u32 num; /* 0x0 */
 
     u32 fmt;     /* 0x4 */
@@ -45,17 +49,17 @@ typedef struct _HSD_PSTexGroup {
     u16 palnum;  /* 0x14 */
     u16 palflag; /* 0x16 */
 
-    u8* texTable[1]; /* 0x18 */
+    DISC_PTR(u8) texTable[1]; /* 0x18 */
 } HSD_PSTexGroup;
 
 /* size: 0x8 */
-typedef struct _HSD_PSFormGroup {
-    u32 num;          /* 0x0 */
-    u8* formTable[1]; /* 0x4 */
+typedef struct DISC_STRUCT _HSD_PSFormGroup {
+    u32 num;                   /* 0x0 */
+    DISC_PTR(u8) formTable[1]; /* 0x4 */
 } HSD_PSFormGroup;
 
 /* size: 0x40 */
-typedef struct _HSD_PSCmdList {
+typedef struct DISC_STRUCT _HSD_PSCmdList {
     u16 type;     /* 0x0 */
     u16 texGroup; /* 0x2 */
 
@@ -82,6 +86,12 @@ typedef struct _HSD_PSCmdList {
 
     u8 cmdList[1]; /* 0x3C */
 } HSD_PSCmdList;
+
+/* Per-bank lookup tables point into the banks: arrays of 32-bit slots holding
+ * host addresses (or 0) after relocation. */
+#define PS_TEXGROUP(bank, idx) ((HSD_PSTexGroup*) (uintptr_t) psTexGroupArray[bank][idx].v)
+#define PS_FORMGROUP(bank, idx) ((HSD_PSFormGroup*) (uintptr_t) psNumCmdList[bank][idx].v)
+#define PS_CMDLIST(bank, idx) ((HSD_PSCmdList*) (uintptr_t) ptclref_804D0E5C[bank][idx].v)
 
 enum PS_AppStatus {
     PS_APPSTATUS_ONCE = 1,

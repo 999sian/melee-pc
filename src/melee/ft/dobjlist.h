@@ -22,15 +22,18 @@ struct CostumeTObjList {
     /*  fp+5D4 */ HSD_TObj* costume_tobjs[5];
 };
 
-struct TempS {
+/* In Pl*.dat: per-model lists of DObj index groups. */
+struct DISC_STRUCT TempS {
     int x0;
-    u8* x4;
+    DISC_PTR(u8) x4;
 };
+DISC_ASSERT_SIZE(struct TempS, 8);
 
-struct FtPartsVisLookup {
+struct DISC_STRUCT FtPartsVisLookup {
     int x0;
-    TempS* x4;
+    DISC_PTR(TempS) x4;
 };
+DISC_ASSERT_SIZE(struct FtPartsVisLookup, 8);
 
 struct FtPartsVis {
     /* fp+5AC */ u32 model_num;

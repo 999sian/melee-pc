@@ -20,7 +20,7 @@ typedef struct grKg_SplineChoiceList {
     s32 terminator;
 } grKg_SplineChoiceList;
 
-struct grKongo_YakumonoParam {
+struct DISC_STRUCT grKongo_YakumonoParam {
     f32 unk0;
     f32 unk4;
     f32 unk8;
@@ -46,18 +46,18 @@ struct grKongo_YakumonoParam {
     s16 unk4E;
     s16 unk50;
     s16 unk52;
-    f32 unk54;
-    f32 unk58;
+    s32 unk54;
+    s32 unk58;
     f32 unk5C;
     f32 unk60;
     s32 unk64;
     s32 unk68;
-    f32 unk6C;
-    f32 unk70;
-    f32 unk74;
-    f32 unk78;
-    f32 unk7C;
-    f32 unk80;
+    u32 unk6C;
+    u32 unk70;
+    u32 unk74;
+    u32 unk78;
+    u32 unk7C;
+    u32 unk80;
     s32 unk84;
     f32 unk88;
     f32 unk8C;

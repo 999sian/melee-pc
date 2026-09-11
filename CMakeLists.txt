@@ -24,10 +24,10 @@ set(AURORA_ENABLE_THP ON CACHE BOOL "" FORCE)
 add_subdirectory(extern/aurora EXCLUDE_FROM_ALL)
 
 # ---- Game code (decomp, compiled as C) -------------------------------------
+# src/thp (Melee's PPC THP decoder) is replaced by aurora::thp; see src/pc/thp.c.
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
         src/melee/*.c
-        src/sysdolphin/*.c
-        src/thp/*.c)
+        src/sysdolphin/*.c)
 # PowerPC/MetroTRK debugger integration; no PC equivalent.
 list(FILTER GAME_SOURCES EXCLUDE REGEX "baselib/debugconsole_main\\.c$")
 
@@ -48,7 +48,7 @@ target_compile_options(melee_game PRIVATE
         -include ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/compat.h)
 target_link_libraries(melee_game PUBLIC
         aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx
-        aurora::os aurora::dvd aurora::card)
+        aurora::os aurora::dvd aurora::card aurora::thp)
 
 # ---- PC platform layer -----------------------------------------------------
 file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp)

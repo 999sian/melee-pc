@@ -27,7 +27,7 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-typedef struct grFigureGet_Data {
+typedef struct DISC_STRUCT grFigureGet_Data {
     s32 x0;
     s32 x4;
     s32 x8;

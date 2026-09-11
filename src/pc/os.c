@@ -162,6 +162,8 @@ BOOL OSCheckAlarmQueue(void)
     return s_alarms != NULL;
 }
 
+static void card_deliver(void);
+
 void pc_os_run_alarms(void)
 {
     OSTime now = OSGetTime();
@@ -186,6 +188,50 @@ void pc_os_run_alarms(void)
         a = next;
     }
     OSRestoreInterrupts(intr);
+    card_deliver();
+}
+
+/* ---- memory card completions ------------------------------------------ */
+/* aurora finishes CARD*Async calls inline; the game's drivers arm their
+ * "pending" state after the call returns, so completions are queued here and
+ * delivered with the alarms (game thread, interrupts enabled), as the CARD
+ * interrupt handler would have on GameCube. */
+
+#include <dolphin/card.h>
+
+#define PC_CARD_QUEUE 16
+static struct {
+    CARDCallback callback;
+    s32 chan;
+    s32 result;
+} s_card_queue[PC_CARD_QUEUE];
+static int s_card_head, s_card_count;
+
+static void card_dispatch(CARDCallback callback, s32 chan, s32 result)
+{
+    BOOL intr = OSDisableInterrupts();
+    if (s_card_count == PC_CARD_QUEUE) {
+        OSPanic(__FILE__, __LINE__, "card completion queue overflow");
+    }
+    int slot = (s_card_head + s_card_count++) % PC_CARD_QUEUE;
+    s_card_queue[slot].callback = callback;
+    s_card_queue[slot].chan = chan;
+    s_card_queue[slot].result = result;
+    OSRestoreInterrupts(intr);
+}
+
+static void card_deliver(void)
+{
+    while (s_card_count > 0) {
+        BOOL intr = OSDisableInterrupts();
+        CARDCallback callback = s_card_queue[s_card_head].callback;
+        s32 chan = s_card_queue[s_card_head].chan;
+        s32 result = s_card_queue[s_card_head].result;
+        s_card_head = (s_card_head + 1) % PC_CARD_QUEUE;
+        s_card_count--;
+        OSRestoreInterrupts(intr);
+        callback(chan, result);
+    }
 }
 
 /* ---- reset / mode flags ------------------------------------------------ */
@@ -258,6 +304,7 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line)
 void pc_platform_init(void)
 {
     s_is_game_thread = 1;
+    aurora_card_set_callback_dispatch(card_dispatch);
 }
 
 /* ---- reporting -------------------------------------------------------- */

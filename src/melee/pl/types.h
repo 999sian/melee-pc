@@ -262,7 +262,8 @@ struct pl_800386E8_arg0_t {
     /* 0x5B0 */ int unk_5B0;         /* inferred */
 }; /* size = 0x5B4 */
 
-struct pl_804D6470_t {
+/// plLoadCommonData in PlPmDat: first slot points at this table.
+struct DISC_STRUCT pl_804D6470_t {
     /*   +0 */ float x0;
     /*   +4 */ int x4;
     /*   +8 */ float x8;
@@ -298,7 +299,7 @@ struct pl_804D6470_t {
     /*  +80 */ unsigned int x80;
     /*  +84 */ float x84;
     /*  +88 */ unsigned int x88;
-    /*  +8C */ unsigned int x8C;
+    /*  +8C */ float x8C;
     /*  +90 */ unsigned int x90;
     /*  +94 */ unsigned int x94;
     /*  +98 */ float x98;

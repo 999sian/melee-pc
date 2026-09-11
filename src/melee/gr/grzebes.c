@@ -73,14 +73,15 @@ typedef struct grZe_ColorEntry {
     f32 b;
 } grZe_ColorEntry;
 
-typedef struct grZe_AcidLevelEntry {
+typedef struct DISC_STRUCT grZe_AcidLevelEntry {
     /* +0 */ s16 x0_base;
     /* +2 */ s16 x2_delay_min;
     /* +4 */ s16 x4_delay_max;
     /* +6 */ s16 x6_level;
 } grZe_AcidLevelEntry;
+DISC_ASSERT_SIZE(grZe_AcidLevelEntry, 8);
 
-typedef struct grZe_YakumonoParam {
+typedef struct DISC_STRUCT grZe_YakumonoParam {
     /* 0x00 */ f32 x00;
     /* 0x04 */ f32 x04;
     /* 0x08 */ f32 x08;
@@ -117,6 +118,7 @@ typedef struct grZe_YakumonoParam {
     /* 0x9C */ f32 x9C;
     /* 0xA0 */ grZe_AcidLevelEntry xA0_entries[30];
 } grZe_YakumonoParam;
+DISC_ASSERT_SIZE(grZe_YakumonoParam, 0xA0 + 30 * 8);
 
 /* 4D6990 */ static grZe_YakumonoParam* yakumono_param;
 /* 4D6994 */ static s32 grZe_804D6994;

@@ -35,6 +35,18 @@ typedef struct RegClearSpawnEntry {
     /* 0x0C */ f32 xC;
 } RegClearSpawnEntry;
 
+/// Same row layout as #RegClearSpawnEntry, as it lies in GmKumite.dat.
+typedef struct DISC_STRUCT RegClearSpawnEntryDisc {
+    /* 0x00 */ s32 x0;
+    /* 0x04 */ u8 x4;
+    /* 0x05 */ u8 x5;
+    /* 0x06 */ u8 x6;
+    /* 0x07 */ u8 x7;
+    /* 0x08 */ f32 x8;
+    /* 0x0C */ f32 xC;
+} RegClearSpawnEntryDisc;
+DISC_ASSERT_SIZE(RegClearSpawnEntryDisc, 0x10);
+
 typedef struct RegClearCharEntry {
     /* 0x00 */ u8 x0;
     /* 0x01 */ u8 x1;
@@ -64,12 +76,12 @@ typedef struct lbl_80472ED8_t {
     /* 0x00C */ PlayerInitData xC;
     /* 0x030 */ u8 pad_30[0x24];
     /* 0x054 */ RegClearSpawnEntry x54[101];
-    /* 0x6A4 */ RegClearSpawnEntry* x6A4;
-    /* 0x6A8 */ RegClearSpawnEntry* x6A8;
-    /* 0x6AC */ RegClearSpawnEntry* x6AC;
-    /* 0x6B0 */ RegClearSpawnEntry* x6B0;
-    /* 0x6B4 */ RegClearSpawnEntry* x6B4;
-    /* 0x6B8 */ RegClearSpawnEntry* x6B8;
+    /* 0x6A4 */ RegClearSpawnEntryDisc* x6A4;
+    /* 0x6A8 */ RegClearSpawnEntryDisc* x6A8;
+    /* 0x6AC */ RegClearSpawnEntryDisc* x6AC;
+    /* 0x6B0 */ RegClearSpawnEntryDisc* x6B0;
+    /* 0x6B4 */ RegClearSpawnEntryDisc* x6B4;
+    /* 0x6B8 */ RegClearSpawnEntryDisc* x6B8;
     /* 0x6BC */ RegClearRecordState record[0];
 } lbl_80472ED8_t;
 ASSERT_SIZE(lbl_80472ED8_t, 0x6BC);
@@ -423,13 +435,13 @@ void fn_80181E18(void)
 void gm_80182174(void)
 {
     s32 i;
-    RegClearSpawnEntry* src;
+    RegClearSpawnEntryDisc* src;
     RegClearSpawnEntry* dst;
-    RegClearSpawnEntry** spawn_table_22;
-    RegClearSpawnEntry** spawn_table_23;
-    RegClearSpawnEntry** spawn_table_24;
-    RegClearSpawnEntry** spawn_table_25;
-    RegClearSpawnEntry** spawn_table_26;
+    RegClearSpawnEntryDisc** spawn_table_22;
+    RegClearSpawnEntryDisc** spawn_table_23;
+    RegClearSpawnEntryDisc** spawn_table_24;
+    RegClearSpawnEntryDisc** spawn_table_25;
+    RegClearSpawnEntryDisc** spawn_table_26;
     s32 mode;
 
     mode = gm_GetCurrentGameMode();

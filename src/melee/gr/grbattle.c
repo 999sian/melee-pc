@@ -23,7 +23,7 @@
  * @var ::grBattle_YakumonoParam::bg_prev_color_overlay
  * @copydoc ::grBattle_YakumonoParam::bg_curr_color_overlay
  */
-struct grBattle_YakumonoParam {
+struct DISC_STRUCT grBattle_YakumonoParam {
     int bg_curr_color_overlay;
     int bg_prev_color_overlay;
 };

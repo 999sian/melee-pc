@@ -7,6 +7,9 @@
 #include <dolphin/gx/GXTexture.h>
 #include <dolphin/os.h>
 #include <dolphin/thp/thp.h>
+#ifdef TARGET_PC
+#include <pc/pc.h>
+#endif
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/devcom.h>
 #include <sysdolphin/baselib/memory.h>
@@ -14,6 +17,14 @@
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/video.h>
 
+
+/* Frame buffers start with the packed size of the next frame, big-endian on
+ * disc. */
+#ifdef TARGET_PC
+#define PACKED_SIZE(p) __builtin_bswap32(*(u32*) (p))
+#else
+#define PACKED_SIZE(p) (*(u32*) (p))
+#endif
 /* Struct used by fn_8001EBF0 for THP decode component init */
 typedef struct THPDecComp {
     /* 0x00 */ u8 pad0[0x08];
@@ -117,7 +128,7 @@ static void fn_8001E910(int arg0, int arg1, void* arg2, bool cancelflag)
     } else {
         var_r0 = streamPlayer->unk_8C - 1;
     }
-    streamPlayer->currPackedSize = *(u32*) streamPlayer->frame_buffers[var_r0];
+    streamPlayer->currPackedSize = PACKED_SIZE(streamPlayer->frame_buffers[var_r0]);
     if (streamPlayer->unk_90 != streamPlayer->unk_8C &&
         streamPlayer->unk_70 != 0)
     {
@@ -166,6 +177,12 @@ static s32 fn_8001EB14(THPDecComp* data, const char* path)
     THPInit();
     data->file_entrynum = DVDConvertPathToEntrynum(path);
     lbFile_800161C4(data->file_entrynum, 0, (u32) data, 0x40, 0x21, 1);
+#ifdef TARGET_PC
+    /* The 0x40-byte file header is read verbatim and is big-endian. */
+    for (u32* p = &data->version; p <= &data->first_frame_size; p++) {
+        *p = __builtin_bswap32(*p);
+    }
+#endif
 
     data->unk_40 = data->num_frames;
     data->width = data->x_size;
@@ -226,7 +243,9 @@ size_t fn_8001EBF0(THPDecComp* data)
     size += wh_div4;
     size += wh_div4;
 
+#ifndef TARGET_PC
     size += THPDec_8032FD40(&data->unk_9C, data->height);
+#endif
 
     data->unk_7C = 0;
     data->unk_78 = 0;
@@ -297,7 +316,7 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
                             1);
             csizep = var_r29;
             data->curr_file_offset += var_r24;
-            var_r24 = *(u32*) var_r29;
+            var_r24 = PACKED_SIZE(var_r29);
             var_r29 = var_r29 + data->unk_100;
         }
         data->unk_74 = var_r25;
@@ -332,6 +351,10 @@ static s32 fn_8001EF5C(THPDecComp* data)
     BOOL intr;
 
     if ((u32) data->unk_94 != data->unk_90) {
+#ifdef TARGET_PC
+        pc_thp_decode_frame((void*) (data->frame_buffers[data->unk_90] + 4),
+                            data->unk_50, data->unk_54, data->unk_58);
+#else
         intr = OSDisableInterrupts();
         data->unk_98 = THPVideoDecode(
             &data->unk_A8, &spC, (void*) data->unk_98,
@@ -348,6 +371,7 @@ static s32 fn_8001EF5C(THPDecComp* data)
             THPDec_803313D0(data->unk_98, data->unk_50, data->unk_54,
                             data->unk_58, data->width);
         }
+#endif
 
         intr = OSDisableInterrupts();
         data->unk_94 = data->unk_90;

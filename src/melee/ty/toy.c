@@ -2038,7 +2038,7 @@ void Toy_80306D70(s32 arg0)
     UNUSED u8 framepad[8];
 
     {
-        LightList** sp14;
+        DiscU32* sp14;
         TyLightFile* base;
         TyLightData* data;
         char* sym;
@@ -2084,8 +2084,9 @@ void Toy_80306D70(s32 arg0)
     }
 }
 
-HSD_LObj* Toy_LoadLObjList(LightList** list, s32* hasAnim)
+HSD_LObj* Toy_LoadLObjList(DiscU32* list, s32* hasAnim)
 {
+    LightList* ent;
     u8* base;
     HSD_LObj* lobj;
     HSD_LObj* prev;
@@ -2104,10 +2105,10 @@ HSD_LObj* Toy_LoadLObjList(LightList** list, s32* hasAnim)
         *hasAnim = 0;
     }
 
-    while (*list != NULL) {
-        lobj = HSD_LObjLoadDesc(DP(HSD_LightDesc, (*list)->desc));
+    while ((ent = (LightList*) (uintptr_t) list->v) != NULL) {
+        lobj = HSD_LObjLoadDesc(DP(HSD_LightDesc, ent->desc));
         if (lobj != NULL) {
-            DiscU32* anim_slots = DP(DiscU32, (*list)->anims);
+            DiscU32* anim_slots = DP(DiscU32, ent->anims);
             HSD_LightAnim* anim = anim_slots ? (HSD_LightAnim*) (uintptr_t) anim_slots[0].v : NULL;
             animFlag = base + idx + 0xDC;
             *animFlag = 0;
@@ -2152,7 +2153,7 @@ void _Toy_80307018(void)
 {
     u8 _pad[16];
     HSD_Fog* fog;
-    LightList** lights;
+    DiscU32* lights;
     void* obj;
     u8 kind;
     ToyED8Data* ptr1;

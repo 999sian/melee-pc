@@ -42,11 +42,13 @@ struct Unk80433380_0 {
     char x38[4];
 };
 
-typedef union LbMcSnapMemSnapIconData {
-    u8* ptr;
+/// MemSnapIconData in LbMcSnap.dat: [0] icon pixels pointer/offset, [1] size.
+typedef union DISC_STRUCT LbMcSnapMemSnapIconData {
+    DISC_PTR(u8) ptr;
     int offset;
     int size;
 } LbMcSnapMemSnapIconData;
+DISC_ASSERT_SIZE(LbMcSnapMemSnapIconData, 4);
 
 struct Unk80433380 {
     /* 0x00 */ struct Unk80433380_0* snap;
@@ -240,7 +242,7 @@ static inline u16 RGB565_TO_RGB5A3(u16 pixel)
 
 static inline u8* lbSnap_GetMemSnapIconData(void)
 {
-    return _p(icon_data)[0].ptr;
+    return DP(u8, _p(icon_data)[0].ptr);
 }
 
 #ifdef MUST_MATCH

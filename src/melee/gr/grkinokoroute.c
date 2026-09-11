@@ -29,7 +29,7 @@
 #include <sysdolphin/baselib/psstructs.h>
 #include <sysdolphin/baselib/random.h>
 
-static struct {
+static struct DISC_STRUCT {
     int x0;
     grZakoGenerator_SpawnDesc x4;
 }* yakumono_param;

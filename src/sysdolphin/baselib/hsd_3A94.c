@@ -11,14 +11,6 @@
 #include <dolphin/card.h>
 #include <dolphin/os.h>
 
-typedef struct {
-    u8 x0[0x80 * 0x24];
-} __baselib_UnkType002;
-
-typedef struct {
-    u8 x0[0x300];
-} __baselib_UnkType003;
-
 typedef struct CardBufEntry {
     s32 x0, x4, x8, xC;
     s32 x10;
@@ -36,12 +28,12 @@ typedef struct CardBlock {
 
 typedef struct CardCmd {
     /* 0x00 */ s32 type;
-    /* 0x04 */ CardState* state;
+    /* 0x04 */ u32 state; ///< CardState*, stored as u32 (see hsd_3A94.h)
     /* 0x08 */ s32 x8;
     /* 0x0C */ s32 xC;
     /* 0x10 */ s32 x10;
     /* 0x14 */ s32 x14;
-    /* 0x18 */ void* x18;
+    /* 0x18 */ u32 x18; ///< void*, stored as u32
     /* 0x1C */ s32 x1C;
     /* 0x20 */ s32 x20;
 } CardCmd;
@@ -73,8 +65,8 @@ typedef struct HsdCmdEntry {
 
 typedef struct CardContext {
     /* 0x0000 */ s32 x0;
-    /* 0x0004 */ CardState* x4;
-    /* 0x0008 */ void (*x8)(s32, s32);
+    /* 0x0004 */ u32 x4; ///< CardState*, stored as u32
+    /* 0x0008 */ u32 x8; ///< void (*)(s32, s32), stored as u32
     /* 0x000C */ s32 xC;
     /* 0x0010 */ CardCmd x10[128];
     /* 0x1210 */ HsdCmdEntry x1210[32];
@@ -86,13 +78,19 @@ typedef struct CardQueueEntry {
     /* 0x08 */ s32 x8;
     /* 0x0C */ s32 xC;
     /* 0x10 */ s32 x10;
-    /* 0x14 */ void (*x14)(s32, s32);
+    /* 0x14 */ u32 x14; ///< void (*)(s32, s32), stored as u32
 } CardQueueEntry;
+
+STATIC_ASSERT(sizeof(CardCmd) == 0x24);
+STATIC_ASSERT(sizeof(CardBufEntry) == 0x24);
+STATIC_ASSERT(sizeof(HsdCmdEntry) == 0x18);
+STATIC_ASSERT(sizeof(CardQueueEntry) == 0x18);
+STATIC_ASSERT(sizeof(CardContext) == 0x1510);
 
 #define CMD_S32(off)                                                          \
     (((CardBufEntry*) ((unsigned char*) op + (off)))[hsd_804D7980].x0)
-#define CMD_STATE ((CardState*) CMD_S32(0x14))
-#define CMD_PTR(off) ((void*) CMD_S32(off))
+#define CMD_STATE U32_TO_PTR(CardState*, CMD_S32(0x14))
+#define CMD_PTR(off) U32_TO_PTR(void*, CMD_S32(off))
 #define CMD_TYPE (op[hsd_804D7980].x10)
 #define CARD_QUEUE_CMD(cmd) fn_803AC168((cmd))
 #define CARD_WRITE_BLOCK(state, block_idx, file_id, seq_num, payload,         \
@@ -102,8 +100,6 @@ typedef struct CardQueueEntry {
 
 /* 3A949C */ static void hsd_803A949C(s32 chan, s32 arg1);
 /* 3ACB74 */ static s32 fn_803ACB74(s32 seq_a, s32 seq_b);
-/* 4D1148 */ extern u32 hsd_804D1148[0x80][0x9];
-/* 4D2348 */ extern __baselib_UnkType003 hsd_804D2348;
 /* 4D7980 */ extern volatile s32 hsd_804D7980;
 /* 4D7984 */ extern volatile s32 hsd_804D7984;
 /* 4D7988 */ extern s32 hsd_804D7988;
@@ -159,7 +155,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
         return;
     }
 
-    state = ((CardState*) CMD_S32(0x14));
+    state = CMD_STATE;
 
     switch (CMD_TYPE) {
     case 2:
@@ -185,7 +181,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
                     break;
                 }
                 if (CMD_PTR(0x28) != NULL) {
-                    u8* src = (u8*) (offset + (u32) state->x0);
+                    u8* src = state->x0 + offset;
                     memcpy(CMD_PTR(0x28), src + 0x20, CMD_S32(0x30));
                 }
             }
@@ -197,7 +193,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
                 break;
             }
             if (CMD_S32(0x30) > 0 && CMD_PTR(0x28) != NULL) {
-                memcpy((void*) CMD_S32(0x28), state->x0 + 0x20, CMD_S32(0x30));
+                memcpy(CMD_PTR(0x28), state->x0 + 0x20, CMD_S32(0x30));
             }
             result = hsd_803A949C_Close(state);
         }
@@ -256,7 +252,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
             } else if ((s32) block[0x12] != CMD_S32(0x24)) {
                 hsd_804D7988 = 2;
             } else if (CMD_S32(0x30) > 0 &&
-                       memcmp((void*) CMD_S32(0x28), (block += 0x20),
+                       memcmp(CMD_PTR(0x28), (block += 0x20),
                               CMD_S32(0x30)) != 0)
             {
                 hsd_804D7988 = 2;
@@ -280,7 +276,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
             } else if ((s32) block[0x12] != CMD_S32(0x24)) {
                 hsd_804D7988 = 2;
             } else if (CMD_S32(0x30) > 0 &&
-                       memcmp((void*) CMD_S32(0x28), block + 0x20,
+                       memcmp(CMD_PTR(0x28), block + 0x20,
                               CMD_S32(0x30)) != 0)
             {
                 hsd_804D7988 = 2;
@@ -319,14 +315,14 @@ void hsd_803A949C(s32 chan, s32 arg1)
                 break;
             }
             if (icon_size > 0 && memcmp(state->x0 + 0x40,
-                                        (void*) CMD_S32(0x1c), icon_size) != 0)
+                                        CMD_PTR(0x1c), icon_size) != 0)
             {
                 hsd_804D7988 = 2;
                 break;
             }
             hdr_plus_icon = icon_size + 0x40;
             if (state->x24 > state->x8) {
-                if (memcmp(state->x0 + hdr_plus_icon, (void*) CMD_S32(0x20),
+                if (memcmp(state->x0 + hdr_plus_icon, CMD_PTR(0x20),
                            state->x8 - hdr_plus_icon) != 0)
                 {
                     hsd_804D7988 = 2;
@@ -334,7 +330,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
                 }
                 hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x8,
                              &CMD_STATE->digest[CMD_S32(0x18) * 0x10]);
-            } else if (memcmp(state->x0 + hdr_plus_icon, (void*) CMD_S32(0x20),
+            } else if (memcmp(state->x0 + hdr_plus_icon, CMD_PTR(0x20),
                               state->x24 - hdr_plus_icon) != 0)
             {
                 hsd_804D7988 = 2;
@@ -351,7 +347,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
             data_offset = (state->x8 * CMD_S32(0x18)) - 0x40 - icon_size;
             remaining = state->x24 - state->x8 * CMD_S32(0x18);
             if ((u32) remaining > state->x8) {
-                if (memcmp(state->x0, (u8*) CMD_S32(0x20) + data_offset,
+                if (memcmp(state->x0, (u8*) CMD_PTR(0x20) + data_offset,
                            state->x8) != 0)
                 {
                     hsd_804D7988 = 2;
@@ -359,7 +355,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
                 }
                 hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x8,
                              &CMD_STATE->digest[CMD_S32(0x18) * 0x10]);
-            } else if (memcmp(state->x0, (u8*) CMD_S32(0x20) + data_offset,
+            } else if (memcmp(state->x0, (u8*) CMD_PTR(0x20) + data_offset,
                               remaining) != 0)
             {
                 hsd_804D7988 = 2;
@@ -402,22 +398,22 @@ void hsd_803A949C(s32 chan, s32 arg1)
 
         if (CMD_S32(0x18) == 0) {
             if (CMD_PTR(0x1c) != NULL) {
-                memcpy((void*) CMD_S32(0x1c), state->x0, 0x40);
+                memcpy(CMD_PTR(0x1c), state->x0, 0x40);
             }
             if (remaining11 > 0 && CMD_PTR(0x20) != NULL) {
-                memcpy((void*) CMD_S32(0x20), state->x0 + 0x40, remaining11);
+                memcpy(CMD_PTR(0x20), state->x0 + 0x40, remaining11);
             }
             hdr_plus_icon = remaining11 + 0x40;
             if (state->x24 > state->x8) {
                 if (CMD_PTR(0x24) != NULL) {
-                    memcpy((void*) CMD_S32(0x24), state->x0 + hdr_plus_icon,
+                    memcpy(CMD_PTR(0x24), state->x0 + hdr_plus_icon,
                            state->x8 - hdr_plus_icon);
                 }
                 hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x8,
                              &CMD_STATE->digest[CMD_S32(0x18) * 0x10]);
             } else {
                 if (CMD_PTR(0x24) != NULL) {
-                    memcpy((void*) CMD_S32(0x24), state->x0 + hdr_plus_icon,
+                    memcpy(CMD_PTR(0x24), state->x0 + hdr_plus_icon,
                            state->x24 - hdr_plus_icon);
                 }
                 hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x24,
@@ -433,14 +429,14 @@ void hsd_803A949C(s32 chan, s32 arg1)
             chan = state->x24 - state->x8 * CMD_S32(0x18);
             if ((u32) chan > state->x8) {
                 if (CMD_PTR(0x24) != NULL) {
-                    memcpy((u8*) CMD_S32(0x24) + data_offset, state->x0,
+                    memcpy((u8*) CMD_PTR(0x24) + data_offset, state->x0,
                            state->x8);
                 }
                 hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x8,
                              &CMD_STATE->digest[CMD_S32(0x18) * 0x10]);
             } else {
                 if (CMD_PTR(0x24) != NULL) {
-                    memcpy((u8*) CMD_S32(0x24) + data_offset, state->x0, chan);
+                    memcpy((u8*) CMD_PTR(0x24) + data_offset, state->x0, chan);
                 }
                 hsd_803B2B20(CMD_STATE->x0, chan,
                              &CMD_STATE->digest[CMD_S32(0x18) * 0x10]);
@@ -559,7 +555,7 @@ void hsd_803A949C(s32 chan, s32 arg1)
             } else {
                 state->x270[slot] = state->x0[offset13 + 0x12];
                 {
-                    u8* src13 = (u8*) (offset13 + (u32) state->x0);
+                    u8* src13 = state->x0 + offset13;
                     hsd_803AC558(state, src13 + 0x13);
                 }
             }
@@ -593,54 +589,58 @@ s32 fn_803AA790(void)
     CardQueueEntry* entry;
     s32 result;
     s32 arg0;
+    CardState* state;
+    void (*callback)(s32, s32);
 
     entry = &((CardQueueEntry*) &hsd_804D2348)[hsd_804D7990];
     arg0 = entry->x4;
+    state = U32_TO_PTR(CardState*, entry->x4);
+    callback = U32_TO_PTR(void (*)(s32, s32), entry->x14);
     hsd_804D7990 = (hsd_804D7990 + 1) % 32;
 
     switch (entry->x0) {
     case 1:
-        result = fn_803ADF90((struct CardState*) entry->x4, entry->x8,
-                             (u8*) entry->xC, 1, entry->x14);
+        result = fn_803ADF90(state, entry->x8, U32_TO_PTR(u8*, entry->xC), 1,
+                             callback);
         if (result < 0) {
-            if (entry->x14 != NULL) {
-                entry->x14(entry->x8, result);
+            if (callback != NULL) {
+                callback(entry->x8, result);
             }
         }
         entry->x0 = 0;
         return result;
     case 2:
-        switch (((s32*) (arg0 + 0x28))[entry->x8]) {
+        switch (state->x28[entry->x8]) {
         case 0:
-            result = fn_803AE7F8((struct CardState*) entry->x4, entry->x8,
-                                 entry->xC, 1, (s32) entry->x14);
+            result = fn_803AE7F8(state, entry->x8, entry->xC, 1,
+                                 (s32) entry->x14);
             break;
         case 1:
         case 2:
-            result = fn_803AF3F0((CardState*) entry->x4, entry->x8, entry->xC,
-                                 1, (s32) entry->x14);
+            result = fn_803AF3F0(state, entry->x8, entry->xC, 1,
+                                 (s32) entry->x14);
             break;
         case 3:
-            result = fn_803B0120((CardState*) entry->x4, entry->x8, entry->xC,
-                                 1, (s32) entry->x14);
+            result = fn_803B0120(state, entry->x8, entry->xC, 1,
+                                 (s32) entry->x14);
             break;
         default:
             result = -0x101;
             break;
         }
         if (result < 0) {
-            if (entry->x14 != NULL) {
-                entry->x14(entry->x8, result);
+            if (callback != NULL) {
+                callback(entry->x8, result);
             }
         }
         entry->x0 = 0;
         return result;
     case 3:
-        result = fn_803B1F78((CardState*) entry->x4, entry->x8, entry->xC,
-                             entry->x10, (s32) entry->x14);
+        result = fn_803B1F78(state, entry->x8, entry->xC, entry->x10,
+                             (s32) entry->x14);
         if (result < 0) {
-            if (entry->x14 != NULL) {
-                entry->x14(0, result);
+            if (callback != NULL) {
+                callback(0, result);
             }
         }
         entry->x0 = 0;
@@ -649,8 +649,8 @@ s32 fn_803AA790(void)
         result =
             fn_803B21E8(entry->x4, entry->xC, entry->x10, (s32) entry->x14);
         if (result < 0) {
-            if (entry->x14 != NULL) {
-                entry->x14(0, result);
+            if (callback != NULL) {
+                callback(0, result);
             }
         }
         entry->x0 = 0;
@@ -658,18 +658,17 @@ s32 fn_803AA790(void)
     case 5:
         result = fn_803ADE4C(arg0, entry->x8, (s32) entry->x14);
         if (result < 0) {
-            if (entry->x14 != NULL) {
-                entry->x14(0, result);
+            if (callback != NULL) {
+                callback(0, result);
             }
         }
         entry->x0 = 0;
         return result;
     case 6:
-        result = fn_803B26CC((CardState*) arg0, entry->x8, entry->xC,
-                             entry->x10, entry->x14);
+        result = fn_803B26CC(state, entry->x8, entry->xC, entry->x10, callback);
         if (result < 0) {
-            if (entry->x14 != NULL) {
-                entry->x14(0, result);
+            if (callback != NULL) {
+                callback(0, result);
             }
         }
         entry->x0 = 0;
@@ -684,12 +683,12 @@ s32 fn_803AA790(void)
 #undef CMD_STATE
 
 #define CMD_TYPE cmd[0]
-#define CMD_STATE ((CardState*) cmd[1])
+#define CMD_STATE U32_TO_PTR(CardState*, cmd[1])
 #define CMD_X8 cmd[2]
 #define CMD_XC cmd[3]
 #define CMD_X10 cmd[4]
 #define CMD_X14 cmd[5]
-#define CMD_X18 ((void*) cmd[6])
+#define CMD_X18 U32_TO_PTR(void*, cmd[6])
 #define CMD_X1C cmd[7]
 #define CMD_X20 cmd[8]
 
@@ -864,7 +863,7 @@ static inline void initHeaderBlockCommand(CardCmd* buf, CardState* state,
                                           s32 version)
 {
     buf->type = 11;
-    buf->state = state;
+    buf->state = PTR_TO_U32(state);
     buf->x8 = block;
     buf->xC = file_id;
     buf->x10 = seq_num;
@@ -899,7 +898,6 @@ void hsd_803AAA48(void)
     s32 chan;
     while (1) {
         CardContext* ctx = (CardContext*) hsd_804D1138;
-        CardState** state = &ctx->x4;
         s32* cmd;
         s32 type;
         BOOL intr = OSDisableInterrupts();
@@ -929,37 +927,39 @@ void hsd_803AAA48(void)
         case 0:
             if (ctx->x0 != 0) {
                 if (ctx->x0 == 3) {
+                    CardState* state = U32_TO_PTR(CardState*, ctx->x4);
                     s32 file = ctx->xC;
-                    s32 blocks_before = fn_803AC6B8(*state, file);
-                    s32 file_blocks = fn_803AC634(*state, file);
-                    s32 total = fn_803AC7DC(*state);
+                    s32 blocks_before = fn_803AC6B8(state, file);
+                    s32 file_blocks = fn_803AC634(state, file);
+                    s32 total = fn_803AC7DC(state);
                     s32 map[64];
                     s32 j;
                     for (j = 0; j < file_blocks; j++) {
                         map[j] = -1;
                     }
                     for (j = 1; j <= total; j++) {
-                        s32 fidx = (*state)->x170[j];
+                        s32 fidx = state->x170[j];
                         if (fidx >= 0) {
                             s32 logical = fidx - blocks_before;
                             if (logical >= 0 && logical < file_blocks) {
                                 if (map[logical] < 0) {
                                     map[logical] = j;
                                 } else if (fn_803ACB74(
-                                               (*state)->x270[map[logical]],
-                                               (*state)->x270[j]) < 0)
+                                               state->x270[map[logical]],
+                                               state->x270[j]) < 0)
                                 {
-                                    (*state)->x170[map[logical]] *= -1;
+                                    state->x170[map[logical]] *= -1;
                                     map[logical] = j;
                                 } else {
-                                    (*state)->x170[j] *= -1;
+                                    state->x170[j] *= -1;
                                 }
                             }
                         }
                     }
                 }
                 if (ctx->x8 != 0) {
-                    ctx->x8(ctx->xC, hsd_804D7988);
+                    U32_TO_PTR(void (*)(s32, s32), ctx->x8)
+                    (ctx->xC, hsd_804D7988);
                 }
                 ctx->x0 = 0;
             }
@@ -1204,7 +1204,7 @@ void hsd_803AAA48(void)
             continue;
         case 7:
             intr2 = OSDisableInterrupts();
-            r = retryCardCreateAsync(CMD_STATE->x4, (char*) CMD_X8, CMD_XC,
+            r = retryCardCreateAsync(CMD_STATE->x4, U32_TO_PTR(char*, CMD_X8), CMD_XC,
                                      &CMD_STATE->file_info,
                                      (void (*)(s32, s32)) hsd_803A949C);
             hsd_804D799C = 1;
@@ -1278,18 +1278,18 @@ void hsd_803AAA48(void)
                     memcpy(CMD_STATE->x0, CMD_STATE->x370, 0x40);
                     pos = 0x40;
                     if (icon_size > 0) {
-                        memcpy(CMD_STATE->x0 + 0x40, (void*) CMD_XC,
+                        memcpy(CMD_STATE->x0 + 0x40, U32_TO_PTR(void*, CMD_XC),
                                icon_size);
                         pos = icon_size + 0x40;
                     }
                     memset(CMD_STATE->digest, 0, 0x30);
                     if (CMD_STATE->x24 > CMD_STATE->x8) {
-                        memcpy(&CMD_STATE->x0[pos], (void*) CMD_X10,
+                        memcpy(&CMD_STATE->x0[pos], U32_TO_PTR(void*, CMD_X10),
                                CMD_STATE->x8 - pos);
                         hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x8,
                                      &CMD_STATE->digest[CMD_X8 * 0x10]);
                     } else {
-                        memcpy(&CMD_STATE->x0[pos], (void*) CMD_X10,
+                        memcpy(&CMD_STATE->x0[pos], U32_TO_PTR(void*, CMD_X10),
                                CMD_STATE->x24 - pos);
                         hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x24,
                                      &CMD_STATE->digest[CMD_X8 * 0x10]);
@@ -1300,12 +1300,12 @@ void hsd_803AAA48(void)
                     u32 remaining = CMD_STATE->x24 - CMD_STATE->x8 * CMD_X8;
                     s32 data_off = (CMD_STATE->x8 * CMD_X8 - 0x40) - icon_size;
                     if (remaining > CMD_STATE->x8) {
-                        memcpy(CMD_STATE->x0, (u8*) CMD_X10 + data_off,
+                        memcpy(CMD_STATE->x0, U32_TO_PTR(u8*, CMD_X10) + data_off,
                                CMD_STATE->x8);
                         hsd_803B2B20(CMD_STATE->x0, CMD_STATE->x8,
                                      &CMD_STATE->digest[CMD_X8 * 0x10]);
                     } else {
-                        memcpy(CMD_STATE->x0, (u8*) CMD_X10 + data_off,
+                        memcpy(CMD_STATE->x0, U32_TO_PTR(u8*, CMD_X10) + data_off,
                                remaining);
                         hsd_803B2B20(CMD_STATE->x0, remaining,
                                      &CMD_STATE->digest[CMD_X8 * 0x10]);
@@ -1466,10 +1466,10 @@ s32 fn_803AC258(CardState* card_state, s32 block_idx)
 {
     CardCmd buf;
     buf.type = 13;
-    buf.state = card_state;
+    buf.state = PTR_TO_U32(card_state);
     buf.x10 = block_idx;
     buf.x14 = 0;
-    buf.x18 = NULL;
+    buf.x18 = 0;
     buf.x20 = 0;
     buf.x1C = fn_803ACBE8(card_state, block_idx);
     return fn_803AC168((s32*) &buf);
@@ -1479,7 +1479,7 @@ s32 fn_803AC2A4(CardState* card_state)
 {
     CardCmd buf;
     buf.type = 14;
-    buf.state = card_state;
+    buf.state = PTR_TO_U32(card_state);
     return fn_803AC168((s32*) &buf);
 }
 
@@ -1713,7 +1713,7 @@ s32 fn_803AC6B8(struct CardState* file_desc, s32 file_count)
 static inline s32 fn_803AC6B8_blocks_before(struct CardState* file_desc,
                                             s32 file_count)
 {
-    u8* total;
+    s32 total;
     s32 i;
 
     if (file_count >= 9) {
@@ -1723,17 +1723,16 @@ static inline s32 fn_803AC6B8_blocks_before(struct CardState* file_desc,
         return 0;
     }
 
-    total = (u8*) 1;
+    total = 1;
     if (file_desc->x4C[0] > 0) {
-        total = (u8*) &((CardState*) fn_803AC634(file_desc, 0))->x8;
-        total -= 8;
+        total = fn_803AC634(file_desc, 0);
     }
 
     for (i = 1; i < file_count; i++) {
         total += fn_803AC634(file_desc, i);
     }
 
-    return (s32) total;
+    return total;
 }
 
 static inline s32 fn_803AC7DC_block_count(struct CardState* file_state,
@@ -2017,7 +2016,7 @@ s32 fn_803ACF30(CardState* state, s32 file_id, s32 seq_num, s32 version)
 
     for (i = 0; i < (0x2F + state->x24 + state->x8) / state->x8; i++) {
         buf.type = 11;
-        buf.state = state;
+        buf.state = PTR_TO_U32(state);
         buf.x8 = i;
         buf.xC = file_id;
         buf.x10 = seq_num;
@@ -2034,7 +2033,7 @@ typedef u8* CardSectorPtr;
 
 static inline u8* fn_803ACFC0_header(CardState* state, s32 hdr_offset)
 {
-    return (CardSectorPtr) (hdr_offset + (s32) state->x0);
+    return state->x0 + hdr_offset;
 }
 
 static inline u8* fn_803ACFC0_checksum_start(s32 hdr_offset, CardState* state)
@@ -2090,8 +2089,7 @@ s32 fn_803ACFC0(CardState* state, s32 block_idx, s32 file_id, s32 seq_num,
         s32 remaining = (state->x8 - hdr_offset) - payload_size - 0x20;
         if (remaining != 0) {
             s32 off = payload_size + 0x20;
-            s32 addr = (s32) state->x0;
-            memset((CardSectorPtr) (hdr_offset + off + addr), 0, remaining);
+            memset(state->x0 + hdr_offset + off, 0, remaining);
         }
     }
 
@@ -2175,7 +2173,7 @@ static inline s32 fn_803AD16C_queue_clear(CardState* state, s32 block, s32 pad,
     s32 cmd[9];
 
     cmd[0] = 1;
-    cmd[1] = (s32) state;
+    cmd[1] = PTR_TO_U32(state);
     cmd[3] = block;
     cmd[4] = 0xFFFF;
     cmd[5] = 0;
@@ -2201,7 +2199,7 @@ static inline s32 fn_803AD16C_queue_read(CardState* state, s32 block)
     pad = size * idx;
 
     cmd[0] = 0xF;
-    cmd[1] = (s32) state;
+    cmd[1] = PTR_TO_U32(state);
     cmd[3] = block;
     cmd[7] = pad;
     return fn_803AC168(cmd);
@@ -2223,7 +2221,7 @@ static inline s32 fn_803AD16C_queue_write(CardState* state, s32 block,
     pad = size * idx;
 
     cmd[0] = 0x10;
-    cmd[1] = (s32) state;
+    cmd[1] = PTR_TO_U32(state);
     cmd[3] = block;
     cmd[4] = logical;
     cmd[5] = target_seq;
@@ -2248,7 +2246,7 @@ static inline s32 fn_803AD16C_queue_write_last(CardState* state, s32 block,
     pad = size * idx;
 
     cmd[0] = 0x10;
-    cmd[1] = (s32) state;
+    cmd[1] = PTR_TO_U32(state);
     cmd[3] = block;
     cmd[4] = logical;
     cmd[5] = target_seq;
@@ -2516,7 +2514,7 @@ s32 fn_803ADE4C(s32 card_state, s32 channel, s32 callback)
 
     hsd_804D7998 = hsd_804D7984;
     buf1.type = 12;
-    buf1.state = (CardState*) card_state;
+    buf1.state = (u32) card_state;
     buf1.x8 = channel;
     result = fn_803AC168((s32*) &buf1);
     if (result < 0) {
@@ -2533,7 +2531,7 @@ s32 fn_803ADE4C(s32 card_state, s32 channel, s32 callback)
     }
 
     buf2.type = 17;
-    buf2.state = (CardState*) card_state;
+    buf2.state = (u32) card_state;
     result = fn_803AC168((s32*) &buf2);
     if (result < 0) {
         snap = hsd_804D7998;
@@ -2562,10 +2560,10 @@ static inline s32 queueCardCommand2First(CardState* state, s32 block,
     CardCmd command;
 
     command.type = 2;
-    command.state = state;
+    command.state = PTR_TO_U32(state);
     command.x10 = block;
     command.x14 = 0;
-    command.x18 = data;
+    command.x18 = PTR_TO_U32(data);
     command.x20 = length;
     command.x1C = offset;
     return fn_803AC168((s32*) &command);
@@ -2593,10 +2591,10 @@ static inline s32 queueCardCommand2Final(CardState* state, s32 block,
     CardCmd command;
 
     command.type = 2;
-    command.state = state;
+    command.state = PTR_TO_U32(state);
     command.x10 = block;
     command.x14 = 0;
-    command.x18 = data;
+    command.x18 = PTR_TO_U32(data);
     command.x20 = length;
     command.x1C = offset;
     return fn_803AC168((s32*) &command);
@@ -2691,10 +2689,10 @@ static inline s32 queueClearDataBlock(CardState* state, const u8* dst,
     CardCmd command;
 
     command.type = 4;
-    command.state = state;
+    command.state = PTR_TO_U32(state);
     command.x10 = 0;
     command.x14 = 0;
-    command.x18 = (void*) dst;
+    command.x18 = PTR_TO_U32(dst);
     command.x20 = size;
     command.x1C = 0;
     command.x8 = 0;
@@ -2977,8 +2975,8 @@ s32 fn_803ADF90(struct CardState* arg0, s32 arg1, u8* arg2, s32 arg3,
         }
     } else {
         entries[0].x0 = 1;
-        entries[0].x4 = (s32) arg0;
-        entries[0].x8 = (s32) arg4;
+        entries[0].x4 = PTR_TO_U32(arg0);
+        entries[0].x8 = PTR_TO_U32(arg4);
         entries[0].xC = arg1;
         hsd_804D7998 = -1;
     }
@@ -3159,7 +3157,7 @@ s32 fn_803AE7F8(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
         for (; pass < 2; pass++, map += 64) {
             s32 remaining = file_size;
 
-            data = (u8*) arg2;
+            data = U32_TO_PTR(u8*, arg2);
             for (i = 0; i < file_blocks && remaining > 0; i++) {
                 s32 phys;
                 s32 chunk = state->x8;
@@ -3177,10 +3175,10 @@ s32 fn_803AE7F8(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
                                 CardCmd cmd;
 
                                 cmd.type = 5;
-                                cmd.state = arg0;
+                                cmd.state = PTR_TO_U32(arg0);
                                 cmd.x10 = blocks_before + i;
                                 cmd.x14 = current_seq;
-                                cmd.x18 = data;
+                                cmd.x18 = PTR_TO_U32(data);
                                 cmd.x20 = chunk;
                                 cmd.x1C = ofs;
                                 cmd_result = fn_803AC168((s32*) &cmd);
@@ -3219,10 +3217,10 @@ s32 fn_803AE7F8(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
                                 CardCmd cmd;
 
                                 cmd.type = 5;
-                                cmd.state = arg0;
+                                cmd.state = PTR_TO_U32(arg0);
                                 cmd.x10 = blocks_before + i;
                                 cmd.x14 = current_seq;
-                                cmd.x18 = data;
+                                cmd.x18 = PTR_TO_U32(data);
                                 cmd.x20 = remaining;
                                 cmd.x1C = ofs;
                                 cmd_result = fn_803AC168((s32*) &cmd);
@@ -3253,7 +3251,7 @@ s32 fn_803AE7F8(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
             s32 cmd_result;
 
             cmd_done.type = 6;
-            cmd_done.state = arg0;
+            cmd_done.state = PTR_TO_U32(arg0);
             cmd_result = fn_803AC168((s32*) &cmd_done);
             if (cmd_result < 0) {
                 fn_803AE7F8_rewind(entries);
@@ -3284,7 +3282,7 @@ after_verify:
         for (pass = 0; pass < 2; pass++, map += 64) {
             s32 remaining = file_size;
 
-            data = (u8*) arg2;
+            data = U32_TO_PTR(u8*, arg2);
             for (i = 0; i < file_blocks && remaining > 0; i++) {
                 s32 phys;
                 s32 chunk;
@@ -3307,20 +3305,20 @@ after_verify:
                                     goto repair_full_queued;
                                 }
                                 init_cmd.type = 2;
-                                init_cmd.state = arg0;
+                                init_cmd.state = PTR_TO_U32(arg0);
                                 init_cmd.x10 = zero;
                                 init_cmd.x14 = zero;
-                                init_cmd.x18 = (void*) zero;
+                                init_cmd.x18 = zero;
                                 init_cmd.x20 = zero;
                                 init_cmd.x1C = ofs;
                                 fn_803AC168((s32*) &init_cmd);
                             }
                             cmd.type = 1;
-                            cmd.state = arg0;
+                            cmd.state = PTR_TO_U32(arg0);
                             cmd.xC = phys;
                             cmd.x10 = blocks_before + i;
                             cmd.x14 = current_seq;
-                            cmd.x18 = data;
+                            cmd.x18 = PTR_TO_U32(data);
                             cmd.x20 = chunk;
                             cmd.x1C = ofs;
                             cmd.x8 = arg1;
@@ -3365,20 +3363,20 @@ after_verify:
                                     goto repair_tail_queued;
                                 }
                                 init_cmd.type = 2;
-                                init_cmd.state = arg0;
+                                init_cmd.state = PTR_TO_U32(arg0);
                                 init_cmd.x10 = zero;
                                 init_cmd.x14 = zero;
-                                init_cmd.x18 = (void*) zero;
+                                init_cmd.x18 = zero;
                                 init_cmd.x20 = zero;
                                 init_cmd.x1C = ofs;
                                 fn_803AC168((s32*) &init_cmd);
                             }
                             cmd.type = 1;
-                            cmd.state = arg0;
+                            cmd.state = PTR_TO_U32(arg0);
                             cmd.xC = phys;
                             cmd.x10 = blocks_before + i;
                             cmd.x14 = current_seq;
-                            cmd.x18 = data;
+                            cmd.x18 = PTR_TO_U32(data);
                             cmd.x20 = remaining;
                             cmd.x1C = ofs;
                             cmd.x8 = arg1;
@@ -3425,7 +3423,7 @@ after_verify:
         CardBufEntry* entry = entries;
 
         entry->x0 = 2;
-        entry->x4 = (s32) arg0;
+        entry->x4 = PTR_TO_U32(arg0);
         entry->x8 = arg4;
         entry->xC = arg1;
         hsd_804D7998 = -1;
@@ -3450,10 +3448,10 @@ static inline s32 fn_803AF3F0_queue_verify_first(CardState* state, s32 block,
         CardCmd cmd;
         s32 ofs = fn_803ACBE8(state, block);
         cmd.type = 5;
-        cmd.state = state;
+        cmd.state = PTR_TO_U32(state);
         cmd.x10 = logical;
         cmd.x14 = seq;
-        cmd.x18 = data;
+        cmd.x18 = PTR_TO_U32(data);
         cmd.x20 = size;
         cmd.x1C = ofs;
         return fn_803AC168((s32*) &cmd);
@@ -3473,10 +3471,10 @@ static inline s32 fn_803AF3F0_queue_verify_final(CardState* state, s32 block,
         CardCmd cmd;
         s32 ofs = fn_803ACBE8(state, block);
         cmd.type = 5;
-        cmd.state = state;
+        cmd.state = PTR_TO_U32(state);
         cmd.x10 = logical;
         cmd.x14 = seq;
-        cmd.x18 = data;
+        cmd.x18 = PTR_TO_U32(data);
         cmd.x20 = size;
         cmd.x1C = ofs;
         result = fn_803AC168((s32*) &cmd);
@@ -3500,20 +3498,20 @@ static inline s32 fn_803AF3F0_queue_write_first(CardState* state, s32 block,
             return -0x101;
         }
         init_cmd.type = 2;
-        init_cmd.state = state;
+        init_cmd.state = PTR_TO_U32(state);
         init_cmd.x10 = zero;
         init_cmd.x14 = zero;
-        init_cmd.x18 = (void*) zero;
+        init_cmd.x18 = zero;
         init_cmd.x20 = zero;
         init_cmd.x1C = ofs;
         fn_803AC168((s32*) &init_cmd);
     }
     cmd.type = 1;
-    cmd.state = state;
+    cmd.state = PTR_TO_U32(state);
     cmd.xC = block;
     cmd.x10 = logical;
     cmd.x14 = seq;
-    cmd.x18 = data;
+    cmd.x18 = PTR_TO_U32(data);
     cmd.x20 = size;
     cmd.x1C = ofs;
     cmd.x8 = file_id;
@@ -3537,20 +3535,20 @@ static inline s32 fn_803AF3F0_queue_write_final(CardState* state, s32 block,
             return -0x101;
         }
         init_cmd.type = 2;
-        init_cmd.state = state;
+        init_cmd.state = PTR_TO_U32(state);
         init_cmd.x10 = zero;
         init_cmd.x14 = zero;
-        init_cmd.x18 = (void*) zero;
+        init_cmd.x18 = zero;
         init_cmd.x20 = zero;
         init_cmd.x1C = ofs;
         fn_803AC168((s32*) &init_cmd);
     }
     cmd.type = 1;
-    cmd.state = state;
+    cmd.state = PTR_TO_U32(state);
     cmd.xC = block;
     cmd.x10 = logical;
     cmd.x14 = seq;
-    cmd.x18 = data;
+    cmd.x18 = PTR_TO_U32(data);
     cmd.x20 = size;
     cmd.x1C = ofs;
     cmd.x8 = file_id;
@@ -3736,7 +3734,7 @@ s32 fn_803AF3F0(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
 
     if (seq_match == 0) {
         remaining = file_size;
-        data = (u8*) arg2;
+        data = U32_TO_PTR(u8*, arg2);
         for (i = 0; i < file_blocks && remaining > 0; i++) {
             if ((u32) remaining > (u32) fn_803AF3F0_chunk_size(state)) {
                 if (arg3 != 0) {
@@ -3791,7 +3789,7 @@ s32 fn_803AF3F0(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
             CardCmd cmd;
             s32 cmd_result;
             cmd.type = 6;
-            cmd.state = state;
+            cmd.state = PTR_TO_U32(state);
             cmd_result = fn_803AC168((s32*) &cmd);
             if (cmd_result < 0) {
                 fn_803AF3F0_rewind(entries);
@@ -3861,7 +3859,7 @@ after_verify:
     {
         s32 next = current_seq + 1;
         remaining = file_size;
-        data = (u8*) arg2;
+        data = U32_TO_PTR(u8*, arg2);
         current_seq = next & 0xFF;
     }
     for (i = 0; i < file_blocks && remaining > 0; i++) {
@@ -3946,7 +3944,7 @@ after_verify:
         CardBufEntry* entry = entries;
 
         entry->x0 = 3;
-        entry->x4 = (s32) state;
+        entry->x4 = PTR_TO_U32(state);
         entry->x8 = arg4;
         entry->xC = arg1;
         hsd_804D7998 = -1;
@@ -4033,10 +4031,10 @@ static inline s32 fn_803B0120_queue_verify(CardState* state, s32 block,
         CardCmd cmd;
         s32 ofs = fn_803B0120_block_offset(state, block);
         cmd.type = 5;
-        cmd.state = state;
+        cmd.state = PTR_TO_U32(state);
         cmd.x10 = logical;
         cmd.x14 = seq;
-        cmd.x18 = data;
+        cmd.x18 = PTR_TO_U32(data);
         cmd.x20 = size;
         cmd.x1C = ofs;
         result = fn_803AC168((s32*) &cmd);
@@ -4060,20 +4058,20 @@ static inline s32 fn_803B0120_queue_write(CardState* state, s32 block,
             return -0x101;
         }
         init_cmd.type = 2;
-        init_cmd.state = state;
+        init_cmd.state = PTR_TO_U32(state);
         init_cmd.x10 = zero;
         init_cmd.x14 = zero;
-        init_cmd.x18 = (void*) zero;
+        init_cmd.x18 = zero;
         init_cmd.x20 = zero;
         init_cmd.x1C = ofs;
         fn_803AC168((s32*) &init_cmd);
     }
     cmd.type = 1;
-    cmd.state = state;
+    cmd.state = PTR_TO_U32(state);
     cmd.xC = block;
     cmd.x10 = logical;
     cmd.x14 = seq;
-    cmd.x18 = data;
+    cmd.x18 = PTR_TO_U32(data);
     cmd.x20 = size;
     cmd.x1C = ofs;
     cmd.x8 = file_id;
@@ -4218,7 +4216,7 @@ s32 fn_803B0120(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
 
     if (needs_rewrite == 0) {
         remaining = file_size;
-        data = (u8*) arg2;
+        data = U32_TO_PTR(u8*, arg2);
         for (i = 0; i < file_blocks && remaining > 0; i++) {
             s32 logical = blocks_before + i;
             s32 chunk;
@@ -4281,7 +4279,7 @@ s32 fn_803B0120(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
             CardCmd cmd;
             s32 cmd_result;
             cmd.type = 6;
-            cmd.state = state;
+            cmd.state = PTR_TO_U32(state);
             cmd_result = fn_803AC168((s32*) &cmd);
             if (cmd_result < 0) {
                 fn_803B0120_rewind(entries);
@@ -4329,7 +4327,7 @@ s32 fn_803B0120(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
     {
         s32 next = current_seq + 1;
         remaining = file_size;
-        data = (u8*) arg2;
+        data = U32_TO_PTR(u8*, arg2);
         seq = next & 0xFF;
     }
     for (i = 0; i < file_blocks && remaining > 0; i++) {
@@ -4400,7 +4398,7 @@ s32 fn_803B0120(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
         }
     } else {
         entries[0].x0 = 4;
-        entries[0].x4 = (s32) state;
+        entries[0].x4 = PTR_TO_U32(state);
         entries[0].x8 = arg4;
         entries[0].xC = arg1;
         hsd_804D7998 = -1;
@@ -4420,7 +4418,7 @@ static inline s32 fn_803B0E9C_read_icons(struct CardState* arg0, CardCmd* cmd,
          block_idx++)
     {
         cmd->type = 10;
-        cmd->state = arg0;
+        cmd->state = PTR_TO_U32(arg0);
         cmd->xC = file_id;
         cmd->x10 = seq;
         cmd->x8 = block_idx;
@@ -4515,14 +4513,14 @@ s32 fn_803B0E9C(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
 
             {
                 cmd_done.type = 6;
-                cmd_done.state = arg0;
+                cmd_done.state = PTR_TO_U32(arg0);
                 result = fn_803AC168((s32*) &cmd_done);
             }
             if (result < 0) {
                 return result;
             }
         } else {
-            result = fn_803ACD58(arg0, (UNK_T) arg1, (UNK_T) arg2);
+            result = fn_803ACD58(arg0, U32_TO_PTR(void*, arg1), U32_TO_PTR(void*, arg2));
             if (result < 0) {
                 return result;
             }
@@ -4544,10 +4542,10 @@ s32 fn_803B0E9C(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
                     void* clear_buf = arg0->x0;
                     s32 zero = 0;
                     cmd_clear.type = 4;
-                    cmd_clear.state = arg0;
+                    cmd_clear.state = PTR_TO_U32(arg0);
                     cmd_clear.x10 = zero;
                     cmd_clear.x14 = zero;
-                    cmd_clear.x18 = clear_buf;
+                    cmd_clear.x18 = PTR_TO_U32(clear_buf);
                     cmd_clear.x20 = sector_size;
                     cmd_clear.x1C = zero;
                     cmd_clear.x8 = zero;
@@ -4559,10 +4557,10 @@ s32 fn_803B0E9C(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
                         has_blocks = 0;
                     }
                     cmd_patch.type = 2;
-                    cmd_patch.state = arg0;
+                    cmd_patch.state = PTR_TO_U32(arg0);
                     cmd_patch.x10 = -1;
                     cmd_patch.x14 = 0;
-                    cmd_patch.x18 = NULL;
+                    cmd_patch.x18 = 0;
                     cmd_patch.x20 = has_blocks;
                     cmd_patch.x1C = arg4 * sector_size;
                     result = fn_803AC168((s32*) &cmd_patch);
@@ -4574,7 +4572,7 @@ s32 fn_803B0E9C(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
 
             {
                 cmd_write_icon.type = 9;
-                cmd_write_icon.state = arg0;
+                cmd_write_icon.state = PTR_TO_U32(arg0);
                 cmd_write_icon.x8 = arg4;
                 cmd_write_icon.xC = arg1;
                 cmd_write_icon.x10 = arg2;
@@ -4604,13 +4602,13 @@ s32 fn_803B0E9C(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
     switch (arg0->x3B0) {
     case 2: {
         void* dst = arg0->x0 + 0x40;
-        memcpy(dst, (UNK_T) arg1, 0x1800);
+        memcpy(dst, U32_TO_PTR(void*, arg1), 0x1800);
     }
         payload_pos = 0x1840;
         break;
     case 1: {
         void* dst = arg0->x0 + 0x40;
-        memcpy(dst, (UNK_T) arg1, 0xE00);
+        memcpy(dst, U32_TO_PTR(void*, arg1), 0xE00);
     }
         payload_pos = 0xE40;
         break;
@@ -4623,7 +4621,7 @@ s32 fn_803B0E9C(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
     while (remaining >= 0) {
         sector_size = arg0->x8;
         if ((u32) (payload_pos + remaining) > sector_size) {
-            memcpy(arg0->x0 + payload_pos, (s32*) arg2,
+            memcpy(arg0->x0 + payload_pos, U32_TO_PTR(s32*, arg2),
                    sector_size - payload_pos);
             sector_size = arg0->x8;
             arg2 += sector_size - payload_pos;
@@ -4663,7 +4661,7 @@ s32 fn_803B0E9C(struct CardState* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
             continue;
         }
 
-        memcpy(arg0->x0 + payload_pos, (void*) arg2, remaining);
+        memcpy(arg0->x0 + payload_pos, U32_TO_PTR(void*, arg2), remaining);
         payload_pos += remaining;
         hsd_803B2B20(arg0->x0, payload_pos, &digest[block_idx * 0x10]);
         memcpy(arg0->x0 + payload_pos, digest, 0x30);
@@ -4694,20 +4692,20 @@ static inline s32 fn_803B1338_queue_write(CardState* state, s32 logical,
             return -0x101;
         }
         init_buf->cmd.type = 2;
-        init_buf->cmd.state = state;
+        init_buf->cmd.state = PTR_TO_U32(state);
         init_buf->cmd.x10 = 0;
         init_buf->cmd.x14 = 0;
-        init_buf->cmd.x18 = NULL;
+        init_buf->cmd.x18 = 0;
         init_buf->cmd.x20 = 0;
         init_buf->cmd.x1C = ofs;
         fn_803AC168(init_buf->words);
     }
     buf->cmd.type = 1;
-    buf->cmd.state = state;
+    buf->cmd.state = PTR_TO_U32(state);
     buf->cmd.xC = logical;
     buf->cmd.x10 = phys;
     buf->cmd.x14 = 0;
-    buf->cmd.x18 = data;
+    buf->cmd.x18 = PTR_TO_U32(data);
     buf->cmd.x20 = size;
     buf->cmd.x1C = ofs;
     buf->cmd.x8 = file_id;
@@ -4741,20 +4739,20 @@ static inline s32 fn_803B1338_queue_write_data(CardState* state, s32 logical,
             return -0x101;
         }
         init_buf->cmd.type = 2;
-        init_buf->cmd.state = state;
+        init_buf->cmd.state = PTR_TO_U32(state);
         init_buf->cmd.x10 = 0;
         init_buf->cmd.x14 = 0;
-        init_buf->cmd.x18 = NULL;
+        init_buf->cmd.x18 = 0;
         init_buf->cmd.x20 = 0;
         init_buf->cmd.x1C = ofs;
         fn_803AC168(init_buf->words);
     }
     buf->cmd.type = 1;
-    buf->cmd.state = state;
+    buf->cmd.state = PTR_TO_U32(state);
     buf->cmd.xC = logical;
     buf->cmd.x10 = phys;
     buf->cmd.x14 = 0;
-    buf->cmd.x18 = data;
+    buf->cmd.x18 = PTR_TO_U32(data);
     buf->cmd.x20 = size;
     buf->cmd.x1C = ofs;
     buf->cmd.x8 = file_id;
@@ -4815,19 +4813,19 @@ s32 fn_803B1338(CardState* state, s32 arg1)
                         sector_size *
                         ((hdr_base + sector_size - 1) / sector_size - 1);
                     cmd0.cmd.type = 2;
-                    cmd0.cmd.state = state;
+                    cmd0.cmd.state = PTR_TO_U32(state);
                     cmd0.cmd.x10 = 0;
                     cmd0.cmd.x14 = 0;
-                    cmd0.cmd.x18 = NULL;
+                    cmd0.cmd.x18 = 0;
                     cmd0.cmd.x20 = 0;
                     cmd0.cmd.x1C = ofs0;
                     fn_803AC168(cmd0.words);
                     cmd1.cmd.type = 1;
-                    cmd1.cmd.state = state;
+                    cmd1.cmd.state = PTR_TO_U32(state);
                     cmd1.cmd.xC = 0;
                     cmd1.cmd.x10 = 0;
                     cmd1.cmd.x14 = 0;
-                    cmd1.cmd.x18 = NULL;
+                    cmd1.cmd.x18 = 0;
                     cmd1.cmd.x20 = 0;
                     cmd1.cmd.x1C = ofs0;
                     cmd1.cmd.x8 = 0;
@@ -4837,19 +4835,19 @@ s32 fn_803B1338(CardState* state, s32 arg1)
                         sector_size *
                         ((hdr_base + sector_size - 1) / sector_size - 1);
                     cmd2.cmd.type = 2;
-                    cmd2.cmd.state = state;
+                    cmd2.cmd.state = PTR_TO_U32(state);
                     cmd2.cmd.x10 = 0;
                     cmd2.cmd.x14 = 0;
-                    cmd2.cmd.x18 = NULL;
+                    cmd2.cmd.x18 = 0;
                     cmd2.cmd.x20 = 0;
                     cmd2.cmd.x1C = ofs0;
                     fn_803AC168(cmd2.words);
                     cmd3.cmd.type = 1;
-                    cmd3.cmd.state = state;
+                    cmd3.cmd.state = PTR_TO_U32(state);
                     cmd3.cmd.xC = 0;
                     cmd3.cmd.x10 = 0;
                     cmd3.cmd.x14 = 0;
-                    cmd3.cmd.x18 = fdata;
+                    cmd3.cmd.x18 = PTR_TO_U32(fdata);
                     cmd3.cmd.x20 = sector_size - hdr_offset - 0x20;
                     cmd3.cmd.x1C = ofs0;
                     cmd3.cmd.x8 = 0;
@@ -5105,7 +5103,7 @@ s32 fn_803B1F78(CardState* state, s32 channel, s32 file_id, s32 seq_num,
     hsd_804D7998 = hsd_804D7984;
     blocks = state->x8 * hsd_803B2674(state);
     buf1.type = 7;
-    buf1.state = state;
+    buf1.state = PTR_TO_U32(state);
     buf1.x8 = channel;
     buf1.xC = blocks;
     result = fn_803AC168((s32*) &buf1);
@@ -5151,7 +5149,7 @@ s32 fn_803B1F78(CardState* state, s32 channel, s32 file_id, s32 seq_num,
     }
 
     buf2.type = 8;
-    buf2.state = state;
+    buf2.state = PTR_TO_U32(state);
     result = fn_803AC168((s32*) &buf2);
     if (result < 0) {
         snap = hsd_804D7998;
@@ -5167,7 +5165,7 @@ s32 fn_803B1F78(CardState* state, s32 channel, s32 file_id, s32 seq_num,
     }
 
     entries[0].x0 = 6;
-    entries[0].x4 = (s32) state;
+    entries[0].x4 = PTR_TO_U32(state);
     entries[0].x8 = callback;
     result = 0;
     entries[0].xC = result;
@@ -5201,7 +5199,7 @@ s32 fn_803B21E8(s32 card_state, s32 file_id, s32 seq_num, s32 callback)
     PAD_STACK(8);
 
     hsd_804D7998 = hsd_804D7984;
-    result = fn_803B0E9C((CardState*) card_state, file_id, seq_num, 0, 1);
+    result = fn_803B0E9C(U32_TO_PTR(CardState*, card_state), file_id, seq_num, 0, 1);
     if (result < 0) {
         snap1 = hsd_804D7998;
         if (snap1 >= 0) {
@@ -5216,7 +5214,7 @@ s32 fn_803B21E8(s32 card_state, s32 file_id, s32 seq_num, s32 callback)
     }
 
     buf.type = 8;
-    buf.state = (CardState*) card_state;
+    buf.state = (u32) card_state;
     result = fn_803AC168((s32*) &buf);
     if (result < 0) {
         snap2 = hsd_804D7998;
@@ -5342,9 +5340,9 @@ int hsd_803B2550(s32* arg0, const char* arg1, void (*arg2)(int, int))
         HsdCmdEntry* entry = hsd_803B2550_inline(base, retries);
         s32 next = retries + 1;
         entry->type = 5;
-        entry->f1 = (s32) arg0;
+        entry->f1 = PTR_TO_U32(arg0);
         entry->f2 = write_idx;
-        entry->f5 = (s32) arg2;
+        entry->f5 = PTR_TO_U32(arg2);
         hsd_804D7994 = next % 32;
     }
 
@@ -5383,8 +5381,8 @@ s32 fn_803B26CC(CardState* state, s32 file_id, s32 seq_num, s32 version,
     }
 
     context->x0 = 5;
-    context->x4 = state;
-    context->x8 = callback;
+    context->x4 = PTR_TO_U32(state);
+    context->x8 = PTR_TO_U32(callback);
     context->xC = 0;
     hsd_804D7998 = -1;
     return 0;

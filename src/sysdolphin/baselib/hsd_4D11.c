@@ -7,9 +7,7 @@
 
 #include <Runtime/platform.h>
 
-/* 4D2348 */ u8 hsd_804D2348[0x300];
-/* 4D1148 */ u32 hsd_804D1148[0x80][0x9];
-/* 4D1138 */ u8 hsd_804D1138[0x10];
+/* 4D1138 */ u8 hsd_804D1138[0x1510] ATTRIBUTE_ALIGN(32);
 
 /* 4D799C */ s32 hsd_804D799C;
 /* 4D7998 */ s32 hsd_804D7998;

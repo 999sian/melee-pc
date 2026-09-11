@@ -148,7 +148,7 @@ StageData grGb_StageData = {
     6,
 };
 
-typedef struct grGb_StageAttr {
+typedef struct DISC_STRUCT grGb_StageAttr {
     /* 0x00 */ s16 moon_fall_wait_a;
     /* 0x02 */ s16 moon_fall_wait_b;
     /* 0x04 */ f32 floatfloor_landing_rate;
@@ -182,11 +182,12 @@ typedef struct grGb_StageAttr {
     /* 0x6C */ f32 kame_ud_scale;
     /* 0x70 */ s16 kame_dir_prob[4];
     /* 0x78 */ f32 kame_item_prob;
-    /* 0x7C */ struct {
+    /* 0x7C */ struct DISC_STRUCT {
         s16 kind;
         s16 weight;
     } items[10];
 } grGb_StageAttr;
+DISC_ASSERT_SIZE(grGb_StageAttr, 0xA4);
 
 typedef struct grGb_804D69E0_t {
     grGb_StageAttr* x0;

@@ -23,7 +23,7 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grOldKongo_YakumonoParam {
+struct DISC_STRUCT grOldKongo_YakumonoParam {
     s16 rframe_bird_wait_a;
     s16 rframe_bird_wait_b;
     f32 rrange_bird_random_offset_y;

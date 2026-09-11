@@ -17,7 +17,7 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grZebesRoute_YakumonoParam {
+struct DISC_STRUCT grZebesRoute_YakumonoParam {
     int camera_timer;
     int zako_spawn_chance;
 };

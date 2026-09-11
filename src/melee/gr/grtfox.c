@@ -10,11 +10,11 @@
 #include <melee/mp/mplib.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-struct grTFox_YakumonoParam {
-    UNK_T unk0;
-    UNK_T unk4;
-    UNK_T unk8;
-    UNK_T unkC;
+struct DISC_STRUCT grTFox_YakumonoParam {
+    DISC_PTR(DynamicsDesc) unk0;
+    DISC_PTR(DynamicsDesc) unk4;
+    DISC_PTR(DynamicsDesc) unk8;
+    DISC_PTR(DynamicsDesc) unkC;
 };
 
 static void grTFox_80220B80(bool);
@@ -164,16 +164,16 @@ DynamicsDesc* grTFox_80220E5C(enum_t arg0)
         if (i != -1 && i == 1) {
             i = mpLineGetKind(arg0);
             if (i == CollLine_Floor) {
-                return yakumono_param->unk0;
+                return DP(DynamicsDesc, yakumono_param->unk0);
             }
             if (i == CollLine_Ceiling) {
-                return yakumono_param->unk4;
+                return DP(DynamicsDesc, yakumono_param->unk4);
             }
             if (i == CollLine_RightWall) {
-                return yakumono_param->unk8;
+                return DP(DynamicsDesc, yakumono_param->unk8);
             }
             if (i == CollLine_LeftWall) {
-                return yakumono_param->unkC;
+                return DP(DynamicsDesc, yakumono_param->unkC);
             }
             return NULL;
         }

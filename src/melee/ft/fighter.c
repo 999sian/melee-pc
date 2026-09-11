@@ -179,36 +179,36 @@ void Fighter_FirstInitialize_80067A84(void)
 void Fighter_LoadCommonData(void)
 {
     /* ftLoadCommonData is an on-disc array of 23 pointer slots. */
-    DISC_PTR(void)* pData;
+    DiscU32* pData;
     lbArchive_LoadSymbols("PlCo.dat", (void**) &pData, "ftLoadCommonData", 0);
 
     // copy 23 4-byte chunks from pData to p_ftCommonData in reverse order,
     // equivalent to this: for(i=0; i<23; i++)
     //   (&Fighter_804D64FC)[23-1-i] = pData[i];
     // loop unrolling doesn't work (only up to 8 elements)
-    p_ftCommonData = DP(void, pData[0]); // p_ftCommonData
-    Fighter_804D6550 = DP(void, pData[1]);
-    Fighter_804D654C = DP(void, pData[2]);
-    Fighter_804D6548 = DP(void, pData[3]);
-    ftPartsTable = DP(void, pData[4]);
-    Fighter_804D6540 = DP(void, pData[5]);
-    Fighter_804D653C = DP(void, pData[6]);
-    Fighter_804D6538 = DP(void, pData[7]);
-    Fighter_804D6534 = DP(void, pData[8]);
-    Fighter_804D6530 = DP(void, pData[9]);
-    Fighter_GrabMashShake = DP(void, pData[10]);
-    Fighter_SmashChargeShakeTable = DP(void, pData[11]);
-    Fighter_804D6524 = DP(void, pData[12]);
-    Fighter_804D6520 = DP(void, pData[13]);
-    Fighter_804D651C = DP(void, pData[14]);
-    Fighter_804D6518 = DP(void, pData[15]);
-    Fighter_804D6514 = DP(void, pData[16]);
-    Fighter_804D6510 = DP(void, pData[17]);
-    Fighter_804D650C = DP(void, pData[18]);
-    Fighter_804D6508 = DP(void, pData[19]);
-    Fighter_804D6504 = DP(void, pData[20]);
-    gCrowdConfig = DP(void, pData[21]);
-    Fighter_804D64FC = DP(void, pData[22]);
+    p_ftCommonData = DP(void, pData[0].v); // p_ftCommonData
+    Fighter_804D6550 = DP(void, pData[1].v);
+    Fighter_804D654C = DP(void, pData[2].v);
+    Fighter_804D6548 = DP(void, pData[3].v);
+    ftPartsTable = DP(void, pData[4].v);
+    Fighter_804D6540 = DP(void, pData[5].v);
+    Fighter_804D653C = DP(void, pData[6].v);
+    Fighter_804D6538 = DP(void, pData[7].v);
+    Fighter_804D6534 = DP(void, pData[8].v);
+    Fighter_804D6530 = DP(void, pData[9].v);
+    Fighter_GrabMashShake = DP(void, pData[10].v);
+    Fighter_SmashChargeShakeTable = DP(void, pData[11].v);
+    Fighter_804D6524 = DP(void, pData[12].v);
+    Fighter_804D6520 = DP(void, pData[13].v);
+    Fighter_804D651C = DP(void, pData[14].v);
+    Fighter_804D6518 = DP(void, pData[15].v);
+    Fighter_804D6514 = DP(void, pData[16].v);
+    Fighter_804D6510 = DP(void, pData[17].v);
+    Fighter_804D650C = DP(void, pData[18].v);
+    Fighter_804D6508 = DP(void, pData[19].v);
+    Fighter_804D6504 = DP(void, pData[20].v);
+    gCrowdConfig = DP(void, pData[21].v);
+    Fighter_804D64FC = DP(void, pData[22].v);
 }
 
 void Fighter_UpdateModelScale(Fighter_GObj* gobj)

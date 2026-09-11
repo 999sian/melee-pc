@@ -34,9 +34,9 @@ static struct {
     Mtx texture_mtx;
 } lbl_804336D0;
 
-static struct {
+static struct DISC_STRUCT {
     u8 x0;
-    f32* x4;
+    DISC_PTR(DiscF32) x4;
 }* refract_data;
 
 static inline void lbRefract_WriteTexCoord(lbRefract_CallbackData* cb, s32 row,
@@ -83,13 +83,13 @@ static void lbRefract_80021CE8(lbRefract_CallbackData* cb, s32 arg1)
             if (dist > 1.0f) {
                 dist = 1.0f;
             }
-            param0 = refract_data->x4[param_idx];
+            param0 = DP(DiscF32, refract_data->x4)[param_idx].v;
             if (param0) {
                 param0 = dist * my_fmodf(dist, param0);
             } else {
                 param0 = dist;
             }
-            param0 *= refract_data->x4[param_idx + 1];
+            param0 *= DP(DiscF32, refract_data->x4)[param_idx + 1].v;
             if (param0 > 1.0f) {
                 param0 = 1.0f;
             }

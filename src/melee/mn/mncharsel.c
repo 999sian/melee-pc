@@ -48,7 +48,7 @@ static u8 mnCharSel_804D50D0[8] = { 2, 0, 1, 0, 5, 3, 4, 0 };
 static u8 mnCharSel_804D50D8[8] = { 2, 0, 8, 1, 7, 7, 7, 7 };
 static u8 mnCharSel_804D50E0[3] = { 0, 1, 3 };
 
-typedef struct MnSelectChrModels {
+typedef struct DISC_STRUCT MnSelectChrModels {
     /* 0x0 */ StaticModelDesc background;
     /* 0x10 */ StaticModelDesc hand;
     /* 0x20 */ StaticModelDesc token;
@@ -60,13 +60,14 @@ typedef struct MnSelectChrModels {
     /* 0x80 */ StaticModelDesc door;
 } MnSelectChrModels;
 
-typedef struct MnSelectChrDataTable {
-    /* 0x00 */ HSD_CObjDesc* cam;
-    /* 0x04 */ HSD_LightDesc* light0;
-    /* 0x08 */ HSD_LightDesc* light1;
-    /* 0x0C */ HSD_FogDesc* fog;
+typedef struct DISC_STRUCT MnSelectChrDataTable {
+    /* 0x00 */ DISC_PTR(HSD_CObjDesc) cam;
+    /* 0x04 */ DISC_PTR(HSD_LightDesc) light0;
+    /* 0x08 */ DISC_PTR(HSD_LightDesc) light1;
+    /* 0x0C */ DISC_PTR(HSD_FogDesc) fog;
     /* 0x10 */ MnSelectChrModels models;
 } MnSelectChrDataTable;
+DISC_ASSERT_SIZE(MnSelectChrDataTable, 0xA0);
 
 static CSSData* mnCharSel_804D6CB0;
 static MnSelectChrDataTable* css_data_table;
@@ -4279,7 +4280,7 @@ s32 mnCharSel_802640A0(void)
     gobj = mnCharSel_804D6CB8 = GObj_Create(2, 3, 0x80);
     {
         HSD_CObj* cobj;
-        cobj = HSD_CObjLoadDesc(MenMain_cam = css_data_table->cam);
+        cobj = HSD_CObjLoadDesc(MenMain_cam = DP(HSD_CObjDesc, css_data_table->cam));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     }
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 0);
@@ -4289,8 +4290,8 @@ s32 mnCharSel_802640A0(void)
 
     gobj = GObj_Create(3, 4, 0x80);
     {
-        HSD_LObj* lobj0 = HSD_LObjLoadDesc(css_data_table->light0);
-        HSD_LObj* lobj1 = HSD_LObjLoadDesc(css_data_table->light1);
+        HSD_LObj* lobj0 = HSD_LObjLoadDesc(DP(HSD_LightDesc, css_data_table->light0));
+        HSD_LObj* lobj1 = HSD_LObjLoadDesc(DP(HSD_LightDesc, css_data_table->light1));
         HSD_LObjSetNext(lobj0, lobj1);
         HSD_GObjObject_80390A70(gobj, HSD_GObj_LightKind, lobj0);
     }
@@ -4298,7 +4299,7 @@ s32 mnCharSel_802640A0(void)
 
     gobj = GObj_Create(0xE, 2, 0);
     {
-        HSD_Fog* fog = HSD_FogLoadDesc(css_data_table->fog);
+        HSD_Fog* fog = HSD_FogLoadDesc(DP(HSD_FogDesc, css_data_table->fog));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_FogKind, fog);
     }
     GObj_SetupGXLink(gobj, (GObj_RenderFunc) (Event) fn_8026407C, 0, 0x80);

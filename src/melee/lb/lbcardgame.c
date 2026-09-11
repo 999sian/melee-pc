@@ -79,7 +79,7 @@ static int lb_8001C820(void)
     } else {
         var_r0 = 0;
     }
-    return _p(x5C)[var_r0];
+    return _p(x5C)[var_r0].v;
 }
 
 u32 lb_8001C87C(void)
@@ -93,7 +93,7 @@ int lb_8001C8BC(void)
     HSD_ASSERT(0x140, _p(enable));
 
     return lb_8001BC18(0, "SuperSmashBros0110290334", (void**) lb_803BAB74,
-                       &lb_803BAB60, lb_8001C658(), lb_8001C820(), _p(x5C)[3],
+                       &lb_803BAB60, lb_8001C658(), lb_8001C820(), _p(x5C)[3].v,
                        &_p(x4));
 }
 
@@ -169,7 +169,7 @@ static int dont_inline_helper(void)
 
     temp_r24 = lb_8001C820();
     return lb_8001BE30(0, "SuperSmashBros0110290334", lb_803BAB74,
-                       lb_8001C658(), temp_r24, _p(x5C)[3], &_p(x4),
+                       lb_8001C658(), temp_r24, _p(x5C)[3].v, &_p(x4),
                        fn_8001CC30);
 }
 

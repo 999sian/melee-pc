@@ -50,12 +50,12 @@ typedef struct {
 /* 4D78F4 */ u32 hsd_804D78F4 = 0;
 static HSD_JObj* hsd_804D08E8[8];
 /* 4D0908 */ HSD_Particle* hsd_804D0908[16];
-/* 4D0948 */ u32* hsd_804D0948[65];
-/* 4D0A4C */ HSD_PSFormGroup** psFormGroupArray[65];
-/* 4D0B50 */ HSD_PSTexGroup** psTexGroupArray[65];
-/* 4D0C54 */ HSD_PSFormGroup** psNumCmdList[65];
+/* 4D0948 */ DiscU32* hsd_804D0948[65];
+/* 4D0A4C */ int psFormGroupArray[65];
+/* 4D0B50 */ DiscU32* psTexGroupArray[65];
+/* 4D0C54 */ DiscU32* psNumCmdList[65];
 /* 4D0D58 */ int psCmdListArray[65];
-/* 4D0E5C */ HSD_PSCmdList** ptclref_804D0E5C[65];
+/* 4D0E5C */ DiscU32* ptclref_804D0E5C[65];
 /* 4D0F60 */ struct hsd_804D0F60_t hsd_804D0F60;
 
 typedef struct PSNode {
@@ -114,6 +114,18 @@ void hsd_803983A4(HSD_Generator* gen)
     }
 }
 
+/* Bank headers are big-endian 32-bit words; relocated slots hold host
+ * addresses (everything reachable lives below 4GB). */
+#define BANK_WORD(bank, i) (((DiscU32*) (bank))[i].v)
+#define BANK_VERSION(bank) (((DiscU16*) (bank))[0].v)
+
+static void relocate_slot(DiscU32* slot, const void* base)
+{
+    if (slot->v != 0) {
+        slot->v += (u32) (uintptr_t) base;
+    }
+}
+
 void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
                         const u32* ref, const int* formBank)
 {
@@ -121,34 +133,34 @@ void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
 
     (void) hsd_804D0908;
 
-    if (formBank != NULL && *formBank != *texBank) {
+    if (formBank != NULL && BANK_WORD(formBank, 0) != BANK_WORD(texBank, 0)) {
         OSPanic(__FILE__, 177,
                 "illigal form data (strange number of group)\n");
     }
 
-    hsd_804D0948[bank] = (u32*) ref;
-    ((s32*) psFormGroupArray)[bank] = *texBank;
-    psTexGroupArray[bank] = (HSD_PSTexGroup**) (texBank + 1);
+    hsd_804D0948[bank] = (DiscU32*) ref;
+    psFormGroupArray[bank] = BANK_WORD(texBank, 0);
+    psTexGroupArray[bank] = (DiscU32*) texBank + 1;
 
     if (formBank != NULL) {
-        psNumCmdList[bank] = (HSD_PSFormGroup**) (formBank + 1);
+        psNumCmdList[bank] = (DiscU32*) formBank + 1;
     } else {
         psNumCmdList[bank] = NULL;
     }
 
-    version = *(u16*) cmdBank;
+    version = BANK_VERSION(cmdBank);
     switch (version) {
     case 0:
-        psCmdListArray[bank] = cmdBank[1];
-        ptclref_804D0E5C[bank] = (HSD_PSCmdList**) (cmdBank + 2);
+        psCmdListArray[bank] = BANK_WORD(cmdBank, 1);
+        ptclref_804D0E5C[bank] = (DiscU32*) cmdBank + 2;
         break;
     case 0x40:
     case 0x41:
     case 0x42:
     case 0x43: {
-        s32 count = cmdBank[1];
-        psCmdListArray[bank] = cmdBank[2] + count;
-        ptclref_804D0E5C[bank] = (HSD_PSCmdList**) (cmdBank + 3 - count);
+        s32 count = BANK_WORD(cmdBank, 1);
+        psCmdListArray[bank] = BANK_WORD(cmdBank, 2) + count;
+        ptclref_804D0E5C[bank] = (DiscU32*) cmdBank + 3 - count;
         break;
     }
     default:
@@ -160,145 +172,77 @@ void psInitDataBankLocate(HSD_Archive* cmdBank, HSD_Archive* texBank,
                           int* formBank)
 {
     s32 num;
-    s32* ptr;
-    s32* group;
-    HSD_PSFormGroup* fg;
-    s32 j;
+    DiscU32* ptr;
+    DiscU32* groups;
+    DiscU32* base;
     s32 i;
     s32 num2;
-    s32* groups;
-    s32* base;
     s32 version;
 
-    version = *(u16*) cmdBank;
-    if (version < 0x40) {
-        if (version == 0) {
-            goto version0;
+    version = BANK_VERSION(cmdBank);
+    if (version == 0) {
+        num2 = BANK_WORD(cmdBank, 1);
+        base = (DiscU32*) cmdBank + 2;
+        num = 0;
+        for (i = 0; i < num2; i++) {
+            relocate_slot(&base[i], cmdBank);
         }
-        goto done_cmd;
-    }
-    if (version >= 0x44) {
-        goto done_cmd;
-    }
-    goto version40;
-
-version0:
-    num2 = ((s32*) cmdBank)[1];
-    base = (s32*) ((u8*) cmdBank + 8);
-    num = 0;
-    for (i = 0; i < num2; i++) {
-        ((s32*) cmdBank)[i + 2] += (s32) cmdBank;
-    }
-    goto done_cmd;
-
-version40:
-    num = ((s32*) cmdBank)[1];
-    num2 = ((s32*) cmdBank)[2] + num;
-    base = (s32*) cmdBank + 3 - num;
-    ptr = (s32*) cmdBank;
-    j = 0;
-    while (j < (s32) cmdBank->header.nb_reloc) {
-        if (ptr[3] != 0) {
-            ptr[3] += (s32) cmdBank;
+    } else if (version >= 0x40 && version < 0x44) {
+        s32 nb_reloc = BANK_WORD(cmdBank, 2);
+        num = BANK_WORD(cmdBank, 1);
+        num2 = nb_reloc + num;
+        base = (DiscU32*) cmdBank + 3 - num;
+        ptr = (DiscU32*) cmdBank + 3;
+        for (i = 0; i < nb_reloc; i++) {
+            relocate_slot(&ptr[i], cmdBank);
         }
-        ptr++;
-        j++;
+    } else {
+        num = num2 = 0;
+        base = NULL;
     }
 
-done_cmd:
     /* Phase 2: Fix cmdList kind bits */
-    ptr = base + num;
     for (i = num; i < num2; i++) {
-        s32* cmd = (s32*) ptr[0];
+        HSD_PSCmdList* cmd = (HSD_PSCmdList*) (uintptr_t) base[i].v;
         if (cmd != NULL) {
-            cmd[2] = cmd[2] & 0xF1FFFFFF;
-            cmd = (s32*) ptr[0];
-            cmd[2] = cmd[2] | 0x08000000;
+            cmd->kind = (cmd->kind & 0xF1FFFFFF) | 0x08000000;
         }
-        ptr++;
     }
 
     /* Phase 3: texBank relocation */
     {
-        s32 num_groups = ((s32*) texBank)[0];
+        s32 num_groups = BANK_WORD(texBank, 0);
         s32 k;
 
-        group = groups = (s32*) texBank + 1;
-        for (k = 1; k <= num_groups; k++) {
-            if (group[0] != 0) {
-                group[0] += (s32) texBank;
-            }
-            group++;
+        groups = (DiscU32*) texBank + 1;
+        for (k = 0; k < num_groups; k++) {
+            relocate_slot(&groups[k], texBank);
         }
 
-        {
-            group = groups;
-            for (k = 0; k < num_groups; k++) {
-                HSD_PSTexGroup* tg = (HSD_PSTexGroup*) group[0];
-                if (tg == NULL) {
-                    goto next_group;
-                }
+        for (k = 0; k < num_groups; k++) {
+            HSD_PSTexGroup* tg = (HSD_PSTexGroup*) (uintptr_t) groups[k].v;
+            u32 fmt;
+            u32 end;
+            if (tg == NULL) {
+                continue;
+            }
 
-                /* Relocate texture pointers in the group */
-                {
-                    s32 ti;
-                    for (ti = 0; (u32) ti < ((HSD_PSTexGroup*) group[0])->num;
-                         ti++)
-                    {
-                        if (((HSD_PSTexGroup*) group[0])->texTable[ti] != NULL)
-                        {
-                            ((HSD_PSTexGroup*) group[0])->texTable[ti] +=
-                                (u32) texBank;
-                        }
-                    }
-                    tg = (HSD_PSTexGroup*) group[0];
-                }
-
-                /* Check format for palette relocation */
-                {
-                    u32 fmt = tg->fmt;
-                    if (fmt != 8 && (fmt - 9) > 1) {
-                        goto next_group;
-                    }
-                }
-
-                /* Palette relocation */
+            /* Textures, then palettes for indexed formats. */
+            fmt = tg->fmt;
+            end = tg->num;
+            if (fmt == GX_TF_C8 || fmt == GX_TF_C4 || fmt == GX_TF_C14X2) {
                 if (tg->palflag & 1) {
-                    /* Single palette pointer */
-                    i = tg->num;
-                    if (tg->texTable[i] == NULL) {
-                        goto next_group;
-                    }
-                    tg->texTable[i] += (u32) texBank;
+                    end = tg->num + 1;
                 } else if (tg->palnum != 0) {
-                    /* Multiple palette pointers (palnum > 0) */
-                    i = tg->num;
-                    for (; (u32) i < ((HSD_PSTexGroup*) group[0])->num +
-                                         ((HSD_PSTexGroup*) group[0])->palnum;
-                         i++)
-                    {
-                        HSD_PSTexGroup* tg2 = (HSD_PSTexGroup*) group[0];
-                        u8** entry = &tg2->texTable[i];
-                        if (*entry != NULL) {
-                            *entry += (u32) texBank;
-                        }
-                    }
+                    end = tg->num + tg->palnum;
                 } else {
-                    /* palnum == 0: relocate double the num entries */
-                    i = tg->num;
-                    for (; (u32) i < ((HSD_PSTexGroup*) group[0])->num * 2;
-                         i++)
-                    {
-                        HSD_PSTexGroup* tg2 = (HSD_PSTexGroup*) group[0];
-                        u8** entry = &tg2->texTable[i];
-                        if (*entry != NULL) {
-                            *entry += (u32) texBank;
-                        }
-                    }
+                    end = tg->num * 2;
                 }
-
-            next_group:
-                group++;
+            }
+            for (i = 0; (u32) i < end; i++) {
+                if (tg->texTable[i] != 0) {
+                    tg->texTable[i] += (u32) (uintptr_t) texBank;
+                }
             }
         }
 
@@ -306,17 +250,18 @@ done_cmd:
         if (formBank == NULL) {
             return;
         }
-        {
-            for (i = 1; i <= num_groups; i++) {
-                if (formBank[i] != 0) {
-                    s32 fi;
-                    formBank[i] += (s32) formBank;
-                    fg = (HSD_PSFormGroup*) formBank[i];
-                    for (fi = 0; (u32) fi < fg->num; fi++) {
-                        if (fg->formTable[fi] != NULL) {
-                            fg->formTable[fi] += (u32) formBank;
-                        }
-                    }
+        groups = (DiscU32*) formBank + 1;
+        for (i = 0; i < num_groups; i++) {
+            HSD_PSFormGroup* fg;
+            s32 fi;
+            relocate_slot(&groups[i], formBank);
+            fg = (HSD_PSFormGroup*) (uintptr_t) groups[i].v;
+            if (fg == NULL) {
+                continue;
+            }
+            for (fi = 0; (u32) fi < fg->num; fi++) {
+                if (fg->formTable[fi] != 0) {
+                    fg->formTable[fi] += (u32) (uintptr_t) formBank;
                 }
             }
         }
@@ -355,7 +300,7 @@ void hsd_80398A08(u32 unused)
     numPeakParticles = 0;
     for (i = 0; i < 0x41; i++) {
         psCmdListArray[i] = 0;
-        psFormGroupArray[i] = NULL;
+        psFormGroupArray[i] = 0;
         ptclref_804D0E5C[i] = NULL;
         psTexGroupArray[i] = NULL;
         psNumCmdList[i] = NULL;
@@ -628,14 +573,12 @@ s32 hsd_803991D8(HSD_Generator* gen, HSD_JObj* jobj, f32 force, f32 range)
     return 0;
 }
 
+/* The command stream stores floats big-endian. */
 static inline void psReadFloat(u8** stream)
 {
     u8* p = *stream;
-    ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[0] = *p++;
-    ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[1] = *p++;
-    ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[2] = *p++;
-    ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[3] = *p++;
-    *stream = p;
+    hsd_804D78D0 = ((u32) p[0] << 24) | ((u32) p[1] << 16) | ((u32) p[2] << 8) | p[3];
+    *stream = p + 4;
 }
 
 static inline HSD_Particle* psSpawnChild(HSD_Particle** head, int linkNo,
@@ -652,11 +595,11 @@ static inline HSD_Particle* psSpawnChild(HSD_Particle** head, int linkNo,
     } else if (idx >= psCmdListArray[bank]) {
         child = NULL;
     } else {
-        cl = ptclref_804D0E5C[bank][idx];
+        cl = PS_CMDLIST(bank, idx);
         if (cl == NULL) {
             child = NULL;
         } else {
-            tg = psTexGroupArray[bank][cl->texGroup];
+            tg = PS_TEXGROUP(bank, cl->texGroup);
             if (tg != NULL) {
                 palflag = tg->palflag;
             } else {
@@ -795,20 +738,18 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                 u8 pn = *pc++;
                 pp->poseNum = pn;
                 {
-                    HSD_PSTexGroup** tga;
                     HSD_PSTexGroup* texGrp;
                     u8 bank = pp->bank;
                     u8 tgIdx = pp->texGroup;
 
-                    tga = psTexGroupArray[bank];
-                    texGrp = tga[tgIdx];
+                    texGrp = PS_TEXGROUP(bank, tgIdx);
                     if (texGrp != NULL
 #ifdef MUST_MATCH
                         && texGrp->texTable != NULL
 #endif
                     )
                     {
-                        if (texGrp->texTable[pp->poseNum] != NULL) {
+                        if (texGrp->texTable[pp->poseNum] != 0) {
                             pp->kind |= DispTexture;
                         }
                     }
@@ -1021,7 +962,7 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     pc += 2;
 
                     if (hsd_804D0948[pp->bank] != NULL) {
-                        idx = hsd_804D0948[pp->bank][idx];
+                        idx = hsd_804D0948[pp->bank][idx].v;
                     }
 
                     linkNo = pp->linkNo;
@@ -1033,11 +974,11 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     } else if (idx >= psCmdListArray[bank]) {
                         child = NULL;
                     } else {
-                        cl = ptclref_804D0E5C[bank][idx];
+                        cl = PS_CMDLIST(bank, idx);
                         if (cl == NULL) {
                             child = NULL;
                         } else {
-                            tg = psTexGroupArray[bank][cl->texGroup];
+                            tg = PS_TEXGROUP(bank, cl->texGroup);
                             if (tg != NULL) {
                                 palflag = tg->palflag;
                             } else {
@@ -1208,7 +1149,7 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     bank = pp->bank;
                     (void) bank;
                     if (hsd_804D0948[bank] != NULL) {
-                        idx = hsd_804D0948[bank][idx];
+                        idx = hsd_804D0948[bank][idx].v;
                     }
 
                     gchild = hsd_8039F05C(pp->linkNo, bank, idx);
@@ -1343,7 +1284,7 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     bank = pp->bank;
                     (void) bank;
                     if (hsd_804D0948[pp->bank] != NULL) {
-                        idx = hsd_804D0948[pp->bank][idx];
+                        idx = hsd_804D0948[pp->bank][idx].v;
                     }
 
                     linkNo = pp->linkNo;
@@ -1355,11 +1296,11 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     } else if (idx >= psCmdListArray[bank]) {
                         child = NULL;
                     } else {
-                        cl = ptclref_804D0E5C[bank][idx];
+                        cl = PS_CMDLIST(bank, idx);
                         if (cl == NULL) {
                             child = NULL;
                         } else {
-                            tg = psTexGroupArray[bank][cl->texGroup];
+                            tg = PS_TEXGROUP(bank, cl->texGroup);
                             if (tg != NULL) {
                                 palflag = tg->palflag;
                             } else {
@@ -1676,11 +1617,11 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     } else if (idx >= psCmdListArray[bank]) {
                         child = NULL;
                     } else {
-                        cl = ptclref_804D0E5C[bank][idx];
+                        cl = PS_CMDLIST(bank, idx);
                         if (cl == NULL) {
                             child = NULL;
                         } else {
-                            tg = psTexGroupArray[bank][cl->texGroup];
+                            tg = PS_TEXGROUP(bank, cl->texGroup);
                             if (tg != NULL) {
                                 palflag = tg->palflag;
                             } else {
@@ -1729,7 +1670,7 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     pc += 2;
 
                     if (hsd_804D0948[pp->bank] != NULL) {
-                        idx = hsd_804D0948[pp->bank][idx];
+                        idx = hsd_804D0948[pp->bank][idx].v;
                     }
 
                     linkNo = pp->linkNo;
@@ -1741,11 +1682,11 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     } else if (idx >= psCmdListArray[bank]) {
                         child = NULL;
                     } else {
-                        cl = ptclref_804D0E5C[bank][idx];
+                        cl = PS_CMDLIST(bank, idx);
                         if (cl == NULL) {
                             child = NULL;
                         } else {
-                            tg = psTexGroupArray[bank][cl->texGroup];
+                            tg = PS_TEXGROUP(bank, cl->texGroup);
                             if (tg != NULL) {
                                 palflag = tg->palflag;
                             } else {
@@ -1970,18 +1911,16 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     {
                         u8 bank = pp->bank;
                         u8 tgIdx = pp->texGroup;
-                        HSD_PSTexGroup** tga;
                         HSD_PSTexGroup* texGrp;
 
-                        tga = psTexGroupArray[bank];
-                        texGrp = tga[tgIdx];
+                        texGrp = PS_TEXGROUP(bank, tgIdx);
                         if (texGrp != NULL
 #ifdef MUST_MATCH
                             && texGrp->texTable != NULL
 #endif
                         )
                         {
-                            if (texGrp->texTable[pp->poseNum] != NULL) {
+                            if (texGrp->texTable[pp->poseNum] != 0) {
                                 pp->kind |= DispTexture;
                             }
                         }

@@ -36,7 +36,7 @@ struct UnkSmallLoadData {
 };
 
 /// @todo ::PlayerInitData
-typedef struct gm_801BAB40_src {
+typedef struct DISC_STRUCT gm_801BAB40_src {
     /* 0x00 */ s8 c_kind;
     /* 0x01 */ u8 slot_type;
     /* 0x02 */ u8 stocks;
@@ -62,7 +62,7 @@ struct gm_event_char_list {
 
 /// Per-level match init data; shares its first two bytes' bitfield layout
 /// with #StartMeleeRules.
-struct gm_evinit {
+struct DISC_STRUCT gm_evinit {
     /* 0x00 */ u32 x0_0 : 3;
     /* 0x00 */ u32 x0_3 : 3;
     /* 0x00 */ u32 x0_6 : 1;
@@ -88,14 +88,14 @@ struct gm_evinit {
 };
 
 /// Per-round stage and opponent table, for levels with multiple rounds.
-struct gm_evstage_table {
+struct DISC_STRUCT gm_evstage_table {
     /* 0x00 */ u8 count;
     /* 0x01 */ u8 pad1;
     /* 0x02 */ u16 stage[7];
-    /* 0x10 */ struct gm_801BAB40_src* entries[GM_MAX_PLAYERS];
+    /* 0x10 */ DISC_PTR(struct gm_801BAB40_src) entries[GM_MAX_PLAYERS];
 };
 
-struct gm_evbonus {
+struct DISC_STRUCT gm_evbonus {
     /* 0x00 */ s8 c_kind;
     /* 0x01 */ u8 x1;
     /* 0x02 */ u8 x2;
@@ -113,19 +113,35 @@ struct gm_evbonus {
     /* 0x17 */ u8 x17;
 };
 
-struct gm_804D6900_t {
+struct DISC_STRUCT gm_804D6900_x4_t {
+    s32 x0;
+    DISC_PTR(void) x4; ///< entry pointer or scalar, per level kind
+};
+
+struct DISC_STRUCT gm_804D6900_t {
     /* 0x00 */ u8 kind;
     /* 0x01 */ u8 flags; ///< top 3 bits: player count
     /* 0x02 */ u8 pad2[2];
-    /* 0x04 */ struct gm_804D6900_x4_t {
-        int x0;
-        intptr_t x4;
-    }* x4;
-    /* 0x08 */ struct gm_evinit* evinit;
-    /* 0x0C */ struct gm_evbonus* evbonus;
-    /* 0x10 */ struct gm_evstage_table* evstage_table;
-    /* 0x14 */ struct gm_801BAB40_src* player_init[5];
+    /* 0x04 */ DISC_PTR(struct gm_804D6900_x4_t) x4;
+    /* 0x08 */ DISC_PTR(struct gm_evinit) evinit;
+    /* 0x0C */ DISC_PTR(struct gm_evbonus) evbonus;
+    /* 0x10 */ DISC_PTR(struct gm_evstage_table) evstage_table;
+    /* 0x14 */ DISC_PTR(struct gm_801BAB40_src) player_init[5];
 };
+DISC_ASSERT_SIZE(struct gm_801BAB40_src, 0x1C);
+DISC_ASSERT_SIZE(struct gm_evinit, 0x28);
+DISC_ASSERT_SIZE(struct gm_evstage_table, 0x28);
+DISC_ASSERT_SIZE(struct gm_evbonus, 0x18);
+DISC_ASSERT_SIZE(struct gm_804D6900_t, 0x28);
+
+/* gm_804D6900[0] is the in-archive `gm_804D6900_t*[]` level table. */
+#define LV(tbl, i) ((struct gm_804D6900_t*) (uintptr_t) (tbl)[i].v)
+#define EV_X4(l) DP(struct gm_804D6900_x4_t, (l)->x4)
+#define EV_INIT(l) DP(struct gm_evinit, (l)->evinit)
+#define EV_BONUS(l) DP(struct gm_evbonus, (l)->evbonus)
+#define EV_STAGES(l) DP(struct gm_evstage_table, (l)->evstage_table)
+#define EV_PLAYER(l, i) DP(gm_801BAB40_src, (l)->player_init[i])
+#define EV_ENTRY(st, i) DP(gm_801BAB40_src, (st)->entries[i])
 
 /* 1BA938 */ static void gm_801BA938(struct EventData*, int lo, int hi, bool);
 /* 1BAA60 */ static void onEnterCss(GameModeState*);
@@ -171,7 +187,7 @@ struct gm_804D6900_t {
 /* 497758 */ static CSSData css_data;
 /* 4978A0 */ static StartMeleeData vs_enter_data;
 /* 4979D8 */ static MatchExitInfo vs_exit_data[2];
-/* 4D6900 */ static struct gm_804D6900_t** gm_804D6900[2];
+/* 4D6900 */ static DiscU32* gm_804D6900[2]; ///< [0]: gm_804D6900_t*[] on disc
 
 GameModeState gm_Mode_Event_States[] = {
     {
@@ -317,7 +333,7 @@ s32 gm_801BAC9C(GameModeState* arg0, s32 arg1)
     s32 count = 0;
     s32 k;
     struct gm_event_char_list* src =
-        (struct gm_event_char_list*) (*gm_804D6900)[ev->unk_535]->x4;
+        (struct gm_event_char_list*) EV_X4(LV(gm_804D6900[0], ev->unk_535));
     PAD_STACK(8);
 
     for (i = 0; i < ChKind_Max; i++) {
@@ -362,7 +378,7 @@ void onEnterVs(GameModeState* arg0)
     StartMeleeData* md = gm_GetGameModeStateEnterData(arg0);
     u8 level = ev->unk_535;
     s32 player_idx;
-    struct gm_804D6900_t** levels;
+    DiscU32* levels;
     gm_803DF94C_t** event_info = gm_803DF94C;
     struct GameCache* cache;
     int i;
@@ -372,20 +388,20 @@ void onEnterVs(GameModeState* arg0)
                           "sqEventInitDataLevelTbl", 0);
     levels = gm_804D6900[0];
     gm_SetupRulesDefaults(&md->rules);
-    md->rules.match_kind = levels[level]->evinit->x0_0;
-    md->rules.x0_3 = levels[level]->evinit->x0_3;
-    md->rules.timer_enabled = levels[level]->evinit->x0_6;
-    md->rules.timer_counts_up = levels[level]->evinit->x0_7;
+    md->rules.match_kind = EV_INIT(LV(levels, level))->x0_0;
+    md->rules.x0_3 = EV_INIT(LV(levels, level))->x0_3;
+    md->rules.timer_enabled = EV_INIT(LV(levels, level))->x0_6;
+    md->rules.timer_counts_up = EV_INIT(LV(levels, level))->x0_7;
     md->rules.x1_0 = 1;
     md->rules.x1_1 = 0;
     md->rules.x1_2 = 0;
     md->rules.x1_3 = 0;
     md->rules.timer_shows_hours = 0;
-    md->rules.friendly_fire = levels[level]->evinit->x1_1;
+    md->rules.friendly_fire = EV_INIT(LV(levels, level))->x1_1;
     md->rules.x2_2 = 0;
     md->rules.single_button = 0;
     md->rules.disable_pausing = 0;
-    md->rules.x2_5 = levels[level]->evinit->x1_2;
+    md->rules.x2_5 = EV_INIT(LV(levels, level))->x1_2;
     md->rules.x3_1 = 1;
     md->rules.x3_2 = 1;
     md->rules.x3_3 = 1;
@@ -399,37 +415,37 @@ void onEnterVs(GameModeState* arg0)
     md->rules.x4_7 = 0;
     md->rules.x5_0 = 1;
     md->rules.x5_1 = 0;
-    md->rules.x5_2 = levels[level]->evinit->x1_3;
-    md->rules.x5_3 = levels[level]->evinit->x1_4;
+    md->rules.x5_2 = EV_INIT(LV(levels, level))->x1_3;
+    md->rules.x5_3 = EV_INIT(LV(levels, level))->x1_4;
     md->rules.x7 = 0;
-    md->rules.is_teams = levels[level]->evinit->is_teams;
+    md->rules.is_teams = EV_INIT(LV(levels, level))->is_teams;
     md->rules.x9 = 0;
     md->rules.xA = 0;
-    md->rules.item_freq = levels[level]->evinit->item_freq;
-    md->rules.sd_penalty = levels[level]->evinit->sd_penalty;
+    md->rules.item_freq = EV_INIT(LV(levels, level))->item_freq;
+    md->rules.sd_penalty = EV_INIT(LV(levels, level))->sd_penalty;
     md->rules.xD = 0x6E;
-    md->rules.stkind = levels[level]->evinit->stkind;
-    md->rules.time_limit = levels[level]->evinit->time_limit;
+    md->rules.stkind = EV_INIT(LV(levels, level))->stkind;
+    md->rules.time_limit = EV_INIT(LV(levels, level))->time_limit;
     md->rules.x14 = 0;
     md->rules.x18 = 0;
-    md->rules.x20 = levels[level]->evinit->x10;
-    md->rules.x28 = levels[level]->evinit->x18;
-    md->rules.x30 = levels[level]->evinit->x1C;
-    md->rules.game_speed = levels[level]->evinit->game_speed;
+    md->rules.x20 = EV_INIT(LV(levels, level))->x10;
+    md->rules.x28 = EV_INIT(LV(levels, level))->x18;
+    md->rules.x30 = EV_INIT(LV(levels, level))->x1C;
+    md->rules.game_speed = EV_INIT(LV(levels, level))->game_speed;
     md->rules.on_match_start = fn_801BBFE8;
     if (md->rules.timer_counts_up & 1) {
         ev->xB_0 = 1;
     }
-    if (levels[level]->evinit->x1_0) {
+    if (EV_INIT(LV(levels, level))->x1_0) {
         ev->xB_6 = 1;
     }
-    if (levels[level]->evinit->unk24 != 1.0f) {
-        ev->x1C = levels[level]->evinit->unk24;
+    if (EV_INIT(LV(levels, level))->unk24 != 1.0f) {
+        ev->x1C = EV_INIT(LV(levels, level))->unk24;
     }
-    if (levels[level]->kind == 2) {
+    if (LV(levels, level)->kind == 2) {
         u16 stage;
         ev->xB_4 = 1;
-        stage = levels[level]->evstage_table->stage[ev->x20];
+        stage = EV_STAGES(LV(levels, level))->stage[ev->x20];
         md->rules.stkind = stage;
         ev->x48 = stage;
         if (ev->x20 > 0) {
@@ -444,14 +460,14 @@ void onEnterVs(GameModeState* arg0)
         md->players[i].slot_type = Gm_PKind_NA;
     }
 
-    for (player_idx = 0; player_idx < ((levels[level]->flags >> 5) & 7);
+    for (player_idx = 0; player_idx < ((LV(levels, level)->flags >> 5) & 7);
          player_idx++)
     {
-        while (levels[level]->player_init[player_idx] == NULL) {
+        while (EV_PLAYER(LV(levels, level), player_idx) == NULL) {
             player_idx++;
         }
         gm_801BAB40(&md->players[player_idx],
-                    levels[level]->player_init[player_idx]);
+                    EV_PLAYER(LV(levels, level), player_idx));
         if (player_idx == 0) {
             u8 c;
             gm_801B05F4(md->players, ev->x6);
@@ -471,11 +487,11 @@ void onEnterVs(GameModeState* arg0)
                 gm_RumbleEnabledForPlayer(ev->x6, md->players[0].nametag);
         } else {
             s8 c_kind;
-            if (levels[level]->player_init[player_idx]->team == 0) {
+            if (EV_PLAYER(LV(levels, level), player_idx)->team == 0) {
                 md->players[player_idx].team = md->players[0].team;
                 md->players[player_idx].xD_b1 = 1;
             }
-            if (levels[level]->player_init[player_idx]->c_kind == ChKind_None)
+            if (EV_PLAYER(LV(levels, level), player_idx)->c_kind == ChKind_None)
             {
                 s8* t = &ev->x8 + player_idx - 1;
                 s8 v = *t;
@@ -509,7 +525,7 @@ void onEnterVs(GameModeState* arg0)
         }
     }
 
-    if (levels[level]->kind == 2) {
+    if (LV(levels, level)->kind == 2) {
         if (ev->x20 > 0) {
             s8 c;
             md->players[0].stocks = (s8) ev->x24;
@@ -523,7 +539,7 @@ void onEnterVs(GameModeState* arg0)
             }
         }
         gm_801BAB40(&md->players[1],
-                    levels[level]->evstage_table->entries[ev->x20]);
+                    EV_ENTRY(EV_STAGES(LV(levels, level)), ev->x20));
         if (md->players[1].ckind == md->players[0].ckind) {
             u8 c = md->players[1].color;
             if (c == md->players[0].color) {
@@ -559,13 +575,13 @@ void onEnterVs(GameModeState* arg0)
         md->players[1].xD_b2 = 1;
         md->players[2].xD_b2 = 1;
     }
-    if (levels[level]->kind == 1) {
+    if (LV(levels, level)->kind == 1) {
         struct gm_evbonus* bonus;
         int x5_flag;
         s8 k;
         u8 color2;
         ev->xB_3 = 1;
-        bonus = levels[level]->evbonus;
+        bonus = EV_BONUS(LV(levels, level));
         if (bonus->x5 == 1) {
             x5_flag = 1;
             if ((s8) ev->x0 == bonus->c_kind) {
@@ -577,7 +593,7 @@ void onEnterVs(GameModeState* arg0)
         } else {
             x5_flag = 0;
         }
-        bonus = levels[level]->evbonus;
+        bonus = EV_BONUS(LV(levels, level));
         k = bonus->c_kind;
         if (k == 4) {
             color2 = bonus->x17;
@@ -587,16 +603,16 @@ void onEnterVs(GameModeState* arg0)
         gm_8016A22C(k, 0x21, 0x21, ev->x50[1], 0, 0, x5_flag, 0, color2,
                     ev->x0, ev->x1, bonus->x1, bonus->x2, bonus->x3, bonus->x4,
                     0, 1, bonus->x8, bonus->xC);
-        gm_8016A414(levels[level]->evbonus->x10);
+        gm_8016A414(EV_BONUS(LV(levels, level))->x10);
         gm_8016A21C(&md->rules);
-        if ((levels[level]->evbonus->flags >> 7) & 1) {
+        if ((EV_BONUS(LV(levels, level))->flags >> 7) & 1) {
             gm_8016A434();
         }
         if (event_info[level]->x4 != NULL) {
             gm_8016A404((s32) event_info[level]->x4);
         }
-        if (levels[level]->evbonus->x15 != 0) {
-            gm_8016A424(levels[level]->evbonus->x15);
+        if (EV_BONUS(LV(levels, level))->x15 != 0) {
+            gm_8016A424(EV_BONUS(LV(levels, level))->x15);
         }
     }
     cache = &lbDvd_GetPreloadCacheScene()->game_cache;
@@ -789,9 +805,9 @@ void gm_Mode_Event_OnInit(void)
 
 static inline void gm_801BBB64_inline(struct EventData* ev)
 {
-    struct gm_804D6900_t** tbl = gm_804D6900[0];
+    DiscU32* tbl = gm_804D6900[0];
     u8 idx = ev->unk_535;
-    if ((*tbl[idx]->player_init)->c_kind != ChKind_None) {
+    if (EV_PLAYER(LV(tbl, idx), 0)->c_kind != ChKind_None) {
         ev->x44 = 0;
     } else {
         ev->x44 = 1;
@@ -800,9 +816,9 @@ static inline void gm_801BBB64_inline(struct EventData* ev)
 
 void gm_801BBB64(void)
 {
-    struct gm_804D6900_t** pp;
+    struct gm_804D6900_t* pp;
     struct EventData* ev = &gmMainLib_804D3EE0->vs.unk_530;
-    struct gm_804D6900_t** tbl = gm_804D6900[0];
+    DiscU32* tbl = gm_804D6900[0];
     u8 idx = ev->unk_535;
     gm_801BAB40_src* player_init;
     gm_801BAB40_src* event_entry;
@@ -811,28 +827,28 @@ void gm_801BBB64(void)
 
     gm_801BBB64_inline(ev);
 
-    pp = &tbl[idx];
-    ev->x48 = (*pp)->evinit->stkind;
+    pp = LV(tbl, idx);
+    ev->x48 = EV_INIT(pp)->stkind;
 
     for (i = 0; i < 4; i++) {
-        player_init = (*pp)->player_init[i];
+        player_init = EV_PLAYER(pp, i);
         if (player_init != NULL) {
             ev->x4C[i] = player_init->c_kind;
-            ev->x50[i] = (*pp)->player_init[i]->color;
+            ev->x50[i] = EV_PLAYER(pp, i)->color;
         } else {
             ev->x4C[i] = ChKind_None;
             ev->x50[i] = 0;
         }
     }
 
-    if ((*pp)->kind == 1) {
-        ev->x4C[1] = (*pp)->evbonus->c_kind;
-        if ((*pp)->evbonus->x5 == 1) {
-            ev->x50[1] = (*pp)->evbonus->color;
+    if (pp->kind == 1) {
+        ev->x4C[1] = EV_BONUS(pp)->c_kind;
+        if (EV_BONUS(pp)->x5 == 1) {
+            ev->x50[1] = EV_BONUS(pp)->color;
         } else {
             ev->x50[1] = 0xFF;
         }
-        if ((s32) (*pp)->evbonus->x17 == 1) {
+        if ((s32) EV_BONUS(pp)->x17 == 1) {
             ev->x45 = 1;
         } else {
             ev->x45 = 0;
@@ -852,46 +868,46 @@ void gm_801BBB64(void)
         } else {
             ev->x44 = 4;
         }
-        event_entry = (*pp)->evstage_table->entries[ev->x20];
+        event_entry = EV_ENTRY(EV_STAGES(pp), ev->x20);
         ev->x4C[1] = event_entry->c_kind;
-        event_entry = (*pp)->evstage_table->entries[ev->x20];
+        event_entry = EV_ENTRY(EV_STAGES(pp), ev->x20);
         ev->x50[1] = event_entry->color;
         return;
     case 35:
         if (ev->x20 == 0) {
             ev->x44 = 2;
-            event_entry = (*pp)->evstage_table->entries[0];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 0);
             ev->x4C[1] = event_entry->c_kind;
-            event_entry = (*pp)->evstage_table->entries[0];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 0);
             ev->x50[1] = event_entry->color;
-            event_entry = (*pp)->evstage_table->entries[2];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 2);
             ev->x4C[2] = event_entry->c_kind;
-            event_entry = (*pp)->evstage_table->entries[2];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 2);
             ev->x50[2] = event_entry->color;
-            event_entry = (*pp)->evstage_table->entries[3];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 3);
             ev->x4C[3] = event_entry->c_kind;
-            event_entry = (*pp)->evstage_table->entries[3];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 3);
             ev->x50[3] = event_entry->color;
             return;
         }
         if (ev->x20 == 1) {
             ev->x44 = 4;
-            event_entry = (*pp)->evstage_table->entries[1];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 1);
             ev->x4C[1] = event_entry->c_kind;
-            event_entry = (*pp)->evstage_table->entries[1];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 1);
             ev->x50[1] = event_entry->color;
-            event_entry = (*pp)->evstage_table->entries[4];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 4);
             ev->x4C[2] = event_entry->c_kind;
-            event_entry = (*pp)->evstage_table->entries[4];
+            event_entry = EV_ENTRY(EV_STAGES(pp), 4);
             ev->x50[2] = event_entry->color;
             return;
         }
         break;
     case 43:
-        x4 = (*pp)->x4;
-        event_entry = (gm_801BAB40_src*) x4->x4;
+        x4 = EV_X4(pp);
+        event_entry = DP(gm_801BAB40_src, x4->x4);
         ev->x4C[2] = event_entry->c_kind;
-        event_entry = (gm_801BAB40_src*) x4->x4;
+        event_entry = DP(gm_801BAB40_src, x4->x4);
         ev->x50[2] = event_entry->color;
         return;
     }
@@ -900,7 +916,7 @@ void gm_801BBB64(void)
 void gm_Mode_Event_OnLoad(void)
 {
     struct EventData* temp_r30;
-    struct gm_804D6900_t** temp_r29;
+    DiscU32* temp_r29;
     u8 temp_r28;
     u8 temp_r3;
     PAD_STACK(8);
@@ -936,7 +952,7 @@ void gm_Mode_Event_OnLoad(void)
     temp_r30->x3C = 0;
     temp_r30->x40 = 0;
     gm_801BBB64();
-    if (temp_r29[temp_r28]->player_init[0]->c_kind != 0x21) {
+    if (EV_PLAYER(LV(temp_r29, temp_r28), 0)->c_kind != 0x21) {
         gm_SetGameModeStateId(1);
     }
 }
@@ -978,7 +994,7 @@ gm_801BC00C_GetCharacterKind(gm_801BAB40_src* event_entry)
 
 void gm_801BC00C(void)
 {
-    struct gm_804D6900_t** event_levels;
+    DiscU32* event_levels;
     struct EventData* ev = gm_GetEventData();
     u8 idx = ev->unk_535;
     gm_803DF94C_t** event_info = gm_803DF94C;
@@ -1019,16 +1035,16 @@ void gm_801BC00C(void)
     switch (idx) {
     case 35:
         if (ev->x20 == 0) {
-            event_entry = event_levels[idx]->evstage_table->entries[2];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 2);
             ftLib_80087508(
                 Player_800325C8((CharacterKind) event_entry->c_kind, 0),
                 event_entry->color);
-            event_entry = event_levels[idx]->evstage_table->entries[3];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 3);
             ftLib_80087508(
                 Player_800325C8((CharacterKind) event_entry->c_kind, 0),
                 event_entry->color);
         } else {
-            event_entry = event_levels[idx]->evstage_table->entries[4];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 4);
             ftLib_80087508(
                 Player_800325C8(gm_801BC00C_GetCharacterKind(event_entry), 0),
                 event_entry->color);
@@ -1036,7 +1052,7 @@ void gm_801BC00C(void)
         break;
     case 43:
         chr = gm_801BC00C_GetCharacter(
-            (gm_801BAB40_src*) event_levels[idx]->x4->x4);
+            DP(gm_801BAB40_src, EV_X4(LV(event_levels, idx))->x4));
         ftLib_80087508(chr, ev->x50[2]);
         if ((s8) ev->x0 == 4) {
             Player_80031DA8(chr, ev->x1);
@@ -1065,24 +1081,24 @@ void gm_801BC00C(void)
     case 29:
     case 39:
     case 48:
-        for (i = ev->x20; i < event_levels[idx]->evstage_table->count; i++) {
-            event_entry = event_levels[idx]->evstage_table->entries[i];
+        for (i = ev->x20; i < EV_STAGES(LV(event_levels, idx))->count; i++) {
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), i);
             gm_801BC00C_inline(event_entry);
         }
         break;
     case 35:
         if (ev->x20 == 0) {
-            event_entry = event_levels[idx]->evstage_table->entries[0];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 0);
             gm_801BC00C_inline(event_entry);
-            event_entry = event_levels[idx]->evstage_table->entries[2];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 2);
             gm_801BC00C_inline(event_entry);
-            event_entry = event_levels[idx]->evstage_table->entries[3];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 3);
             gm_801BC00C_inline(event_entry);
         }
         if (ev->x20 <= 1) {
-            event_entry = event_levels[idx]->evstage_table->entries[1];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 1);
             gm_801BC00C_inline(event_entry);
-            event_entry = event_levels[idx]->evstage_table->entries[4];
+            event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 4);
             gm_801BC00C_inline(event_entry);
         }
         break;
@@ -1255,7 +1271,7 @@ void gm_801BC4F4(HSD_GObj* gobj)
 void gm_801BC670(HSD_GObj* arg0)
 {
     struct EventData* temp_r31 = &gmMainLib_804D3EE0->vs.unk_530;
-    struct gm_804D6900_x4_t* temp_r30 = gm_804D6900[0][0]->x4;
+    struct gm_804D6900_x4_t* temp_r30 = EV_X4(LV(gm_804D6900[0], 0));
     PAD_STACK(0x10);
 
     temp_r31->xB_2 = true;
@@ -1383,7 +1399,7 @@ void gm_801BC9E8(HSD_GObj* gobj)
     bool var_r0;
     struct EventData* temp_r30_2;
     struct gm_804D6900_x4_t* temp_r30 =
-        (*gm_804D6900)[gmMainLib_804D3EE0->vs.unk_530.unk_535]->x4;
+        EV_X4(LV(gm_804D6900[0], gmMainLib_804D3EE0->vs.unk_530.unk_535));
     u32 coins = Player_GetCoins(0);
     PAD_STACK(0x28);
 
@@ -1487,12 +1503,12 @@ void gm_801BCAF0(HSD_GObj* gobj)
 
 void gm_801BCC9C(HSD_GObj* arg0)
 {
-    struct gm_804D6900_t** temp_r29 = gm_804D6900[0];
+    DiscU32* temp_r29 = gm_804D6900[0];
     struct EventData* ev = &gmMainLib_804D3EE0->vs.unk_530;
     u8 idx = gmMainLib_804D3EE0->vs.unk_530.unk_535;
-    struct gm_804D6900_x4_t* x4 = (*temp_r29)->x4;
+    struct gm_804D6900_x4_t* x4 = EV_X4(LV(temp_r29, 0));
     struct EventData* ev2;
-    struct gm_804D6900_t** entry;
+    struct gm_804D6900_t* entry;
     struct gm_evstage_table* inner;
     gm_801BAB40_src* cd;
     u8 costume;
@@ -1509,9 +1525,9 @@ void gm_801BCC9C(HSD_GObj* arg0)
         return;
     }
     if (Player_GetStocks(1) <= 0) {
-        entry = &temp_r29[idx];
-        inner = (*entry)->evstage_table;
-        cd = inner->entries[ev->x20];
+        entry = LV(temp_r29, idx);
+        inner = EV_STAGES(entry);
+        cd = EV_ENTRY(inner, ev->x20);
         ev2 = &gmMainLib_804D3EE0->vs.unk_530;
         costume = cd->color;
         if ((s8) ev2->x0 == cd->c_kind && ev2->x1 == costume) {
@@ -1522,7 +1538,7 @@ void gm_801BCC9C(HSD_GObj* arg0)
             }
         }
         gm_8016AC44(cd->c_kind, (s8) costume);
-        if (ev->x20 >= (s32) ((*entry)->evstage_table->count - 1)) {
+        if (ev->x20 >= (s32) (EV_STAGES(entry)->count - 1)) {
             gm_801BC4F4(arg0);
             return;
         }
@@ -1621,12 +1637,12 @@ void gm_801BD028(HSD_GObj* arg0)
     VsSceneController* rules;
     s32 cond;
     struct EventData* ev = &gmMainLib_804D3EE0->vs.unk_530;
-    struct gm_804D6900_t** levels = gm_804D6900[0];
+    DiscU32* levels = gm_804D6900[0];
     u8 level = gmMainLib_804D3EE0->vs.unk_530.unk_535;
     PAD_STACK(0x1C);
 
     if (gmMainLib_804D3EE0->vs.unk_530.x10 == 0) {
-        Vec3* src = (Vec3*) levels[level]->x4;
+        DiscVec3* src = (DiscVec3*) EV_X4(LV(levels, level));
         pos.x = src->x;
         pos.y = src->y;
         pos.z = src->z;
@@ -2137,37 +2153,30 @@ void gm_801BDD44(HSD_GObj* arg0)
 void gm_801BDE94(HSD_GObj* arg0)
 {
     PlayerInitData sp50;
-    struct gm_804D6900_t** tbl = gm_804D6900[0];
+    DiscU32* tbl = gm_804D6900[0];
     struct EventData* ev = gm_GetEventData();
     u8 level = ev->unk_535;
     u64 mask;
-    struct gm_804D6900_x4_t* x4 = (*tbl)->x4;
+    struct gm_804D6900_x4_t* x4 = EV_X4(LV(tbl, 0));
     PAD_STACK(0x3C);
 
     if (!ev->xB_5) {
         ev->xB_5 = 1;
         if (ev->x20 == 0) {
-            mask = lbAudioAx_80026E84((enum CharacterKind)(s8) (u8) tbl[level]
-                                          ->player_init[0]
+            mask = lbAudioAx_80026E84((enum CharacterKind)(s8) (u8) EV_PLAYER(LV(tbl, level), 0)
                                           ->c_kind);
-            mask |= lbAudioAx_80026E84((enum CharacterKind) tbl[level]
-                                           ->evstage_table->entries[0]
+            mask |= lbAudioAx_80026E84((enum CharacterKind) EV_ENTRY(EV_STAGES(LV(tbl, level)), 0)
                                            ->c_kind);
-            mask |= lbAudioAx_80026E84((enum CharacterKind) tbl[level]
-                                           ->evstage_table->entries[2]
+            mask |= lbAudioAx_80026E84((enum CharacterKind) EV_ENTRY(EV_STAGES(LV(tbl, level)), 2)
                                            ->c_kind);
-            mask |= lbAudioAx_80026E84((enum CharacterKind) tbl[level]
-                                           ->evstage_table->entries[3]
+            mask |= lbAudioAx_80026E84((enum CharacterKind) EV_ENTRY(EV_STAGES(LV(tbl, level)), 3)
                                            ->c_kind);
         } else {
-            mask = lbAudioAx_80026E84((enum CharacterKind)(s8) (u8) tbl[level]
-                                          ->player_init[0]
+            mask = lbAudioAx_80026E84((enum CharacterKind)(s8) (u8) EV_PLAYER(LV(tbl, level), 0)
                                           ->c_kind);
-            mask |= lbAudioAx_80026E84((enum CharacterKind) tbl[level]
-                                           ->evstage_table->entries[1]
+            mask |= lbAudioAx_80026E84((enum CharacterKind) EV_ENTRY(EV_STAGES(LV(tbl, level)), 1)
                                            ->c_kind);
-            mask |= lbAudioAx_80026E84((enum CharacterKind) tbl[level]
-                                           ->evstage_table->entries[4]
+            mask |= lbAudioAx_80026E84((enum CharacterKind) EV_ENTRY(EV_STAGES(LV(tbl, level)), 4)
                                            ->c_kind);
         }
         lbAudioAx_80026F2C(0x14);
@@ -2188,20 +2197,20 @@ void gm_801BDE94(HSD_GObj* arg0)
         case 0:
             if (Player_GetStocks(1) <= 0) {
                 ev->x18 = 1;
-                gm_801BAB40(&sp50, tbl[level]->evstage_table->entries[2]);
+                gm_801BAB40(&sp50, EV_ENTRY(EV_STAGES(LV(tbl, level)), 2));
                 gm_8016EDDC(2, &sp50);
             }
             break;
         case 1:
             if (Player_GetStocks(2) <= 0) {
                 ev->x18 = 2;
-                gm_801BAB40(&sp50, tbl[level]->evstage_table->entries[3]);
+                gm_801BAB40(&sp50, EV_ENTRY(EV_STAGES(LV(tbl, level)), 3));
                 gm_8016EDDC(3, &sp50);
             }
             break;
         case 2:
             if (Player_GetStocks(3) <= 0) {
-                gm_801BAB40_src* sp = tbl[level]->evstage_table->entries[3];
+                gm_801BAB40_src* sp = EV_ENTRY(EV_STAGES(LV(tbl, level)), 3);
                 struct EventData* ev2 = &gmMainLib_804D3EE0->vs.unk_530;
                 u8 color = sp->color;
                 if ((s8) ev2->x0 == sp->c_kind && ev2->x1 == color) {
@@ -2233,13 +2242,13 @@ void gm_801BDE94(HSD_GObj* arg0)
         case 0:
             if (Player_GetStocks(1) <= 0) {
                 ev->x18 = 1;
-                gm_801BAB40(&sp50, tbl[level]->evstage_table->entries[4]);
+                gm_801BAB40(&sp50, EV_ENTRY(EV_STAGES(LV(tbl, level)), 4));
                 gm_8016EDDC(2, &sp50);
             }
             break;
         case 1:
             if (Player_GetStocks(2) <= 0) {
-                gm_801BAB40_src* sp = tbl[level]->evstage_table->entries[4];
+                gm_801BAB40_src* sp = EV_ENTRY(EV_STAGES(LV(tbl, level)), 4);
                 struct EventData* ev2 = &gmMainLib_804D3EE0->vs.unk_530;
                 u8 color = sp->color;
                 if ((s8) ev2->x0 == sp->c_kind && ev2->x1 == color) {
@@ -2305,7 +2314,7 @@ void gm_801BE39C(HSD_GObj* gobj)
     VsSceneController* temp_r3_2;
     struct EventData* temp_r31;
     struct gm_804D6900_x4_t* temp_r30;
-    struct gm_804D6900_t** temp_r28;
+    DiscU32* temp_r28;
     struct EventData* temp_r27_5;
     bool var_r0;
     u64 temp_ret;
@@ -2316,14 +2325,14 @@ void gm_801BE39C(HSD_GObj* gobj)
     temp_r28 = gm_804D6900[0];
     temp_r0 = gmMainLib_804D3EE0->vs.unk_530.unk_535;
     temp_r31 = &gmMainLib_804D3EE0->vs.unk_530;
-    temp_r30 = temp_r28[temp_r0]->x4;
+    temp_r30 = EV_X4(LV(temp_r28, temp_r0));
     if (!temp_r31->xB_5) {
         temp_r31->xB_5 = true;
         temp_ret = lbAudioAx_80026E84(Player_GetPlayerCharacter(0));
         temp_ret |=
-            lbAudioAx_80026E84(temp_r28[temp_r0]->player_init[1]->c_kind);
+            lbAudioAx_80026E84(EV_PLAYER(LV(temp_r28, temp_r0), 1)->c_kind);
         temp_ret |=
-            lbAudioAx_80026E84(((gm_801BAB40_src*) temp_r30->x4)->c_kind);
+            lbAudioAx_80026E84((DP(gm_801BAB40_src, temp_r30->x4))->c_kind);
         lbAudioAx_80026F2C(0x14);
         lbAudioAx_8002702C(4, temp_ret);
         lbAudioAx_80027168();
@@ -2357,7 +2366,7 @@ void gm_801BE39C(HSD_GObj* gobj)
     }
     if (temp_r31->x10 == 0 && gm_8016AEEC() >= temp_r30->x0) {
         temp_r31->x10 = 1;
-        gm_801BAB40(&sp40, (gm_801BAB40_src*) temp_r30->x4);
+        gm_801BAB40(&sp40, DP(gm_801BAB40_src, temp_r30->x4));
         sp40.color = temp_r31->x50[2];
         gm_8016EDDC(2, &sp40);
     }
@@ -2533,7 +2542,7 @@ void gm_801BEA10(int arg0)
 {
     Player_SetPlayerAndEntityCpuType(
         arg0,
-        (*gm_804D6900)[gmMainLib_804D3EE0->vs.unk_530.unk_535]->evbonus->x16);
+        EV_BONUS(LV(gm_804D6900[0], gmMainLib_804D3EE0->vs.unk_530.unk_535))->x16);
 }
 
 void gm_801BEA4C(int arg0)
@@ -2577,7 +2586,7 @@ u8 gm_801BEB80(void)
 
 bool gm_801BEB8C(u8 arg0)
 {
-    return (*gm_804D6900)[arg0]->evinit->x1_0;
+    return EV_INIT(LV(gm_804D6900[0], arg0))->x1_0;
 }
 
 u8 gm_801BEBA8(u8 arg0)
@@ -2601,7 +2610,7 @@ u8 gm_801BEBF8(u8 arg0)
 {
     u8* table = gm_803DF918;
     u8 i;
-    struct gm_804D6900_t** array = gm_804D6900[0];
+    DiscU32* array = gm_804D6900[0];
     struct gm_804D6900_t* entry;
 
     for (i = 0; i < 0x33; i++) {
@@ -2610,20 +2619,20 @@ u8 gm_801BEBF8(u8 arg0)
         }
     }
 
-    entry = array[i];
+    entry = LV(array, i);
     if (entry == NULL) {
         return ChKind_None;
     }
 
-    return entry->player_init[0]->c_kind;
+    return EV_PLAYER(entry, 0)->c_kind;
 }
 
 UNK_T gm_801BEC54(void)
 {
     struct gm_804D6900_t* temp_r3;
-    temp_r3 = (*gm_804D6900)[gmMainLib_804D3EE0->vs.unk_530.unk_535];
+    temp_r3 = LV(gm_804D6900[0], gmMainLib_804D3EE0->vs.unk_530.unk_535);
     if (temp_r3 == NULL) {
         return NULL;
     }
-    return temp_r3->x4;
+    return EV_X4(temp_r3);
 }

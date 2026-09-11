@@ -8,9 +8,9 @@
 #include <sysdolphin/baselib/gobj.h>
 
 /* 4D6B30 */ u16 db_gameLaunchButtonState;
-/* 4D6B2C */ char** db_bonus_names;
-/* 4D6B28 */ char** db_motionstate_names;
-/* 4D6B24 */ char** db_submotion_names;
+/* 4D6B2C */ DiscU32* db_bonus_names;
+/* 4D6B28 */ DiscU32* db_motionstate_names;
+/* 4D6B24 */ DiscU32* db_submotion_names;
 /* 4D6B20 */ bool db_804D6B20;
 
 DbLKind DbLevel = DbLKind_NoDebugRom;
@@ -63,10 +63,10 @@ void db_GetGameLaunchButtonState(void)
 void db_Setup(void)
 {
     int i;
-    struct {
-        char** bonus_names;
-        char** motionstate_names;
-        char** submotion_names;
+    struct DISC_STRUCT {
+        DISC_PTR(DiscU32) bonus_names;
+        DISC_PTR(DiscU32) motionstate_names;
+        DISC_PTR(DiscU32) submotion_names;
     }* commonData;
 
     if (DbLevel >= DbLKind_DebugRom) {
@@ -80,9 +80,9 @@ void db_Setup(void)
         lbArchive_LoadSymbols("DbCo.dat", (void**) &commonData,
                               "dbLoadCommonData", 0);
 
-        db_bonus_names = commonData->bonus_names;
-        db_motionstate_names = commonData->motionstate_names;
-        db_submotion_names = commonData->submotion_names;
+        db_bonus_names = DP(DiscU32, commonData->bonus_names);
+        db_motionstate_names = DP(DiscU32, commonData->motionstate_names);
+        db_submotion_names = DP(DiscU32, commonData->submotion_names);
 
         fn_SetupCpuHandicapInfo();
         fn_SetupAnimationInfo();

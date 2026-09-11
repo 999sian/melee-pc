@@ -34,11 +34,11 @@ int hsd_803B27F4(const s32* arg0, const char* arg1, int arg2, int arg3,
     {
         s32 next = write_idx + 1;
         entry->type = 6;
-        entry->f1 = (s32) arg0;
-        entry->f2 = (s32) arg1;
+        entry->f1 = PTR_TO_U32(arg0);
+        entry->f2 = PTR_TO_U32(arg1);
         entry->f3 = arg2;
         entry->f4 = arg3;
-        entry->f5 = (s32) arg4;
+        entry->f5 = PTR_TO_U32(arg4);
         hsd_804D7994 = next % 32;
     }
 
@@ -63,11 +63,11 @@ int hsd_803B286C(const s32* arg0, UNK_T arg1, const char* arg2, int arg3,
         }
 
         CMD_QUEUE(base)[write_idx].type = 3;
-        CMD_QUEUE(base)[write_idx].f1 = (s32) arg0;
-        CMD_QUEUE(base)[write_idx].f2 = (s32) arg1;
+        CMD_QUEUE(base)[write_idx].f1 = PTR_TO_U32(arg0);
+        CMD_QUEUE(base)[write_idx].f2 = PTR_TO_U32(arg1);
         CMD_QUEUE(base)[write_idx].f3 = arg3;
         CMD_QUEUE(base)[write_idx].f4 = arg4;
-        CMD_QUEUE(base)[write_idx].f5 = (s32) arg5;
+        CMD_QUEUE(base)[write_idx].f5 = PTR_TO_U32(arg5);
         hsd_804D7994 = (write_idx + 1) % 32;
     }
 
@@ -92,10 +92,10 @@ int hsd_803B2928(const s32* arg0, const char* arg1, int arg2, int arg3,
         }
 
         CMD_QUEUE(base)[write_idx].type = 4;
-        CMD_QUEUE(base)[write_idx].f1 = (s32) arg0;
+        CMD_QUEUE(base)[write_idx].f1 = PTR_TO_U32(arg0);
         CMD_QUEUE(base)[write_idx].f3 = arg2;
         CMD_QUEUE(base)[write_idx].f4 = arg3;
-        CMD_QUEUE(base)[write_idx].f5 = (s32) arg4;
+        CMD_QUEUE(base)[write_idx].f5 = PTR_TO_U32(arg4);
         hsd_804D7994 = (write_idx + 1) % 32;
     }
 
@@ -119,10 +119,10 @@ int hsd_803B29D8(const s32* ctx, int channel, const u8* data, UNK_T callback)
     {
         s32 next = write_idx + 1;
         entry->type = 1;
-        entry->f1 = (s32) ctx;
+        entry->f1 = PTR_TO_U32(ctx);
         entry->f2 = channel;
-        entry->f3 = (s32) data;
-        entry->f5 = (s32) callback;
+        entry->f3 = PTR_TO_U32(data);
+        entry->f5 = PTR_TO_U32(callback);
         hsd_804D7994 = next % 32;
     }
 
@@ -154,10 +154,10 @@ int hsd_803B2A4C(const s32* arg0, int arg1, const u8* arg2,
     {
         s32 next = write_idx + 1;
         entry->type = 2;
-        entry->f1 = (s32) arg0;
+        entry->f1 = PTR_TO_U32(arg0);
         entry->f2 = arg1;
-        entry->f3 = (s32) arg2;
-        entry->f5 = (s32) arg3;
+        entry->f3 = PTR_TO_U32(arg2);
+        entry->f5 = PTR_TO_U32(arg3);
         hsd_804D7994 = next % 32;
     }
 

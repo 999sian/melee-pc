@@ -63,7 +63,7 @@ static const Vec3 grIm_803B8220[] = {
 
 typedef int (*GrIceMtCb)(Ground_GObj* gobj, int* out);
 
-struct grIceMt_YakumonoParam {
+struct DISC_STRUCT grIceMt_YakumonoParam {
     s16 x0;
     s16 x2;
     s16 x4;
@@ -112,9 +112,9 @@ struct grIceMt_YakumonoParam {
     s16 xA4;
     s16 xA6;
     s16 xA8;
-    s16* field_ixs;
-    s16* xB0;
-    s16* xB4;
+    DISC_PTR(DiscS16) field_ixs;
+    DISC_PTR(DiscS16) xB0;
+    DISC_PTR(DiscS16) xB4;
     s16 xB8;
     s16 pad;
     grZakoGenerator_SpawnDesc xBC;
@@ -413,7 +413,7 @@ void grIceMt_801F686C(void)
     s32 field29;
     s32 field28;
     u32 i;
-    s16* field_ixs;
+    DiscS16* field_ixs;
     s32 id;
     f32 y_pos;
     f32 y_pos2;
@@ -437,12 +437,12 @@ void grIceMt_801F686C(void)
 
     if (Stage_80225194() == 76) {
         for (i = 0; i < ICEMT_FIELD_MAX; i++) {
-            field_ixs = yakumono_param->field_ixs;
+            field_ixs = DP(DiscS16, yakumono_param->field_ixs);
             id = icemt_field[i].gobj_id;
-            if (field_ixs[0] == id) {
+            if (field_ixs[0].v == id) {
                 continue;
             }
-            if (field_ixs[1] == id) {
+            if (field_ixs[1].v == id) {
                 continue;
             }
             field30 = icemt_field[i].gobj_id;
@@ -451,12 +451,12 @@ void grIceMt_801F686C(void)
         HSD_ASSERT(600, i<ICEMT_FIELD_MAX);
 
         for (i = 0; i < ICEMT_FIELD_MAX; i++) {
-            field_ixs = yakumono_param->field_ixs;
+            field_ixs = DP(DiscS16, yakumono_param->field_ixs);
             id = icemt_field[i].gobj_id;
-            if (field_ixs[0] == id) {
+            if (field_ixs[0].v == id) {
                 continue;
             }
-            if (field_ixs[1] == id) {
+            if (field_ixs[1].v == id) {
                 continue;
             }
             if (field30 == id) {
@@ -468,12 +468,12 @@ void grIceMt_801F686C(void)
         HSD_ASSERT(609, i<ICEMT_FIELD_MAX);
 
         for (i = 0; i < ICEMT_FIELD_MAX; i++) {
-            field_ixs = yakumono_param->field_ixs;
+            field_ixs = DP(DiscS16, yakumono_param->field_ixs);
             id = icemt_field[i].gobj_id;
-            if (field_ixs[0] == id) {
+            if (field_ixs[0].v == id) {
                 continue;
             }
-            if (field_ixs[1] == id) {
+            if (field_ixs[1].v == id) {
                 continue;
             }
             if (field30 == id) {
@@ -490,10 +490,10 @@ void grIceMt_801F686C(void)
         y_pos = Ground_801C0498();
         y_pos = -20.0f * y_pos;
         y_pos = y_pos + grIceMt_801F993C(
-                            icemt_field[yakumono_param->field_ixs[0]].gobj_id,
-                            icemt_field[yakumono_param->field_ixs[1]].gobj_id);
+                            icemt_field[DP(DiscS16, yakumono_param->field_ixs)[0].v].gobj_id,
+                            icemt_field[DP(DiscS16, yakumono_param->field_ixs)[1].v].gobj_id);
         y_pos2 = y_pos + grIceMt_801F993C(
-                             icemt_field[yakumono_param->field_ixs[1]].gobj_id,
+                             icemt_field[DP(DiscS16, yakumono_param->field_ixs)[1].v].gobj_id,
                              icemt_field[field30].gobj_id);
         y_pos3 = y_pos2 + grIceMt_801F993C(icemt_field[field30].gobj_id,
                                            icemt_field[field29].gobj_id);
@@ -501,7 +501,7 @@ void grIceMt_801F686C(void)
                                            icemt_field[field28].gobj_id);
 
         gobj = setupStageCallbacks(
-            icemt_field[yakumono_param->field_ixs[2]].gobj_id);
+            icemt_field[DP(DiscS16, yakumono_param->field_ixs)[2].v].gobj_id);
         HSD_ASSERT(636, gobj);
         jobj = gobj->hsd_obj;
         HSD_ASSERT(637, jobj);
@@ -509,7 +509,7 @@ void grIceMt_801F686C(void)
         grIm_804D69E8 = gobj;
 
         gobj = setupStageCallbacks(
-            icemt_field[yakumono_param->field_ixs[3]].gobj_id);
+            icemt_field[DP(DiscS16, yakumono_param->field_ixs)[3].v].gobj_id);
         HSD_ASSERT(641, gobj);
         jobj = gobj->hsd_obj;
         HSD_ASSERT(642, jobj);
@@ -517,7 +517,7 @@ void grIceMt_801F686C(void)
         grIm_804D69EC = gobj;
 
         gobj = setupStageCallbacks(
-            icemt_field[yakumono_param->field_ixs[4]].gobj_id);
+            icemt_field[DP(DiscS16, yakumono_param->field_ixs)[4].v].gobj_id);
         HSD_ASSERT(646, gobj);
         jobj = gobj->hsd_obj;
         HSD_ASSERT(647, jobj);
@@ -742,9 +742,9 @@ void stageGObj10_OnInit(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
 
     gp->u.icemt10.x0.ids.under =
-        icemt_field[yakumono_param->field_ixs[1]].gobj_id;
+        icemt_field[DP(DiscS16, yakumono_param->field_ixs)[1].v].gobj_id;
     gp->u.icemt10.x0.ids.upper =
-        icemt_field[yakumono_param->field_ixs[0]].gobj_id;
+        icemt_field[DP(DiscS16, yakumono_param->field_ixs)[0].v].gobj_id;
 
     grIceMt_801FA0BC(&gp->u.icemt10.x0.ids);
 
@@ -1426,8 +1426,8 @@ int fn_801F9150(Ground_GObj* arg0, int* out)
     s32 a;
 
     while (true) {
-        a = yakumono_param->xB0[gp->u.icemt.x1A];
-        *out = yakumono_param->xB4[gp->u.icemt.x1A];
+        a = DP(DiscS16, yakumono_param->xB0)[gp->u.icemt.x1A].v;
+        *out = DP(DiscS16, yakumono_param->xB4)[gp->u.icemt.x1A].v;
         if (a != -1 && *out != -1) {
             gp->u.icemt.x1A++;
             return a;
@@ -1441,11 +1441,11 @@ int fn_801F91A8(Ground_GObj* gobj)
     Ground* gp;
     s32 index;
     s32 result;
-    s16* xAC;
+    DiscS16* xAC;
 
     gp = gobj->user_data;
-    xAC = yakumono_param->field_ixs;
-    index = xAC[gp->u.icemt.x1C];
+    xAC = DP(DiscS16, yakumono_param->field_ixs);
+    index = xAC[gp->u.icemt.x1C].v;
     result = index;
     if (result == -1) {
         return result;

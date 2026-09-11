@@ -65,7 +65,7 @@ typedef struct {
     u8 pad[8];
 } TrainingSpeedStack;
 
-DynamicModelDesc** lbl_804D662C;
+DiscU32* lbl_804D662C; ///< DynamicModelDesc*[] on disc
 HSD_Archive* lbl_804D6628;
 
 typedef struct TrainingItemEntry {
@@ -853,12 +853,12 @@ void fn_80189B88(void)
     HSD_GObj_SetupProc(GObj_Create(0xE, 2, 0), (HSD_GObjEvent) fn_801891F4,
                        0x15);
     gobj = GObj_Create(0xE, 0xF, 0);
-    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*lbl_804D662C)->joint));
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_DISC_ARR(DynamicModelDesc, lbl_804D662C, 0)->joint));
     gm_80473814.gobj = gobj;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xB, 0);
     HSD_GObj_SetupProc(gobj, (HSD_GObjEvent) fn_80188EE8, 0x11);
-    gm_8016895C(jobj, *lbl_804D662C, 0);
+    gm_8016895C(jobj, GM_DISC_ARR(DynamicModelDesc, lbl_804D662C, 0), 0);
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_JObjAnimAll(jobj);
     for (i = 0; i < 0x27; i++) {

@@ -78,9 +78,10 @@ typedef enum DbLKind {
 /* 3EA6C8 */ extern char db_build_timestamp[];
 /* 4D4A08 */ extern DbLKind DbLevel;
 /* 4D6B20 */ extern bool db_804D6B20;
-/* 4D6B24 */ extern char** db_submotion_names;
-/* 4D6B28 */ extern char** db_motionstate_names;
-/* 4D6B2C */ extern char** db_bonus_names;
+/* 4D6B24 */ extern DiscU32* db_submotion_names; ///< char*[] on disc
+/* 4D6B28 */ extern DiscU32* db_motionstate_names; ///< char*[] on disc
+/* 4D6B2C */ extern DiscU32* db_bonus_names;       ///< char*[] on disc
+#define DB_NAME(tbl, i) ((char*) (uintptr_t) (tbl)[i].v)
 /* 4D6B30 */ extern u16 db_gameLaunchButtonState;
 /* 4D6B80 */ extern int db_MiscVisualEffectsStatus;
 

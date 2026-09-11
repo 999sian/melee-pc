@@ -38,7 +38,7 @@
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
 
-struct grIzumi_YakumonoParam {
+struct DISC_STRUCT grIzumi_YakumonoParam {
     float x0;
     int x4;
     float x8;

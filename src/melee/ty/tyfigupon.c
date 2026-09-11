@@ -1581,7 +1581,7 @@ void tyFigupon_Scene_OnEnter(void* arg0)
     ef4->x58 = 0;
     ed4 = tyFigupon_InitScene(&ef4_2);
     {
-        LightList** temp = HSD_ArchiveGetPublicAddress(
+        DiscU32* temp = HSD_ArchiveGetPublicAddress(
             ef4_2->archive, "ScMenFigure_scene_lights");
         if (temp != NULL) {
             HSD_LObj* lobj;

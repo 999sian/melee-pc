@@ -81,7 +81,7 @@ struct gm_804D6804_t {
 /* 4D6838 */ static HSD_Fog* gm_804D6838;
 /* 4D683C */ static UNK_T gm_804D683C;
 /* 4D6840 */ static SceneDesc* gm_804D6840;
-/* 4D6844 */ static DynamicModelDesc** gm_804D6844;
+/* 4D6844 */ static DiscU32* gm_804D6844; ///< DynamicModelDesc*[10] on disc
 /* 4D6848 */ static s32 gm_804D6848;
 /* 4D684C */ static s32 gm_804D684C;
 
@@ -1298,16 +1298,16 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         HSD_JObj* temp_jobj;
         HSD_GObj* gobj = GObj_Create(14, 15, 0);
         HSD_JObj* jobj;
-        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, gm_804D6844[0]->joint));
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_DISC_ARR(DynamicModelDesc, gm_804D6844, 0)->joint));
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(gobj, NULL, 9, 0);
-        gm_8016895C(jobj, gm_804D6844[0], 0);
+        gm_8016895C(jobj, GM_DISC_ARR(DynamicModelDesc, gm_804D6844, 0), 0);
         HSD_JObjReqAnimAll(jobj, 0.0F);
         {
             /// @todo Length of #gm_804D6844 is 10
             for (i = 1; i < 10; i++) {
-                temp_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, gm_804D6844[i]->joint));
-                gm_8016895C(temp_jobj, gm_804D6844[i], 0);
+                temp_jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_DISC_ARR(DynamicModelDesc, gm_804D6844, i)->joint));
+                gm_8016895C(temp_jobj, GM_DISC_ARR(DynamicModelDesc, gm_804D6844, i), 0);
                 HSD_JObjReqAnimAll(temp_jobj, 0.0F);
                 while (temp_jobj->child != NULL) {
                     HSD_JObjReparent(temp_jobj->child, jobj);

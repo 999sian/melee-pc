@@ -733,7 +733,8 @@ struct un_803FA258_t {
 /* 804D59F8 */ static char un_804D59F8[] = "TEST >";
 
 /// .sbss
-/* 4D6DA8 */ static int* un_804D6DA8;
+/* 4D6DA8 */ static DiscS32* un_804D6DA8; ///< [0..4],[7]: ints; [5],[6]: int* to int[]
+#define SOUNDTEST_SYM_ARR(i) ((DiscS32*) (uintptr_t) (u32) un_804D6DA8[i].v)
 /* 4D6DAC */ static int un_804D6DAC;
 /* 4D6DB0 */ static int un_804D6DB0;
 /* 4D6DB4 */ static int un_804D6DB4;
@@ -764,15 +765,15 @@ struct un_803FA258_t {
 void un_802FF7DC(void)
 {
     struct un_803F9F28_t* data = (struct un_803F9F28_t*) un_803F9F28;
-    int* syms;
+    DiscS32* syms;
     lbArchive_LoadSymbols(data->x1DC, &un_804D6DA8, data->x1E8, 0);
     syms = un_804D6DA8;
-    data->xB4 = syms[0];
-    data->xA8 = syms[1];
-    data->x148 = syms[2];
-    data->x168 = syms[3];
-    data->x174 = syms[4];
-    data->x188 = syms[7];
+    data->xB4 = syms[0].v;
+    data->xA8 = syms[1].v;
+    data->x148 = syms[2].v;
+    data->x168 = syms[3].v;
+    data->x174 = syms[4].v;
+    data->x188 = syms[7].v;
 }
 
 bool un_802FF884(char* arg0)
@@ -837,10 +838,10 @@ bool un_802FF9DC(enum soundtest_callback_arg0 arg0)
 
     i = un_804D6DB4 = 0;
     for (; i < un_804D6DB0; i++) {
-        un_804D6DB4 += ((int**) un_804D6DA8)[6][i];
+        un_804D6DB4 += SOUNDTEST_SYM_ARR(6)[i].v;
     }
     un_803F9FA4.entries[7].x14 = (f32) un_804D6DB4;
-    total = un_804D6DB4 + ((int**) un_804D6DA8)[6][un_804D6DB0];
+    total = un_804D6DB4 + SOUNDTEST_SYM_ARR(6)[un_804D6DB0].v;
     un_803F9FA4.entries[7].x18 = (f32) total;
     return 0;
 }
@@ -849,7 +850,7 @@ bool un_802FFB58(enum soundtest_callback_arg0 arg0)
 {
     if (arg0 == 1) {
         lbAudioAx_80023694();
-        lbAudioAx_80023B24(((int**) un_804D6DA8)[5][un_804D6DB4]);
+        lbAudioAx_80023B24(SOUNDTEST_SYM_ARR(5)[un_804D6DB4].v);
     } else if (arg0 == 0) {
         lbAudioAx_80023694();
     }

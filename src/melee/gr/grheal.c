@@ -23,7 +23,7 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 
-typedef struct grHeal_UnkData {
+typedef struct DISC_STRUCT grHeal_UnkData {
     s32 x0;
     s32 x4;
 } grHeal_UnkData;

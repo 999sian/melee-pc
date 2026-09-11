@@ -935,7 +935,7 @@ void fn_8003F294(int slot, int index)
         f32 mag =
             sqrtf__Ff(t2->x0_staleMoveTable.xCDC * t2->x0_staleMoveTable.xCDC +
                       t2->x0_staleMoveTable.xCE0 * t2->x0_staleMoveTable.xCE0);
-        f32 x8c = *((f32*) &pl_804D6470->x8C);
+        f32 x8c = pl_804D6470->x8C;
         pl_80039238(slot, 0x44, 0L, pl_804D6470->x88, &table->xDC0, x8c, mag);
     }
 

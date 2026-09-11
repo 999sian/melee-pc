@@ -267,6 +267,13 @@ void GXDrawDone() {
   aurora::gx::fifo::drain();
 }
 
+// Waits for a previously posted GXSetDrawDone token without posting another
+// (which would fire the draw-done callback again).
+void GXWaitDrawDone() {
+  GXFlush();
+  aurora::gx::fifo::drain();
+}
+
 void GXSetDrawDone() {
   GXFlush();
   GX_WRITE_RAS_REG(kDrawDoneCommand);

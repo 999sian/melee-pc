@@ -28,7 +28,7 @@
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grRCruise_YakumonoParam {
+struct DISC_STRUCT grRCruise_YakumonoParam {
     f32 x0;
     f32 x4;
     f32 x8;

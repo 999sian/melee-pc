@@ -39,8 +39,8 @@ static struct lbl_80472E48_t lbl_80472E48;
 static s32 lbl_80472EC8[4];
 
 static HSD_Archive* lbl_804D65C8;
-static DynamicModelDesc** lbl_804D65CC;
-static DynamicModelDesc** lbl_804D65D0;
+static DiscU32* lbl_804D65CC; ///< DynamicModelDesc*[] on disc
+static DiscU32* lbl_804D65D0; ///< DynamicModelDesc*[] on disc
 static s32 lbl_804D65D4;
 static s32 lbl_804D65D8;
 
@@ -328,21 +328,21 @@ void fn_80181708(void)
                        (void (*)(HSD_GObj*)) fn_80181598, 0x15U);
 
     gobj = GObj_Create(0xEU, 0xFU, 0U);
-    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*lbl_804D65CC)->joint));
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_DISC_ARR(DynamicModelDesc, lbl_804D65CC, 0)->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 0xBU, 0U);
     HSD_GObj_SetupProc(gobj, fn_80180C14, 0x15U);
-    gm_8016895C(jobj, *lbl_804D65CC, 0);
+    gm_8016895C(jobj, GM_DISC_ARR(DynamicModelDesc, lbl_804D65CC, 0), 0);
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_JObjAnimAll(jobj);
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
 
     gobj = (new_var = GObj_Create(0xEU, 0xFU, 0U));
-    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*lbl_804D65D0)->joint));
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, GM_DISC_ARR(DynamicModelDesc, lbl_804D65D0, 0)->joint));
     HSD_GObjObject_80390A70(new_var, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(new_var, HSD_GObj_JObjCallback, 0xBU, 0U);
     HSD_GObj_SetupProc(new_var, fn_80180C60, 0x15U);
-    gm_8016895C(jobj, *lbl_804D65D0, 0);
+    gm_8016895C(jobj, GM_DISC_ARR(DynamicModelDesc, lbl_804D65D0, 0), 0);
     HSD_JObjReqAnimAll(jobj, 10.0f);
     HSD_JObjAnimAll(jobj);
     HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);

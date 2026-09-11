@@ -113,7 +113,7 @@ static inline f32 fabsf_inline(f32 x)
     return (x < 0.0f) ? -x : x;
 }
 
-struct grInishie1_YakumonoParam {
+struct DISC_STRUCT grInishie1_YakumonoParam {
     f32 unk0;
     f32 unk4;
     f32 unk8;
@@ -128,7 +128,7 @@ struct grInishie1_YakumonoParam {
     f32 unk20;
     f32 unk24;
     f32 unk28;
-    Vec3 unk2C[2];
+    DiscVec3 unk2C[2];
     f32 unk44;
     f32 unk48;
     f32 unk4C;

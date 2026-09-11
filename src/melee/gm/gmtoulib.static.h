@@ -4,7 +4,8 @@
 #include <melee/gm/types.h>
 #include <sysdolphin/baselib/wobj.h>
 
-typedef struct BracketSrcEntry {
+/// A row of TmBox.dat's tournament_box*_array.
+typedef struct DISC_STRUCT BracketSrcEntry {
     /* 0x00 */ u8 x0;
     /* 0x01 */ u8 x1;
     /* 0x02 */ u8 x2;
@@ -32,6 +33,7 @@ typedef struct BracketSrcEntry {
     /* 0x24 */ u8 x24;
     /* 0x25 */ u8 pad25[3];
 } BracketSrcEntry;
+DISC_ASSERT_SIZE(BracketSrcEntry, 0x28);
 
 struct lbl_803D9D20_t lbl_803D9D20 = {
     {

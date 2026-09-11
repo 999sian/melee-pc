@@ -30,7 +30,7 @@
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grGreens_YakumonoParam {
+struct DISC_STRUCT grGreens_YakumonoParam {
     int x0_blockTimerMin;
     int x4_blockTimerMax;
     int x8_blockBombChance;

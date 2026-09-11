@@ -970,7 +970,7 @@ void tyList_803147C4(void)
 {
     TyListState* state;
     TyArchiveData* archive;
-    LightList** jobj;
+    DiscU32* jobj;
     u8 new_var;
     HSD_GObj** gobj;
 

@@ -2029,11 +2029,11 @@ void Player_80036DA4(void)
 
 void Player_80036DD8(void)
 {
-    void** sp8;
+    DiscU32* sp8;
 
     lbArchive_LoadSymbols(str_PdPmdat_start_of_data, (void**) &sp8,
                           str_plLoadCommonData, 0);
-    pl_804D6470 = *sp8;
+    pl_804D6470 = (pl_804D6470_t*) (uintptr_t) sp8->v;
 }
 
 void Player_80036E20(CharacterKind ckind, HSD_Archive* archive, s32 arg2)

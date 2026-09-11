@@ -338,11 +338,11 @@ StageData grMc_StageData = {
     ARRAY_SIZE(grMc_803E30B0),
 };
 
-struct grMc_YakumonoParam {
+struct DISC_STRUCT grMc_YakumonoParam {
     int x0;
-    void* x4;
-    DynamicsDesc* x8;
-    DynamicsDesc* xC;
+    DISC_PTR(void) x4; ///< color overlay, passed as int to grMaterial_801C9604
+    DISC_PTR(DynamicsDesc) x8;
+    DISC_PTR(DynamicsDesc) xC;
     u8 pad10[0x1C];
     f32 x2C;
     f32 x30;
@@ -354,6 +354,7 @@ struct grMc_YakumonoParam {
     f32 x48;
     f32 x4C;
 };
+DISC_ASSERT_SIZE(struct grMc_YakumonoParam, 0x50);
 
 static struct grMc_YakumonoParam* yakumono_param;
 
@@ -923,7 +924,7 @@ void grMuteCity_801F04B8(Ground_GObj* gobj)
             HSD_GObj* bg_gobj = Ground_GetMapGObj(0x1D);
             if (bg_gobj != NULL) {
                 if (param != 0) {
-                    grMaterial_801C9604(bg_gobj, (s32) yakumono_param->x4, 0);
+                    grMaterial_801C9604(bg_gobj, (s32) (uintptr_t) DP(void, yakumono_param->x4), 0);
                     if (gp->u.mutecity.x110 != NULL) {
                         HSD_LObjClearFlags(gp->u.mutecity.x110, LOBJ_HIDDEN);
                     }
@@ -1966,13 +1967,13 @@ DynamicsDesc* grMuteCity_801F2BBC(enum_t arg0)
 {
     if (grMc_804D69D4 == 1) {
         if (arg0 == 0x31) {
-            return yakumono_param->x8;
+            return DP(DynamicsDesc, yakumono_param->x8);
         }
         if (arg0 == 0x35) {
-            return yakumono_param->x8;
+            return DP(DynamicsDesc, yakumono_param->x8);
         }
         if ((u32) (arg0 - 0x32) <= 2) {
-            return yakumono_param->xC;
+            return DP(DynamicsDesc, yakumono_param->xC);
         }
     }
     return NULL;

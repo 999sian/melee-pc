@@ -28,7 +28,7 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grShrineRoute_YakumonoParam {
+struct DISC_STRUCT grShrineRoute_YakumonoParam {
     int x0;
     int x4;
     int x8;

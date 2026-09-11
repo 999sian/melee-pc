@@ -42,7 +42,7 @@
 /* 306CF4 */ void Toy_RemoveUserData(void* ptr);
 /* 306D14 */ void Toy_80306D14(void);
 /* 306D70 */ void Toy_80306D70(s32 arg0);
-/* 306EEC */ HSD_LObj* Toy_LoadLObjList(LightList**, s32*);
+/* 306EEC */ HSD_LObj* Toy_LoadLObjList(DiscU32* list /* LightList*[] on disc */, s32*);
 /* 307470 */ void Toy_80307470(s32);
 /* 307E84 */ void Toy_80307E84(HSD_GObj* gobj);
 /* 30813C */ char* Toy_8030813C(int trophy_id);

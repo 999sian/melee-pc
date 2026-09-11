@@ -1053,32 +1053,32 @@ HSD_Generator* hsd_8039F05C(s32 linkNo, s32 bank, s32 idx)
         return NULL;
     }
 
-    if (ptclref_804D0E5C[bank][idx] == NULL) {
+    if (PS_CMDLIST(bank, idx) == NULL) {
         return NULL;
     }
 
     gen = hsd_8039D9C8();
     if (gen != NULL) {
-        gen->type = ptclref_804D0E5C[bank][idx]->type;
+        gen->type = PS_CMDLIST(bank, idx)->type;
         gen->bank = bank;
         gen->linkNo = linkNo;
-        gen->kind = ptclref_804D0E5C[bank][idx]->kind;
-        gen->texGroup = ptclref_804D0E5C[bank][idx]->texGroup;
-        gen->life = ptclref_804D0E5C[bank][idx]->life;
-        gen->genLife = ptclref_804D0E5C[bank][idx]->genLife;
+        gen->kind = PS_CMDLIST(bank, idx)->kind;
+        gen->texGroup = PS_CMDLIST(bank, idx)->texGroup;
+        gen->life = PS_CMDLIST(bank, idx)->life;
+        gen->genLife = PS_CMDLIST(bank, idx)->genLife;
         gen->pos.z = 0.0F;
         gen->pos.y = 0.0F;
         gen->pos.x = 0.0F;
-        gen->vel.x = ptclref_804D0E5C[bank][idx]->vx;
-        gen->vel.y = ptclref_804D0E5C[bank][idx]->vy;
-        gen->vel.z = ptclref_804D0E5C[bank][idx]->vz;
-        gen->grav = ptclref_804D0E5C[bank][idx]->grav;
-        gen->fric = ptclref_804D0E5C[bank][idx]->fric;
-        gen->size = ptclref_804D0E5C[bank][idx]->size;
-        gen->cmdList = ptclref_804D0E5C[bank][idx]->cmdList;
-        gen->radius = ptclref_804D0E5C[bank][idx]->radius;
-        gen->angle = ptclref_804D0E5C[bank][idx]->angle;
-        gen->random = ptclref_804D0E5C[bank][idx]->random;
+        gen->vel.x = PS_CMDLIST(bank, idx)->vx;
+        gen->vel.y = PS_CMDLIST(bank, idx)->vy;
+        gen->vel.z = PS_CMDLIST(bank, idx)->vz;
+        gen->grav = PS_CMDLIST(bank, idx)->grav;
+        gen->fric = PS_CMDLIST(bank, idx)->fric;
+        gen->size = PS_CMDLIST(bank, idx)->size;
+        gen->cmdList = PS_CMDLIST(bank, idx)->cmdList;
+        gen->radius = PS_CMDLIST(bank, idx)->radius;
+        gen->angle = PS_CMDLIST(bank, idx)->angle;
+        gen->random = PS_CMDLIST(bank, idx)->random;
 
         if (gen->kind & 0x100) {
             if (gen->random < 0.0F) {
@@ -1094,7 +1094,7 @@ HSD_Generator* hsd_8039F05C(s32 linkNo, s32 bank, s32 idx)
         }
 
         {
-            HSD_PSTexGroup* tg = psTexGroupArray[bank][gen->texGroup];
+            HSD_PSTexGroup* tg = PS_TEXGROUP(bank, gen->texGroup);
             if (tg != NULL && tg->palflag != 0) {
                 gen->kind |= 0x10;
             }
@@ -1107,45 +1107,45 @@ HSD_Generator* hsd_8039F05C(s32 linkNo, s32 bank, s32 idx)
         case 0:
         case 3:
         case 4: {
-            HSD_PSCmdList* c = ptclref_804D0E5C[bank][idx];
+            HSD_PSCmdList* c = PS_CMDLIST(bank, idx);
             f32 p1 = c->param1;
             if (p1 == 0.0F && c->param2 == 0.0F) {
                 gen->aux.disc.minAngle = 0.0F;
                 gen->aux.disc.maxAngle = 6.2831855F;
             } else {
                 gen->aux.disc.minAngle = p1;
-                gen->aux.disc.maxAngle = ptclref_804D0E5C[bank][idx]->param2;
+                gen->aux.disc.maxAngle = PS_CMDLIST(bank, idx)->param2;
             }
             break;
         }
         case 1:
-            gen->aux.line.x2 = ptclref_804D0E5C[bank][idx]->param1;
-            gen->aux.line.y2 = ptclref_804D0E5C[bank][idx]->param2;
-            gen->aux.line.z2 = ptclref_804D0E5C[bank][idx]->param3;
+            gen->aux.line.x2 = PS_CMDLIST(bank, idx)->param1;
+            gen->aux.line.y2 = PS_CMDLIST(bank, idx)->param2;
+            gen->aux.line.z2 = PS_CMDLIST(bank, idx)->param3;
             break;
         case 2:
             break;
         case 6:
         case 7: {
-            HSD_PSCmdList* c = ptclref_804D0E5C[bank][idx];
+            HSD_PSCmdList* c = PS_CMDLIST(bank, idx);
             f32 p1 = c->param1;
             if (p1 == 0.0F && c->param2 == 0.0F) {
                 gen->aux.cone.minAngle = 0.0F;
                 gen->aux.cone.maxAngle = 6.2831855F;
             } else {
                 gen->aux.cone.minAngle = p1;
-                gen->aux.cone.maxAngle = ptclref_804D0E5C[bank][idx]->param2;
+                gen->aux.cone.maxAngle = PS_CMDLIST(bank, idx)->param2;
             }
-            gen->aux.cone.height = ptclref_804D0E5C[bank][idx]->param3;
+            gen->aux.cone.height = PS_CMDLIST(bank, idx)->param3;
             break;
         }
         case 5: {
             gen->aux.rect.xx = gen->aux.rect.x =
-                ptclref_804D0E5C[bank][idx]->param1;
+                PS_CMDLIST(bank, idx)->param1;
             gen->aux.rect.yy = gen->aux.rect.y =
-                ptclref_804D0E5C[bank][idx]->param2;
+                PS_CMDLIST(bank, idx)->param2;
             gen->aux.rect.zz = gen->aux.rect.z =
-                ptclref_804D0E5C[bank][idx]->param3;
+                PS_CMDLIST(bank, idx)->param3;
             gen->aux.rect.zy = 0.0F;
             gen->aux.rect.zx = 0.0F;
             gen->aux.rect.yz = 0.0F;
@@ -1153,13 +1153,13 @@ HSD_Generator* hsd_8039F05C(s32 linkNo, s32 bank, s32 idx)
             gen->aux.rect.xz = 0.0F;
             gen->aux.rect.xy = 0.0F;
             gen->aux.rect.flag = 0;
-            if (ptclref_804D0E5C[bank][idx]->param1 < 0.0F) {
+            if (PS_CMDLIST(bank, idx)->param1 < 0.0F) {
                 gen->aux.rect.flag |= 1;
             }
-            if (ptclref_804D0E5C[bank][idx]->param2 < 0.0F) {
+            if (PS_CMDLIST(bank, idx)->param2 < 0.0F) {
                 gen->aux.rect.flag |= 2;
             }
-            if (ptclref_804D0E5C[bank][idx]->param3 < 0.0F) {
+            if (PS_CMDLIST(bank, idx)->param3 < 0.0F) {
                 gen->aux.rect.flag |= 4;
             }
             break;
@@ -1192,12 +1192,12 @@ HSD_Generator* hsd_8039F05C(s32 linkNo, s32 bank, s32 idx)
             } else {
                 gen->aux.sphere.lonMid = atan2f(gen->vel.z, gen->vel.x);
             }
-            gen->aux.sphere.latRange = ptclref_804D0E5C[bank][idx]->param1;
+            gen->aux.sphere.latRange = PS_CMDLIST(bank, idx)->param1;
             if (gen->aux.sphere.latRange < 0.0F) {
                 gen->aux.sphere.latRange = -gen->aux.sphere.latRange;
                 gen->aux.sphere.speed = -gen->aux.sphere.speed;
             }
-            gen->aux.sphere.lonRange = ptclref_804D0E5C[bank][idx]->param2;
+            gen->aux.sphere.lonRange = PS_CMDLIST(bank, idx)->param2;
             break;
         }
         default:

@@ -17,7 +17,7 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grFlatzone_YakumonoParam {
+struct DISC_STRUCT grFlatzone_YakumonoParam {
     s32 unk0;
     s32 unk4;
     s32 unk8;

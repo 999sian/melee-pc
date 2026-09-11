@@ -3,6 +3,9 @@
 #include "lbfile.h"
 #include "lbmthp.h"
 #include <dolphin/thp/thp.h>
+#ifdef TARGET_PC
+#include <pc/pc.h>
+#endif
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/sobjlib.h>
 #include <sysdolphin/baselib/tobj.h>
@@ -97,6 +100,10 @@ void lbMthp8001FAA0(const char* filename, int width, int height)
     DCInvalidateRange(lbl_804335B8.x44, (u32) uv_size);
     lbl_804335B8.x68 = HSD_MemAlloc(uv_size);
     DCInvalidateRange(lbl_804335B8.x68, (u32) uv_size);
+#ifdef TARGET_PC
+    pc_thp_decode_frame(lbl_804335B8.unk94, lbl_804335B8.x20,
+                        lbl_804335B8.x44, lbl_804335B8.x68);
+#else
     context = HSD_MemAlloc(0xC);
     memset(&header, 0, sizeof(header));
     header.w = width;
@@ -114,4 +121,5 @@ void lbMthp8001FAA0(const char* filename, int width, int height)
     }
     HSD_Free(context);
     HSD_Free(decode_buf);
+#endif
 }

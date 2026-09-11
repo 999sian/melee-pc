@@ -22,13 +22,13 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grPushOn_Entry {
+struct DISC_STRUCT grPushOn_Entry {
     s32 x0;
     s16 x4;
     s16 x6;
 };
 
-struct grPushOn_Lookup {
+struct DISC_STRUCT grPushOn_Lookup {
     s32 key;
     s32 value;
 };
@@ -41,17 +41,18 @@ struct grPushOn_LightConfig {
     s32 dist_func;
 };
 
-struct grPushon_YakumonoParam {
+struct DISC_STRUCT grPushon_YakumonoParam {
     s32 x0;
-    DynamicsDesc* x4;
-    DynamicsDesc* x8;
-    DynamicsDesc* xC;
-    DynamicsDesc* x10;
-    DynamicsDesc* x14;
+    DISC_PTR(DynamicsDesc) x4;
+    DISC_PTR(DynamicsDesc) x8;
+    DISC_PTR(DynamicsDesc) xC;
+    DISC_PTR(DynamicsDesc) x10;
+    DISC_PTR(DynamicsDesc) x14;
     bool x18;
     struct grPushOn_Entry x1c[0x1E];
     struct grPushOn_Lookup x10c[0x21];
 };
+DISC_ASSERT_SIZE(struct grPushon_YakumonoParam, 0x10C + 0x21 * 8);
 
 static struct grPushon_YakumonoParam* yakumono_param;
 
@@ -725,21 +726,21 @@ DynamicsDesc* grPushOn_80219458(enum_t arg0)
         if (joint != -1) {
             if (joint == 1) {
                 mpLineGetKind(arg0);
-                return yakumono_param->x4;
+                return DP(DynamicsDesc, yakumono_param->x4);
             }
             if (joint == 2) {
                 kind = mpLineGetKind(arg0);
                 if (kind == CollLine_Floor) {
-                    return yakumono_param->x8;
+                    return DP(DynamicsDesc, yakumono_param->x8);
                 }
                 if (kind == CollLine_Ceiling) {
-                    return yakumono_param->xC;
+                    return DP(DynamicsDesc, yakumono_param->xC);
                 }
                 if (kind == CollLine_RightWall) {
-                    return yakumono_param->x10;
+                    return DP(DynamicsDesc, yakumono_param->x10);
                 }
                 if (kind == CollLine_LeftWall) {
-                    return yakumono_param->x14;
+                    return DP(DynamicsDesc, yakumono_param->x14);
                 }
                 return NULL;
             }

@@ -95,20 +95,20 @@ ClassicProcArray const lbl_803B7C40 = {
     fn_80184A4C, fn_80184A70, fn_80184A94,
 };
 
-typedef struct {
+typedef struct DISC_STRUCT {
     /* 0x00 */ f32 vals[3];
 } ClassicSlotVals;
 ASSERT_SIZE(ClassicSlotVals, 0xC);
 
-typedef struct {
+typedef struct DISC_STRUCT {
     /* 0x00 */ f32 x00;
     /* 0x04 */ f32 x04;
-    /* 0x08 */ Vec3 x08;
+    /* 0x08 */ DiscVec3 x08;
     /* 0x14 */ u8 pad_14[0x8];
 } ClassicCharLayout;
 ASSERT_SIZE(ClassicCharLayout, 0x1C);
 
-typedef struct {
+typedef struct DISC_STRUCT {
     /* 0x00 */ f32 x00;
     /* 0x04 */ f32 x04;
     /* 0x08 */ f32 x08;
@@ -116,7 +116,7 @@ typedef struct {
 } ClassicTeamEntry;
 ASSERT_SIZE(ClassicTeamEntry, 0x14);
 
-typedef struct {
+typedef struct DISC_STRUCT {
     /* 0x00 */ f32 x00[3];
     /* 0x0C */ f32 x0C[3];
     /* 0x18 */ f32 x18[3];
@@ -124,7 +124,7 @@ typedef struct {
 } ClassicSplashRow;
 ASSERT_SIZE(ClassicSplashRow, 0x30);
 
-static struct {
+static struct DISC_STRUCT {
     /* 0x000 */ ClassicSlotVals x00[2];
     /* 0x018 */ ClassicSlotVals x18[3];
     /* 0x03C */ ClassicSlotVals x3C[4];

@@ -1728,7 +1728,7 @@ void _tyDisplay_8031B328(void)
 #endif
     TyDspBgData* ptr = _tyDisplay_804D6F1C;
     ToyCameraControl* scene = Toy_sbss_804D6ED4;
-    LightList** lightData;
+    DiscU32* lightData;
     HSD_FogDesc* fogDesc;
     TyDspBgData* temp3;
     s8 temp2;
