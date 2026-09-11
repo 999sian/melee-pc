@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include "command_processor.hpp"
 
@@ -488,7 +489,13 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
       // movie and title issue thousands of these before gameplay starts, so
       // a first-N sample describes the wrong scene entirely.
       ++n;
-      if (n <= 4 || n % 5000 == 0) {
+      static uint64_t n_add = 0;
+      // Filter to the ARTIFACT CLASS (additive: dst=GX_BL_ONE) rather than
+      // sampling by count. There are ~57000 untextured quads per run and only
+      // the additive ones are the white blobs, so a periodic sample almost
+      // never lands on one -- which is why every field previously looked
+      // faithful: it was describing the wrong draws.
+      if (state.blendFacDst == GX_BL_ONE && n_add++ < 12) {
         const auto& c0 = state.colorRegs[0];
         const auto& c1 = state.colorRegs[1];
         const auto& c2 = state.colorRegs[2];
@@ -585,6 +592,40 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader& 
 
   // Push raw vertex data to buffer. Merged draws must remain contiguous with the previous range.
   const auto vertexData = reader.take(totalVtxBytes);
+  // AURORA_LOG_QUADPOS=1: log the vertex POSITIONS of untextured 4-vertex
+  // quads. Sampling these draws by count is useless -- there are tens of
+  // thousands per run and only a handful are the white artifact -- so the
+  // artifact has to be picked out by WHERE it is on screen.
+  {
+    static const bool logPos = [] {
+      const char* v = std::getenv("AURORA_LOG_QUADPOS");
+      return v != nullptr && *v != '\0' && *v != '0';
+    }();
+    if (logPos && vtxCount == 4 && g_gxState.vtxDesc[GX_VA_POS] == GX_DIRECT &&
+        g_gxState.vtxFmts[fmt].attrs[GX_VA_POS].type == GX_F32) {
+      const auto cnt = g_gxState.vtxFmts[fmt].attrs[GX_VA_POS].cnt;
+      const u32 nComp = (cnt == GX_POS_XYZ) ? 3u : 2u;
+      if (vtxSize >= nComp * 4) {
+        float px[4], py[4];
+        for (u32 v = 0; v < 4; ++v) {
+          u32 off = v * vtxSize;
+          // Vertex data is big-endian regardless of host.
+          auto be32 = [&](u32 o) {
+            return (u32(vertexData[o]) << 24) | (u32(vertexData[o + 1]) << 16) |
+                   (u32(vertexData[o + 2]) << 8) | u32(vertexData[o + 3]);
+          };
+          u32 bx = be32(off), by = be32(off + 4);
+          std::memcpy(&px[v], &bx, 4);
+          std::memcpy(&py[v], &by, 4);
+        }
+        fmt::print(stderr, "quad blend={} src={} dst={} v=({:.1f},{:.1f}) "
+                           "({:.1f},{:.1f}) ({:.1f},{:.1f}) ({:.1f},{:.1f})\n",
+                   underlying(g_gxState.blendMode), underlying(g_gxState.blendFacSrc),
+                   underlying(g_gxState.blendFacDst),
+                   px[0], py[0], px[1], py[1], px[2], py[2], px[3], py[3]);
+      }
+    }
+  }
   gfx::Range vertRange = gfx::push_verts(vertexData.data(), vertexData.size(), canMerge ? 0 : 4);
 
   // Try to merge with previous draw call
