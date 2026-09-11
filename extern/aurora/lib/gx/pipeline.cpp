@@ -24,10 +24,17 @@ wgpu::RenderPipeline create_pipeline(const PipelineConfig& config) {
 }
 
 // Diagnostics for the untextured-white-quad artifact in melee-pc:
-//   AURORA_SKIP_UNTEX=1  drop every draw that binds no texture
-//   AURORA_LOG_UNTEX=1   report the size of each untextured draw
+//   AURORA_SKIP_UNTEX=1      drop every draw that binds no texture
+//   AURORA_SKIP_UNTEX_VTX=n  drop only untextured draws with n vertices
+//   AURORA_LOG_UNTEX=1       report untextured draws, with the breadcrumb
 // A draw with no texture bind group falls back to flat colour, which is what
-// a solid white quad looks like on screen.
+// a solid white quad looks like on screen. aurora_draw_tag lets the game
+// record which subsystem is currently rendering, so an offending draw can be
+// traced back past the GX boundary.
+extern "C" {
+unsigned int aurora_draw_tag = 0;
+}
+
 static bool env_flag(const char* name) {
   const char* v = std::getenv(name);
   return v != nullptr && *v != '\0' && *v != '0';
@@ -48,12 +55,16 @@ void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
       const char* v = std::getenv("AURORA_SKIP_UNTEX_VTX");
       return v != nullptr ? std::strtol(v, nullptr, 10) : 0L;
     }();
+    // Untextured quads are the shape the artifact takes, so report those
+    // individually (with the game's breadcrumb) and the rest only sparsely.
     if (log) {
       static uint64_t n = 0;
-      if ((n++ % 2000) == 0) {
-        fmt::print(stderr, "untex draw #{}: idx={} vtx={} inst={}\n", n, data.indexCount, data.vtxCount,
-                   data.instanceCount);
+      const bool quad = data.vtxCount == 4;
+      if (quad || (n % 2000) == 0) {
+        fmt::print(stderr, "untex draw #{}{}: idx={} vtx={} tag={}\n", n, quad ? " QUAD" : "", data.indexCount,
+                   data.vtxCount, aurora_draw_tag);
       }
+      ++n;
     }
     if (onlyVtx != 0) {
       if (static_cast<long>(data.vtxCount) == onlyVtx) {

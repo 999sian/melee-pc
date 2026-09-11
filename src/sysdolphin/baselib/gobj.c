@@ -1,3 +1,4 @@
+extern unsigned int aurora_draw_tag; /* aurora: which GX link is rendering */
 #include "gobj.h"
 
 #include "class.h"
@@ -166,6 +167,7 @@ void HSD_GObj_80390ED0(HSD_GObj* gobj, u32 mask)
             while (prios) {
                 if (prios & 1) {
                     HSD_GObj* cur;
+                    aurora_draw_tag = (unsigned int) j;
                     for (cur = HSD_GObjGXLinkHead[j]; cur != NULL;
                          cur = cur->next_gx)
                     {
