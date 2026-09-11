@@ -48,20 +48,20 @@ void it_80278F2C(Item_GObj* item_gobj, CommandInfo* cmd)
     s32 arg6;
     PAD_STACK(4);
 
-    arg2 = ((u16*) cmd->u)[0];
+    arg2 = ((DiscU16*) cmd->u)[0].v;
     arg2 = arg2 & 0x3FF;
     ++cmd->u;
-    arg6 = (f32) ((u16*) cmd->u)[1];
-    ef_id = ((u16*) cmd->u)[0];
+    arg6 = (f32) ((DiscU16*) cmd->u)[1].v;
+    ef_id = ((DiscU16*) cmd->u)[0].v;
     ++cmd->u;
-    sp20.x = 0.003906f * ((s16*) cmd->u)[0];
-    sp20.y = 0.003906f * ((s16*) cmd->u)[1];
+    sp20.x = 0.003906f * ((DiscS16*) cmd->u)[0].v;
+    sp20.y = 0.003906f * ((DiscS16*) cmd->u)[1].v;
     ++cmd->u;
-    sp20.z = 0.003906f * ((s16*) cmd->u)[0];
-    sp14.x = 0.003906f * ((s16*) cmd->u)[1];
+    sp20.z = 0.003906f * ((DiscS16*) cmd->u)[0].v;
+    sp14.x = 0.003906f * ((DiscS16*) cmd->u)[1].v;
     ++cmd->u;
-    sp14.y = 0.003906f * ((s16*) cmd->u)[0];
-    sp14.z = 0.003906f * ((s16*) cmd->u)[1];
+    sp14.y = 0.003906f * ((DiscS16*) cmd->u)[0].v;
+    sp14.z = 0.003906f * ((DiscS16*) cmd->u)[1].v;
     ++cmd->u;
     it_80278800(item_gobj, ef_id, arg2, &sp20, &sp14, 0, arg6);
 }
@@ -171,7 +171,7 @@ void it_80279544(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* item = item_gobj->user_data;
     HitCapsule* hit = &item->x5D4_hitboxes[cmd->u->set_hitbox_damage.idx].hit;
-    u32 val = ((u16*) cmd->u)[1] & 0x1FFF;
+    u32 val = ((DiscU16*) cmd->u)[1].v & 0x1FFF;
     PAD_STACK(8);
     it_80272460(hit, (u32) (item->xC3C * ((f32) val * item->xC40)), item_gobj);
     ++cmd->u;
@@ -271,7 +271,7 @@ void it_8027978C(Item_GObj* item_gobj, CommandInfo* cmd)
     }
 
 low_opcode:
-    arg1 = *(u32*) cmd->u;
+    arg1 = ((DiscU32*) cmd->u)[0].v;
     ++cmd->u;
     arg2 = ((u8*) cmd->u)[2];
     arg3 = ((u8*) cmd->u)[3];

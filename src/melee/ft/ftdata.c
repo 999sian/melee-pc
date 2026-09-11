@@ -168,19 +168,20 @@ void ft_8008521C(HSD_GObj* gobj)
 
 static inline void ft_800852B0_Reset_ft_8045993C(ftData** list, int i)
 {
-    /// @todo Bitfields seem off
-    ((ft_8045993C_t*) &list[Ft_Kind_Max])[i].pad_x0 = 0;
-    ((ft_8045993C_t*) &list[Ft_Kind_Max])[i].x6_b0 = 0;
-    ((ft_8045993C_t*) &list[Ft_Kind_Max])[i].x6_b1_b2 = 0;
+    /* The decomp reached ft_8045993C by walking past gFtDataList. */
+    (void) list;
+    ft_8045993C[i].pad_x0 = 0;
+    ft_8045993C[i].x6_b0 = 0;
+    ft_8045993C[i].x6_b1_b2 = 0;
 }
 
 void ft_800852B0(void)
 {
     ftData** list;
-    ftData_UnkCountStruct* unk0 =
-        (ftData_UnkCountStruct*) &CostumeListsForeachCharacter[Ft_Kind_Max];
-    ftData_UnkCountStruct* pairs =
-        (ftData_UnkCountStruct*) ((u8*) CostumeListsForeachCharacter + 5940);
+    /* The decomp reached these two tables by walking past
+     * CostumeListsForeachCharacter; they are the anim-archive caches. */
+    ftData_UnkCountStruct* unk0 = ftData_Table_Unk0;
+    ftData_UnkCountStruct* pairs = ftData_UnkIntPairs;
     int i;
     int new_var = 0;
 

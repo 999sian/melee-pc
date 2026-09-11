@@ -68,6 +68,21 @@ void pc_frame_boundary(void)
         exit(0);
     }
 
+    /* The game is a fixed 60 Hz simulation. Vsync normally paces it, but
+     * when the window is not presentable (occluded, minimized) aurora skips
+     * the present and the loop would free-run; pace it ourselves. */
+    {
+        static u64 next_ns;
+        const u64 period = 1000000000ull / 60;
+        u64 now = SDL_GetTicksNS();
+        if (next_ns == 0 || now > next_ns + period) {
+            next_ns = now; /* first frame, or we fell behind: resync */
+        } else if (now < next_ns) {
+            SDL_DelayPrecise(next_ns - now);
+        }
+        next_ns += period;
+    }
+
     /* aurora_begin_frame returns false while minimized/paused; keep pumping. */
     while (!aurora_begin_frame()) {
         event = aurora_update();

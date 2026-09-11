@@ -135,7 +135,7 @@ void ftCo_800D4FF4(Fighter_GObj* gobj)
     ftCo_800BFFD0(fp, 0xA, 0);
 
     if (!fp->is_sub_fighter) {
-        ftCommon_SetAccessory(fp, ((void**) Fighter_804D6534)[0]);
+        ftCommon_SetAccessory(fp, DP(HSD_Joint, Fighter_804D6534[0].v));
         {
             f32 s = fp->x34_scale.y * fp->co_attrs.respawn_platform_scale;
             scale_vec.z = s;
@@ -144,7 +144,7 @@ void ftCo_800D4FF4(Fighter_GObj* gobj)
         }
         HSD_JObjSetScale(fp->x20A0_accessory, &scale_vec);
 
-        ftCommon_8007E690(fp, ((void**) Fighter_804D6534)[1]);
+        ftCommon_8007E690(fp, DP(HSD_AnimJoint, Fighter_804D6534[1].v));
 
         pos_vec.x = -(fp->facing_dir * ftCommon_800804EC(fp) - fp->cur_pos.x);
         pos_vec.y = fp->cur_pos.y;

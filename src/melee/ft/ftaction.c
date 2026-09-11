@@ -1143,7 +1143,7 @@ void ftAction_80072CD8(Fighter_GObj* gobj, CommandInfo* cmd)
     int sp60;
     int gfx_id;
     CommandInfo _cmd;
-    u32 cmd_words[3];
+    DiscU32 cmd_words[3];
     Vec3 offset;
     Vec3 range;
     u32 part;
@@ -1155,10 +1155,11 @@ void ftAction_80072CD8(Fighter_GObj* gobj, CommandInfo* cmd)
 
     if (ft_80084BFC(gobj, &sp64, &sp60, &gfx_id) != false) {
         if (sp64 != -1) {
+            /* Rebuild a 3-word command in disc (big-endian) layout. */
             _cmd.u = (union CmdUnion*) cmd_words;
-            cmd_words[0] = *(u32*) cmd->u;
-            cmd_words[1] = sp64;
-            cmd_words[2] = *(u32*) ((u8*) cmd->u + 8);
+            cmd_words[0].v = ((DiscU32*) cmd->u)[0].v;
+            cmd_words[1].v = sp64;
+            cmd_words[2].v = ((DiscU32*) cmd->u)[2].v;
             ftAction_80071B50(gobj, &_cmd);
         }
 
@@ -1200,7 +1201,7 @@ void ftAction_80072E4C(Fighter_GObj* gobj, CommandInfo* cmd)
     int sp60;
     int gfx_id;
     CommandInfo _cmd;
-    u32 cmd_words[3];
+    DiscU32 cmd_words[3];
     Vec3 offset;
     Vec3 range;
     Fighter* fp;
@@ -1215,15 +1216,16 @@ void ftAction_80072E4C(Fighter_GObj* gobj, CommandInfo* cmd)
     if ((ft_80084C38(gobj, &sp64, &sp60, &gfx_id) != false) &&
         (cmd_flag == 0) && (sp64 != -1))
     {
+        /* Rebuild a 3-word command in disc (big-endian) layout. */
         _cmd.u = (union CmdUnion*) cmd_words;
-        cmd_words[0] = *(u32*) cmd->u;
-        cmd_words[1] = sp64;
-        cmd_words[2] = ((u32*) cmd->u)[2];
+        cmd_words[0].v = ((DiscU32*) cmd->u)[0].v;
+        cmd_words[1].v = sp64;
+        cmd_words[2].v = ((DiscU32*) cmd->u)[2].v;
         ftAction_80071B50(gobj, &_cmd);
     }
 
     if (gfx_id == -1) {
-        gfx_id = ((u16*) cmd->u)[1];
+        gfx_id = ((DiscU16*) cmd->u)[1].v;
     }
     offset.z = 0.0f;
     range.z = 0.0f;

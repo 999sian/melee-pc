@@ -147,7 +147,7 @@ void ft_800851D0(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->x197C != NULL) {
         fp->self_vel.y =
-            fp->x6A4_transNOffset.y * ((f32*) Fighter_804D6520)[5];
+            fp->x6A4_transNOffset.y * Fighter_804D6520->x14;
     } else {
         fp->self_vel.y = fp->x6A4_transNOffset.y;
     }

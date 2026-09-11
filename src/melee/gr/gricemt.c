@@ -1346,8 +1346,8 @@ static inline void grIceMt_GetRandomTimer(int* out)
     s32 b;
     s32 d;
 
-    a = ((s16*) yakumono_param)[0x36 / 2];
-    b = ((s16*) yakumono_param)[0x38 / 2];
+    a = yakumono_param->x36;
+    b = yakumono_param->x38;
     if (a > b) {
         d = a - b;
         a = b + (d != 0 ? HSD_Randi(d) : 0);
@@ -1893,7 +1893,7 @@ bool grIceMt_801FA364(struct grIceMt_FA364_State* state, f32* out,
             state->idx = cb(gobj, &next_delay);
             state->delay = (s16) next_delay;
             state->phase = 1;
-            state->lerp_count = ((s16*) yakumono_param)[0x34 / 2];
+            state->lerp_count = yakumono_param->x34;
         }
         break;
     case 1:
