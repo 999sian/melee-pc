@@ -1,6 +1,7 @@
 #include <aurora/aurora.h>
 #include <aurora/dvd.h>
 #include <aurora/main.h>
+#include <dolphin/card.h>
 #include <dolphin/os.h>
 
 #include <stdio.h>
@@ -24,16 +25,22 @@ static void log_callback(AuroraLogLevel level, const char* module, const char* m
 
 static void usage(const char* argv0)
 {
-    fprintf(stderr, "usage: %s [--dvd] <disc image (iso/gcm/ciso/rvz/...)>\n", argv0);
+    fprintf(stderr, "usage: %s [--card] [--dvd] <disc image (iso/gcm/ciso/rvz/...)>\n", argv0);
     exit(2);
 }
 
 int main(int argc, char* argv[])
 {
     const char* disc = NULL;
+    /* ponytail: the HSD memory-card driver expects asynchronous CARD
+     * completion; aurora completes synchronously and the driver's state
+     * machine spins. Report "no card" by default until that is ported. */
+    bool card = false;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--dvd") == 0 && i + 1 < argc) {
             disc = argv[++i];
+        } else if (strcmp(argv[i], "--card") == 0) {
+            card = true;
         } else if (argv[i][0] != '-') {
             disc = argv[i];
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
@@ -64,6 +71,7 @@ int main(int argc, char* argv[])
     }
 
     pc_platform_init();
+    aurora_card_set_present(card);
     int rc = melee_main();
     aurora_dvd_close();
     aurora_shutdown();

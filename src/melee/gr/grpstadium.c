@@ -1475,7 +1475,7 @@ void grStadium_801D3460(Ground_GObj* gobj)
     HSD_SisLib_803A7664(gp2->win_dynamic_p);
     temp_r29 = GET_GROUND(Ground_GetMapGObj(2));
 
-    HSD_SisLib_804D1124[1][2].textures = (TextGlyphTexture*) grPs_8049F040;
+    DP_SET(HSD_SisLib_804D1124[1][2].textures, grPs_8049F040);
 
     HSD_SisLib_803A6530(1, 5, 6);
     temp_r0 = temp_r29->u.stadium.xDE;

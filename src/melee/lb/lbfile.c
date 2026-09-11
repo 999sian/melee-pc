@@ -123,7 +123,7 @@ void lbFile_800164A4(int file, uintptr_t dst, size_t* size, int pri,
 {
     int type;
     *size = lbFile_8001634C(file);
-    type = (dst >= 0x80000000) ? 0x21 : 0x23;
+    type = !PC_IS_ARAM_ADDR(dst) ? 0x21 : 0x23;
     HSD_DevComRequest(file, 0, dst, ROUND_UP_32(*size), type, pri, callback,
                       args);
 }

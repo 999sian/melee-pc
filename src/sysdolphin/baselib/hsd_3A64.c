@@ -41,15 +41,15 @@ u8* HSD_SisLib_803A6478(u8* dst, u8* src)
 
 u8* HSD_SisLib_803A6530(s32 font_idx, s32 dst_idx, s32 src_idx)
 {
-    u8** sis_table = (u8**) HSD_SisLib_804D1124[font_idx];
-    return HSD_SisLib_803A6478(sis_table[dst_idx], sis_table[src_idx]);
+    DiscU32* sis_table = (DiscU32*) HSD_SisLib_804D1124[font_idx];
+    return HSD_SisLib_803A6478(DP(u8, sis_table[dst_idx].v), DP(u8, sis_table[src_idx].v));
 }
 
 void HSD_SisLib_803A660C(s32 font_idx, s32 dst_idx, s32 src_idx)
 {
-    u8** sis_table = (u8**) HSD_SisLib_804D1124[font_idx];
-    u8* dst = sis_table[dst_idx];
-    u8* src = sis_table[src_idx];
+    DiscU32* sis_table = (DiscU32*) HSD_SisLib_804D1124[font_idx];
+    u8* dst = DP(u8, sis_table[dst_idx].v);
+    u8* src = DP(u8, sis_table[src_idx].v);
 
     while (*dst != 0) {
         if (*dst >= 0x20) {

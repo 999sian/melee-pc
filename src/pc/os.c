@@ -23,11 +23,28 @@
 
 static pthread_mutex_t s_intr_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static __thread int s_intr_depth;
+static __thread int s_is_game_thread;
+
+void pc_os_run_alarms(void);
 
 BOOL OSDisableInterrupts(void)
 {
     pthread_mutex_lock(&s_intr_mutex);
     return s_intr_depth++ == 0;
+}
+
+/* Interrupts were the GC's way of delivering alarms; on PC, due alarms are
+ * delivered on the game thread whenever it re-enables interrupts (and once
+ * per frame from pc_frame_boundary), which is where the original code
+ * expected them to be able to run. */
+static void deliver_pending(void)
+{
+    static __thread int in_delivery;
+    if (s_is_game_thread && !in_delivery) {
+        in_delivery = 1;
+        pc_os_run_alarms();
+        in_delivery = 0;
+    }
 }
 
 BOOL OSEnableInterrupts(void)
@@ -37,6 +54,7 @@ BOOL OSEnableInterrupts(void)
         s_intr_depth--;
         pthread_mutex_unlock(&s_intr_mutex);
     }
+    deliver_pending();
     return was_enabled;
 }
 
@@ -53,8 +71,8 @@ BOOL OSRestoreInterrupts(BOOL level)
 }
 
 /* ---- alarms ----------------------------------------------------------- */
-/* Alarms are polled once per frame from the frame boundary (pc_frame_boundary),
- * so handlers always run on the game thread, like interrupt handlers did. */
+/* Handlers always run on the game thread (see deliver_pending), like
+ * interrupt handlers did. */
 
 static OSAlarm* s_alarms;
 
@@ -237,7 +255,10 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line)
     abort();
 }
 
-void pc_platform_init(void) {}
+void pc_platform_init(void)
+{
+    s_is_game_thread = 1;
+}
 
 /* ---- reporting -------------------------------------------------------- */
 /* aurora declares these weak and leaves them to the game. */

@@ -36,6 +36,9 @@ const char* GetCardRegion() {
 #define CARD_STUB Log.debug("{} is stubbed.", __FUNCTION__);
 
 bool Initialized = false;
+// melee-pc: report "no card" to the game without touching the card image.
+static bool CardPresent = true;
+extern "C" void aurora_card_set_present(bool present) { CardPresent = present; }
 CARDFileType SelectedFileType = CARD_GCIFOLDER;
 bool UseFastMode = false;
 
@@ -549,6 +552,9 @@ BOOL CARDProbe(const s32 chan) {
   if (chan < 0 || chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
   }
+  if (!CardPresent) {
+    return FALSE;
+  }
   const auto& card = GET_CARD(chan);
 
   aurora::card::ProbeResults probeData = card->probeCardFile(cardPaths[chan]);
@@ -558,6 +564,9 @@ BOOL CARDProbe(const s32 chan) {
 s32 CARDProbeEx(const s32 chan, s32* memSize, s32* sectorSize) {
   if (chan < 0 || chan >= 2) {
     return CARD_RESULT_FATAL_ERROR;
+  }
+  if (!CardPresent) {
+    return CARD_RESULT_NOCARD;
   }
   const auto& card = GET_CARD(chan);
 

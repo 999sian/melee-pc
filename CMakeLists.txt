@@ -56,5 +56,5 @@ add_executable(melee ${PC_SOURCES})
 target_compile_options(melee PRIVATE $<$<COMPILE_LANGUAGE:C>:-fno-pie>)
 target_link_libraries(melee PRIVATE melee_game aurora::main)
 # Non-PIE: static data and code stay below 4GB (32-bit pointer slots in disc data).
-target_link_options(melee PRIVATE -no-pie)
+target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)

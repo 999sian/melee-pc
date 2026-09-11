@@ -90,7 +90,7 @@ int lbHeap_800158E8(int arg0)
 
 void lbHeap_80015900(void)
 {
-    s32 temp_r0;
+    uintptr_t temp_r0;
     struct lbHeap_HeapOffsetView* destroy_view;
     s32 bounds_i;
     struct Heap* bounds_heap;

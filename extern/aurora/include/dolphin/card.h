@@ -252,6 +252,8 @@ void CARDDetectDolphin(s32 chan);
 // pass -1 to set both
 void CARDSetBasePath(const char*, s32 chan);
 void CARDSetLoadType(CARDFileType type);
+/* melee-pc: when false, CARDProbe/CARDProbeEx report no card inserted. */
+void aurora_card_set_present(bool present);
 
 #else
 void CARDInit(void);

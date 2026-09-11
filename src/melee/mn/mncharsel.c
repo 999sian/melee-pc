@@ -319,7 +319,7 @@ TextKerning* mnCharSel_8025BC20(TextKerning* arg0, u32 arg1)
     TextKerning* kerning;
     u32 render_zeroes;
     render_zeroes = 0;
-    kerning = HSD_SisLib_804D1124[0][41].kerning;
+    kerning = DP(TextKerning, HSD_SisLib_804D1124[0][41].kerning);
     if (arg1 >= 10000) {
         arg1 = 9999;
     }
@@ -354,7 +354,7 @@ void mnCharSel_8025BD30(void)
     TextKerning* kerning;
     u32 match_type;
 
-    kerning = HSD_SisLib_804D1124[0][37].kerning;
+    kerning = DP(TextKerning, HSD_SisLib_804D1124[0][37].kerning);
 
     match_type = mnCharSel_804D6CB0->match_type;
 
@@ -875,7 +875,7 @@ void mnCharSel_8025D1C4(int port, int mode)
             }
             {
                 TextKerning* tmp = (TextKerning*) HSD_SisLib_803A6478(
-                    sis_buf, &HSD_SisLib_804D1124[0][43].kerning->left);
+                    sis_buf, &DP(TextKerning, HSD_SisLib_804D1124[0][43].kerning)->left);
                 mnCharSel_8025BC20(tmp, star_count);
             }
             HSD_SisLib_803A6368(text, 0x56);

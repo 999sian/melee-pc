@@ -138,12 +138,16 @@ static void* AllocMEM1(u32 size) {
 }
 #elif defined(__linux__) && defined(__x86_64__)
 #include <sys/mman.h>
-// Keep MEM1 below 4GB so that 32-bit pointer slots inside big-endian disc
-// structures can hold real host addresses (see melee-pc src/pc/disc.h).
+// Map MEM1 at the GameCube's own address, 0x80000000, so that
+//  - 32-bit pointer slots inside big-endian disc structures can hold real host
+//    addresses (see melee-pc src/pc/disc.h), and
+//  - the game's "is this main RAM or ARAM?" heuristics (`ptr >= 0x80000000`)
+//    keep working. The executable is linked non-PIE above this range.
 static void* AllocMEM1(u32 size) {
-  void* p = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
-  if (p == MAP_FAILED) {
-    Log.fatal("Failed to map MEM1 ({} bytes) below 4GB", size);
+  void* want = reinterpret_cast<void*>(0x80000000u);
+  void* p = mmap(want, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+  if (p == MAP_FAILED || p != want) {
+    Log.fatal("Failed to map MEM1 ({} bytes) at 0x80000000", size);
   }
   return p;
 }

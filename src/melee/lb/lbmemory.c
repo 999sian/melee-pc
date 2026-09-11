@@ -65,7 +65,7 @@ static inline Handle* new_handle(void* arenaLo, void* arenaHi)
     Handle* h;
     HSD_ASSERT(0x7B, _p(free_heap));
 
-    if (((u32) arenaLo < 0x80000000U) && ((u32) arenaHi < 0x80000000U)) {
+    if (PC_IS_ARAM_ADDR(arenaLo) && PC_IS_ARAM_ADDR(arenaHi)) {
         HSD_ASSERT(0x80, (u32)arenaLo >= (u32)_p(a_arenaLo) && (u32)arenaHi <= (u32)_p(a_arenaHi));
     }
 
@@ -228,7 +228,7 @@ u32 lbMemory_8001529C(Handle* h, void (*arg1)(u32), u32 arg2)
     for (iter = h->xC_prev; iter != NULL; iter = iter->x0_next) {
         lo = iter->x4_lo;
         if (lo != *r7) {
-            lbMemory_80015320(0, (int) iter, NULL, false);
+            lbMemory_80015320(0, (int) (uintptr_t) iter, NULL, false);
             return 1;
         }
         *r7 = (void*) ((u32) lo + (u32) iter->x8_hi);
@@ -257,7 +257,7 @@ static void lbMemory_80015320(int arg0, int _handle, void* arg2,
                               bool cancelflag)
 {
     void* null_or_old;
-    Handle* handle = (Handle*) _handle;
+    Handle* handle = (Handle*) (uintptr_t) (u32) _handle;
     void** currentp;
     void* old;
     u32 current;
@@ -278,7 +278,7 @@ static void lbMemory_80015320(int arg0, int _handle, void* arg2,
             *currentp = (void*) ((u32) handle->x4_lo + (u32) handle->x8_hi);
             copy_src = null_or_old;
 
-            if ((u32) handle->x4_lo < 0x80000000U) {
+            if (PC_IS_ARAM_ADDR(handle->x4_lo)) {
                 HSD_DevComRequest(0, (u32) copy_src, current,
                                   OSRoundUp32B(handle->x8_hi), 0x1B, 1,
                                   lbMemory_80015320, handle->x0_next);
@@ -352,15 +352,11 @@ void lbMemory_8001564C(void)
 
     _p(x634_max_num_allocs) = 0;
     _p(x630_num_allocs) = 0;
-    // The chain below walks _p(x638_heap)[0..5], one Handle (0x10) apart.
-    // Writing it through the array instead does not match.
     _p(free_heap) = &_p(x638_heap)[0];
-    *(void**) (base + 0x638) = base + 0x648;
-    *(void**) (base + 0x648) = base + 0x658;
-    *(void**) (base + 0x658) = base + 0x668;
-    *(void**) (base + 0x668) = base + 0x678;
-    *(void**) (base + 0x678) = base + 0x688;
-    *(void**) (base + 0x688) = NULL;
+    for (i = 0; i < 5; i++) {
+        _p(x638_heap)[i].x0_next = &_p(x638_heap)[i + 1];
+    }
+    _p(x638_heap)[5].x0_next = NULL;
     _p(x69C) = NULL;
     {
         void* hi = _p(a_arenaHi);

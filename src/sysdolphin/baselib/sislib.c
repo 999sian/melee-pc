@@ -569,12 +569,13 @@ void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
 
 void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
 {
-    SIS** sis_table;
+    /* The font's SIS symbol is an on-disc array of 32-bit pointer slots. */
+    DiscU32* sis_table;
     s32 i;
 
-    sis_table = (SIS**) HSD_SisLib_804D1124[text->font_idx];
+    sis_table = (DiscU32*) HSD_SisLib_804D1124[text->font_idx];
     if (sis_table != NULL) {
-        text->sis_buffer = sis_table[sis_idx];
+        text->sis_buffer = DP(SIS, sis_table[sis_idx].v);
     }
     text->x60 = NULL;
     text->current_height = 0.0F;

@@ -22,10 +22,12 @@ struct TextKerning {
     /*0x01*/ u8 right;
 };
 
-typedef struct SIS {
-    /*0x00*/ TextKerning* kerning;
-    /*0x04*/ TextGlyphTexture* textures;
+/* On-disc font entry: array of these is the font archive's public symbol. */
+typedef struct DISC_STRUCT SIS {
+    /*0x00*/ DISC_PTR(TextKerning) kerning;
+    /*0x04*/ DISC_PTR(TextGlyphTexture) textures;
 } SIS;
+DISC_ASSERT_SIZE(SIS, 0x8);
 
 struct SisBlock {
     SisBlock* next;

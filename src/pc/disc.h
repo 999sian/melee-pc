@@ -55,6 +55,11 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute
 
 #define DISC_ASSERT_SIZE(T, size) _Static_assert(sizeof(T) == (size), #T " disc size")
 
+/* The game tells ARAM offsets from main-RAM pointers with `addr < 0x80000000`.
+ * On PC, MEM1 is mapped at 0x80000000 and the executable is linked at
+ * 0x10000000, so anything below the 16MB ARAM size is an ARAM offset. */
+#define PC_IS_ARAM_ADDR(a) ((uintptr_t) (a) < 0x01000000u)
+
 typedef struct DISC_STRUCT { float v; } DiscF32;
 typedef struct DISC_STRUCT { uint32_t v; } DiscU32;
 typedef struct DISC_STRUCT { int32_t v; } DiscS32;
@@ -73,6 +78,7 @@ typedef struct DISC_STRUCT { float m[3][4]; } DiscMtx;
 #define DP(T, slot) (slot)
 #define DP_SET(slot, p) ((slot) = (p))
 #define DISC_ASSERT_SIZE(T, size)
+#define PC_IS_ARAM_ADDR(a) ((u32) (a) < 0x80000000u)
 
 typedef struct { float v; } DiscF32;
 typedef struct { uint32_t v; } DiscU32;
