@@ -1246,6 +1246,31 @@ int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc,
         *tevdesc = tdesc;
     }
 
+    /* MELEE_TEV_TREE=1: did this tree ask for a texture stage and lose it? */
+    if (getenv("MELEE_TEV_TREE") != NULL) {
+        extern int pc_texp_tex_requested;
+        static unsigned long dropped, kept, never_asked;
+        HSD_TExpTevDesc* d;
+        int withtex = 0;
+        for (d = *tevdesc; d != NULL; d = (HSD_TExpTevDesc*) d->desc.next) {
+            if (d->tobj != NULL) {
+                withtex = 1;
+            }
+        }
+        if (withtex) {
+            kept++;
+        } else if (pc_texp_tex_requested > 0) {
+            dropped++;
+        } else {
+            never_asked++;
+        }
+        if ((kept + dropped + never_asked) <= 6 ||
+            ((kept + dropped + never_asked) % 200) == 0) {
+            OSReport("texpcompile kept=%lu DROPPED=%lu never_asked=%lu\n", kept,
+                     dropped, never_asked);
+        }
+    }
+
     *texp_list = HSD_TExpFreeList(*texp_list, HSD_TE_TEV, 1);
     *texp_list = HSD_TExpFreeList(*texp_list, HSD_TE_CNST, 0);
     return num;

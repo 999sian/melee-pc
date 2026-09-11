@@ -195,8 +195,14 @@ HSD_MObj* HSD_MObjLoadDesc(HSD_MObjDesc* mobjdesc)
     }
 }
 
+/* Counts texture stages requested while building the current tree, so
+ * HSD_TExpCompile can tell "no texture asked for" from "texture asked
+ * for and then dropped during simplification". */
+int pc_texp_tex_requested;
+
 HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
 {
+    pc_texp_tex_requested = 0;
     HSD_TExp *diff, *spec, *ext, *alpha;
     HSD_TExp *exp, *exp_2, *exp_3;
     HSD_TObj *tobj, *tobj_2, *tobj_3, *tobj_4, *toon = NULL;
