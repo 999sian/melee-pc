@@ -431,5 +431,17 @@ void AXFXSetHooks(void* (*alloc_hook)(unsigned long), void (*free_hook)(void*)) 
 /* AI: the DTK stream volume doubles as our master volume. */
 void AIInit(u8* stack) { (void) stack; }
 void AISetDSPSampleRate(u32 rate) { (void) rate; }
-void AISetStreamVolLeft(u8 vol) { s_master = vol / 255.0f; }
+void AISetStreamVolLeft(u8 vol)
+{
+    /* MELEE_AUDIO_STATS=1: this maps the DTK *music stream* volume onto the
+     * master gain for the whole mix. If the game fades music out at a scene
+     * transition, that silences sound effects too. Log every change so the
+     * value can be lined up against silent stretches in MELEE_AUDIO_DUMP. */
+    if (getenv("MELEE_AUDIO_STATS") != NULL && vol != (u8) (s_master * 255.0f)) {
+        static unsigned long n;
+        fprintf(stderr, "AISetStreamVolLeft #%lu vol=%u (master %.3f -> %.3f)\n",
+                ++n, vol, s_master, vol / 255.0f);
+    }
+    s_master = vol / 255.0f;
+}
 void AISetStreamVolRight(u8 vol) { (void) vol; }
