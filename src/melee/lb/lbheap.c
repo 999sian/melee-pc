@@ -202,7 +202,19 @@ void* lbHeap_80015BD0(int heap_id, size_t size)
             }
         }
     } else {
+        /* Two very different failures both surfaced as NULL here: a heap that
+         * was never created, and a heap that is genuinely full. Callers such
+         * as lbArchive treat NULL as "load failed" and carry on to panic much
+         * later, so say which happened. */
+        OSReport("lbHeap: alloc of %u from heap %d REFUSED: status=%d (heap"
+                 " not created)\n",
+                 (unsigned) size, heap_id, (int) p->status);
         result = NULL;
+    }
+    if (result == NULL && p->status == LbHeapStatus_Create) {
+        OSReport("lbHeap: alloc of %u from heap %d FAILED: heap is full"
+                 " (type=%d)\n",
+                 (unsigned) size, heap_id, (int) p->type);
     }
     OSRestoreInterrupts(enabled);
     return result;

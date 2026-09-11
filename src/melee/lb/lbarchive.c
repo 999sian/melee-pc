@@ -1,4 +1,5 @@
 #include "lbarchive.h"
+#include <stdlib.h>
 
 #include <stdarg.h>
 #include <string.h>
@@ -55,6 +56,57 @@ void lbArchive_LoadSections(HSD_Archive* archive, void** symbol, ...)
     va_end(symbols);
 }
 
+/* Validate a freshly read archive against its own DAT header.
+ *
+ * On PC the DVD read completes on an aurora worker thread, so a short or
+ * failed read yields a plausible-looking buffer whose symbol lookup then
+ * returns NULL. The failure only surfaces much later: gmregclear.c:1056
+ * merely reports a NULL section and proceeds, panicking at :843 when the
+ * joint pointer it needed is a zero disc slot. Reporting here names the file
+ * and the mismatch at the point it happens. Archive loads are rare, so this
+ * costs nothing measurable. */
+static void pc_archive_check(const char* filename, const void* data,
+                             size_t length)
+{
+    const u32* hdr = data;
+    u32 file_size, data_size, nb_reloc, nb_public;
+
+    if (data == NULL) {
+        OSReport("ARCHIVE %s: ALLOCATION FAILED (needed %u bytes, read %u)\n",
+                 filename, (unsigned) OSRoundUp32B(lbFileGetSize(filename)),
+                 (unsigned) length);
+        return;
+    }
+    if (length < 0x20) {
+        OSReport("ARCHIVE %s: read %u bytes, too short for a DAT header\n",
+                 filename, (unsigned) length);
+        return;
+    }
+
+    file_size = __builtin_bswap32(hdr[0]);
+    data_size = __builtin_bswap32(hdr[1]);
+    nb_reloc = __builtin_bswap32(hdr[2]);
+    nb_public = __builtin_bswap32(hdr[3]);
+
+    if (getenv("MELEE_ARCHIVE_LOG") != NULL) {
+        OSReport("ARCHIVE ok %s: length=%u header=%u public=%u\n", filename,
+                 (unsigned) length, (unsigned) file_size,
+                 (unsigned) nb_public);
+    }
+    if (file_size != (u32) length) {
+        OSReport("ARCHIVE %s: header says %u bytes, read %u\n", filename,
+                 (unsigned) file_size, (unsigned) length);
+    }
+    if (data_size + 0x20 > (u32) length || nb_reloc > (u32) length / 4 ||
+        nb_public > (u32) length / 8)
+    {
+        OSReport("ARCHIVE %s: implausible header (data=%u reloc=%u public=%u,"
+                 " length=%u)\n",
+                 filename, (unsigned) data_size, (unsigned) nb_reloc,
+                 (unsigned) nb_public, (unsigned) length);
+    }
+}
+
 static inline HSD_Archive* lbArchive_LoadArchive_inline(const char* filename)
 {
     HSD_Archive* archive;
@@ -64,6 +116,7 @@ static inline HSD_Archive* lbArchive_LoadArchive_inline(const char* filename)
     data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
     archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
     lbFile_8001668C(filename, data, &length);
+    pc_archive_check(filename, data, length);
     lbArchive_InitializeDAT(archive, data, length);
     return archive;
 }
@@ -117,6 +170,7 @@ HSD_Archive* lbArchive_LoadSymbols(const char* filename, void* symbols, ...)
     data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
     archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
     lbFile_8001668C(filename, data, &length);
+    pc_archive_check(filename, data, length);
     lbArchive_InitializeDAT(archive, data, length);
     lbArchive_vLoadSectionsFatal(archive, symbols, sections);
 
@@ -137,6 +191,7 @@ HSD_Archive* lbArchive_80016DBC(const char* filename, void* symbols, ...)
     data = lbHeap_80015BD0(0, OSRoundUp32B(lbFileGetSize(filename)));
     archive = lbHeap_80015BD0(0, sizeof(HSD_Archive));
     lbFile_8001668C(filename, data, &length);
+    pc_archive_check(filename, data, length);
     lbArchive_InitializeDAT(archive, data, length);
     lbArchive_vLoadSections(archive, symbols, sections);
 

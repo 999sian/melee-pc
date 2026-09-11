@@ -14,7 +14,7 @@ log=${1:-/tmp/classic_capture.log}
 secs=${2:-150}
 : >"$log"
 
-MELEE_HEAP_CHECK=1 MELEE_SCENE_LOG=1 SDL_VIDEO_DRIVER=x11 \
+MELEE_HEAP_CHECK=1 MELEE_SCENE_LOG=1 MELEE_ARCHIVE_LOG=1 SDL_VIDEO_DRIVER=x11 \
 	MELEE_WINDOW_TITLE=melee-pc-test build/melee ../melee.ciso >"$log" 2>&1 &
 gpid=$!
 
@@ -29,4 +29,7 @@ echo "--- archive open failures: $(grep -ac 'Cannot open archive' "$log" || true
 echo "--- jobj panics:           $(grep -ac "jobj don't get" "$log" || true)"
 echo "--- scene_model probe hits:$(grep -ac 'scene_model:' "$log" || true)"
 grep -a 'Cannot open archive' "$log" | head -3 || true
+echo "--- archive anomalies:      $(grep -ac '^ARCHIVE [A-Za-z]*:' "$log" || true)"
+echo "--- GmRegClr loads:         $(grep -ac 'GmRegClr' "$log" || true)"
 grep -a 'scene_model:' "$log" | head -4 || true
+grep -a 'GmRegClr\|Cannot find symbol\|^ARCHIVE [A-Za-z]*:' "$log" | head -6 || true

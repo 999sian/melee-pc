@@ -1,5 +1,6 @@
 
 #include <stdlib.h>
+#include <melee/lb/lbarchive.h>
 #include <Runtime/platform.h>
 
 #include <sysdolphin/baselib/forward.h>
