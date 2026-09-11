@@ -195,7 +195,7 @@ void gm_801B18D4(GameModeState* arg0)
     }
 
     /// @todo :: figure out how to call this not inlined
-    gm_SetupSuddenDeath(smd, &((MatchExitInfo*) (src + 1))->match_end);
+    gm_SetupSuddenDeath(smd, &gm_80487810.match_end); /* was src + 1 */
 }
 #ifdef MUST_MATCH
 #pragma pop

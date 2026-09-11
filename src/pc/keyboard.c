@@ -9,6 +9,7 @@
  *   D-pad: T/G/F/H
  */
 #include <aurora/event.h>
+#include <string.h>
 #include <dolphin/pad.h>
 
 #include "pc/pc.h"
@@ -30,7 +31,8 @@ static const struct {
 
 static s8 axis(SDL_Scancode neg, SDL_Scancode pos)
 {
-    return (s8) ((s_key[pos] ? 100 : 0) - (s_key[neg] ? 100 : 0));
+    /* A real GameCube stick reads about +-80 at full deflection. */
+    return (s8) ((s_key[pos] ? 80 : 0) - (s_key[neg] ? 80 : 0));
 }
 
 void pc_keyboard_event(const SDL_Event* e)
@@ -51,6 +53,16 @@ void pc_keyboard_apply(void)
     size_t i;
     if (!s_active) {
         return;
+    }
+    /* Releases can be lost (focus changes, synthetic X events); SDL's own key
+     * state is authoritative, so resync from it every frame. */
+    {
+        int n = 0;
+        const bool* keys = SDL_GetKeyboardState(&n);
+        if (n > SDL_SCANCODE_COUNT) {
+            n = SDL_SCANCODE_COUNT;
+        }
+        memcpy(s_key, keys, (size_t) n);
     }
     for (i = 0; i < sizeof(s_button_map) / sizeof(s_button_map[0]); i++) {
         if (s_key[s_button_map[i].key]) {

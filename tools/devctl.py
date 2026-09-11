@@ -7,6 +7,7 @@ SDL_VIDEO_DRIVER=x11).
                                     e.g. Return, x, Right); default hold 120ms
   devctl.py hold KEY MS             hold one key for MS milliseconds
 """
+import os
 import subprocess
 import sys
 import time
@@ -14,7 +15,7 @@ import time
 from Xlib import X, XK, display
 from Xlib.ext import xtest
 
-WINDOW_NAME = "melee-pc"
+WINDOW_NAME = os.environ.get("MELEE_WINDOW_TITLE", "melee-pc")
 
 
 def find_window(dpy):
@@ -40,7 +41,11 @@ def main():
     dpy = display.Display()
     win = find_window(dpy)
     if cmd == "shot":
-        subprocess.check_call(["import", "-window", hex(win.id), args[0]])
+        for _ in range(5):  # capture occasionally yields an empty frame; retry
+            subprocess.check_call(["import", "-window", hex(win.id), args[0]])
+            if os.path.getsize(args[0]) > 4096:
+                break
+            time.sleep(0.2)
     elif cmd == "key":
         for spec in args:
             key, _, hold = spec.partition(":")
@@ -52,6 +57,8 @@ def main():
         send_key(dpy, win, args[0], True)
         time.sleep(int(args[1]) / 1000)
         send_key(dpy, win, args[0], False)
+        time.sleep(0.05)
+        send_key(dpy, win, args[0], False)  # releases get dropped now and then
     else:
         sys.exit(__doc__)
 

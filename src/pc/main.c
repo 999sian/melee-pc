@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
     }
 
     const AuroraConfig config = {
-        .appName = "melee-pc",
+        .appName = getenv("MELEE_WINDOW_TITLE") ? getenv("MELEE_WINDOW_TITLE") : "melee-pc",
         .msaa = 1,
         .maxTextureAnisotropy = 16,
         .vsync = true,

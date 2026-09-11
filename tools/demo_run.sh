@@ -7,6 +7,7 @@ secs=${2:-45}
 dir=$(dirname "$0")
 log=/tmp/demo_$seed.log
 cd "$dir/.." || exit 1
+export MELEE_WINDOW_TITLE=melee-pc-test
 MELEE_HEAP_CHECK=${MELEE_HEAP_CHECK-1} MELEE_SEED=$seed ./tools/run.sh ../../melee.ciso >"$log" 2>&1 &
 pid=$!
 sleep 12

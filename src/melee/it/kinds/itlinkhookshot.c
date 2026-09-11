@@ -1229,20 +1229,11 @@ static inline f64 it_802A6A78_normalize_diff(Vec3* a, Vec3* b, Vec3* vec)
     return len;
 }
 
-/// MSL sqrtf expansion with its volatile spill shifted to the retail slots.
+/// MSL sqrtf expansion; the retail build spilled through `*(&y + 6)`, which
+/// is a stack overwrite on PC.
 static inline f32 it_802A4BFC_sqrtf_offset(f32 x)
 {
-    volatile f32 y;
-
-    if (x > 0.0F) {
-        f64 guess = __frsqrte((f64) x);
-        guess = 0.5 * guess * (3.0 - guess * guess * x);
-        guess = 0.5 * guess * (3.0 - guess * guess * x);
-        guess = 0.5 * guess * (3.0 - guess * guess * x);
-        *(&y + 6) = (f32) (x * guess);
-        return *(&y + 6);
-    }
-    return x;
+    return x > 0.0F ? sqrtf(x) : x;
 }
 
 static inline f64 it_802A4BFC_normalize_diff(Vec3* a, Vec3* b, Vec3* vec)

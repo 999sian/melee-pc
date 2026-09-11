@@ -460,6 +460,11 @@ void HSD_SisLib_803A6048(size_t size)
 {
     int i;
 
+#ifdef TARGET_PC
+    /* HSD_Text and SisBlock carry host pointers (0xC0/0x18 bytes vs 0x80/0xC),
+     * so the fixed GameCube pool sizes run dry on text-heavy scenes. */
+    size *= 2;
+#endif
     HSD_SisLib_804D7968 = size;
     used_head = NULL;
     HSD_SisLib_804D796C = free_head = HSD_MemAlloc(HSD_SisLib_804D7968);
