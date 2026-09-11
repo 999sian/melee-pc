@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <string>
 #include "command_processor.hpp"
 
 #include "../gfx/depth_peek.hpp"
@@ -472,6 +473,56 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
   } else if (prim == GX_POINTS) {
     instanceCount = vtxCount;
   }
+  // AURORA_LOG_UNTEX_REGS=1: for an untextured 4-vertex quad (the shape of
+  // the white-HUD artifact), report the TEV colour registers as they stand
+  // AT RECORD TIME. The FIFO is drained on a worker thread, so this state
+  // must be read here and not at render time.
+  {
+    static const bool logRegs = [] {
+      const char* v = std::getenv("AURORA_LOG_UNTEX_REGS");
+      return v != nullptr && *v != '\0' && *v != '0';
+    }();
+    if (logRegs && vtxCount == 4 && !cache.shaderInfo.sampledTextures.any()) {
+      static uint64_t n = 0;
+      if (n++ < 40) {
+        const auto& c0 = state.colorRegs[0];
+        const auto& c1 = state.colorRegs[1];
+        const auto& c2 = state.colorRegs[2];
+        fmt::print(stderr,
+                   "untex quad #{}: stages={} c0=({:.3f},{:.3f},{:.3f},{:.3f}) "
+                   "c1=({:.3f},{:.3f},{:.3f},{:.3f}) c2=({:.3f},{:.3f},{:.3f},{:.3f}) "
+                   "s0.color a={} b={} c={} d={} s0.alpha a={} b={} c={} d={} "
+                   "s0.texMap={} s0.chan={} | chan0 lit={} matSrc={} ambSrc={} "
+                   "mat=({:.3f},{:.3f},{:.3f},{:.3f}) amb=({:.3f},{:.3f},{:.3f},{:.3f}) "
+                   "vtxClr0={} clr0fmt cnt={} type={} desc={}\n",
+                   n, cache.config.shaderConfig.tevStageCount,
+                   c0[0], c0[1], c0[2], c0[3], c1[0], c1[1], c1[2], c1[3],
+                   c2[0], c2[1], c2[2], c2[3],
+                   underlying(cache.config.shaderConfig.tevStages[0].colorPass.a),
+                   underlying(cache.config.shaderConfig.tevStages[0].colorPass.b),
+                   underlying(cache.config.shaderConfig.tevStages[0].colorPass.c),
+                   underlying(cache.config.shaderConfig.tevStages[0].colorPass.d),
+                   underlying(cache.config.shaderConfig.tevStages[0].alphaPass.a),
+                   underlying(cache.config.shaderConfig.tevStages[0].alphaPass.b),
+                   underlying(cache.config.shaderConfig.tevStages[0].alphaPass.c),
+                   underlying(cache.config.shaderConfig.tevStages[0].alphaPass.d),
+                   underlying(cache.config.shaderConfig.tevStages[0].texMapId),
+                   underlying(cache.config.shaderConfig.tevStages[0].channelId),
+                   state.colorChannelConfig[0].lightingEnabled,
+                   underlying(state.colorChannelConfig[0].matSrc),
+                   underlying(state.colorChannelConfig[0].ambSrc),
+                   state.colorChannelState[0].matColor[0], state.colorChannelState[0].matColor[1],
+                   state.colorChannelState[0].matColor[2], state.colorChannelState[0].matColor[3],
+                   state.colorChannelState[0].ambColor[0], state.colorChannelState[0].ambColor[1],
+                   state.colorChannelState[0].ambColor[2], state.colorChannelState[0].ambColor[3],
+                   state.vtxDesc[GX_VA_CLR0] != GX_NONE,
+                   underlying(state.vtxFmts[fmt].attrs[GX_VA_CLR0].cnt),
+                   underlying(state.vtxFmts[fmt].attrs[GX_VA_CLR0].type),
+                   underlying(state.vtxDesc[GX_VA_CLR0]));
+      }
+    }
+  }
+
   cache.lastDrawFmt = fmt;
   gfx::push_draw_command(DrawData{
       .pipeline = cache.pipelineRef,

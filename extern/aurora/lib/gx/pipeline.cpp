@@ -45,6 +45,21 @@ void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
     return;
   }
 
+  // AURORA_ONLY_UNTEX_VTX=<n>: render ONLY untextured draws with n vertices
+  // and drop everything else, so the offending geometry can be seen in
+  // isolation on a black frame. Suppressing a draw proves it is responsible;
+  // isolating it shows WHAT it is.
+  {
+    static const long onlyN = [] {
+      const char* v = std::getenv("AURORA_ONLY_UNTEX_VTX");
+      return v != nullptr ? std::strtol(v, nullptr, 10) : 0L;
+    }();
+    if (onlyN != 0 &&
+        !(!data.bindGroups.textureBindGroup && static_cast<long>(data.vtxCount) == onlyN)) {
+      return;
+    }
+  }
+
   if (!data.bindGroups.textureBindGroup) {
     static const bool skip = env_flag("AURORA_SKIP_UNTEX");
     static const bool log = env_flag("AURORA_LOG_UNTEX");
