@@ -534,6 +534,24 @@ static void fn_8038CF48(s32 vID)
     v->flags |= 0x20000000;
 }
 
+/* MELEE_SFX_STATS=1: which guard in AXDriver_8038CFF4 rejects a sound
+ * request. Reason 0 is acceptance; 1-3 are bank/sample table bounds, 4-6
+ * are track/channel validation, 7 is the free sound-machine pool empty. */
+static void sm_reject(int reason, int sound_id)
+{
+    static unsigned long counts[8], total;
+    if (getenv("MELEE_SFX_STATS") == NULL) {
+        return;
+    }
+    counts[reason & 7]++;
+    if (++total <= 4 || (total % 500) == 0) {
+        OSReport("sm_req total=%lu ok=%lu bank=%lu sample=%lu next=%lu "
+                 "track=%lu chan=%lu busy=%lu pool=%lu (last id=%d)\n",
+                 total, counts[0], counts[1], counts[2], counts[3], counts[4],
+                 counts[5], counts[6], counts[7], sound_id);
+    }
+}
+
 static inline HSD_SM* AXDriver_8038CFF4_inline(void)
 {
     if (AXDriver_804D7790 == NULL) {
@@ -564,39 +582,47 @@ int AXDriver_8038CFF4(int sound_id, u8 volume, u8 pan, int track, int channel)
     bank_mem = sound_id % 10000;
 
     if (AXDriver_804D77B0 <= bank_idx) {
+        sm_reject(1, sound_id);
         return -1;
     }
 
     sample_idx = bank_mem + AXDriver_804D77B4[bank_idx].v;
 
     if (AXDriver_804D77B8 <= sample_idx) {
+        sm_reject(2, sound_id);
         return -1;
     }
 
     if (bank_idx < AXDriver_804D77B0 - 1 &&
         AXDriver_804D77B4[bank_idx + 1].v <= sample_idx)
     {
+        sm_reject(3, sound_id);
         return -1;
     }
 
     if (track < 0 || track > 0xFF) {
+        sm_reject(4, sound_id);
         return -1;
     }
 
     if (channel < 0 || channel >= 0x10) {
+        sm_reject(5, sound_id);
         return -1;
     }
 
     if (AXDriver_804D77CC & (1 << channel)) {
+        sm_reject(6, sound_id);
         return -1;
     }
 
     v = AXDriver_8038CFF4_inline();
 
     if (v == NULL) {
+        sm_reject(7, sound_id);
         return -1;
     }
 
+    sm_reject(0, sound_id); /* 0 = accepted */
     v->x16 = sound_id;
     v->cmd_stream = DP(DiscU32, AXDriver_804D77BC[sample_idx].v);
     v->x1A = 0xFF;
