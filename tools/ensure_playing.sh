@@ -18,24 +18,20 @@ tries=${1:-4}
 cd "$(dirname "$0")/.." || exit 1
 export MELEE_WINDOW_TITLE=${MELEE_WINDOW_TITLE-melee-pc-test}
 
-probe_moves() {
-    python3 tools/devctl.py shot /tmp/_lv_a.png >/dev/null 2>&1
-    python3 tools/devctl.py hold Right 300 >/dev/null 2>&1
-    python3 tools/devctl.py hold Left 300 >/dev/null 2>&1
-    python3 tools/devctl.py shot /tmp/_lv_b.png >/dev/null 2>&1
-    python3 tools/framediff.py /tmp/_lv_a.png /tmp/_lv_b.png 0.01 >/dev/null 2>&1
-}
-
+# Detect the pause banner positively. A movement probe is unsound: a
+# character against a wall or in hitstun does not visibly move, and the
+# corrective Start would then pause a live match.
 i=0
 while [ "$i" -lt "$tries" ]; do
     i=$((i + 1))
-    if probe_moves; then
-        echo "playing (responds to input)"
+    python3 tools/devctl.py shot /tmp/_lv.png >/dev/null 2>&1
+    if ! python3 tools/is_paused.py /tmp/_lv.png >/dev/null 2>&1; then
+        echo "playing (no pause banner)"
         exit 0
     fi
-    echo "no response to input (attempt $i) - sending Start" >&2
+    echo "pause banner present (attempt $i) - sending Start" >&2
     python3 tools/devctl.py key Start >/dev/null 2>&1
     sleep 1
 done
-echo "FAILED: no response to input; not in a running match" >&2
+echo "FAILED: still paused after $tries attempts" >&2
 exit 1
