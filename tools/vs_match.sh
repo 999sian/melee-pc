@@ -13,21 +13,51 @@ sleep 11; k Return; sleep 5; k Return; sleep 4          # movie skip, title -> m
 k Down; sleep 1; k x; sleep 4; k x; sleep 8              # VS Mode -> Melee -> CSS
 c() { python3 tools/csscursor.py "$@"; }
 h Up 1500; sleep 0.5                                     # hand appears (P1 joins as HMN)
-c 370 300; k x; sleep 0.5                                # drop the token on Ness (row 2, col 2)
+
+# The cursor sometimes stalls short of the target and exits nonzero. Without a
+# retry the token lands on whatever portrait it stopped on, so runs end up
+# with different characters and are not comparable.
+for attempt in 1 2 3; do
+    c 370 300 12 && break
+    echo "P1 cursor missed the portrait (attempt $attempt); retrying" >&2
+done
+k x; sleep 0.5                                           # drop the token on Ness
+
 # Setting port 2 to CPU is the flaky step: if it does not take, Melee refuses
-# to start (a match needs two players) and Start silently does nothing. Retry
-# until the screen actually changes.
-for attempt in 1 2 3 4; do
-    c 405 545; k x; sleep 0.8                            # port 2 tag -> CPU
-    shot /tmp/vs_css.png
-    k Return; sleep 6                                    # Start -> stage select
-    shot /tmp/_sss.png
-    if python3 tools/framediff.py /tmp/vs_css.png /tmp/_sss.png; then
+# to start (a match needs two players) and Start silently does nothing.
+#
+# The tag is only a few pixels tall and the cursor hotspot is the glove's
+# fingertip, so "cursor converged" does not imply "tag was hit". Close the
+# loop on the outcome instead: press A, and check the panel actually changed
+# (N/A -> CPU). Nudge up slightly between tries, since the fingertip tends to
+# settle just below the tag.
+port2_set=0
+for attempt in 1 2 3 4 5 6; do
+    for inner in 1 2 3; do
+        c 427 522 10 && break
+    done
+    shot /tmp/_p2a.png
+    k x; sleep 0.8                                       # port 2 tag -> CPU
+    shot /tmp/_p2b.png
+    if python3 tools/framediff.py /tmp/_p2a.png /tmp/_p2b.png 0.01; then
+        port2_set=1
         break
     fi
-    echo "port 2 not set (attempt $attempt); retrying" >&2
+    echo "port 2 tag not hit (attempt $attempt); nudging" >&2
+    h Up 40; sleep 0.3
 done
-h Up 200; sleep 0.3; k x; sleep 10                       # random stage -> fight
+[ "$port2_set" = 1 ] || { echo "FAILED: could not set port 2 to CPU" >&2; exit 1; }
+
+k Return; sleep 6                                        # Start -> stage select
+
+# Pick a fixed stage. The stage cursor is analog, so there is no tap-per-cell;
+# instead pin it against the bottom-left corner (the clamp is a deterministic
+# origin) and then step out by fixed holds. Saving the frame lets a caller
+# confirm two runs really did choose the same stage.
+h Left 1200; h Down 1200; sleep 0.4
+h Right 260; sleep 0.2; h Up 260; sleep 0.4
+shot /tmp/vs_stage.png
+k x; sleep 10                                            # start the match
 n=0
 while [ $n -lt "${1:-7}" ]; do
     for i in 1 2 3 4 5 6; do h Left 300; k x; k c; k x; h Right 300; k z; done
