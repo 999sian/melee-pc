@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "tobj.h"
 
 #include <placeholder.h>
@@ -1113,6 +1114,30 @@ s32 HSD_TObjAssignResources(HSD_TObj* tobj_top)
             default:
                 break;
             }
+        }
+    }
+
+    /* MELEE_TEX_ASSIGN=1: report how many tobjs were forced to
+     * GX_TEXMAP_NULL and why. A material whose only tobj is nulled here
+     * renders untextured (flat colour) even though it has a texture. */
+    if (getenv("MELEE_TEX_ASSIGN") != NULL) {
+        static unsigned long nulled_toon, nulled_bump, nulled_limit, assigned;
+        HSD_TObj* t;
+        for (t = tobj_top; t; t = t->next) {
+            if (t->id != GX_TEXMAP_NULL) {
+                assigned++;
+            } else if (tobj_coord(t) == TEX_COORD_TOON) {
+                nulled_toon++;
+            } else if (tobj_bump(t)) {
+                nulled_bump++;
+            } else {
+                nulled_limit++;
+            }
+        }
+        if (((assigned + nulled_toon + nulled_bump + nulled_limit) % 20000) == 0) {
+            OSReport("texassign: assigned=%lu null_toon=%lu null_bump=%lu "
+                     "null_limit=%lu (limit=%u)\n",
+                     assigned, nulled_toon, nulled_bump, nulled_limit, limit);
         }
     }
 

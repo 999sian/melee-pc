@@ -424,6 +424,21 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
     const auto prevBindGroup = cache.bindGroups.textureBindGroup;
     resolve_sampled_textures(cache.shaderInfo);
     cache.bindGroups = build_bind_groups(cache.shaderInfo);
+    // AURORA_LOG_TEV=1: when a draw ends up sampling no texture, report what
+    // the TEV stages actually asked for. A stage whose texMapId is
+    // GX_TEXMAP_NULL means the game never pointed the stage at a texture.
+    if (!cache.bindGroups.textureBindGroup && std::getenv("AURORA_LOG_TEV") != nullptr) {
+      static uint64_t n = 0;
+      if ((n++ % 4000) == 0) {
+        const auto& sc = cache.config.shaderConfig;
+        fmt::print(stderr, "no-tex draw #{}: tevStages={}", n, sc.tevStageCount);
+        for (uint32_t i = 0; i < sc.tevStageCount && i < 4; ++i) {
+          fmt::print(stderr, " [s{} texMap={} texCoord={} coloridx={}]", i, static_cast<int>(sc.tevStages[i].texMapId),
+                     static_cast<int>(sc.tevStages[i].texCoordId), static_cast<int>(sc.tevStages[i].channelId));
+        }
+        fmt::print(stderr, "\n");
+      }
+    }
     cache.bindGeneration = texture::current_bind_generation();
     state.dirty &= ~DirtyTextures;
     // For texture_size_bias uniform
