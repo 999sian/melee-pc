@@ -107,6 +107,8 @@ u32 it_802C4D10(Item_GObj* gobj)
     }
     HSD_JObjSetTranslate(child, &ip->xDD4_itemVar.mewtwoshadowball.x30);
     ip->xDD4_itemVar.mewtwoshadowball.x4C++;
+    /* PPC fell off the end here; no caller uses the result. */
+    return 0;
 }
 
 bool it_802C4F50(Item_GObj* gobj, CollData* cd)

@@ -462,6 +462,7 @@ HSD_GObj* fn_8017A318(s32 arg0)
     if (slot == 0) {
         fn_8017A078(arg0);
     }
+    return gobj;
 }
 
 Fighter_GObj* fn_8017A67C(CharacterKind kind, int arg1, int arg2)

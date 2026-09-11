@@ -91,6 +91,8 @@ s32 it_80291D38(Item_GObj* gobj, s32 charge_level)
     case 9:
         return attrs->xC[9];
     }
+    /* PPC fell off the end here; only charge levels 0-9 are ever passed. */
+    return 0;
 }
 
 static inline int it_80291DAC_level(Item_GObj* gobj, int arg1)
@@ -133,6 +135,8 @@ int it_80291DAC(Item_GObj* gobj, int arg1)
     } else {
         return level;
     }
+    /* Loop above only exits once level has been decremented to 0. */
+    return 0;
 }
 
 void it_80291F14(Item_GObj* gobj, int charge_level)

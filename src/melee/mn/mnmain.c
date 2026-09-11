@@ -1705,6 +1705,8 @@ GXColor* mn_8022BFBC(int arg0)
     case 4:
         return &mn_804D4B60;
     }
+    /* PPC build fell off the end here; callers dereference the result. */
+    return &mn_804D4B50;
 }
 
 /// @brief gets the menu light color index
@@ -1753,6 +1755,8 @@ int mn_8022C010(int menu_kind, int selection)
     case MENU_KIND_RECORDS_MISC:
         return 4;
     }
+    /* PPC build fell off the end here for unknown menu kinds. */
+    return 0;
 }
 
 MenuFlow mn_804A04F0;

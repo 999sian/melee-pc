@@ -123,6 +123,7 @@ bool ftPp_SpecialS_80120FE0(Fighter_GObj* gobj)
     return false;
 end: {
     // original code returns without a value
+    return false;
 }
 }
 

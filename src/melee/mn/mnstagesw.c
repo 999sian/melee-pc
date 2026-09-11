@@ -224,6 +224,8 @@ loop_done:
         next++;
         curr++;
     }
+    /* PPC build fell off the end here; the loop above never terminates. */
+    return -1;
 }
 
 static void mnStageSw_80235DC8(const u8* user_data, s32 buttons)

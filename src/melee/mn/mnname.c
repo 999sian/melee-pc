@@ -839,6 +839,8 @@ f32 mnName_80238964(u8 index, u8 target, u8 flag)
         }
         return base[6 + (index == target)].start_frame;
     }
+    /* PPC build fell off the end here; only 0x18-0x1A are ever passed. */
+    return 0.0F;
 }
 
 void mnName_80238A04(MnName_GObj* data, u8 target, u8 flag)

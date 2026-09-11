@@ -142,6 +142,8 @@ s32 itLinkArrow_802A81C4(Item_GObj* gobj)
     }
     HSD_JObjSetRotationZ(jobj, z);
     ip->xDD4_itemVar.linkarrow.x9C -= 1;
+    /* PPC fell off the end here; no caller uses the result. */
+    return 0;
 }
 
 void it_802A8330(HSD_GObj* gobj)
@@ -311,6 +313,8 @@ bool itLinkArrow_802A850C(Item_GObj* gobj, Vec3* arg1, Vec3* arg2, f32 arg3,
         return it_8026EA20(gobj, &ip->xDD4_itemVar.linkarrow.x18, &ip->pos,
                            &sp68, &ip->xDD4_itemVar.linkarrow.xE4, &flags);
     }
+    /* PPC fell off the end here; arrow was not (re)initialized. */
+    return false;
 }
 
 void itLinkArrow_Logic98_Destroyed(Item_GObj* gobj)

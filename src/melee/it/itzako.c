@@ -234,6 +234,8 @@ int it_8027BA54(HSD_GObj* item_gobj, Vec3* arg1)
     sp14.y *= 10.0f;
     sp14.z *= 10.0f;
     *arg1 = sp14;
+    /* PPC fell off the end here; no caller uses the result. */
+    return 0;
 }
 
 void it_8027BB1C(Vec3* arg0, Vec3* arg1)

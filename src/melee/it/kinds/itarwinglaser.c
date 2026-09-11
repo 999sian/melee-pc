@@ -294,7 +294,7 @@ Item_GObj* it_802E7654(Item_GObj* owner, HSD_JObj* bone, Vec3* target,
         it_802750F8(new_gobj);
         ip->xDCC_flag.b3 = 0;
     }
-    // NOTE: no return
+    return new_gobj;
 }
 
 void it_802E79C8(Item_GObj* gobj)

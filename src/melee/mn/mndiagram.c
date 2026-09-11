@@ -1202,6 +1202,8 @@ static inline u8 mnDiagram_GetVisibleFighterCursorFrom2(int start, int rank)
                  0);
         rank--;
     }
+    /* PPC build fell off the end here; rank is never negative on entry. */
+    return SELKIND_COUNT;
 }
 
 static inline Diagram* mnDiagram_GetCurrentDiagramData(void)

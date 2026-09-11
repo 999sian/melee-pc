@@ -1520,6 +1520,8 @@ after_lang_flag:
     case 8:
         return (float) us_ptr->x04;
     }
+    /* PPC build fell off the end here; callers only pass fields 0-8. */
+    return 0.0F;
 }
 
 s16 Toy_803062BC(s32 trophyId)

@@ -462,6 +462,8 @@ void* _tyList_80313508(HSD_GObj* parent, char* symbol_name, float x, float y,
             return gobj;
         }
     }
+    /* PPC build fell off the end here after OSPanic (which does not return). */
+    return NULL;
 }
 
 void _tyList_80313774(void)

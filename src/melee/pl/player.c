@@ -1652,6 +1652,8 @@ u8 Player_SetFlagsAEBit1(int slot, u8 bit1)
     Player_CheckSlot(slot);
     player = &player_slots[slot];
     player->flagsAE.b1 = bit1;
+    /* PPC fell off the end here; no caller uses the result. */
+    return 0;
 }
 
 int Player_GetUnk4C(s32 slot)

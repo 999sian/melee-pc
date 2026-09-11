@@ -132,7 +132,7 @@ void it_802EFD84(Item_GObj* gobj)
 
 bool itKyasarinegg_UnkMotion4_Anim(Item_GObj* gobj)
 {
-    it_802751D8(gobj);
+    return it_802751D8(gobj);
 }
 
 static inline bool it_damage_inline(Item_GObj* gobj)

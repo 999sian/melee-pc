@@ -23,6 +23,8 @@ int pl_80037B2C(struct plActionStats* arg0, int h_player, int idx)
     if (idx < 0x64) {
         return arg0->x504[idx] & (1 << (u8) h_player);
     }
+    /* PPC fell off the end here when idx >= 0x64. */
+    return 0;
 }
 
 void pl_80037BC0(struct plAttackStats* stats, union Struct2070* ev)

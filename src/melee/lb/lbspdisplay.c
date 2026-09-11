@@ -753,6 +753,7 @@ HSD_GObj* lb_800138EC(HSD_ImageDesc* img, GObj_RenderFunc render_func,
     } else {
         GObj_SetupGXLinkMax(gobj, render_func, prio);
     }
+    return gobj;
 }
 
 HSD_CObj* lb_80013B14(HSD_CameraDescPerspective* desc)

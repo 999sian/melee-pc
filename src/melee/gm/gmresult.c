@@ -343,6 +343,8 @@ u8 fn_80174920(struct ResultsPlayerData* data)
             data->stats_text[2][i] = NULL;
         }
     }
+    /* PPC build fell off the end here; no caller uses the result. */
+    return 0;
 }
 
 void fn_801749B8(HSD_GObj* unused)

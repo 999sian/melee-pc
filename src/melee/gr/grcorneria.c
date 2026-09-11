@@ -1713,6 +1713,8 @@ UNK_T grCorneria_801E03C8(Ground_GObj* gobj, int id)
     if (new_gobj != NULL) {
         HSD_GObjGXLink_80390908(new_gobj, 3, 0);
     }
+    /* PPC fell off the end here; no caller uses the result. */
+    return NULL;
 }
 
 void grCorneria_801E0678(void)

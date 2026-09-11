@@ -1278,6 +1278,8 @@ s32 gm_801623A4(MatchEnd* arg0)
 {
     fn_80162068(arg0);
     fn_80162170(arg0);
+    /* PPC build fell off the end here; no caller uses the result. */
+    return 0;
 }
 
 int gm_801623D8(void)
@@ -1481,6 +1483,8 @@ s32 gm_80162968(u32 seconds)
     u32* ptr = gmMainLib_GetSingleplayerTime();
 
     *ptr = ((*ptr + seconds) > -1) ? -1 : (*ptr + seconds);
+    /* PPC build fell off the end here; return the new total. */
+    return *ptr;
 }
 
 s32 gm_801629B4(s32 amount)
@@ -1488,6 +1492,8 @@ s32 gm_801629B4(s32 amount)
     u32* ptr = gmMainLib_8015CD80();
 
     *ptr = ((*ptr + amount) > -1) ? -1 : (*ptr + amount);
+    /* PPC build fell off the end here; return the new total. */
+    return *ptr;
 }
 
 s32 gm_GetPlayTime(void)
@@ -1506,6 +1512,8 @@ s32 gm_80162A4C(s32 amount)
 
     ptr = gmMainLib_GetTotalDamage();
     *ptr = ((*ptr + amount) > -1) ? -1 : (*ptr + amount);
+    /* PPC build fell off the end here; return the new total. */
+    return *ptr;
 }
 
 struct gmm_x1868_1A8_t* gm_80162A98(s32 arg0)
@@ -3081,6 +3089,11 @@ float fn_80166A8C(register Vec3* src, register Vec3* dst)
 #ifdef MWERKS_GEKKO
     register float x = src->x;
     asm { psq_st x, Vec3.x(dst), 1, qr3 }
+    return x;
+#else
+    /* GQR3 = 0x00050005 (init_spr_unk): store as u16, scale 0. */
+    float x = src->x;
+    *(u16*) dst = (u16) (x < 0.0f ? 0.0f : (x > 65535.0f ? 65535.0f : x));
     return x;
 #endif
 }

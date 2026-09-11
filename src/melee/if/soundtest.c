@@ -776,7 +776,7 @@ bool un_802FF88C(enum soundtest_callback_arg0 arg0)
 
 bool un_802FF934(enum soundtest_callback_arg0 arg0)
 {
-    lbAudioAx_80024C08(un_804D6DBC);
+    return lbAudioAx_80024C08(un_804D6DBC);
 }
 
 bool un_802FF958(enum soundtest_callback_arg0 arg0)
@@ -1228,6 +1228,8 @@ bool un_80300758(enum soundtest_callback_arg0 arg0)
     if (arg0 == 1) {
         un_802FFCD0(4, (u8*) &un_803FA258 + 0x10);
     }
+    // PPC build fell off the end here; 0 = not handled.
+    return 0;
 }
 
 bool un_80300790(enum soundtest_callback_arg0 arg0)
@@ -1235,6 +1237,8 @@ bool un_80300790(enum soundtest_callback_arg0 arg0)
     if (arg0 == 1) {
         un_802FFCD0(4, (u8*) &un_803FA258 + 0x24);
     }
+    // PPC build fell off the end here; 0 = not handled.
+    return 0;
 }
 
 #ifdef MUST_MATCH
@@ -1474,6 +1478,8 @@ bool fn_80300CC8(enum soundtest_callback_arg0 arg0)
     default:
         break;
     }
+    // PPC build fell off the end here; 0 = not handled.
+    return 0;
 }
 
 #ifdef MUST_MATCH
@@ -1515,6 +1521,8 @@ bool fn_80300DE0(enum soundtest_callback_arg0 arg0)
     default:
         break;
     }
+    // PPC build fell off the end here; 0 = not handled.
+    return 0;
 }
 
 #ifdef MUST_MATCH
@@ -1550,6 +1558,8 @@ bool fn_80300ED0(enum soundtest_callback_arg0 arg0)
     default:
         break;
     }
+    // PPC build fell off the end here; 0 = not handled.
+    return 0;
 }
 
 #ifdef MUST_MATCH
@@ -1693,6 +1703,8 @@ bool fn_803011EC(enum soundtest_callback_arg0 arg0)
     default:
         break;
     }
+    // PPC build fell off the end here; 0 = not handled.
+    return 0;
 }
 
 #ifdef MUST_MATCH
@@ -2141,6 +2153,8 @@ bool un_80301CE0(enum soundtest_callback_arg0 arg0)
     default:
         break;
     }
+    // PPC build fell off the end here; 0 = not handled.
+    return 0;
 }
 
 bool un_80301D40(enum soundtest_callback_arg0 update_scene)

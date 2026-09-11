@@ -198,6 +198,8 @@ static inline ItemKind it_80289BE8_spawn_random(Item_GObj* gobj, f32 vel_scale,
             return -1;
         }
     }
+    /* PPC fell off the end here; -1 = nothing spawned. */
+    return -1;
 }
 
 static inline void it_80289BE8_spawn(Item_GObj* gobj, ItemKind kind,

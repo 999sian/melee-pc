@@ -232,4 +232,6 @@ int main(void)
 
     db_ClearFPUExceptions();
     gm_801A4510();
+    /* PPC build fell off the end here; 0 = success for the PC exit code. */
+    return 0;
 }
