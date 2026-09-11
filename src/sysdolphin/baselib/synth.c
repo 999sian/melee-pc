@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "synth.h"
 
 #include <math.h> // IWYU pragma: keep
@@ -612,10 +613,31 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
                 HSD_Synth_804D7750 = 0x40;
             }
             sfx_node->x0 = HSD_Synth_804D7750 + node_idx;
+            if (getenv("MELEE_SFX_STATS") != NULL) {
+                static unsigned long started;
+                started++;
+                if (started <= 3 || (started % 200) == 0) {
+                    OSReport("sfx started=%lu (latest id=0x%X)\n", started,
+                             sfx_id);
+                }
+            }
             OSRestoreInterrupts(saved_interrupts);
             return sfx_node->x0;
         }
         sfx_entry = DP(struct foo, sfx_entry->next);
+    }
+
+    /* MELEE_SFX_STATS=1: a play request whose sfx_id is not in its hash
+     * bucket falls through to here and returns -1 silently -- the sound
+     * simply never plays. Count those against successful starts, and name
+     * the first few missing ids. */
+    if (getenv("MELEE_SFX_STATS") != NULL) {
+        static unsigned long misses;
+        misses++;
+        if (misses <= 12 || (misses % 200) == 0) {
+            OSReport("sfx MISS #%lu id=0x%X (bucket %d)\n", misses, sfx_id,
+                     sfx_id & 0x1F);
+        }
     }
 
     OSRestoreInterrupts(saved_interrupts);

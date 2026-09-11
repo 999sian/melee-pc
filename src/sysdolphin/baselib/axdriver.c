@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "axdriver.h"
 
 #include <math.h>
@@ -321,6 +322,21 @@ void AXDriver_8038C6C0(HSD_SM* v)
         cmd_word = v->cmd_stream->v;
         cmd_type = cmd_word >> 0x18U;
 
+        /* MELEE_SFX_STATS=1: opcode histogram for the .sem command stream.
+         * cmd_type 1 is 'play this sound id'; if the stream were misdecoded
+         * the distribution would be dominated by unused opcodes. */
+        if (getenv("MELEE_SFX_STATS") != NULL) {
+            static unsigned long hist[256], total;
+            hist[cmd_type & 0xFF]++;
+            if (++total <= 3 || total % 20000 == 0) {
+                int t;
+                OSReport("sem opcodes total=%lu:", total);
+                for (t = 0; t < 16; t++) {
+                    OSReport(" %d=%lu", t, hist[t]);
+                }
+                OSReport("\n");
+            }
+        }
         cmd_size = AXDriver_8038C678(cmd_type, cmd_word);
         if (cmd_size != 0) {
             AXDriver_8038BF6C(v);
