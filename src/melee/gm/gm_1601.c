@@ -1,4 +1,5 @@
 #include "gm_1601.h"
+#include <stdlib.h>
 
 #include <Runtime/platform.h>
 
@@ -3890,6 +3891,15 @@ void fn_80168A6C(void* arg0, void* arg1, s32 idx)
     memzero(dst, sizeof(*dst));
 
     model = GM_SCENE_MODEL(src, idx);
+    /* MELEE_SCENE_LOG=1: the scene model descriptor is the source of the
+     * joint pointer that gmRegClearAddModel panics on when NULL. Report what
+     * the disc slots actually hold, rather than inferring it. */
+    if (getenv("MELEE_SCENE_LOG") != NULL) {
+        OSReport("scene_model: src=%p models_slot=%08x idx=%d -> model=%p"
+                 " joint_slot=%08x\n",
+                 (void*) src, (unsigned) src->models, idx, (void*) model,
+                 model != NULL ? (unsigned) model->joint : 0u);
+    }
     if (model != NULL) {
         dst->model = *model;
     }

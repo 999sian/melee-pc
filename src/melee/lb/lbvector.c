@@ -380,6 +380,17 @@ Vec3* lbVector_WorldToScreen(HSD_CObj* cobj, const Vec3* pos3d,
     float f1;
 
     HSD_ASSERT(676, pos3d);
+    /* MELEE_WTS_LOG=1: report the position before the range asserts fire, so
+     * a crash here says whether the value is NaN or merely enormous. */
+    if (!(pos3d->x > -50000.0F && pos3d->x < 50000.0F) ||
+        !(pos3d->y > -50000.0F && pos3d->y < 50000.0F) ||
+        !(pos3d->z > -50000.0F && pos3d->z < 50000.0F))
+    {
+        OSReport("lbVector_WorldToScreen: bad pos3d=%p x=%.3f y=%.3f z=%.3f "
+                 "(raw x=%08x y=%08x z=%08x)\n",
+                 (void*) pos3d, pos3d->x, pos3d->y, pos3d->z,
+                 *(u32*) &pos3d->x, *(u32*) &pos3d->y, *(u32*) &pos3d->z);
+    }
     HSD_ASSERT(677, pos3d->x>-50000.0F&&pos3d->x<50000.0F);
     HSD_ASSERT(678, pos3d->y>-50000.0F&&pos3d->y<50000.0F);
     HSD_ASSERT(679, pos3d->z>-50000.0F&&pos3d->z<50000.0F);
