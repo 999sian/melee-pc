@@ -4,6 +4,7 @@
 #include <dolphin/card.h>
 #include <dolphin/os.h>
 
+#include <SDL3/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,7 +50,11 @@ int main(int argc, char* argv[])
     }
 
     const AuroraConfig config = {
+        /* appName doubles as the window title; the save/cache dirs stay
+         * pinned so a renamed test window still uses the same memory card. */
         .appName = getenv("MELEE_WINDOW_TITLE") ? getenv("MELEE_WINDOW_TITLE") : "melee-pc",
+        .userPath = SDL_GetPrefPath(NULL, "melee-pc"),
+        .cachePath = SDL_GetPrefPath(NULL, "melee-pc"),
         .msaa = 1,
         .maxTextureAnisotropy = 16,
         .vsync = true,
