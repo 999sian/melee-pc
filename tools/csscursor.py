@@ -24,21 +24,29 @@ def devctl(*args):
 
 
 def find_hand():
+    """Returns the glove's fingertip in 1280x960 reference coordinates."""
     devctl("shot", "/tmp/_css.png")
     img = np.asarray(Image.open("/tmp/_css.png").convert("RGB")).astype(int)
     white = (img[:, :, 0] > 235) & (img[:, :, 1] > 235) & (img[:, :, 2] > 235)
-    white[: img.shape[0] // 4] = False  # skip the "MELEE / VS" header
-    # coarse 16px grid; pick the densest block, then refine around it
-    b = 16
+    # the glove is a solid blob; text isn't. Erode to drop glyph strokes.
     h, w = white.shape
+    scale = w / 1280.0
+    r = max(1, round(3 * scale))
+    e = white.copy()
+    for dy, dx in ((0, r), (0, -r), (r, 0), (-r, 0)):
+        e &= np.roll(np.roll(white, dy, 0), dx, 1)
+    white = e
+    # coarse grid; pick the densest block, then refine around it
+    b = max(8, int(16 * scale))
     grid = white[: h // b * b, : w // b * b].reshape(h // b, b, w // b, b).sum(axis=(1, 3))
     gy, gx = np.unravel_index(np.argmax(grid), grid.shape)
     if grid[gy, gx] < b * b // 3:
         return None
-    y0, y1 = max(0, gy * b - 80), min(h, gy * b + 96)
-    x0, x1 = max(0, gx * b - 80), min(w, gx * b + 96)
+    pad, win = int(80 * scale), int(96 * scale)
+    y0, y1 = max(0, gy * b - pad), min(h, gy * b + win)
+    x0, x1 = max(0, gx * b - pad), min(w, gx * b + win)
     ys, xs = np.nonzero(white[y0:y1, x0:x1])
-    return int(xs.min() + x0), int(ys.min() + y0)
+    return int((xs.min() + x0) * 1280 / w), int((ys.min() + y0) * 960 / h)
 
 
 def main():
@@ -48,7 +56,8 @@ def main():
         if pos is None:
             sys.exit("hand cursor not found")
         dx, dy = tx - pos[0], ty - pos[1]
-        if abs(dx) < 12 and abs(dy) < 12:
+        # a portrait cell is ~90 reference px wide, so ~25px is close enough
+        if abs(dx) < 25 and abs(dy) < 25:
             print(f"at {pos}")
             return
         # ~1300 px/s at full deflection; short pulses so momentum stays small
