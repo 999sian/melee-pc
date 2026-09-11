@@ -14,9 +14,20 @@ k Down; sleep 1; k x; sleep 4; k x; sleep 8              # VS Mode -> Melee -> C
 c() { python3 tools/csscursor.py "$@"; }
 h Up 1500; sleep 0.5                                     # hand appears (P1 joins as HMN)
 c 370 300; k x; sleep 0.5                                # drop the token on Ness (row 2, col 2)
-c 405 545; k x; sleep 0.8                                # port 2 tag -> CPU
-shot /tmp/vs_css.png
-k Return; sleep 6; h Up 200; sleep 0.3; k x; sleep 10    # SSS -> random stage -> fight
+# Setting port 2 to CPU is the flaky step: if it does not take, Melee refuses
+# to start (a match needs two players) and Start silently does nothing. Retry
+# until the screen actually changes.
+for attempt in 1 2 3 4; do
+    c 405 545; k x; sleep 0.8                            # port 2 tag -> CPU
+    shot /tmp/vs_css.png
+    k Return; sleep 6                                    # Start -> stage select
+    shot /tmp/_sss.png
+    if python3 tools/framediff.py /tmp/vs_css.png /tmp/_sss.png; then
+        break
+    fi
+    echo "port 2 not set (attempt $attempt); retrying" >&2
+done
+h Up 200; sleep 0.3; k x; sleep 10                       # random stage -> fight
 n=0
 while [ $n -lt "${1:-7}" ]; do
     for i in 1 2 3 4 5 6; do h Left 300; k x; k c; k x; h Right 300; k z; done

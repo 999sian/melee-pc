@@ -51,13 +51,15 @@ def find_hand():
 
 def main():
     tx, ty = int(sys.argv[1]), int(sys.argv[2])
-    for _ in range(14):
+    # Portraits are ~90px wide and tolerate a loose approach; the port tags
+    # are small, so callers aiming at one must ask for a tighter fit.
+    tol = int(sys.argv[3]) if len(sys.argv) > 3 else 12
+    for _ in range(20):
         pos = find_hand()
         if pos is None:
             sys.exit("hand cursor not found")
         dx, dy = tx - pos[0], ty - pos[1]
-        # a portrait cell is ~90 reference px wide, so ~25px is close enough
-        if abs(dx) < 25 and abs(dy) < 25:
+        if abs(dx) < tol and abs(dy) < tol:
             print(f"at {pos}")
             return
         # ~1300 px/s at full deflection; short pulses so momentum stays small

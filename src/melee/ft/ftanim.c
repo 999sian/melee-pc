@@ -571,6 +571,9 @@ float ftAnim_8006F3DC(Fighter_GObj* fighter_gobj)
     } else {
         return lbGetJObjCurrFrame(fp->x8AC_animSkeleton);
     }
+    /* No animated part matched. The PPC build fell off the end here and
+     * returned whatever was left in f1; return a defined frame instead. */
+    return 0.0F;
 }
 
 float ftAnim_8006F484(Fighter_GObj* fighter_gobj)
@@ -800,6 +803,8 @@ HSD_Joint* ftAnim_8006F994(Fighter* fp, HSD_JObj* jobj, HSD_Joint* joint)
         i += 1;
         ftAnim_GetNextJointInTree(&joint, &depth);
     }
+    /* the loop only exits once joint is NULL */
+    return NULL;
 }
 
 void ftAnim_8006FA58(Fighter* fp, Fighter_Part part, HSD_Joint* joint)

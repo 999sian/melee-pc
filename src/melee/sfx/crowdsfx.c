@@ -505,7 +505,7 @@ bool un_803224DC(s32 spawn_id, f32 pos_x, f32 kb_mag)
     }
 check:
     if (out_of_bounds != 0) {
-        un_8032201C(spawn_id, cat);
+        return un_8032201C(spawn_id, cat);
     } else {
         return 0;
     }
@@ -531,5 +531,5 @@ int un_80322598(int arg0, float arg1)
     } else {
         cat = 1;
     }
-    un_8032201C(arg0, cat);
+    return un_8032201C(arg0, cat);
 }
