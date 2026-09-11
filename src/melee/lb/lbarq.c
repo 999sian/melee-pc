@@ -25,10 +25,8 @@ typedef struct lbArqGlobal {
     /* 0x1E0 */ lbArqNode* list[3];
 } lbArqGlobal;
 
-typedef struct lbArqHandle {
-    /* 0x00 */ void* unk0;
-    /* 0x04 */ lbArqNode* node;
-} lbArqHandle;
+/* ARQPostRequest is given the node as the request owner; the completion
+ * callback recovers it from there. */
 
 /* 4316C0 */ lbArqGlobal lbArq_804316C0;
 
@@ -40,28 +38,24 @@ typedef struct lbArqHandle {
 #endif
 static lbArqState lbArq_80014ABC(lbArqNode* arg0)
 {
-    return arg0->state;
+    return *(volatile lbArqState*) &arg0->state; /* set by the ARQ completion thread */
 }
 #ifdef __MWERKS__
 #pragma pop
 #endif
 
-static void lbArq_80014AC4(lbArqHandle* handle)
+static void lbArq_80014AC4(ARQRequest* request)
 {
     lbArqGlobal* global = &lbArq_804316C0;
-    lbArqNode* node = handle->node;
+    lbArqNode* node = (lbArqNode*) (uintptr_t) request->owner;
     lbArqNode** prev;
     lbArqNode** tail;
-    uintptr_t offset;
     BOOL intr;
 
     intr = OSDisableInterrupts();
 
     /* Remove from current list (indexed by state) */
-    offset = node->state * 4;
-    offset += 0x1E0;
-    offset += (uintptr_t) global;
-    prev = (lbArqNode**) offset;
+    prev = &global->list[node->state];
     while (*prev != node) {
         prev = &(*prev)->next;
     }
@@ -137,8 +131,8 @@ void lbArq_80014BD0(unsigned int source, void* dest, size_t length,
 
     rp_tmp = rp;
     source_tmp = source;
-    ARQPostRequest(&rp->arq, (u32) rp_tmp, 1, 0, source_tmp, (uintptr_t) dest,
-                   length, (ARQCallback) lbArq_80014AC4);
+    ARQPostRequest(&rp->arq, (u32) (uintptr_t) rp_tmp, 1, 0, source_tmp,
+                   (uintptr_t) dest, length, lbArq_80014AC4);
 
     if (rp->callback == NULL) {
         OSRestoreInterrupts(intr);

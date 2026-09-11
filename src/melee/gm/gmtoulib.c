@@ -2533,7 +2533,7 @@ HSD_GObj* fn_801901F8(HSD_CObjDesc* cobjdesc)
 #pragma push
 #pragma auto_inline off
 #endif
-void fn_8019027C(UNK_T lights)
+void fn_8019027C(DiscU32* lights)
 {
     HSD_GObj* gobj = GObj_Create(0xB, 0x1A, 0);
     HSD_LObj* lobj = lb_80011AC4(lights);
@@ -2549,18 +2549,17 @@ void fn_8019027C(UNK_T lights)
 #pragma push
 #pragma auto_inline off
 #endif
-void fn_801902F0(int sis_param)
+void fn_801902F0(HSD_GObj* sis_param)
 {
-    s32 value;
+    HSD_GObj* value;
     PAD_STACK(8);
 
     value = sis_param;
     HSD_SisLib_803A5E70();
     if (gm_804771C4.x1C == 0) {
-        value = 0;
+        value = NULL;
     }
-    lbl_804D663C =
-        HSD_SisLib_803A611C(0, (HSD_GObj*) value, 9, 0x12, 0, 3, 0, 0x13);
+    lbl_804D663C = HSD_SisLib_803A611C(0, value, 9, 0x12, 0, 3, 0, 0x13);
 }
 #ifdef MUST_MATCH
 #pragma pop

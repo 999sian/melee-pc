@@ -134,10 +134,10 @@ struct ToyGlobalsS_ {
 };
 
 struct TyFiguponED4 {
-    /* 0x00 */ u32 x0;
-    /* 0x04 */ u32 x4;
+    /* 0x00 */ HSD_GObj* x0;
+    /* 0x04 */ HSD_GObj* x4;
     /* 0x08 */ u8 pad_08[0x4];
-    /* 0x0C */ u32 xC;
+    /* 0x0C */ HSD_GObj* xC;
 };
 
 struct TyDisplayData {

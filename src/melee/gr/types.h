@@ -1764,8 +1764,8 @@ struct grHomeRun_GroundVars {
 struct grHomeRun_GroundVars2 {
     /* +00 gp+C4 */ u16 xC4;
     /* +02 gp+C6 */ u16 xC6;
-    /* +04 gp+C8 */ int xC8;
-    /* +08 gp+CC */ int xCC;
+    /* +04 gp+C8 */ HSD_Text* xC8;
+    /* +08 gp+CC */ HSD_JObj* xCC;
     /* +0C gp+D0 */ float xD0;
 };
 

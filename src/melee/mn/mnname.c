@@ -603,7 +603,7 @@ void mnName_MainInput(HSD_GObj* arg0)
                 mnName_80238A04((HSD_GObj*) gobj2, 0x18U, 1U);
                 HSD_SisLib_803A5CC4(gobj2->text2);
                 count = mnName_CountValid();
-                mnNameNew_EnterFromMnName((void*) (s32) count);
+                mnNameNew_EnterFromMnName(count);
                 return;
             }
             lbAudioAx_80024030(3);
@@ -1564,13 +1564,12 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
                     (HSD_JObj**) ((u8*) user_data + (i << 2) + 8), i, -1);
     }
     if (mn_804A04F0.x10 == 1) {
-        struct mn_80231634_t* p =
-            (struct mn_80231634_t*) user_data->gobj.user_data_remove_func;
+        HSD_JObj* p = (HSD_JObj*) user_data->gobj.user_data_remove_func;
         HSD_JObj* j;
         if (p == NULL) {
             j = NULL;
         } else {
-            j = (HSD_JObj*) p->x10;
+            j = p->child;
         }
         HSD_JObjRemoveAll(j);
         if (user_data->text != NULL) {
@@ -1579,8 +1578,8 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
         }
         HSD_JObjSetFlagsAll((HSD_JObj*) user_data->gobj.hsd_obj, JOBJ_HIDDEN);
     } else {
-        HSD_JObjRemoveAll((HSD_JObj*) mn_80231634(
-            (struct mn_80231634_t*) user_data->gobj.user_data_remove_func));
+        HSD_JObjRemoveAll(
+            mn_80231634((HSD_JObj*) user_data->gobj.user_data_remove_func));
         if (user_data->text != NULL) {
             HSD_SisLib_803A5CC4(user_data->text);
             user_data->text = NULL;
@@ -1606,10 +1605,9 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
     return gobj;
 }
 
-static inline struct mn_80231634_t*
-mnName_8023A9B4_GetUserData(MnName_GObj* gobj2)
+static inline HSD_JObj* mnName_8023A9B4_GetUserData(MnName_GObj* gobj2)
 {
-    return (struct mn_80231634_t*) gobj2->gobj.user_data_remove_func;
+    return (HSD_JObj*) gobj2->gobj.user_data_remove_func;
 }
 
 static inline void mnName_8023A9B4_ResetDisplayOrder(void)
@@ -1639,11 +1637,11 @@ void mnName_8023A9B4(u8 arg0)
     mnName_8023A9B4_ResetDisplayOrder();
     gobj2 = (0, mnName_8023A9B4_GetGObj());
     if (mn_804A04F0.x10 == 1) {
-        struct mn_80231634_t* p = mnName_8023A9B4_GetUserData(gobj2);
+        HSD_JObj* p = mnName_8023A9B4_GetUserData(gobj2);
         if (p == NULL) {
             jobj = NULL;
         } else {
-            jobj = (HSD_JObj*) p->x10;
+            jobj = p->child;
         }
         HSD_JObjRemoveAll(jobj);
         if (gobj2->text != NULL) {
@@ -1652,8 +1650,8 @@ void mnName_8023A9B4(u8 arg0)
         }
         HSD_JObjSetFlagsAll((HSD_JObj*) gobj2->gobj.hsd_obj, JOBJ_HIDDEN);
     } else {
-        HSD_JObjRemoveAll((HSD_JObj*) mn_80231634(
-            (struct mn_80231634_t*) gobj2->gobj.user_data_remove_func));
+        HSD_JObjRemoveAll(
+            mn_80231634((HSD_JObj*) gobj2->gobj.user_data_remove_func));
         if (gobj2->text != NULL) {
             HSD_SisLib_803A5CC4(gobj2->text);
             gobj2->text = NULL;
@@ -1664,8 +1662,8 @@ void mnName_8023A9B4(u8 arg0)
     mnName_80238A04((HSD_GObj*) gobj2, 0x18U, (0, 0U));
     gobj2->gobj.gx_link = arg0;
     mnName_80238754_noinline((HSD_GObj*) gobj2);
-    HSD_JObjRemoveAll((HSD_JObj*) mn_80231634(
-        (struct mn_80231634_t*) gobj2->gobj.user_data_remove_func));
+    HSD_JObjRemoveAll(
+        mn_80231634((HSD_JObj*) gobj2->gobj.user_data_remove_func));
     if (gobj2->text != NULL) {
         HSD_SisLib_803A5CC4(gobj2->text);
         gobj2->text = NULL;

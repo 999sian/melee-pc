@@ -571,7 +571,7 @@ struct DISC_STRUCT FtSFX {
     int x10;
     int x14;
     int x18;
-    int x1C;
+    DISC_PTR(FtSFXArr) x1C;
     DISC_PTR(FtSFXArr) x20;
     int x24;
     int x28;
@@ -1042,7 +1042,7 @@ struct CpuFighter {
     /*  +44 */ Fighter* x44;
     /*  +48 */ UNK_T x48;
     /*  +4C */ Item* x4C;
-    /*  +50 */ u32 x50;
+    /*  +50 */ Item* x50;
     /*  +54 */ Vec2 x54;
     /*  +5C */ float x5C;
     /*  +60 */ int x60;
@@ -1386,7 +1386,7 @@ struct Fighter {
         /* fp+1880 */ Vec3 x1880;
         /* fp+188C */ int x188c;
         /* fp+1890 */ int x1890;
-        /* fp+1894 */ int x1894;
+        /* fp+1894 */ HSD_GObj* x1894;
         /* fp+1898 */ float x1898;
         /* fp+189C */ float x189C_unk_num_frames;
         /* fp+18A0 */ float x18a0;

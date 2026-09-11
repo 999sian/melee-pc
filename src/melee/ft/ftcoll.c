@@ -1469,7 +1469,7 @@ void ftColl_80078754(Fighter_GObj* arg0, Fighter_GObj* arg1, bool arg2)
     fp1->dmg.x18C8 = -1;
 }
 
-void ftColl_800787B4(Item_GObj* arg0, Fighter_GObj* arg1, int arg2)
+void ftColl_800787B4(Item_GObj* arg0, Fighter_GObj* arg1, UNK_T arg2)
 {
     Item* ip = arg0->user_data;
     Fighter* fp = arg1->user_data;
@@ -1483,13 +1483,13 @@ void ftColl_800787B4(Item_GObj* arg0, Fighter_GObj* arg1, int arg2)
 
     if (ftLib_80086960(owner)) {
         ftColl_8007861C(owner, arg1, 2, ip->kind, ip->xD90.x2070_int,
-                        &ip->xD94, ip->xDA8_short, (UNK_T) arg2, 0);
+                        &ip->xD94, ip->xDA8_short, arg2, 0);
     } else if (pl_8003D60C(ip->kind)) {
         ftColl_8007861C(NULL, arg1, 2, ip->kind, ip->xD90.x2070_int, &ip->xD94,
-                        ip->xDA8_short, (UNK_T) arg2, 1);
+                        ip->xDA8_short, arg2, 1);
     } else {
         ftColl_8007861C(NULL, arg1, 2, ip->kind, ip->xD90.x2070_int, &ip->xD94,
-                        ip->xDA8_short, (UNK_T) arg2, 0);
+                        ip->xDA8_short, arg2, 0);
     }
 }
 
@@ -3695,7 +3695,7 @@ void ftColl_8007BE3C(Fighter_GObj* gobj)
     }
 
     {
-        switch ((source = (HSD_GObj*) fp->dmg.x1894)->classifier) {
+        switch ((source = fp->dmg.x1894)->classifier) {
         case HSD_GOBJ_CLASS_FIGHTER:
             fighter_victim = fp->gobj;
             {

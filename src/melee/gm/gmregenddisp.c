@@ -297,7 +297,7 @@ void gm_801A9094(void)
             dsp = tyDisplay_8031B9DC(
                 gm_801A659C(gm_801A9094_get_entry(sp8C, i)));
             joint = HSD_ArchiveGetPublicAddress(
-                gm_804D679C, (const char*) tyDisplay_8031BB34((s8) dsp->x04));
+                gm_804D679C, tyDisplay_8031BB34((s8) dsp->x04));
             matanim = HSD_ArchiveGetPublicAddress(
                 gm_804D679C, tyDisplay_8031BB94((s8) dsp->x04));
             bg_joint = gm_801A9094_get_bg();

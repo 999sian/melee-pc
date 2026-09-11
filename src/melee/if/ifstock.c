@@ -542,11 +542,11 @@ HSD_GObj* ifStock_802F96D0(int a, int b, float x, float y)
 {
     struct ifStock_804A1378* q = &ifStock_804A1378;
     HSD_GObj* gobj = GObj_Create(14, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*q->x0)->joint));
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, IFSTOCK_MODEL0(q)->joint));
     HSD_JObj* jobj2;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, fn_802F9680, 11, 0);
-    gm_8016895C(jobj, *q->x0, 0);
+    gm_8016895C(jobj, IFSTOCK_MODEL0(q), 0);
     lb_80011E24(jobj, &jobj2, 1, -1);
     HSD_JObjSetTranslateX(jobj, x);
     HSD_JObjSetTranslateY(jobj, y);
@@ -599,11 +599,11 @@ void ifStock_802F98E8(u8 player, u8 b)
         gobj = GObj_Create(14, 15, 0);
         gobj->user_data = ifStock_802F98E8_get_data(stock, player);
         if (gobj != NULL) {
-            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*stock->x0)->joint));
+            jobj = HSD_JObjLoadJoint(DP(HSD_Joint, IFSTOCK_MODEL0(stock)->joint));
             if (jobj != NULL) {
                 HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
                 GObj_SetupGXLink(gobj, fn_802F94E0, 11, 0);
-                gm_8016895C(jobj, *stock->x0, 0);
+            gm_8016895C(jobj, IFSTOCK_MODEL0(stock), 0);
                 HSD_JObjReqAnimAll(jobj, 0.0f);
                 HSD_GObj_SetupProc(gobj, fn_802F9410, 17);
                 HSD_JObjSetTranslate(jobj, ifAll_GetPlayerHUDPosition(player));
@@ -750,11 +750,11 @@ static inline HSD_GObj* ifStock_802F9F48_inline(int arg)
 {
     struct ifStock_804A1378* q = &ifStock_804A1378;
     HSD_GObj* gobj = GObj_Create(14, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*q->x0)->joint));
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, IFSTOCK_MODEL0(q)->joint));
     HSD_JObj* jobj2;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, fn_802F95E8, 11, 0);
-    gm_8016895C(jobj, *q->x0, 0);
+    gm_8016895C(jobj, IFSTOCK_MODEL0(q), 0);
     lb_80011E24(jobj, &jobj2, 1, -1);
     if (!arg) {
         HSD_GObj_SetupProc(gobj, fn_802F8E08, 17);
@@ -779,11 +779,11 @@ HSD_GObj* ifStock_802FA118(int arg)
 {
     struct ifStock_804A1378* q = &ifStock_804A1378;
     HSD_GObj* gobj = GObj_Create(14, 15, 0);
-    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, (*q->x0)->joint));
+    HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, IFSTOCK_MODEL0(q)->joint));
     HSD_JObj* jobj2;
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
     GObj_SetupGXLink(gobj, fn_802F9548, 11, 0);
-    gm_8016895C(jobj, *q->x0, 0);
+    gm_8016895C(jobj, IFSTOCK_MODEL0(q), 0);
     lb_80011E24(jobj, &jobj2, 1, -1);
     if (arg == 0) {
         HSD_GObj_SetupProc(gobj, fn_802F916C, 17);
@@ -1028,7 +1028,7 @@ static inline void ifStock_CreateStockGObjs(HSD_GObj** slots)
 void ifStock_802FAEC4(void)
 {
     struct ifStock_804A1378* stock = &ifStock_804A1378;
-    DynamicModelDesc** scene_models;
+    DiscU32* scene_models; /* DynamicModelDesc*[] in the archive */
     HSD_GObj* gobj;
     memzero(stock, sizeof(*stock) - sizeof(stock->x204));
     memzero(&ifStock_804A1ACC, sizeof(ifStock_804A1ACC));
@@ -1037,7 +1037,7 @@ void ifStock_802FAEC4(void)
     lbArchive_LoadSections(*ifAll_GetArchive(), (void**) &scene_models,
                            ifStock_SceneModels, 0);
     stock->x0 = scene_models;
-    stock->x4 = scene_models[1];
+    stock->x4 = (DynamicModelDesc*) (uintptr_t) scene_models[1].v;
     ifStock_804A1ACC.x108 = NULL;
     ifStock_804A1ACC.x0 = 0;
     gobj = GObj_Create(14, 15, 0);

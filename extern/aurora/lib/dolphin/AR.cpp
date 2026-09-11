@@ -30,6 +30,9 @@ static u8* aramToHost(u32 aramAddr) {
   return sAramBuffer + aramAddr;
 }
 
+// melee-pc: the audio mixer decodes samples straight out of ARAM.
+extern "C" u8* aurora_aram_base(void) { return sAramBuffer; }
+
 u32 ARAlloc(u32 length) {
   u32 tmp;
 
@@ -144,8 +147,16 @@ void arq_worker() {
 
 void ARQPostRequest(ARQRequest* request, u32 owner, u32 type, u32 priority, uintptr_t source, uintptr_t dest,
                     u32 length, ARQCallback callback) {
-  (void)owner;
-  (void)priority;
+  // The SDK records the request parameters in the request itself; callbacks
+  // read them back (e.g. `owner` carries the caller's context).
+  request->next = nullptr;
+  request->owner = owner;
+  request->type = type;
+  request->priority = priority;
+  request->source = static_cast<u32>(source);
+  request->dest = static_cast<u32>(dest);
+  request->length = length;
+  request->callback = callback;
   {
     std::lock_guard lock{sArqMutex};
     sArqQueue.push_back(ArqJob{request, type, source, dest, length, callback});

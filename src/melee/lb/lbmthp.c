@@ -128,7 +128,7 @@ static void fn_8001E910(int arg0, int arg1, void* arg2, bool cancelflag)
     } else {
         var_r0 = streamPlayer->unk_8C - 1;
     }
-    streamPlayer->currPackedSize = PACKED_SIZE(streamPlayer->frame_buffers[var_r0]);
+    streamPlayer->currPackedSize = PACKED_SIZE((uintptr_t) streamPlayer->frame_buffers[var_r0]);
     if (streamPlayer->unk_90 != streamPlayer->unk_8C &&
         streamPlayer->unk_70 != 0)
     {
@@ -352,13 +352,13 @@ static s32 fn_8001EF5C(THPDecComp* data)
 
     if ((u32) data->unk_94 != data->unk_90) {
 #ifdef TARGET_PC
-        pc_thp_decode_frame((void*) (data->frame_buffers[data->unk_90] + 4),
+        pc_thp_decode_frame((void*) (uintptr_t) (data->frame_buffers[data->unk_90] + 4),
                             data->unk_50, data->unk_54, data->unk_58);
 #else
         intr = OSDisableInterrupts();
         data->unk_98 = THPVideoDecode(
             &data->unk_A8, &spC, (void*) data->unk_98,
-            (void*) (data->frame_buffers[data->unk_90] + 4), &data->unk_9C);
+            (void*) (uintptr_t) (data->frame_buffers[data->unk_90] + 4), &data->unk_9C);
         OSRestoreInterrupts(intr);
 
         if (data->width == 0x280) {
@@ -464,7 +464,7 @@ s32 fn_8001F13C(THPDecComp* streamPlayer)
 #endif
 s32 fn_8001F294(void)
 {
-    return MoviePlayer.unk_110;
+    return *(volatile s32*) &MoviePlayer.unk_110; /* cleared by the DVD completion */
 }
 #ifdef __MWERKS__
 #pragma pop

@@ -4152,7 +4152,7 @@ void mpFloorGetRight(int line_id, Vec3* pos_out)
     struct {
         int id;
     } w;
-    int line_offset;
+    int line_id0;
 
     LINEID_CHECK(4465, line_id);
 
@@ -4161,8 +4161,8 @@ void mpFloorGetRight(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->next_id1;
     w.id = mpLineGetNextCheckInline(line, next);
 }
@@ -4175,8 +4175,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v1_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4189,7 +4188,7 @@ void mpFloorGetLeft(int line_id, Vec3* pos_out)
     struct {
         int id;
     } w;
-    int line_offset;
+    int line_id0;
 
     LINEID_CHECK(4474, line_id);
 
@@ -4198,8 +4197,8 @@ void mpFloorGetLeft(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->prev_id1;
     w.id = mpLineGetPrevCheckInline(line, next);
 }
@@ -4212,8 +4211,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v0_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4226,7 +4224,7 @@ void mpCeilingGetRight(int line_id, Vec3* pos_out)
     struct {
         int id;
     } w;
-    int line_offset;
+    int line_id0;
 
     LINEID_CHECK(4483, line_id);
 
@@ -4238,8 +4236,8 @@ void mpCeilingGetRight(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->prev_id1;
     w.id = mpLineGetPrevCheckInline(line, next);
 }
@@ -4252,8 +4250,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v0_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4266,7 +4263,7 @@ void mpCeilingGetLeft(int line_id, Vec3* pos_out)
     struct {
         int id;
     } w;
-    int line_offset;
+    int line_id0;
 
     LINEID_CHECK(4492, line_id);
 
@@ -4278,8 +4275,8 @@ void mpCeilingGetLeft(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->next_id1;
     w.id = mpLineGetNextCheckInline(line, next);
 }
@@ -4292,8 +4289,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v1_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4306,7 +4302,7 @@ void mpLeftWallGetTop(int line_id, Vec3* pos_out)
     struct {
         int id;
     } w;
-    int line_offset;
+    int line_id0;
 
     LINEID_CHECK(4501, line_id);
 
@@ -4318,8 +4314,8 @@ void mpLeftWallGetTop(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->next_id1;
     w.id = mpLineGetNextCheckInline(line, next);
 }
@@ -4332,8 +4328,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v1_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4346,7 +4341,7 @@ void mpLeftWallGetBottom(int line_id, Vec3* pos_out)
     struct {
         int id;
     } w;
-    int line_offset;
+    int line_id0;
 
     LINEID_CHECK(4510, line_id);
 
@@ -4358,8 +4353,8 @@ void mpLeftWallGetBottom(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->prev_id1;
     w.id = mpLineGetPrevCheckInline(line, next);
 }
@@ -4372,8 +4367,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v0_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4386,7 +4380,7 @@ void mpRightWallGetTop(int line_id, Vec3* pos_out)
     struct {
         int id;
     } w;
-    int line_offset;
+    int line_id0;
 
     LINEID_CHECK(4519, line_id);
 
@@ -4398,8 +4392,8 @@ void mpRightWallGetTop(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->prev_id1;
     w.id = mpLineGetPrevCheckInline(line, next);
 }
@@ -4412,8 +4406,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v0_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4422,7 +4415,7 @@ done: {
 
 void mpRightWallGetBottom(int line_id, Vec3* pos_out)
 {
-    int line_offset;
+    int line_id0;
     struct {
         int id;
     } w;
@@ -4438,8 +4431,8 @@ void mpRightWallGetBottom(int line_id, Vec3* pos_out)
 again: {
     MapLine* line;
     int next;
-    line = ((CollLine*) ((int) groundCollLine + w.id * sizeof(CollLine)))->x0;
-    line_offset = w.id * sizeof(CollLine);
+    line = groundCollLine[w.id].x0;
+    line_id0 = w.id;
     next = line->next_id1;
     w.id = mpLineGetNextCheckInline(line, next);
 }
@@ -4452,8 +4445,7 @@ again: {
     }
 done: {
     CollVtx* vtx =
-        &groundCollVtx[((CollLine*) ((int) groundCollLine + line_offset))
-                           ->x0->v1_idx];
+        &groundCollVtx[groundCollLine[line_id0].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -5671,7 +5663,7 @@ static inline void mpLib_GetJointVtxRange(CollJoint* joint, int* start,
 
 void mpLib_800581DC(int joint_id0, int joint_id1)
 {
-    struct pair {
+    struct DISC_STRUCT pair { /* overlays MapJoint */
         s16 start;
         s16 count;
     };

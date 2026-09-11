@@ -486,10 +486,9 @@ static inline void mnSoundTest_ToggleView(soundtest_user_data* ud)
 
     state = (ud->unk0 == 0) ? 1 : 0;
     ud->unk0 = state;
-    ud = (soundtest_user_data*) (u32) ud->unk0;
     gobj = mnSoundTest_804D6C40;
-    mnSoundTest_8024ABF8(gobj, (u32) ud == 0);
-    mnSoundTest_8024AD58(gobj, (u8) (u32) ud);
+    mnSoundTest_8024ABF8(gobj, state == 0);
+    mnSoundTest_8024AD58(gobj, (u8) state);
 }
 
 static inline void mnSoundTest_PlaySampleAnim(HSD_JObj* jobj, HSD_JObj** pj,

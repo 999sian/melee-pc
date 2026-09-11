@@ -252,7 +252,7 @@ void HSD_VICopyEFB2XFBPtr(HSD_VIStatus* vi, void* buffer, HSD_RenderPass rpass)
         GXSetDispCopySrc(0, HSD_ANTIALIAS_OVERLAP, rmode->fbWidth, lines);
         offset = (VIPadFrameBufferWidth(rmode->fbWidth) * lines *
                   (u32) VI_DISPLAY_PIX_SZ);
-        GXCopyDisp((void*) ((u32) buffer + offset), GX_TRUE);
+        GXCopyDisp((u8*) buffer + offset, GX_TRUE);
         GXSetDispCopySrc(0, 0, rmode->fbWidth, HSD_ANTIALIAS_OVERLAP);
         GXSetCopyClamp((GXFBClamp) (GX_CLAMP_TOP | GX_CLAMP_BOTTOM));
         GXCopyDisp((void*) garbage, GX_TRUE);

@@ -269,7 +269,7 @@ void gm_80190EA4(void)
     TmData* tmdata = gm_GetTournamentData();
 
     fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D664C)->desc));
-    fn_801902F0(0);
+    fn_801902F0(NULL);
     fn_80193308();
     fn_8019027C(GM_SCENE_LIGHTS(lbl_804D664C));
     fn_80193230();
@@ -310,7 +310,7 @@ void gm_80190FE4(int arg0)
 
     if (mn_8022F218() == 0) {
         fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D664C)->desc));
-        fn_801902F0(0);
+        fn_801902F0(NULL);
         fn_80193308();
         fn_8019027C(GM_SCENE_LIGHTS(lbl_804D664C));
         fn_80193230();
@@ -1517,7 +1517,7 @@ void fn_801935B8(void)
     table = &lbl_803D9F80;
     tm = gm_GetTournamentData();
     fn_8018FBE0(0, 0, 0, 5, 5, 0x3e7, 3);
-    fn_801902F0((s32) fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D664C)->desc)));
+    fn_801902F0(fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D664C)->desc)));
     fn_80193308();
     fn_8019027C(GM_SCENE_LIGHTS(lbl_804D664C));
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D664C, 5), 0, 0x1A, 2, 1, fn_801910E0, 0.0f);

@@ -40,7 +40,7 @@ typedef union ftPurin_MotionVars {
     } specialn;
 } ftPurin_MotionVars;
 
-typedef struct _ftPurinAttributes {
+typedef struct DISC_STRUCT _ftPurinAttributes {
     float x0;
     float x4;
     float x8;
@@ -74,7 +74,7 @@ typedef struct _ftPurinAttributes {
     float x7C;
     float x80;
     float x84;
-    Vec2 specialn_vel;
+    DiscVec2 specialn_vel;
     float x90;
     float x94;
     float x98;
@@ -97,12 +97,13 @@ typedef struct _ftPurinAttributes {
     float xDC;
     float xE0;
     float xE4;
-    UNK_T xE8;
-    UNK_T xEC;
+    DISC_PTR(void) xE8;
+    DISC_PTR(void) xEC;
     float xF0;
     float xF4;
     u8 _F8[0x100 - 0xF8];
 } ftPurinAttributes;
 ASSERT_SIZE(ftPurinAttributes, 0x100);
+DISC_ASSERT_SIZE(ftPurinAttributes, 0x100);
 
 #endif

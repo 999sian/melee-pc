@@ -1913,8 +1913,8 @@ bool ftCo_800B8A9C(Fighter* fp)
         cpu->xA4 = result;
         return true;
     }
-    if (cpu->x50 != 0) {
-        result = ftCo_800B5AB0(fp, (void*) cpu->x50,
+    if (cpu->x50 != NULL) {
+        result = ftCo_800B5AB0(fp, cpu->x50,
                                ((void*) (uintptr_t) DP(DiscU32, Fighter_804D64FC->x14)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;

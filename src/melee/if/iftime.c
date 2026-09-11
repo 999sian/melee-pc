@@ -23,25 +23,26 @@ static struct ifTime_data {
     HSD_JObj* digits[10];
     unsigned char countdown_seconds;
     char pad31[0x38 - 0x31];
-    struct DynamicModelDesc** countdown_timer_models;
+    DiscU32* countdown_timer_models; /* DynamicModelDesc*[] in the archive */
 } ifTime_data;
 static DynamicModelDesc ifTime_match_timer_models;
+#define IFTIME_COUNTDOWN_MODEL(x) ((DynamicModelDesc*) (uintptr_t) (x)->countdown_timer_models[0].v)
 
 static bool ifTime_LoadModels(void)
 {
-    DynamicModelDesc** ScInfTim_scene_models;
+    DiscU32* ScInfTim_scene_models; /* DynamicModelDesc*[] in the archive */
+    DynamicModelDesc* model;
     lbArchive_LoadSections(*ifAll_GetArchive(), (void*) &ScInfTim_scene_models,
                            "ScInfTim_scene_models",
                            &ifTime_data.countdown_timer_models, "tdsce", 0);
-    if (*ScInfTim_scene_models != NULL) {
-        ifTime_match_timer_models.joint = (**ScInfTim_scene_models).joint;
-        ifTime_match_timer_models.anims = (**ScInfTim_scene_models).anims;
-        ifTime_match_timer_models.matanims =
-            (**ScInfTim_scene_models).matanims;
-        ifTime_match_timer_models.shapeanims =
-            (**ScInfTim_scene_models).shapeanims;
+    model = (DynamicModelDesc*) (uintptr_t) ScInfTim_scene_models[0].v;
+    if (model != NULL) {
+        ifTime_match_timer_models.joint = model->joint;
+        ifTime_match_timer_models.anims = model->anims;
+        ifTime_match_timer_models.matanims = model->matanims;
+        ifTime_match_timer_models.shapeanims = model->shapeanims;
     }
-    return *ScInfTim_scene_models != NULL ? true : false;
+    return model != NULL ? true : false;
 }
 
 static inline void ifTime_SetDigit(HSD_JObj* jobj, unsigned int frame)
@@ -173,7 +174,7 @@ void ifTime_UpdateCountdown(HSD_GObj* arg0)
     if (f != x->countdown_seconds) {
         x->countdown_seconds = f;
         HSD_JObjRemoveAnimAll(jobj);
-        lb_8000C0E8(jobj, x->countdown_seconds, x->countdown_timer_models[0]);
+        lb_8000C0E8(jobj, x->countdown_seconds, IFTIME_COUNTDOWN_MODEL(x));
         HSD_JObjReqAnimAll(jobj, 0.0f);
         HSD_JObjAnimAll(jobj);
     }
@@ -204,7 +205,7 @@ void ifTime_UpdateTimers(HSD_GObj* arg0)
     ifTime_SetTime(jobj, seconds, centiseconds);
     if (gm_8016B110() == 0 && centiseconds == 0 && seconds == 5) {
         HSD_JObj* jobj2 =
-            HSD_JObjLoadJoint(DP(HSD_Joint, x->countdown_timer_models[0]->joint));
+            HSD_JObjLoadJoint(DP(HSD_Joint, IFTIME_COUNTDOWN_MODEL(x)->joint));
         if (jobj2 == NULL) {
             OSReport("Error : jobj dont't get (ifAddTimeDownModel)\n");
             OSPanic("iftime.c", 300, "");
@@ -213,7 +214,7 @@ void ifTime_UpdateTimers(HSD_GObj* arg0)
         HSD_GObjObject_80390A70(x->countdown_timer, tmp, jobj2);
         GObj_SetupGXLink(x->countdown_timer, HSD_GObj_JObjCallback, 11, 0);
         x->countdown_seconds = ifTime_GetCountdownSeconds_dontinline();
-        lb_8000C0E8(jobj2, x->countdown_seconds, x->countdown_timer_models[0]);
+        lb_8000C0E8(jobj2, x->countdown_seconds, IFTIME_COUNTDOWN_MODEL(x));
         HSD_JObjReqAnimAll(jobj2, 0.0f);
         HSD_JObjAnimAll(jobj2);
         HSD_JObjSetTranslate(jobj2, ifAll_GetTimerPosition());

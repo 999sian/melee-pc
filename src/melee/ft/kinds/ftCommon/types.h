@@ -29,6 +29,30 @@ struct DISC_STRUCT ftCollisionBoxDisc {
 };
 DISC_ASSERT_SIZE(struct ftCollisionBoxDisc, 0x18);
 
+/// Copy a disc-layout height box into a native ftCollisionBox for the
+/// ft_8008xxxx(ftCollisionBox*) helpers.
+static inline void ftCollisionBox_FromDisc(ftCollisionBox* dst,
+                                           const ftCollisionBoxDisc* src)
+{
+    dst->top = src->top;
+    dst->bottom = src->bottom;
+    dst->left.x = src->left.x;
+    dst->left.y = src->left.y;
+    dst->right.x = src->right.x;
+    dst->right.y = src->right.y;
+}
+
+/// Scale every field of a disc-layout height box in place.
+static inline void ftCollisionBoxDisc_Scale(ftCollisionBoxDisc* box, float s)
+{
+    box->top *= s;
+    box->bottom *= s;
+    box->left.x *= s;
+    box->left.y *= s;
+    box->right.x *= s;
+    box->right.y *= s;
+}
+
 /// On disc (ftData::x30) and also built on the stack; same layout either way.
 struct DISC_STRUCT ftHurtboxInit {
     Fighter_Part bone_idx;

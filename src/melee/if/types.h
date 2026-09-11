@@ -159,10 +159,10 @@ struct DevText {
 ASSERT_SIZE(struct DevText, 0x34);
 
 struct un_804D6EF4_t {
-    /* +0x00 */ u32 x00;
+    /* +0x00 */ HSD_GObj* x00;
     /* +0x04 */ HSD_GObj* unk4;
-    /* +0x08 */ u32 x08;
-    /* +0x0C */ u32 x0C;
+    /* +0x08 */ HSD_GObj* x08;
+    /* +0x0C */ HSD_GObj* x0C;
     /* +0x10 */ HSD_JObj* jobjs[16];
     /* +0x50 */ HSD_Archive* archive;
     /* +0x54 */ s16 x54;
@@ -251,7 +251,7 @@ struct ifStock_804A1378_x204 {
 };
 
 struct ifStock_804A1378 {
-    DynamicModelDesc** x0;
+    DiscU32* x0; /* DynamicModelDesc*[] in the archive */
     DynamicModelDesc* x4;
     struct ifStock_804A1378_per_player player[6];
     HSD_GObj* gobj;
@@ -263,6 +263,7 @@ struct ifStock_804A1378 {
     HSD_JObj* jobj_d;
     struct ifStock_804A1378_x204 x204[6];
 };
+#define IFSTOCK_MODEL0(stock) ((DynamicModelDesc*) (uintptr_t) (stock)->x0[0].v)
 
 struct ifStock_804A1774 {
     char x0;

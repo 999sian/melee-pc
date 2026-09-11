@@ -280,8 +280,8 @@ bool itHitodeman_UnkMotion1_Anim(Item_GObj* gobj)
         }
 
         ip->xDD4_itemVar.hitodeman.x8C =
-            ((itHitodemanAttributes*)
-                 ip->xC4_article_data->x4_specialAttributes)
+            DP(itHitodemanAttributes,
+               ip->xC4_article_data->x4_specialAttributes)
                 ->x3C;
 
         if (ip->xDD4_itemVar.hitodeman.x90 != NULL) {

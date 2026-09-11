@@ -1248,7 +1248,7 @@ void fn_80198D18(void)
     gm_GetTournamentData();
     gobj = fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
     fn_801901F8(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
-    fn_801902F0((int) gobj);
+    fn_801902F0(gobj);
     fn_8019027C(GM_SCENE_LIGHTS(lbl_804D666C));
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D666C, 5), 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D666C, 4), 0, 0x1A, 2, 1, fn_80196E30, 80.0f);
@@ -1291,7 +1291,7 @@ void fn_80198EBC(void)
 
     gobj = fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
     fn_801901F8(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
-    fn_801902F0((int) gobj);
+    fn_801902F0(gobj);
     fn_8019027C(GM_SCENE_LIGHTS(lbl_804D666C));
 
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D666C, 5), 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
@@ -1509,7 +1509,7 @@ void fn_80199AF0(void)
 
     gobj = fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
     fn_801901F8(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
-    fn_801902F0((int) gobj);
+    fn_801902F0(gobj);
     fn_8019027C(GM_SCENE_LIGHTS(lbl_804D666C));
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D666C, 5), 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D666C, 4), 0, 0x1A, 2, 1, fn_80196E30, 80.0f);

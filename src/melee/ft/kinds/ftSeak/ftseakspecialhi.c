@@ -298,12 +298,13 @@ void ftSk_SpecialAirHiStart_1_Coll(HSD_GObj* gobj)
     }
 
     if (!ftCliffCommon_80081298(gobj)) {
+        int angle_clamp = attr->x50;
         /// @todo float hack
         (void) 0.0f;
         (void) 1.0f;
         (void) S32_TO_F32;
         (void) MTXDegToRad(1);
-        ftCommon_HandleTeleportCollisions(gobj, fp, collData, &attr->x50,
+        ftCommon_HandleTeleportCollisions(gobj, fp, collData, &angle_clamp,
                                           ftSk_SpecialHi_80113F68);
     }
 }

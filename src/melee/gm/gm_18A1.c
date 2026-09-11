@@ -143,9 +143,9 @@ f32 gm_8018A314(u8 difficulty, u8 stage_slot)
            100.0F;
 }
 
-void fn_8018A364(int arg0_int)
+void fn_8018A364(void* arg0_int)
 {
-    MatchEnd* arg0 = (MatchEnd*) arg0_int;
+    MatchEnd* arg0 = arg0_int;
     struct StartMeleeRules* rules;
     gmm_x0_528_t* main_data;
     UnkAllstarData* data;

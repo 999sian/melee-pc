@@ -18,7 +18,7 @@ struct ftSeak_FighterVars {
 };
 
 /// @sz{74}
-typedef struct _ftSeakAttributes { // x2D4 (fp->dat_attrs)
+typedef struct DISC_STRUCT _ftSeakAttributes { // x2D4 (fp->dat_attrs)
     float x0;
     float x4;
     float x8;
@@ -50,8 +50,10 @@ typedef struct _ftSeakAttributes { // x2D4 (fp->dat_attrs)
     f32 x70;
     // u8 data_filler_1[0x04];
 } ftSeakAttributes;
+DISC_ASSERT_SIZE(ftSeakAttributes, 0x74);
 
-struct itChainSegment {
+/// Article x4_specialAttributes block of the chain item, read in place.
+struct DISC_STRUCT itChainSegment {
     float x00;
     float x04;
     float x08;
@@ -74,6 +76,7 @@ struct itChainSegment {
     float x4C;
     float x50;
 };
+DISC_ASSERT_SIZE(struct itChainSegment, 0x54);
 
 union ftSeak_MotionVars {
     struct ftSeak_SpecialNVars {

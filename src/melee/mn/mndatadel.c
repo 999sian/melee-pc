@@ -63,16 +63,15 @@ void mnDataDel_8024E940(void)
     f32 tmp2;
     f32 temp_f31;
     s32* data;
-    s32 temp_ret;
+    HSD_JObj* temp_ret;
     struct MnDataDelGObjUserData* temp_r31;
     int i;
     s32 var_r30;
     u32 pad4;
 
     temp_r31 = mnDataDel_804D6C68->user_data;
-    temp_ret = mn_80231634(
-        (struct mn_80231634_t*) temp_r31->x10[mnDataDel_803EF8AC[1]]);
-    lb_80011E24((HSD_JObj*) temp_ret, &sp18, 1, -1);
+    temp_ret = mn_80231634(temp_r31->x10[mnDataDel_803EF8AC[1]]);
+    lb_80011E24(temp_ret, &sp18, 1, -1);
     temp_f31 = mnDataDel_8024E940_inline(sp18);
     HSD_JObjReqAnimAll(sp18, (0, 1.0f));
     mn_8022F3D8(sp18, 0xFFU, MOBJ_MASK);
@@ -119,22 +118,21 @@ void mnDataDel_8024EA6C(void)
     u32* data;
     enum_t lang;
     int i;
-    s32 temp_ret;
+    HSD_JObj* temp_ret;
     u8 pad[0x8];
     HSD_JObj* sp18;
     PAD_STACK(0x10);
 
     temp_f30 = 1.0f;
     temp_r31 = mnDataDel_804D6C68->user_data;
-    i = (temp_ret = 0);
+    i = 0;
     data = &mnDataDel_803EF8AC[i];
 
     do {
         temp_ret = mn_80231634(
-            (struct mn_80231634_t*) ((struct MnDataDelGObjUserData*)
-                                         mnDataDel_804D6C68->user_data)
+            ((struct MnDataDelGObjUserData*) mnDataDel_804D6C68->user_data)
                 ->x10[*data]);
-        lb_80011E24((HSD_JObj*) temp_ret, &sp18, 1, -1);
+        lb_80011E24(temp_ret, &sp18, 1, -1);
         mnDataDel_8024EA6C_inline(&sp18, mn_8022F298(sp18), temp_f30);
         temp_r31->x3[i] = 1;
         data++;
@@ -371,10 +369,10 @@ void fn_8024F1D4(HSD_GObj* gobj)
     }
 }
 
-static inline struct mn_80231634_t*
+static inline HSD_JObj*
 mnDataDel_GetMenuJObj(struct MnDataDelGObjUserData* data, int idx)
 {
-    return (struct mn_80231634_t*) data->x10[mnDataDel_803EF8AC[idx]];
+    return data->x10[mnDataDel_803EF8AC[idx]];
 }
 
 void fn_8024F318(HSD_GObj* gobj)
@@ -392,7 +390,7 @@ void fn_8024F318(HSD_GObj* gobj)
     HSD_Text* text;
     f32 tmp2;
     f32 frame;
-    s32 temp_ret;
+    HSD_JObj* temp_ret;
     s32 sis_id;
     u32 buttons;
     u8 cursor;
@@ -448,7 +446,7 @@ void fn_8024F318(HSD_GObj* gobj)
                 case_user_data = mnDataDel_804D6C68->user_data;
                 temp_ret =
                     mn_80231634(mnDataDel_GetMenuJObj(case_user_data, 0));
-                lb_80011E24((HSD_JObj*) temp_ret, &sp68, 1, -1);
+                lb_80011E24(temp_ret, &sp68, 1, -1);
                 frame = mnDataDel_8024E940_inline(sp68);
                 HSD_JObjReqAnimAll(sp68, (0, 1.0f));
                 mn_8022F3D8(sp68, 0xFFU, MOBJ_MASK);
@@ -472,7 +470,7 @@ void fn_8024F318(HSD_GObj* gobj)
                 case_user_data = mnDataDel_804D6C68->user_data;
                 temp_ret =
                     mn_80231634(mnDataDel_GetMenuJObj(case_user_data, 2));
-                lb_80011E24((HSD_JObj*) temp_ret, &sp60, 1, -1);
+                lb_80011E24(temp_ret, &sp60, 1, -1);
                 frame = mnDataDel_8024E940_inline(sp60);
                 HSD_JObjReqAnimAll(sp60, (0, 1.0f));
                 mn_8022F3D8(sp60, 0xFFU, MOBJ_MASK);
@@ -491,7 +489,7 @@ void fn_8024F318(HSD_GObj* gobj)
                 case_user_data = mnDataDel_804D6C68->user_data;
                 temp_ret =
                     mn_80231634(mnDataDel_GetMenuJObj(case_user_data, 3));
-                lb_80011E24((HSD_JObj*) temp_ret, &sp58, 1, -1);
+                lb_80011E24(temp_ret, &sp58, 1, -1);
                 frame = mnDataDel_8024E940_inline(sp58);
                 HSD_JObjReqAnimAll(sp58, (0, 1.0f));
                 mn_8022F3D8(sp58, 0xFFU, MOBJ_MASK);
@@ -511,7 +509,7 @@ void fn_8024F318(HSD_GObj* gobj)
                 case_user_data = mnDataDel_804D6C68->user_data;
                 temp_ret =
                     mn_80231634(mnDataDel_GetMenuJObj(case_user_data, 4));
-                lb_80011E24((HSD_JObj*) temp_ret, &sp50, 1, -1);
+                lb_80011E24(temp_ret, &sp50, 1, -1);
                 frame = mnDataDel_8024E940_inline(sp50);
                 HSD_JObjReqAnimAll(sp50, (0, 1.0f));
                 mn_8022F3D8(sp50, 0xFFU, MOBJ_MASK);
@@ -570,9 +568,7 @@ static inline void fn_8024F840_inline(u64 buttons,
     if (buttons & 2) {
         sfxMove();
         temp_user_data = mnDataDel_804D6C68->user_data;
-        joint = (HSD_JObj*) mn_80231634(
-            (struct mn_80231634_t*)
-                temp_user_data->x10[mnDataDel_803EF8AC[(*user_data)->x0]]);
+        joint = mn_80231634(temp_user_data->x10[mnDataDel_803EF8AC[(*user_data)->x0]]);
         mnDataDel_8024EBC8(joint, (*user_data)->x0, 0U, 0U);
         cursor = (*user_data)->x0;
         if (cursor == 5) {
@@ -581,9 +577,7 @@ static inline void fn_8024F840_inline(u64 buttons,
             (*user_data)->x0 = cursor + 1;
         }
         temp_user_data = mnDataDel_804D6C68->user_data;
-        joint = (HSD_JObj*) mn_80231634(
-            (struct mn_80231634_t*)
-                temp_user_data->x10[mnDataDel_803EF8AC[(*user_data)->x0]]);
+        joint = mn_80231634(temp_user_data->x10[mnDataDel_803EF8AC[(*user_data)->x0]]);
         mnDataDel_8024EBC8(joint, (*user_data)->x0, 1U, 0U);
         *user_data = mnDataDel_804D6C68->user_data;
         if ((*user_data)->xC != NULL) {
@@ -656,9 +650,7 @@ void fn_8024F840(HSD_GObj* gobj)
     if (buttons & 1) {
         sfxMove();
         temp_user_data = mnDataDel_804D6C68->user_data;
-        joint = (HSD_JObj*) mn_80231634(
-            (struct mn_80231634_t*)
-                temp_user_data->x10[mnDataDel_803EF8AC[user_data->x0]]);
+        joint = mn_80231634(temp_user_data->x10[mnDataDel_803EF8AC[user_data->x0]]);
         mnDataDel_8024EBC8(joint, user_data->x0, 0U, 0U);
         cursor = user_data->x0;
         if (cursor != 0) {
@@ -667,9 +659,7 @@ void fn_8024F840(HSD_GObj* gobj)
             user_data->x0 = 5U;
         }
         temp_user_data = mnDataDel_804D6C68->user_data;
-        joint = (HSD_JObj*) mn_80231634(
-            (struct mn_80231634_t*)
-                temp_user_data->x10[mnDataDel_803EF8AC[user_data->x0]]);
+        joint = mn_80231634(temp_user_data->x10[mnDataDel_803EF8AC[user_data->x0]]);
         mnDataDel_8024EBC8(joint, user_data->x0, 1U, 0U);
         mnDataDel_UpdateDescription(&user_data);
         return;
@@ -699,12 +689,6 @@ void fn_8024FBA4(HSD_GObj* gobj)
     }
 }
 
-static inline HSD_JObj* fn_8024FC48_inline(int arg0);
-static inline HSD_JObj* fn_8024FC48_inline(int arg0)
-{
-    return (HSD_JObj*) arg0;
-}
-
 void fn_8024FC48(HSD_GObj* gobj)
 {
     s32 i;
@@ -721,12 +705,8 @@ void fn_8024FC48(HSD_GObj* gobj)
         HSD_SisLib_803A5CC4(*(HSD_Text**) (user_data + 0xC));
     } else {
         for (i = 0; i < 6; i++) {
-            lb_80011E24(
-                fn_8024FC48_inline(mn_80231634(
-                    *(struct mn_80231634_t**) ((u8*) gobj->user_data +
-                                               mnDataDel_803EF8AC[i] * 4 +
-                                               0x10))),
-                &jobj, 1, -1);
+            lb_80011E24(mn_80231634(mnDataDel_GetMenuJObj(gobj->user_data, i)),
+                        &jobj, 1, -1);
             if (user_data[0] == i) {
                 mn_8022EC18(jobj, &mnDataDel_803EF888, (HSD_TypeMask) 0x400);
             } else {

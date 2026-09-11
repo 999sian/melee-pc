@@ -468,7 +468,8 @@ void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
             while (bit_off < 16 && (u32) col < max_x) {
                 val = (word >> ((15 - bit_off) * 2)) & 3;
                 entry = &table[val];
-                entry->callback((u8*) shift, col, y, val, (const u8*) entry);
+                entry->callback((u8*) (uintptr_t) (u32) shift, col, y, val,
+                                (const u8*) entry);
                 bit_off++;
                 bit_x++;
                 shift += 2;
@@ -535,7 +536,8 @@ void hsd_803922FC(void* bitmap, s32 x, s32 y, s32 parity, s32 dst, s32 w,
             while (bit_off < 16 && (u32) col < max_x) {
                 val = (word >> ((15 - bit_off) * 2)) & 3;
                 entry = &((GlyphEntry*) tbl)[val];
-                entry->callback((u8*) shift, col, y, val, (const u8*) entry);
+                entry->callback((u8*) (uintptr_t) (u32) shift, col, y, val,
+                                (const u8*) entry);
                 bit_off++;
                 bit_x++;
                 shift += 2;

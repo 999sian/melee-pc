@@ -231,19 +231,20 @@ void ifStatus_802F4B84(IfDamageState* state, s32 is_stamina)
     PAD_STACK(8);
 }
 
+/* `aj` is the first entry of the model's matanim table. Upstream reaches it
+ * by casting the table pointer itself to HSD_AnimJoint* and taking `->child`,
+ * so these chains start one level below that. */
 static inline HSD_TexAnim* get_digit_texanim(HSD_AnimJoint* aj)
 {
     HSD_AnimJoint* j1 = DP(HSD_AnimJoint, aj->child);
-    HSD_AnimJoint* j2 = DP(HSD_AnimJoint, j1->child);
-    HSD_AObjDesc* ad = DP(HSD_AObjDesc, j2->aobjdesc);
+    HSD_AObjDesc* ad = DP(HSD_AObjDesc, j1->aobjdesc);
     return (HSD_TexAnim*) DP(HSD_FObjDesc, ad->fobjdesc);
 }
 
 static inline HSD_TexAnim* get_percent_texanim(HSD_AnimJoint* aj)
 {
     HSD_AnimJoint* j1 = DP(HSD_AnimJoint, aj->child);
-    HSD_AnimJoint* j2 = DP(HSD_AnimJoint, j1->child);
-    HSD_AnimJoint* n1 = DP(HSD_AnimJoint, j2->next);
+    HSD_AnimJoint* n1 = DP(HSD_AnimJoint, j1->next);
     HSD_AnimJoint* n2 = DP(HSD_AnimJoint, n1->next);
     HSD_AnimJoint* n3 = DP(HSD_AnimJoint, n2->next);
     HSD_AObjDesc* ad = DP(HSD_AObjDesc, n3->aobjdesc);
@@ -741,41 +742,21 @@ HSD_GObj* ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)
     return state->HUD_parent_entity;
 }
 
+/* Returns the n-th child of the JObj (the decomp addressed it through
+ * HSD_GObj's field offsets, which only line up on GameCube). */
 HSD_GObj* ifStatus_802F6194(HSD_GObj* node, s32 n)
 {
-    HSD_GObj* gx_head;
-    HSD_GObj* gx_next;
-    HSD_GObj* gx_cur;
+    HSD_JObj* jobj = (HSD_JObj*) node;
+    HSD_JObj* cur;
     s32 i;
-    if ((node == NULL) || (n < 0)) {
+    if (jobj == NULL || n < 0) {
         return NULL;
     }
-    if (node == NULL) {
-        gx_head = NULL;
-    } else {
-        gx_head = node->next_gx;
+    cur = jobj->child;
+    for (i = 0; i < n && cur != NULL; i++) {
+        cur = cur->next;
     }
-    gx_cur = gx_head;
-    i = 0;
-    goto check_done;
-
-advance_node:
-    if (gx_cur == NULL) {
-        gx_next = NULL;
-    } else {
-        gx_next = gx_cur->next;
-    }
-    gx_cur = gx_next;
-    i += 1;
-
-check_done:
-    if (i >= n) {
-        return gx_cur;
-    }
-    if (gx_cur != NULL) {
-        goto advance_node;
-    }
-    return gx_cur;
+    return (HSD_GObj*) cur;
 }
 
 inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
@@ -900,20 +881,24 @@ void ifStatus_802F66A4(void)
     HudIndex* hud = ifStatus_GetHUDInfo();
     s32 pad0;
     s32 pad1;
-    DynamicModelDesc** mrk;
-    DynamicModelDesc** num;
+    DiscU32* mrk_tbl; /* DynamicModelDesc*[] in the archive */
+    DiscU32* num_tbl;
+    DynamicModelDesc* mrk;
+    DynamicModelDesc* num;
     HSD_Archive** arch;
     arch = ifAll_GetArchive();
-    lbArchive_LoadSections(*arch, (void**) &num, num_models_name,
-                           (void**) &mrk, mrk_models_name, 0);
-    hud->unk258 = DP(HSD_Joint, (*num)->joint);
-    hud->jobj_desc_parent = DP(DiscU32, (*num)->anims);
-    hud->janim_selection_joints = (HSD_AnimJoint*) DP(DiscU32, (*num)->matanims);
-    hud->janim_selection_textures = DP(DiscU32, (*num)->shapeanims);
-    hud->unk268 = DP(HSD_Joint, (*mrk)->joint);
-    hud->unk26C = DP(DiscU32, (*mrk)->anims);
-    hud->unk270 = DP(DiscU32, (*mrk)->matanims);
-    hud->unk274 = DP(DiscU32, (*mrk)->shapeanims);
+    lbArchive_LoadSections(*arch, (void**) &num_tbl, num_models_name,
+                           (void**) &mrk_tbl, mrk_models_name, 0);
+    num = (DynamicModelDesc*) (uintptr_t) num_tbl[0].v;
+    mrk = (DynamicModelDesc*) (uintptr_t) mrk_tbl[0].v;
+    hud->unk258 = DP(HSD_Joint, num->joint);
+    hud->jobj_desc_parent = DP(DiscU32, num->anims);
+    hud->janim_selection_joints = (HSD_AnimJoint*) DP(DiscU32, num->matanims);
+    hud->janim_selection_textures = DP(DiscU32, num->shapeanims);
+    hud->unk268 = DP(HSD_Joint, mrk->joint);
+    hud->unk26C = DP(DiscU32, mrk->anims);
+    hud->unk270 = DP(DiscU32, mrk->matanims);
+    hud->unk274 = DP(DiscU32, mrk->shapeanims);
 #ifdef MUST_MATCH
     {
         s32 reset;

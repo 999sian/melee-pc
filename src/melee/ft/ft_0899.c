@@ -92,17 +92,17 @@ void ft_80089B08(Fighter_GObj* gobj)
     if (!fp->x2219_b5 && fp->ground_or_air == GA_Ground) {
         if (db_804D4AF8 != 0) {
             f32 scale_y = fp->x34_scale.y;
-            ik.len0 = ((ftData_x58_t*) fp->ft_data->x58)->x4 * scale_y;
-            ik.len1 = scale_y * (((ftData_x58_t*) fp->ft_data->x58)->xC +
-                                 ((ftData_x58_t*) fp->ft_data->x58)->x18);
+            ik.len0 = DP(ftData_x58_t, fp->ft_data->x58)->x4 * scale_y;
+            ik.len1 = scale_y * (DP(ftData_x58_t, fp->ft_data->x58)->xC +
+                                 DP(ftData_x58_t, fp->ft_data->x58)->x18);
 
             if (fp->x221C_u16_y & 2) {
                 ik.jobj0 =
-                    fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x0].joint;
+                    fp->parts[DP(ftData_x58_t, fp->ft_data->x58)->x0].joint;
                 ik.jobj1 =
-                    fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x8].joint;
+                    fp->parts[DP(ftData_x58_t, fp->ft_data->x58)->x8].joint;
                 ik.jobj2 =
-                    fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x10].joint;
+                    fp->parts[DP(ftData_x58_t, fp->ft_data->x58)->x10].joint;
                 ik.angle_max = M_PI_2_F;
                 ik.angle_limit = 1.2217305f;
                 lb_8000B1CC(ik.jobj0, NULL, &ik.pos0);
@@ -133,11 +133,11 @@ void ft_80089B08(Fighter_GObj* gobj)
             }
             if (fp->x221C_u16_y & 1) {
                 ik.jobj0 =
-                    fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x1].joint;
+                    fp->parts[DP(ftData_x58_t, fp->ft_data->x58)->x1].joint;
                 ik.jobj1 =
-                    fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x9].joint;
+                    fp->parts[DP(ftData_x58_t, fp->ft_data->x58)->x9].joint;
                 ik.jobj2 =
-                    fp->parts[((ftData_x58_t*) fp->ft_data->x58)->x11].joint;
+                    fp->parts[DP(ftData_x58_t, fp->ft_data->x58)->x11].joint;
                 ik.angle_max = M_PI_2_F;
                 ik.angle_limit = 1.2217305f;
                 lb_8000B1CC(ik.jobj0, NULL, &ik.pos0);

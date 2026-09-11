@@ -189,7 +189,9 @@ void ftCo_80099754(Fighter_GObj* gobj)
     Fighter* fp = gobj->user_data;
     ftSs_DatAttrs* da = fp->dat_attrs;
     if (fp->cmd_vars[0]) {
-        ft_800847D0(gobj, &da->height_attributes);
+        ftCollisionBox box;
+        ftCollisionBox_FromDisc(&box, &da->height_attributes);
+        ft_800847D0(gobj, &box);
     } else {
         ft_80084104(gobj);
     }

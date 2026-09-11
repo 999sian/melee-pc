@@ -41,19 +41,13 @@ struct DISC_STRUCT grBigBlueRoute_YakumonoParam {
     f32 x4C;
 };
 
-struct grBigBlueRoute_8020DA9C_t {
-    /* +0 */ char pad_0[0x8];
-    /* +8 */ int x8;
-};
-
 /* car_info stores 31 RouteEntry records in its 0x554-byte allocation. */
 union grBigBlueRoute_RouteStorage {
     RouteEntry entries[31];
     u8 bytes[0x554];
 };
 
-/* 20DA9C */ static int
-grBigBlueRoute_8020DA9C(struct grBigBlueRoute_8020DA9C_t*);
+/* 20DA9C */ static HSD_JObj* grBigBlueRoute_8020DA9C(HSD_JObj*);
 
 #ifdef MUST_MATCH
 static void sdata2_order(void)
@@ -1043,19 +1037,17 @@ void grBigBlueRoute_8020CD20(Ground_GObj* gobj)
         }
 
         i++;
-        jobj = (jobj != NULL) ? (HSD_JObj*) grBigBlueRoute_8020DA9C(
-                                    (struct grBigBlueRoute_8020DA9C_t*) jobj)
-                              : NULL;
+        jobj = grBigBlueRoute_8020DA9C(jobj);
     } while (i < 31);
 }
 #undef RE_ENTRY
 
-int grBigBlueRoute_8020DA9C(struct grBigBlueRoute_8020DA9C_t* desc)
+HSD_JObj* grBigBlueRoute_8020DA9C(HSD_JObj* jobj)
 {
-    if (desc == NULL) {
-        return 0;
+    if (jobj == NULL) {
+        return NULL;
     }
-    return desc->x8;
+    return jobj->next;
 }
 
 void grBigBlueRoute_8020DAB4(HSD_JObj** jobjs, f32 scale, int count)
@@ -1150,7 +1142,7 @@ DynamicModelDesc* grBigBlueRoute_8020DE48(void)
     HSD_ASSERT(1495, archive);
     dat = archive->unk4;
     if (dat != NULL) {
-        return (DynamicModelDesc*) ((char*) dat->unk8 + 0x68);
+        return (DynamicModelDesc*) (DP(char, dat->unk8) + 0x68);
     }
     return NULL;
 }

@@ -326,7 +326,8 @@ void ftZd_SpecialAirHiStart_1_Coll(HSD_GObj* gobj)
     }
 
     if (!ftCliffCommon_80081298(gobj)) {
-        ftCommon_HandleTeleportCollisions(gobj, fp, coll_data, &sa->x60,
+        int angle_clamp = sa->x60;
+        ftCommon_HandleTeleportCollisions(gobj, fp, coll_data, &angle_clamp,
                                           ftZd_SpecialHi_8013A764);
     }
 }

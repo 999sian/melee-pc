@@ -12,12 +12,15 @@
 #define PTR_TO_U32(p) ((u32) (uintptr_t) (p))
 #define U32_TO_PTR(T, v) ((T) (uintptr_t) (u32) (v))
 
+/* Layout must match GameCube exactly (0x464 bytes): the driver addresses it
+ * with word offsets and embeds it in game state. Pointer members are 32-bit
+ * host-address slots. */
 typedef struct CardFileData {
-    u8* ptr;
+    u32 ptr; /* u8* */
 } CardFileData;
 
 typedef struct CardState {
-    /* 0x00 */ u8* x0;
+    /* 0x00 */ u32 x0; /* u8* work buffer; see CARD_BUF */
     /* 0x04 */ s32 x4;
     /* 0x08 */ u32 x8;
     /* 0x0C */ CARDFileInfo file_info;
@@ -39,6 +42,8 @@ typedef struct CardState {
     /* 0x430 */ u8 digest[0x30];
     /* 0x460 */ s32 x460;
 } CardState;
+STATIC_ASSERT(sizeof(CardState) == 0x464);
+#define CARD_BUF(state) U32_TO_PTR(u8*, (state)->x0)
 
 /* 3AA790 */ s32 fn_803AA790(void);
 /* 3AAA48 */ void hsd_803AAA48(void);

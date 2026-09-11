@@ -736,8 +736,8 @@ void fn_8019DD60(void)
     tmd->x2C = 0;
     gobj = fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D6690)->desc));
     fn_801901F8(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D6690)->desc));
-    fn_801902F0((s32) gobj);
-    fn_8019027C((UNK_T) lbl_804D6690->lights);
+    fn_801902F0(gobj);
+    fn_8019027C(GM_SCENE_LIGHTS(lbl_804D6690));
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6690, 5), 0, 0x1A, 2, 1, fn_8019BF18, 0.0f);
     fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6690, 4), 0, 0x1A, 2, 1, fn_8019BF8C, 0.0f);
     tmd->x524[2] = HSD_SisLib_803A6754(0, (s32) lbl_804D663C);

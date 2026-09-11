@@ -870,7 +870,7 @@ hsd_803B51C8_inline(s32 image, s32 image_height, s32 image_width,
 
     state.base = HSD_804D2648_BUF;
     state.work = (JpegWork*) state.base;
-    src = ((JpegByteBuffer*) image)->data;
+    src = ((JpegByteBuffer*) (uintptr_t) (u32) image)->data;
     width = image_width;
     height = image_height;
     hsd_804D79A8 = output_capacity;

@@ -1146,7 +1146,7 @@ void grVenom_802053B0(Ground_GObj* gobj)
     jobj = gobj->hsd_obj;
     ptr = base + gp->u.venom.xC8;
 
-    if ((u32) ptr[8] == (u32) gobj) {
+    if (grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8] == gobj) {
         if (gp->u.venom.xD4 == 1) {
             gp->u.venom.xD4 = 0;
             grAnime_801C8138(gobj, gp->map_id,
@@ -1221,7 +1221,7 @@ void grVenom_802053B0(Ground_GObj* gobj)
 
     type_done:
         if (grAnime_801C83D0(gobj, 0, 7)) {
-            base[gp->u.venom.xC8 + 8] = 0;
+            grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8] = NULL;
             Ground_801C4A08(gobj);
         }
     } else {
@@ -1429,7 +1429,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
     }
 
     entry = base + gp->u.venom.xC8;
-    if ((u32) entry[8] != 0U) {
+    if (grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8] != NULL) {
         if (entry[14] == 4) {
             tmp_jobj = Ground_801C3FA4(gobj, 1);
             HSD_JObjSetRotationZ(tmp_jobj, 0.0F);
@@ -1500,7 +1500,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
             venom_80205F30_anim_done:;
             }
 
-            if ((other = (HSD_GObj*) base[gp->u.venom.xC8 + 8]) != NULL) {
+            if ((other = grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8]) != NULL) {
                 other_gp = other->user_data;
                 Ground_GetMapGObj(5);
                 lb_8000B1CC(Ground_801C3FA4(other, 5), NULL, &sp64);
@@ -1582,7 +1582,7 @@ void grVenom_80205F30(Ground_GObj* gobj)
                 HSD_GObj* far_other;
                 Ground* far_other_gp;
 
-                if ((far_other = (HSD_GObj*) base[gp->u.venom.xC8 + 8]) !=
+                if ((far_other = grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8]) !=
                     NULL)
                 {
                     far_other_gp = far_other->user_data;

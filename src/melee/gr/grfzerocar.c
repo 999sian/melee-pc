@@ -67,8 +67,7 @@ static inline void setup_car_child(HSD_JObj* parent, s16 ext_count, s32 offset,
     jobj = Ground_801C13D0(ext_count, 0);
     if (jobj != NULL) {
         DynamicModelDesc* entry =
-            (DynamicModelDesc*) ((u8*) offset +
-                                 (uintptr_t) archive->unk4->unk8);
+            (DynamicModelDesc*) (DP(u8, archive->unk4->unk8) + offset);
         if (entry->anims != 0) {
             if (entry->matanims != 0) {
                 grAnime_801C6C0C(

@@ -2417,8 +2417,7 @@ void _Toy_803075E8(s32 arg0)
             HSD_GObjObject_80390A70(td->gobj, kind, jobj);
             GObj_SetupGXLink(td->gobj, HSD_GObj_JObjCallback, 0x33, 0);
 
-            arg0 = (u32) data + arg0 * 0xC;
-            ptr = ((ToyPanelLabelData*) arg0)->ptrs;
+            ptr = ((ToyPanelLabelData*) (data + arg0 * 0xC))->ptrs;
             joint = HSD_ArchiveGetPublicAddress(td->archive, ptr[0x290 / 4]);
             data = HSD_ArchiveGetPublicAddress(td->archive, ptr[0x294 / 4]);
             shapanim =
@@ -2590,12 +2589,11 @@ void Toy_80307E84(HSD_GObj* gobj)
     HSD_JObj* jobj0;
     HSD_JObj* jobj1;
 
-    base = (s32*) &_Toy_804A26B8;
-    state = (ToyAnimState*) ((u8*) base + 0x3F0);
-    idx = M2C_FIELD(base, s8*, 0x3FE);
-    x0F_val = M2C_FIELD(base, s8*, 0x3FF);
-    jobj0 = (HSD_JObj*) base[idx + (0x3F4 / 4)];
-    jobj1 = (HSD_JObj*) base[(idx ^ 1) + (0x3F4 / 4)];
+    state = &Toy_804A2AA8;
+    idx = state->x0E;
+    x0F_val = state->x0F;
+    jobj0 = state->jobj[idx];
+    jobj1 = state->jobj[idx ^ 1];
 
     if (x0F_val <= 0) {
         if (state->x10 == 1) {
@@ -5958,11 +5956,10 @@ void Toy_80310660(s32 arg0)
         if (idx != 0) {
             loopPtr = (Ty25Entry*) ty25;
             count = 0;
-            arg = 0;
             do {
                 if (loopPtr->x14 != NULL) {
                     lbArchive_80016EFC(loopPtr->x14);
-                    loopPtr->x14 = (void*) arg;
+                    loopPtr->x14 = NULL;
                 }
                 count += 1;
                 loopPtr += 1;
@@ -5981,11 +5978,10 @@ void Toy_80310660(s32 arg0)
 
         if (ty30->x58 != NULL) {
             lbArchive_80016EFC(ty30->x58);
-            arg = 0;
-            ty30->x58 = (void*) arg;
+            ty30->x58 = NULL;
             if (ty30->x0C != NULL) {
                 HSD_GObjFree(ty30->x0C);
-                ty30->x0C = (void*) arg;
+                ty30->x0C = NULL;
             }
         }
 

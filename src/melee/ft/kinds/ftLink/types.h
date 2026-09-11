@@ -12,7 +12,7 @@
 #include <melee/ft/kinds/ftMars/types.h>
 #include <melee/lb/types.h>
 
-struct ftLk_DatAttrs {
+struct DISC_STRUCT ftLk_DatAttrs {
     /* +0 */ float x0;
     /* +4 */ float specialn_anim_rate;
     /* +8 */ float x8;
@@ -41,10 +41,10 @@ struct ftLk_DatAttrs {
     /* +88 */ s32 x88;
     /* +8C */ s32 x8C;
     /* +90 */ s32 x90;
-    /* +94 */ UNK_T x94;
+    /* +94 */ DISC_PTR(void) x94;
     /* +98 */ s32 x98;
-    /* +9C */ UNK_T x9C;
-    /* +A0 */ UNK_T xA0;
+    /* +9C */ DISC_PTR(void) x9C;
+    /* +A0 */ DISC_PTR(void) xA0;
     /* +A4 */ int xA4;
     /* +A8 */ s32 xA8;
     /* +AC */ int xAC;
@@ -56,6 +56,7 @@ struct ftLk_DatAttrs {
     /* +C4 */ AbsorbDesc xC4;
     /* +D8 */ float xD8;
 };
+DISC_ASSERT_SIZE(struct ftLk_DatAttrs, 0xDC);
 
 struct ftLk_FighterVars {
     /* fp+222C */ bool used_boomerang;

@@ -148,7 +148,7 @@ Handle* lbMemory_80014FC8(Handle* arg0, size_t size)
             break;
         } else {
             iter = iter->x0_next;
-            start = (void*) ((u32) iter->x4_lo + (u32) iter->x8_hi);
+            start = (u8*) iter->x4_lo + (uintptr_t) iter->x8_hi;
         }
     }
     HSD_ASSERT(0xE9, memp_kouho);
@@ -231,7 +231,7 @@ u32 lbMemory_8001529C(Handle* h, void (*arg1)(u32), u32 arg2)
             lbMemory_80015320(0, (int) (uintptr_t) iter, NULL, false);
             return 1;
         }
-        *r7 = (void*) ((u32) lo + (u32) iter->x8_hi);
+        *r7 = (u8*) lo + (uintptr_t) iter->x8_hi;
     }
     return 0;
 }
@@ -242,8 +242,8 @@ static void start_ram_copy(u32 old, u32 current, u32 size, Handle* next)
     int enabled = OSDisableInterrupts();
 
     HSD_ASSERT(0x14F, !p->size);
-    p->src = (u8*) old;
-    p->dst = (u8*) current;
+    p->src = (u8*) (uintptr_t) old;
+    p->dst = (u8*) (uintptr_t) current;
     p->size = size;
     p->offset = 0;
     p->cb_arg = (u32) next;
@@ -272,10 +272,10 @@ static void lbMemory_80015320(int arg0, int _handle, void* arg2,
 
     if (handle != null_or_old) {
         loaded_old = handle->x4_lo;
-        if ((old = loaded_old) != (void*) current) {
+        if ((old = loaded_old) != (void*) (uintptr_t) current) {
             null_or_old = old;
-            handle->x4_lo = (void*) current;
-            *currentp = (void*) ((u32) handle->x4_lo + (u32) handle->x8_hi);
+            handle->x4_lo = (void*) (uintptr_t) current;
+            *currentp = (u8*) handle->x4_lo + (uintptr_t) handle->x8_hi;
             copy_src = null_or_old;
 
             if (PC_IS_ARAM_ADDR(handle->x4_lo)) {
@@ -290,7 +290,7 @@ static void lbMemory_80015320(int arg0, int _handle, void* arg2,
             }
         }
 
-        *currentp = (void*) ((u32) old + (u32) handle->x8_hi);
+        *currentp = (u8*) old + (uintptr_t) handle->x8_hi;
         lbMemory_80015320(0, (int) handle->x0_next, null_or_old, false);
         return;
     }
@@ -339,10 +339,10 @@ void lbMemory_8001564C(void)
     int i;
     u8* base = (u8*) &lbMemory_804318B0;
 
-    _p(a_arenaLo) = (void*) ARAlloc(0x20);
+    _p(a_arenaLo) = (void*) (uintptr_t) ARAlloc(0x20);
     ARFree(&size[2]);
     _p(a_arenaHi) =
-        (void*) ((ARGetSize() > 0x01000000U) ? 0x01000000U : ARGetSize());
+        (void*) (uintptr_t) ((ARGetSize() > 0x01000000U) ? 0x01000000U : ARGetSize());
 
     _p(free_mem) = (Handle*) &_p(x8_mem)[0];
     for (i = 0; i < 0x82; i++) {

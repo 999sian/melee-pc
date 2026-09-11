@@ -27,7 +27,7 @@ struct ftSamus_FighterVars {
     /* 0x2248 */ u32 x2248;
 };
 
-typedef struct _ftSamusAttributes {
+typedef struct DISC_STRUCT _ftSamusAttributes {
     /*  +0 */ float x0;
     /*  +4 */ float x4;
     /*  +8 */ float x8;
@@ -57,9 +57,9 @@ typedef struct _ftSamusAttributes {
     /* +68 */ float x68;
     /* +6C */ float x6C;
     /* +70 */ float x70;
-    /* +74 */ Vec3 x74_vec;
+    /* +74 */ DiscVec3 x74_vec;
     /* +80 */ float x80;
-    /* +84 */ ftCollisionBox height_attributes;
+    /* +84 */ ftCollisionBoxDisc height_attributes;
     /* +9C */ s32 x9C;
     /* +A0 */ s32 xA0;
     /* +A4 */ s32 xA4;
@@ -73,8 +73,9 @@ typedef struct _ftSamusAttributes {
     /* +C4 */ int xC4;
     /* +C8 */ int xC8;
     /* +CC */ f32 xCC;
-    /* +D0 */ UNK_T xD0;
+    /* +D0 */ DISC_PTR(void) xD0;
 } ftSs_DatAttrs;
+DISC_ASSERT_SIZE(ftSs_DatAttrs, 0xD4);
 
 /// maybe Samus grapple?
 struct UNK_SAMUS_S1 {

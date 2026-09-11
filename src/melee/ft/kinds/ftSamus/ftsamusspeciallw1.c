@@ -199,10 +199,11 @@ void ftSs_SpecialLwBomb_Coll(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     ftSs_DatAttrs* samus_attr = fp->dat_attrs;
 
-    u8 _[8];
+    ftCollisionBox box;
 
     if (fp->cmd_vars[0]) {
-        if (!ft_80082888(gobj, &samus_attr->height_attributes)) {
+        ftCollisionBox_FromDisc(&box, &samus_attr->height_attributes);
+        if (!ft_80082888(gobj, &box)) {
             ftSs_SpecialLw_8012B570(gobj);
         }
     } else if (!ft_800827A0(gobj)) {
@@ -215,10 +216,11 @@ void ftSs_SpecialAirLwBomb_Coll(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     ftSs_DatAttrs* samus_attr = fp->dat_attrs;
 
-    u8 _[8];
+    ftCollisionBox box;
 
     if (fp->cmd_vars[0]) {
-        if (ft_800824A0(gobj, &samus_attr->height_attributes)) {
+        ftCollisionBox_FromDisc(&box, &samus_attr->height_attributes);
+        if (ft_800824A0(gobj, &box)) {
             ftSs_SpecialLw_8012B668(gobj);
         }
     } else if (ft_80081D0C(gobj)) {

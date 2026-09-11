@@ -17,7 +17,7 @@ struct ftPopo_FighterVars {
     /* 0x2250 */ float x2250;
 };
 
-typedef struct ftIceClimberAttributes {
+typedef struct DISC_STRUCT ftIceClimberAttributes {
     float x0;
     float x4;
     float x8;
@@ -84,6 +84,7 @@ typedef struct ftIceClimberAttributes {
     u8 _150[0x15C - 0x150];
 } ftIceClimberAttributes;
 ASSERT_SIZE(ftIceClimberAttributes, 0x15C);
+DISC_ASSERT_SIZE(ftIceClimberAttributes, 0x15C);
 
 union ftPp_MotionVars {
     struct ftPp_SpecialSVars {

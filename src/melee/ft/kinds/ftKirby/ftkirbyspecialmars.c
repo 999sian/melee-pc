@@ -66,9 +66,9 @@ static inline void setupStartAccessory(HSD_GObj* gobj, Vec3* scale)
     fe_hat = ft_80459B88.hats[Ft_Kind_Emblem - 1];
 
     if (fp->u.kb.hat.kind == Ft_Kind_Mars) {
-        ftCommon_SetAccessory(fp, (HSD_Joint*) mars_hat->hat_dynamics[0]);
+        ftCommon_SetAccessory(fp, DP(HSD_Joint, mars_hat->hat_dynamics[0]));
     } else {
-        ftCommon_SetAccessory(fp, (HSD_Joint*) fe_hat->hat_dynamics[0]);
+        ftCommon_SetAccessory(fp, DP(HSD_Joint, fe_hat->hat_dynamics[0]));
     }
 
     scale->x = scale->y = scale->z = ftCommon_GetModelScale(fp);

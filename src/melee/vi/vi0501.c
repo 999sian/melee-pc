@@ -60,7 +60,7 @@ void un_8031D9E4(int arg0, int arg1, int arg2)
 }
 
 void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
-                 int spawn_count)
+                 const u8* counts)
 {
     s32 pad0;
     s32 pad1;
@@ -71,7 +71,6 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
     s32 count;
     HSD_JObj* jobj;
     Vec3 v;
-    u8* counts;
     f32 scale;
     Vec3* pos;
 
@@ -99,7 +98,6 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
     Player_80032768(0, &initial_pos);
     Player_80036F34(0, 8);
 
-    counts = (u8*) spawn_count;
     pos = grLib_801C9A10();
     for (i = 1; i < 4; i++) {
         Player_80036E20(CKind_Kirby, un_804D6F74, 6);
@@ -228,7 +226,7 @@ void vi0501_Scene_OnEnter(void* arg)
     }
 
     un_8031D9F8(desc->p1_char_index, desc->p1_costume_index,
-                desc->p2_costume_index, (int) (&desc->spawn_count));
+                desc->p2_costume_index, (const u8*) &desc->spawn_count);
     lbAudioAx_800237A8(0x20B, 0x7F, 0x40);
     lbAudioAx_800237A8(0x20C, 0x7F, 0x40);
 }

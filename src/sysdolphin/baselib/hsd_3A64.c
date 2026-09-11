@@ -86,7 +86,9 @@ HSD_Text* HSD_SisLib_803A6754(int font_idx, int context_id)
 
     text = HSD_SisLib_803A5ACC(font_idx, context_id, 0.0F, 0.0F, 0.0F, 640.0F,
                                480.0F);
-    alloc = HSD_SisLib_Alloc(0x10);
+    /* A sisLib_803A7664_t, addressed through the SisBlock alias below; both
+     * are 0x10 bytes on GameCube and the same size on PC. */
+    alloc = HSD_SisLib_Alloc(sizeof(sisLib_803A7664_t));
     text->alloc_data = alloc;
     buffer = HSD_SisLib_Alloc(0x80);
     alloc->data = buffer;

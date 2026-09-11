@@ -1252,12 +1252,10 @@ HSD_GObj* mn_80230E38(int arg0)
                         HSD_JObjAddChild(user_data->x34[3].joints[*index_ptr],
                                          text);
                     }
-                    digit_jobj = (HSD_JObj*) mn_80231634(
-                        (struct mn_80231634_t*) user_data->x34[3].joints[2]);
+                    digit_jobj = mn_80231634(user_data->x34[3].joints[2]);
                     HSD_JObjReqAnimAll(digit_jobj, (f32) (u8) (value / 10));
                     HSD_JObjAnimAll(digit_jobj);
-                    digit_jobj = (HSD_JObj*) mn_80231634(
-                        (struct mn_80231634_t*) user_data->x34[3].joints[3]);
+                    digit_jobj = mn_80231634(user_data->x34[3].joints[3]);
                     HSD_JObjReqAnimAll(digit_jobj, (f32) (u8) (value % 10));
                     HSD_JObjAnimAll(digit_jobj);
                     break;
@@ -1294,12 +1292,12 @@ HSD_GObj* mn_80230E38(int arg0)
     return gobj;
 }
 
-int mn_80231634(struct mn_80231634_t* arg0)
+HSD_JObj* mn_80231634(HSD_JObj* jobj)
 {
-    if (arg0 == NULL) {
-        return 0;
+    if (jobj == NULL) {
+        return NULL;
     }
-    return arg0->x10;
+    return jobj->child;
 }
 
 void mn_8023164C(void)

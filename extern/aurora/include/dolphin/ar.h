@@ -68,6 +68,9 @@ void ARQRemoveOwnerRequest(u32 owner);
 void ARQFlushQueue(void);
 void ARQSetChunkSize(u32 size);
 u32 ARQGetChunkSize(void);
+
+/* melee-pc: host pointer to the emulated ARAM (valid after ARInit). */
+u8* aurora_aram_base(void);
 BOOL ARQCheckInit(void);
 
 u16 __ARGetInterruptStatus(void);

@@ -20,14 +20,14 @@ struct ftPeach_FighterVars {
     /* fp+2248 */ Item_GObj* veg_gobj;
 };
 
-typedef struct ftPe_DatAttrs {
+typedef struct DISC_STRUCT ftPe_DatAttrs {
     /* +0 */ float floatfallf_anim_start;
     /* +4 */ float floatfallb_anim_start;
     /* +8 */ float floatfall_anim_start_offset;
     /* +C */ float xC;
     /* +10 */ int speciallw_item_table_count;
     /* +14 */ int x14;
-    /* +1C */ struct ftPe_ItemChance {
+    /* +18 */ struct DISC_STRUCT ftPe_ItemChance {
         /* +0 */ int randi_max;
         /* +4 */ ItemKind kind;
     } speciallw_item_table[3];
@@ -64,6 +64,7 @@ typedef struct ftPe_DatAttrs {
     /* +A8 */ float xA8;
     /* +AC */ AbsorbDesc xAC;
 } ftPe_DatAttrs;
+DISC_ASSERT_SIZE(ftPe_DatAttrs, 0xC0);
 
 union ftPe_MotionVars {
     struct ftPe_FloatAttackVars {

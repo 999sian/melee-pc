@@ -12,7 +12,7 @@ struct ftZelda_FighterVars {
     /* 0x222C */ HSD_GObj* x222C;
 };
 
-typedef struct ftZelda_DatAttrs {
+typedef struct DISC_STRUCT ftZelda_DatAttrs {
     float x0;
     s32 x4; // Type confirmed
     float x8;
@@ -48,6 +48,7 @@ typedef struct ftZelda_DatAttrs {
     float x80; // Type confirmed
     ReflectDesc x84;
 } ftZelda_DatAttrs;
+DISC_ASSERT_SIZE(ftZelda_DatAttrs, 0xA8);
 
 union ftZelda_MotionVars {
     struct ftZelda_SpecialHiVars {

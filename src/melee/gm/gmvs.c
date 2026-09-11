@@ -925,7 +925,7 @@ MatchOutcome gm_GetMatchOutcome(void)
     return OUTCOME_NONE;
 }
 
-void fn_8016C46C(int arg0)
+void fn_8016C46C(void* arg0)
 {
     if (gmVs_GetController_0()->unk_9 != 0) {
         switch (gm_GetCurrentGameMode()) {
@@ -942,7 +942,7 @@ void fn_8016C46C(int arg0)
     }
 }
 
-static inline void fn_8016C46C_dontinline(int arg0)
+static inline void fn_8016C46C_dontinline(void* arg0)
 {
     fn_8016C46C(arg0);
 }
@@ -973,8 +973,8 @@ int gm_8016C5C0(int pl_slot)
     struct lbl_8046B6A0_24C_t* tmp = gm_8016B774();
     PAD_STACK(8);
 
-    if (tmp->x0 != (UNK_T) gm_801A4BA8()) {
-        tmp->x0 = (UNK_T) gm_801A4BA8();
+    if (tmp->x0 != gm_801A4BA8()) {
+        tmp->x0 = gm_801A4BA8();
         gm_80166378(tmp);
     }
     if (!gm_GetStartMeleeRules()->is_teams) {
@@ -989,8 +989,8 @@ int gm_8016C658(int arg0)
     PAD_STACK(8);
 
     temp_r31 = gm_8016B774();
-    if (temp_r31->x0 != (UNK_T) gm_801A4BA8()) {
-        temp_r31->x0 = (UNK_T) gm_801A4BA8();
+    if (temp_r31->x0 != gm_801A4BA8()) {
+        temp_r31->x0 = gm_801A4BA8();
         gm_80166378(temp_r31);
     }
     return temp_r31->x58[arg0].x2C;
@@ -1008,8 +1008,8 @@ int gm_8016C75C(HSD_GObj* arg0)
     PAD_STACK(8);
 
     tmp = gm_8016B774();
-    if (tmp->x0 != (UNK_T) gm_801A4BA8()) {
-        tmp->x0 = (UNK_T) gm_801A4BA8();
+    if (tmp->x0 != gm_801A4BA8()) {
+        tmp->x0 = gm_801A4BA8();
         gm_80166378(tmp);
     }
     return tmp->x58[ftLib_80086BE0(arg0)].x20;
@@ -1516,7 +1516,7 @@ void fn_8016D634(void)
             copied_dst->is_teams = controller.start.is_teams;
             copied_dst->x4 = tmp->match_result;
             gm_80166378(copied_dst);
-            fn_8016C46C_dontinline((int) copied_dst);
+            fn_8016C46C_dontinline(copied_dst);
             if (tmp->match_result != OUTCOME_NO_CONTEST &&
                 tmp->match_result != OUTCOME_RETRY)
             {
@@ -2091,7 +2091,7 @@ void gm_Scene_Vs_OnExit(void* user_data)
         data->xC.is_teams = controller.start.is_teams;
         data->xC.x4 = controller.match_result;
         gm_80166378(&data->xC);
-        fn_8016C46C_dontinline((int) &data->xC);
+        fn_8016C46C_dontinline(&data->xC);
         if (tmp->match_result != OUTCOME_NO_CONTEST &&
             tmp->match_result != OUTCOME_RETRY)
         {

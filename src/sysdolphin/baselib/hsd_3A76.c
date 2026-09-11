@@ -387,22 +387,18 @@ loop_3:
             if (kern_enabled != 0) {
                 glyph_code = sis_rd_u16(cursor);
                 if (glyph_code < 0x4000U) {
-                    kern_width =
-                        (s32) (default_kerning +
-                               (((glyph_code - 0x2000) * 2) & 0x1FFFE));
-                    kern_data = (TextKerning*) kern_width;
-                    kern_width = kern_data->right - 2;
-                    kern_data = (TextKerning*) (u32) kern_data->left;
-                    kern_width = (s32) kern_data + kern_width;
+                    kern_data =
+                        (TextKerning*) (default_kerning +
+                                        (((glyph_code - 0x2000) * 2) &
+                                         0x1FFFE));
+                    kern_width = kern_data->left + kern_data->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
                 } else {
                     kern_data_2 =
                         (TextKerning*) &glyph_tex
                             ->data[((glyph_code - 0x4000) * 2) & 0x1FFFE];
-                    kern_width = kern_data_2->right - 2;
-                    kern_data_2 = (TextKerning*) (u32) kern_data_2->left;
-                    kern_width = (s32) kern_data_2 + kern_width;
+                    kern_width = kern_data_2->left + kern_data_2->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
                 }
@@ -494,7 +490,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
         }
         text = HSD_GObjGetUserData(gobj);
     } else {
-        text = (HSD_Text*) pass;
+        text = (HSD_Text*) (uintptr_t) (u32) pass;
     }
     if (text->hidden == 0 && text->sis_buffer != NULL) {
         u8 *sis_cursor = (u8 *)text->sis_buffer;

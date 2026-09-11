@@ -31,7 +31,7 @@
 /* 23E0D8 */ void mnNameNew_8023E0D8(NameNewEntry* arg0);
 /* 23E264 */ s32 InitNameEntryUIState(NameNewEntry*, s32);
 /* 23E32C */ void mnNameNew_8023E32C(s32);
-/* 23E630 */ void mnNameNew_EnterFromMnName(UNK_T);
+/* 23E630 */ void mnNameNew_EnterFromMnName(int count);
 /* 23E6D0 */ void mnNameNew_EnterFromMnCharSel(HSD_Archive*, s32);
 /* 23EA08 */ void mnNameNew_8023EA08(UNK_T);
 /* 3EE720 */ extern char* mnNameNew_803EE720[];

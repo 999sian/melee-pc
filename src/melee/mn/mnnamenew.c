@@ -1897,7 +1897,7 @@ void mnNameNew_8023E32C(s32 arg0)
     mnNameNew_8023B0F8(gobj, user_data->x1);
 }
 
-void mnNameNew_EnterFromMnName(UNK_T arg0)
+void mnNameNew_EnterFromMnName(int arg0)
 {
     char unused[8];
     char* text = mnNameNew_CurrentNameText;
@@ -1913,7 +1913,7 @@ void mnNameNew_EnterFromMnName(UNK_T arg0)
     text[3] = *mnNameNew_NullCharacter;
     text[6] = *mnNameNew_NullCharacter;
     text[9] = *mnNameNew_NullCharacter;
-    mnNameNew_8023E32C((s32) arg0);
+    mnNameNew_8023E32C(arg0);
 }
 
 void mnNameNew_EnterFromMnCharSel(HSD_Archive* arg0, s32 arg1)

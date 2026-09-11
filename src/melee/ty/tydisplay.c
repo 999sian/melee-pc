@@ -59,7 +59,7 @@ static size_t const _tyDisplay_804D6F10_len = 300;
 /* 31B328 */ static void _tyDisplay_8031B328(void);
 /* 31B850 */ static void _tyDisplay_8031B850(void);
 /* 31BA78 */ static void _tyDisplay_8031BA78(s32, s32, f32);
-/* 31BBF4 */ static s32 _tyDisplay_8031BBF4(s8);
+/* 31BBF4 */ static const char* _tyDisplay_8031BBF4(s8);
 /* 31BC54 */ static HSD_GObj* _tyDisplay_8031BC54(s32);
 /* 31BF34 */ static void _tyDisplay_8031BF34(s32 arg0);
 /* 31C1D0 */ static void _tyDisplay_8031C1D0(void);
@@ -1878,8 +1878,7 @@ void tyDisplay_Scene_OnEnter(void* arg0)
     }
 
     for (i = 0; i < 0x2B; i++) {
-        s32 ret = _tyDisplay_8031BBF4((s8) i);
-        data->archives[i] = lbArchive_LoadSymbols((char*) ret, 0L);
+        data->archives[i] = lbArchive_LoadSymbols(_tyDisplay_8031BBF4((s8) i), 0L);
     }
 
     data->x104 = 0;
@@ -2163,7 +2162,7 @@ void _tyDisplay_8031BA78(s32 arg0, s32 arg1, f32 farg0)
     },
 };
 
-s32 tyDisplay_8031BB34(s8 idx)
+const char* tyDisplay_8031BB34(s8 idx)
 {
     TyDspArchNames table = _tyDisplay_803B8988;
 
@@ -2171,7 +2170,7 @@ s32 tyDisplay_8031BB34(s8 idx)
         idx = 0;
     }
 
-    return (s32) table.entries[idx];
+    return table.entries[idx];
 }
 
 char* tyDisplay_8031BB94(s8 idx)
@@ -2185,13 +2184,13 @@ char* tyDisplay_8031BB94(s8 idx)
     return (char*) table.entries[idx];
 }
 
-s32 _tyDisplay_8031BBF4(s8 arg0)
+const char* _tyDisplay_8031BBF4(s8 arg0)
 {
     TyDspArchNames table = _tyDisplay_803B8AE0;
     if (arg0 == -1) {
         arg0 = 0;
     }
-    return (s32) table.entries[arg0];
+    return table.entries[arg0];
 }
 
 HSD_GObj* _tyDisplay_8031BC54(s32 arg0)

@@ -424,7 +424,7 @@ ASSERT_SIZE(struct gmm_x0, 0x8518);
 
 /// @todo ::MatchEnd
 struct lbl_8046B6A0_24C_t {
-    UNK_T x0;
+    u32 x0; ///< scene index at last refresh, see gm_801A4BA8
     u8 x4; ///< MatchOutcome
     u8 x5; ///< match mode
     u8 is_teams;

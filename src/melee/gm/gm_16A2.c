@@ -674,7 +674,7 @@ void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
     fn_80169A84(gp->xE, gp->x124, gp->x20);
 }
 
-void gm_8016A404(s32 arg0)
+void gm_8016A404(void* arg0)
 {
     *gm_8016A404_event_player_init_cb(&lbl_8046B488) =
         (GmEventPlayerInitCallback) arg0;
