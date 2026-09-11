@@ -198,7 +198,7 @@ void ftKb_SpecialN_800F5820(Fighter_GObj* gobj,
 
 void ftKb_SpecialN_800F5874(Vec2* arg0)
 {
-    ftCommonData* cd = gFtDataList[Ft_Kind_Kirby]->ext_attr;
+    ftCommonData* cd = DP(ftCommonData, gFtDataList[Ft_Kind_Kirby]->ext_attr);
     arg0->x = cd->x9C_radians;
     arg0->y = cd->xA0_radians;
 }
@@ -207,5 +207,5 @@ HSD_Joint* ftKb_SpecialN_800F5898(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     ftData* ca = fp->ft_data;
-    return M2C_FIELD(&ca->x48_items[0], HSD_Joint**, 0x10);
+    return DP(HSD_Joint, DP(DiscU32, ca->x48_items)[4].v);
 }

@@ -141,7 +141,7 @@ float ftKb_SpecialN_800F5A60(Fighter_GObj* gobj)
 
 float ftKb_SpecialN_800F5A70(void)
 {
-    ftKb_DatAttrs* ea = gFtDataList[Ft_Kind_Kirby]->ext_attr;
+    ftKb_DatAttrs* ea = DP(ftKb_DatAttrs, gFtDataList[Ft_Kind_Kirby]->ext_attr);
     return ea->specialn_gravity_of_inhaled;
 }
 
@@ -153,7 +153,7 @@ f32 ftKb_SpecialN_800F5A88(Fighter_GObj* gobj)
 
 f32 ftKb_SpecialN_800F5A98(void)
 {
-    ftKb_DatAttrs* ea = gFtDataList[Ft_Kind_Kirby]->ext_attr;
+    ftKb_DatAttrs* ea = DP(ftKb_DatAttrs, gFtDataList[Ft_Kind_Kirby]->ext_attr);
     return ea->specialn_spit_spin;
 }
 
@@ -165,13 +165,13 @@ f32 ftKb_SpecialN_800F5AB0(Fighter_GObj* gobj)
 
 f32 ftKb_SpecialN_800F5AC0(void)
 {
-    ftKb_DatAttrs* ea = gFtDataList[Ft_Kind_Kirby]->ext_attr;
+    ftKb_DatAttrs* ea = DP(ftKb_DatAttrs, gFtDataList[Ft_Kind_Kirby]->ext_attr);
     return ea->specialn_star_duration_divisor;
 }
 
 f32 ftKb_SpecialN_800F5AD8(void)
 {
-    ftKb_DatAttrs* ea = gFtDataList[Ft_Kind_Kirby]->ext_attr;
+    ftKb_DatAttrs* ea = DP(ftKb_DatAttrs, gFtDataList[Ft_Kind_Kirby]->ext_attr);
     return ea->specialn_star_deceleration_rate;
 }
 
@@ -900,12 +900,14 @@ void ftKb_SpecialNSpit0_Anim(Fighter_GObj* gobj)
     Item_GObj* item_gobj;
     ftKb_DatAttrs* da;
     struct itUnk2_DatAttrs attr;
+    Vec3 pos;
     PAD_STACK(0x40);
 
     if (fp->cmd_vars[0] != 0 && (item_gobj = fp->target_item_gobj) != NULL) {
         ftCommon_8007E2F4(fp, 0);
         lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, FtPart_TransN2)].joint,
-                    NULL, &attr.pos);
+                    NULL, &pos);
+        DISC_VEC3_SET(attr.pos, pos);
         {
             f32 neg_facing = -fp->facing_dir;
             da = getFighter(gobj)->dat_attrs;
@@ -947,12 +949,14 @@ void ftKb_SpecialNSpit1_Anim(Fighter_GObj* gobj)
     Item_GObj* item_gobj;
     ftKb_DatAttrs* da;
     itUnk2_DatAttrs attr;
+    Vec3 pos;
     PAD_STACK(0x40);
 
     if (fp->cmd_vars[0] != 0 && (item_gobj = fp->target_item_gobj) != NULL) {
         ftCommon_8007E2F4(fp, 0);
         lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, FtPart_TransN2)].joint,
-                    NULL, &attr.pos);
+                    NULL, &pos);
+        DISC_VEC3_SET(attr.pos, pos);
         {
             f32 neg_facing = -fp->facing_dir;
             da = getFighter(gobj)->dat_attrs;

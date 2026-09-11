@@ -1156,19 +1156,24 @@ void grStadium_801D2A60(Ground_GObj* gobj)
     grStadium_801D2528(gobj, var_r4, 0);
 }
 
-static HSD_WObjDesc grPs_803E14D4 = { NULL, { 0.0F, 0.0F, 1.0F }, NULL };
-static HSD_WObjDesc grPs_803E14E8 = { NULL, { 0.0F, 0.0F, 0.0F }, NULL };
+static HSD_WObjDesc grPs_803E14D4 = { 0, { 0.0F, 0.0F, 1.0F }, 0 };
+static HSD_WObjDesc grPs_803E14E8 = { 0, { 0.0F, 0.0F, 0.0F }, 0 };
 
 static HSD_CameraDescPerspective grPs_803E14FC = {
-    NULL,
+    0,
     0,
     1,
     { 0, 0xFA, 0, 0xA0 },
     { 0, 0xFA, 0, 0xA0 },
+#ifndef TARGET_PC
     &grPs_803E14D4,
     &grPs_803E14E8,
+#else
+    0,
+    0,
+#endif
     0.0F,
-    NULL,
+    0,
     0.1F,
     32768.0F,
     30.0F,
@@ -1185,6 +1190,10 @@ HSD_GObj* grStadium_801D2BEC(void)
     PAD_STACK(4);
 
     gobj = GObj_Create(0x11, 0x13, 0);
+#ifdef TARGET_PC
+    DP_SET(grPs_803E14FC.eyepos, &grPs_803E14D4);
+    DP_SET(grPs_803E14FC.interest, &grPs_803E14E8);
+#endif
     cobj = lb_80013B14(&grPs_803E14FC);
     HSD_CObjSetOrtho(cobj, 0.0F, -160.0F, 0.0F, 250.0F);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);

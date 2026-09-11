@@ -31,10 +31,11 @@ void ftYs_Init_8012BDA0(Fighter_GObj* gobj)
         ftHurtboxInit hurt;
         PAD_STACK(4 * 4);
         ftColl_8007B0C0(gobj, HurtCapsule_Intangible);
-        hurt.bone_idx = fp->ft_data->x8->x11;
+        hurt.bone_idx = DP(struct ftData_x8, fp->ft_data->x8)->x11;
         hurt.height = HurtHeight_Mid;
         hurt.is_grabbable = true;
-        hurt.a_offset = hurt.b_offset = ftYs_Unk1_803B75C0;
+        DISC_VEC3_SET(hurt.a_offset, ftYs_Unk1_803B75C0);
+        DISC_VEC3_SET(hurt.b_offset, ftYs_Unk1_803B75C0);
         hurt.scale = 1;
         ftColl_HurtboxInit(fp, &fp->hurt_capsules[0], &hurt);
     }
@@ -81,7 +82,7 @@ static void ftYs_Init_8012BECC_sub(HSD_GObj* gobj)
     fp->mv.ys.guard.x24 = 0;
     fp->mv.ys.guard.x20 = 0;
     s.v.x = s.v.y = s.v.z = 0;
-    HSD_JObjSetTranslate(fp->parts[fp->ft_data->x8->x11].joint, &s.v);
+    HSD_JObjSetTranslate(fp->parts[DP(struct ftData_x8, fp->ft_data->x8)->x11].joint, &s.v);
     ftYs_Init_8012B8A4_no_inline(gobj);
     ftCo_80091D58(fp);
     ft_PlaySFX(fp, 0x6E, 0x7F, 0x40);
@@ -159,10 +160,11 @@ static inline void inlineA0(Fighter_GObj* gobj)
         Fighter* fp = GET_FIGHTER(gobj);
         ftHurtboxInit hurt;
         ftColl_8007B0C0(gobj, HurtCapsule_Intangible);
-        hurt.bone_idx = fp->ft_data->x8->x11;
+        hurt.bone_idx = DP(struct ftData_x8, fp->ft_data->x8)->x11;
         hurt.height = HurtHeight_Mid;
         hurt.is_grabbable = true;
-        hurt.a_offset = hurt.b_offset = ftYs_Unk1_803B75C0;
+        DISC_VEC3_SET(hurt.a_offset, ftYs_Unk1_803B75C0);
+        DISC_VEC3_SET(hurt.b_offset, ftYs_Unk1_803B75C0);
         hurt.scale = 1;
         ftColl_HurtboxInit(fp, fp->hurt_capsules, &hurt);
     }
@@ -174,7 +176,7 @@ void ftYs_Shield_8012C1D4(Fighter_GObj* gobj)
     PAD_STACK(4 * 2);
     Fighter_ChangeMotionState(gobj, ftYs_MS_GuardHold, Ft_MF_None, 0, 1, 0,
                               NULL);
-    ftAnim_8006FA58(fp, FtPart_TransN, fp->x108_costume_joint->child);
+    ftAnim_8006FA58(fp, FtPart_TransN, DP(HSD_Joint, fp->x108_costume_joint->child));
     ftParts_80074B0C(gobj, 0, 1);
     inlineA0(gobj);
     ftCo_80092450(gobj);
@@ -341,7 +343,7 @@ static inline void ftYs_Shield_8012C914_inline(Fighter_GObj* gobj)
     fp->mv.ys.guard.x20 = 0;
     translate.x = translate.y = translate.z = 0.0F;
 
-    HSD_JObjSetTranslate(fp->parts[fp->ft_data->x8->x11].joint, &translate);
+    HSD_JObjSetTranslate(fp->parts[DP(struct ftData_x8, fp->ft_data->x8)->x11].joint, &translate);
     ftYs_Init_8012B8A4(gobj);
     ftCo_80091D58(fp);
     ft_PlaySFX(fp, 0x6E, 0x7F, 0x40);

@@ -323,7 +323,7 @@ bool it_802E3884(Item_GObj* gobj)
     PAD_STACK(16);
     ip->init_facing_dir = ip->facing_dir;
     ip->xC9C += it_8027CBFC(gobj);
-    if (ip->xC9C > DP(itWhiteBeaAttr_x0, attr->x0)->x0 || ip->msid == 9) {
+    if (ip->xC9C > DP(itOttoseaAttr_x0, attr->x0)->x0 || ip->msid == 9) {
         it_8027C9D8(ip);
         it_802756D0(gobj);
         it_80275474(gobj);
@@ -386,7 +386,7 @@ void it_802E3AC8(Item_GObj* gobj)
     s32 facing;
     s32 timer;
     PAD_STACK(8);
-    ip->x40_vel.x = ip->facing_dir * DP(itWhiteBeaAttr_x0, attrs->x0)->x4;
+    ip->x40_vel.x = ip->facing_dir * DP(itOttoseaAttr_x0, attrs->x0)->x4;
     ip->x40_vel.z = 0.0f;
     ip->x40_vel.y = 0.0f;
     it_8027C56C(gobj, ip->facing_dir);
@@ -570,7 +570,7 @@ void it_802E40A4(Item_GObj* gobj)
     itWhiteBeaAttributes* attrs = DP(itWhiteBeaAttributes, ip->xC4_article_data->x4_specialAttributes);
     s32 facing;
     PAD_STACK(32);
-    ip->x40_vel.x = ip->facing_dir * DP(itWhiteBeaAttr_x0, attrs->x0)->x4;
+    ip->x40_vel.x = ip->facing_dir * DP(itOttoseaAttr_x0, attrs->x0)->x4;
     ip->x40_vel.z = 0.0f;
     ip->x40_vel.y = 0.0f;
     it_8027C56C(gobj, ip->facing_dir);
@@ -619,7 +619,7 @@ bool itWhitebea_UnkMotion2_Anim(Item_GObj* gobj)
         ip->xDD4_itemVar.whitebea.x40 = 0;
         ip = HSD_GObjGetUserData(gobj);
         attrs = DP(itWhiteBeaAttributes, ip->xC4_article_data->x4_specialAttributes);
-        ip->x40_vel.x = ip->facing_dir * DP(itWhiteBeaAttr_x0, attrs->x0)->x4;
+        ip->x40_vel.x = ip->facing_dir * DP(itOttoseaAttr_x0, attrs->x0)->x4;
         ip->x40_vel.z = 0.0f;
         ip->x40_vel.y = 0.0f;
         it_8027C56C(gobj, ip->facing_dir);

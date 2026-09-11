@@ -33,6 +33,18 @@
 /// @todo Move elsewhere.
 #define MAX_STICK_MAG 0.999f
 
+/// Copy the disc-layout height box into a native ftCollisionBox.
+static inline void ftPk_GetHeightBox(ftPikachuAttributes* attr,
+                                     ftCollisionBox* box)
+{
+    box->top = attr->height_attributes.top;
+    box->bottom = attr->height_attributes.bottom;
+    box->left.x = attr->height_attributes.left.x;
+    box->left.y = attr->height_attributes.left.y;
+    box->right.x = attr->height_attributes.right.x;
+    box->right.y = attr->height_attributes.right.y;
+}
+
 /// points velocity toward facing direction
 void ftPk_SpecialHi_UpdateVel(HSD_GObj* gobj)
 {
@@ -313,7 +325,10 @@ void ftPk_SpecialHiStart1_Coll(HSD_GObj* gobj)
 
     u8 _[20];
 
-    if (!ft_80082888(gobj, &pika_attr->height_attributes)) {
+    ftCollisionBox height_box;
+
+    ftPk_GetHeightBox(pika_attr, &height_box);
+    if (!ft_80082888(gobj, &height_box)) {
         if (collData->env_flags & Collide_LeftWallMask ||
             collData->env_flags & Collide_RightWallMask)
         {
@@ -393,8 +408,9 @@ void ftPk_SpecialAirHiStart1_Coll(HSD_GObj* gobj)
     }
 
     if (!ftCliffCommon_80081298(gobj)) {
+        int angle_clamp = pika_attr->xA0;
         ftCommon_HandleTeleportCollisions(
-            gobj, fp, collData, &pika_attr->xA0,
+            gobj, fp, collData, &angle_clamp,
             ftPk_SpecialHi_MotionChangeUpdateVel_Unk1);
     }
 }
@@ -740,7 +756,10 @@ void ftPk_SpecialHiEnd_Coll(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     ftPikachuAttributes* pika_attr = fp->dat_attrs;
 
-    ftCollisionBox* box = &pika_attr->height_attributes;
+    ftCollisionBox box_val;
+    ftCollisionBox* box = &box_val;
+
+    ftPk_GetHeightBox(pika_attr, box);
 
     if (!ft_80082888(gobj, box)) {
         ftPk_SpecialHi_ChangeMotion_Unk04(gobj);
@@ -752,7 +771,10 @@ void ftPk_SpecialAirHiEnd_Coll(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     ftPikachuAttributes* pika_attr = fp->dat_attrs;
 
-    ftCollisionBox* box = &pika_attr->height_attributes;
+    ftCollisionBox box_val;
+    ftCollisionBox* box = &box_val;
+
+    ftPk_GetHeightBox(pika_attr, box);
 
     u8 _[8];
 

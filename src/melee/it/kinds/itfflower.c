@@ -82,7 +82,7 @@ void itFFlower_Logic25_Spawned(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
 
-    FFlowerAttr* attr = ip->xC4_article_data->x4_specialAttributes;
+    FFlowerAttr* attr = DP(FFlowerAttr, ip->xC4_article_data->x4_specialAttributes);
 
     ip->xD4C = attr->x0;
     ip->xAC4_ignoreItemID = Item_8026AE60();

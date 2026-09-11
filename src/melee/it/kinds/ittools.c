@@ -269,7 +269,7 @@ bool it_2725_Logic22_Clanked(Item_GObj* gobj)
 {
     itToolsAttributes* attrs;
     Item* ip = GET_ITEM(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itToolsAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(16);
     it_802756D0(gobj);
     it_8026B3A8(gobj);
@@ -284,7 +284,7 @@ bool it_2725_Logic22_HitShield(Item_GObj* gobj)
 {
     itToolsAttributes* attrs;
     Item* ip = GET_ITEM(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itToolsAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(16);
     it_802756D0(gobj);
     it_8026B3A8(gobj);
@@ -299,7 +299,7 @@ bool it_2725_Logic22_Absorbed(Item_GObj* gobj)
 {
     itToolsAttributes* attrs;
     Item* ip = GET_ITEM(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itToolsAttributes, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(24);
     it_802756D0(gobj);
     it_8026B3A8(gobj);

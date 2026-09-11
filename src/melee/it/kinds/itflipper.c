@@ -107,7 +107,7 @@ void itFlipper_Spawned(Item_GObj* gobj)
 void itFlipper_UpdateSpin(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* jobj = itGetJObjGrandchild(gobj);
 
     if (ip->xDD4_itemVar.flipper.xDE4_spinVel > 3.1415927f) {
@@ -140,7 +140,7 @@ void itFlipper_UpdateSpin(Item_GObj* gobj)
 void itFlipper_AddSpinImpulse(Item_GObj* gobj, Vec3* pos, f32 vel)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     f32 speed = vel + attrs->x1C_baseSpinOnHit;
 
     if (pos->x > ip->pos.x) {
@@ -170,7 +170,7 @@ static inline f32 itFlipper_SpinSpeedFromFighter(Item_GObj* gobj,
                                                  Vec3* vel)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     ftLib_800866DC(fighter, pos);
     ftLib_80086BEC(fighter, vel);
     return attrs->x18_spinMultiplier *
@@ -300,7 +300,7 @@ void itFlipper_Dropped(Item_GObj* gobj)
 void itFlipper_Thrown(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->owner != NULL) {
         if (ftLib_80087284(ip->owner)) {
             ip->xDD4_itemVar.flipper.xDD4_flightTimer =
@@ -344,7 +344,7 @@ void itFlipper_Inflight_Phys(Item_GObj* gobj)
 bool itFlipper_Inflight_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     s32 coll = it_8026DAA8(gobj);
     if (coll != 0) {
         if (coll & 0xC) {
@@ -366,7 +366,7 @@ bool itFlipper_Inflight_Coll(Item_GObj* gobj)
 void itFlipper_Settle(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     ip->xD5C = 0;
     ip->x40_vel.x = 0.0f;
     ip->x40_vel.y = 0.0f;
@@ -479,7 +479,7 @@ bool itFlipper_Spinning_Coll(Item_GObj* gobj)
 bool itFlipper_DmgDealt(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     Vec3 pos;
     u8 _pad[8];
     Vec3 pos2;
@@ -512,7 +512,7 @@ bool itFlipper_DmgDealt(Item_GObj* gobj)
 bool itFlipper_Clanked(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
     if (!ip->xDD4_itemVar.flipper.xDD8_isSettled) {
         if (ip->xDD4_itemVar.flipper.xDD4_flightTimer >= 6) {
@@ -537,7 +537,7 @@ bool itFlipper_Clanked(Item_GObj* gobj)
 bool itFlipper_HitShield(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     PAD_STACK(8);
     if (ip->xDD4_itemVar.flipper.xDD8_isSettled == 0) {
         if (ip->xDD4_itemVar.flipper.xDD4_flightTimer >= 6) {
@@ -591,7 +591,7 @@ static inline void itFlipper_SpinFromFighterRecv(Item_GObj* gobj, Vec3* vel,
 bool itFlipper_DmgReceived(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlipper_DatAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itFlipper_DatAttrs* attrs = DP(itFlipper_DatAttrs, ip->xC4_article_data->x4_specialAttributes);
     Vec3 pos;
     u8 _pad[8];
     Vec3 vec;

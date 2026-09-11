@@ -328,18 +328,22 @@ void ftLk_Init_OnLoadForCLink(Fighter* fp)
 void ftLk_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftLk_DatAttrs* da = fp->ft_data->ext_attr;
-    void** item_list = fp->ft_data->x48_items;
+    ftLk_DatAttrs* da = DP(ftLk_DatAttrs, fp->ft_data->ext_attr);
+    DiscU32* item_list = DP(DiscU32, fp->ft_data->x48_items);
     da->attackairlw_hit_anim_frame_end =
         lbAnim_8001E8F8(ftData_80085E50(fp, 72));
     PUSH_ATTRS(fp, ftLk_DatAttrs);
     da = fp->dat_attrs;
-    it_8026B3F8(item_list[0], da->x48);
-    it_8026B3F8(item_list[1], da->x2C);
-    it_8026B3F8(item_list[2], da->xBC);
-    it_8026B3F8(item_list[3], da->xC);
-    it_8026B3F8(item_list[4], da->x10);
-    ftParts_800753D4(fp, Fighter_804D6540[fp->kind]->x0, item_list[6]);
+    it_8026B3F8(DP(Article, item_list[0].v), da->x48);
+    it_8026B3F8(DP(Article, item_list[1].v), da->x2C);
+    it_8026B3F8(DP(Article, item_list[2].v), da->xBC);
+    it_8026B3F8(DP(Article, item_list[3].v), da->xC);
+    it_8026B3F8(DP(Article, item_list[4].v), da->x10);
+    ftParts_800753D4(
+        fp,
+        DP(struct Fighter_804D6540_x0_t,
+           DP(struct Fighter_804D6540_t, Fighter_804D6540[fp->kind].v)->x0),
+        DP(HSD_Joint, item_list[6].v));
 }
 
 void ftLk_800EAF38(HSD_GObj* gobj)
@@ -421,7 +425,7 @@ void ftLk_800EB334(HSD_GObj* gobj)
     float new_ground_vel;
 
     Fighter* fp = GET_FIGHTER(gobj);
-    ftLk_DatAttrs* link_attr = fp->ft_data->ext_attr;
+    ftLk_DatAttrs* link_attr = DP(ftLk_DatAttrs, fp->ft_data->ext_attr);
 
     float resultf = ftCo_80092ED8(fp->x19A4, link_attr->xD8);
     fp->gr_vel = resultf * p_ftCommonData->x294;

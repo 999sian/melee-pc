@@ -69,9 +69,15 @@ static inline void setup_car_child(HSD_JObj* parent, s16 ext_count, s32 offset,
         DynamicModelDesc* entry =
             (DynamicModelDesc*) ((u8*) offset +
                                  (uintptr_t) archive->unk4->unk8);
-        if (entry->anims != NULL) {
-            if (entry->matanims != NULL) {
-                grAnime_801C6C0C(jobj, *entry->anims, *entry->matanims, NULL);
+        if (entry->anims != 0) {
+            if (entry->matanims != 0) {
+                grAnime_801C6C0C(
+                    jobj,
+                    (HSD_AnimJoint*) (uintptr_t) DP(DiscU32, entry->anims)[0].v,
+                    (HSD_MatAnimJoint*) (uintptr_t) DP(DiscU32,
+                                                       entry->matanims)[0]
+                        .v,
+                    NULL);
                 HSD_JObjReqAnimAllByFlags(jobj, 0x497, 0.0f);
                 HSD_ForeachAnim(jobj, JOBJ_TYPE, 0x76a4, HSD_AObjSetRate,
                                 AOBJ_ARG_AF, 1.0);

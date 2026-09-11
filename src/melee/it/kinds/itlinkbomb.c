@@ -105,7 +105,7 @@ static inline void it_8029DB5C_Inline_Matching(HSD_GObj* gobj, Item* item,
         item->xDD4_itemVar.linkbomb.x0.b0 == 0)
     {
         jobj = gobj->hsd_obj;
-        item->xD0_itemStateDesc = &article->xC_itemStates->x0_itemStateDesc[3];
+        item->xD0_itemStateDesc = &DP(ItemStateArray, article->xC_itemStates)->x0_itemStateDesc[3];
         item_state_desc = item->xD0_itemStateDesc;
         if (item_state_desc != NULL) {
             Item_80268D34(gobj, item_state_desc);
@@ -147,7 +147,7 @@ static inline void it_8029DB5C_Inline_TimerCheck_Part(HSD_GObj* gobj,
         item->xDD4_itemVar.linkbomb.x0.b0 == 0)
     {
         jobj = gobj->hsd_obj;
-        item->xD0_itemStateDesc = &article->xC_itemStates->x0_itemStateDesc[3];
+        item->xD0_itemStateDesc = &DP(ItemStateArray, article->xC_itemStates)->x0_itemStateDesc[3];
         item_state_desc = item->xD0_itemStateDesc;
         if (item_state_desc != NULL) {
             Item_80268D34(gobj, item_state_desc);

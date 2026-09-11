@@ -182,17 +182,17 @@ void ftDr_Init_OnDeath(HSD_GObj* gobj)
 void ftDr_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp;
-    void** items;
+    DiscU32* items;
     ftDrMarioAttributes* sa;
 
     u8 _[8];
 
     fp = gobj->user_data;
-    items = fp->ft_data->x48_items;
+    items = DP(DiscU32, fp->ft_data->x48_items);
     ftMr_Init_OnLoadForDrMario(fp);
     sa = fp->dat_attrs;
-    it_8026B3F8(items[1], It_Kind_DrMario_Vitamin);
-    it_8026B3F8(items[3], sa->x14);
+    it_8026B3F8(DP(Article, items[1].v), It_Kind_DrMario_Vitamin);
+    it_8026B3F8(DP(Article, items[3].v), sa->x14);
 }
 
 void ftDr_Init_80149540(HSD_GObj* gobj)

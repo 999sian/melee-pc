@@ -173,20 +173,23 @@ void grHomeRun_8021CB1C(Ground_GObj* arg) {}
 
 void grHomeRun_8021CB20(Ground_GObj* gobj)
 {
-    static HSD_WObjDesc camera_eye_desc = { NULL, { 0.0F, 0.0F, 1.0F }, NULL };
-    static HSD_WObjDesc camera_interest_desc = { NULL,
-                                                 { 0.0F, 0.0F, 0.0F },
-                                                 NULL };
+    static HSD_WObjDesc camera_eye_desc = { 0, { 0.0F, 0.0F, 1.0F }, 0 };
+    static HSD_WObjDesc camera_interest_desc = { 0, { 0.0F, 0.0F, 0.0F }, 0 };
     static HSD_CameraDescPerspective cobj_desc = {
-        NULL,
+        0,
         0,
         1,
         { 0, 640, 0, 640 },
         { 0, 480, 0, 480 },
+#ifndef TARGET_PC
         &camera_eye_desc,
         &camera_interest_desc,
+#else
+        0,
+        0,
+#endif
         0.0F,
-        NULL,
+        0,
         0.1F,
         32768.0F,
         30.0F,
@@ -201,6 +204,10 @@ void grHomeRun_8021CB20(Ground_GObj* gobj)
     int i;
 
     gp = GET_GROUND(gobj);
+#ifdef TARGET_PC
+    DP_SET(cobj_desc.eyepos, &camera_eye_desc);
+    DP_SET(cobj_desc.interest, &camera_interest_desc);
+#endif
     jobj = GET_JOBJ(gobj);
     jobj2 = jobj;
     Ground_801C2ED0(jobj2, gp->map_id);

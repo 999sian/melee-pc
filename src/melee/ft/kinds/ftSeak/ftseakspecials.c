@@ -83,16 +83,16 @@ void ftSk_SpecialS_80110490(Fighter* fp)
 void ftSk_SpecialS_80110610(HSD_GObj* gobj, s32 arg1, float arg2)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    UNK_T* items = fp->ft_data->x48_items;
+    DiscU32* items = DP(DiscU32, fp->ft_data->x48_items);
 
     u8 _[4];
 
-    HSD_Joint** item;
+    DiscU32* item;
 
     if (arg1 == 305) {
-        item = items[4];
+        item = DP(DiscU32, items[4].v);
     } else {
-        item = items[5];
+        item = DP(DiscU32, items[5].v);
     }
 
     ftSk_SpecialS_80110490(fp);
@@ -104,12 +104,12 @@ void ftSk_SpecialS_80110610(HSD_GObj* gobj, s32 arg1, float arg2)
             HSD_JObj* bone = fp->x8AC_animSkeleton;
             ftAnim_8006F4C8(fp, true, ftData_80085E50(fp, arg1));
             ftAnim_80070710(bone, f);
-            ftAnim_8006FB88(fp, FtPart_TransN, fp->x108_costume_joint->child);
+            ftAnim_8006FB88(fp, FtPart_TransN, DP(HSD_Joint, fp->x108_costume_joint->child));
             HSD_JObjAnimAll(bone);
 
             if (fp->mv.sk.specials.x14 < 1) {
                 ftAnim_80070108(fp, FtPart_TransN, 1 - fp->mv.sk.specials.x14,
-                                fp->mv.sk.specials.x14, item[2]);
+                                fp->mv.sk.specials.x14, DP(HSD_Joint, item[2].v));
             }
 
             if (arg2 < 1) {
@@ -123,11 +123,11 @@ void ftSk_SpecialS_80110610(HSD_GObj* gobj, s32 arg1, float arg2)
     }
 
     if (arg2 < 1) {
-        ftAnim_80070010(fp, FtPart_TransN, arg2, 1 - arg2, item[2]);
+        ftAnim_80070010(fp, FtPart_TransN, arg2, 1 - arg2, DP(HSD_Joint, item[2].v));
         return;
     }
 
-    ftAnim_8006FA58(fp, FtPart_TransN, item[2]);
+    ftAnim_8006FA58(fp, FtPart_TransN, DP(HSD_Joint, item[2].v));
 }
 
 void ftSk_SpecialS_80110788(HSD_GObj* gobj)
@@ -188,7 +188,8 @@ void ftSk_SpecialS_80110788(HSD_GObj* gobj)
             float left_stick_x = fp->input.lstick[0].x;
             Item* item_data = item_gobj->user_data;
             Article* article = item_data->xC4_article_data;
-            itChainSegment* chainSegment = article->x4_specialAttributes;
+            itChainSegment* chainSegment =
+                DP(itChainSegment, article->x4_specialAttributes);
 
             if (left_stick_x < 0) {
                 left_stick_x = -left_stick_x;
@@ -337,8 +338,8 @@ void ftSk_SpecialS_80110BCC(HSD_GObj* gobj)
 
     {
         Item* item_data = item_gobj->user_data;
-        itChainSegment* chain =
-            item_data->xC4_article_data->x4_specialAttributes;
+        itChainSegment* chain = DP(
+            itChainSegment, item_data->xC4_article_data->x4_specialAttributes);
 
         {
             float sums_of_squares[4];
@@ -553,7 +554,8 @@ bool ftSk_SpecialS_CheckInitChain(HSD_GObj* gobj)
         Vec3 vel = { 1.8f, 0.0f, 0.0f };
         HSD_GObj* item_gobj = fp->u.sk.x8;
         Item* ip = item_gobj->user_data;
-        itChainSegment* segment = ip->xC4_article_data->x4_specialAttributes;
+        itChainSegment* segment =
+            DP(itChainSegment, ip->xC4_article_data->x4_specialAttributes);
 
         vel.x = segment->x50;
         vel.x *= ip->facing_dir;

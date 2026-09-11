@@ -150,10 +150,10 @@ static inline HSD_JObj* it_link_get_joint(Item* arg0, s32 var_r31)
     HSD_JObj* temp_r3;
     temp_r3_4 = DP(itLinkHookshotAttributes, arg0->xC4_article_data->x4_specialAttributes);
     if ((var_r31 % 2) != 0) {
-        temp_r3 = HSD_JObjLoadJoint(temp_r3_4->x54);
+        temp_r3 = HSD_JObjLoadJoint(DP(HSD_Joint, temp_r3_4->x54));
         return temp_r3;
     } else {
-        return HSD_JObjLoadJoint(temp_r3_4->x58);
+        return HSD_JObjLoadJoint(DP(HSD_Joint, temp_r3_4->x58));
     }
 }
 
@@ -161,7 +161,7 @@ static inline HSD_JObj* it_link_get_joint_c(Item* arg0)
 {
     itLinkHookshotAttributes* temp_r3_4;
     temp_r3_4 = DP(itLinkHookshotAttributes, arg0->xC4_article_data->x4_specialAttributes);
-    return HSD_JObjLoadJoint(temp_r3_4->x5C);
+    return HSD_JObjLoadJoint(DP(HSD_Joint, temp_r3_4->x5C));
 }
 
 static inline f32 it_link_lerp(f32 a, f32 b, f32 t)
@@ -1170,7 +1170,8 @@ void it_802A4758(ItemLink* link_0, Vec3* arg1, itLinkHookshotAttributes* arg2,
         len = it_802A3C98(&link_1->pos, &link_0->pos, &vec);
 
         if (len > arg2->x30) {
-            test_comp(&link_1->pos, &link_0->pos, &vec, &arg2->x30);
+            f32 x30 = arg2->x30;
+            test_comp(&link_1->pos, &link_0->pos, &vec, &x30);
         }
 
         link_0 = link_1;
@@ -1278,7 +1279,7 @@ s32 it_802A4BFC(ItemLink* link_0, Vec3* arg1, itLinkHookshotAttributes* attr,
     Vec3 pos1;
     UNUSED u8 pad1[8];
     Vec3 pos2;
-    ftLk_DatAttrs* lk_attr = fp->ft_data->ext_attr;
+    ftLk_DatAttrs* lk_attr = DP(ftLk_DatAttrs, fp->ft_data->ext_attr);
     PAD_STACK(7 * 4);
     if (fp->motion_id == 0xD4) {
         if (fp->mv.ca.specials.grav == lk_attr->x88) {
@@ -1838,7 +1839,7 @@ bool it_802A6A78(ItemLink* link_0, Vec3* arg1, itLinkHookshotAttributes* arg2,
     Vec3 vec;
     f32 inv;
 
-    lk_attr = arg3->ft_data->ext_attr;
+    lk_attr = DP(ftLk_DatAttrs, arg3->ft_data->ext_attr);
     if (arg3->motion_id == 0xD4) {
         if (arg3->mv.ca.specials.grav < lk_attr->x88) {
             return true;

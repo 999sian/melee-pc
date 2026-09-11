@@ -121,11 +121,11 @@ void ftCo_Landing_Anim(Fighter_GObj* gobj)
 
 void ftCo_Landing_IASA(Fighter_GObj* gobj)
 {
-    float* landing_lag;
+    float landing_lag;
     Fighter* fp = GET_FIGHTER(gobj);
     PAD_STACK(8);
-    landing_lag = &fp->co_attrs.normal_landing_lag;
-    RETURN_IF(fp->cur_anim_frame < *landing_lag);
+    landing_lag = fp->co_attrs.normal_landing_lag;
+    RETURN_IF(fp->cur_anim_frame < landing_lag);
     RETURN_IF(!fp->mv.co.landing.allow_interrupt);
     RETURN_IF(ftCo_SpecialS_CheckInput(gobj));
     RETURN_IF(ftCo_Attack100_CheckInput(gobj));
@@ -143,7 +143,7 @@ void ftCo_Landing_IASA(Fighter_GObj* gobj)
     RETURN_IF(ftCo_800DE9D8(gobj));
     RETURN_IF(ftCo_Jump_CheckInput(gobj));
     RETURN_IF(ftCo_Dash_CheckInput(gobj));
-    RETURN_IF((fp->cur_anim_frame < (fp->frame_speed_mul + *landing_lag)) &&
+    RETURN_IF((fp->cur_anim_frame < (fp->frame_speed_mul + landing_lag)) &&
               ftCo_SquatWait_CheckInput(gobj));
     RETURN_IF(ftCo_Turn_CheckInput(gobj));
     RETURN_IF(ftCo_Walk_CheckInput(gobj));

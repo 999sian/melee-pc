@@ -37,7 +37,7 @@ void itLipstick_Logic23_Spawned(Item_GObj* gobj)
 void it_80295748(Item_GObj* gobj, Vec* pos)
 {
     Item* ip = GET_ITEM(gobj);
-    *pos = GET_ATTRS(ip)->x4;
+    DISC_VEC3_GET(*pos, GET_ATTRS(ip)->x4);
 }
 
 void it_80295770(Item_GObj* gobj, Vec* arg1, float arg2, int arg3)

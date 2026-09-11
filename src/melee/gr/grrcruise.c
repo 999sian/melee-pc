@@ -329,7 +329,7 @@ void grRCruise_801FF7A4(Ground_GObj* gobj)
         grLib_801C9B20(Ground_801C3FA4(stage_gobj, 23), data,
                        &gp->u.rcruise2.xC4);
     } else {
-        gp->u.rcruise2.xC4.data = NULL;
+        gp->u.rcruise2.xC4.data = 0;
     }
 
     jobj = Ground_801C3FA4(stage_gobj, 10);

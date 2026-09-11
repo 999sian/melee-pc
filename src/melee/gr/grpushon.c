@@ -72,7 +72,7 @@ Vec3 const grPushOn_803B8440 = { 0 };
 Vec3 const grPushOn_803B844C = { 0 };
 Vec3 const grPushOn_803B8458 = { 0.0f, 100.0f, 0.0f };
 Vec3 const grPushOn_803B8464 = { 0.0f, 100.0f, 0.0f };
-float grPushOn_804D4934 = 16.0f;
+DiscF32 grPushOn_804D4934 = { 16.0f };
 
 StageCallbacks grPushOn_StageCallbacks[] = {
     {
@@ -178,14 +178,18 @@ HSD_GObj* grPushOn_802183E4(int gobj_id)
 }
 
 HSD_LightDesc grPushOn_803E7B74 = {
-    NULL,
-    NULL,
+    0,
+    0,
     6,
     0,
     { 0xFF, 0xFF, 0xFF, 0xFF },
-    NULL,
-    NULL,
+    0,
+    0,
+#ifndef TARGET_PC
     { &grPushOn_804D4934 },
+#else
+    { 0 },
+#endif
 };
 
 void grPushOn_802184CC(Ground_GObj* gobj)
@@ -501,6 +505,9 @@ HSD_LObj* grPushOn_80218ED4(HSD_GObj* gobj)
     while ((lobj == NULL ? NULL : lobj->next) != NULL) {
         lobj = lobj == NULL ? NULL : lobj->next;
     }
+#ifdef TARGET_PC
+    DP_SET(grPushOn_803E7B74.u.shininess, &grPushOn_804D4934);
+#endif
     new_lobj = HSD_LObjLoadDesc(&grPushOn_803E7B74);
     if (new_lobj != NULL) {
         pos = grPushOn_803B8458;
@@ -511,17 +518,21 @@ HSD_LObj* grPushOn_80218ED4(HSD_GObj* gobj)
     return new_lobj;
 }
 
-float grPushOn_804D4948 = 16.0f;
+DiscF32 grPushOn_804D4948 = { 16.0f };
 
 HSD_LightDesc grPushOn_803E7B90 = {
-    NULL,
-    NULL,
+    0,
+    0,
     0xA,
     0,
     { 0xFF, 0xFF, 0xFF, 0xFF },
-    NULL,
-    NULL,
+    0,
+    0,
+#ifndef TARGET_PC
     { &grPushOn_804D4948 },
+#else
+    { 0 },
+#endif
 };
 
 static struct grPushOn_LightConfig light_configs[9] = {
@@ -585,6 +596,9 @@ HSD_LObj* grPushOn_80218FC0(HSD_GObj* gobj)
     while ((lobj == NULL ? NULL : lobj->next) != NULL) {
         lobj = lobj == NULL ? NULL : lobj->next;
     }
+#ifdef TARGET_PC
+    DP_SET(grPushOn_803E7B90.u.shininess, &grPushOn_804D4948);
+#endif
     new_lobj = HSD_LObjLoadDesc(&grPushOn_803E7B90);
     if (new_lobj != NULL) {
         pos = grPushOn_803B8464;

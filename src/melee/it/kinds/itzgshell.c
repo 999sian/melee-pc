@@ -170,7 +170,7 @@ void it_802DDD38(Item_GObj* gobj)
 // permuterslop
 static inline itGShell_Attrs* get_attrs(Item* arg0)
 {
-    return arg0->xC4_article_data->x4_specialAttributes;
+    return DP(itGShell_Attrs, arg0->xC4_article_data->x4_specialAttributes);
 }
 
 void it_802DDEB4(Item_GObj* gobj)
@@ -285,7 +285,7 @@ bool itZrshell_UnkMotion0_Coll(Item_GObj* gobj)
     it_8026D62C(gobj, it_802DE320);
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
         Item_UpdateRollingShellRotation(gobj, ip, jobj, &attrs->x20);
     }
@@ -530,7 +530,7 @@ bool itZrshell_UnkMotion6_Coll(Item_GObj* gobj)
     it_8026D62C(gobj, it_802DEC80);
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
         Item_UpdateRollingShellRotation(gobj, ip, jobj, &attrs->x20);
     }
@@ -667,7 +667,7 @@ bool itZrshell_UnkMotion9_Coll(Item_GObj* gobj)
     it_8026E8C4(gobj, it_802DE0F0, it_802DE320);
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
         it_80276CB8(gobj);
         jobj = HSD_JObjGetChild(jobj);
@@ -892,7 +892,7 @@ bool it_2725_Logic11_Clanked(Item_GObj* gobj)
 {
     itGShell_Attrs* attrs;
     Item* ip = GET_ITEM(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     it_802756D0(gobj);
     it_80275444(gobj);
     ip->x40_vel.x = -ip->x40_vel.x * attrs->xC * HSD_Randf();

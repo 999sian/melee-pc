@@ -1014,8 +1014,8 @@ void it_8027163C(Item_GObj* item_gobj)
 
     item = item_gobj->user_data;
     article = item->xC4_article_data;
-    it_hurtbox = article->x8_hurtbones;
-    it_dynams = (ItCollDynamics*) article->x14_dynamics;
+    it_hurtbox = DP(ItHurtBoneList, article->x8_hurtbones);
+    it_dynams = DP(ItCollDynamics, article->x14_dynamics);
     if (it_hurtbox != NULL) {
         if (it_hurtbox->count > 2) {
             HSD_ASSERTREPORT(0x3F4, 0, "item hit num over!\n");
@@ -1025,7 +1025,7 @@ void it_8027163C(Item_GObj* item_gobj)
         index = 0;
         while (cnt < it_hurtbox->count) {
             hurt = &item->xACC_itemHurtbox[index];
-            hurt_dyn_desc = &it_hurtbox->descs[index];
+            hurt_dyn_desc = &DP(ItHurtBoneDesc, it_hurtbox->descs)[index];
             item->xACC_itemHurtbox[index].state = HurtCapsule_Enabled;
             if (hurt_dyn_desc->bone_id != 0) {
                 if (item->xBBC_dynamicBoneTable == NULL) {
@@ -1038,8 +1038,8 @@ void it_8027163C(Item_GObj* item_gobj)
             }
             index++;
             cnt++;
-            hurt->a_offset = hurt_dyn_desc->a_offset;
-            hurt->b_offset = hurt_dyn_desc->b_offset;
+            DISC_VEC3_GET(hurt->a_offset, hurt_dyn_desc->a_offset);
+            DISC_VEC3_GET(hurt->b_offset, hurt_dyn_desc->b_offset);
             hurt->scale = hurt_dyn_desc->scale;
         }
     } else {

@@ -124,7 +124,7 @@ void ftCo_DamageIce_Init(Fighter_GObj* gobj)
     Vec3 offset;
     u8 _q[8];
     HSD_JObj* effect_joint;
-    float* ice_size;
+    float ice_size;
     float rot_min, rot_max;
     float rand, rand_range;
     Fighter* fp;
@@ -196,8 +196,8 @@ void ftCo_DamageIce_Init(Fighter_GObj* gobj)
     ftCo_800909D0(fp);
 
     effect_joint = fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint;
-    ice_size = &fp->co_attrs.damageice_ice_size;
-    param = fp->x34_scale.y * *ice_size / p_ftCommonData->damageice_ice_size;
+    ice_size = fp->co_attrs.damageice_ice_size;
+    param = fp->x34_scale.y * ice_size / p_ftCommonData->damageice_ice_size;
 
     {
         float* effect_param = &param;
@@ -211,8 +211,9 @@ void ftCo_DamageIce_Init(Fighter_GObj* gobj)
     hurt.bone_idx = ftParts_GetBoneIndex(fp, FtPart_XRotN);
     hurt.height = HurtHeight_Mid;
     hurt.is_grabbable = false;
-    hurt.a_offset = hurt.b_offset = offset;
-    hurt.scale = *ice_size;
+    DISC_VEC3_SET(hurt.a_offset, offset);
+    DISC_VEC3_SET(hurt.b_offset, offset);
+    hurt.scale = ice_size;
 
     ftColl_HurtboxInit(fp, fp->hurt_capsules, &hurt);
     ftCommon_8007EBAC(fp, 1, 0);
@@ -230,7 +231,7 @@ void ftCo_DamageIce_HitWhileFrozen(Fighter_GObj* gobj)
     ftHurtboxInit hurt;
     Vec3 offset;
     HSD_JObj* effect_joint;
-    float* ice_size;
+    float ice_size;
     float rot_min, rot_max;
     float rand, rand_range;
     Fighter* fp;
@@ -267,8 +268,8 @@ void ftCo_DamageIce_HitWhileFrozen(Fighter_GObj* gobj)
     ftCo_800909D0(fp);
 
     effect_joint = fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint;
-    ice_size = &fp->co_attrs.damageice_ice_size;
-    param = fp->x34_scale.y * *ice_size / p_ftCommonData->damageice_ice_size;
+    ice_size = fp->co_attrs.damageice_ice_size;
+    param = fp->x34_scale.y * ice_size / p_ftCommonData->damageice_ice_size;
 
     {
         float* effect_param = &param;
@@ -282,8 +283,9 @@ void ftCo_DamageIce_HitWhileFrozen(Fighter_GObj* gobj)
     hurt.bone_idx = ftParts_GetBoneIndex(fp, FtPart_XRotN);
     hurt.height = HurtHeight_Mid;
     hurt.is_grabbable = false;
-    hurt.a_offset = hurt.b_offset = offset;
-    hurt.scale = *ice_size;
+    DISC_VEC3_SET(hurt.a_offset, offset);
+    DISC_VEC3_SET(hurt.b_offset, offset);
+    hurt.scale = ice_size;
 
     ftColl_HurtboxInit(fp, fp->hurt_capsules, &hurt);
     ftCommon_8007EBAC(fp, 1, 0);

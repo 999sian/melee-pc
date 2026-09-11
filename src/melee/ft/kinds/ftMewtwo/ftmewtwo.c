@@ -287,7 +287,7 @@ void ftMt_Init_OnDeath(HSD_GObj* gobj)
 void ftMt_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    void** item_list = fp->ft_data->x48_items;
+    DiscU32* item_list = DP(DiscU32, fp->ft_data->x48_items);
 
     PUSH_ATTRS(fp, ftMewtwoAttributes);
 
@@ -295,8 +295,8 @@ void ftMt_Init_OnLoad(HSD_GObj* gobj)
         fp->parts[FtPart_TransN].flags_b4 = true;
         fp->x2221_b2 = true;
     }
-    it_8026B3F8(item_list[0], It_Kind_Mewtwo_Disable);
-    it_8026B3F8(item_list[1], It_Kind_Mewtwo_ShadowBall);
+    it_8026B3F8(DP(Article, item_list[0].v), It_Kind_Mewtwo_Disable);
+    it_8026B3F8(DP(Article, item_list[1].v), It_Kind_Mewtwo_ShadowBall);
 }
 
 void ftMt_Init_OnItemPickup(HSD_GObj* gobj, bool flag)

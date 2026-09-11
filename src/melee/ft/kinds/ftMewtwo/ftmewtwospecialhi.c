@@ -323,9 +323,11 @@ void ftMt_SpecialAirHiLost_Coll(HSD_GObj* gobj)
             return;
         }
 
-        ftCommon_HandleTeleportCollisions(
-            gobj, fp1, collData, &mewtwoAttrs->x68_MEWTWO_TELEPORT_ANGLE_CLAMP,
-            ftMt_SpecialAirHiLost_Enter);
+        {
+            int angle_clamp = mewtwoAttrs->x68_MEWTWO_TELEPORT_ANGLE_CLAMP;
+            ftCommon_HandleTeleportCollisions(gobj, fp1, collData, &angle_clamp,
+                                              ftMt_SpecialAirHiLost_Enter);
+        }
     }
 }
 

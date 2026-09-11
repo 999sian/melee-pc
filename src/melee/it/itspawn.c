@@ -184,7 +184,8 @@ static inline void it_8026C88C_inline(RandomItemSpawner* alloc)
                 }
             } ///< @todo Make a FLT_RAND(min, max) define or inline
             {
-                s32* range = &it_804D6D28->xFC[gm_8016AE80() * 2];
+                s32 range[2] = { it_804D6D28->xFC[gm_8016AE80() * 2],
+                                 it_804D6D28->xFC[gm_8016AE80() * 2 + 1] };
                 f32 randf = HSD_Randf();
                 f32 diff = range[1] - range[0];
                 alloc->x0 = diff * randf + range[0];
@@ -349,14 +350,11 @@ void it_8026CF04(void)
     int i;
     u32 cumulative;
     u32 idx;
-    s32* counts;
-    s32* p;
 
-    counts = it_804D6D28->x128;
-    sum = counts[0];
-    sum += counts[1];
-    sum += counts[2];
-    sum += counts[3];
+    sum = it_804D6D28->x128[0];
+    sum += it_804D6D28->x128[1];
+    sum += it_804D6D28->x128[2];
+    sum += it_804D6D28->x128[3];
     if (sum != 0) {
         it_804A0E60.x8 = sum;
         it_804A0E60.size = 4;
@@ -368,8 +366,7 @@ void it_8026CF04(void)
         for (; i < 4; i++, idx++) {
             it_804A0E60.x4[i] = It_Kind_Kuriboh + i;
             it_804A0E60.xC[idx] = cumulative;
-            (void) it_804A0E60.xC[(u32) (p = &item_common->x128[idx])];
-            cumulative += *p;
+            cumulative += item_common->x128[idx];
         }
     }
 }
@@ -433,8 +430,11 @@ void it_8026D018(void)
             it_8026D018_inline2();
             it_8026CF04();
             HSD_GObj_SetupProc(GObj_Create(5, 7, 0), fn_8026C88C, 0);
-            it_8026D018_inline3(HSD_Randf(),
-                                &it_804D6D28->xFC[gm_8016AE80() * 2]);
+            {
+                s32 range[2] = { it_804D6D28->xFC[gm_8016AE80() * 2],
+                                 it_804D6D28->xFC[gm_8016AE80() * 2 + 1] };
+                it_8026D018_inline3(HSD_Randf(), range);
+            }
         }
     }
 }

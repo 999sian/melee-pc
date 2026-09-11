@@ -686,10 +686,10 @@ ret:
     return gobj;
 }
 
-HSD_WObjDesc EyeDesc = { NULL, { 0.0f, 0.0f, 1.0f }, NULL };
-HSD_WObjDesc InterestDesc = { NULL, { 0.0f, 0.0f, 0.0f }, NULL };
+HSD_WObjDesc EyeDesc = { 0, { 0.0f, 0.0f, 1.0f }, 0 };
+HSD_WObjDesc InterestDesc = { 0, { 0.0f, 0.0f, 0.0f }, 0 };
 HSD_CameraDescPerspective ReflectCObjDesc = {
-    NULL,
+    0,
     0,
     1,
     {
@@ -704,10 +704,15 @@ HSD_CameraDescPerspective ReflectCObjDesc = {
         0,
         60,
     },
+#ifndef TARGET_PC
     &EyeDesc,
     &InterestDesc,
+#else
+    0,
+    0,
+#endif
     0.0f,
-    NULL,
+    0,
     0.1f,
     32768.0f,
     30.0f,
@@ -717,9 +722,14 @@ HSD_CameraDescPerspective ReflectCObjDesc = {
 HSD_GObj* grIzumi_801CCD98(void)
 {
     HSD_GObj* gobj = GObj_Create(0x11, 0x12, 0);
-    HSD_CObj* cobj = lb_80013B14(&ReflectCObjDesc);
+    HSD_CObj* cobj;
     IzumiReflection* refl;
     UnkArchiveStruct* dat;
+#ifdef TARGET_PC
+    DP_SET(ReflectCObjDesc.eyepos, &EyeDesc);
+    DP_SET(ReflectCObjDesc.interest, &InterestDesc);
+#endif
+    cobj = lb_80013B14(&ReflectCObjDesc);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMaxSorted(gobj, grIzumi_801CCEA0, 2);
     refl = HSD_MemAlloc(sizeof(IzumiReflection));

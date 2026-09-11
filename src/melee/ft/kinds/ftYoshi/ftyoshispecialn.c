@@ -77,37 +77,43 @@ float ftYs_SpecialN_GetDatAttr24(HSD_GObj* gobj)
 
 float ftYs_SpecialN_GetExtAttr28(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
+    ftYoshiAttributes* ext_attr =
+        DP(ftYoshiAttributes, gFtDataList[Ft_Kind_Yoshi]->ext_attr);
     return ext_attr->x28;
 }
 
 float ftYs_SpecialN_GetExtAttr2C(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
+    ftYoshiAttributes* ext_attr =
+        DP(ftYoshiAttributes, gFtDataList[Ft_Kind_Yoshi]->ext_attr);
     return ext_attr->x2C;
 }
 
 float ftYs_SpecialN_8012CD40(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
+    ftYoshiAttributes* ext_attr =
+        DP(ftYoshiAttributes, gFtDataList[Ft_Kind_Yoshi]->ext_attr);
     return ext_attr->x30;
 }
 
 float ftYs_SpecialN_GetExtAttr34(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
+    ftYoshiAttributes* ext_attr =
+        DP(ftYoshiAttributes, gFtDataList[Ft_Kind_Yoshi]->ext_attr);
     return ext_attr->x34;
 }
 
 bool ftYs_SpecialN_GetExtAttr38(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
+    ftYoshiAttributes* ext_attr =
+        DP(ftYoshiAttributes, gFtDataList[Ft_Kind_Yoshi]->ext_attr);
     return ext_attr->x38;
 }
 
 void ftYs_SpecialN_8012CD88(Vec3* arg0)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
+    ftYoshiAttributes* ext_attr =
+        DP(ftYoshiAttributes, gFtDataList[Ft_Kind_Yoshi]->ext_attr);
     arg0->x = ext_attr->x3C.x;
     arg0->y = ext_attr->x3C.y;
     arg0->z = 0;
@@ -115,7 +121,8 @@ void ftYs_SpecialN_8012CD88(Vec3* arg0)
 
 float ftYs_SpecialN_8012CDB4(void)
 {
-    ftYoshiAttributes* ea = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
+    ftYoshiAttributes* ea =
+        DP(ftYoshiAttributes, gFtDataList[Ft_Kind_Yoshi]->ext_attr);
     return ea->x44 / ea->x18;
 }
 
@@ -123,7 +130,7 @@ HSD_Joint* ftYs_SpecialN_8012CDD4(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     ftData* ca = fp->ft_data;
-    return ca->x48_items[3];
+    return DP(HSD_Joint, DP(DiscU32, ca->x48_items)[3].v);
 }
 
 static void setupCallbacks(Fighter_GObj* gobj, HSD_GObjEvent grab_cb,
@@ -373,13 +380,17 @@ static inline void inlineB0(Fighter_GObj* gobj, HSD_GObjEvent on_anim_end)
             if (fp->cmd_vars[0] && fp->mv.ys.specialn.x0_b0) {
                 ftCommon_8007E2F4(fp, 0);
                 {
+                    Vec3 pos;
+                    Vec3 vel;
                     {
                         Fighter* fp = GET_FIGHTER(gobj);
                         lb_8000B1CC(
                             fp->parts[ftYs_SpecialN_GetBoneIndex(gobj)].joint,
-                            NULL, &item_attrs.pos);
+                            NULL, &pos);
                     }
-                    ftYs_SpecialN_SetupItemVel(gobj, &item_attrs.vel);
+                    DISC_VEC3_SET(item_attrs.pos, pos);
+                    ftYs_SpecialN_SetupItemVel(gobj, &vel);
+                    DISC_VEC3_SET(item_attrs.vel, vel);
                     item_attrs.float2 = ftYs_SpecialN_GetFacingDir(gobj);
                     item_attrs.lifetime = ftYs_SpecialN_GetDatAttr24(gobj);
                     item_attrs.x24 = ftYs_SpecialN_GetDatAttr18(gobj);

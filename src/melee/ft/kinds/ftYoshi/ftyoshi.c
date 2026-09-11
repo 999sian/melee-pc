@@ -355,7 +355,7 @@ void ftYs_Init_8012B6E8(Fighter* fp, struct S_UNK_YOSHI1* unk_struct_arg)
     s32 i;
     float zero_float;
 
-    attr_r26 = fp->ft_data->ext_attr;
+    attr_r26 = DP(ftYoshiAttributes, fp->ft_data->ext_attr);
     index = (unk_struct1 = unk_struct_arg)->unk_struct->xC_start_index;
     ptr2EndIndex = (&unk_struct1->unk_struct->x8_end_index);
     zero_float = 0.0f;
@@ -446,7 +446,7 @@ void ftYs_Init_OnDeath(HSD_GObj* gobj)
 /// https://decomp.me/scratch/5TPxg
 void ftYs_Init_OnLoad(HSD_GObj* gobj)
 {
-    void** item_list;
+    DiscU32* item_list;
     ftYoshiAttributes* other_attr;
     struct S_UNK_YOSHI1* temp_r28;
     struct S_UNK_YOSHI1* temp;
@@ -458,8 +458,8 @@ void ftYs_Init_OnLoad(HSD_GObj* gobj)
     temp = temp_r27 = (struct S_UNK_YOSHI1*) fp->x5AC.xC[0];
     ft = fp->ft_data;
     temp_r28 = (struct S_UNK_YOSHI1*) fp->x5AC.xC[1];
-    item_list = ft->x48_items;
-    other_attr = ft->ext_attr;
+    item_list = DP(DiscU32, ft->x48_items);
+    other_attr = DP(ftYoshiAttributes, ft->ext_attr);
 
     if (!temp) {
         HSD_ASSERTREPORT(113, 0, "yoshi parts_model NULL!!\n");
@@ -469,9 +469,9 @@ void ftYs_Init_OnLoad(HSD_GObj* gobj)
     ftYs_Init_8012B6E8(fp, temp_r27);
     ftYs_Init_8012B6E8(fp, temp_r28);
     PUSH_ATTRS(fp, ftYoshiAttributes);
-    it_8026B3F8(item_list[0], It_Kind_Yoshi_EggThrow);
-    it_8026B3F8(item_list[1], It_Kind_Yoshi_Star);
-    it_8026B3F8(item_list[2], It_Kind_Yoshi_EggLay);
+    it_8026B3F8(DP(Article, item_list[0].v), It_Kind_Yoshi_EggThrow);
+    it_8026B3F8(DP(Article, item_list[1].v), It_Kind_Yoshi_Star);
+    it_8026B3F8(DP(Article, item_list[2].v), It_Kind_Yoshi_EggLay);
     fp->x2226_b1 = 1;
 }
 

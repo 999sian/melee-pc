@@ -149,8 +149,8 @@ void it_80272784(Item_GObj* item_gobj)
 
 Fighter* it_80272818(Item* item)
 {
-    return ((it_2728_DatAttrs*) item->xC4_article_data->x4_specialAttributes)
-        ->fighter;
+    return DP(Fighter, DP(it_2728_DatAttrs, item->xC4_article_data->x4_specialAttributes)
+        ->fighter);
 }
 
 /// Returns Item_GObj of the specified kind if part of
@@ -328,8 +328,8 @@ bool it_80272C6C(Item_GObj* item_gobj)
 HSD_JObj* it_80272C90(Item_GObj* item_gobj)
 {
     return it_80272CC0(
-        item_gobj, ((Item*) item_gobj->user_data)
-                       ->xC4_article_data->x10_modelDesc->x8_bone_attach_id);
+        item_gobj, DP(ItemModelDesc, ((Item*) item_gobj->user_data)
+                       ->xC4_article_data->x10_modelDesc)->x8_bone_attach_id);
 }
 
 #ifdef MUST_MATCH
@@ -340,7 +340,7 @@ HSD_JObj* it_80272CC0(Item_GObj* item_gobj, enum_t idx)
 {
     Item* item = GET_ITEM(item_gobj);
     HSD_JObj* jobj = GET_JOBJ(item_gobj);
-    if (item->xC4_article_data->x10_modelDesc->x4_bone_count != 0) {
+    if (DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x4_bone_count != 0) {
         return item->xBBC_dynamicBoneTable->bones[idx];
     }
     if (idx != 0) {
@@ -638,7 +638,7 @@ void it_80273670(Item_GObj* item_gobj, int arg1, f32 arg8)
     item = GET_ITEM(item_gobj);
     item_jobj1 = GET_JOBJ(item_gobj);
     item->xD0_itemStateDesc =
-        &(item->xC4_article_data->xC_itemStates->x0_itemStateDesc[arg1]);
+        &(DP(ItemStateArray, item->xC4_article_data->xC_itemStates)->x0_itemStateDesc[arg1]);
     if (item->xD0_itemStateDesc != NULL) {
         HSD_JObjRemoveAnimAll(item_jobj1);
         joint = item->xC8_joint;
@@ -648,11 +648,11 @@ void it_80273670(Item_GObj* item_gobj, int arg1, f32 arg8)
             } else {
                 item_jobj2 = item_jobj1->child;
             }
-            lb_8000B804(item_jobj2, joint->child);
+            lb_8000B804(item_jobj2, DP(HSD_Joint, joint->child));
         }
         desc = item->xD0_itemStateDesc;
-        HSD_JObjAddAnimAll(item_jobj1, desc->x0_anim_joint,
-                           desc->x4_matanim_joint, desc->x8_parameters);
+        HSD_JObjAddAnimAll(item_jobj1, DP(HSD_AnimJoint, desc->x0_anim_joint),
+                           DP(HSD_MatAnimJoint, desc->x4_matanim_joint), DP(HSD_ShapeAnimJoint, desc->x8_parameters));
         lb_8000BA0C(item_jobj1, item->x5D0_animFrameSpeed);
         HSD_JObjReqAnimAll(item_jobj1, arg8);
     }
@@ -684,7 +684,7 @@ void it_80273748(Item_GObj* item_gobj, Vec3* pos, Vec3* vel)
     jobj = GET_JOBJ(item_gobj);
     owner = item->owner;
     it_80275070(item_gobj,
-                item->xC4_article_data->x10_modelDesc->x8_bone_attach_id);
+                DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x8_bone_attach_id);
     if (!it_8026B6C8(item_gobj)) {
         it_8026B390(item_gobj);
     }
@@ -776,7 +776,7 @@ void it_80273B50(Item_GObj* item_gobj, Vec3* vel)
     item_jobj1 = GET_JOBJ(item_gobj);
     owner_gobj = item->owner;
     it_80275070(item_gobj,
-                item->xC4_article_data->x10_modelDesc->x8_bone_attach_id);
+                DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x8_bone_attach_id);
     if (!it_8026B6C8(item_gobj)) {
         it_8026B390(item_gobj);
     }
@@ -1008,7 +1008,7 @@ void it_802742F4(Item_GObj* item_gobj, HSD_GObj* gobj, Fighter_Part ftpart)
         it_80275158(item_gobj, it_804D6D28->x30_lifetime);
     }
     it_80274F48(item_gobj,
-                item->xC4_article_data->x10_modelDesc->x8_bone_attach_id, gobj,
+                DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x8_bone_attach_id, gobj,
                 ftpart);
     it_80274C88(item_gobj);
 }
@@ -1103,8 +1103,8 @@ HSD_JObj* it_802746F8(Item_GObj* item_gobj)
     HSD_JObj* item_jobj1;
 
     item_jobj1 = item_gobj->hsd_obj;
-    bit_chk = (((Item*) item_gobj->user_data)
-                   ->xC4_article_data->x10_modelDesc->xC_bit_field >>
+    bit_chk = (DP(ItemModelDesc, ((Item*) item_gobj->user_data)
+                   ->xC4_article_data->x10_modelDesc)->xC_bit_field >>
                6U) &
               3;
     if (bit_chk != 0) {
@@ -1130,7 +1130,7 @@ void it_80274740(Item_GObj* item_gobj)
 
     item = item_gobj->user_data;
     item_jobj = item_gobj->hsd_obj;
-    bit_chk = (item->xC4_article_data->x10_modelDesc->xC_bit_field >> 6U) & 3;
+    bit_chk = (DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->xC_bit_field >> 6U) & 3;
     if (bit_chk != 0) {
         for (var_ctr = bit_chk; var_ctr > 0; var_ctr--) {
             if (item_jobj == NULL) {
@@ -1160,7 +1160,7 @@ f32 it_80274990(Item_GObj* item_gobj)
 
     item = item_gobj->user_data;
     item_jobj = item_gobj->hsd_obj;
-    bit_chk = (item->xC4_article_data->x10_modelDesc->xC_bit_field >> 6U) & 3;
+    bit_chk = (DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->xC_bit_field >> 6U) & 3;
     if (bit_chk != 0) {
         for (var_ctr = bit_chk; var_ctr > 0; var_ctr--) {
             if (item_jobj == NULL) {
@@ -1189,7 +1189,7 @@ void it_80274A64(Item_GObj* item_gobj)
 
     item = item_gobj->user_data;
     item_jobj = item_gobj->hsd_obj;
-    bit_chk = (item->xC4_article_data->x10_modelDesc->xC_bit_field >> 6U) & 3;
+    bit_chk = (DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->xC_bit_field >> 6U) & 3;
     if (bit_chk != 0) {
         for (var_ctr = bit_chk; var_ctr > 0; var_ctr--) {
             if (item_jobj == NULL) {
@@ -1357,7 +1357,7 @@ static inline HSD_JObj* get_bone_by_id(Item_GObj* item_gobj, int bone_id)
 {
     Item* item = GET_ITEM(item_gobj);
     HSD_JObj* jobj = GET_JOBJ(item_gobj);
-    if (item->xC4_article_data->x10_modelDesc->x4_bone_count) {
+    if (DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x4_bone_count) {
         jobj = item->xBBC_dynamicBoneTable->bones[bone_id];
     } else if (bone_id != 0) {
         while (bone_id-- > 0) {

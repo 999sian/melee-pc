@@ -37,22 +37,21 @@ static inline void it_802C248C_setupGObj(HSD_GObj* link_gobj,
 
 static inline HSD_Joint* it_802C248C_joint24(Item* ip)
 {
-    return (((itClimbersStringAttributes*)
-                 ip->xC4_article_data->x4_specialAttributes)
-                ->x24_joint);
+    return DP(HSD_Joint, DP(itClimbersStringAttributes,
+                            ip->xC4_article_data->x4_specialAttributes)
+                             ->x24_joint);
 }
 
 static inline HSD_Joint* it_802C248C_joint28(Item* ip)
 {
-    return (((itClimbersStringAttributes*)
-                 ip->xC4_article_data->x4_specialAttributes)
-                ->x28_joint);
+    return DP(HSD_Joint, DP(itClimbersStringAttributes,
+                            ip->xC4_article_data->x4_specialAttributes)
+                             ->x28_joint);
 }
 
 static HSD_GObj* it_802C248C(Item* ip, HSD_JObj* jobj)
 {
-    itClimbersStringAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itClimbersStringAttributes* attrs = DP(itClimbersStringAttributes, ip->xC4_article_data->x4_specialAttributes);
     ItemLink* prev_link;
     ItemLink* head_link;
     ItemLink* tail_link;
@@ -187,8 +186,7 @@ static void fn_802C28DC(Item_GObj* gobj)
     f32 pad[1];
     Mtx m;
     Item* ip = GET_ITEM(gobj);
-    itClimbersStringAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itClimbersStringAttributes* attrs = DP(itClimbersStringAttributes, ip->xC4_article_data->x4_specialAttributes);
     ItemLink* link = ip->xDD4_itemVar.climbersstring.x4;
 
     link->x2C_b0 = true;
@@ -211,8 +209,7 @@ static void fn_802C29E8(Item_GObj* gobj)
     f32 pad[1];
     Mtx m;
     Item* ip = GET_ITEM(gobj);
-    itClimbersStringAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itClimbersStringAttributes* attrs = DP(itClimbersStringAttributes, ip->xC4_article_data->x4_specialAttributes);
     ItemLink* link = ip->xDD4_itemVar.climbersstring.x4;
 
     link->x2C_b0 = true;
@@ -234,8 +231,7 @@ static void fn_802C2AF4(HSD_GObj* gobj)
     Vec3 pos;
     Mtx m;
     Item* ip = GET_ITEM(gobj);
-    itClimbersStringAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+    itClimbersStringAttributes* attrs = DP(itClimbersStringAttributes, ip->xC4_article_data->x4_specialAttributes);
     ItemLink* link = ip->xDD4_itemVar.climbersstring.x8;
 
     PSMTXIdentity(m);
@@ -464,8 +460,9 @@ bool it_802C32D4(ItemLink* link, Vec3* pos, itClimbersStringAttributes* attrs,
     ItemLink* prev;
     ItemLink* cur;
     f32 step;
+    f32 max_dist = attrs->x8;
 
-    Item_RetractChain(link, pos, dist, &attrs->x8, &prev, &cur, &step);
+    Item_RetractChain(link, pos, dist, &max_dist, &prev, &cur, &step);
     it_802C2DB0(cur, pos, attrs, step);
 
     if (prev != NULL) {
@@ -538,7 +535,7 @@ void it_802C3520(Item* ip, Vec3* target)
 
         it_802A6DC8(jobj, &link_pos, &dir);
 
-        attrs = ip->xC4_article_data->x4_specialAttributes;
+        attrs = DP(itClimbersStringAttributes, ip->xC4_article_data->x4_specialAttributes);
         PSMTXCopy(jobj->mtx, m);
         m[0][0] *= attrs->x8;
         m[1][0] *= attrs->x8;

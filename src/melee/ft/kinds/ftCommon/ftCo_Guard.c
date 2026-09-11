@@ -222,7 +222,8 @@ void ftCo_80091E78(Fighter_GObj* gobj, float arg1)
             HSD_JObj* jobj = fp->x8AC_animSkeleton;
             ftAnim_8006F4C8(fp, true, ftData_80085E50(fp, 38));
             ftAnim_80070710(jobj, fp->mv.co.guard.x8);
-            ftAnim_8006FB88(fp, FtPart_TransN, fp->x108_costume_joint->child);
+            ftAnim_8006FB88(fp, FtPart_TransN,
+                            DP(HSD_Joint, fp->x108_costume_joint->child));
             HSD_JObjAnimAll(jobj);
             if (fp->mv.co.guard.x4 < 1) {
                 ftAnim_80070108(fp, FtPart_TransN, 1 - fp->mv.co.guard.x4,

@@ -136,7 +136,7 @@ void it_802C3D74(Item_GObj* gobj)
     ItZeldaDinFire_ItemVars* attrs;
     HSD_JObj* jobj = GET_JOBJ(gobj);
     double rot;
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(ItZeldaDinFire_ItemVars, ip->xC4_article_data->x4_specialAttributes);
     it_8026B3A8(gobj);
     ip->xDC8_word.flags.x13 = 0;
     it_80272940(gobj);

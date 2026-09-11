@@ -522,7 +522,7 @@ void ftGw_Init_OnDeath(HSD_GObj* gobj)
 void ftGw_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    void** items = fp->ft_data->x48_items;
+    DiscU32* items = DP(DiscU32, fp->ft_data->x48_items);
 
     fp->x2222_b6 = false;
     fp->x2223_b1 = true;
@@ -537,18 +537,18 @@ void ftGw_Init_OnLoad(HSD_GObj* gobj)
         fp->x610_color_rgba[1] = da->x14_GAMEWATCH_OUTLINE;
         ftMaterial_800BFB4C(gobj,
                             &da->x4_GAMEWATCH_COLOR[fp->x619_costume_id]);
-        fp->x5AC.xC[4] = items[10];
+        fp->x5AC.xC[4] = DP(FtPartsVisLookup, items[10].v);
 
-        it_8026B3F8(items[0], It_Kind_GameWatch_Greenhouse);
-        it_8026B3F8(items[1], It_Kind_GameWatch_Manhole);
-        it_8026B3F8(items[2], It_Kind_GameWatch_Fire);
-        it_8026B3F8(items[3], It_Kind_GameWatch_Parachute);
-        it_8026B3F8(items[4], It_Kind_GameWatch_Turtle);
-        it_8026B3F8(items[5], It_Kind_GameWatch_Breath);
-        it_8026B3F8(items[6], It_Kind_GameWatch_Judge);
-        it_8026B3F8(items[7], It_Kind_GameWatch_Panic);
-        it_8026B3F8(items[8], It_Kind_GameWatch_Chef);
-        it_8026B3F8(items[9], It_Kind_GameWatch_Rescue);
+        it_8026B3F8(DP(Article, items[0].v), It_Kind_GameWatch_Greenhouse);
+        it_8026B3F8(DP(Article, items[1].v), It_Kind_GameWatch_Manhole);
+        it_8026B3F8(DP(Article, items[2].v), It_Kind_GameWatch_Fire);
+        it_8026B3F8(DP(Article, items[3].v), It_Kind_GameWatch_Parachute);
+        it_8026B3F8(DP(Article, items[4].v), It_Kind_GameWatch_Turtle);
+        it_8026B3F8(DP(Article, items[5].v), It_Kind_GameWatch_Breath);
+        it_8026B3F8(DP(Article, items[6].v), It_Kind_GameWatch_Judge);
+        it_8026B3F8(DP(Article, items[7].v), It_Kind_GameWatch_Panic);
+        it_8026B3F8(DP(Article, items[8].v), It_Kind_GameWatch_Chef);
+        it_8026B3F8(DP(Article, items[9].v), It_Kind_GameWatch_Rescue);
     }
 }
 

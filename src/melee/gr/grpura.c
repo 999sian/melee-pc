@@ -667,7 +667,14 @@ u16 grPu_803E6E20[1024] ATTRIBUTE_ALIGN(32) = {
     0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF,
 };
 
-struct HSD_ImageDesc grPu_803E7620 = { &grPu_803E6E20, 32, 32, 4, 0, 0, 0 };
+struct HSD_ImageDesc grPu_803E7620 = {
+#ifndef TARGET_PC
+    &grPu_803E6E20,
+#else
+    0,
+#endif
+    32, 32, 4, 0, 0, 0
+};
 
 void stageGObj2_OnInit(Ground_GObj* arg0)
 {
@@ -675,6 +682,9 @@ void stageGObj2_OnInit(Ground_GObj* arg0)
     HSD_JObj* jobj = arg0->hsd_obj;
     PAD_STACK(8);
     arg0->render_cb = (GObj_RenderFunc) fn_802130D0;
+#ifdef TARGET_PC
+    DP_SET(grPu_803E7620.image_ptr, &grPu_803E6E20);
+#endif
     HSD_MObjSetToonTextureImage(&grPu_803E7620);
     lb_80011C18(jobj, 0x1000);
     grPura_80213250(jobj);
@@ -885,6 +895,9 @@ bool grPura_802130C8(Vec3* a, int num, HSD_JObj* joint)
 void fn_802130D0(HSD_GObj* arg0, int arg1)
 {
     PAD_STACK(8);
+#ifdef TARGET_PC
+    DP_SET(grPu_803E7620.image_ptr, &grPu_803E6E20);
+#endif
     HSD_MObjSetToonTextureImage(&grPu_803E7620);
     grDisplay_801C5DB0(arg0, arg1);
     HSD_MObjSetToonTextureImage(0);

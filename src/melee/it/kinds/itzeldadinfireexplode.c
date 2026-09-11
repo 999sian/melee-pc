@@ -71,7 +71,7 @@ void it_802C46C4(Item_GObj* gobj, Item* arg1)
 
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itZeldaDinFireExplodeAttributes, ip->xC4_article_data->x4_specialAttributes);
     it_8026B3A8(gobj);
     ip->xDC8_word.flags.x13 = 0;
     it_80272940(gobj);
@@ -105,7 +105,7 @@ bool itZeldadinfireexplode_UnkMotion0_Anim(Item_GObj* gobj)
     f32 temp_f1;
     Vec3 scale;
 
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = DP(itZeldaDinFireExplodeAttributes, ip->xC4_article_data->x4_specialAttributes);
 
     temp_f1 = (attrs->x8 - attrs->x4) / attrs->x0;
     scale.x = scale.y = scale.z =

@@ -103,7 +103,7 @@ static inline s32 attrRand(itEgg_ItemVars* attrs)
 bool it_80288DC4(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itEgg_ItemVars* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itEgg_ItemVars* attrs = DP(itEgg_ItemVars, ip->xC4_article_data->x4_specialAttributes);
     if (attrRand(attrs) == 0) {
         return true;
     }

@@ -59,14 +59,15 @@ void ftCo_80090594(Fighter* fp, HitElement element, int dmg, FtMotionId msid,
         fp->dmg.x1900 = fp->coll_data.floor.normal.x;
         fp->dmg.x1904 = fp->coll_data.floor.normal.y;
     }
-    fp->dmg.x18FD = (u8) (u32) Fighter_804D6530[fp->dmg.x18F8 * 2 + 1];
+    fp->dmg.x18FD = (u8) Fighter_804D6530[fp->dmg.x18F8 * 2 + 1].v;
 }
 
 Vec2* ftCo_80090690(Fighter* fp, Vec2* shift)
 {
     if (fp->dmg.x18fa_model_shift_frames != 0) {
         u8 fp_x18F8 = fp->dmg.x18F8;
-        Vec2* vec = &Fighter_804D6530[fp_x18F8 * 2][fp->dmg.x18FC];
+        DiscVec2* vec =
+            &DP(DiscVec2, Fighter_804D6530[fp_x18F8 * 2].v)[fp->dmg.x18FC];
         if (fp_x18F8 == 1) {
             float x = vec->x * fp->facing_dir;
             shift->x = fp->dmg.x1904 * x;

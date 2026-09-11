@@ -288,11 +288,11 @@ void ftLg_Init_OnDeath(HSD_GObj* gobj)
 void ftLg_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    void** item_list = fp->ft_data->x48_items;
+    DiscU32* item_list = DP(DiscU32, fp->ft_data->x48_items);
 
     PUSH_ATTRS(fp, ftLuigiAttributes);
 
-    it_8026B3F8(item_list[0], It_Kind_Luigi_Fire);
+    it_8026B3F8(DP(Article, item_list[0].v), It_Kind_Luigi_Fire);
 }
 
 void ftLg_Init_OnItemPickup(HSD_GObj* gobj, bool flag)

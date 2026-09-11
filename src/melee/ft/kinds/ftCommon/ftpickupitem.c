@@ -39,7 +39,7 @@
 bool ftpickupitem_80094150(Fighter_GObj* gobj, Item_GObj* item_gobj)
 {
     itPickup* pickup;
-    Vec4* offset0;
+    DiscVec4* offset0;
     Fighter* fp = gobj->user_data;
     PAD_STACK(8);
 
@@ -60,7 +60,7 @@ bool ftpickupitem_80094150(Fighter_GObj* gobj, Item_GObj* item_gobj)
             {
                 float x_range = itGetGrabRangeX(item_gobj);
                 float y_range = itGetGrabRangeY(item_gobj);
-                Vec4* offset1 = !b ? offset0 : &pickup->gr_heavy_offset;
+                DiscVec4* offset1 = !b ? offset0 : &pickup->gr_heavy_offset;
                 float x1 = offset1->z;
                 float x0 = (fp->facing_dir * offset1->x) + fp->cur_pos.x;
                 float y0 = fp->cur_pos.y + offset1->y;
@@ -88,7 +88,7 @@ Item_GObj* ftpickupitem_800942A0(Fighter_GObj* gobj, u32 flags)
 {
     itPickup* pickup;
     Fighter* fp;
-    Vec4* offset0;
+    DiscVec4* offset0;
 
     fp = GET_FIGHTER(gobj);
     pickup = ftpickupitem_800942A0_inline(fp);
@@ -111,7 +111,7 @@ Item_GObj* ftpickupitem_800942A0(Fighter_GObj* gobj, u32 flags)
                         (unk_enum == 1 && flags & (1 << 1)))
                     {
                         Vec3 it_pos;
-                        Vec4* vec;
+                        DiscVec4* vec;
                         PAD_STACK(4);
 
                         it_8026B344(cur, &it_pos);

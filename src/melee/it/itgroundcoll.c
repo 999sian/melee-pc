@@ -324,9 +324,9 @@ bool it_8026DDFC(Item_GObj* gobj)
     ip->xD50_landNum += 1;
     if (ip->xD50_landNum == 1) {
         if (ip->xD54_throwNum != 0) {
-            u8* tmp = &it_804D6D28->x48_byte;
-            if ((ip->xD54_throwNum == ((*tmp >> 4) & 0xF)) ||
-                (HSD_Randi(*tmp & 0xF) == 0))
+            u8 tmp = it_804D6D28->x48_byte;
+            if ((ip->xD54_throwNum == ((tmp >> 4) & 0xF)) ||
+                (HSD_Randi(tmp & 0xF) == 0))
             {
                 ip->destroy_type = 1;
                 Item_8026A8EC(gobj);

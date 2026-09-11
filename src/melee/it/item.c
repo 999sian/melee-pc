@@ -1024,18 +1024,18 @@ static void Item_80268BE0(HSD_JObj* item_jobj, HSD_AnimJoint* anim_joint,
             {
                 if (item_jobj == item_data->xD4_dynamicBones[temp_r0].skeleton)
                 {
-                    if (anim_joint->next != NULL) {
+                    if (DP(HSD_AnimJoint, anim_joint->next) != NULL) {
                         functionArg1 = NULL;
                         functionArg2 = NULL;
                         functionArg3 = NULL;
                         if (anim_joint != NULL) {
-                            functionArg1 = anim_joint->next;
+                            functionArg1 = DP(HSD_AnimJoint, anim_joint->next);
                         }
                         if (matanim_joint != NULL) {
-                            functionArg2 = matanim_joint->next;
+                            functionArg2 = DP(HSD_MatAnimJoint, matanim_joint->next);
                         }
                         if (shapeanim_joint != NULL) {
-                            functionArg3 = shapeanim_joint->next;
+                            functionArg3 = DP(HSD_ShapeAnimJoint, shapeanim_joint->next);
                         }
                         Item_80268BE0(item_jobj->next, functionArg1,
                                       functionArg2, functionArg3, item_data);
@@ -1050,13 +1050,13 @@ static void Item_80268BE0(HSD_JObj* item_jobj, HSD_AnimJoint* anim_joint,
             functionArg2 = NULL;
             functionArg3 = NULL;
             if (anim_joint != NULL) {
-                functionArg1 = anim_joint->child;
+                functionArg1 = DP(HSD_AnimJoint, anim_joint->child);
             }
             if (matanim_joint != NULL) {
-                functionArg2 = matanim_joint->child;
+                functionArg2 = DP(HSD_MatAnimJoint, matanim_joint->child);
             }
             if (shapeanim_joint != NULL) {
-                functionArg3 = shapeanim_joint->child;
+                functionArg3 = DP(HSD_ShapeAnimJoint, shapeanim_joint->child);
             }
             Item_80268BE0(item_jobj->child, functionArg1, functionArg2,
                           functionArg3, item_data);
@@ -1066,13 +1066,13 @@ static void Item_80268BE0(HSD_JObj* item_jobj, HSD_AnimJoint* anim_joint,
             functionArg2 = NULL;
             functionArg3 = NULL;
             if (anim_joint != NULL) {
-                functionArg1 = anim_joint->next;
+                functionArg1 = DP(HSD_AnimJoint, anim_joint->next);
             }
             if (matanim_joint != NULL) {
-                functionArg2 = matanim_joint->next;
+                functionArg2 = DP(HSD_MatAnimJoint, matanim_joint->next);
             }
             if (shapeanim_joint != NULL) {
-                functionArg3 = shapeanim_joint->next;
+                functionArg3 = DP(HSD_ShapeAnimJoint, shapeanim_joint->next);
             }
             Item_80268BE0(item_jobj->next, functionArg1, functionArg2,
                           functionArg3, item_data);
@@ -1093,11 +1093,11 @@ void Item_80268D34(HSD_GObj* gobj, struct ItemStateDesc* itemStateDesc)
         } else {
             bonestruct_arg = item_jobj->child;
         }
-        lb_8000B804(bonestruct_arg, item_data->xC8_joint->child);
+        lb_8000B804(bonestruct_arg, DP(HSD_Joint, item_data->xC8_joint->child));
     }
-    Item_80268BE0(item_jobj, itemStateDesc->x0_anim_joint,
-                  itemStateDesc->x4_matanim_joint,
-                  itemStateDesc->x8_parameters, item_data);
+    Item_80268BE0(item_jobj, DP(HSD_AnimJoint, itemStateDesc->x0_anim_joint),
+                  DP(HSD_MatAnimJoint, itemStateDesc->x4_matanim_joint),
+                  DP(HSD_ShapeAnimJoint, itemStateDesc->x8_parameters), item_data);
     lb_8000BA0C(item_jobj, item_data->x5D0_animFrameSpeed);
     HSD_JObjReqAnimAll(item_jobj, 0.0f);
 }
@@ -1117,7 +1117,7 @@ void Item_80268DD4(HSD_GObj* gobj, f32 frame)
 /// Copy item script
 void Item_80268E40(Item* item_data, struct ItemStateDesc* itemStateDesc)
 {
-    item_data->x524_cmd.u = itemStateDesc->xC_script;
+    item_data->x524_cmd.u = DP(union CmdUnion, itemStateDesc->xC_script);
     item_data->x524_cmd.loop_count = 0;
     item_data->x524_cmd.timer = 0.0f;
 }
@@ -1193,7 +1193,7 @@ void Item_80268E5C(HSD_GObj* gobj, enum_t msid, Item_StateChangeFlags flags)
         item_data->xD0_itemStateDesc =
             (temp_r23 =
                  (temp_r29 =
-                      (new_var2 = &item_data->xC4_article_data->xC_itemStates
+                      (new_var2 = &DP(ItemStateArray, item_data->xC4_article_data->xC_itemStates)
                                        ->x0_itemStateDesc[temp_r0])));
 
         temp_r23 = (new_var3 = item_data->xD0_itemStateDesc);
@@ -1207,19 +1207,19 @@ void Item_80268E5C(HSD_GObj* gobj, enum_t msid, Item_StateChangeFlags flags)
                 item_data3->scl = item_data3->xCC_item_attr->x60_scale;
                 HSD_JObjSetScaleItem(item_data3, item_jobj1_2, &sp4C);
                 item_attr = item_data3->xCC_item_attr;
-                item_data3->xBCC_unk = item_attr->x30_unk;
-                item_data3->xBD4_grabRange = item_attr->x38_grab_range;
-                item_data3->xBEC = item_data3->xCC_item_attr->x20;
-                item_data3->xBDC = item_data3->xCC_item_attr->x20;
+                item_data3->xBCC_unk = Vec2_FromDisc(&item_attr->x30_unk);
+                item_data3->xBD4_grabRange = Vec2_FromDisc(&item_attr->x38_grab_range);
+                item_data3->xBEC = itECB_FromDisc(&item_data3->xCC_item_attr->x20);
+                item_data3->xBDC = itECB_FromDisc(&item_data3->xCC_item_attr->x20);
             } else {
                 HSD_JObjSetScaleItem(gobj->user_data, gobj->hsd_obj, &scl);
             }
 
-            item_data->x524_cmd.u = temp_r29->xC_script;
+            item_data->x524_cmd.u = DP(union CmdUnion, temp_r29->xC_script);
             item_data->x524_cmd.loop_count = 0;
             item_data->x524_cmd.timer = 0.0F;
         } else if (temp_r23 != NULL && (flags & ITEM_CMD_UPDATE)) {
-            item_data->x524_cmd.u = temp_r29->xC_script;
+            item_data->x524_cmd.u = DP(union CmdUnion, temp_r29->xC_script);
             item_data->x524_cmd.loop_count = 0;
             item_data->x524_cmd.timer = 0.0f;
         }

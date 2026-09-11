@@ -129,15 +129,15 @@ static inline HSD_JObj* it_802A013C_LoadAnim(itLinkBoomerangAttributes* attrs,
     AnimBundle* anim_bundle;
 
     if (i == 0) {
-        joint = attrs->x44;
+        joint = DP(HSD_Joint, attrs->x44);
         anim_bundle = &attrs->x4C_anim;
     } else {
-        joint = attrs->x48;
+        joint = DP(HSD_Joint, attrs->x48);
         anim_bundle = &attrs->x58_anim;
     }
     jobj = HSD_JObjLoadJoint(joint);
-    HSD_JObjAddAnimAll(jobj, anim_bundle->anim, anim_bundle->matanim,
-                       anim_bundle->shapeanim);
+    HSD_JObjAddAnimAll(jobj, DP(HSD_AnimJoint, anim_bundle->anim), DP(HSD_MatAnimJoint, anim_bundle->matanim),
+                       DP(HSD_ShapeAnimJoint, anim_bundle->shapeanim));
     HSD_JObjReqAnimAll(jobj, 0.0f);
     return jobj;
 }
@@ -415,11 +415,11 @@ void it_802A0E70(Item_GObj* gobj)
     ip = GET_ITEM(gobj);
     hobj = gobj->hsd_obj;
     ip->xD0_itemStateDesc =
-        ip->xC4_article_data->xC_itemStates->x0_itemStateDesc;
+        DP(ItemStateArray, ip->xC4_article_data->xC_itemStates)->x0_itemStateDesc;
     item_state_desc = ip->xD0_itemStateDesc;
-    HSD_JObjAddAnimAll(hobj, item_state_desc->x0_anim_joint,
-                       item_state_desc->x4_matanim_joint,
-                       item_state_desc->x8_parameters);
+    HSD_JObjAddAnimAll(hobj, DP(HSD_AnimJoint, item_state_desc->x0_anim_joint),
+                       DP(HSD_MatAnimJoint, item_state_desc->x4_matanim_joint),
+                       DP(HSD_ShapeAnimJoint, item_state_desc->x8_parameters));
     HSD_JObjReqAnimAll(hobj, 0.0f);
     HSD_JObjAnimAll(hobj);
     HSD_JObjRemoveAnimAll(hobj);

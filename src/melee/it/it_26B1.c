@@ -204,7 +204,7 @@ int it_8026B3C0(ItemKind kind)
 /// Store Item article pointer to table
 void it_8026B3F8(Article* article, s32 kind)
 {
-    it_804D6D38[kind - It_Kind_Kuriboh] = article;
+    DP_SET(it_804D6D38[kind - It_Kind_Kuriboh].v, article);
 }
 
 /// Store Stage Item article pointer to table
@@ -267,8 +267,7 @@ bool it_8026B4F0(HSD_GObj* gobj)
 float it_8026B54C(HSD_GObj* gobj)
 {
     Item* temp_item = gobj->user_data;
-    itUnkAttributes* unk_attr =
-        temp_item->xC4_article_data->x4_specialAttributes;
+    itUnkAttributes* unk_attr = DP(itUnkAttributes, temp_item->xC4_article_data->x4_specialAttributes);
 
     return unk_attr->x0_float;
 }
@@ -277,8 +276,7 @@ float it_8026B54C(HSD_GObj* gobj)
 float it_8026B560(HSD_GObj* gobj)
 {
     Item* temp_item = gobj->user_data;
-    itUnkAttributes* unk_attr =
-        temp_item->xC4_article_data->x4_specialAttributes;
+    itUnkAttributes* unk_attr = DP(itUnkAttributes, temp_item->xC4_article_data->x4_specialAttributes);
     return unk_attr->x0_float;
 }
 
@@ -286,8 +284,7 @@ float it_8026B560(HSD_GObj* gobj)
 float it_8026B574(HSD_GObj* gobj)
 {
     Item* temp_item = gobj->user_data;
-    itUnkAttributes* unk_attr =
-        temp_item->xC4_article_data->x4_specialAttributes;
+    itUnkAttributes* unk_attr = DP(itUnkAttributes, temp_item->xC4_article_data->x4_specialAttributes);
     return unk_attr->x4_float;
 }
 
@@ -578,7 +575,7 @@ void it_8026B9A8(HSD_GObj* gobj, HSD_GObj* arg1, Fighter_Part arg2)
 {
     Vec3 vec;
     Item* ip = GET_ITEM(gobj);
-    ItemStateArray* states = ip->xC4_article_data->xC_itemStates;
+    ItemStateArray* states = DP(ItemStateArray, ip->xC4_article_data->xC_itemStates);
 
     ItemStateDesc* state_desc;
 
@@ -605,12 +602,12 @@ void it_8026B9A8(HSD_GObj* gobj, HSD_GObj* arg1, Fighter_Part arg2)
                 if (ip->xC8_joint != NULL) {
                     jobj1 = (jobj0 == NULL) ? NULL : jobj0->child;
 
-                    lb_8000B804(jobj1, ip->xC8_joint->child);
+                    lb_8000B804(jobj1, DP(HSD_Joint, ip->xC8_joint->child));
                 }
                 temp_stateDesc = ip->xD0_itemStateDesc;
-                HSD_JObjAddAnimAll(jobj0, temp_stateDesc->x0_anim_joint,
-                                   temp_stateDesc->x4_matanim_joint,
-                                   temp_stateDesc->x8_parameters);
+                HSD_JObjAddAnimAll(jobj0, DP(HSD_AnimJoint, temp_stateDesc->x0_anim_joint),
+                                   DP(HSD_MatAnimJoint, temp_stateDesc->x4_matanim_joint),
+                                   DP(HSD_ShapeAnimJoint, temp_stateDesc->x8_parameters));
                 lb_8000BA0C(jobj0, ip->x5D0_animFrameSpeed);
                 HSD_JObjReqAnimAll(jobj0, 0.0f);
                 Item_80268E40(ip, state_desc);
@@ -1039,7 +1036,7 @@ bool it_8026C1B4(HSD_GObj* gobj)
 
 u32 it_8026C1D4(void)
 {
-    itLGun_ItemVars* lgun = it_804D6D24[It_Kind_L_Gun]->x4_specialAttributes;
+    itLGun_ItemVars* lgun = DP(itLGun_ItemVars, DP(Article, it_804D6D24[It_Kind_L_Gun].v)->x4_specialAttributes);
     return lgun->timer;
 }
 

@@ -302,10 +302,10 @@ bool itLinkArrow_802A850C(Item_GObj* gobj, Vec3* arg1, Vec3* arg2, f32 arg3,
 
         attr = DP(itLinkArrowAttributes, ip->xC4_article_data->x4_specialAttributes);
         ip->xDD4_itemVar.linkarrow.xB4[0] =
-            itLinkArrow_802A850C_inline(attr->x24);
+            itLinkArrow_802A850C_inline(DP(HSD_Joint, attr->x24));
         attr = DP(itLinkArrowAttributes, ip->xC4_article_data->x4_specialAttributes);
         ip->xDD4_itemVar.linkarrow.xB4[1] =
-            itLinkArrow_802A850C_inline(attr->x28);
+            itLinkArrow_802A850C_inline(DP(HSD_Joint, attr->x28));
 
         ip->xDD4_itemVar.linkarrow.xB0 = 0;
         return it_8026EA20(gobj, &ip->xDD4_itemVar.linkarrow.x18, &ip->pos,

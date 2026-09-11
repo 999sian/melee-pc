@@ -612,7 +612,6 @@ void ftKb_YsSpecialAirN2_1_Anim(Fighter_GObj* gobj)
         ftCommon_8007E2F4(fp, 0);
         {
             Fighter* fp2 = GET_FIGHTER(gobj);
-            lb_8000B1CC(
             Vec3 pos;
             lb_8000B1CC(
                 fp2->parts[ftParts_GetBoneIndex(fp2, FtPart_TransN2)].joint,

@@ -438,16 +438,16 @@ void ftPe_Init_OnDeath(HSD_GObj* gobj)
 void ftPe_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftPe_DatAttrs* extAtrrs = fp->ft_data->ext_attr;
-    UNK_T* items = fp->ft_data->x48_items;
+    ftPe_DatAttrs* extAtrrs = DP(ftPe_DatAttrs, fp->ft_data->ext_attr);
+    DiscU32* items = DP(DiscU32, fp->ft_data->x48_items);
     extAtrrs->floatfallf_anim_start = lbAnim_8001E8F8(ftData_80085E50(fp, 18));
     extAtrrs->floatfallb_anim_start = lbAnim_8001E8F8(ftData_80085E50(fp, 19));
     PUSH_ATTRS(fp, ftPe_DatAttrs);
-    it_8026B3F8(items[0], It_Kind_Peach_Explode);
-    it_8026B3F8(items[1], It_Kind_Peach_Turnip);
-    it_8026B3F8(items[2], It_Kind_Peach_Parasol);
-    it_8026B3F8(items[3], It_Kind_Peach_Toad);
-    it_8026B3F8(items[4], It_Kind_Peach_ToadSpore);
+    it_8026B3F8(DP(Article, items[0].v), It_Kind_Peach_Explode);
+    it_8026B3F8(DP(Article, items[1].v), It_Kind_Peach_Turnip);
+    it_8026B3F8(DP(Article, items[2].v), It_Kind_Peach_Parasol);
+    it_8026B3F8(DP(Article, items[3].v), It_Kind_Peach_Toad);
+    it_8026B3F8(DP(Article, items[4].v), It_Kind_Peach_ToadSpore);
 }
 
 void ftPe_Init_OnDeath2(HSD_GObj* gobj)

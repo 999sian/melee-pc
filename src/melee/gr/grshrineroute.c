@@ -1343,17 +1343,21 @@ void grShrineRoute_8020AA40(HSD_GObj* gobj)
     }
 }
 
-static float lobj0_shininess = 16.0f;
+static DiscF32 lobj0_shininess = { 16.0f };
 
 static HSD_LightDesc lobj0 = {
-    NULL,
-    NULL,
+    0,
+    0,
     LOBJ_FLAGS_B1 | LOBJ_DIFFUSE,
     0,
     { 0xFF, 0xFF, 0xFF, 0xFF },
-    NULL,
-    NULL,
+    0,
+    0,
+#ifndef TARGET_PC
     &lobj0_shininess,
+#else
+    { 0 },
+#endif
 };
 
 HSD_LObj* grShrineRoute_8020AB58(Ground_GObj* gobj)
@@ -1369,6 +1373,9 @@ HSD_LObj* grShrineRoute_8020AB58(Ground_GObj* gobj)
     while ((lobj == NULL ? NULL : lobj->next) != NULL) {
         lobj = lobj == NULL ? NULL : lobj->next;
     }
+#ifdef TARGET_PC
+    DP_SET(lobj0.u.shininess, &lobj0_shininess);
+#endif
     new_lobj = HSD_LObjLoadDesc(&lobj0);
     if (new_lobj != NULL) {
         pos = pos_init;
@@ -1380,17 +1387,21 @@ HSD_LObj* grShrineRoute_8020AB58(Ground_GObj* gobj)
     PAD_STACK(8);
 }
 
-static float lobj1_shininess = 16.0f;
+static DiscF32 lobj1_shininess = { 16.0f };
 
 static HSD_LightDesc lobj1 = {
-    NULL,
-    NULL,
+    0,
+    0,
     LOBJ_FLAGS_B1 | LOBJ_SPECULAR,
     0,
     { 0xFF, 0xFF, 0xFF, 0xFF },
-    NULL,
-    NULL,
+    0,
+    0,
+#ifndef TARGET_PC
     &lobj1_shininess,
+#else
+    { 0 },
+#endif
 };
 
 HSD_LObj* grShrineRoute_8020AC44(HSD_GObj* gobj)
@@ -1407,6 +1418,9 @@ HSD_LObj* grShrineRoute_8020AC44(HSD_GObj* gobj)
     while ((lobj == NULL ? NULL : lobj->next) != NULL) {
         lobj = lobj == NULL ? NULL : lobj->next;
     }
+#ifdef TARGET_PC
+    DP_SET(lobj1.u.shininess, &lobj1_shininess);
+#endif
     new_lobj = HSD_LObjLoadDesc(&lobj1);
     if (new_lobj != NULL) {
         pos = pos_init;

@@ -83,7 +83,7 @@ static inline void itSwapVelocity(Item* ip)
 {
     itLikelikeAttributes* attr = GET_ATTRS(ip);
     ip->facing_dir = -ip->facing_dir;
-    ip->x40_vel.x = ip->facing_dir * attr->x0.x0_f32->y;
+    ip->x40_vel.x = ip->facing_dir * DP(DiscVec3, attr->x0.x0_f32)->y;
 }
 
 static inline void swapVelocity(HSD_GObj* gobj)
@@ -175,7 +175,7 @@ bool it_2725_Logic5_DmgReceived(Item_GObj* gobj)
     it_802DBAF0(gobj, 0, 1);
     ip->init_facing_dir = ip->facing_dir;
     ip->xC9C = ip->xC9C + it_8027CBFC(gobj);
-    if ((ip->xC9C > attr->x0.x0_s32->x) || (ip->msid == 0x13)) {
+    if ((ip->xC9C > DP(DiscS16Vec3, attr->x0.x0_s32)->x) || (ip->msid == 0x13)) {
         it_8027C9D8(ip);
         it_802756D0(gobj);
         it_80275474(gobj);
@@ -302,7 +302,7 @@ void it_802DA104(Item_GObj* gobj)
     itLikelikeAttributes* attr = GET_ATTRS(ip);
     PAD_STACK(16);
 
-    ip->x40_vel.x = ip->facing_dir * attr->x0.x0_f32->y;
+    ip->x40_vel.x = ip->facing_dir * DP(DiscVec3, attr->x0.x0_f32)->y;
     ip->x40_vel.z = 0.0f;
     ip->x40_vel.y = 0.0f;
     it_802756E0(gobj);
@@ -383,9 +383,9 @@ static inline void likelikeVelocity(HSD_GObj* gobj, Item* ip,
                                     f32 multiplier)
 {
     if (ABS(ip->xDD4_itemVar.likelike.x20.x - ip->pos.x) <
-            (attrs->x0.x0_f32->y * multiplier) &&
+            (DP(DiscVec3, attrs->x0.x0_f32)->y * multiplier) &&
         ABS(ip->xDD4_itemVar.likelike.x20.y - ip->pos.y) <
-            (attrs->x0.x0_f32->y * multiplier))
+            (DP(DiscVec3, attrs->x0.x0_f32)->y * multiplier))
     {
         if (ip->xDD4_itemVar.likelike.x48 >= 4) {
             swapVelocity(gobj);
@@ -423,7 +423,7 @@ void it_802DA4C0(Item_GObj* gobj)
     itLikelikeAttributes* attr = GET_ATTRS(ip);
     PAD_STACK(0x10);
 
-    ip->x40_vel.x = ip->facing_dir * attr->x0.x0_f32->y;
+    ip->x40_vel.x = ip->facing_dir * DP(DiscVec3, attr->x0.x0_f32)->y;
     ip->x40_vel.y = 0.0f;
     ip->x40_vel.z = 0.0f;
     it_802756E0(gobj);
@@ -481,7 +481,7 @@ void itLikelike_UnkMotion2_Phys(Item_GObj* gobj)
     }
     ip->xDD4_itemVar.likelike.x4C = ip->xDD4_itemVar.likelike.x4C - 1;
 block_15:
-    ip->x40_vel.x = ip->facing_dir * attr->x0.x0_f32->y;
+    ip->x40_vel.x = ip->facing_dir * DP(DiscVec3, attr->x0.x0_f32)->y;
     temp_f2 = ip->facing_dir;
     if (((temp_f2 > 0.0f) && (ip->x70_nudge.x < 0.0f)) ||
         ((temp_f2 < 0.0f) && (ip->x70_nudge.x > 0.0f)))
@@ -519,14 +519,14 @@ bool itLikelike_UnkMotion2_Coll(Item_GObj* gobj)
     } else {
         f32 half = 0.5f;
         if (ABS(ip->xDD4_itemVar.likelike.x20.x - ip->pos.x) <
-                (attr->x0.x0_f32->y * half) &&
+                (DP(DiscVec3, attr->x0.x0_f32)->y * half) &&
             ABS(ip->xDD4_itemVar.likelike.x20.y - ip->pos.y) <
-                (attr->x0.x0_f32->y * half))
+                (DP(DiscVec3, attr->x0.x0_f32)->y * half))
         {
             temp_r3 = ip->xDD4_itemVar.likelike.x48;
             if (temp_r3 >= 4) {
                 ip->facing_dir = -ip->facing_dir;
-                ip->x40_vel.x = ip->facing_dir * attr->x0.x0_f32->y;
+                ip->x40_vel.x = ip->facing_dir * DP(DiscVec3, attr->x0.x0_f32)->y;
                 ip->xDD4_itemVar.likelike.x48 = 0;
             } else {
                 ip->xDD4_itemVar.likelike.x48 = temp_r3 + 1;
@@ -731,7 +731,7 @@ bool itLikelike_UnkMotion16_Anim(Item_GObj* gobj)
         if (ip->xDD4_itemVar.likelike.x38 == 0) {
             ip2 = GET_ITEM(gobj);
             attr2 = GET_ATTRS(ip2);
-            ip2->x40_vel.x = ip2->facing_dir * attr2->x0.x0_f32->y;
+            ip2->x40_vel.x = ip2->facing_dir * DP(DiscVec3, attr2->x0.x0_f32)->y;
             ip2->x40_vel.z = 0.0f;
             ip2->x40_vel.y = 0.0f;
             it_802756E0(gobj);
@@ -743,9 +743,9 @@ bool itLikelike_UnkMotion16_Anim(Item_GObj* gobj)
             ip3 = GET_ITEM(gobj);
             attr = GET_ATTRS(ip3);
             // This line is to get 100%
-            if (attr->x0.x0_f32->y && attr->x0.x0_f32->y) {
+            if (DP(DiscVec3, attr->x0.x0_f32)->y && DP(DiscVec3, attr->x0.x0_f32)->y) {
             };
-            ip3->x40_vel.x = ip3->facing_dir * attr->x0.x0_f32->y;
+            ip3->x40_vel.x = ip3->facing_dir * DP(DiscVec3, attr->x0.x0_f32)->y;
             ip3->x40_vel.y = 0;
             ip3->x40_vel.z = 0;
             it_802756E0(gobj);
@@ -788,7 +788,7 @@ void it_802DB074(HSD_GObj* gobj)
     itLikelikeAttributes* attr = GET_ATTRS(ip);
     PAD_STACK(8);
     ip->facing_dir = ip->xDD4_itemVar.likelike.x3C;
-    ip->x40_vel.x = ip->facing_dir * attr->x0.x0_f32->y * 2.0f;
+    ip->x40_vel.x = ip->facing_dir * DP(DiscVec3, attr->x0.x0_f32)->y * 2.0f;
     ip->xDD4_itemVar.likelike.x4C = 0x1E;
     Item_80268E5C(gobj, 8, ITEM_ANIM_UPDATE);
 }

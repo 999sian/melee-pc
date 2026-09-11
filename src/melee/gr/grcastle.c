@@ -419,7 +419,7 @@ void grCastle_801CD658(Ground_GObj* gobj)
     grLib_801C96F8(0x7536, 0x1E, &pos);
 
     for (i = 0; 12 > i; i++) {
-        gp->u.castle9.dynamics[i].data = NULL;
+        gp->u.castle9.dynamics[i].data = 0;
     }
 
     archive = grDatFiles_GetArchive();
@@ -449,10 +449,10 @@ void grCastle_801CD658(Ground_GObj* gobj)
                                 grLib_801C9B20(jobj, flag6,
                                                &gp->u.castle9.dynamics[i]);
                             } else {
-                                gp->u.castle9.dynamics[i].data = NULL;
+                                gp->u.castle9.dynamics[i].data = 0;
                             }
                         } else {
-                            gp->u.castle9.dynamics[i].data = NULL;
+                            gp->u.castle9.dynamics[i].data = 0;
                         }
                     }
                 }
@@ -485,13 +485,13 @@ void grCastle_801CD8A8(Ground_GObj* gobj)
     lb_800115F4();
     grCastle_801D0BBC();
     for (i = 0; i < 12; i++) {
-        if (gp->u.castle3.x1C[i].data != NULL) {
-            grCastle_801D0D84(
-                gp->u.castle3.x1C[i].data->desc.lb_unk0.jobj->parent);
+        if (gp->u.castle3.x1C[i].data != 0) {
+            grCastle_801D0D84(DP(struct DynamicsData, gp->u.castle3.x1C[i].data)
+                                  ->desc.lb_unk0.jobj->parent);
         }
     }
     for (i = 0; i < 12; i++) {
-        if (gp->u.castle3.x1C[i].data != NULL) {
+        if (gp->u.castle3.x1C[i].data != 0) {
             grLib_801C9B8C(&gp->u.castle3.x1C[i]);
             grCastle_801D0D24();
         }
@@ -1843,7 +1843,7 @@ void fn_801D0924(HSD_GObj* gobj, int renderpass)
         PAD_STACK(4);
 
         for (i = 0; i < 12; i++) {
-            if (gp->u.castle3.x1C[i].data != NULL) {
+            if (gp->u.castle3.x1C[i].data != 0) {
                 lb_800117F4(&gp->u.castle3.x1C[i], &color1, &color2, 999,
                             renderpass);
             }

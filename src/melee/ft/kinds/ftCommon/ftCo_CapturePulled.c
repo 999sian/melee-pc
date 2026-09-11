@@ -40,7 +40,7 @@ void fn_800DA8E4(Fighter_GObj* gobj, Fighter_GObj* victim_gobj, s32 arg2)
     Fighter* victim = GET_FIGHTER(victim_gobj);
     ftCommonData* cd;
     f32 v;
-    float* cd2;
+    float cd2;
 
     ftCommon_8007DB58(gobj);
     ftCo_8009750C(gobj);
@@ -51,8 +51,8 @@ void fn_800DA8E4(Fighter_GObj* gobj, Fighter_GObj* victim_gobj, s32 arg2)
     fp->x221B_b7 = 0;
     fp->facing_dir = -victim->facing_dir;
     cd = p_ftCommonData;
-    cd2 = &cd->x360;
-    v = (*cd2) * (cd->x364 - ((f32) (Player_80033BB8(fp->player_id) + 1)));
+    cd2 = cd->x360;
+    v = cd2 * (cd->x364 - ((f32) (Player_80033BB8(fp->player_id) + 1)));
     {
         f32 s3 = (cd->x35C - (f32) Player_GetHandicap(fp->player_id));
         s3 = cd->x358 * s3 + cd->x354;

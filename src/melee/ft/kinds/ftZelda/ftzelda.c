@@ -260,12 +260,12 @@ void ftZd_Init_OnDeath(HSD_GObj* gobj)
 void ftZd_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    void** item_list = fp->ft_data->x48_items;
+    DiscU32* item_list = DP(DiscU32, fp->ft_data->x48_items);
 
     PUSH_ATTRS(fp, ftZelda_DatAttrs);
 
-    it_8026B3F8(item_list[0], It_Kind_Zelda_DinFire);
-    it_8026B3F8(item_list[1], It_Kind_Zelda_DinFire_Explode);
+    it_8026B3F8(DP(Article, item_list[0].v), It_Kind_Zelda_DinFire);
+    it_8026B3F8(DP(Article, item_list[1].v), It_Kind_Zelda_DinFire_Explode);
 }
 
 void ftZd_Init_801393AC(HSD_GObj* gobj)

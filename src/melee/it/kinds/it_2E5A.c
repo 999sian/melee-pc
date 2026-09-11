@@ -438,7 +438,9 @@ static inline void it_2E5A_ApplyStateDesc(HSD_GObj* item_gobj, int idx)
     Item* item = item_gobj->user_data;
     HSD_JObj* item_jobj = item_gobj->hsd_obj;
     it_2E5A_Attrs* attr = DP(it_2E5A_Attrs, item->xC4_article_data->x4_specialAttributes);
-    item->xD0_itemStateDesc = (ItemStateDesc*) &attr->tiers[idx].anim_joint;
+    item->xD0_itemStateDesc =
+        (ItemStateDesc*) ((u8*) &attr->tiers[idx] +
+                          offsetof(it_2E5A_TierEntry, anim_joint));
     Item_80268D34(item_gobj, item->xD0_itemStateDesc);
     HSD_JObjAnimAll(item_jobj);
 }
