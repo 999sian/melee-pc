@@ -484,7 +484,11 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
     }();
     if (logRegs && vtxCount == 4 && !cache.shaderInfo.sampledTextures.any()) {
       static uint64_t n = 0;
-      if (n++ < 40) {
+      // Sample across the WHOLE run, not just the first draws: the opening
+      // movie and title issue thousands of these before gameplay starts, so
+      // a first-N sample describes the wrong scene entirely.
+      ++n;
+      if (n <= 4 || n % 5000 == 0) {
         const auto& c0 = state.colorRegs[0];
         const auto& c1 = state.colorRegs[1];
         const auto& c2 = state.colorRegs[2];
@@ -494,7 +498,7 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
                    "s0.color a={} b={} c={} d={} s0.alpha a={} b={} c={} d={} "
                    "s0.texMap={} s0.chan={} | chan0 lit={} matSrc={} ambSrc={} "
                    "mat=({:.3f},{:.3f},{:.3f},{:.3f}) amb=({:.3f},{:.3f},{:.3f},{:.3f}) "
-                   "vtxClr0={} clr0fmt cnt={} type={} desc={}\n",
+                   "vtxClr0={} clr0fmt cnt={} type={} desc={} | blend={} src={} dst={} op={} alphaUpd={}\n",
                    n, cache.config.shaderConfig.tevStageCount,
                    c0[0], c0[1], c0[2], c0[3], c1[0], c1[1], c1[2], c1[3],
                    c2[0], c2[1], c2[2], c2[3],
@@ -518,7 +522,10 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
                    state.vtxDesc[GX_VA_CLR0] != GX_NONE,
                    underlying(state.vtxFmts[fmt].attrs[GX_VA_CLR0].cnt),
                    underlying(state.vtxFmts[fmt].attrs[GX_VA_CLR0].type),
-                   underlying(state.vtxDesc[GX_VA_CLR0]));
+                   underlying(state.vtxDesc[GX_VA_CLR0]),
+                   underlying(state.blendMode), underlying(state.blendFacSrc),
+                   underlying(state.blendFacDst), underlying(state.blendOp),
+                   state.alphaUpdate);
       }
     }
   }

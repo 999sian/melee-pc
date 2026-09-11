@@ -1,4 +1,5 @@
 #include "gx.hpp"
+#include <fmt/format.h>
 #include "__gx.h"
 
 extern "C" {
