@@ -175,6 +175,10 @@ void HSD_GObj_80390ED0(HSD_GObj* gobj, u32 mask)
                             render_gobj(cur, i);
                         }
                     }
+                    /* Clear the tag so draws issued outside this loop are
+                     * reported as unattributed rather than inheriting the
+                     * last link we happened to iterate. */
+                    aurora_draw_tag = 0xFFFFu;
                 }
                 j++;
                 prios >>= 1;
@@ -190,6 +194,7 @@ void HSD_GObj_80390FC0(void)
 {
     HSD_GObj* saved;
     HSD_GObj* cur = HSD_GObjGXLinkHead[HSD_GObjLibInitData.gx_link_max + 1];
+    aurora_draw_tag = 0xF000u | (HSD_GObjLibInitData.gx_link_max + 1);
     while (cur != NULL) {
         if (cur->render_cb != NULL) {
             saved = HSD_GObj_804D7818;
