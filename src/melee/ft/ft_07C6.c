@@ -20,12 +20,16 @@ void ft_8007C630(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
+    Vec3 bone_off;
     for (i = 0; i < (signed) ARRAY_SIZE(fp->x1614); i++) {
         struct ftData_x38* temp_r6 = &DP(struct ftData_x38, fp->ft_data->x38)[i];
         struct Fighter_x1614_t* temp_r27 = &fp->x1614[i];
         fp->x1614[i].x4 = fp->parts[temp_r6->x0].joint;
         fp->x1614[i].x0 = temp_r6->x10;
-        lb_8000B1CC(temp_r27->x4, (Vec3*) &temp_r6->x4, &temp_r27->x8);
+        /* x4 is a DiscVec3 in a DISC_STRUCT: big-endian floats. Casting it
+         * to Vec3* fed lb_8000B1CC byte-swapped garbage as the bone offset. */
+        DISC_VEC3_GET(bone_off, temp_r6->x4);
+        lb_8000B1CC(temp_r27->x4, &bone_off, &temp_r27->x8);
         temp_r27->x8.z = 0.0F;
         temp_r27->x14 = temp_r27->x8;
     }
@@ -35,6 +39,7 @@ void ft_8007C6DC(Fighter_GObj* gobj)
 {
     Fighter* fp;
     int i;
+    Vec3 bone_off;
 
     if (gm_8016B0B4()) {
         fp = GET_FIGHTER(gobj);
@@ -42,7 +47,9 @@ void ft_8007C6DC(Fighter_GObj* gobj)
             struct ftData_x38* temp_r6 = &DP(struct ftData_x38, fp->ft_data->x38)[i];
             struct Fighter_x1614_t* temp_r27 = &fp->x1614[i];
             temp_r27->x14 = temp_r27->x8;
-            lb_8000B1CC(temp_r27->x4, (Vec3*) &temp_r6->x4, &temp_r27->x8);
+            /* Same DiscVec3 byte order as above. */
+            DISC_VEC3_GET(bone_off, temp_r6->x4);
+            lb_8000B1CC(temp_r27->x4, &bone_off, &temp_r27->x8);
             temp_r27->x8.z = 0.0F;
         }
     }
