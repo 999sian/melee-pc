@@ -226,9 +226,9 @@ struct pl_StaleMoveTableExt_t {
     /* +DC4 */ int xDC4;
     /* +DC8 */ int xDC8;
     /* +DCC */ int xDCC;
-    /* +DD0 */ union {
+    /* +DD0 */ union DISC_STRUCT { // `xDD0_value & 1` tests bit7
         u8 xDD0_value;
-        struct {
+        struct DISC_STRUCT {
             u8 bit0 : 1;
             u8 bit1 : 1;
             u8 bit2 : 1;

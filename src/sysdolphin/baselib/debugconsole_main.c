@@ -1362,12 +1362,12 @@ s32 hsd_80395970(void)
 #endif
 
 extern struct lbl_8040BA5C_t {
-    void* x0;
-    u32 x4;
-    void* x8;
-    void* xC;
-    char** x10;
-    u32 x14;
+    /* 0x00 */ void* x0;
+    /* 0x04 */ void* x4; ///< ExcptNode::callback slot
+    /* 0x08 */ void* x8;
+    /* 0x0C */ void* xC;
+    /* 0x10 */ char** x10;
+    /* 0x14 */ u32 x14;
 } lbl_8040BA5C;
 
 extern struct lbl_8040BAF0_t {

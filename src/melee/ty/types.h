@@ -133,10 +133,11 @@ struct ToyGlobalsS_ {
     s16 x154;
 };
 
+/// View of #Toy_sbss_804D6ED4 (see #TyLightArray_).
 struct TyFiguponED4 {
     /* 0x00 */ HSD_GObj* x0;
     /* 0x04 */ HSD_GObj* x4;
-    /* 0x08 */ u8 pad_08[0x4];
+    /* 0x08 */ void* pad_08;
     /* 0x0C */ HSD_GObj* xC;
 };
 
@@ -163,7 +164,9 @@ struct ToyListEntry {
 
 struct Toy26B8 {
     /* 0x000 */ Vec3 x0;
-    /* 0x00C */ u8 pad_00C[0x195 - 0x00C];
+    /* 0x00C */ char devtext_buf_00C[0x8C];
+    /* 0x098 */ char devtext_buf_098[0xFC];
+    /* 0x194 */ u8 x194;
     /* 0x195 */ s8 x195;
     /* 0x196 */ s8 x196;
     /* 0x197 */ u8 x197;
@@ -181,13 +184,6 @@ struct Toy26B8 {
         void* x3F0;
     };
 };
-
-struct _Toy_804A26B8_t {
-    struct Toy26B8* x0;
-    UNK_T x4;
-    UNK_T x8;
-};
-ASSERT_SIZE(struct _Toy_804A26B8_t, 0xC);
 
 struct TyViewData {
     char pad_0[0x4];
@@ -282,9 +278,14 @@ struct TyDspBgData {
     /* 0x106 */ u8 pad_106[2];
 };
 
+/// Same layout as #ToyListEntry (Toy_80308250 fills both).
 struct TyDspArchiveHolder {
     /*  +0 */ UNK_T x0;
-    /*  +4 */ u8 pad_4[0x10];
+    /*  +4 */ void* pad_4;
+    /*  +8 */ char* archive_name;
+    /*  +C */ char* symbol_name;
+    /* +10 */ s16 trophy_id;
+    /* +12 */ u8 pad_12[2];
     /* +14 */ HSD_Archive* archive;
 };
 
@@ -328,10 +329,11 @@ struct DigitInit {
     s32 x0, x4, x8, xC;
 };
 
+/// View of #Toy_sbss_804D6ED4 (see #TyLightArray_).
 struct TyLightData {
-    /* 0x00 */ u8 pad[4];
+    /* 0x00 */ void* pad;
     /* 0x04 */ HSD_GObj* gobj;
-    /* 0x08 */ u8 pad8[4];
+    /* 0x08 */ void* pad8;
     /* 0x0C */ HSD_Archive* archive;
 };
 
@@ -342,22 +344,6 @@ struct ToyNameData {
     s16 x6;
     s16 x8;
     s16 xA;
-};
-
-struct TyLightSymbolEntry {
-    char* name;
-    void* unk;
-};
-
-struct TyLightIndexEntry {
-    s32 idx;
-    u8 pad[8];
-};
-
-struct TyLightFile {
-    u8 pad0[0xCC];
-    TyLightSymbolEntry symbols[6];
-    TyLightIndexEntry entries[1];
 };
 
 struct tyUnkStruct {
@@ -374,16 +360,12 @@ struct TyCleanupObj {
     /* 0x10 */ void* x10;
 };
 
-struct TyGObjX8_ {
-    u8 pad[0x28];
-    HSD_CObj* x28;
-};
-
 struct TyCameraData_ {
     void* x0;
     void* x4;
-    TyGObjX8_* x8;
-    u8 padC[0x18 - 0x0C];
+    HSD_GObj* x8;
+    void* xC;
+    u8 pad10[0x18 - 0x10];
     f32 x18;
     f32 x1C;
     f32 x20;
@@ -394,26 +376,19 @@ struct TyCameraData_ {
     s32 x58;
 };
 
-struct TyLightGObj_ {
-    u8 pad[0x28];
-    HSD_LObj* x28;
-};
-
+/// Allocated type of #Toy_sbss_804D6ED4 (0xE4 bytes on GC); #TyLightData,
+/// #ToyCameraControl, #tyUnkStruct and #TyFiguponED4 are views of it.
 struct TyLightArray_ {
-    void* x0;
-    TyLightGObj_* x4;
-    u8 pad08[0x14 - 0x08];
-    f32 x14;
-    f32 x18;
-    s32 x1C;
-    s32 x20;
-    s32 x24;
-    u8 pad28[0x7C - 0x28];
-    s32 x7C;
-    s32 x80;
-    s32 x84;
-    u8 pad88[0xDC - 0x88];
-    s8 xDC[8];
+    /* 0x00 */ HSD_GObj* x0;
+    /* 0x04 */ HSD_GObj* x4;
+    /* 0x08 */ HSD_GObj* x8;
+    /* 0x0C */ HSD_Archive* archive;
+    /* 0x10 */ s32 x10;
+    /* 0x14 */ f32 x14;
+    /* 0x18 */ f32 x18;
+    /* 0x1C */ Vec3 pos[8];
+    /* 0x7C */ Vec3 interest[8];
+    /* 0xDC */ s8 xDC[8];
 };
 
 struct ToyDataJObj {
@@ -460,11 +435,12 @@ struct ToyJObjNode {
     s32 x40;
 };
 
+/// View of #Toy_sbss_804D6ED4 (see #TyLightArray_).
 struct ToyCameraControl {
     /*  +0 */ HSD_GObj* x00;
     /*  +4 */ HSD_GObj* x04;
     /*  +8 */ HSD_GObj* x08;
-    /*  +C */ u8 pad[0x4];
+    /*  +C */ void* pad_0C;
     /* +10 */ s32 x10;
     /* +14 */ f32 x14;
     /* +18 */ f32 x18;

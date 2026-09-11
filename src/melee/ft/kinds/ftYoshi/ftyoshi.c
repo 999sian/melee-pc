@@ -349,18 +349,19 @@ void ftYs_Init_8012B6E8(Fighter* fp, struct S_UNK_YOSHI1* unk_struct_arg)
     u8 _[12];
 
     struct S_UNK_YOSHI1* unk_struct1;
-    s32* ptr2EndIndex;
+    s32 end_index;
     ftYoshiAttributes* attr_r26;
     u8* index;
     s32 i;
     float zero_float;
 
     attr_r26 = DP(ftYoshiAttributes, fp->ft_data->ext_attr);
-    index = (unk_struct1 = unk_struct_arg)->unk_struct->xC_start_index;
-    ptr2EndIndex = (&unk_struct1->unk_struct->x8_end_index);
+    unk_struct1 = unk_struct_arg;
+    index = DP(u8, DP(struct S_UNK_YOSHI2, unk_struct1->unk_struct)->xC_start_index);
+    end_index = DP(struct S_UNK_YOSHI2, unk_struct1->unk_struct)->x8_end_index;
     zero_float = 0.0f;
 
-    for (i = 0; i < *ptr2EndIndex; i++) {
+    for (i = 0; i < end_index; i++) {
         HSD_DObj* dobj_r3 = fp->dobj_list.data[index[i]];
         HSD_MObj* mobj_r3;
         HSD_AObj* aobj_r24;
@@ -390,15 +391,15 @@ void ftYs_Init_8012B804(Fighter* fp, struct S_UNK_YOSHI1* unk_struct_arg,
     u8 _[8];
 
     if (unk_struct_arg) {
-        struct S_UNK_YOSHI2* unk_struct = unk_struct_arg->unk_struct;
-        s32* ptr2EndIndex;
+        struct S_UNK_YOSHI2* unk_struct = DP(struct S_UNK_YOSHI2, unk_struct_arg->unk_struct);
+        s32 end_index;
         u8* index;
         s32 i;
 
-        index = unk_struct->xC_start_index;
-        ptr2EndIndex = (&unk_struct->x8_end_index);
+        index = DP(u8, unk_struct->xC_start_index);
+        end_index = unk_struct->x8_end_index;
 
-        for (i = 0; i < *ptr2EndIndex; i++) {
+        for (i = 0; i < end_index; i++) {
             HSD_DObj* dobj_r3 = fp->dobj_list.data[index[i]];
             HSD_MObj* mobj_r3;
             HSD_MObj* mobj;

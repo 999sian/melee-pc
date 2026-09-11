@@ -46,7 +46,7 @@
 /* 307470 */ void Toy_80307470(s32);
 /* 307E84 */ void Toy_80307E84(HSD_GObj* gobj);
 /* 30813C */ char* Toy_8030813C(int trophy_id);
-/* 308250 */ void Toy_80308250(u8* arg0, s16 arg1, s32 arg2);
+/* 308250 */ void Toy_80308250(ToyListEntry* entry, s16 arg1, s32 arg2);
 /* 3082F8 */ s32 Toy_803082F8(s16 idx);
 /* 308328 */ s32 Toy_80308328(s32 idx);
 /* 308354 */ s32 Toy_80308354(s16 idx);
@@ -65,8 +65,10 @@
 /* 31263C */ void Toy_8031263C(void);
 /* 3127D4 */ void Toy_803127D4(void);
 /* 3FE5E8 */ extern char Toy_str_ScMenFigure_cam_int1_camera[];
-/* 4A284C */ extern u16 Toy_804A284C[302];
-/* 4A2AA8 */ extern ToyAnimState Toy_804A2AA8;
+/* 4A26B8 */ extern Toy26B8 Toy_804A26B8;
+/// GC split artifacts: these ranges live inside #Toy_804A26B8.
+#define Toy_804A284C ((u16*) &Toy_804A26B8.x194)
+#define Toy_804A2AA8 (Toy_804A26B8.anim)
 /* 4D6EAC */ extern TyDspEntry* Toy_sbss_804D6EAC;
 /* 4D6EB0 */ extern TyDspEntry* Toy_sbss_804D6EB0;
 /* 4D6EC8 */ extern HSD_Archive* Toy_sbss_804D6EC8;

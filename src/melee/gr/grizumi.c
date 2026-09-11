@@ -67,11 +67,6 @@ typedef struct IzumiReflection {
     HSD_ImageDesc* image;
 } IzumiReflection;
 
-typedef struct IzumiUnkCC {
-    u8 pad[0x18];
-    HSD_GObj* x18;
-} IzumiUnkCC;
-
 #define GET_REFLECTION(gobj) ((IzumiReflection*) HSD_GObjGetUserData(gobj))
 
 static struct grIzumi_YakumonoParam* yakumono_param;
@@ -335,8 +330,7 @@ void grIzumi_801CBE64(Ground_GObj* gobj)
         grLib_801C96F8(0x7536, 0x1E, &y);
     }
     gp->u.izumi.xCC = grIzumi_801CBCE8(2);
-    ((IzumiUnkCC*) HSD_GObjGetUserData(gp->u.izumi.xCC))->x18 =
-        gp->u.izumi.xC8;
+    GET_GROUND(gp->u.izumi.xCC)->x18 = gp->u.izumi.xC8;
     jobj = Ground_801C3FA4(gobj, 4);
     { // this looks like inlines, but there's a lot of small differences
         u8 _[4];

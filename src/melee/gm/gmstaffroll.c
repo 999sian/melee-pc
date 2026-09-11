@@ -35,20 +35,10 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/wobj.h>
 
-struct staffInfo_t {
-    char pad_0[0x948];
-};
-ASSERT_SIZE(struct staffInfo_t, 0x948);
-
 /* 4D67F8 */ static struct {
     HSD_Text* win[2];
     int x8;
 }* staffInfo;
-
-struct staffInfoSortBuf_t {
-    char pad_0[0x2E68];
-};
-ASSERT_SIZE(struct staffInfoSortBuf_t, 0x2E68);
 
 typedef struct {
     int index;
@@ -1213,8 +1203,8 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
 
     efLib_Init();
     efAsync_LoadSync(0);
-    staffInfo = HSD_MemAlloc(sizeof(struct staffInfo_t));
-    staffInfoSortBuf = HSD_MemAlloc(sizeof(struct staffInfoSortBuf_t));
+    staffInfo = HSD_MemAlloc(198 * sizeof(*staffInfo));
+    staffInfoSortBuf = HSD_MemAlloc(198 * sizeof(*staffInfoSortBuf));
     HSD_SisLib_803A62A0(0, "SdStRoll.dat", "SIS_StRollData");
     HSD_SisLib_803A611C(0, (HSD_GObj*) -1, 9, 13, 0, 18, 0, 19);
     lbAudioAx_80026F2C(28);
@@ -1335,7 +1325,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         lbAudioAx_80023F28(lbAudioAx_8002305C(gm_801BEFB0(), !-r));
         lbBgFlash_800209F4();
         gm_804D6804.x0 = gm_804D6804.x4 = 0.0F;
-        memzero(staffInfo, sizeof(struct staffInfo_t));
+        memzero(staffInfo, 198 * sizeof(*staffInfo));
         gm_80480D58[0] = 0;
         gm_80480D58[1] = 0;
         gm_80480D58[2] = 0;

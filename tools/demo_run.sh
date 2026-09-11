@@ -14,7 +14,7 @@ python3 tools/devctl.py key Return >/dev/null 2>&1; sleep 5
 python3 tools/devctl.py key x >/dev/null 2>&1; sleep 4
 python3 tools/devctl.py key x >/dev/null 2>&1
 end=$(( $(date +%s) + secs ))
-mid=$(( $(date +%s) + 25 ))
+mid=$(( $(date +%s) + 60 ))
 while kill -0 $pid 2>/dev/null && [ "$(date +%s)" -lt "$end" ]; do
     sleep 1
     if [ "$(date +%s)" -ge "$mid" ]; then

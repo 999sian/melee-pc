@@ -8,7 +8,7 @@
 #include <melee/it/kinds/itlinkhookshot.h>
 #include <melee/lb/lb_00B0.h>
 
-typedef struct {
+typedef struct DISC_STRUCT {
     u8 pad_0[0x84];
     s32 x84;
     s32 x88;

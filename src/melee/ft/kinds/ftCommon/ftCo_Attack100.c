@@ -33,14 +33,6 @@ extern f32 ftCo_804D90D0; // 0.0f
 extern f32 ftCo_804D90D4; // Decrement value
 extern f64 ftCo_804D90D8; // Increment value (Double)
 
-typedef struct {
-    u8 pad_0[0x9C];
-    s32 x9C;
-    s32 xA0;
-    s32 xA4;
-    s32 xA8;
-} ftCo_SamusCatchAttrs;
-
 bool ftCo_800D6824(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);

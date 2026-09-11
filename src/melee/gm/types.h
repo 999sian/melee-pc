@@ -27,9 +27,10 @@
 #define GM_SCENE_LIGHTS(sce) DP(DiscU32, (sce)->lights)
 
 /// @deprecated Replace with inline bitfields
-typedef union UnkFlagStruct {
+/// b0 is the MSB of `u8` (GameCube bit order), e.g. `u8 = 1` sets b7.
+typedef union DISC_STRUCT UnkFlagStruct {
     u8 u8;
-    struct {
+    struct DISC_STRUCT {
         u8 b0 : 1;
         u8 b1 : 1;
         u8 b2 : 1;
@@ -851,8 +852,7 @@ struct TmData {
         u8 x7;
         u8 x8;
         u16 x9;
-        u8 xB;
-        u8 xC;
+        u16 xB;
         u8 xD;
         u8 xE;
         u8 xF;
@@ -1243,7 +1243,7 @@ struct lbl_8046B488_t {
     /* 0x1B2 */ u8 x1B2;
     /* 0x1AE */ s8 x1B3[0x1B8 - 0x1B3];
     /* 0x1B8 */ GmRouteCallback x1B8;
-    /* 0x1BC */ char pad_1BC[0x1C0 - 0x1BC];
+    /* 0x1BC */ void (*event_player_init_cb)(s32 slot, u8 remaining_count);
     /* 0x1C0 */ s8 x1C0[0x1B];
     /* 0x1DB */ char pad_1DB[0x1E0 - 0x1DB];
 }; /* size = 0x1E0 */

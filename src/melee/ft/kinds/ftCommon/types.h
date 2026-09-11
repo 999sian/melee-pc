@@ -474,6 +474,10 @@ union ftCommon_MotionVars {
         /* fp+2348 */ int x8;
         /* fp+234C */ u8 xC;
     } capturewait;
+    struct {
+        /* fp+2340 */ float timer;
+        /* fp+2344 */ int flag;
+    } itemscope;
 };
 
 /// @todo Fake, need to find real size of #HitCapsule

@@ -2037,7 +2037,7 @@ void onJointCollision(void* user_data, int joint_id, CollData* coll,
         if (gobj != NULL) {
             gp2 = gobj->user_data;
             if (gp2 != NULL) {
-                ((UnkFlagStruct*) &gp2->u.icemt.x14)->b4 = 1;
+                gp2->u.icemt10.x14_b4 = 1;
             }
         }
     }

@@ -1991,7 +1991,7 @@ void grCorneria_801E0F34(Ground_GObj* gobj, int val)
     if (val >= 0x14u) {
         val = 0x13;
     }
-    gp->u.arwing.xC4 = val;
+    gp->u.starfox.xC4.word = val; // read back as u.starfox.xC4.word/flags
 }
 
 bool grCorneria_801E0F64(Ground_GObj* arg)

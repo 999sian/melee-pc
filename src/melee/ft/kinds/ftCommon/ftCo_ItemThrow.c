@@ -32,11 +32,15 @@
 /* 0958FC */ static void ftCo_80095D5C(Fighter* fp, Vec3* arg1);
 /* 095A9C */ static void ftCo_80095EFC(Fighter_GObj* gobj);
 
-typedef struct ftCo_ItemThrowAttrs {
+/* Disc table: one entry per throw motion state from ftCo_MS_LightThrowF. */
+typedef struct DISC_STRUCT ftCo_ItemThrowAttrs {
     float velocity_mul;
     float angle;
     float x8;
 } ftCo_ItemThrowAttrs;
+DISC_ASSERT_SIZE(ftCo_ItemThrowAttrs, 0xC);
+#define ITEM_THROW_ATTRS(msid)                                                 \
+    (&DP(ftCo_ItemThrowAttrs, Fighter_804D6550)[(msid) - ftCo_MS_LightThrowF])
 
 typedef struct ftCo_ItemThrowCmd {
     /* +0:0  */ u32 pad : 20;
@@ -465,7 +469,6 @@ void ftCo_80095D5C(Fighter* fp, Vec3* arg1)
     float vel;
     float angle;
     float vel_mul;
-    u8* array_element;
     ftCo_DatAttrs* co_attrs = getFtAttrs(fp);
     u32 cmd_var0 = fp->cmd_vars[0];
 
@@ -473,21 +476,18 @@ void ftCo_80095D5C(Fighter* fp, Vec3* arg1)
     if (cmd_var0 != 0) {
         vel = 0.01f * ((cmd_var0 >> 12) & 0x3FF);
     }
-    array_element = (u8*) Fighter_804D6550;
     vel_mul = co_attrs->item_throw_velocity_multiplier;
-    co_attrs = (ftCo_DatAttrs*) (array_element + fp->motion_id * 12);
-    array_element = (u8*) co_attrs;
-    vel *= vel_mul * *(float*) (array_element - 0x468);
+    vel *= vel_mul * ITEM_THROW_ATTRS(fp->motion_id)->velocity_mul;
     if (cmd_var0 != 0) {
         int int_angle = ((ftCo_ItemThrowCmd*) fp->cmd_vars)->angle;
         if (int_angle == 361) {
-            angle = *(float*) (array_element - 0x464);
+            angle = ITEM_THROW_ATTRS(fp->motion_id)->angle;
         } else {
             angle = MTXDegToRad(int_angle);
         }
         fp->cmd_vars[0] = 0;
     } else {
-        angle = *(float*) (array_element - 0x464);
+        angle = ITEM_THROW_ATTRS(fp->motion_id)->angle;
     }
     arg1->x = fp->mv.co.itemthrow.facing_dir * (vel * cosf(angle));
     arg1->y = vel * sinf(angle);
@@ -531,14 +531,11 @@ void ftCo_80095EFC(Fighter_GObj* gobj)
                 }
                 {
                     float fsm;
-                    ftCo_ItemThrowAttrs* throw_speed_arr;
                     float throw_speed;
                     fsm = -fp->cmd_timer / fp->frame_speed_mul;
-                    throw_speed_arr = (ftCo_ItemThrowAttrs*) Fighter_804D6550;
                     scale.value *=
                         co_attrs->heavy_throw_velocity_multiplier *
-                        throw_speed_arr[fp->motion_id - ftCo_MS_LightThrowF]
-                            .x8;
+                        ITEM_THROW_ATTRS(fp->motion_id)->x8;
                     throw_speed = scale.value;
                     interpolation =
                         fsm * (fp->mv.co.itemthrow4.x8.x - vec0.x) + vec0.x;

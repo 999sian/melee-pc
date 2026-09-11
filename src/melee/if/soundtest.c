@@ -135,26 +135,6 @@
 /* 45A6C0 */ extern u8 gmMainLib_8045A6C0[];
 /* 4D6B88 */ extern int db_804D6B88;
 
-/// Overlay used to reach the menu data through the label block that precedes
-/// it, the way the original code addresses it.
-struct un_803F9F28_t {
-    u8 _pad0[0xA8];
-    int xA8;
-    u8 _padAC[0x8];
-    f32 xB4;
-    u8 _padB8[0x90];
-    int x148;
-    u8 _pad14C[0x1C];
-    int x168;
-    u8 _pad16C[0x8];
-    f32 x174;
-    u8 _pad178[0x10];
-    int x188;
-    u8 _pad18C[0x50];
-    char x1DC[0xC];
-    char x1E8[0x18];
-};
-
 struct un_803FA128_x130_t {
     int x0;
     int x4;
@@ -177,19 +157,6 @@ struct un_803FA128_x130_t {
     int xCC[4];
     int xDC[4];
     f32 xEC;
-};
-
-/// Overlay reaching past the end of #un_803FA128 into #un_803FA258, matching
-/// how the original code addresses both blocks from a single base.
-struct un_803FA128_t {
-    u8 _pad0[0x130];
-    struct un_803FA128_x130_t x130;
-    u16 x220;
-    u8 _pad222[0x2];
-    u8 x224;
-    u8 x225;
-    u8 x226;
-    u8 x227;
 };
 
 struct un_803FA258_t {
@@ -764,16 +731,16 @@ struct un_803FA258_t {
 
 void un_802FF7DC(void)
 {
-    struct un_803F9F28_t* data = (struct un_803F9F28_t*) un_803F9F28;
+    struct SoundTestMenuData* data = &un_803F9FA4;
     DiscS32* syms;
-    lbArchive_LoadSymbols(data->x1DC, &un_804D6DA8, data->x1E8, 0);
+    lbArchive_LoadSymbols(data->x160, &un_804D6DA8, data->x16C, 0);
     syms = un_804D6DA8;
-    data->xB4 = syms[0].v;
-    data->xA8 = syms[1].v;
-    data->x148 = syms[2].v;
-    data->x168 = syms[3].v;
-    data->x174 = syms[4].v;
-    data->x188 = syms[7].v;
+    data->entries[1].x18 = syms[0].v;
+    data->entries[1].xC = DP(char*, syms[1].v);
+    data->entries[6].xC = DP(char*, syms[2].v);
+    data->entries[7].xC = DP(char*, syms[3].v);
+    data->entries[7].x18 = syms[4].v;
+    data->entries[8].xC = DP(char*, syms[7].v);
 }
 
 bool un_802FF884(char* arg0)
@@ -986,18 +953,18 @@ void un_802FFEE0(struct UnkSoundTestData0* arg0)
 void un_802FFF2C(StartMeleeData* arg0)
 {
     StartMeleeRules* r = &arg0->rules;
-    struct un_803FA128_t* s = (struct un_803FA128_t*) un_803FA128;
-    struct un_803FA128_x130_t* sp;
+    /* Same layout as the leading part of #un_803FA258_t. */
+    struct un_803FA128_x130_t* sp = (struct un_803FA128_x130_t*) &un_803FA258;
     s32 i;
     u16 timer;
 
     gm_SetupRulesDefaults(r);
     r->x2_2 = 0;
-    r->is_teams = s->x130.xC;
-    switch (s->x130.xC8) {
+    r->is_teams = sp->xC;
+    switch (sp->xC8) {
     case 0:
         r->match_kind = 0;
-        timer = s->x130.xCC[1] + s->x130.xCC[0] * 0x3C;
+        timer = sp->xCC[1] + sp->xCC[0] * 0x3C;
         if (timer != 0) {
             r->time_limit = timer;
             r->timer_enabled = 1;
@@ -1011,7 +978,7 @@ void un_802FFF2C(StartMeleeData* arg0)
         break;
     case 2:
         r->match_kind = 2;
-        timer = s->x130.xCC[1] + s->x130.xCC[0] * 0x3C;
+        timer = sp->xCC[1] + sp->xCC[0] * 0x3C;
         if (timer != 0) {
             r->time_limit = timer;
             r->timer_enabled = 1;
@@ -1024,13 +991,12 @@ void un_802FFF2C(StartMeleeData* arg0)
         r->timer_enabled = 0;
         break;
     }
-    r->stkind = s->x130.x8;
+    r->stkind = sp->x8;
     r->x20 = -1;
-    r->item_freq = s->x130.xCC[3] - 1;
+    r->item_freq = sp->xCC[3] - 1;
     r->sd_penalty = -1;
-    r->x30 = s->x130.xEC;
+    r->x30 = sp->xEC;
     gm_SetupAllPlayerDefaults(arg0->players);
-    sp = &s->x130;
     for (i = 0; i < 4; i++) {
         arg0->players[i].ckind = sp->x10[i];
         arg0->players[i].slot_type = sp->x24[i];
@@ -1043,7 +1009,7 @@ void un_802FFF2C(StartMeleeData* arg0)
         arg0->players[i].defense_ratio = sp->x88[i];
         arg0->players[i].cpu_kind = sp->xA8[i];
         arg0->players[i].cpu_level = sp->xB8[i];
-        arg0->players[i].stocks = s->x130.xCC[2];
+        arg0->players[i].stocks = sp->xCC[2];
         arg0->players[i].xC_b1 = 0;
         arg0->players[i].model_scale = sp->x98[i];
     }
@@ -1099,68 +1065,68 @@ bool un_803002FC(enum soundtest_callback_arg0 update_scene)
 
 bool un_80300338(enum soundtest_callback_arg0 arg0)
 {
-    struct un_803FA128_t* data = (struct un_803FA128_t*) un_803FA128;
+    struct un_803FA258_t* data = &un_803FA258;
     u8* src;
 
     src = gmMainLib_8045A6C0;
-    src = src + data->x220;
+    src = src + data->xF0;
 
-    data->x224 = src[0x1868];
-    data->x225 = src[0x1869];
-    data->x226 = src[0x186A];
-    data->x227 = src[0x186B];
+    data->xF4 = src[0x1868];
+    data->xF5 = src[0x1869];
+    data->xF6 = src[0x186A];
+    data->xF7 = src[0x186B];
     return 0;
 }
 
 bool un_80300378(enum soundtest_callback_arg0 arg0)
 {
-    struct un_803FA128_t* data = (struct un_803FA128_t*) un_803FA128;
+    struct un_803FA258_t* data = &un_803FA258;
     u8* ptr;
 
-    data->x220 &= 0xFFFE;
+    data->xF0 &= 0xFFFE;
 
     ptr = gmMainLib_8045A6C0;
-    ptr = ptr + data->x220;
+    ptr = ptr + data->xF0;
 
-    data->x224 = ptr[0x1868];
-    data->x225 = ptr[0x1869];
-    data->x226 = ptr[0x186A];
-    data->x227 = ptr[0x186B];
+    data->xF4 = ptr[0x1868];
+    data->xF5 = ptr[0x1869];
+    data->xF6 = ptr[0x186A];
+    data->xF7 = ptr[0x186B];
 
     return 0;
 }
 
 bool un_803003C4(enum soundtest_callback_arg0 arg0)
 {
-    struct un_803FA128_t* data = (struct un_803FA128_t*) un_803FA128;
+    struct un_803FA258_t* data = &un_803FA258;
     u8* ptr;
 
-    data->x220 &= 0xFFFC;
+    data->xF0 &= 0xFFFC;
 
     ptr = gmMainLib_8045A6C0;
-    ptr = ptr + data->x220;
+    ptr = ptr + data->xF0;
 
-    data->x224 = ptr[0x1868];
-    data->x225 = ptr[0x1869];
-    data->x226 = ptr[0x186A];
-    data->x227 = ptr[0x186B];
+    data->xF4 = ptr[0x1868];
+    data->xF5 = ptr[0x1869];
+    data->xF6 = ptr[0x186A];
+    data->xF7 = ptr[0x186B];
 
     return 0;
 }
 
 bool un_80300410(enum soundtest_callback_arg0 arg0)
 {
-    struct un_803FA128_t* data = (struct un_803FA128_t*) un_803FA128;
+    struct un_803FA258_t* data = &un_803FA258;
 
     if (arg0 == 1) {
         u8* dst;
         sfxForward();
         dst = gmMainLib_8045A6C0;
-        dst += data->x220;
-        dst[0x1868] = data->x224;
-        dst[0x1869] = data->x225;
-        dst[0x186A] = data->x226;
-        dst[0x186B] = data->x227;
+        dst += data->xF0;
+        dst[0x1868] = data->xF4;
+        dst[0x1869] = data->xF5;
+        dst[0x186A] = data->xF6;
+        dst[0x186B] = data->xF7;
     }
     return 0;
 }

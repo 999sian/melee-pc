@@ -130,25 +130,11 @@ typedef struct StageCallbacks {
     /*  +4 */ HSD_GObjPredicate callback1;
     /*  +8 */ HSD_GObjEvent gobj_proc;
     /*  +C */ void (*callback3)(Ground_GObj*);
-    /* +10 */ union {
+    /* Stage tables initialize `flags` numerically (e.g. 0xC0000000), so
+     * flags_b0 must be bit 31: keep GameCube (MSB-first) packing. */
+    /* +10 */ union DISC_STRUCT {
         /* +10 */ u32 flags;
-        /* Stage tables initialize `flags` numerically (e.g. 0xC0000000), so
-         * flags_b0 must be bit 31: MWCC packs MSB-first; on little-endian
-         * that is bit 7 of the last byte. */
-#ifdef TARGET_PC
-        struct {
-            u8 _pad[3];
-            u8 flags_b7 : 1;
-            u8 flags_b6 : 1;
-            u8 flags_b5 : 1;
-            u8 flags_b4 : 1;
-            u8 flags_b3 : 1;
-            u8 flags_b2 : 1;
-            u8 flags_b1 : 1;
-            u8 flags_b0 : 1;
-        };
-#else
-        struct {
+        struct DISC_STRUCT {
             /* +10:0 */ u8 flags_b0 : 1;
             /* +10:1 */ u8 flags_b1 : 1;
             /* +10:2 */ u8 flags_b2 : 1;
@@ -158,7 +144,6 @@ typedef struct StageCallbacks {
             /* +10:6 */ u8 flags_b6 : 1;
             /* +10:7 */ u8 flags_b7 : 1;
         };
-#endif
     };
 } StageCallbacks;
 
@@ -390,8 +375,8 @@ typedef struct grZakoGenerator_Data {
 } grZakoGenerator_Data;
 
 struct grCorneria_GroundVars {
-    union {
-        struct {
+    union DISC_STRUCT { // `value = 1` sets bit7, not b0
+        struct DISC_STRUCT {
             u8 b0 : 1;
             u8 b1 : 1;
             u8 b2 : 1;
@@ -399,8 +384,8 @@ struct grCorneria_GroundVars {
         u8 value;
     } xC4;
     u8 xC5;
-    union {
-        struct {
+    union DISC_STRUCT {
+        struct DISC_STRUCT {
             u8 b0 : 1;
         } flags;
         u8 value;
@@ -412,9 +397,9 @@ struct grCorneria_GroundVars {
     f32 base_x;
     f32 base_y;
     f32 offset_x;
-    union {
+    union DISC_STRUCT { // b0 is the float's sign bit on GameCube
         f32 val;
-        struct {
+        struct DISC_STRUCT {
             u8 b0 : 1;
         } flags;
     } offset_y;
@@ -442,8 +427,10 @@ struct grCorneria_GroundVars {
 
 /// Ground vars shared by Corneria and Venom's Arwing stage articles.
 struct grStarFox_GroundVars {
-    /* +0 gp+C4 */ union {
-        struct {
+    /* `word` is written natively by the arwing init (u.starfox.xC4.word);
+     * flags.b0 is bit 31 of it on GameCube. */
+    /* +0 gp+C4 */ union DISC_STRUCT {
+        struct DISC_STRUCT {
             u8 b0 : 1;
         } flags;
         u8 value;
@@ -467,8 +454,8 @@ struct grStarFox_GroundVars {
 /// Overlaps grCorneria_GroundVars in the u union but interprets
 /// fields differently: pointers/integers instead of floats.
 struct grCorneria_GroundVars2 {
-    /* 0x00 gp+C4 */ union {
-        struct {
+    /* 0x00 gp+C4 */ union DISC_STRUCT {
+        struct DISC_STRUCT {
             u8 b0 : 1;
         } flags;
         u8 value;
@@ -585,13 +572,14 @@ struct grVenom_GroundVars2 {
     /* +10 gp+D4 */ HSD_JObj* xD4;
     /* +14 gp+D8 */ HSD_JObj* xD8;
     /* +18 gp+DC */ HSD_JObj* xDC;
-    /* +1C gp+E0 */ union {
-        struct {
+    /* `state` straddles bytes 0/1 and byte 0 is also read as a u8 mask. */
+    /* +1C gp+E0 */ union DISC_STRUCT {
+        struct DISC_STRUCT {
             u16 padding : 7;
             u16 state : 2;
             u16 padding2 : 7;
         } xE0_state_pad;
-        struct {
+        struct DISC_STRUCT {
             u8 b0 : 1;
             u8 b1 : 1;
             u8 b2 : 1;
@@ -1389,6 +1377,17 @@ struct grBigBlue_PlatformVars {
     /* gp+EC */ f32 xEC;
 };
 
+/// Falcon Flyer gobj state.
+struct grBigBlue_FlyerVars {
+    /* gp+C4 */ u8 state;
+    /* gp+C5 */ u8 pad_C5[3];
+    /* gp+C8 */ s32 timer;
+    /* gp+CC */ f32 target_rot_z;
+    /* gp+D0 */ f32 target_y;
+    /* gp+D4 */ u8 pad_D4[4];
+    /* gp+D8 */ f32 x_velocity;
+};
+
 /// Moving road gobj state (gobj ID 34).
 struct grBigBlue_RoadVars {
     /* gp+C4 */ u32 flags;
@@ -1416,15 +1415,15 @@ ASSERT_SIZE(struct grBigBlue_RoadVars, 0x38);
 /// Per-lane data for the Big Blue car gobj (ID 33), 0x40-byte stride from
 /// gp+D4.
 struct grBigBlue_CarLane {
-    union {
+    union DISC_STRUCT {
         /* +00 gp+D4 */ u16 status;
-        struct {
+        struct DISC_STRUCT {
             /* +00 gp+D4 */ u8 state : 6;
             /* +00 gp+D4 */ u8 direction : 1;
             /* +00 gp+D4 */ u8 state_hi : 1;
             /* +01 gp+D5 */ u8 x1;
         };
-        struct {
+        struct DISC_STRUCT {
             /* +00 gp+D4 */ u16 pad_slot_0 : 7;
             /* +00 gp+D4 */ u16 collision_slot : 5;
             /* +00 gp+D4 */ u16 pad_slot_1 : 4;
@@ -1462,19 +1461,21 @@ ASSERT_SIZE(struct grBigBlue_CarVars, 0x110);
 struct grBigBlue_GroundVars {
     union {
         struct {
-            union {
+            /* Route code toggles b0/b1 on the same bytes as x0..x3 and
+             * x0_b1; keep GameCube bit order. */
+            union DISC_STRUCT {
                 /*  +0 gp+C4 */ u32 x0_w;
-                struct {
+                struct DISC_STRUCT {
                     /*  +0 gp+C5 */ u8 x0;
                     /*  +0 gp+C6 */ u8 x1;
                     /*  +0 gp+C7 */ u8 x2;
                     /*  +0 gp+C8 */ u8 x3;
                 };
-                struct {
+                struct DISC_STRUCT {
                     u8 x0_b1 : 1;
                     u8 pad[3];
                 };
-                struct {
+                struct DISC_STRUCT {
                     /* +0 gp+C4:0 */ u32 b0 : 1;
                     /* +0 gp+C4:1 */ u32 b1 : 1;
                     /* +0 gp+C4:2 */ u32 b2 : 1;
@@ -1489,11 +1490,13 @@ struct grBigBlue_GroundVars {
             /*  +8 gp+CC */ void* xCC;
             /*  +C gp+D0 */ f32 xD0;
             /* +10 gp+D4 */ HSD_JObj* xD4[3];
-            /* pad */ char pad_3[4];
+            /* pad; keep #grBigBlue_ManagerVars::data aligned on PC */
+            /* +1C gp+E0 */ void* pad_3;
             /* +20 gp+E4 */ struct grBigBlue_GroundData data[3];
         };
         struct grBigBlue_ManagerVars manager;
         struct grBigBlue_PlatformVars platform;
+        struct grBigBlue_FlyerVars flyer;
         struct grBigBlue_RoadVars road;
         struct grBigBlue_CarVars car;
     };

@@ -1587,24 +1587,11 @@ static inline BracketEntry* fn_8019A158_GetBracketEntry(s32 bracket_idx)
     return &lbl_80473AB8[bracket_idx];
 }
 
-typedef struct MatchEndStanding {
-    u8 pad[0x5D];
-    u8 is_big_loser;
-    u8 is_small_loser;
-    u8 pad5F[0xA8 - 0x5F];
-} MatchEndStanding;
-ASSERT_SIZE(MatchEndStanding, 0xA8);
-
-typedef struct Lbl804799D8Text {
-    u8 pad[0x4E];
-    char x4E[20];
-} Lbl804799D8Text;
-
 /// @todo All instructions match; only the callee-saved register assignment
 /// is permuted against the target.
 void fn_8019A158(void)
 {
-    Lbl804799D8Text* base_ptr;
+    struct Lbl804799D8_t* base_ptr;
     MatchEnd** x48_ptr;
     TmData* td1;
     TmData* td2;
@@ -1624,11 +1611,11 @@ void fn_8019A158(void)
     s32 local1, local2;
     PAD_STACK(4);
 
-    base_ptr = (Lbl804799D8Text*) &lbl_804799D8;
+    base_ptr = &lbl_804799D8;
     td1 = gm_GetTournamentData();
-    ((struct Lbl804799D8_t*) base_ptr)->x48 = &gm_80477738;
-    x48_ptr = &((struct Lbl804799D8_t*) base_ptr)->x48;
-    ((struct Lbl804799D8_t*) base_ptr)->x0 = mode = 0;
+    base_ptr->x48 = &gm_80477738;
+    x48_ptr = &base_ptr->x48;
+    base_ptr->x0 = mode = 0;
 
     td2 = gm_GetTournamentData();
 
@@ -1661,7 +1648,7 @@ void fn_8019A158(void)
     bracket_idx = fn_8018F74C();
 
     for (k = 0; k < 20; k++) {
-        ((struct Lbl804799D8_t*) base_ptr)->x4E[k] = 0;
+        base_ptr->x4E[k] = 0;
     }
 
     if (mode == 1) {
@@ -1682,10 +1669,10 @@ void fn_8019A158(void)
             if (cursor[0x4E] == 3) {
                 cursor[0x4C] = 3;
             } else {
-                MatchEndStanding* standing;
+                struct MatchPlayerData* standing;
                 u8 v;
 
-                standing = &((MatchEndStanding*) *x48_ptr)[i];
+                standing = &(*x48_ptr)->player_standings[i];
                 v = standing->is_small_loser;
                 standing->is_big_loser = v;
                 cursor[0x4C] = v;
@@ -1750,14 +1737,14 @@ void fn_8019A158(void)
     }
 
     {
-        ((struct Lbl804799D8_t*) base_ptr)->x4C = sel;
-        ((struct Lbl804799D8_t*) base_ptr)->x4D =
+        base_ptr->x4C = sel;
+        base_ptr->x4D =
             lbl_80473AB8[bracket_idx].slots[sel].x4E;
 
-        if (((struct Lbl804799D8_t*) base_ptr)->x4D == 0 &&
+        if (base_ptr->x4D == 0 &&
             lbl_80473AB8[bracket_idx].x18 != 0)
         {
-            u8 s = ((struct Lbl804799D8_t*) base_ptr)->x4C;
+            u8 s = base_ptr->x4C;
             u16 val = td1->x4B8[s].x6;
             if (val <= 0x78) {
                 gm_80167858(s, (s32) val, 0x1F, 0x78);
@@ -1769,7 +1756,7 @@ void fn_8019A158(void)
         cursor = (u8*) &lbl_80473AB8[bracket_idx] + sel * 0x2C;
         {
             u8 model_idx = cursor[0x50];
-            fn_8018F00C(base_ptr->x4E, td1->x37[model_idx].x9);
+            fn_8018F00C((char*) base_ptr->x4E, td1->x37[model_idx].x9);
         }
     }
 }

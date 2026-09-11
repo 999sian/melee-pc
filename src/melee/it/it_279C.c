@@ -1364,7 +1364,7 @@ void it_8027AAA0(Item_GObj* item1_gobj, Item* item2, s32 arg2)
     }
 }
 
-#if 0
+#ifndef MUST_MATCH
 static inline s32 it_8027AB64_SpawnWeight(itPokemonSpawn_DatAttrs* attr,
                                           s32 index)
 {

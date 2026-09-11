@@ -885,7 +885,8 @@ void ftCo_DeadUpFall_Anim(Fighter_GObj* gobj)
 void ftCo_DeadUpFall_Phys(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    u8* ca = (u8*) p_ftCommonData + 0x520;
+    Vec3 a;
+    Vec3 b;
 
     switch (fp->mv.co.unk_deadup.x44) {
     case 1:
@@ -894,11 +895,13 @@ void ftCo_DeadUpFall_Phys(Fighter_GObj* gobj)
                 break;
             }
         }
-        lbVector_Lerp((Vec3*) (ca + 0x18), (Vec3*) (ca + 0x24),
-                      &fp->mv.co.unk_deadup.x50, fp->mv.co.unk_deadup.x4C);
+        DISC_VEC3_GET(a, p_ftCommonData->x538);
+        DISC_VEC3_GET(b, p_ftCommonData->x544);
+        lbVector_Lerp(&a, &b, &fp->mv.co.unk_deadup.x50,
+                      fp->mv.co.unk_deadup.x4C);
         break;
     case 3:
-        ftCommon_Fall(fp, *(float*) (ca + 0x34), *(float*) (ca + 0x38));
+        ftCommon_Fall(fp, p_ftCommonData->x554, p_ftCommonData->x558);
         lbVector_Add(&fp->mv.co.unk_deadup.x5C, &fp->self_vel);
         if (fp->x2222_b6) {
             if (!ftAnim_80070FD0(fp)) {

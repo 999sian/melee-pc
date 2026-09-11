@@ -1438,27 +1438,28 @@ s32 grZebes_801DAA08(void)
             HSD_JObjAddChild(parent_child, (&grZe_8049F170[selected])->x04);
 
             {
-                u8* dat = DP(u8, grDatFiles_801C6330(2)->unk4->unk8);
-                HSD_ShapeAnimJoint** sap =
-                    *(HSD_ShapeAnimJoint***) (dat + 0x74);
-                HSD_AnimJoint** ajp = *(HSD_AnimJoint***) (dat + 0x6C);
-                HSD_MatAnimJoint** mjp = *(HSD_MatAnimJoint***) (dat + 0x70);
+                /* map_head->unk8[2]'s anim tables (GC offsets 0x6C..0x74). */
+                struct UnkStageDat_x8_t* desc =
+                    MAP_GOBJ_DESC(grDatFiles_801C6330(2)->unk4, 2);
+                DiscU32* sap = DP(DiscU32, desc->unkC);
+                DiscU32* ajp = DP(DiscU32, desc->unk4);
+                DiscU32* mjp = DP(DiscU32, desc->unk8);
                 HSD_ShapeAnimJoint* sa;
                 HSD_MatAnimJoint* ma;
                 HSD_AnimJoint* aj;
 
                 if (sap != NULL) {
-                    sa = *sap;
+                    sa = DP(HSD_ShapeAnimJoint, sap[0].v);
                 } else {
                     sa = NULL;
                 }
                 if (mjp != NULL) {
-                    ma = *mjp;
+                    ma = DP(HSD_MatAnimJoint, mjp[0].v);
                 } else {
                     ma = NULL;
                 }
                 if (ajp != NULL) {
-                    aj = *ajp;
+                    aj = DP(HSD_AnimJoint, ajp[0].v);
                 } else {
                     aj = NULL;
                 }

@@ -151,7 +151,7 @@ void pl_8003891C(int player)
     {
         temp_zero = 0;
         temp_r31->x0_staleMoveTable.xCB8 = 6;
-        *(int*) (&temp_r31->x0_staleMoveTable.xCBC.x0) = temp_zero;
+        *(int*) &temp_r31->x0_staleMoveTable.xCBC = temp_zero;
     }
 
     temp_r31->x0_staleMoveTable.xCC0.x0 = 0;

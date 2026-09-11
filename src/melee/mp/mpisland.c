@@ -82,7 +82,7 @@ void mpIsland_8005A728(void)
         line_idx = map->floor_start;
         z_val = 0.0f;
         while (count != 0) {
-            seg.p = HSD_MemAlloc(0x2C);
+            seg.p = HSD_MemAlloc(sizeof(*seg.p));
             mpIsland_AssertSeg(seg.p);
             if (prev) {
                 prev->next = seg.p;
@@ -147,7 +147,7 @@ void mpIsland_8005A728(void)
         line_idx = map->ceiling_start;
         z_val = 0.0f;
         while (count != 0) {
-            seg.p = HSD_MemAlloc(0x2C);
+            seg.p = HSD_MemAlloc(sizeof(*seg.p));
             mpIsland_AssertSeg(seg.p);
             if (prev) {
                 prev->next = seg.p;
@@ -552,7 +552,7 @@ void mpIsland_8005B004(mp_UnkStruct0** arg0, mp_UnkStruct0** arg1, int arg2,
         if ((mpisp = *arg1) != NULL) {
             *arg1 = mpisp->next;
         } else {
-            mpisp = HSD_MemAlloc(0x2C);
+            mpisp = HSD_MemAlloc(sizeof(*mpisp));
             mpIsland_AssertSeg(mpisp);
         }
 

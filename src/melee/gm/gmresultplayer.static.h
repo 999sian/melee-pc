@@ -92,16 +92,6 @@ typedef struct ResultsDisplayData {
     /* 0x1C4 */ HSD_ImageDesc shared_img;
 } ResultsDisplayData;
 
-typedef struct ResultsDisplayLayout {
-    /* 0x000 */ u8 pad_000[0x104];
-    /* 0x104 */ HSD_ImageDesc player_img1[4];
-    /* 0x164 */ HSD_ImageDesc player_img2[4];
-    /* 0x1C4 */ HSD_ImageDesc shared_img;
-    /* 0x1DC */ HSD_GObj* gobjs[4];
-    /* 0x1EC */ HSD_JObj* jobjs[4];
-    /* 0x1FC */ lbl_8046E3AC_t state;
-} ResultsDisplayLayout;
-
 typedef struct {
     /* 0x000 */ f32 scale[32];
     /* 0x080 */ f32 slot_off[32][3][4];

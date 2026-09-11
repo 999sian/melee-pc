@@ -62,7 +62,7 @@ void pl_80037C60(Fighter_GObj* fgp, s32 prev2070_int)
 
     fp = GET_FIGHTER(fgp);
     acp = Player_GetActionStats(fp->player_id);
-    prev_union = *(union Struct2070*) &prev2070_int;
+    prev_union.x2070_int = prev2070_int;
 
     if ((int) fp->x2070.x2072_b2) {
         acp->x5BC_b0 = 1;
@@ -231,7 +231,7 @@ void pl_80038144(HSD_GObj* attacker_gobj, HSD_GObj* victim_gobj, s32 x18d4_int,
 
     victim_fp = GET_FIGHTER(victim_gobj);
     attacked_from_behind = 0;
-    ev = *(union Struct2070*) &x18d4_int;
+    ev.x2070_int = x18d4_int;
 
     if (attacker_fp != NULL && ev.x2073 != 0) {
         f32 facing_dir = victim_fp->facing_dir;
@@ -258,7 +258,7 @@ void pl_80038144(HSD_GObj* attacker_gobj, HSD_GObj* victim_gobj, s32 x18d4_int,
     if (attack_instance == 0 ||
         victim_fp->dmg.x18ec_instancehitby != attack_instance)
     {
-        *(s32*) &victim_fp->dmg.x18d4 = ev.x2070_int;
+        victim_fp->dmg.x18d4 = *(UnkPlBonusBits*) &ev;
         victim_fp->dmg.x18ec_instancehitby = attack_instance;
 
         if (attacker_fp != NULL && victim_fp->dmg.x18d4.x3 != 0) {
@@ -275,7 +275,7 @@ void pl_80038144(HSD_GObj* attacker_gobj, HSD_GObj* victim_gobj, s32 x18d4_int,
                 struct plAttackStats* temp;
 
                 acp = Player_GetActionStats(attacker_fp->player_id);
-                ev_reload.x2070_int = *(s32*) &victim_fp->dmg.x18d4;
+                ev_reload = *(union Struct2070*) &victim_fp->dmg.x18d4;
                 fp2 = GET_FIGHTER(attacker_gobj);
                 acp2 = Player_GetActionStats(
                     GET_FIGHTER(attacker_gobj)->player_id);

@@ -2251,41 +2251,12 @@ void fn_80194D84(s32* state, u32 buttons, u32 trigger)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma pack(push, 1)
-#endif
-typedef struct TmData_80194F30 {
-    u8 pad_x0[0x2E];
-    u8 x2E;
-    u8 pad_x2F[0x37 - 0x2F];
-    struct {
-        u8 x0;
-        u8 x1;
-        u8 x2;
-        u8 x3;
-        u8 x4;
-        u8 x5;
-        u8 x6;
-        u8 x7;
-        u8 x8;
-        u16 x9;
-        u16 xB;
-        u8 xD;
-        u8 xE;
-        u8 xF;
-        u8 pad_X10[0x12 - 0x10];
-    } x37[64];
-} TmData_80194F30;
-#ifdef MUST_MATCH
-#pragma pack(pop)
-#endif
-
 /// Handles tournament settings menu input (entrant configuration).
 void fn_80194F30(s32* state_ptr, u32 buttons, u32 trigger)
 {
     struct Lbl804799B8_t* state = &lbl_804799B8;
     TmData* tm = (TmData*) state_ptr;
-    TmData_80194F30* tm_alt = (TmData_80194F30*) state_ptr;
+    TmData* tm_alt = (TmData*) state_ptr;
     s32 idx;
 
     if (trigger & PAD_BUTTON_START) {
@@ -2638,7 +2609,7 @@ void fn_801953C8(s32* state_ptr, u32 buttons, u32 trigger)
 void fn_80195AF0(s32* state_ptr, u32 buttons, u32 trigger)
 {
     struct Lbl804799B8_t* menu = &lbl_804799B8;
-    TmData_80194F30* tm_alt;
+    TmData* tm_alt;
     s32 idx;
     u8* x6;
     u8* x3;
@@ -2665,7 +2636,7 @@ void fn_80195AF0(s32* state_ptr, u32 buttons, u32 trigger)
 
     if (trigger & PAD_BUTTON_A) {
         sfxForward();
-        tm_alt = (TmData_80194F30*) state_ptr;
+        tm_alt = (TmData*) state_ptr;
         idx = *(x2 = &menu->x2) + *(x3 = &menu->x3);
         tm_alt->x37[idx].xB = tm_alt->x37[idx].x9;
         switch (*state_ptr) {
@@ -2692,7 +2663,7 @@ void fn_80195AF0(s32* state_ptr, u32 buttons, u32 trigger)
         }
     } else if (trigger & PAD_BUTTON_B) {
         sfxBack();
-        tm_alt = (TmData_80194F30*) state_ptr;
+        tm_alt = (TmData*) state_ptr;
         idx = menu->x2 + menu->x3;
         tm_alt->x37[idx].x9 = tm_alt->x37[idx].xB;
         fn_80190ABC(5);
@@ -2720,7 +2691,7 @@ static inline s32 fn_80195CCC_IsUniqueEntry(TmData* tm, s32 count, s32 slot,
 void fn_80195CCC(s32* arg, u32 buttons, u32 trigger)
 {
     u8* menu = &lbl_804799B8.x0;
-    TmData_80194F30* tm_alt = (TmData_80194F30*) arg;
+    TmData* tm_alt = (TmData*) arg;
     s32 slot;
     s32 selected;
     TmData* tm;

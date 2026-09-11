@@ -51,23 +51,6 @@ typedef struct mnDiagram_804A076C_t {
 } mnDiagram_804A076C_t;
 ASSERT_SIZE(mnDiagram_804A076C_t, 0x78);
 
-/// Archive asset pointers struct (for mnDiagram_Init)
-/// Cast from &mnDiagram_804A0750 to access asset arrays
-typedef struct mnDiagram_Assets {
-    /* 0x00 */ u8 sorted_fighters[0x19];
-    /* 0x19 */ u8 pad_19[3];
-    /* 0x1C */ u8 sorted_names[0x78];
-    /* 0x94 */ void* SubB1[4];
-    /* 0xA4 */ void* NmB[4];
-    /* 0xB4 */ void* FaceB[4];
-    /* 0xC4 */ void* CursorB1[4];
-    /* 0xD4 */ void* ConB1[4];
-    /* 0xE4 */ void* ConB2[4];
-    /* 0xF4 */ void* ConB3[4];
-    /* 0x104 */ void* CursorB3[5];
-} mnDiagram_Assets;
-ASSERT_SIZE(mnDiagram_Assets, 0x118);
-
 /// User data structure for mnDiagram_PopupCleanup callback.
 /// Overlay of Diagram - only accesses text array.
 typedef struct mnDiagram_CleanupData {
@@ -781,8 +764,7 @@ void mnDiagram_SortNamesByKOs(void)
     int max_idx;
     u8* dst_iter;
     int i;
-    mnDiagram_Assets* assets = (mnDiagram_Assets*) &mnDiagram_804A0750;
-    u8* dst = assets->sorted_names;
+    u8* dst = mnDiagram_804A076C.sorted_names;
     u32* tp;
     u8* candidate;
     int n;
@@ -813,8 +795,8 @@ void mnDiagram_SortNamesByKOs(void)
             }
         }
         if (max_idx != i) {
-            u8* p = &assets->sorted_fighters[max_idx];
-            u8 temp = *(p += sizeof(mnDiagram_804A0750_t));
+            u8* p = &mnDiagram_804A076C.sorted_names[max_idx];
+            u8 temp = *p;
             while (max_idx > i) {
                 *p = *(p - 1);
                 p--;
@@ -2639,7 +2621,6 @@ void mnDiagram_DrawFighterHeaders(void* arg0, int arg1, int arg2)
     HSD_JObj* row_jobj;
     int col_idx;
     int col_remaining;
-    mnDiagram_Assets* assets = (mnDiagram_Assets*) &mnDiagram_804A0750;
     f32 x_spacing;
     f32 y_spacing;
     int i;
@@ -2649,7 +2630,7 @@ void mnDiagram_DrawFighterHeaders(void* arg0, int arg1, int arg2)
     // Column headers (fighter icons)
     for (i = 0; i < 7; i++) {
         sorted = mnDiagram_804A0750.sorted_fighters;
-        joint_data = assets->FaceB;
+        joint_data = mnDiagram_804A0804;
         unlocked_count = mnDiagram_CountUnlockedFightersForHeaders();
         if (unlocked_count > i) {
             HSD_JObj* child;
@@ -2690,7 +2671,7 @@ void mnDiagram_DrawFighterHeaders(void* arg0, int arg1, int arg2)
     }
 
     // Row headers (fighter icons)
-    joint_data = assets->FaceB;
+    joint_data = mnDiagram_804A0804;
     for (i = 0; i < 10; i++) {
         sorted = mnDiagram_804A0750.sorted_fighters;
         unlocked_count = mnDiagram_CountUnlockedFightersForHeaders();
@@ -2914,7 +2895,6 @@ void mnDiagram_CreateScreen(u8 arg0)
 /// @param arg1 Initial mode (passed to mnDiagram_CreateScreen)
 void mnDiagram_Init(u8 arg0, u8 arg1)
 {
-    mnDiagram_Assets* assets = (mnDiagram_Assets*) &mnDiagram_804A0750;
     HSD_GObj* gobj;
     HSD_GObjProc* proc;
     HSD_Archive* archive;
@@ -2929,32 +2909,32 @@ void mnDiagram_Init(u8 arg0, u8 arg1)
     if (arg0) {
         archive = mn_804D6BB8;
         lbArchive_LoadSections(
-            archive, &assets->ConB1[0], "MenMainConB1_Top_joint",
-            &assets->ConB1[1], "MenMainConB1_Top_animjoint", &assets->ConB1[2],
-            "MenMainConB1_Top_matanim_joint", &assets->ConB1[3],
-            "MenMainConB1_Top_shapeanim_joint", &assets->CursorB1[0],
-            "MenMainCursorB1_Top_joint", &assets->FaceB[0],
-            "MenMainFaceB_Top_joint", &assets->FaceB[1],
-            "MenMainFaceB_Top_animjoint", &assets->FaceB[2],
-            "MenMainFaceB_Top_matanim_joint", &assets->FaceB[3],
-            "MenMainFaceB_Top_shapeanim_joint", &assets->NmB[0],
-            "MenMainNmB_Top_joint", &assets->NmB[1],
-            "MenMainNmB_Top_animjoint", &assets->NmB[2],
-            "MenMainNmB_Top_matanim_joint", &assets->NmB[3],
-            "MenMainNmB_Top_shapeanim_joint", &assets->SubB1[0],
-            "MenMainSubB1_Top_joint", &assets->SubB1[1],
-            "MenMainSubB1_Top_animjoint", &assets->SubB1[2],
-            "MenMainSubB1_Top_matanim_joint", &assets->SubB1[3],
-            "MenMainSubB1_Top_shapeanim_joint", &assets->ConB2[0],
-            "MenMainConB2_Top_joint", &assets->ConB2[1],
-            "MenMainConB2_Top_animjoint", &assets->ConB2[2],
-            "MenMainConB2_Top_matanim_joint", &assets->ConB2[3],
-            "MenMainConB2_Top_shapeanim_joint", &assets->ConB3[0],
-            "MenMainConB3_Top_joint", &assets->ConB3[1],
-            "MenMainConB3_Top_animjoint", &assets->ConB3[2],
-            "MenMainConB3_Top_matanim_joint", &assets->ConB3[3],
-            "MenMainConB3_Top_shapeanim_joint", &assets->CursorB3[0],
-            "MenMainCursorB3_Top_joint", 0);
+            archive, &mnDiagram_804A0824[0], "MenMainConB1_Top_joint",
+            &mnDiagram_804A0824[1], "MenMainConB1_Top_animjoint",
+            &mnDiagram_804A0824[2], "MenMainConB1_Top_matanim_joint",
+            &mnDiagram_804A0824[3], "MenMainConB1_Top_shapeanim_joint",
+            &mnDiagram_804A0814[0], "MenMainCursorB1_Top_joint",
+            &mnDiagram_804A0804[0], "MenMainFaceB_Top_joint",
+            &mnDiagram_804A0804[1], "MenMainFaceB_Top_animjoint",
+            &mnDiagram_804A0804[2], "MenMainFaceB_Top_matanim_joint",
+            &mnDiagram_804A0804[3], "MenMainFaceB_Top_shapeanim_joint",
+            &mnDiagram_804A07F4[0], "MenMainNmB_Top_joint",
+            &mnDiagram_804A07F4[1], "MenMainNmB_Top_animjoint",
+            &mnDiagram_804A07F4[2], "MenMainNmB_Top_matanim_joint",
+            &mnDiagram_804A07F4[3], "MenMainNmB_Top_shapeanim_joint",
+            &mnDiagram_804A07E4[0], "MenMainSubB1_Top_joint",
+            &mnDiagram_804A07E4[1], "MenMainSubB1_Top_animjoint",
+            &mnDiagram_804A07E4[2], "MenMainSubB1_Top_matanim_joint",
+            &mnDiagram_804A07E4[3], "MenMainSubB1_Top_shapeanim_joint",
+            &mnDiagram_804A0834.x0, "MenMainConB2_Top_joint",
+            &mnDiagram_804A0834.x4, "MenMainConB2_Top_animjoint",
+            &mnDiagram_804A0834.x8, "MenMainConB2_Top_matanim_joint",
+            &mnDiagram_804A0834.xC, "MenMainConB2_Top_shapeanim_joint",
+            &mnDiagram_804A0844.x0, "MenMainConB3_Top_joint",
+            &mnDiagram_804A0844.x4, "MenMainConB3_Top_animjoint",
+            &mnDiagram_804A0844.x8, "MenMainConB3_Top_matanim_joint",
+            &mnDiagram_804A0844.xC, "MenMainConB3_Top_shapeanim_joint",
+            &mnDiagram_804A0854.x0, "MenMainCursorB3_Top_joint", 0);
     }
 
     mnDiagram_SortFightersByKOs();

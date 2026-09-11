@@ -70,10 +70,6 @@ static void sdata2_order(void)
 int ftColl_803C0C40[] = { 141, 142, 143 };
 int ftColl_803C0C4C[] = { 107, 108, 109 };
 
-struct UnkSize320_t {
-    u8 x0[0x320];
-};
-
 /// .bss
 static DmgLogEntry dmg_log0[20];
 struct DmgLogEntry dmg_log1[20];

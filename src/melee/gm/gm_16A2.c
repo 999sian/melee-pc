@@ -14,20 +14,6 @@
 /* 46B488 */ static struct lbl_8046B488_t lbl_8046B488;
 /* 46B668 */ static struct lbl_8046B668_t lbl_8046B668;
 
-struct gm_8016A22C_header {
-    u8 bytes[0x20];
-    /* 0x020 */ s8 x20[0xA2 - 0x20];
-    /* 0x0A2 */ u8 xA2[0x124 - 0xA2];
-};
-
-typedef void (*GmEventPlayerInitCallback)(s32 slot, u8 remaining_count);
-
-struct lbl_8046B488_event_player_init_cb_t {
-    char pad_0[0x1BC];
-    GmEventPlayerInitCallback event_player_init_cb;
-};
-ASSERT_SIZE(struct lbl_8046B488_event_player_init_cb_t, 0x1C0);
-
 struct lbl_8046B488_t* gm_1601_GetUnkData(void)
 {
     return &lbl_8046B488;
@@ -586,27 +572,12 @@ void gm_8016A21C(StartMeleeRules* arg0)
     arg0->x54 = (void*) gm_1601_GetUnkData();
 }
 
-static inline GmEventPlayerInitCallback*
-gm_8016A404_event_player_init_cb(struct lbl_8046B488_t* gp)
-{
-    struct lbl_8046B488_event_player_init_cb_t* state =
-        (struct lbl_8046B488_event_player_init_cb_t*) gp;
-    return &state->event_player_init_cb;
-}
-
-static inline struct gm_8016A22C_header*
-gm_8016A22C_header(struct lbl_8046B488_t* gp)
-{
-    return (struct gm_8016A22C_header*) gp;
-}
-
 void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
                  u8 color, u8 p87, u8 p8b, int x6, int x7, int x9, int xA,
                  int flag2, int flag1, f32 f1, f32 f2)
 {
     int i;
     struct lbl_8046B488_t* gp = &lbl_8046B488;
-    struct gm_8016A22C_header* header;
     u8 x7_tmp;
 
     memzero(gp, offsetof(struct lbl_8046B488_t, x1C0));
@@ -648,24 +619,23 @@ void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
 
     lbl_8046B488.xC = a3;
 
-    header = gm_8016A22C_header(gp);
-    x7_tmp = header->bytes[7];
-    memzero(header->x20, x7_tmp);
-    header->x20[x7_tmp] = -2;
+    x7_tmp = gp->x7;
+    memzero(gp->x20, x7_tmp);
+    gp->x20[x7_tmp] = -2;
 
-    fn_80169900(gp->xD, gp, (s8*) header->xA2, header->x20);
+    fn_80169900(gp->xD, gp, gp->xA2, gp->x20);
 
-    switch (header->bytes[0xB]) {
+    switch (gp->xB) {
     case 0:
         for (i = 0; i < 3; i++) {
-            fn_801695BC(header->bytes[i], p87, p8b, header->xA2, header->x20);
+            fn_801695BC(((u8*) gp)[i], p87, p8b, (u8*) gp->xA2, gp->x20);
         }
         break;
 
     case 1: {
         u8 c = gp->xC;
         for (i = 0; i < 3; i++) {
-            fn_801697FC(header->bytes[i], c, p87, p8b, header->x20);
+            fn_801697FC(((u8*) gp)[i], c, p87, p8b, gp->x20);
         }
         break;
     }
@@ -676,8 +646,7 @@ void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
 
 void gm_8016A404(void* arg0)
 {
-    *gm_8016A404_event_player_init_cb(&lbl_8046B488) =
-        (GmEventPlayerInitCallback) arg0;
+    lbl_8046B488.event_player_init_cb = arg0;
 }
 
 void gm_8016A414(f32 arg8)
@@ -859,11 +828,8 @@ void fn_8016A4C8(void)
                     Player_SetUnk4D(spawn_slot, tmp);
                     Player_SetFlagsAEBit1(spawn_slot, 1);
                 }
-                if (((struct lbl_8046B488_event_player_init_cb_t*) gp)
-                        ->event_player_init_cb != NULL)
-                {
-                    ((struct lbl_8046B488_event_player_init_cb_t*) gp)
-                        ->event_player_init_cb(spawn_slot, lbl_8046B488.x7);
+                if (gp->event_player_init_cb != NULL) {
+                    gp->event_player_init_cb(spawn_slot, lbl_8046B488.x7);
                 }
                 Player_SetStructFunc(spawn_slot, fn_8016A488);
                 Player_80031AD0(spawn_slot);

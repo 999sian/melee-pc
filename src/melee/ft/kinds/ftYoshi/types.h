@@ -105,17 +105,19 @@ struct DISC_STRUCT ftYs_DatAttrs {
 };
 DISC_ASSERT_SIZE(struct ftYs_DatAttrs, 0x120);
 
-struct S_UNK_YOSHI2 {
+struct DISC_STRUCT S_UNK_YOSHI2 {
     s32 x0;
     s32 x4;
     s32 x8_end_index;
-    u8* xC_start_index;
+    DISC_PTR(u8) xC_start_index;
 };
+DISC_ASSERT_SIZE(struct S_UNK_YOSHI2, 0x10);
 
-struct S_UNK_YOSHI1 {
+struct DISC_STRUCT S_UNK_YOSHI1 {
     s32 x0;
-    struct S_UNK_YOSHI2* unk_struct;
+    DISC_PTR(struct S_UNK_YOSHI2) unk_struct;
 };
+DISC_ASSERT_SIZE(struct S_UNK_YOSHI1, 0x8);
 
 union ftYoshi_MotionVars {
     struct ftYoshi_SpecialNVars {

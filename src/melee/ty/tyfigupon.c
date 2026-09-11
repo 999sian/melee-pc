@@ -236,7 +236,9 @@ void _tyFigupon_80314C5C(HSD_GObj* gobj)
             HSD_GObjFree(gobj);
         }
     } else {
-        Toy* tp = HSD_MemAlloc(0x58);
+        /* ponytail: the decomp allocates 0x58 (a prefix of Toy); the full
+         * struct is a few hundred bytes more and keeps every field in bounds. */
+        Toy* tp = HSD_MemAlloc(sizeof(Toy));
         if (tp != NULL) {
             GObj_InitUserData(gobj, 0, Toy_RemoveUserData, tp);
         }

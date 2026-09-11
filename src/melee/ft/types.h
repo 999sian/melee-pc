@@ -375,12 +375,8 @@ struct DISC_STRUCT ftCommonData {
     /* +52C */ DISC_PTR(void) x52C;
     /* +530 */ DISC_PTR(void) x530;
     /* +534 */ DISC_PTR(void) x534;
-    /* +538 */ DISC_PTR(void) x538;
-    /* +53C */ float x53C;
-    /* +540 */ float x540;
-    /* +544 */ DISC_PTR(void) x544;
-    /* +548 */ float x548;
-    /* +54C */ float x54C;
+    /* +538 */ DiscVec3 x538;
+    /* +544 */ DiscVec3 x544;
     /* +550 */ float x550;
     /* +554 */ float x554;
     /* +558 */ float x558;
@@ -641,7 +637,7 @@ struct DISC_STRUCT ftData {
                                                   ///< KirbyHat? see ftPr_Init_8013C360
     /* +4C */ DISC_PTR(FtSFX) x4C_sfx;
     /* +50 */ DISC_PTR(DiscVec2) x50;
-    /* +54 */ int x54;
+    /* +54 */ DISC_PTR(DiscS32) x54; ///< bone indices for part 0x8D
     /* +58 */ DISC_PTR(struct ftData_x58_t) x58;
     /* +5C */ DISC_PTR(HSD_Joint) x5C;
 };
@@ -885,12 +881,14 @@ struct MotionState {
 
     enum_t x4_flags;
 
-    union {
+    /* Tables init `_` numerically (move_id << 24 | flags); keep GameCube
+     * (MSB-first) bit order. Nested structs must be marked too. */
+    union DISC_STRUCT {
         /// @todo Try to match without this being a @c union.
         u32 _;
-        struct {
+        struct DISC_STRUCT {
             u8 move_id : 8;
-            struct {
+            struct DISC_STRUCT {
                 u8 x9_b0 : 1;
                 u8 x9_b1 : 1;
                 u8 x9_b2 : 1;
@@ -936,8 +934,10 @@ struct Fighter_DemoStrings {
 };
 
 /// @todo Rename this and its members; investigate using it elsewhere.
-/* fp+2070 */ union Struct2070 {
-    /* fp+2070 */ struct {
+/// Punned with @c int everywhere (values like 0x240063 where x2073 is the low
+/// byte), so it must keep GameCube byte/bit order.
+/* fp+2070 */ union DISC_STRUCT Struct2070 {
+    /* fp+2070 */ struct DISC_STRUCT {
         /* fp+2070 */ s8 x2070;
         /* fp+2071:0 */ u8 x2071_b0_3 : 4;
         /* fp+2071:4 */ u8 x2071_b4 : 1;
@@ -1121,7 +1121,8 @@ struct Fighter_x59C_t {
 };
 ASSERT_SIZE(struct Fighter_x59C_t, 0x8000);
 
-struct UnkPlBonusBits {
+/// Same byte layout as #Struct2070 and copied to/from it bytewise.
+struct DISC_STRUCT UnkPlBonusBits {
     u8 x0, x1;
     u8 x2_b0 : 1;
     u8 x2_b1 : 1;
@@ -1227,8 +1228,9 @@ struct Fighter {
     /*  fp+588 */ HSD_LObj* x588;
     /*  fp+58C */ u32 x58C;
     /*  fp+590 */ FigaTree* x590;
-    /*  fp+594 */ union {
-        struct {
+    /* Bitfield views of a flags word: keep GameCube (MSB-first) bit order. */
+    /*  fp+594 */ union DISC_STRUCT {
+        struct DISC_STRUCT {
             /* fp+594:0 */ u8 x594_b0 : 1;
             /* fp+594:1 */ u8 x594_b1_loop : 1;
             /* fp+594:2 */ u8 x594_b2 : 1;
@@ -1237,12 +1239,13 @@ struct Fighter {
             /* fp+594:5 */ u8 x594_b5 : 1;
             /* fp+594:6 */ u8 x594_b6 : 1;
             /* fp+594:7 */ u8 x594_b7 : 1;
-            /* fp+596 */ struct {
+            /* fp+595 */ u8 x595;
+            /* fp+596 */ struct DISC_STRUCT {
                 /* fp+596:0 */ u8 x0 : 7;
                 /* fp+596:7 */ u16 x7 : 3;
             } x596_bits;
         };
-        struct {
+        struct DISC_STRUCT {
             u32 x594_pad : 10;
             u32 x594_bits : 13;
             u32 x594_pad2 : 3;

@@ -16,6 +16,7 @@
 #include <melee/ft/ftdevice.h>
 #include <melee/ft/ftlib.h>
 #include <melee/gm/gm_1601.h>
+#include <melee/it/inlines.h>
 #include <melee/it/it_26B1.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lb_00F9.h>
@@ -570,22 +571,19 @@ void grKinokoRoute_802084B4(HSD_GObj* gobj)
 {
     HSD_GObj* gobj2;
     Vec3 sp_vec;
-    struct {
-        char pad[0xDD8];
-        HSD_JObj* jobj;
-    }* gp = gobj->user_data;
+    HSD_JObj* jobj = GET_ITEM(gobj)->xDD4_itemVar.yaku.x4;
 
-    HSD_JObjSetFlagsAll(gp->jobj, JOBJ_HIDDEN);
+    HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
 
     gobj2 = Ground_GetMapGObj(3);
     if (gobj2 != NULL) {
-        void* gp2 = gobj2->user_data;
+        Ground* gp2 = gobj2->user_data;
         if (gp2 != NULL) {
-            ((UnkFlagStruct*) ((u8*) gp2 + 0xC4))->b0 = 1;
+            gp2->u.kinokoroute2.flags_0 = 1;
         }
     }
 
-    lb_8000B1CC(gp->jobj, NULL, &sp_vec);
+    lb_8000B1CC(jobj, NULL, &sp_vec);
     efSync_Spawn(0x442, gobj, &sp_vec);
     Camera_RequestQuake(QuakeKind_Small, NULL);
     Ground_801C5414(0x136, 0xBA);

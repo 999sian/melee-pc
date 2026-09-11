@@ -19,7 +19,7 @@
 #include <melee/mp/mpcoll.h>
 #include <sysdolphin/baselib/random.h>
 
-typedef struct itGShell_Attrs {
+typedef struct DISC_STRUCT itGShell_Attrs {
     float x0;
     float x4;
     float x8;
@@ -35,14 +35,9 @@ typedef struct itGShell_Attrs {
     float x30;
     float x34;
     float x38;
-    Vec x3C;
+    DiscVec3 x3C;
 } itGShell_Attrs;
-
-typedef struct itZGShell_Attrs {
-    char pad0[0x38];
-    float x38;
-    Vec x3C;
-} itZGShell_Attrs;
+DISC_ASSERT_SIZE(itGShell_Attrs, 0x48);
 
 /* 2DFFA0 */ static void it_802DFFA0(Item_GObj* gobj);
 
@@ -75,14 +70,14 @@ ItemStateTable it_803F86C8[] = {
 void it_802DDB38(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itZGShell_Attrs* attrs = DP(itZGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
+    itGShell_Attrs* attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     Vec v;
     HSD_JObj* jobj;
     PAD_STACK(4);
     /// @todo Shared code with #it_8028B8D8.
     if (ip->xDD4_itemVar.zgshell.xDF8 <= 0.0f) {
         jobj = GET_JOBJ(gobj);
-        v = attrs->x3C;
+        DISC_VEC3_GET(v, attrs->x3C);
         v.x *= -ip->facing_dir;
         efAsync_Spawn(gobj, &GET_ITEM(gobj)->xBC0, 2, 1029, jobj, &v);
         ip->xDD4_itemVar.zgshell.xDF8 = attrs->x38;
@@ -287,7 +282,8 @@ bool itZrshell_UnkMotion0_Coll(Item_GObj* gobj)
     jobj = GET_JOBJ(gobj);
     attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
-        Item_UpdateRollingShellRotation(gobj, ip, jobj, &attrs->x20);
+        f32 rotation_rate = attrs->x20;
+        Item_UpdateRollingShellRotation(gobj, ip, jobj, &rotation_rate);
     }
     return false;
 }
@@ -456,12 +452,12 @@ void it_802DE6F0(Item_GObj* gobj)
 static inline void it_802DDB38_inline(Item_GObj* gobj, Vec* v)
 {
     Item* ip = GET_ITEM(gobj);
-    itZGShell_Attrs* attrs = DP(itZGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
+    itGShell_Attrs* attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     HSD_JObj* jobj;
     /// @todo Inlined version of #it_802DDB38.
     if (ip->xDD4_itemVar.zgshell.xDF8 <= 0.0f) {
         jobj = GET_JOBJ(gobj);
-        *v = attrs->x3C;
+        DISC_VEC3_GET(*v, attrs->x3C);
         v->x *= -ip->facing_dir;
         efAsync_Spawn(gobj, &GET_ITEM(gobj)->xBC0, 2, 1029, jobj, v);
         ip->xDD4_itemVar.zgshell.xDF8 = attrs->x38;
@@ -532,7 +528,8 @@ bool itZrshell_UnkMotion6_Coll(Item_GObj* gobj)
     jobj = GET_JOBJ(gobj);
     attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     if (ip->ground_or_air == GA_Ground) {
-        Item_UpdateRollingShellRotation(gobj, ip, jobj, &attrs->x20);
+        f32 rotation_rate = attrs->x20;
+        Item_UpdateRollingShellRotation(gobj, ip, jobj, &rotation_rate);
     }
     if (it_8027770C(gobj)) {
         it_80272980(gobj);

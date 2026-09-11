@@ -197,16 +197,6 @@ static s32 grVe_804D6A38;
 static s32 grVe_804D6A3C;
 static s32 grVe_804D6A40;
 
-typedef struct grVe_Lighting {
-    char pad[0xE0];
-    u8 xE0;
-} grVe_Lighting;
-
-typedef struct grVe_GroundData {
-    char pad[0x2C];
-    grVe_Lighting* x2C;
-} grVe_GroundData;
-
 /// grVenom_8020362C
 
 static inline int* grVe_GetArwingTypes(grVe_Data* data)
@@ -1065,7 +1055,7 @@ check_scale_uniform:
 scale_nonuniform:
     HSD_JObjSetScaleX(jobj, scale);
     HSD_JObjSetScaleY(jobj, scale);
-    HSD_JObjSetScaleZ(jobj, scale * *(f32*) ((u8*) yakumono_param + 0x34));
+    HSD_JObjSetScaleZ(jobj, scale * yakumono_param->x34);
     goto done_scale;
 
 scale_uniform:
@@ -1716,7 +1706,7 @@ bool grVenom_80206BF0(int arg0)
     gp = wgobj->user_data;
     gp->u.venom.xCC = 10;
     gp->u.venom.xC8 = 0;
-    gp->u.venom.xC4 = var_r30;
+    gp->u.starfox.xC4.word = var_r30; // read back as u.starfox.xC4.word/flags
     return 1;
 }
 

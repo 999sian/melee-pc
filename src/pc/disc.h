@@ -42,7 +42,7 @@
 
 #define DISC_STRUCT __attribute__((scalar_storage_order("big-endian")))
 #define DISC_PTR(T) uint32_t
-#define DP(T, slot) ((T*) (uintptr_t) (slot))
+#define DP(T, slot) ((T*) (uintptr_t) (uint32_t) (slot)) /* zero-extend even if the slot is signed */
 
 void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute__((noreturn));
 #define DP_SET(slot, p)                                                        \

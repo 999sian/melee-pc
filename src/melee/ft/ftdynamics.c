@@ -651,17 +651,18 @@ void ftCo_8009E7B4(Fighter* fp, u8 (*arg1)[2])
                 }
             } else {
                 if (fp->x594_b4) {
-                    FigaTree*** dyn;
-                    FigaTree** tree;
+                    /* Disc tables of 32-bit pointers: slot -> FigaTree*[]. */
+                    DiscU32* dyn;
+                    DiscU32* tree;
                     u8 blend_slot = arg1[0][1];
-                    dyn = (void*) (uintptr_t) get_ft_dyn(fp->ft_data)->x10;
+                    dyn = DP(DiscU32, get_ft_dyn(fp->ft_data)->x10);
                     if (dyn == NULL) {
                         for (i = 0; i < fp->dynamics_num; i++) {
                             ftCo_8009CB40(fp, i, 0, NULL);
                         }
                         return;
                     }
-                    tree = dyn[blend_slot];
+                    tree = DP(DiscU32, dyn[blend_slot].v);
                     if (tree == NULL) {
                         for (i = 0; i < fp->dynamics_num; i++) {
                             ftCo_8009CB40(fp, i, 0, NULL);
@@ -670,12 +671,9 @@ void ftCo_8009E7B4(Fighter* fp, u8 (*arg1)[2])
                     }
                     {
                         s32 j;
-                        FigaTree** cursor;
                         j = (var_r3 = 0);
-                        cursor = &tree[j];
                         for (; j < fp->dynamics_num; j++) {
-                            ftCo_8009CB40(fp, j, 1, *cursor);
-                            cursor++;
+                            ftCo_8009CB40(fp, j, 1, DP(FigaTree, tree[j].v));
                         }
                     }
                     return;
