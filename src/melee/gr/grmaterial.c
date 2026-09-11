@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <dolphin/gx/GXAurora.h>
 #include "grmaterial.h"
 
 #include <melee/lb/forward.h>
@@ -424,6 +426,12 @@ static void fn_801C8EF8(HSD_MObj* mobj, u32 rendermode)
     {
         tobj_toon->next = tobj;
         tobj = tobj_toon;
+    }
+    /* MELEE_MOBJ_MARK=1: stage materials do not go through HSD_MObjSetup, so
+     * tag them separately (3 = had a texture, 4 = none) or their draws would
+     * inherit whichever marker was emitted last. */
+    if (getenv("MELEE_MOBJ_MARK") != NULL) {
+        GXInsertDebugMarker(tobj != NULL ? "3" : "4");
     }
     HSD_TObjSetup(tobj);
     HSD_TObjSetupTextureCoordGen(tobj);

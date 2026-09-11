@@ -311,6 +311,26 @@ HSD_TExp* MObjMakeTExp(HSD_MObj* mobj, HSD_TObj* tobj_top, HSD_TExp** list)
         diff = exp_3;
     }
 
+    /* MELEE_TEX_FLAGS=1: report the first few calls (not a modulo, which
+     * silently prints nothing when there are few calls) plus the tobj
+     * lightmap bits, since every texture application above is gated on them. */
+    if (getenv("MELEE_TEX_FLAGS") != NULL) {
+        static unsigned long calls, with_lm, without_lm;
+        HSD_TObj* t;
+        calls++;
+        for (t = tobj_top; t != NULL; t = t->next) {
+            if (tobj_lightmap(t)) {
+                with_lm++;
+            } else {
+                without_lm++;
+            }
+        }
+        if (calls <= 5 || (calls % 500) == 0) {
+            OSReport("maketexp call=%lu rendermode=%08x with_lm=%lu without_lm=%lu\n",
+                     calls, mobj->rendermode, with_lm, without_lm);
+        }
+    }
+
     ext = diff;
 
     for (tobj_4 = tobj_top; tobj_4 != NULL; tobj_4 = tobj_4->next) {
