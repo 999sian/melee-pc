@@ -15,6 +15,10 @@ struct DrawData {
   uint32_t instanceCount;
   GXBindGroups bindGroups;
   uint32_t dstAlpha;
+  // Breadcrumb from the most recent GXInsertDebugMarker. Captured here
+  // because the FIFO is processed on a worker thread, so reading a global at
+  // render time attributes draws to whatever the game thread did last.
+  uint32_t tag;
 };
 
 constexpr uint32_t GXPipelineConfigVersion = 13;

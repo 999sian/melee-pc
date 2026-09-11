@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "command_processor.hpp"
 
 #include "../gfx/depth_peek.hpp"
@@ -208,6 +209,8 @@ u8 line_mode_for_prim(GXPrimitive prim) noexcept {
   }
 }
 } // namespace
+
+static uint32_t sMarkerTag = 0;
 
 static void handle_draw(u8 cmd, ByteReader& reader) noexcept;
 static void handle_aurora(ByteReader& reader) noexcept;
@@ -466,6 +469,7 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
       .instanceCount = instanceCount,
       .bindGroups = cache.bindGroups,
       .dstAlpha = state.dstAlpha,
+      .tag = sMarkerTag,
   });
 }
 
@@ -752,6 +756,9 @@ void handle_aurora(ByteReader& reader) noexcept {
     pop_debug_group();
   } else if (subCmd == GX_AURORA_DEBUG_MARKER_INSERT) {
     auto label = reader.read_string();
+    // A numeric marker is kept as a breadcrumb for the following draws. This
+    // runs on the same worker that records draws, so ordering is exact.
+    sMarkerTag = static_cast<uint32_t>(std::strtoul(label.c_str(), nullptr, 0));
     gfx::insert_debug_marker(std::move(label));
   }
 

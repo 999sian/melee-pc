@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <dolphin/gx/GXAurora.h>
 #include "mobj.h"
 
 #include <string.h>
@@ -419,6 +421,13 @@ void HSD_MObjSetup(HSD_MObj* mobj, u32 rendermode)
     {
         tobj_toon->next = tobj;
         tobj = tobj_toon;
+    }
+    /* MELEE_MOBJ_MARK=1: tag the following draws with whether this
+     * material had a texture, so aurora can report untextured draws that
+     * came from a material that DID have one. The marker travels in the
+     * GX FIFO, so it stays ordered across the command-processor thread. */
+    if (getenv("MELEE_MOBJ_MARK") != NULL) {
+        GXInsertDebugMarker(tobj != NULL ? "1" : "2");
     }
     HSD_TObjSetup(tobj);
     HSD_TObjSetupTextureCoordGen(tobj);

@@ -64,7 +64,7 @@ void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
       if (quad || (n % 2000) == 0) {
         const uint32_t stride = data.vtxCount != 0 ? data.vertRange.size / data.vtxCount : 0;
         fmt::print(stderr, "untex draw #{}{}: idx={} vtx={} stride={} tag={}\n", n, quad ? " QUAD" : "",
-                   data.indexCount, data.vtxCount, stride, aurora_draw_tag);
+                   data.indexCount, data.vtxCount, stride, data.tag);
       }
       ++n;
     }
