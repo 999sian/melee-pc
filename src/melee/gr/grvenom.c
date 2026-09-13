@@ -1109,6 +1109,12 @@ void grVenom_802053B0(Ground_GObj* gobj)
     PAD_STACK(0x10);
 
     gp = gobj->user_data;
+    /* The far_type path below rotates this joint, but the decomp lost the
+     * assignment and read an uninitialised local. On PowerPC the register
+     * happened to hold something survivable; here it is garbage and
+     * HSD_JObjSetRotationY's assert fires. grVenom_80205F30 does the same
+     * rotation with gobj->hsd_obj. */
+    jobj = gobj->hsd_obj;
     arwing_types = grVe_803E5348.arwing.arwing_type;
 
     if (grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8] == gobj) {
