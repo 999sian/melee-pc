@@ -63,6 +63,12 @@ static HSD_GObj* it_802C248C(Item* ip, HSD_JObj* jobj)
     int i;
     PAD_STACK(4);
 
+    /* The GObj_Create failure path below walks prev_link to free the links
+     * already made, but the decomp lost the assignment and on i == 0 it
+     * freed through an uninitialised local. it_802B75FC (itsamusgrapple.c),
+     * it_802BAF2C (itseakchain.c) and it_802A2568 (itlinkhookshot.c) are the
+     * same chain builder and all three clear it before the loop. */
+    prev_link = NULL;
     for (i = 0; i < attrs->x0_count; i++) {
         link_gobj = GObj_Create(7, 0xA, 0);
 

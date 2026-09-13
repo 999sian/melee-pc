@@ -226,7 +226,11 @@ HSD_GObj* it_802A83E0(f32 facing_dir, Fighter_GObj* arg1, Vec3* arg2,
 
 static inline HSD_JObj* itLinkArrow_802A850C_inline(HSD_Joint* joint)
 {
-    HSD_JObj* jobj;
+    /* The guard below admits a NULL joint but the decomp lost the value
+     * returned on that path. On PowerPC the argument arrived in r3 and the
+     * result came back in r3, so skipping the call left r3 == joint == NULL;
+     * here it was an uninitialised local stored into linkarrow.xB4[]. */
+    HSD_JObj* jobj = NULL;
     if (joint != NULL) {
         jobj = HSD_JObjLoadJoint(joint);
     }

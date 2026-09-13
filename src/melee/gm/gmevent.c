@@ -1788,19 +1788,18 @@ void gm_801BD46C(HSD_GObj* gobj)
     VsSceneController* temp_r3;
     s32 var_r0;
     struct EventData* temp_r31;
-    s32 var_r30;
     int i;
     int count;
     HSD_GObj* p;
     PAD_STACK(0x38);
 
     count = 0;
+    /* A slot with no second entity (character without a sub-fighter) is not a
+     * defeated one: fold the NULL test into the count condition, as the
+     * sibling count loops in gm_801BD30C and gm_801BD658 do. */
     for (i = 1; i < 3; i++) {
         p = Player_GetEntityAtIndex(i, 1);
-        if (p != NULL) {
-            var_r30 = ftLib_8008731C(p);
-        }
-        if (var_r30 != 0) {
+        if (p != NULL && ftLib_8008731C(p) != 0) {
             count++;
         }
     }

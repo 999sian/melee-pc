@@ -559,7 +559,11 @@ void it_802BC080(ItemLink* link, Vec3* target, Item* ip)
     itSeakChain_Attrs* attrs = DP(itSeakChain_Attrs, ip->xC4_article_data->x4_specialAttributes);
     s32 last_idx = (s32) (0.5f * attrs->x0 - 1.0f);
     Fighter* fp;
-    s32 env_flags;
+    /* When only the tail link is anchored, iter is already NULL and the link
+     * loop below never runs, yet its result is latched into seakchain.x10.
+     * 0 is the loop's own no-collision value and the spawn-time value of
+     * x10 (it_802BAF2C). */
+    s32 env_flags = 0;
     s32 use_arg = 0;
     s32 counter;
     s32 coll_arg;

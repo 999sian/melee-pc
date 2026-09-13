@@ -453,7 +453,11 @@ void mnItemSw_8023453C(HSD_GObj* gobj, u8 arg1, u8 arg2)
 
     if (arg1_ != 0) {
         f32 y_spacing;
-        f32 anim_val;
+        /* Coming from a frequency row (0x1F/0x20) there is no previous item
+         * highlight frame to carry over; x30[3] is the highlight loop's start
+         * frame, the same value mnItemSw_80235020 requests when it first
+         * shows the hovered item's frame jobj (jobj index 8). */
+        f32 anim_val = mnItemSw_AnimTable.x30[3];
         u8 old_cursor = data->cursor;
 
         if (old_cursor == 0x1F || old_cursor == 0x20) {

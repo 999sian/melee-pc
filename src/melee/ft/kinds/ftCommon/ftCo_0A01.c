@@ -5645,8 +5645,11 @@ void ftCo_800AC5A0(Fighter* fp)
 {
     struct CpuFighter* data;
     bool var_r0;
-    s8 stick_x;
-    s8 stick_y;
+    /* Neutral stick: when knockback magnitude is ~0 there is no DI
+     * direction, which is what the else-branch below does via
+     * ftCo_CpuSetNeutralStick (CpuCmd_SetLstick{X,Y}, 0). */
+    s8 stick_x = 0;
+    s8 stick_y = 0;
 
     data = &fp->cpu;
     if (!fp->x221A_b3) {
@@ -5681,8 +5684,9 @@ void ftCo_800AC5A0(Fighter* fp)
                 stick_x = 127.0F * -x;
             }
         }
-        /// @bug These can be called with stick_x and stick_y being
-        /// uninitialized.
+        /// @bug Retail reads stick_x/stick_y uninitialised here; this
+        /// port initialises them to neutral (see the declaration).
+        /* Note: the X/Y arguments are swapped here in retail; kept as-is. */
         ftCo_800B46B8(fp, CpuCmd_SetLstickX, stick_y);
         ftCo_800B46B8(fp, CpuCmd_SetLstickY, stick_x);
     } else {
