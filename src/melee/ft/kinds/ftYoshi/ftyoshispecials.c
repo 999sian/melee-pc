@@ -817,8 +817,8 @@ void ftYs_SpecialAirSEnd_IASA(Fighter_GObj* gobj) {}
 
 void ftYs_SpecialAirSStart_1_IASA(Fighter_GObj* gobj)
 {
-    /* fp+2370 is mv.ys.specials.x30 on GameCube. */
-    GET_FIGHTER(gobj)->mv.ys.specials.x30 = 0;
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->mv.ys.specials.x30 = 0;
 }
 
 void ftYs_SpecialAirSLoop_2_IASA(Fighter_GObj* gobj)

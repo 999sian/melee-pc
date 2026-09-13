@@ -13,6 +13,10 @@
 #include <sysdolphin/baselib/objalloc.h>
 
 /* PlCo.dat tables: all disc data. */
+/**
+ * @todo #Fighter_804D64FC..#Fighter_804D6550 are initialized to 0 in
+ *       #Fighter_LoadCommonData, probably all pointers
+ */
 extern struct DISC_STRUCT Fighter_804D64FC_t {
     DISC_PTR(DISC_PTR(u8)) cmdscripts; ///< +00 per-character command script arrays
     DISC_PTR(DISC_PTR(void)) x4;       ///< +04 ground attack tables (per character)

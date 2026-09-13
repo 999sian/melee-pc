@@ -65,7 +65,6 @@ struct flag32 {
 };
 
 struct DynamicBoneTable {
-    /// @at{0} @sz{190}
     HSD_JObj* bones[100];
 };
 ASSERT_SIZE(struct DynamicBoneTable, 0x190);
@@ -128,7 +127,6 @@ struct DISC_STRUCT ItemAttr {
     f32 x5c;       // 0x5c
     f32 x60_scale; // 0x60, does not affect hitboxes
 
-    /// @at{64} @sz{4}
     /// @brief GFX to play on destroy.
     enum_t destroy_gfx;
 
@@ -137,7 +135,6 @@ struct DISC_STRUCT ItemAttr {
     s32 x70; // 0x70
     s32 x74; // 0x74
 
-    /// @at{78} @sz{4}
     /// @brief SFX that plays when this item is destroyed
     enum_t destroy_sfx;
 
@@ -146,7 +143,6 @@ struct DISC_STRUCT ItemAttr {
 };
 DISC_ASSERT_SIZE(struct ItemAttr, 0x84);
 
-/// @sz{14}
 struct DISC_STRUCT ItemCollisionDesc {
     s32 bone_id;
     DiscVec3 offset;
@@ -154,36 +150,26 @@ struct DISC_STRUCT ItemCollisionDesc {
 };
 DISC_ASSERT_SIZE(struct ItemCollisionDesc, 0x14);
 
-/// @sz{10}
 struct DISC_STRUCT ItemDynamics {
     /// @todo Combine with ftDynamics? Can see in it_8027163C that this struct
     /// does not work perfectly
-    /// @at{0} @sz{4}
     int count;
 
-    /// @at{4} @sz{4}
     DISC_PTR(BoneDynamicsDesc) dyn_descs;
 
-    /// @at{8} @sz{4}
     s32 collision_count;
 
-    /// @at{C} @sz{4}
     DISC_PTR(struct ItemCollisionDesc) collision_descs;
 };
 DISC_ASSERT_SIZE(struct ItemDynamics, 0x10);
 
-/// @sz{10}
 struct DISC_STRUCT ItemStateDesc {
-    /// @at{0} @sz{4}
     DISC_PTR(HSD_AnimJoint) x0_anim_joint;
 
-    /// @at{0} @sz{4}
     DISC_PTR(HSD_MatAnimJoint) x4_matanim_joint;
 
-    /// @at{0} @sz{4}
     DISC_PTR(HSD_ShapeAnimJoint) x8_parameters;
 
-    /// @at{0} @sz{4}
     DISC_PTR(void) xC_script;
 };
 DISC_ASSERT_SIZE(struct ItemStateDesc, 0x10);
@@ -193,18 +179,13 @@ struct DISC_STRUCT ItemStateArray {
 };
 DISC_ASSERT_SIZE(struct ItemStateArray, 0x80);
 
-/// @sz{10}
 struct DISC_STRUCT ItemModelDesc {
-    /// @at{0} @sz{4}
     DISC_PTR(HSD_Joint) x0_joint;
 
-    /// @at{4} @sz{4}
     u32 x4_bone_count;
 
-    /// @at{8} @sz{4}
     s32 x8_bone_attach_id;
 
-    /// @at{C} @sz{4}
     u8 xC_bit_field;
 };
 DISC_ASSERT_SIZE(struct ItemModelDesc, 0x10);
@@ -254,64 +235,47 @@ struct ItemModStruct {
 struct Item {
     void* x0;
 
-    /// @at{4} @sz{4}
     HSD_GObj* entity;
 
     s32 x8;
 
-    /// @at{C} @sz{4}
     enum_t spawn_kind;
 
-    /// @at{10} @sz{4}
     ItemKind kind;
 
-    /// @at{14} @sz{4}
     enum_t hold_kind;
 
     s32 x18;
     s32 x1C;
 
-    /// @at{20} @sz1
     u8 x20_team_id;
 
     u8 x21;
     u8 x22;
     u8 x23;
 
-    /// @at{24} @sz{4}
     enum_t msid;
 
-    /// @at{28} @sz{4}
     enum_t anim_id;
 
-    /// @at{2C} @sz{4}
     f32 facing_dir;
 
-    /// @at{30} @sz{4}
     f32 init_facing_dir;
 
-    /// @at{34} @sz{4}
     f32 spin_spd;
 
-    /// @at{38} @sz{4}
     f32 scl;
 
-    /// @at{3C} @sz{4}
     f32 x3C;
 
-    /// @at{40} @sz{C}
     Vec3 x40_vel;
 
-    /// @at{4C} @sz{C}
     Vec3 pos;
 
-    /// @at{58} @sz{C}
     Vec3 x58_vec_unk;
 
-    /// @at{64} @sz{C}
     Vec3 x64_vec_unk2;
 
-    /// @at{70} @sz{C}
     Vec3 x70_nudge;
 
     Vec3 x7C;
@@ -331,7 +295,6 @@ struct Item {
     /*  ip+378 */ CollData x378_itemColl;
     s32 ecb_lock;
 
-    /// @at{518} @sz{4}
     /// @brief Item's current owner
     HSD_GObj* owner;
 
@@ -448,17 +411,14 @@ struct Item {
 
     HSD_GObj* xCF4_fighterGObjUnk;
 
-    /// @at{CF8} @sz{4}
     /// @brief The entity that was detected by this item's inert hitbox.
     HSD_GObj* toucher;
 
     HSD_GObj* xCFC;
 
-    /// @at{D00} @sz{4}
     /// @brief The entity that got grabbed by this item.
     HSD_GObj* grab_victim;
 
-    /// @at{D04} @sz{4}
     /// @brief The entity that collided with this item's hitbox?
     HSD_GObj* atk_victim;
 
@@ -467,29 +427,22 @@ struct Item {
     u8 xD0A;
     u8 xD0B;
 
-    /// @at{D0C} @sz{4}
     enum_t xD0C;
 
     f32 xD10;
 
-    /// @at{D14} @sz{4}
     HSD_GObjPredicate animated;
 
-    /// @at{D18} @sz{4}
     HSD_GObjEvent physics_updated;
 
-    /// @at{D1C} @sz{4}
     HSD_GObjPredicate collided;
 
-    /// @at{D20} @sz{4}
     /// @todo What does this mean?
     HSD_GObjEvent on_accessory;
 
-    /// @at{D24} @sz{4}
     /// @brief Runs when an entity is detected by this item's inert hibox.
     HSD_GObjPredicate touched;
 
-    /// @at{D28} @sz{4}
     /// @brief Runs after applying hitlag in damage.
     /// @todo What function is @c 8026a62c?
     HSD_GObjEvent entered_hitlag;
@@ -497,16 +450,14 @@ struct Item {
     // 0xd2c, runs after exiting hitlag in hitlag, update proc 8026a200
     HSD_GObjEvent exited_hitlag;
 
-    /// @at{D28} @sz{4}
     /// @brief Runs when the item is jumped on.
     /// @todo What function is @c 80269bac?
     HSD_GObjPredicate jumped_on;
 
-    /// @at{D34} @sz{4}
     /// @brief When grabbing a fighter, run this function on self.
     HSD_GObjEvent grab_dealt;
 
-    /** @at{D38} @sz{4}
+    /**
      * @brief When grabbing a fighter, run this function on them.
      *
      * @p gobj0 - The victim of the grab. \n
@@ -526,13 +477,10 @@ struct Item {
     u32 xD58;
     u32 xD5C;
 
-    /// @at{D60} @sz{4}
     enum_t destroy_type;
 
-    /// @at{D64} @sz{4}
     enum_t sfx_unk1;
 
-    /// @at{D68} @sz{4}
     enum_t sfx_unk2;
 
     s32 xD6C;
@@ -540,7 +488,6 @@ struct Item {
     s32 xD74;
     s32 xD78;
 
-    /// @at{D7C} @sz{4}
     /// @brief SFX that plays when this item is destroyed
     enum_t destroy_sfx;
 
@@ -731,7 +678,11 @@ struct SpawnItem {
     /*  +0 */ HSD_GObj* x0_parent_gobj;
     /*  +4 */ HSD_GObj* x4_parent_gobj2;
     /*  +8 */ ItemKind kind;
+
+    /// @brief Defines the behavior of the item, such as thrown and pickup.
+    /// @todo 0 = capsule.
     /*  +C */ enum_t hold_kind;
+
     /* +10 */ s32 x10;
     /* +14 */ Vec3 pos;
     /* +20 */ Vec3 prev_pos;
@@ -792,7 +743,7 @@ struct DISC_STRUCT ItemCommonData {
     f32 xD4;
     u32 xD8;
     s32 xDC;
-    f32 unk_degrees; ///< @at{E0}
+    f32 unk_degrees;
     u8 filler_1a[0xE8 - 0xE4];
     f32 xE8;
     u8 filler_1a_2[0xF0 - 0xEC];

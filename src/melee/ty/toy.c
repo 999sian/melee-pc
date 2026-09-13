@@ -1856,12 +1856,12 @@ void Toy_80306954(HSD_GObj* gobj, int unused)
     ToyCameraControl* state;
 
     state = Toy_sbss_804D6ED4;
-    if (HSD_CObjSetCurrent((HSD_CObj*) gobj->hsd_obj)) {
+    if (HSD_CObjSetCurrent(GET_COBJ(gobj)) != 0) {
         if (_Toy_sbss_804D6E50 == 0) {
             GXColor color = _Toy_803FDDE4.values[state->x10].color;
             if (_Toy_803FDDE4.values[state->x10].flag) {
                 HSD_SetEraseColor(color.r, color.g, color.b, color.a);
-                HSD_CObjEraseScreen((HSD_CObj*) gobj->hsd_obj, 1, 0, 0);
+                HSD_CObjEraseScreen(GET_COBJ(gobj), 1, 0, 0);
             }
         }
         HSD_GObj_80390ED0(gobj, 7);
@@ -2319,6 +2319,7 @@ void Toy_80307470(s32 arg0)
                           HSD_ArchiveGetPublicAddress(
                               tg->archive, names[arg0].shapeanim_joint),
                           matanim[0], anim[0]);
+
         HSD_JObjReqAnimAll(loaded_jobj, 0.0f);
         HSD_GObjObject_80390A70(tg->x0, (kind = HSD_GObj_JObjKind),
                                 loaded_jobj);
@@ -2472,13 +2473,13 @@ void _Toy_803078E4(void)
             _Toy_803FE108[4], &syms[5], _Toy_803FE108[5], &syms[6],
             _Toy_803FE108[6], NULL);
 
-        data->xC = GObj_Create(5, 6, 0);
-        GObj_SetupGXLink(data->xC, HSD_SObjLib_803A49E0, 0x38, 0);
+        data->gobj2 = GObj_Create(5, 6, 0);
+        GObj_SetupGXLink(data->gobj2, HSD_SObjLib_803A49E0, 0x38, 0);
 
         i = 0;
 
         do {
-            sobj = HSD_SObjLib_803A477C(data->xC, syms[i], 0, 0, 0x80, 0);
+            sobj = HSD_SObjLib_803A477C(data->gobj2, syms[i], 0, 0, 0x80, 0);
             if (sobj != NULL) {
                 if (lbLang_IsSavedLanguageJP() != 0) {
                     sobj->x10 = (f32) pos_jp.a[i].xy[0];
@@ -3080,9 +3081,7 @@ void _Toy_80308F04(HSD_CObj* cobj)
     right = HSD_CObjGetRight(cobj);
     left = HSD_CObjGetLeft(cobj);
 
-    if (jobj_ptr == NULL) {
-        __assert("jobj.h", 0x378, "jobj");
-    }
+    HSD_JObjGetScaleY(jobj_ptr);
 
     if (state->x61 == 1) {
         if ((f32) state->x5C < 10.0F) {
@@ -3126,13 +3125,13 @@ void _Toy_80308F04(HSD_CObj* cobj)
             HSD_CObjSetLeft(cobj, -0.044307F);
 
             if (_Toy_sbss_804D6E58 != 0) {
-                sobj = Toy_sbss_804D6ED8->xC->hsd_obj;
+                sobj = Toy_sbss_804D6ED8->gobj2->hsd_obj;
                 while (sobj != NULL) {
                     sobj->x40 = 9;
                     sobj = sobj->next;
                 }
             } else {
-                sobj = Toy_sbss_804D6ED8->xC->hsd_obj;
+                sobj = Toy_sbss_804D6ED8->gobj2->hsd_obj;
                 while (sobj != NULL) {
                     sobj->x40 = 8;
                     sobj = sobj->next;
@@ -3512,13 +3511,13 @@ void _Toy_80309404(HSD_GObj* gobj)
 
             _Toy_sbss_804D6E58 ^= 1;
             if (_Toy_sbss_804D6E58 != 0) {
-                sobj = Toy_sbss_804D6ED8->xC->hsd_obj;
+                sobj = Toy_sbss_804D6ED8->gobj2->hsd_obj;
                 while (sobj != NULL) {
                     sobj->x40 = 9;
                     sobj = sobj->next;
                 }
             } else {
-                sobj = Toy_sbss_804D6ED8->xC->hsd_obj;
+                sobj = Toy_sbss_804D6ED8->gobj2->hsd_obj;
                 while (sobj != NULL) {
                     sobj->x40 = 8;
                     sobj = sobj->next;
@@ -3540,7 +3539,7 @@ void _Toy_80309404(HSD_GObj* gobj)
             ((HSD_GObj*) state->x0)->gxlink_prios = 0x5048000000000000ULL;
             ((HSD_GObj*) state->x4)->gxlink_prios = 0x8000000000000000ULL;
             ((HSD_GObj*) state->xC)->gxlink_prios = 0x4000000000000000ULL;
-            sobj = Toy_sbss_804D6ED8->xC->hsd_obj;
+            sobj = Toy_sbss_804D6ED8->gobj2->hsd_obj;
             while (sobj != NULL) {
                 sobj->x40 = 9;
                 sobj = sobj->next;
@@ -4874,7 +4873,7 @@ void _Toy_8030E110(HSD_GObj* arg0)
                 _Toy_sbss_804D6E84 = HSD_CObjGetBottom(cobj);
                 _Toy_sbss_804D6E88 = HSD_CObjGetRight(cobj);
                 _Toy_sbss_804D6E8C = HSD_CObjGetLeft(cobj);
-                sobj = Toy_sbss_804D6ED8->xC->hsd_obj;
+                sobj = Toy_sbss_804D6ED8->gobj2->hsd_obj;
                 while (sobj != NULL) {
                     sobj->x40 = 9;
                     sobj = sobj->next;
@@ -5794,7 +5793,7 @@ void Toy_80310324(void)
     _Toy_803078E4();
 
     {
-        HSD_SObj* sobj = Toy_sbss_804D6ED8->xC->hsd_obj;
+        HSD_SObj* sobj = Toy_sbss_804D6ED8->gobj2->hsd_obj;
         while (sobj != NULL) {
             sobj->x40 = 9;
             sobj = sobj->next;
@@ -5942,9 +5941,9 @@ void Toy_80310660(s32 arg0)
         if (ty30->x58 != NULL) {
             lbArchive_80016EFC(ty30->x58);
             ty30->x58 = NULL;
-            if (ty30->xC != NULL) {
-                HSD_GObjFree(ty30->xC);
-                ty30->xC = NULL;
+            if (ty30->gobj2 != NULL) {
+                HSD_GObjFree(ty30->gobj2);
+                ty30->gobj2 = NULL;
             }
         }
 
@@ -5978,9 +5977,9 @@ void Toy_80310660(s32 arg0)
             HSD_FogSet(NULL);
         }
 
-        if (ty30->xC != NULL) {
-            HSD_GObjFree(ty30->xC);
-            ty30->xC = NULL;
+        if (ty30->gobj2 != NULL) {
+            HSD_GObjFree(ty30->gobj2);
+            ty30->gobj2 = NULL;
         }
 
         if (ty31[0] != NULL) {

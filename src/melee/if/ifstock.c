@@ -544,7 +544,7 @@ HSD_GObj* ifStock_802F96D0(int a, int b, float x, float y)
 }
 
 static inline struct lbl_8046B6A0_FighterMatchInfoFlags*
-ifStock_802F98E8_get_match_info(VsSceneController* data, int player)
+ifStock_802F98E8_get_match_info(VsSceneState* data, int player)
 {
     return &data->fighters[player].flags;
 }
@@ -567,7 +567,7 @@ void ifStock_802F98E8(u8 player, u8 b)
     HSD_JObj* jobj;
     int* stocks;
     int i;
-    VsSceneController* ae44;
+    VsSceneState* scene_state;
     HSD_JObj* icon_jobj;
     GXColor c2;
     GXColor c1;
@@ -706,10 +706,10 @@ void ifStock_802F98E8(u8 player, u8 b)
                     break;
                 }
                 HSD_JObjAnimAll(jobj);
-                ae44 = gmVs_GetController_1();
+                scene_state = gmVs_GetSceneState();
                 {
                     struct lbl_8046B6A0_FighterMatchInfoFlags* match_info =
-                        ifStock_802F98E8_get_match_info(ae44, player);
+                        ifStock_802F98E8_get_match_info(scene_state, player);
                     if (match_info->x4_b1) {
                         GXColor* color;
                         c1 = ifStock_802F98E8_color1;

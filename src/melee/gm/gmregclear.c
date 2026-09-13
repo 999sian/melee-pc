@@ -171,9 +171,9 @@ int fn_8017F008(void)
 s32 fn_8017F09C(void)
 {
     struct lbl_80472D28_t* data = &lbl_80472D28;
-    VsSceneController* p = gmVs_GetController_0();
+    VsSceneController* p = gmVs_GetSceneController();
     if (p->start.x4_6) {
-        VsSceneController* p2 = gmVs_GetController_0();
+        VsSceneController* p2 = gmVs_GetSceneController();
         int flag;
         if (data->x118 != 0 || (data->x11A != 0 && data->x11B == 0) ||
             p2->start.timer_counts_up)
@@ -183,7 +183,7 @@ s32 fn_8017F09C(void)
             flag = 1;
         }
         if (flag != 0) {
-            s32 product = p->timer_seconds * data->x108;
+            s32 product = p->state.timer_seconds * data->x108;
             s32 ret = product;
             if (product < 0) {
                 ret = 0;
@@ -206,7 +206,7 @@ s32 fn_8017F14C(void* arg0)
 {
     fn_8017F14C_arg* p = arg0;
     struct lbl_80472D28_t* data = &lbl_80472D28;
-    if (gmVs_GetController_0()->start.x4_7) {
+    if (gmVs_GetSceneController()->start.x4_7) {
         s32 val = p->x98;
         s32 ret = val;
         if (val > 9999) {
@@ -392,7 +392,7 @@ void fn_8017F608(void* arg0)
             struct lbl_80472D28_t* state = &lbl_80472D28;
             p->x74->pos_z = -10.0f;
             p->x74->default_alignment = 2;
-            gm = gmVs_GetController_0();
+            gm = gmVs_GetSceneController();
             if (state->x118 != 0 || (state->x11A != 0 && state->x11B == 0) ||
                 gm->start.timer_counts_up)
             {
@@ -922,8 +922,7 @@ inline u8 fn_80180630_GetX118(const struct lbl_80472D28_t* state)
     return state->x118;
 }
 
-void fn_80180630(int arg0, int arg1, int arg2, bool arg3,
-                 lbl_8046B6A0_24C_t* arg4)
+void fn_80180630(int arg0, int arg1, int arg2, bool arg3, MatchEnd* arg4)
 {
     s32 sp64;
     s32 sp60;
@@ -946,7 +945,7 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3,
     u8 var_r0;
 
     special_score = 0;
-    coins = arg4->x58[0].xE;
+    coins = arg4->player_standings[0].xE;
     state = (data.state = &lbl_80472D28);
     memzero(state, sizeof(*state));
     state->xD4 = -1;
@@ -975,9 +974,9 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3,
         break;
     }
     case 3:
-        temp = gmVs_GetController_0();
+        temp = gmVs_GetSceneController();
         state->x118 = 1;
-        if (temp->match_result == OUTCOME_UNK_1P_BONUS_STAGE_END) {
+        if (temp->state.match_result == OUTCOME_UNK_1P_BONUS_STAGE_END) {
             grPushOn_80219204(Ground_801C1DD4(), &special_score_value,
                               &coin_count);
             special_score = special_score_value;
@@ -992,7 +991,7 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3,
     }
 
     {
-        struct lbl_8046B6A0_24C_t* tmp = gm_8016B774();
+        MatchEnd* tmp = gm_8016B774();
         fn_8016F344(tmp);
     }
 
@@ -1081,7 +1080,7 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3,
         }
     }
 
-    arg4->x58[0].xE = coins;
+    arg4->player_standings[0].xE = coins;
     fn_8017F2A4(&state->x84, 264.0f, 211.0f);
     PAD_STACK(0x18);
 }

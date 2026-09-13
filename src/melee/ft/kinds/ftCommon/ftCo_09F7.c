@@ -207,7 +207,7 @@ block_70:
     switch (gfx_id) {
     case 0x3E8: {
         HSD_JObj* joint = fp->parts[part].joint;
-        f32 x564 = p_ftCommonData->x564;
+        f32 x564 = p_ftCommonData->fall_common.x564;
         efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 5, gfx_id, joint, &sp84,
                       &x564);
         return;

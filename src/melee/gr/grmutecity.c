@@ -1812,7 +1812,7 @@ DynamicModelDesc* grMuteCity_801F28A8(void)
     HSD_ASSERT(2135, archive);
     dat = archive->unk4;
     if (dat != NULL) {
-        return (DynamicModelDesc*) (DP(char, dat->unk8) + 0x7B8);
+        return (DynamicModelDesc*) MAP_GOBJ_DESC(dat, 38);
     }
     return NULL;
 }

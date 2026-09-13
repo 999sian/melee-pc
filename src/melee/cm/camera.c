@@ -213,8 +213,7 @@ void Camera_Init(int n_subjects)
     game_camera.farz = 16384.0f;
     game_camera.mode = CAMERA_STANDARD;
     memzero(game_camera.quake_frames_left,
-            offsetof(struct Camera, x2B0) -
-                offsetof(struct Camera, quake_frames_left));
+            offsetof(Camera, x2B0) - offsetof(Camera, quake_frames_left));
     game_camera.quake_scale = 1.0f;
     game_camera.x2BC = 1.0f;
     game_camera.x2C0 = -1.0f;

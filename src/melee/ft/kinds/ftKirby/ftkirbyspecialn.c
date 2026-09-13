@@ -98,7 +98,6 @@ void ftKb_SpecialN_800F5954(Fighter_GObj* gobj)
 
 bool ftKb_SpecialN_800F597C(Fighter_GObj* gobj)
 {
-    /* fp+840 is coll_data.floor.flags on GameCube. */
     return (GET_FIGHTER(gobj)->coll_data.floor.flags & LINE_FLAG_PLATFORM) !=
            0;
 }

@@ -44,7 +44,7 @@ typedef struct DISC_STRUCT ftMario_DatAttrs {
     } specialhi;
 
     struct DISC_STRUCT ftMario_SpecialLw_DatAttrs {
-        float vel_y;
+        float vel_y; ///< Vertical momentum from initial grounded B-tap
         float momentum_x;
         float air_momentum_x;
         float momentum_x_mul;

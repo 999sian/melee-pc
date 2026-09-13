@@ -45,7 +45,10 @@
 /* 306EEC */ HSD_LObj* Toy_LoadLObjList(DiscU32* list /* LightList*[] on disc */, s32*);
 /* 307470 */ void Toy_80307470(s32);
 /* 307E84 */ void Toy_80307E84(HSD_GObj* gobj);
+
+/// @todo :: fill out the struct that this uses/returns
 /* 30813C */ char* Toy_8030813C(int trophy_id);
+
 /* 308250 */ void Toy_80308250(ToyListEntry* entry, s16 arg1, s32 arg2);
 /* 3082F8 */ s32 Toy_803082F8(s16 idx);
 /* 308328 */ s32 Toy_80308328(s32 idx);

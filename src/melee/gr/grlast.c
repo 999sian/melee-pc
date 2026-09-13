@@ -90,9 +90,14 @@ Vec3 const grLast_803B8480 = { 1.0f, 1.0f, 1.0f };
 Vec3 const grLast_803B848C = { 0.0f, 1.0f, 0.0f };
 Vec3 const grLast_803B8498 = { 0.0f, 0.0f, 1.0f };
 
-/// @todo yakumono struct. Read in place out of GrNLa.dat: each entry is a
-/// big-endian 32-bit disc pointer slot that grMaterial_801C9604 relocates.
-static DiscU32* yakumono_param;
+/// Read in place out of GrNLa.dat: each member is a big-endian 32-bit disc
+/// pointer slot that grMaterial_801C9604 relocates.
+static struct DISC_STRUCT grLast_YakumonoParam {
+    DISC_PTR(void) x0;
+    DISC_PTR(void) x4;
+    DISC_PTR(void) x8;
+    DISC_PTR(void) xC;
+}* yakumono_param;
 
 static void grLast_OnDemoInit(s32 arg0)
 {
@@ -899,7 +904,7 @@ static void grLast_8021B920(Ground_GObj* gobj_, int arg1)
     case 13:
         grLast_8021C40C(gobj, grNLa_804DBBD8, 120.0F);
         for (i = 0; i < 5; i++) {
-            grMaterial_801C9604(gp->u.map.lv_gobj[i], yakumono_param[0].v, 0);
+            grMaterial_801C9604(gp->u.map.lv_gobj[i], yakumono_param->x0, 0);
             grMaterial_801C9698(gp->u.map.lv_gobj[i]);
         }
         gp->u.map.xC4_b26 = true;
@@ -914,7 +919,7 @@ static void grLast_8021B920(Ground_GObj* gobj_, int arg1)
         HSD_ASSERT(0x4D2, gp->u.map.lv_gobj[5]);
         HSD_GObjGXLink_803909D8(gp->u.map.lv_gobj[5], gobj);
         do_anime(gp->u.map.lv_gobj[5], 5, 0);
-        grMaterial_801C9604(gp->u.map.lv_gobj[5], yakumono_param[1].v, 0);
+        grMaterial_801C9604(gp->u.map.lv_gobj[5], yakumono_param->x4, 0);
         grMaterial_801C9698(gp->u.map.lv_gobj[5]);
         Ground_801C1E00(0);
         gp->u.map.xC4_b26 = true;
@@ -925,7 +930,7 @@ static void grLast_8021B920(Ground_GObj* gobj_, int arg1)
         break;
     case 16:
         grLast_8021C40C(gobj, grNLa_804DBBE0, 60.0F);
-        grMaterial_801C9604(gp->u.map.lv_gobj[5], yakumono_param[2].v, 0);
+        grMaterial_801C9604(gp->u.map.lv_gobj[5], yakumono_param->x8, 0);
         grMaterial_801C9698(gp->u.map.lv_gobj[5]);
         gp->u.map.xC4_b26 = true;
         break;
@@ -939,7 +944,7 @@ static void grLast_8021B920(Ground_GObj* gobj_, int arg1)
                                  grNLa_803E8010[i][3], 0.0F, 1.0F);
             }
             do_anime(gp->u.map.lv_gobj[i], i, 0);
-            grMaterial_801C9604(gp->u.map.lv_gobj[i], yakumono_param[3].v, 0);
+            grMaterial_801C9604(gp->u.map.lv_gobj[i], yakumono_param->xC, 0);
             grMaterial_801C9698(gp->u.map.lv_gobj[i]);
         }
 

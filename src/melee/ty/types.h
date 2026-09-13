@@ -173,7 +173,7 @@ struct Toy26B8 {
     /* 0x3EE */ u8 pad_3EE[0x3F0 - 0x3EE];
     /* 0x3F0 */ union {
         ToyAnimState anim;
-        void* x3F0;
+        HSD_GObj* x3F0;
     };
 };
 
@@ -452,7 +452,7 @@ struct ToyED8Data {
     /*  +0 */ HSD_GObj* x0;
     /*  +4 */ HSD_GObj* gobj;
     /*  +8 */ HSD_GObj* x8;
-    /*  +C */ HSD_GObj* xC;
+    /*  +C */ HSD_GObj* gobj2;
     /* +10 */ HSD_JObj* jobjs[9];
     /* +34 */ u8 pad_34[0x50 - 0x34];
     /* +50 */ HSD_Archive* archive;
@@ -461,7 +461,7 @@ struct ToyED8Data {
 };
 ASSERT_OFFSET(struct ToyED8Data, x0, 0x0);
 ASSERT_OFFSET(struct ToyED8Data, gobj, 0x4);
-ASSERT_OFFSET(struct ToyED8Data, xC, 0xC);
+ASSERT_OFFSET(struct ToyED8Data, gobj2, 0xC);
 ASSERT_OFFSET(struct ToyED8Data, jobjs, 0x10);
 ASSERT_OFFSET(struct ToyED8Data, archive, 0x50);
 ASSERT_OFFSET(struct ToyED8Data, x54, 0x54);

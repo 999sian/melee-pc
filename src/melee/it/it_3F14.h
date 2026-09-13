@@ -48,11 +48,20 @@ DISC_ASSERT_SIZE(it_804D6D20_t, 0x18);
 /* 4D6D08 */ extern s32 it_804D6D08;
 /* 4D6D0C */ extern s32 it_804D6D0C;
 /* 4D6D10 */ extern u32 it_804D6D10;
+
+/**
+ * @todo Probably #size_t but that needs to be changed to
+ *       <tt>unsigned int</tt> first.
+ */
 /* 4D6D14 */ extern u32 it_804D6D14;
+
 /* 4D6D18 */ extern u32 it_804D6D18;
 /* 4D6D1C */ extern u8 it_804D6D1C[4];
 /* 4D6D20 */ extern it_804D6D20_t* it_804D6D20;
+
+/// Pointer to array of Article* (disc pointers; see DP(Article, ...) above)
 /* 4D6D24 */ extern DiscU32* it_804D6D24;
+
 /* 4D6D28 */ extern ItemCommonData* it_804D6D28;
 /* 4D6D30 */ extern DiscU32* it_804D6D30;
 /* 4D6D38 */ extern DiscU32* it_804D6D38;
