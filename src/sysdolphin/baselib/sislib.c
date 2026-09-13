@@ -77,9 +77,11 @@ void* HSD_SisLib_Alloc(s32 size)
         OSReport("ZERO byte alloc\n");
         OSPanic(__FILE__, 60, "");
     }
-    remainder = size % 4;
+    /* Block headers are carved out of the payload, so every payload size must
+     * keep the next SisBlock aligned (4 on GC, 8 with LP64 pointers). */
+    remainder = size % (s32) _Alignof(SisBlock);
     if (remainder != 0) {
-        size += 4 - remainder;
+        size += (s32) _Alignof(SisBlock) - remainder;
     }
     while (alloc_cur != NULL) {
         alloc_tail = alloc_cur;
@@ -386,7 +388,7 @@ void HSD_SisLib_803A5DA0(s32 font_idx)
     while (curr != NULL) {
         sislib_UnkAlloc3* next = curr->x0;
         if (curr->xA == font_idx) {
-            if (curr->x4 != 0U) {
+            if (curr->x4 != NULL) {
                 HSD_GObjFree(curr->x4);
                 curr->x4 = 0;
             }

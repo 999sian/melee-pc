@@ -21,9 +21,11 @@ struct lb_80432A68_t {
     /* 0x020 */ lbCardNew_SnapshotEntry* snapshot_entries;
     /* 0x024 */ int* free_blocks;
     /* 0x028 */ int* free_files;
-    /* 0x02C */ char x2C[2];
+    /* CARD company code and game name: fixed-width, never NUL-terminated;
+     * only ever compared with strncmp() at their exact width. */
+    /* 0x02C */ char x2C[2] __attribute__((nonstring));
     /* 0x02C */ char x2E;
-    /* 0x02C */ char x2F[4];
+    /* 0x02C */ char x2F[4] __attribute__((nonstring));
     /* 0x034 */ s32 unk_34;
     /* 0x038 */ struct lb_80432A68_38_t unk_38[9];
     /* 0x080 */ s32 unk_80;

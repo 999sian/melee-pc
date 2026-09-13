@@ -135,7 +135,7 @@ StageData grOp_StageData = {
     0,
 };
 
-void grOldPupupu_802107DC(bool arg) {}
+void grOldPupupu_802107DC(s32 arg) {}
 
 void grOldPupupu_802107E0(void)
 {

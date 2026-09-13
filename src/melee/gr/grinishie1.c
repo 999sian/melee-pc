@@ -27,7 +27,7 @@
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/random.h>
 
-/* 1FA908 */ static void grInishie1_801FA908(bool);
+/* 1FA908 */ static void grInishie1_801FA908(s32);
 /* 1FA90C */ static void grInishie1_801FA90C(void);
 /* 1FA984 */ static void grInishie1_801FA984(void);
 /* 1FA988 */ static void grInishie1_801FA988(void);
@@ -217,7 +217,7 @@ static void order_data(void)
 }
 #endif
 
-void grInishie1_801FA908(bool arg) {}
+void grInishie1_801FA908(s32 arg) {}
 
 /// corresponds with the 3 - 13 - 3 block pattern on the stage
 #define BLOCK_COUNT 19
@@ -891,9 +891,8 @@ void fn_801FBF6C(Item_GObj* item_gobj, Ground* gp, Vec3* pos, HSD_GObj* arg3,
     Item* ip = GET_ITEM2(item_gobj);
 
     for (i = 0; i < 19; i++) {
-        if (gp->u.inishie1.block[i].jobj2 ==
-            (HSD_JObj*) ip->xDD4_itemVar.it_266F.x4)
-        {
+        /* it_802E6AEC (ityaku.c) stores this jobj as xDD4_itemVar.yaku.x4. */
+        if (gp->u.inishie1.block[i].jobj2 == ip->xDD4_itemVar.yaku.x4) {
             break;
         }
     }

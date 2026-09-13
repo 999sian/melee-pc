@@ -124,7 +124,7 @@ static f32 parseFloat(u8** pos, u8 frac)
         u.d = (s32) ((*pos)++)[0];
         u.d |= ((*pos)++)[0] << 8;
         u.d |= ((*pos)++)[0] << 16;
-        u.d |= ((*pos)++)[0] << 24;
+        u.d |= (u32) ((*pos)++)[0] << 24;
         return u.f;
     }
 
@@ -139,7 +139,7 @@ static f32 parseFloat(u8** pos, u8 frac)
         *pos += 1;
         break;
     case HSD_A_FRAC_S16:
-        numer = ((s8) (*pos)[1] << 8) | (*pos)[0];
+        numer = (s16) (((u16) (*pos)[1] << 8) | (*pos)[0]);
         *pos += 2;
         break;
     case HSD_A_FRAC_U16:

@@ -149,6 +149,12 @@ void HSD_ObjAllocInit(HSD_ObjAllocData* data, size_t size, u32 align)
     data->num_limit = -1;
     data->heap_limit_size = 0;
     data->heap_limit_num = -1;
+    /* Free objects are threaded through an HSD_ObjAllocLink written into the
+     * object itself, so every slot must hold and align a pointer. The callers
+     * ask for 4, which is short of that once pointers are 8 bytes. */
+    if (align < (u32) _Alignof(HSD_ObjAllocLink)) {
+        align = (u32) _Alignof(HSD_ObjAllocLink);
+    }
     data->align = align - 1;
     data->size = (size + data->align) & ~data->align;
     data->next = alloc_datas;

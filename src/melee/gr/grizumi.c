@@ -170,7 +170,7 @@ StageData grIz_StageData = {
     3,
 };
 
-void grIzumi_801CBB84(bool x)
+void grIzumi_801CBB84(s32 x)
 {
     return;
 }
@@ -343,7 +343,7 @@ void grIzumi_801CBE64(Ground_GObj* gobj)
             HSD_GObj* plat =
                 grIzumi_801CCBDC(yakumono_param->x0, &x38, 0, gp->u.izumi.xD0);
             Ground* platground = GET_GROUND(plat);
-            platground->u.izumi2.xDC = yakumono_param->xC;
+            platground->u.izumi3.xDC = yakumono_param->xC;
             platground->x10_flags.b3 = 1;
             platground->x18 = gp->u.izumi.xC8;
         }
@@ -353,7 +353,7 @@ void grIzumi_801CBE64(Ground_GObj* gobj)
             HSD_GObj* plat =
                 grIzumi_801CCBDC(yakumono_param->x8, &x38, 1, gp->u.izumi.xD4);
             Ground* platground = GET_GROUND(plat);
-            platground->u.izumi2.xDC = yakumono_param->xC;
+            platground->u.izumi3.xDC = yakumono_param->xC;
             platground->x10_flags.b3 = 1;
             platground->x18 = gp->u.izumi.xC8;
         }

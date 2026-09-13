@@ -81,17 +81,7 @@ void gm_801B9254(GameModeState* scene)
 
 void gm_801B927C(GameModeState* state)
 {
-    VsModeData* vs = &gmMainLib_804D3EE0->modes.vs_stamina;
-    SSSData* sss = gm_GetGameModeStateExitData(state);
-    if (sss->start_game != 0) {
-        *vs = sss->vs;
-
-        lbAudioAx_80026F2C(0x18);
-        lbAudioAx_8002702C(8, lbAudioAx_80026EBC(sss->force_stage_id));
-        lbAudioAx_80027168();
-        return;
-    }
-    gm_SetNextGameModeStateId(0);
+    gmVsMelee_ExitSss(state, &gmMainLib_804D3EE0->modes.vs_stamina, 0);
 }
 
 void gm_801B931C(GameModeState* state)

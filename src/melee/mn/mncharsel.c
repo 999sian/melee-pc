@@ -542,10 +542,10 @@ void mnCharSel_8025C020(int arg0)
     s32 i = mnCharSel_803F0DFC.doors[0].sel_icon;
     u8 hud_index = icons[i].ft_hudindex;
     if (arg0 != 0) {
-        if (mnCharSel_804D6CDC != 0U) {
+        if (mnCharSel_804D6CDC != NULL) {
             HSD_SisLib_803A70A0(mnCharSel_804D6CDC, 0, NULL);
         }
-        if (mnCharSel_804D6CE0 != 0U) {
+        if (mnCharSel_804D6CE0 != NULL) {
             HSD_SisLib_803A70A0(mnCharSel_804D6CE0, 0, NULL);
         }
     }
@@ -4771,10 +4771,10 @@ s32 mnCharSel_802640A0(void)
                 mnCharSel_804D6CF8 - 1;
             mnCharSel_804D6CF8 = td->next_tag;
         }
-        if (((u8*)
-                 mnCharSel_804D6CB0)[0x7A + player * sizeof(PlayerInitData)] !=
-            0x78)
-        {
+        /* 0x7A is the GameCube offset of vs.start.players[0].nametag; on
+         * LP64 CSSData::ko_counts and the function pointers in
+         * StartMeleeRules push it far past that. */
+        if (mnCharSel_804D6CB0->vs.start.players[player].nametag != 0x78) {
             td->use_tag = 1;
             HSD_SisLib_803A70A0(
                 td->text, 0,

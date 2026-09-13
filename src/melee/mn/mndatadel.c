@@ -672,7 +672,7 @@ void fn_8024FBA4(HSD_GObj* gobj)
     s32 i;
     f32 frame;
     struct MnDataDelData* data;
-    u8* user_data;
+    struct MnDataDelGObjUserData* user_data;
     PAD_STACK(8);
 
     data = &mnDataDel_803EF870;
@@ -680,9 +680,8 @@ void fn_8024FBA4(HSD_GObj* gobj)
     frame = mn_8022EE84(GET_JOBJ(gobj), &mnDataDel_803EF870.xC,
                         (enum _HSD_TypeMask) 0x480);
     for (i = 0; i < 6; i++) {
-        mn_8022EE84(
-            *(HSD_JObj**) (user_data + mnDataDel_803EF8AC[i] * 4 + 0x10),
-            &data->xC, (enum _HSD_TypeMask) 0x480);
+        mn_8022EE84(user_data->x10[mnDataDel_803EF8AC[i]], &data->xC,
+                    (enum _HSD_TypeMask) 0x480);
     }
     if (frame >= data->xC.end_frame) {
         HSD_GObjFree(gobj);
@@ -693,7 +692,7 @@ void fn_8024FC48(HSD_GObj* gobj)
 {
     s32 i;
     HSD_JObj* jobj;
-    u8* user_data;
+    struct MnDataDelGObjUserData* user_data;
 
     user_data = gobj->user_data;
 
@@ -702,12 +701,12 @@ void fn_8024FC48(HSD_GObj* gobj)
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_8024FBA4, 0);
         proc->flags_3 = HSD_GObj_804D783C;
-        HSD_SisLib_803A5CC4(*(HSD_Text**) (user_data + 0xC));
+        HSD_SisLib_803A5CC4(user_data->xC);
     } else {
         for (i = 0; i < 6; i++) {
             lb_80011E24(mn_80231634(mnDataDel_GetMenuJObj(gobj->user_data, i)),
                         &jobj, 1, -1);
-            if (user_data[0] == i) {
+            if (user_data->x0 == i) {
                 mn_8022EC18(jobj, &mnDataDel_803EF888, (HSD_TypeMask) 0x400);
             } else {
                 mn_8022EC18(jobj, &mnDataDel_803EF894, (HSD_TypeMask) 0x400);
@@ -725,7 +724,7 @@ mnDataDel_GetAnimSettings(struct MnDataDelData* data)
 void fn_8024FD40(HSD_GObj* gobj)
 {
     f32 frame;
-    u8* user_data;
+    struct MnDataDelGObjUserData* user_data;
     HSD_GObjProc* proc;
     HSD_JObj* jobj;
     struct MnDataDelData* data;
@@ -739,15 +738,15 @@ void fn_8024FD40(HSD_GObj* gobj)
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_8024FBA4, 0);
         proc->flags_3 = HSD_GObj_804D783C;
-        HSD_SisLib_803A5CC4(*(HSD_Text**) (user_data + 0xC));
+        HSD_SisLib_803A5CC4(user_data->xC);
         return;
     }
     frame =
         mn_8022EE84(jobj, &mnDataDel_803EF870.x0, (enum _HSD_TypeMask) 0x480);
     for (i = 0; i < 6; i++) {
-        mn_8022EE84(
-            *(HSD_JObj**) (user_data + mnDataDel_803EF8AC[i] * 4 + 0x10),
-            mnDataDel_GetAnimSettings(data), (enum _HSD_TypeMask) 0x480);
+        mn_8022EE84(user_data->x10[mnDataDel_803EF8AC[i]],
+                    mnDataDel_GetAnimSettings(data),
+                    (enum _HSD_TypeMask) 0x480);
     }
     if (frame == data->x0.end_frame) {
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
@@ -772,7 +771,6 @@ void mnDataDel_8024FE4C(u8 arg0)
     s32 i;
     StaticModelDesc* assets;
     struct MnDataDelGObjUserData* user_data;
-    u8* cursor;
     PAD_STACK(0x14);
 
     assets = &mnDataDel_804A0918;
@@ -800,11 +798,9 @@ void mnDataDel_8024FE4C(u8 arg0)
     user_data->xC = NULL;
     GObj_InitUserData(gobj, 0U, HSD_Free, user_data);
     i = (enabled = 0);
-    cursor = (u8*) user_data + i * 4;
     do {
-        lb_80011E24(root, (HSD_JObj**) (cursor + 0x10), i, -1);
+        lb_80011E24(root, &user_data->x10[i], i, -1);
         i++;
-        cursor += 4;
     } while (i < (int) ARRAY_SIZE(user_data->x10));
     proc = HSD_GObj_SetupProc(gobj, fn_8024FD40, 0U);
     proc->flags_3 = HSD_GObj_804D783C;
@@ -851,9 +847,7 @@ void mnDataDel_80250170(void)
 {
     HSD_GObjProc* proc;
     HSD_Archive* archive;
-    StaticModelDesc* assets;
 
-    assets = &mnDataDel_804A0918;
     mn_804D6BC8.cooldown = 5;
     mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;
     mn_804A04F0.cur_menu = 0x18;
@@ -875,18 +869,18 @@ void mnDataDel_80250170(void)
             "MenMainWarCmn_Top_animjoint", &dp_[10],
             "MenMainWarCmn_Top_matanim_joint", &dp_[11],
             "MenMainWarCmn_Top_shapeanim_joint", 0);
-        DP_SET(assets[0].joint, dp_[0]);
-        DP_SET(assets[0].animjoint, dp_[1]);
-        DP_SET(assets[0].matanim_joint, dp_[2]);
-        DP_SET(assets[0].shapeanim_joint, dp_[3]);
-        DP_SET(assets[1].joint, dp_[4]);
-        DP_SET(assets[1].animjoint, dp_[5]);
-        DP_SET(assets[1].matanim_joint, dp_[6]);
-        DP_SET(assets[1].shapeanim_joint, dp_[7]);
-        DP_SET(assets[2].joint, dp_[8]);
-        DP_SET(assets[2].animjoint, dp_[9]);
-        DP_SET(assets[2].matanim_joint, dp_[10]);
-        DP_SET(assets[2].shapeanim_joint, dp_[11]);
+        DP_SET(mnDataDel_804A0918.joint, dp_[0]);
+        DP_SET(mnDataDel_804A0918.animjoint, dp_[1]);
+        DP_SET(mnDataDel_804A0918.matanim_joint, dp_[2]);
+        DP_SET(mnDataDel_804A0918.shapeanim_joint, dp_[3]);
+        DP_SET(mnDataDel_804A0928.joint, dp_[4]);
+        DP_SET(mnDataDel_804A0928.animjoint, dp_[5]);
+        DP_SET(mnDataDel_804A0928.matanim_joint, dp_[6]);
+        DP_SET(mnDataDel_804A0928.shapeanim_joint, dp_[7]);
+        DP_SET(mnDataDel_804A0938.joint, dp_[8]);
+        DP_SET(mnDataDel_804A0938.animjoint, dp_[9]);
+        DP_SET(mnDataDel_804A0938.matanim_joint, dp_[10]);
+        DP_SET(mnDataDel_804A0938.shapeanim_joint, dp_[11]);
     }
     mnDataDel_8024FE4C(0U);
     proc = HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), fn_8024F840, 0U);

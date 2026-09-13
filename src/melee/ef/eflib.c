@@ -194,7 +194,10 @@ void efLib_Init(void)
 
     HSD_JObjSetSPtclCallback(efLib_Cb_SPtcl);
     HSD_JObjSetDPtclCallback(efLib_Cb_DPtcl);
-    psInitAppSRT(0, 0xA4);
+    /* 0xA4 is the GameCube sizeof; on LP64 next/gp/freefunc widen the struct
+     * to 0xB8, so the literal left freefunc/idnum/xA2 past the end of every
+     * pool element and stomped the next one's free-list link. */
+    psInitAppSRT(0, sizeof(HSD_psAppSRT));
     efAsync_QueueInit();
 
     for (i = 0; i < 8; i++) {
@@ -594,27 +597,7 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
                 {
                     s32 temp_r5_2 = efLib_AnimCount;
                     efLib_AnimCount++;
-                    ((HSD_JObj**) efLib_AnimQueue)[temp_r5_2] = jobj;
-                    /* MELEE_EF_QUEUE=1: the readers used a 4-byte stride
-                     * while this writer uses sizeof(pointer). They only agree
-                     * for index 0, so report how deep the queue actually
-                     * gets: any index above 0 means the old readers were
-                     * fetching a half-pointer. */
-                    if (getenv("MELEE_EF_QUEUE") != NULL) {
-                        static unsigned long hits, deep;
-                        hits++;
-                        if (temp_r5_2 > 0) {
-                            deep++;
-                        }
-                        /* Report EVERY deep write: those are exactly the
-                         * ones the old 4-byte-stride readers got wrong. A
-                         * first-N sample would miss them. */
-                        if (temp_r5_2 > 0 || hits % 2000 == 0) {
-                            OSReport("efqueue: write idx=%d (writes=%lu,"
-                                     " idx>0=%lu)\n",
-                                     (int) temp_r5_2, hits, deep);
-                        }
-                    }
+                    efLib_AnimQueue[temp_r5_2] = jobj;
                     if (efLib_AnimCount >= 32) {
                         HSD_ASSERTREPORT(224, 0, "Over Anime Call\n");
                     }
@@ -1138,18 +1121,25 @@ void (*lbl_803BF810[0x03])(HSD_Particle* particle) = { efLib_Cb_ParticleRender,
 // bank 0 refs (0x96, 0x97, 0x98, 0x21B). If matched, attaches an
 // AppSRT transform so the particle inherits transforms from its
 // parent joint.
+/* This hook runs for every generator created, including before the common
+ * effect bank is loaded. ptclref_804D0E5C[0] is then NULL and an individual
+ * slot may be NULL too; on GameCube both reads came out of low memory. */
+static bool eflib_cmdlist_is(const HSD_Generator* gen, s32 idx)
+{
+    HSD_PSCmdList* cl;
+
+    if (ptclref_804D0E5C[0] == NULL || idx >= psCmdListArray[0]) {
+        return false;
+    }
+    cl = PS_CMDLIST(0, idx);
+    return cl != NULL && gen->cmdList == cl->cmdList;
+}
+
 void efLib_Cb_PtclAppSRTHook(HSD_Generator* gen)
 {
-    if (gen->cmdList == PS_CMDLIST(0, 0x96)->cmdList) {
-        hsd_8039D1E4(gen, lbl_803BF810);
-    }
-    if (gen->cmdList == PS_CMDLIST(0, 0x97)->cmdList) {
-        hsd_8039D1E4(gen, lbl_803BF810);
-    }
-    if (gen->cmdList == PS_CMDLIST(0, 0x98)->cmdList) {
-        hsd_8039D1E4(gen, lbl_803BF810);
-    }
-    if (gen->cmdList == PS_CMDLIST(0, 0x21B)->cmdList) {
+    if (eflib_cmdlist_is(gen, 0x96) || eflib_cmdlist_is(gen, 0x97) ||
+        eflib_cmdlist_is(gen, 0x98) || eflib_cmdlist_is(gen, 0x21B))
+    {
         hsd_8039D1E4(gen, lbl_803BF810);
     }
 }
@@ -1188,13 +1178,12 @@ void efLib_Cb_SetRotYAndTransition(EF_Effect* effect)
     f64 temp_d;
     f32 rotate_y;
     HSD_JObj* eff_jobj;
-    HSD_JObj* user_data;
+    Fighter* user_data;
 
-    user_data = (HSD_JObj*) effect->user_data;
+    user_data = effect->user_data;
     eff_jobj = GET_JOBJ(effect->gobj);
-    (void) user_data;
     if (user_data != NULL) {
-        if (user_data->scale.x < 0.0F) {
+        if (user_data->facing_dir < 0.0F) {
             temp_d = -M_PI_2;
         } else {
             temp_d = M_PI_2;
@@ -1486,13 +1475,9 @@ void efLib_SetTevKonstColor(HSD_JObj* jobj, s32 count, u32 konst, u32 tev0)
 // JObj animation queue!
 
 // Effect JObjs are appended during efLib_Create, then HSD_JObjAnimAll is
-// called on each at end-of-frame. Currently you have to cast to HSD_JObj**
-// while keeping its type as EF_ParamEntry[0x10] for matching purposes...
-// (compiler bases the efLib_ParamTable address off this array for some reason
-// (???), so both must be the same type x_X ... if you can figure out a way
-// around this pls fix ty).
+// called on each at end-of-frame.
 
-/* 458EE0 */ EF_ParamEntry efLib_AnimQueue[0x10];
+/* 458EE0 */ HSD_JObj* efLib_AnimQueue[32];
 
 // Stores gobj effect params (gfx_id, alpha)
 // Used by efLib_Cb_ApplyStoredAlpha to set TEV konst alpha.
@@ -1503,8 +1488,7 @@ void efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)
 {
     s32 idx;
 
-    // WHY
-    EF_ParamEntry* base = efLib_AnimQueue + 0x10;
+    EF_ParamEntry* base = efLib_ParamTable;
 
     for (idx = 0; idx < 8; idx++) {
         if (base[idx].gobj == gobj) {
@@ -1519,17 +1503,15 @@ void efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)
     return;
 
 found:
-    // WHY
-    efLib_AnimQueue[idx + 0x10].gobj = gobj;
-    efLib_AnimQueue[idx + 0x10].alpha = alpha;
+    base[idx].gobj = gobj;
+    base[idx].alpha = alpha;
 }
 
 void efLib_SetParamGfxId(HSD_GObj* gobj, s32 gfx_id)
 {
     s32 idx;
 
-    // WHY
-    EF_ParamEntry* base = efLib_AnimQueue + 0x10;
+    EF_ParamEntry* base = efLib_ParamTable;
 
     for (idx = 0; idx < 8; idx++) {
         if (base[idx].gobj == gobj) {
@@ -1544,9 +1526,8 @@ void efLib_SetParamGfxId(HSD_GObj* gobj, s32 gfx_id)
     return;
 
 found:
-    // WHY
-    efLib_AnimQueue[idx + 0x10].gobj = gobj;
-    efLib_AnimQueue[idx + 0x10].gfx_id = gfx_id;
+    base[idx].gobj = gobj;
+    base[idx].gfx_id = gfx_id;
 }
 
 void efLib_Cb_ApplyStoredAlpha(EF_Effect* effect)

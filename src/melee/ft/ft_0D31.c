@@ -201,7 +201,7 @@ void ftCo_800D3680(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
-    temp_r27->mv.co.unk_800D3680.x40 = DP(void, p_ftCommonData->x500);
+    temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
     Fighter_ChangeMotionState(gobj, 1, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {
@@ -307,7 +307,7 @@ void ftCo_800D3950(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
-    temp_r27->mv.co.unk_800D3680.x40 = DP(void, p_ftCommonData->x500);
+    temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
     Fighter_ChangeMotionState(gobj, 2, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {
@@ -406,7 +406,7 @@ void ftCo_800D3BC8(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
-    temp_r27->mv.co.unk_800D3680.x40 = DP(void, p_ftCommonData->x500);
+    temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
     Fighter_ChangeMotionState(gobj, 0, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {
@@ -505,7 +505,7 @@ void ftCo_800D3E40(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
-    temp_r27->mv.co.unk_800D3680.x40 = DP(void, p_ftCommonData->x500);
+    temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
     Fighter_ChangeMotionState(gobj, 3, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {
@@ -640,12 +640,11 @@ void ftCo_800D41C4(Fighter_GObj* gobj)
 void ftCo_DeadUpStar_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    s32 data_arr[2] = { p_ftCommonData->x504, p_ftCommonData->x508 }; s32* data = data_arr;
 
     switch (fp->mv.co.unk_deadup.x44) {
     case 1:
         if (fp->mv.co.unk_deadup.x68 != 0) {
-            f32 rot_speed = *(f32*) (data + 6);
+            f32 rot_speed = p_ftCommonData->x51C_radians;
             HSD_JObj* jobj =
                 fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint;
             HSD_JObjAddRotationX(jobj, rot_speed);
@@ -661,11 +660,12 @@ void ftCo_DeadUpStar_Anim(Fighter_GObj* gobj)
         switch (fp->mv.co.unk_deadup.x44) {
         case 0:
             fp->self_vel.y =
-                (*(f32*) (data + 4) * Stage_GetCamBoundsTopOffset() -
+                (p_ftCommonData->x514 * Stage_GetCamBoundsTopOffset() -
                  fp->cur_pos.y) /
-                (f32) data[1];
-            fp->self_vel.z = *(f32*) (data + 3) / (f32) data[1];
-            fp->mv.co.unk_deadup.x40 = data[1];
+                (f32) p_ftCommonData->x508;
+            fp->self_vel.z =
+                p_ftCommonData->x510 / (f32) p_ftCommonData->x508;
+            fp->mv.co.unk_deadup.x40 = p_ftCommonData->x508;
             fp->mv.co.unk_deadup.x44 = 1;
             return;
         case 1:
@@ -684,7 +684,7 @@ void ftCo_DeadUpStar_Anim(Fighter_GObj* gobj)
             ft_PlaySFX(fp, 0x83, 0x7F, 0x40);
             ft_8008805C(fp, 0x83);
             ftCo_800D34E0(gobj);
-            fp->mv.co.unk_deadup.x40 = data[2];
+            fp->mv.co.unk_deadup.x40 = p_ftCommonData->x50C;
             fp->mv.co.unk_deadup.x44 = 2;
             return;
         case 2:
@@ -706,23 +706,17 @@ void ftCo_800D4580(Fighter_GObj* gobj, int arg1)
     u8 _[20];
     Fighter* fp;
     Fighter_GObj* new_var;
-    int* datattrs;
     HSD_JObj* jobj;
     Fighter* fp2;
 
     new_var = gobj;
     fp = new_var->user_data;
-    s32 datattrs_arr[2] = { p_ftCommonData->x520, p_ftCommonData->x524 }; datattrs = datattrs_arr;
-
     ftCo_800D331C(gobj);
 
-    fp->mv.co.unk_deadup.x40 = datattrs[1];
+    fp->mv.co.unk_deadup.x40 = p_ftCommonData->x524;
     fp->mv.co.unk_deadup.x44 = 0;
-    /* Upstream reads this through `int* datattrs = &p_ftCommonData->x520`, so
-     * datattrs[6] is the field at 0x520 + 0x18 == x538, a DiscVec3. The port
-     * replaced that pointer with a two-element local array, which turned
-     * index 6 into an out-of-bounds read of stack garbage. Name the field
-     * instead, and copy it byte-swapped like any other disc vector. */
+    /* Upstream reads this run through `int* datattrs = &p_ftCommonData->x520`;
+     * index 6 is the field at 0x520 + 0x18 == x538, a DiscVec3. */
     DISC_VEC3_GET(fp->mv.co.unk_deadup.x50, p_ftCommonData->x538);
     fp->mv.co.common.x24 = 0.0f;
     fp->mv.co.common.x20 = 0.0f;
@@ -819,14 +813,13 @@ void ftCo_800D481C(Fighter_GObj* gobj, s32 arg1)
 void ftCo_DeadUpFall_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    s32 data_arr[2] = { p_ftCommonData->x520, p_ftCommonData->x524 }; s32* data = data_arr;
     u8 _[8];
 
     switch (fp->mv.co.unk_deadup.x44) {
     case 1:
         fp->mv.co.walk.middle_anim_frame += fp->mv.co.walk.slow_anim_frame;
         if (fp->mv.co.unk_deadup.x68 != 0) {
-            f32 rot_speed = *(f32*) (data + 16);
+            f32 rot_speed = p_ftCommonData->x560_radians;
             HSD_JObj* jobj =
                 fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint;
             HSD_JObjAddRotationX(jobj, rot_speed);
@@ -840,9 +833,10 @@ void ftCo_DeadUpFall_Anim(Fighter_GObj* gobj)
     if (fp->mv.co.unk_deadup.x40 == 0) {
         switch (fp->mv.co.unk_deadup.x44) {
         case 0:
-            fp->mv.co.walk.slow_anim_frame = 1.0f / (f32) data[2];
+            fp->mv.co.walk.slow_anim_frame =
+                1.0f / (f32) p_ftCommonData->x528;
             fp->mv.co.walk.middle_anim_frame = fp->mv.co.walk.slow_anim_frame;
-            fp->mv.co.unk_deadup.x40 = data[2];
+            fp->mv.co.unk_deadup.x40 = p_ftCommonData->x528;
             fp->mv.co.unk_deadup.x44 = 1;
             return;
         case 1:
@@ -855,13 +849,13 @@ void ftCo_DeadUpFall_Anim(Fighter_GObj* gobj)
             } else {
                 ftCo_800D481C(gobj, 7);
             }
-            fp->mv.co.unk_deadup.x40 = data[3];
+            fp->mv.co.unk_deadup.x40 = p_ftCommonData->x52C;
             fp->mv.co.unk_deadup.x44 = 2;
             return;
         case 2:
-            fp->self_vel.y = *(f32*) (data + 12);
-            fp->self_vel.z = *(f32*) (data + 15);
-            fp->mv.co.unk_deadup.x40 = data[4];
+            fp->self_vel.y = p_ftCommonData->x550;
+            fp->self_vel.z = p_ftCommonData->x55C;
+            fp->mv.co.unk_deadup.x40 = p_ftCommonData->x530;
             fp->mv.co.unk_deadup.x44 = 3;
             return;
         case 3:
@@ -877,7 +871,7 @@ void ftCo_DeadUpFall_Anim(Fighter_GObj* gobj)
             ft_8008805C(fp, 0x61);
             ftCommon_8007EBAC(fp, 0xD, 0);
             Camera_RequestQuake(QuakeKind_Large, &fp->cur_pos);
-            fp->mv.co.unk_deadup.x40 = data[5];
+            fp->mv.co.unk_deadup.x40 = p_ftCommonData->x534;
             fp->mv.co.unk_deadup.x44 = 4;
             return;
         case 4:

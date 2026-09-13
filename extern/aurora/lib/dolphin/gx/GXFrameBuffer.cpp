@@ -31,12 +31,54 @@ aurora::Vec2<uint32_t> scale_copy_dst(u32 logicalWidth, u32 logicalHeight) {
   const auto scaledHeight = std::max<u32>(static_cast<u32>(std::lround(static_cast<float>(logicalHeight) * scaleY)), 1);
   return {scaledWidth, scaledHeight};
 }
+
+// Source rect of an EFB copy, in render-target pixels.
+//
+// The scissor mapping rounds a rect outwards so nothing drawn is clipped. A
+// copy needs the opposite: at a fractional render scale the outward-rounded
+// edge lies past the region the pass rendered (256 logical pixels at 1024x768
+// is 409.6, and column 409 is only partly covered), so the copy picks up an
+// unwritten black fringe. Projected textures - fighter shadows above all -
+// clamp to that fringe for every coordinate outside the image, which turns
+// whole stage floors black. Round inwards, and size the destination from the
+// same rect so a 1:1 copy stays 1:1 instead of being resampled.
+aurora::gfx::ClipRect map_copy_src(const aurora::gfx::ClipRect& logicalRect) {
+  if (g_gxState.viewportPolicy == AURORA_VIEWPORT_NATIVE) {
+    return logicalRect;
+  }
+
+  const auto [logicalFbWidth, logicalFbHeight] = aurora::gx::logical_fb_size();
+  const auto [targetWidth, targetHeight] = aurora::gfx::get_render_target_size();
+  if (logicalFbWidth == 0 || logicalFbHeight == 0 || targetWidth == 0 || targetHeight == 0) {
+    return logicalRect;
+  }
+
+  const float scaleX = static_cast<float>(targetWidth) / static_cast<float>(logicalFbWidth);
+  const float scaleY = static_cast<float>(targetHeight) / static_cast<float>(logicalFbHeight);
+  const auto inward = [](float v, int32_t limit) {
+    return std::clamp(static_cast<int32_t>(std::floor(v)), 0, limit);
+  };
+  const auto left = inward(static_cast<float>(logicalRect.x) * scaleX, static_cast<int32_t>(targetWidth));
+  const auto top = inward(static_cast<float>(logicalRect.y) * scaleY, static_cast<int32_t>(targetHeight));
+  const auto right = std::max(
+      inward(static_cast<float>(logicalRect.x + logicalRect.width) * scaleX, static_cast<int32_t>(targetWidth)),
+      left + 1);
+  const auto bottom = std::max(
+      inward(static_cast<float>(logicalRect.y + logicalRect.height) * scaleY, static_cast<int32_t>(targetHeight)),
+      top + 1);
+  return {.x = left, .y = top, .width = right - left, .height = bottom - top};
+}
 } // namespace
 
 namespace aurora::gx {
 void copy_tex(const void* dest, GXBool clear) noexcept {
-  const auto rect = map_logical_scissor(g_gxState.texCopySrc);
-  const auto [dstWidth, dstHeight] = scale_copy_dst(g_gxState.texCopyDstWidth, g_gxState.texCopyDstHeight);
+  const auto rect = map_copy_src(g_gxState.texCopySrc);
+  auto [dstWidth, dstHeight] = scale_copy_dst(g_gxState.texCopyDstWidth, g_gxState.texCopyDstHeight);
+  if (g_gxState.texCopyDstWidth == g_gxState.texCopySrc.width &&
+      g_gxState.texCopyDstHeight == g_gxState.texCopySrc.height) {
+    dstWidth = static_cast<u32>(rect.width);
+    dstHeight = static_cast<u32>(rect.height);
+  }
   const auto texCopyFmt = g_gxState.texCopyFmt;
 
   const GXState::CopyTextureKey key{

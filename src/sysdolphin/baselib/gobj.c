@@ -107,7 +107,10 @@ void HSD_GObj_RunProcs(void)
             if (proc->flags_3 != HSD_GObj_804D783C) {
                 proc->flags_3 = HSD_GObj_804D783C;
                 gobj = proc->gobj;
-                if (!(var_r31 & (1LL << gobj->p_link)) && !(proc->flags_1) &&
+                /* p_link_max defaults to 0x3F, so the shift can reach bit 63;
+                 * 1LL << 63 is signed overflow. */
+                if (!(var_r31 & (1ULL << gobj->p_link)) &&
+                    !(proc->flags_1) &&
                     !(proc->flags_2))
                 {
                     HSD_GObj_CurrentInvokedProcGObj = gobj;

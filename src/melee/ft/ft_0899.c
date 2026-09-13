@@ -172,6 +172,9 @@ void ft_80089B08(Fighter_GObj* gobj)
             f32 angle = fp->facing_dir * atan2f(fp->coll_data.floor.normal.x,
                                                 fp->coll_data.floor.normal.y);
             f32 dx, dy, line_len;
+            /* The original rounded the f64 result through a scratch stack
+             * slot; own that slot instead of indexing below sp1C. */
+            volatile f32 line_len_sqrt;
             f32 adj_angle;
 
             mpLineGetV1Pos(line_id, &sp38);
@@ -186,8 +189,8 @@ void ft_80089B08(Fighter_GObj* gobj)
                 guess = 0.5 * guess * (3.0 - guess * guess * line_len);
                 guess = 0.5 * guess * (3.0 - guess * guess * line_len);
                 guess = 0.5 * guess * (3.0 - guess * guess * line_len);
-                ((volatile f32*) &sp1C)[-1] = (f32) ((f64) line_len * guess);
-                line_len = ((volatile f32*) &sp1C)[-1];
+                line_len_sqrt = (f32) ((f64) line_len * guess);
+                line_len = line_len_sqrt;
             }
             if (line_len < 5.0f) {
                 adj_angle = 0.0f;

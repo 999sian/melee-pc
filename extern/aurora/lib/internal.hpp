@@ -249,15 +249,17 @@ public:
   constexpr ByteBuffer() noexcept = default;
   explicit ByteBuffer(size_t size) noexcept
   : m_data(static_cast<uint8_t*>(calloc(1, size))), m_length(size), m_capacity(size) {}
-  explicit ByteBuffer(uint8_t* data, size_t size) noexcept : m_data(data), m_capacity(size), m_owned(false) {}
+  explicit ByteBuffer(uint8_t* data, size_t size, const char* name = nullptr) noexcept
+  : m_data(data), m_capacity(size), m_owned(false), m_name(name) {}
   ~ByteBuffer() noexcept { release(); }
 
   ByteBuffer(ByteBuffer&& rhs) noexcept
-  : m_data(rhs.m_data), m_length(rhs.m_length), m_capacity(rhs.m_capacity), m_owned(rhs.m_owned) {
+  : m_data(rhs.m_data), m_length(rhs.m_length), m_capacity(rhs.m_capacity), m_owned(rhs.m_owned), m_name(rhs.m_name) {
     rhs.m_data = nullptr;
     rhs.m_length = 0;
     rhs.m_capacity = 0;
     rhs.m_owned = true;
+    rhs.m_name = nullptr;
   }
 
   ByteBuffer& operator=(ByteBuffer&& rhs) noexcept {
@@ -269,10 +271,12 @@ public:
     m_length = rhs.m_length;
     m_capacity = rhs.m_capacity;
     m_owned = rhs.m_owned;
+    m_name = rhs.m_name;
     rhs.m_data = nullptr;
     rhs.m_length = 0;
     rhs.m_capacity = 0;
     rhs.m_owned = true;
+    rhs.m_name = nullptr;
     return *this;
   }
 
@@ -325,6 +329,7 @@ private:
   size_t m_length = 0;
   size_t m_capacity = 0;
   bool m_owned = true;
+  const char* m_name = nullptr;
 
   void resize(size_t size, bool zeroed) {
     if (size == 0) {
@@ -334,6 +339,14 @@ private:
       m_owned = true;
     } else if (size > m_capacity) {
       if (!m_owned) {
+        // A fixed per-frame staging pool overflowed. Aborting bare here costs
+        // a whole debugging session (the stack says nothing about which pool
+        // or by how much), so say it first.
+        fprintf(stderr,
+                "[FATAL] aurora::gfx: staging pool '%s' overflowed: %zu bytes "
+                "requested, capacity %zu (frame budget in gfx/resources.hpp)\n",
+                m_name != nullptr ? m_name : "<unnamed>", size, m_capacity);
+        fflush(stderr);
         abort();
       }
       if (size < m_capacity * 2) {

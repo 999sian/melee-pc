@@ -3,15 +3,6 @@
 
 #include "hsd_3B34.h"
 
-jmp_buf hsd_804D2E70;
-u8 hsd_804D2F68[0x70C];
-
-extern u8* hsd_804D79B8;
-extern u8* hsd_804D79BC;
-extern s32 hsd_804D79C0;
-extern s32 hsd_804D79C4;
-extern u8 hsd_804D79C8;
-
 typedef struct JpegWorkData {
     s32 luma[0x100];
     s32 cb[0x40];
@@ -20,10 +11,22 @@ typedef struct JpegWorkData {
     s32 prev_dc[3];
 } JpegWorkData;
 
-typedef struct JpegState {
-    jmp_buf jmp;
-    JpegWorkData work;
-} JpegState;
+jmp_buf hsd_804D2E70;
+/// Decode scratch, laid out immediately after #hsd_804D2E70 in retail.
+JpegWorkData hsd_804D2F68;
+
+extern u8* hsd_804D79B8;
+extern u8* hsd_804D79BC;
+extern s32 hsd_804D79C0;
+extern s32 hsd_804D79C4;
+extern u8 hsd_804D79C8;
+
+/* JPEG is a big-endian byte stream and the marker scan walks it one byte at a
+ * time, so it can never be read through an aligned host u16. */
+static u16 jpegReadU16(const u8* p)
+{
+    return (u16) ((p[0] << 8) | p[1]);
+}
 
 typedef struct JpegQuantTables {
     u8 luma[0x40];
@@ -285,7 +288,7 @@ read_huffman_code:
 #endif
 void hsd_803B5EA0(s32 component)
 {
-    u8* base;
+    s32* prev_dc;
     s32 run_bits;
     s32 coefficient;
     s32 dc;
@@ -294,7 +297,7 @@ void hsd_803B5EA0(s32 component)
     u8 zigzag_index;
     s32 value_bits;
 
-    base = (u8*) &hsd_804D2E70;
+    prev_dc = &hsd_804D2F68.prev_dc[component];
     value_bits = hsd_803B5D70(0, component);
     if (value_bits > 0) {
         dc = hsd_803B5C4C(value_bits);
@@ -304,23 +307,20 @@ void hsd_803B5EA0(s32 component)
     } else {
         dc = 0;
     }
-    ((s32*) &base[0x818])[component] += dc;
+    *prev_dc += dc;
     coefficient = 1;
-    ((JpegWorkData*) &base[0x118])->coeff[0] =
-        ((s32*) &base[0x818])[component];
+    hsd_804D2F68.coeff[0] = *prev_dc;
     while (coefficient < 0x40) {
         if ((run_bits = hsd_803B5D70(1, component)) == 0) {
             while (coefficient < 0x40) {
-                ((JpegWorkData*) &base[0x118])
-                    ->coeff[lbl_80431638[coefficient]] = 0;
+                hsd_804D2F68.coeff[lbl_80431638[coefficient]] = 0;
                 coefficient += 1;
             }
             return;
         } else {
             zeros = hsd_803B5C4C(run_bits) - 1;
             while (zeros--) {
-                ((JpegWorkData*) &base[0x118])
-                    ->coeff[lbl_80431638[coefficient++]] = 0;
+                hsd_804D2F68.coeff[lbl_80431638[coefficient++]] = 0;
             }
             value_bits = hsd_803B5D70(1, component);
             ac = hsd_803B5C4C(value_bits);
@@ -328,7 +328,7 @@ void hsd_803B5EA0(s32 component)
                 ac -= (1 << value_bits) - 1;
             }
             zigzag_index = lbl_80431638[coefficient++];
-            ((JpegWorkData*) &base[0x118])->coeff[zigzag_index] = ac;
+            hsd_804D2F68.coeff[zigzag_index] = ac;
         }
     }
 }
@@ -544,16 +544,14 @@ static void fn_803B6820(u8* dst, s32 x, s32 y, s32 width, s32 unused_height)
     s32 bias_block;
     s32 out_offset;
     s32 group_row;
-    u8* base;
     s32 chroma_x_base;
     s32 luma_row_offset;
-    u8* chroma;
+    s32 chroma_index;
     s32 group_chroma;
     s32 luma_groups;
     s32* luma_base;
 
-    base = (u8*) &hsd_804D2E70;
-    luma_block = (u8*) ((JpegState*) base)->work.luma;
+    luma_block = (u8*) hsd_804D2F68.luma;
     for (bias_block = 0; bias_block < 4; bias_block++) {
         luma = (s32*) luma_block;
         for (luma_groups = 16; luma_groups != 0; luma_groups--) {
@@ -585,20 +583,16 @@ static void fn_803B6820(u8* dst, s32 x, s32 y, s32 width, s32 unused_height)
                 for (tile_x = 0; tile_x < 4; tile_x++) {
                     chroma_row = tile_x >> 1;
                     chroma_row += chroma_x_base + ((tile_y & 2) * 4);
-                    luma_base =
-                        &((JpegWorkData*) &base[0x118])->luma[luma_offset / 4];
+                    luma_base = &hsd_804D2F68.luma[luma_offset / 4];
                     for (block = 0; block < 4; block++) {
                         luminance = luma_base[block * 64];
                         {
                             chroma_column = (block % 2) * 4;
-                            /* Preserve the add operand order. */
-                            chroma = base + (((chroma_row + chroma_column) -
-                                              (-((block / 2) << 5))) *
-                                             4);
+                            chroma_index = chroma_row + chroma_column +
+                                           ((block / 2) << 5);
                         }
-                        (void) ((u8*) out != chroma);
-                        cr = ((JpegState*) chroma)->work.cr[0];
-                        cb = ((JpegState*) chroma)->work.cb[0];
+                        cr = hsd_804D2F68.cr[chroma_index];
+                        cb = hsd_804D2F68.cb[chroma_index];
                         out_offset = ((block & 1) << 5) +
                                      (aligned_width * ((block & 2) << 2));
                         {
@@ -650,28 +644,26 @@ static inline s32 hsd_803B6BE4_inline(char* src, s32 size, void* dst)
     s32* luma;
     s32* coefficients;
     struct {
-        u8* base;
-        JpegState* work;
+        JpegWorkData* work;
         JpegQuantTables* quant_table;
         s32 width;
         s32 height;
     } state;
 
-    state.base = (u8*) &hsd_804D2E70;
-    state.work = (JpegState*) state.base;
+    state.work = &hsd_804D2F68;
     hsd_804D79C0 = size;
     state.quant_table = (JpegQuantTables*) lbl_80431090;
     hsd_804D79B8 = (u8*) src;
     hsd_804D79BC = (u8*) src;
-    state.work->work.prev_dc[0] = state.work->work.prev_dc[1] =
-        state.work->work.prev_dc[2] = 0;
+    state.work->prev_dc[0] = state.work->prev_dc[1] = state.work->prev_dc[2] =
+        0;
     hsd_804D79C4 = 0;
-    if (setjmp(state.work->jmp) != 0) {
+    if (setjmp(hsd_804D2E70) != 0) {
         return 0;
     }
     src_byte0 = &hsd_804D79BC[hsd_804D79C0];
 find_luma_quant:
-    if (*(u16*) hsd_804D79B8 == 0xFFDB) {
+    if (jpegReadU16(hsd_804D79B8) == 0xFFDB) {
         u8* zigzag;
         s32 i;
 
@@ -707,14 +699,14 @@ find_luma_quant:
         }
     } else {
         if (++hsd_804D79B8 >= src_byte0) {
-            longjmp(state.work->jmp, 1);
+            longjmp(hsd_804D2E70, 1);
         } else {
             goto find_luma_quant;
         }
     }
     src_byte0 = &hsd_804D79BC[hsd_804D79C0];
 find_chroma_quant:
-    if (*(u16*) hsd_804D79B8 == 0xFFDB) {
+    if (jpegReadU16(hsd_804D79B8) == 0xFFDB) {
         u8 qbyte;
         u8* qptr;
         s32 zigzag_index;
@@ -767,41 +759,41 @@ find_chroma_quant:
         }
     } else {
         if (++hsd_804D79B8 >= src_byte0) {
-            longjmp(state.work->jmp, 1);
+            longjmp(hsd_804D2E70, 1);
         } else {
             goto find_chroma_quant;
         }
     }
     src_byte0 = &hsd_804D79BC[hsd_804D79C0];
 find_frame:
-    if (*(u16*) hsd_804D79B8 == 0xFFC0) {
+    if (jpegReadU16(hsd_804D79B8) == 0xFFC0) {
         hsd_804D79B8 += 5;
-        state.height = *(u16*) hsd_804D79B8;
+        state.height = jpegReadU16(hsd_804D79B8);
         hsd_804D79B8 += 2;
-        state.width = *(u16*) hsd_804D79B8;
+        state.width = jpegReadU16(hsd_804D79B8);
         hsd_804D79B8 += 0xC;
     } else {
         if (++hsd_804D79B8 >= src_byte0) {
-            longjmp(state.work->jmp, 1);
+            longjmp(hsd_804D2E70, 1);
         } else {
             goto find_frame;
         }
     }
     src_byte0 = &hsd_804D79BC[hsd_804D79C0];
 find_scan:
-    if (*(u16*) hsd_804D79B8 == 0xFFDA) {
+    if (jpegReadU16(hsd_804D79B8) == 0xFFDA) {
         hsd_804D79B8 += 2;
         hsd_804D79B8 += 0xC;
     } else {
         if (++hsd_804D79B8 >= src_byte0) {
-            longjmp(state.work->jmp, 1);
+            longjmp(hsd_804D2E70, 1);
         } else {
             goto find_scan;
         }
     }
     for (y = 0; y < state.height; y += 0x10) {
         for (x = 0; x < state.width; x += 0x10) {
-            luma = state.work->work.luma;
+            luma = state.work->luma;
             for (luma_block = 0; luma_block < 4; luma_block++) {
                 u8* luma_quant;
                 s32* luma_out;
@@ -810,7 +802,7 @@ find_scan:
 
                 hsd_803B5EA0(0);
                 luma_out = luma;
-                luma_coeff = state.work->work.coeff;
+                luma_coeff = state.work->coeff;
                 for (luma_index = 0; luma_index < 0x40; luma_index += 8) {
                     luma_quant = state.quant_table->luma + luma_index;
                     quant0 = luma_quant[0];
@@ -837,8 +829,8 @@ find_scan:
                 s32 cb_index;
                 u8* quant_chroma = state.quant_table->chroma;
 
-                cb_coeff = coefficients = state.work->work.coeff;
-                cb_out = state.work->work.cb;
+                cb_coeff = coefficients = state.work->coeff;
+                cb_out = state.work->cb;
                 for (cb_index = 0; cb_index < 0x40; cb_index += 8) {
                     cb_quant = quant_chroma + cb_index;
                     cb_quant0 = cb_quant[0];
@@ -854,7 +846,7 @@ find_scan:
                     cb_out[7] = (cb_coeff7 * cb_quant[7]);
                     cb_out += 8;
                 }
-                fn_803B61B4(state.work->work.cb);
+                fn_803B61B4(state.work->cb);
             }
             hsd_803B5EA0(2);
             {
@@ -863,7 +855,7 @@ find_scan:
                 s32* cr_out;
                 s32 cr_index;
 
-                cr_out = state.work->work.cr;
+                cr_out = state.work->cr;
                 for (cr_index = 0; cr_index < 0x40; cr_index += 8) {
                     cr_quant = quant_chroma + cr_index;
                     cr_quant0 = cr_quant[0];
@@ -879,7 +871,7 @@ find_scan:
                     cr_out[7] = (cr_coeff7 * cr_quant[7]);
                     cr_out += 8;
                 }
-                fn_803B61B4(state.work->work.cr);
+                fn_803B61B4(state.work->cr);
             }
             fn_803B6820(dst, x, y, state.width, state.height);
         }

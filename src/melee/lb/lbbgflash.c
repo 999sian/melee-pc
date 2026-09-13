@@ -209,6 +209,7 @@ void fn_8001FEC4(HSD_GObj* gobj, s32 code)
         GXColor4u8(r, g, b, a);
         GXPosition2f32(0.0f, -480.0f);
         GXColor4u8(r, g, b, a);
+        GXEnd();
         return;
     }
 
@@ -223,6 +224,7 @@ void fn_8001FEC4(HSD_GObj* gobj, s32 code)
             GXColor4u8(0, 0, 0, 0xFF);
             GXPosition2f32(0.0f, -480.0f);
             GXColor4u8(0, 0, 0, 0xFF);
+            GXEnd();
         }
         return;
     }
@@ -251,6 +253,7 @@ void fn_8001FEC4(HSD_GObj* gobj, s32 code)
                     GXColor4u8(0, 0, 0, 0xFF);
                     GXPosition2f32(0.0f, (f32) neg_yh);
                     GXColor4u8(0, 0, 0, 0xFF);
+                    GXEnd();
                 } else {
                     u8 strip_h = data->x32;
                     s32 neg_y;
@@ -267,6 +270,7 @@ void fn_8001FEC4(HSD_GObj* gobj, s32 code)
                     GXColor4u8(0, 0, 0, 0xFF);
                     GXPosition2f32(0.0f, (f32) neg_yh);
                     GXColor4u8(0, 0, 0, 0xFF);
+                    GXEnd();
                 }
                 y += data->x32;
             }
@@ -300,6 +304,7 @@ void fn_8001FEC4(HSD_GObj* gobj, s32 code)
                     GXColor4u8(0, 0, 0, 0xFF);
                     GXPosition2f32((f32) x34, (f32) neg_yh);
                     GXColor4u8(0, 0, 0, 0xFF);
+                    GXEnd();
                 } else {
                     s32 neg_y;
                     s32 neg_yh;
@@ -316,6 +321,7 @@ void fn_8001FEC4(HSD_GObj* gobj, s32 code)
                     GXColor4u8(0, 0, 0, 0xFF);
                     GXPosition2f32(0.0f, (f32) neg_yh);
                     GXColor4u8(0, 0, 0, 0xFF);
+                    GXEnd();
                 }
                 /* Keep strip_h live across both arms (required for match). */
                 (void) strip_h;

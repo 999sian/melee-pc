@@ -50,12 +50,13 @@ static void sdata2_order(void)
 }
 #endif
 
-static inline void ftPr_JObjSetRotationY(HSD_JObj* jobj, f32 y, f32* base)
+static inline void ftPr_JObjSetRotationY(HSD_JObj* jobj, f32 y)
 {
     (jobj ? ((void) 0) : __assert("jobj.h", 660, "jobj"));
     ((!(jobj->flags & JOBJ_USE_QUATERNION))
          ? ((void) 0)
-         : __assert("jobj.h", 661, (char*) &base[8]));
+         : __assert("jobj.h", 661,
+                    "!(jobj->flags & JOBJ_USE_QUATERNION)"));
     jobj->rotate.y = y;
     if (!(jobj->flags & JOBJ_MTX_INDEP_SRT)) {
         HSD_JObjSetMtxDirty(jobj);
@@ -571,16 +572,15 @@ void ftPr_SpecialAirNChargeFull_Anim(HSD_GObj* gobj)
 }
 
 static inline void
-ftPr_SpecialAirNChargeRelease_Anim_inline(HSD_GObj* gobj, Vec3* scale,
-                                          const f32* scale_base)
+ftPr_SpecialAirNChargeRelease_Anim_inline(HSD_GObj* gobj, Vec3* scale)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
     s32 frame = fp->mv.pr.specialn.x8;
     if (frame >= 0 && frame < 4) {
         scale->x = fp->u.pr.x2230.x;
-        scale->y = fp->u.pr.x2230.y * scale_base[frame];
-        scale->z = fp->u.pr.x2230.z * scale_base[frame + 4];
+        scale->y = fp->u.pr.x2230.y * ftPr_Init_803D05C8[frame];
+        scale->z = fp->u.pr.x2230.z * ftPr_Init_803D05D8[frame];
         HSD_JObjSetScale(jobj, scale);
         fp->mv.pr.specialn.x8 += 1;
     } else {
@@ -590,7 +590,6 @@ ftPr_SpecialAirNChargeRelease_Anim_inline(HSD_GObj* gobj, Vec3* scale,
 
 void ftPr_SpecialAirNChargeRelease_Anim(HSD_GObj* gobj)
 {
-    f32* scale_base = ftPr_Init_803D05C8;
     Fighter* fp = GET_FIGHTER(gobj);
     ftPurinAttributes* da = fp->dat_attrs;
     Vec3 scale;
@@ -600,7 +599,7 @@ void ftPr_SpecialAirNChargeRelease_Anim(HSD_GObj* gobj)
 
     ftPr_SpecialS_8013DD54(gobj, false);
     fp->mv.pr.specialn.facing_dir = 0;
-    ftPr_SpecialAirNChargeRelease_Anim_inline(gobj, &scale, scale_base);
+    ftPr_SpecialAirNChargeRelease_Anim_inline(gobj, &scale);
 
     hitCapsuleToggle(gobj);
     ftPr_SpecialS_8013D8E4(gobj);
@@ -620,8 +619,7 @@ void ftPr_SpecialAirNChargeRelease_Anim(HSD_GObj* gobj)
                     ftPr_SpecialS_8013DA24(gobj, true, 0x40012, 0);
                     return;
                 }
-                ftPr_JObjSetRotationY(fp->parts[FtPart_TopN].joint, M_PI_2,
-                                      scale_base);
+                ftPr_JObjSetRotationY(fp->parts[FtPart_TopN].joint, M_PI_2);
                 return;
             }
             if (fp->mv.pr.specialn.x14 < M_PI && prev_angle > M_PI) {
@@ -629,12 +627,10 @@ void ftPr_SpecialAirNChargeRelease_Anim(HSD_GObj* gobj)
                 ftPr_SpecialS_8013DA24(gobj, true, 0x40012, 0);
                 return;
             }
-            ftPr_JObjSetRotationY(fp->parts[FtPart_TopN].joint, M_PI_2,
-                                  scale_base);
+            ftPr_JObjSetRotationY(fp->parts[FtPart_TopN].joint, M_PI_2);
             return;
         }
-        ftPr_JObjSetRotationY(fp->parts[FtPart_TopN].joint, M_PI_2,
-                              scale_base);
+        ftPr_JObjSetRotationY(fp->parts[FtPart_TopN].joint, M_PI_2);
         return;
     }
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);

@@ -26,10 +26,12 @@ typedef struct _MenuRulesPlusData {
             u8 pause;
             u8 score;
             u8 sd_penalty;
+            /// RULEPLUS_STAGE_SELECT has no value, but the cursor reaches it
+            /// and #values is indexed by the selection, so the slot exists.
+            u8 stage;
         };
-        u8 values[5];
+        u8 values[RULEPLUS_COUNT];
     } rule_values;
-    u8 x7;
     MenuState8 state;
     HSD_JObj* xC[10]; ///< layout tree?
     HSD_JObj* x34[6][7];

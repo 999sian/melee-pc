@@ -217,16 +217,17 @@ void mnHyaku_8024CD64(u8 arg0)
     lbAudioAx_80027648();
     archive = mn_804D6BB8;
     {
-        void* dp_[3];
+        void* dp_[4];
         lbArchive_LoadSections(
-            archive, (void**) &mnHyaku_804A08E8, "MenMainConKm_Top_joint",
-            &dp_[0], "MenMainConKm_Top_animjoint",
-            &dp_[1], "MenMainConKm_Top_matanim_joint",
-            &dp_[2], "MenMainConKm_Top_shapeanim_joint",
+            archive, &dp_[0], "MenMainConKm_Top_joint",
+            &dp_[1], "MenMainConKm_Top_animjoint",
+            &dp_[2], "MenMainConKm_Top_matanim_joint",
+            &dp_[3], "MenMainConKm_Top_shapeanim_joint",
             0);
-        DP_SET(mnHyaku_804A08E8.animjoint, dp_[0]);
-        DP_SET(mnHyaku_804A08E8.matanim_joint, dp_[1]);
-        DP_SET(mnHyaku_804A08E8.shapeanim_joint, dp_[2]);
+        DP_SET(mnHyaku_804A08E8.joint, dp_[0]);
+        DP_SET(mnHyaku_804A08E8.animjoint, dp_[1]);
+        DP_SET(mnHyaku_804A08E8.matanim_joint, dp_[2]);
+        DP_SET(mnHyaku_804A08E8.shapeanim_joint, dp_[3]);
     }
     mnHyaku_8024CB94(arg0);
     proc =

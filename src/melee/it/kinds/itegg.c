@@ -95,7 +95,7 @@ void itEgg_Logic3_Spawned(Item_GObj* gobj)
     it_80288EFC(gobj);
 }
 
-static inline s32 attrRand(itEgg_ItemVars* attrs)
+static inline s32 attrRand(itEgg_Attr* attrs)
 {
     return HSD_Randi(attrs->rand_max);
 }
@@ -103,7 +103,8 @@ static inline s32 attrRand(itEgg_ItemVars* attrs)
 bool it_80288DC4(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itEgg_ItemVars* attrs = DP(itEgg_ItemVars, ip->xC4_article_data->x4_specialAttributes);
+    itEgg_Attr* attrs =
+        DP(itEgg_Attr, ip->xC4_article_data->x4_specialAttributes);
     if (attrRand(attrs) == 0) {
         return true;
     }

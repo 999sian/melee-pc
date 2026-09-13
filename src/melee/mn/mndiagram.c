@@ -51,19 +51,11 @@ typedef struct mnDiagram_804A076C_t {
 } mnDiagram_804A076C_t;
 ASSERT_SIZE(mnDiagram_804A076C_t, 0x78);
 
-/// User data structure for mnDiagram_PopupCleanup callback.
-/// Overlay of Diagram - only accesses text array.
-typedef struct mnDiagram_CleanupData {
-    /* 0x00 */ char jobjs_reserved[0x38]; ///< JObj array (unused by cleanup)
-    /* 0x38 */ HSD_Text* text[6];         ///< Text objects to free
-} mnDiagram_CleanupData;
-
-/// User data structure for mnDiagram_ExitAnimProc callback.
-/// Overlay of Diagram - only accesses jobj at offset 0x0C.
-typedef struct mnDiagram_AnimData {
-    /* 0x00 */ char header_reserved[0x0C]; ///< menu state (unused by anim)
-    /* 0x0C */ HSD_JObj* jobj;             ///< JObj for exit animation
-} mnDiagram_AnimData;
+/// User data of the popup GObj created by #mnDiagram_CreatePopup.
+typedef struct mnDiagram_PopupData {
+    /* 0x00 */ HSD_JObj* jobjs[14];
+    /* 0x38 */ HSD_Text* text[5];
+} mnDiagram_PopupData;
 
 /// Head label for the contiguous mnDiagram popup animation data run.
 typedef struct mnDiagram_PopupAnimTableHead {
@@ -90,29 +82,17 @@ static u8 mnDiagram_DefaultFighterOrder[0x1C] = {
 
 static AnimLoopSettings mnDiagram_803EE768 = { 0.0f, 9.0f, -0.1f };
 
-/// Trailing animation settings overlaid by mnDiagram_AnimTable.
-static f32 mnDiagram_PopupExitAnimFrames[] = {
-    10.0f, 19.0f, -0.1f, 0.0f, 199.0f, 0.0f, 0.0f, 10.0f, -0.1f,
+/// Exit / arrow / cursor loop settings, in the retail data order
+/// (0x803EE774, immediately after #mnDiagram_803EE768).
+static AnimLoopSettings mnDiagram_PopupExitAnimFrames[3] = {
+    { 10.0f, 19.0f, -0.1f },
+    { 0.0f, 199.0f, 0.0f },
+    { 0.0f, 10.0f, -0.1f },
 };
 
-/// Overlay over &mnDiagram_803EE728 to reach the trailing
-/// animation/text-layout data the popup/cursor procs read at fixed offsets.
-/// Draw does NOT read blob floats for spacing (that comes from JObj
-/// translations); this table's floats are only the anim/frame settings.
-typedef struct mnDiagram_AnimTable {
-    /* 0x00 */ Point3d points[3];
-    /* 0x24 */ u8
-        default_fighter_order[0x1C]; ///< == mnDiagram_DefaultFighterOrder
-    /* 0x40 */ AnimLoopSettings intro_anim; ///< {0, 9, -0.1}
-    /* 0x4C */ AnimLoopSettings exit_anim;  ///< {10, 19, -0.1}
-    /* 0x58 */ AnimLoopSettings arrow_anim;
-    /* 0x64 */ AnimLoopSettings cursor_anim;
-    /* 0x70 */ char user_data_error[0x18]; ///< "Can't get user_data.\n"
-    /* 0x88 */ char file_name[0xC];        ///< "mndiagram.c"
-    /* 0x94 */ char user_data_name[0x14];  ///< "user_data"
-} mnDiagram_AnimTable;
-
-#define GET_DIAGRAM_ANIM_TABLE() ((mnDiagram_AnimTable*) &mnDiagram_803EE728)
+static char mnDiagram_803EE798[] = "Can't get user_data.\n";
+static char mnDiagram_803EE7B0[] = "mndiagram.c";
+static char mnDiagram_803EE7BC[] = "user_data";
 
 static s32 mnDiagram_PopupTextColor = 0xFF;
 char mnDiagram_804D4FA4[1] = "";
@@ -846,18 +826,16 @@ void mnDiagram_PopupInputProc(HSD_GObj* gobj)
     }
 }
 
-static inline u8 mnDiagram_GetVisibleNameFrom(u8* sorted, int start, int rank)
+static inline u8 mnDiagram_GetVisibleNameFrom(u8* names, int start, int rank)
 {
     u8* p;
     u8* p2;
     int remaining;
     int idx;
 
-    p = sorted;
-    p = p + start;
+    p = names + start;
     remaining = rank;
     idx = start;
-    p = p + 0x1C;
     while (remaining > 0) {
         p2 = p;
     loop:
@@ -872,12 +850,10 @@ static inline u8 mnDiagram_GetVisibleNameFrom(u8* sorted, int start, int rank)
         }
         remaining--;
     }
-    p = sorted;
-    p += idx;
-    return p[0x1C];
+    return names[idx];
 }
 
-static inline u8 mnDiagram_GetVisibleNameRowForInput(u8* sorted, int start,
+static inline u8 mnDiagram_GetVisibleNameRowForInput(u8* names, int start,
                                                      int rank)
 {
     u8* p;
@@ -886,10 +862,8 @@ static inline u8 mnDiagram_GetVisibleNameRowForInput(u8* sorted, int start,
     int idx;
 
     remaining = rank;
-    p = sorted;
-    p = p + start;
+    p = names + start;
     idx = start;
-    p = p + 0x1C;
     while (remaining > 0) {
         p2 = p;
     loop:
@@ -904,23 +878,19 @@ static inline u8 mnDiagram_GetVisibleNameRowForInput(u8* sorted, int start,
         }
         remaining--;
     }
-    p = sorted;
-    p += idx;
-    return p[0x1C];
+    return names[idx];
 }
 
-static inline u8 mnDiagram_GetVisibleNameFrom2(u8* sorted, int start, int rank)
+static inline u8 mnDiagram_GetVisibleNameFrom2(u8* names, int start, int rank)
 {
     int remaining;
     int idx;
     u8* p;
     u8* p2;
 
-    p = sorted;
-    p = p + start;
+    p = names + start;
     remaining = rank;
     idx = start;
-    p = p + 0x1C;
     while (remaining > 0) {
         p2 = p;
     loop:
@@ -935,9 +905,7 @@ static inline u8 mnDiagram_GetVisibleNameFrom2(u8* sorted, int start, int rank)
         }
         remaining--;
     }
-    p = sorted;
-    p += idx;
-    return p[0x1C];
+    return names[idx];
 }
 
 static inline s32 mnDiagram_FindPrevFighter(u8* sorted,
@@ -1301,7 +1269,7 @@ void mnDiagram_InputProc(HSD_GObj* gobj)
             row = mn_804A04F0.hovered_selection >> 8;
             cursor_pos = data->name_cursor_pos;
             row_result = mnDiagram_GetVisibleNameRowForInput(
-                sorted, cursor_pos >> 8, row);
+                mnDiagram_804A076C.sorted_names, cursor_pos >> 8, row);
             mnDiagram_CreatePopup(col_result, row_result, 1);
             return;
         }
@@ -1427,7 +1395,8 @@ void mnDiagram_InputProc(HSD_GObj* gobj)
                 next_name = (u8) mnDiagram_FindNextName(cur);
                 if (cur != next_name) {
                     col_result3 =
-                        mnDiagram_GetVisibleNameFrom(sorted, cur, 0xA);
+                        mnDiagram_GetVisibleNameFrom(
+                            mnDiagram_804A076C.sorted_names, cur, 0xA);
                     if (col_result3 != 0x78) {
                         sfxMove();
                         data->name_cursor_pos =
@@ -1471,7 +1440,9 @@ void mnDiagram_InputProc(HSD_GObj* gobj)
                 cur = data->name_cursor_pos >> 8;
                 next_name = (u8) mnDiagram_FindNextName(cur);
                 if (cur != next_name) {
-                    row_result3 = mnDiagram_GetVisibleNameFrom(sorted, cur, 7);
+                    row_result3 =
+                        mnDiagram_GetVisibleNameFrom(
+                            mnDiagram_804A076C.sorted_names, cur, 7);
                     if (row_result3 != 0x78) {
                         sfxMove();
                         data->name_cursor_pos =
@@ -1586,7 +1557,10 @@ void mnDiagram_InputProc(HSD_GObj* gobj)
 
 void mnDiagram_PopupCleanup(void* arg0)
 {
-    mnDiagram_CleanupData* data = arg0;
+    /* Retail reached the text array through a `char pad[0x38]` overlay; on
+     * LP64 0x38 bytes into this object is &jobjs[7], so the cleanup freed
+     * six JObj pointers as HSD_Text*. */
+    mnDiagram_PopupData* data = arg0;
 
     if (data->text[0] != NULL) {
         HSD_SisLib_803A5CC4(data->text[0]);
@@ -1606,28 +1580,15 @@ void mnDiagram_PopupCleanup(void* arg0)
     HSD_Free(arg0);
 }
 
-typedef struct mnDiagram_PopupData {
-    /* 0x00 */ HSD_JObj* jobjs[14];
-    /* 0x38 */ HSD_Text* text[5];
-} mnDiagram_PopupData;
-ASSERT_SIZE(mnDiagram_PopupData, 0x4C);
-
-typedef struct mnDiagram_MainOverlay {
-    /* 0x00 */ HSD_JObj* jobjs[14];
-    /* 0x38 */ HSD_Text* text[6];
-} mnDiagram_MainOverlay;
-
-static inline Vec3* mnDiagram_PopupAnimProc_Inline(mnDiagram_AnimTable* arg0,
-                                                   int arg1)
+static inline Vec3* mnDiagram_PopupAnimProc_Inline(int arg1)
 {
-    return &arg0->points[arg1];
+    return &mnDiagram_803EE728.points[arg1];
 }
 
 void mnDiagram_PopupAnimProc(void* arg0)
 {
     mnDiagram_PopupData* data = ((HSD_GObj*) arg0)->user_data;
     HSD_Text* text;
-    mnDiagram_AnimTable* tbl = GET_DIAGRAM_ANIM_TABLE();
     Vec3 pos;
     float new_var;
     f32 anim_frame;
@@ -1636,7 +1597,7 @@ void mnDiagram_PopupAnimProc(void* arg0)
     HSD_JObjAnimAll(data->jobjs[5]);
 
     text = data->text[0];
-    lb_8000B1CC(data->jobjs[8], mnDiagram_PopupAnimProc_Inline(tbl, 0), &pos);
+    lb_8000B1CC(data->jobjs[8], mnDiagram_PopupAnimProc_Inline(0), &pos);
     {
         f32 y = pos.y;
         f32 z = pos.z;
@@ -1651,7 +1612,7 @@ void mnDiagram_PopupAnimProc(void* arg0)
         HSD_Text* t;
         f32 y;
         f32 z;
-        lb_8000B1CC(data->jobjs[11], mnDiagram_PopupAnimProc_Inline(tbl, 1),
+        lb_8000B1CC(data->jobjs[11], mnDiagram_PopupAnimProc_Inline(1),
                     &pos);
         y = pos.y;
         z = pos.z;
@@ -1665,7 +1626,7 @@ void mnDiagram_PopupAnimProc(void* arg0)
         HSD_Text* t;
         f32 y;
         f32 z;
-        lb_8000B1CC(data->jobjs[10], mnDiagram_PopupAnimProc_Inline(tbl, 2),
+        lb_8000B1CC(data->jobjs[10], mnDiagram_PopupAnimProc_Inline(2),
                     &pos);
         y = pos.y;
         z = pos.z;
@@ -1681,7 +1642,7 @@ void mnDiagram_PopupAnimProc(void* arg0)
         HSD_Text* t;
         f32 y;
         f32 z;
-        lb_8000B1CC(data->jobjs[3], mnDiagram_PopupAnimProc_Inline(tbl, 1),
+        lb_8000B1CC(data->jobjs[3], mnDiagram_PopupAnimProc_Inline(1),
                     &pos);
         y = pos.y;
         z = pos.z;
@@ -1696,7 +1657,7 @@ void mnDiagram_PopupAnimProc(void* arg0)
         HSD_Text* t;
         f32 y;
         f32 z;
-        lb_8000B1CC(data->jobjs[2], mnDiagram_PopupAnimProc_Inline(tbl, 2),
+        lb_8000B1CC(data->jobjs[2], mnDiagram_PopupAnimProc_Inline(2),
                     &pos);
         y = pos.y;
         z = pos.z;
@@ -1707,12 +1668,13 @@ void mnDiagram_PopupAnimProc(void* arg0)
         text->default_alignment = 1;
     }
 
-    anim_frame = mn_8022EFD8(data->jobjs[12], &tbl->cursor_anim);
+    anim_frame =
+        mn_8022EFD8(data->jobjs[12], &mnDiagram_PopupExitAnimFrames[2]);
     {
         HSD_Text* t;
         f32 y;
         f32 z;
-        lb_8000B1CC(data->jobjs[13], mnDiagram_PopupAnimProc_Inline(tbl, 1),
+        lb_8000B1CC(data->jobjs[13], mnDiagram_PopupAnimProc_Inline(1),
                     &pos);
         y = pos.y;
         z = pos.z;
@@ -1723,7 +1685,7 @@ void mnDiagram_PopupAnimProc(void* arg0)
     }
     text->default_alignment = 1;
 
-    if (anim_frame == tbl->cursor_anim.end_frame) {
+    if (anim_frame == mnDiagram_PopupExitAnimFrames[2].end_frame) {
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
     }
 }
@@ -1799,7 +1761,7 @@ void mnDiagram_CreatePopupTexts(void* arg0, s32 selkind_or_nametag_slot_id,
 
             label_text = HSD_SisLib_803A6754(0, 1);
             data->text[4] = label_text;
-            lb_8000B1CC(data->jobjs[2], &GET_DIAGRAM_ANIM_TABLE()->points[2],
+            lb_8000B1CC(data->jobjs[2], &mnDiagram_803EE728.points[2],
                         &pos);
             label_text->font_size.x = 0.035f;
             label_text->font_size.y = 0.05f;
@@ -1907,14 +1869,12 @@ static void order_sdata2(void)
 void mnDiagram_CreatePopup(s32 arg0, s32 arg1, s32 use_nametag)
 {
     int i;
-    mnDiagram_AnimTable* tbl;
     void** joint_data;
     Diagram* data;
     HSD_GObj* gobj;
     HSD_JObj* jobj;
     mnDiagram_PopupData* user_data;
 
-    tbl = GET_DIAGRAM_ANIM_TABLE();
     joint_data = mnDiagram_804A07E4;
     data = GET_DIAGRAM(mnDiagram_804D6C10);
 
@@ -1929,8 +1889,8 @@ void mnDiagram_CreatePopup(s32 arg0, s32 arg1, s32 use_nametag)
 
     user_data = HSD_MemAlloc(sizeof(mnDiagram_PopupData));
     if (user_data == NULL) {
-        OSReport(tbl->user_data_error);
-        __assert(tbl->file_name, 0x5F8, tbl->user_data_name);
+        OSReport(mnDiagram_803EE798);
+        __assert(mnDiagram_803EE7B0, 0x5F8, mnDiagram_803EE7BC);
     }
 
     GObj_InitUserData(gobj, 0, mnDiagram_PopupCleanup, user_data);
@@ -1997,8 +1957,19 @@ static inline HSD_JObj* mnDiagram_GetJObjChild(HSD_JObj* jobj)
 
 void mnDiagram_ClearGrid(void* arg0)
 {
-    mnDiagram_MainOverlay* data = mnDiagram_GetUserData(arg0);
+    /* This GObj's user data is a #Diagram. Retail overlaid a
+     * `{ HSD_JObj* jobjs[14]; HSD_Text* text[6]; }` struct starting at the
+     * object base, so word N of the overlay is Diagram::jobjs[N - 2] (the
+     * 8-byte menu-state header ahead of the array is two GameCube words).
+     * On LP64 the two views stop coinciding: the overlay's jobjs[9] lands on
+     * Diagram::jobjs[8], and its text[4..5] land inside the JObj array. */
+    Diagram* data = mnDiagram_GetUserData(arg0);
     HSD_JObj* child;
+
+    child = mnDiagram_GetJObjChild(data->jobjs[7]);
+    if (child) {
+        HSD_JObjRemoveAll(child);
+    }
 
     child = mnDiagram_GetJObjChild(data->jobjs[9]);
     if (child) {
@@ -2010,18 +1981,13 @@ void mnDiagram_ClearGrid(void* arg0)
         HSD_JObjRemoveAll(child);
     }
 
-    child = mnDiagram_GetJObjChild(data->jobjs[13]);
-    if (child) {
-        HSD_JObjRemoveAll(child);
+    if (data->col_header_text != NULL) {
+        HSD_SisLib_803A5CC4(data->col_header_text);
+        data->col_header_text = NULL;
     }
-
-    if (data->text[4] != NULL) {
-        HSD_SisLib_803A5CC4(data->text[4]);
-        data->text[4] = NULL;
-    }
-    if (data->text[5] != NULL) {
-        HSD_SisLib_803A5CC4(data->text[5]);
-        data->text[5] = NULL;
+    if (data->row_header_text != NULL) {
+        HSD_SisLib_803A5CC4(data->row_header_text);
+        data->row_header_text = NULL;
     }
 }
 
@@ -2047,7 +2013,6 @@ void mnDiagram_UpdateScrollArrows(HSD_GObj* gobj)
 {
     u8 result2;
     Diagram* data = gobj->user_data;
-    mnDiagram_AnimTable* tbl = GET_DIAGRAM_ANIM_TABLE();
     HSD_JObj* jobj;
     u8* ptr2;
     u8* ptr;
@@ -2062,10 +2027,10 @@ void mnDiagram_UpdateScrollArrows(HSD_GObj* gobj)
 
     // Right arrow (jobjs[3])
     jobj = data->jobjs[3];
-    mn_8022ED6C(jobj, &tbl->arrow_anim);
+    mn_8022ED6C(jobj, &mnDiagram_PopupExitAnimFrames[1]);
     if (data->is_name_mode != 0) {
-        result = mnDiagram_GetVisibleNameFrom(sorted,
-                                              (u8) data->name_cursor_pos, 10);
+        result = mnDiagram_GetVisibleNameFrom(
+            mnDiagram_804A076C.sorted_names, (u8) data->name_cursor_pos, 10);
         if ((u8) result != 0x78) {
             HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
         } else {
@@ -2083,7 +2048,7 @@ void mnDiagram_UpdateScrollArrows(HSD_GObj* gobj)
 
     // Left arrow (jobjs[4])
     jobj2 = data->jobjs[4];
-    mn_8022ED6C(jobj2, &tbl->arrow_anim);
+    mn_8022ED6C(jobj2, &mnDiagram_PopupExitAnimFrames[1]);
     if (data->is_name_mode != 0) {
         result = (u8) data->name_cursor_pos;
     } else {
@@ -2097,7 +2062,7 @@ void mnDiagram_UpdateScrollArrows(HSD_GObj* gobj)
 
     // Up arrow (jobjs[5])
     jobj2 = data->jobjs[5];
-    mn_8022ED6C(jobj2, &tbl->arrow_anim);
+    mn_8022ED6C(jobj2, &mnDiagram_PopupExitAnimFrames[1]);
     if (data->is_name_mode != 0) {
         i = data->name_cursor_pos >> 8;
     } else {
@@ -2111,12 +2076,11 @@ void mnDiagram_UpdateScrollArrows(HSD_GObj* gobj)
 
     // Down arrow (jobjs[6])
     jobj3 = data->jobjs[6];
-    mn_8022ED6C(jobj3, &tbl->arrow_anim);
+    mn_8022ED6C(jobj3, &mnDiagram_PopupExitAnimFrames[1]);
     if (data->is_name_mode != 0) {
         name_count = 7;
         i = data->name_cursor_pos >> 8;
-        ptr = sorted + i;
-        ptr = ptr + 0x1C;
+        ptr = mnDiagram_804A076C.sorted_names + i;
         while (name_count > 0) {
             ptr2 = ptr;
         dn_name_loop:
@@ -2132,9 +2096,7 @@ void mnDiagram_UpdateScrollArrows(HSD_GObj* gobj)
             }
             name_count--;
         }
-        ptr = sorted;
-        ptr += i;
-        result = ptr[0x1C];
+        result = mnDiagram_804A076C.sorted_names[i];
     dn_name_done:
         if ((u8) result != 0x78) {
             HSD_JObjClearFlagsAll(jobj3, JOBJ_HIDDEN);
@@ -2174,15 +2136,17 @@ void mnDiagram_UpdateScrollArrows(HSD_GObj* gobj)
 
 void mnDiagram_ExitAnimProc(HSD_GObj* gobj)
 {
-    mnDiagram_AnimData* data;
+    /* Retail read the animated JObj at byte 0x0C of the user data, i.e.
+     * Diagram::jobjs[1]; that offset is inside jobjs[0] on LP64. */
+    Diagram* data;
     HSD_JObj* jobj;
-    f32* table;
+    AnimLoopSettings* table;
 
     data = gobj->user_data;
     mnDiagram_UpdateScrollArrows(gobj);
-    jobj = data->jobj;
+    jobj = data->jobjs[1];
     table = mnDiagram_PopupExitAnimFrames;
-    if (mn_8022ED6C(jobj, (AnimLoopSettings*) table) >= table[1]) {
+    if (mn_8022ED6C(jobj, table) >= table[0].end_frame) {
         HSD_GObjFree(gobj);
     }
 }
@@ -2194,21 +2158,21 @@ void mnDiagram_ExitAnimProc(HSD_GObj* gobj)
 /// @param count Number of entries (fighters or names) to display.
 void mnDiagram_UpdateScrollArrowVisibility(void* gobj, int count)
 {
-    void* data = ((HSD_GObj*) gobj)->user_data;
+    Diagram* data = ((HSD_GObj*) gobj)->user_data;
     PAD_STACK(8);
     if (count <= 7) {
-        HSD_JObjSetFlagsAll(((HSD_JObj**) data)[7], JOBJ_HIDDEN);
-        HSD_JObjSetFlagsAll(((HSD_JObj**) data)[8], JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(data->jobjs[5], JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(data->jobjs[6], JOBJ_HIDDEN);
     } else {
-        HSD_JObjClearFlagsAll(((HSD_JObj**) data)[7], JOBJ_HIDDEN);
-        HSD_JObjClearFlagsAll(((HSD_JObj**) data)[8], JOBJ_HIDDEN);
+        HSD_JObjClearFlagsAll(data->jobjs[5], JOBJ_HIDDEN);
+        HSD_JObjClearFlagsAll(data->jobjs[6], JOBJ_HIDDEN);
     }
     if (count <= 10) {
-        HSD_JObjSetFlagsAll(((HSD_JObj**) data)[6], JOBJ_HIDDEN);
-        HSD_JObjSetFlagsAll(((HSD_JObj**) data)[5], JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(data->jobjs[4], JOBJ_HIDDEN);
+        HSD_JObjSetFlagsAll(data->jobjs[3], JOBJ_HIDDEN);
     } else {
-        HSD_JObjClearFlagsAll(((HSD_JObj**) data)[6], JOBJ_HIDDEN);
-        HSD_JObjClearFlagsAll(((HSD_JObj**) data)[5], JOBJ_HIDDEN);
+        HSD_JObjClearFlagsAll(data->jobjs[4], JOBJ_HIDDEN);
+        HSD_JObjClearFlagsAll(data->jobjs[3], JOBJ_HIDDEN);
     }
 }
 
@@ -2283,18 +2247,18 @@ void mnDiagram_OnFrame(HSD_GObj* gobj)
             }
             data2 = gobj->user_data;
             if (count <= 7) {
-                HSD_JObjSetFlagsAll(((HSD_JObj**) data2)[7], JOBJ_HIDDEN);
-                HSD_JObjSetFlagsAll(((HSD_JObj**) data2)[8], JOBJ_HIDDEN);
+                HSD_JObjSetFlagsAll(data2->jobjs[5], JOBJ_HIDDEN);
+                HSD_JObjSetFlagsAll(data2->jobjs[6], JOBJ_HIDDEN);
             } else {
-                HSD_JObjClearFlagsAll(((HSD_JObj**) data2)[7], JOBJ_HIDDEN);
-                HSD_JObjClearFlagsAll(((HSD_JObj**) data2)[8], JOBJ_HIDDEN);
+                HSD_JObjClearFlagsAll(data2->jobjs[5], JOBJ_HIDDEN);
+                HSD_JObjClearFlagsAll(data2->jobjs[6], JOBJ_HIDDEN);
             }
             if (count <= 10) {
-                HSD_JObjSetFlagsAll(((HSD_JObj**) data2)[6], JOBJ_HIDDEN);
-                HSD_JObjSetFlagsAll(((HSD_JObj**) data2)[5], JOBJ_HIDDEN);
+                HSD_JObjSetFlagsAll(data2->jobjs[4], JOBJ_HIDDEN);
+                HSD_JObjSetFlagsAll(data2->jobjs[3], JOBJ_HIDDEN);
             } else {
-                HSD_JObjClearFlagsAll(((HSD_JObj**) data2)[6], JOBJ_HIDDEN);
-                HSD_JObjClearFlagsAll(((HSD_JObj**) data2)[5], JOBJ_HIDDEN);
+                HSD_JObjClearFlagsAll(data2->jobjs[4], JOBJ_HIDDEN);
+                HSD_JObjClearFlagsAll(data2->jobjs[3], JOBJ_HIDDEN);
             }
         } else {
             HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -2501,7 +2465,6 @@ static inline void mnDiagram_TextSetPos(HSD_Text* text, f32 x, f32 y, f32 z)
 void mnDiagram_DrawNameHeaders(void* arg0, s32 arg1, s32 arg2)
 {
     Diagram* data = ((HSD_GObj*) arg0)->user_data;
-    u8* sorted = mnDiagram_804A0750.sorted_fighters;
     HSD_Text* row_text;
     u8 name_byte;
     s32 name_id;
@@ -2526,7 +2489,9 @@ void mnDiagram_DrawNameHeaders(void* arg0, s32 arg1, s32 arg2)
             for (i = 0; i < 7; i++) {
                 if (GetNameCount() > i) {
                     f32 x_spacing;
-                    name_byte = mnDiagram_GetVisibleNameFrom(sorted, arg2, i);
+                    name_byte =
+                        mnDiagram_GetVisibleNameFrom(
+                            mnDiagram_804A076C.sorted_names, arg2, i);
                     name_id = name_byte;
                     x_spacing = HSD_JObjGetTranslationX(data->jobjs[8]) -
                                 HSD_JObjGetTranslationX(data->jobjs[7]);
@@ -2557,7 +2522,9 @@ void mnDiagram_DrawNameHeaders(void* arg0, s32 arg1, s32 arg2)
         for (i = 0; i < 0xA; i++) {
             if (GetNameCount() > i) {
                 f32 y_spacing;
-                name_id = mnDiagram_GetVisibleNameFrom2(sorted, arg1, i) &
+                name_id =
+                    mnDiagram_GetVisibleNameFrom2(
+                        mnDiagram_804A076C.sorted_names, arg1, i) &
                           0xFFFFFFFFFFFFFFFFu;
                 y_spacing = HSD_JObjGetTranslationY(data->jobjs[10]) -
                             HSD_JObjGetTranslationY(data->jobjs[9]);
@@ -2789,7 +2756,6 @@ void mnDiagram_CreateScreen(u8 arg0)
     Diagram* data2;
     int count;
     void** joint_data;
-    mnDiagram_AnimTable* tbl = GET_DIAGRAM_ANIM_TABLE();
     int i;
     u16 indices;
     u8 stack_obj[8];
@@ -2834,7 +2800,7 @@ void mnDiagram_CreateScreen(u8 arg0)
 
     if (arg0 == 0) {
         anim_jobj = user_data->jobjs[1];
-        HSD_JObjReqAnimAll(anim_jobj, tbl->intro_anim.end_frame);
+        HSD_JObjReqAnimAll(anim_jobj, mnDiagram_803EE768.end_frame);
         HSD_JObjAnimAll(anim_jobj);
 
         mnDiagram_CreateCursor();

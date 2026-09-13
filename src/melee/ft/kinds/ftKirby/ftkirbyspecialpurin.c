@@ -549,16 +549,15 @@ void ftKb_PrSpecialAirNFull_Anim(Fighter_GObj* gobj)
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
 }
 
-static inline void ftKb_AirScaleAnimStep(Fighter_GObj* gobj, Vec3* scale,
-                                         const f32* scale_base)
+static inline void ftKb_AirScaleAnimStep(Fighter_GObj* gobj, Vec3* scale)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
     int frame = fp->mv.pr.specialn.x8;
     if (frame >= 0 && frame < 4) {
         scale->x = fp->u.kb.x8C.x;
-        scale->y = fp->u.kb.x8C.y * scale_base[frame];
-        scale->z = fp->u.kb.x8C.z * scale_base[frame + 4];
+        scale->y = fp->u.kb.x8C.y * ftKb_Init_803CB710[frame];
+        scale->z = fp->u.kb.x8C.z * ftKb_Init_803CB720[frame];
         HSD_JObjSetScale(jobj, scale);
         fp->mv.pr.specialn.x8 += 1;
     } else {
@@ -568,14 +567,13 @@ static inline void ftKb_AirScaleAnimStep(Fighter_GObj* gobj, Vec3* scale,
 
 void ftKb_PrSpecialAirN_Anim(Fighter_GObj* gobj)
 {
-    f32* scale_base = ftKb_Init_803CB710;
     Fighter* fp = GET_FIGHTER(gobj);
     ftKb_DatAttrs* da = fp->dat_attrs;
     Vec3 scale;
     PAD_STACK(16);
     ftKb_SpecialNPr_8010140C(gobj, false);
     fp->mv.pr.specialn.facing_dir = 0;
-    ftKb_AirScaleAnimStep(gobj, &scale, scale_base);
+    ftKb_AirScaleAnimStep(gobj, &scale);
     ftKb_PrHitCapsuleToggle(gobj);
     ftKb_SpecialNPr_80100F94(gobj);
     {

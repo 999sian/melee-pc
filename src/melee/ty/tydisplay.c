@@ -65,8 +65,9 @@ static size_t const _tyDisplay_804D6F10_len = 300;
 /* 31C1D0 */ static void _tyDisplay_8031C1D0(void);
 /* 4A2D98 */ static char _tyDisplay_devtext_buf[9 * (3 * 2)];
 /* 4A2DD0 */ static TyDspArchiveHolder _tyDisplay_804A2DD0;
-/* 4A2DE8 */ static HSD_Archive*
-    _tyDisplay_804A2DE8[0xB0 / sizeof(HSD_Archive*)];
+/* 4A2DE8 */ /* 44 archives (0xB0 bytes of 4-byte pointers on GC); indices up
+ * to 42 are used and tyDisplay_8031C8B8 clears 0x2B of them. */
+static HSD_Archive* _tyDisplay_804A2DE8[44];
 /* 4D6F10 */ static HSD_JObj** _tyDisplay_804D6F10;
 /* 4D6F14 */ static TyDspGrid* _tyDisplay_804D6F14;
 /* 4D6F18 */ static TyDspConfig* _tyDisplay_804D6F18;
@@ -1874,7 +1875,7 @@ void tyDisplay_Scene_OnEnter(void* arg0)
             archive_name = "TyMnDisp.usd";
         }
         data->archive =
-            lbArchive_80016DBC(archive_name, &sp18, "ToyDspBg_Top_joint", 0);
+            lbArchive_80016DBC(archive_name, &sp18, "ToyDspBg_Top_joint", NULL);
     }
 
     for (i = 0; i < 0x2B; i++) {
@@ -2062,7 +2063,8 @@ void _tyDisplay_8031BA78(s32 arg0, s32 arg1, f32 farg0)
     if (_tyDisplay_804D6F24 != NULL) {
         DevText_Erase(_tyDisplay_804D6F24);
         DevText_SetCursorXY(_tyDisplay_804D6F24, 0, 0);
-        sprintf(buf, "X  %3.2f\nZ  %3.2f", data->x08, data->x0C);
+        snprintf(buf, sizeof(buf), "X  %3.2f\nZ  %3.2f", data->x08,
+                 data->x0C);
         DevText_Print(_tyDisplay_804D6F24, buf);
     }
 }
@@ -2252,7 +2254,8 @@ HSD_GObj* _tyDisplay_8031BC54(s32 arg0)
     if (_tyDisplay_804D6F24 != NULL) {
         DevText_Erase(_tyDisplay_804D6F24);
         DevText_SetCursorXY(_tyDisplay_804D6F24, 0, 0);
-        sprintf(buf, "X  %3.2f\nZ  %3.2f", entry->x08, entry->x0C);
+        snprintf(buf, sizeof(buf), "X  %3.2f\nZ  %3.2f", entry->x08,
+                 entry->x0C);
         DevText_Print(_tyDisplay_804D6F24, buf);
         _tyDisplay_8031BF34(id);
     }
@@ -2393,16 +2396,13 @@ s32 tyDisplay_8031C454(s32 arg0)
     HSD_Archive* temp2;
     TyDspArchNames names1;
     TyDspArchNames names2;
-    const TyDspNameTables* temp;
     TyDspArchNames names3;
     TyDspEntry* entry;
     u8 idx;
     s32 result;
     HSD_Archive** archArr;
-    const TyDspNameTables* tables;
 
     PAD_STACK(0x4);
-    tables = (TyDspNameTables const*) &_tyDisplay_803B8988;
     result = 0;
     archArr = _tyDisplay_804A2DE8;
 
@@ -2415,10 +2415,9 @@ s32 tyDisplay_8031C454(s32 arg0)
     entry = tyDisplay_8031B9DC(arg0);
     idx = entry->x04;
 
-    temp = tables;
     if (archArr[idx] == NULL) {
         idx = entry->x04;
-        names1 = temp->arch_names;
+        names1 = _tyDisplay_803B8AE0;
         if ((s8) idx == -1) {
             idx = 0;
         }
@@ -2429,13 +2428,13 @@ s32 tyDisplay_8031C454(s32 arg0)
     }
 
     if (archArr[42] == NULL) {
-        names2 = tables->arch_names;
+        names2 = _tyDisplay_803B8AE0;
         archArr[42] = lbArchive_LoadSymbols(names2.entries[42], NULL);
     }
     temp2 = archArr[41];
     if (temp2 == NULL) {
         do {
-            names3 = temp->arch_names;
+            names3 = _tyDisplay_803B8AE0;
             archArr[41] = lbArchive_LoadSymbols(names3.entries[41], 0L);
         } while (entry->x04 * 0);
     }
@@ -2462,9 +2461,6 @@ HSD_JObj* tyDisplay_8031C5E4(s32 arg0)
     HSD_JObj* root;
     HSD_JObj* child;
     u8 cat;
-    const TyDspNameTables* tables =
-        (TyDspNameTables const*) &_tyDisplay_803B8988;
-
     HSD_Archive** archives = _tyDisplay_804A2DE8;
     u8 _3[4];
 
@@ -2478,7 +2474,7 @@ HSD_JObj* tyDisplay_8031C5E4(s32 arg0)
     {
         u8 c = entry->x04;
         cat = c;
-        jobj_names1 = *(TyDspArchNames*) tables->jobj_names;
+        jobj_names1 = _tyDisplay_803B8988;
         if ((s8) c == -1) {
             cat = 0;
         }
@@ -2490,7 +2486,7 @@ HSD_JObj* tyDisplay_8031C5E4(s32 arg0)
     {
         u8 c = entry->x04;
         cat = c;
-        matanim_names1 = *(TyDspArchNames*) tables->matanim_names;
+        matanim_names1 = _tyDisplay_803B8A34;
         if ((s8) c == -1) {
             cat = 0;
         }
@@ -2501,11 +2497,11 @@ HSD_JObj* tyDisplay_8031C5E4(s32 arg0)
     HSD_JObjSetTranslateX(child, entry->x08);
     HSD_JObjSetTranslateZ(child, entry->x0C);
 
-    jobj_names2 = *(TyDspArchNames*) tables->jobj_names;
+    jobj_names2 = _tyDisplay_803B8988;
     HSD_JObjAddChild(root, HSD_JObjLoadJoint(un_8031C5E4_inline(
                                archives, 42, jobj_names2.entries[42])));
 
-    jobj_names3 = *(TyDspArchNames*) tables->jobj_names;
+    jobj_names3 = _tyDisplay_803B8988;
     HSD_JObjAddChild(root, HSD_JObjLoadJoint(un_8031C5E4_inline(
                                archives, 41, jobj_names3.entries[41])));
 

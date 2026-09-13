@@ -69,7 +69,7 @@ void ftCo_800C08A0(Fighter_GObj* gobj, Fighter_GObj* arg1, DynamicsDesc* arg2,
 {
     float f;
     FighterHurtCapsule* p_hurt;
-    struct SmallerHitCapsule hit;
+    HitCapsule hit;
     int hurt_idx;
     Fighter* fp = GET_FIGHTER(gobj);
     f = ftColl_800765F0(fp, NULL, arg2->count);
@@ -88,8 +88,8 @@ void ftCo_800C08A0(Fighter_GObj* gobj, Fighter_GObj* arg1, DynamicsDesc* arg2,
     }
     if (ftColl_80076640(fp, &f) != 0) {
         ftColl_80076764(3, arg3, arg1, arg2, fp, &fp->hurt_capsules[hurt_idx]);
-        lbColl_80008D30((HitCapsule*) &hit, (lbColl_80008D30_arg1*) arg2);
-        ftColl_80078384(fp, &fp->hurt_capsules[hurt_idx], (HitCapsule*) &hit);
+        lbColl_80008D30(&hit, (lbColl_80008D30_arg1*) arg2);
+        ftColl_80078384(fp, &fp->hurt_capsules[hurt_idx], &hit);
     }
     pl_8003EC30(fp->player_id, fp->is_sub_fighter, arg3, f);
 }

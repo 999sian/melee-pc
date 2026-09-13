@@ -28,7 +28,7 @@ typedef u32 HSD_Pad;
 #define HSD_PAD_START (1 << 12)
 
 /// Digital input of either L or R
-#define HSD_PAD_LR (1 << 31)
+#define HSD_PAD_LR (1U << 31)
 
 #define HSD_PAD_AB (HSD_PAD_A | HSD_PAD_B)
 #define HSD_PAD_XY (HSD_PAD_X | HSD_PAD_Y)

@@ -37,29 +37,10 @@ typedef struct {
     /* 0x9C */ f32 x9C;
 } ResultsPlayerConfig;
 
-typedef struct {
-    /* 0x00 */ f32 x_off[4];   // indexed by variant (clamped to 3)
-    /* 0x10 */ f32 y_off[4];   // indexed by variant (clamped to 3)
-    /* 0x20 */ f32 z_scale[4]; // indexed by variant (clamped to 3)
-} CameraKindParams;            // size = 0x30
-
-typedef struct {
-    /* 0x000 */ u8 pad[0x10];
-    /* 0x010 */ CameraKindParams kind[(0x6D0 - 0x10) / 0x30];
-    /* 0x6D0 */ f32 slot_off[(0xF00 - 0x6D0) / 0x30][3][4];
-    /* 0xEE0 */ u8 pad_EE0[0xF08 - 0xEE0];
-    /* 0xF08 */ HSD_CObjDesc cobj_desc;
-} CameraKindData;
-
 typedef union {
     s16 h[4];
     u32 w[2];
 } PackedS16x4;
-
-typedef struct {
-    u32 lo;
-    u32 hi;
-} U32Pair;
 
 typedef struct {
     /* 0x00:0 */ u8 x0_0 : 4;
@@ -103,8 +84,8 @@ extern ResultsPlayerConfig const lbl_803B7B68;
 
 extern u32 gmResultPlayerColors[4];
 extern CharScaleEntry gmResultCharacterScaleData[];
-extern u32 gmResultX22F4Init[0x20 / sizeof(u32)];
-extern u32 gmResultScoreTableInit[0x20 / sizeof(u32)];
+extern PackedS16x4 gmResultX22F4Init[4];
+extern PackedS16x4 gmResultScoreTableInit[4];
 extern ResultsCharacterData gmResultCharacterData;
 extern HSD_CameraDescPerspective gmResultCameraDesc;
 void gmResultCameraDescInit(void);

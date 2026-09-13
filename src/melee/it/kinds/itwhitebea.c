@@ -283,12 +283,16 @@ void it_802E3784(Item_GObj* gobj, Item_GObj* ref_gobj)
     it_8026B894(gobj, ref_gobj);
 }
 
-/// This function only called by itFreeze_Logic17_PickedUp from itfreeze, so
-/// using those item vars
+/// Clears the caller's back-reference to the freeze item it spawned. Every
+/// call site passes a whitebea/oldottosea-family item (itfreeze hands over
+/// its @c freeze.unk_1C link), so the field lives at ItemVars +0x20 in that
+/// view. Spelling it @c freeze.x20 only named the same byte when pointers
+/// were 4 bytes wide: itFreeze_ItemVars has a pointer at +0x1C, which pushes
+/// its @c x20 past the field the readers test.
 void it_802E37A4(Item_GObj* gobj)
 {
     if (gobj != NULL) {
-        GET_ITEM(gobj)->xDD4_itemVar.freeze.x20 = NULL;
+        GET_ITEM(gobj)->xDD4_itemVar.whitebea.x20 = NULL;
     }
 }
 

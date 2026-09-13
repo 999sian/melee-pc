@@ -10,7 +10,7 @@
 
 #include <dolphin/mtx.h>
 
-/* 1CD338 */ void grCastle_801CD338(bool);
+/* 1CD338 */ void grCastle_801CD338(s32);
 /* 1CD37C */ void grCastle_801CD37C(void);
 /* 1CD4A0 */ void grCastle_801CD4A0(void);
 /* 1CD4A4 */ void grCastle_801CD4A4(void);
@@ -65,16 +65,16 @@
 /* 1D0298 */ bool grCastle_801D0298(Ground_GObj* gobj, s32 arg1);
 /* 1D02B8 */ void grCastle_801D02B8(Ground_GObj* gobj);
 /* 1D0520 */ void grCastle_801D0520(Ground_GObj*, int);
-/* 1D0550 */ void grCastle_801D0550(UNK_T, unkCastle*);
-/* 1D059C */ void grCastle_801D059C(UNK_T, unkCastle*);
-/* 1D05E8 */ void grCastle_801D05E8(UNK_T, unkCastle*);
-/* 1D0634 */ void grCastle_801D0634(UNK_T, unkCastle*);
-/* 1D0680 */ void grCastle_801D0680(UNK_T, unkCastle*);
-/* 1D06CC */ void grCastle_801D06CC(UNK_T, unkCastle*, Ground_GObj*);
-/* 1D0744 */ void grCastle_801D0744(UNK_T, unkCastle*, Ground_GObj*);
-/* 1D07BC */ void grCastle_801D07BC(UNK_T, unkCastle*, Ground_GObj*);
-/* 1D0834 */ void grCastle_801D0834(UNK_T, unkCastle*, Ground_GObj*);
-/* 1D08AC */ void grCastle_801D08AC(UNK_T, unkCastle*, Ground_GObj*);
+/* 1D0550 */ void grCastle_801D0550(UNK_T, Ground*);
+/* 1D059C */ void grCastle_801D059C(UNK_T, Ground*);
+/* 1D05E8 */ void grCastle_801D05E8(UNK_T, Ground*);
+/* 1D0634 */ void grCastle_801D0634(UNK_T, Ground*);
+/* 1D0680 */ void grCastle_801D0680(UNK_T, Ground*);
+/* 1D06CC */ void grCastle_801D06CC(UNK_T, Ground*, Ground_GObj*);
+/* 1D0744 */ void grCastle_801D0744(UNK_T, Ground*, Ground_GObj*);
+/* 1D07BC */ void grCastle_801D07BC(UNK_T, Ground*, Ground_GObj*);
+/* 1D0834 */ void grCastle_801D0834(UNK_T, Ground*, Ground_GObj*);
+/* 1D08AC */ void grCastle_801D08AC(UNK_T, Ground*, Ground_GObj*);
 /* 1D0924 */ void fn_801D0924(HSD_GObj*, int);
 /* 1D09B8 */ bool grCastle_801D09B8(void*, HSD_GObj*, Vec3*);
 /* 1D0A9C */ void grCastle_801D0A9C(Vec3* arg0, f32 arg8);

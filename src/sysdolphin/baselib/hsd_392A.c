@@ -178,7 +178,7 @@ void* fn_80392A3C(void)
     if (lbl_804D608C != 0) {
         hsd_804CE3F8[count].type = 0;
         entry = get_perf_disp_item(count);
-        sprintf(entry->content.text,
+        snprintf(entry->content.text, sizeof(entry->content.text),
                 "\\c00ff00%2.3f \\cffffff%2.3f \\c00ffff%2.3f  "
                 "\\c00ff00%2.3f \\cffffff%2.3f \\c00ffff%2.3f",
                 hsd_804D7858, hsd_804D785C, hsd_804D7860, hsd_804D7864,
@@ -188,7 +188,7 @@ void* fn_80392A3C(void)
         if (hsd_804D7888 != 0) {
             hsd_804CE3F8[count].type = 0;
             entry2 = &hsd_804CE3F8[count];
-            sprintf(entry2->content.text,
+            snprintf(entry2->content.text, sizeof(entry2->content.text),
                     "\\c00ff00%2.3f \\cffffff%2.3f \\c00ffff%2.3f",
                     hsd_804D787C, hsd_804D7880, hsd_804D7884);
             entry2->next = &hsd_804CE3F8[count + 1];

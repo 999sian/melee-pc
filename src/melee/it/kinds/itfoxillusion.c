@@ -198,8 +198,9 @@ void it_8029D798(Item_GObj* item_gobj)
 {
     Item* item = GET_ITEM(item_gobj);
     HSD_JObj* jobj = GET_JOBJ(item_gobj);
-    f32* attr = DP(f32, item->xC4_article_data->x4_specialAttributes);
-    item->xD44_lifeTimer = attr[1];
+    FoxIllusionAttr* attr =
+        DP(FoxIllusionAttr, item->xC4_article_data->x4_specialAttributes);
+    item->xD44_lifeTimer = attr->x4;
     it_80272A3C(jobj);
     Item_80268E5C(item_gobj, 2, ITEM_ANIM_UPDATE);
 }

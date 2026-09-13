@@ -1569,7 +1569,7 @@ void ftData_8008572C(FighterKind kind)
 {
     if (gFtDataList[kind] == NULL) {
         lbArchive_80017040(NULL, ftData_803C1F40[kind].a, &gFtDataList[kind],
-                           ftData_803C1F40[kind].b, 0);
+                           ftData_803C1F40[kind].b, NULL);
     }
 }
 
@@ -1601,13 +1601,12 @@ void ftData_80085820(FighterKind kind, int costume_id)
                 &temp_r5->x14_archive,
                 ftData_803C2360[kind][costume_id].dat_filename, temp_r5,
                 ftData_803C2360[kind][costume_id].joint_name, &temp_r5->x4,
-                ftData_803C2360[kind][costume_id].matanim_joint_name, 0);
+                ftData_803C2360[kind][costume_id].matanim_joint_name, NULL);
         } else {
             lbArchive_80017040(
                 &temp_r5->x14_archive,
                 ftData_803C2360[kind][costume_id].dat_filename, temp_r5,
-                ftData_803C2360[kind][costume_id].joint_name, 0,
-                ftData_803C2360[kind][costume_id].matanim_joint_name);
+                ftData_803C2360[kind][costume_id].joint_name, NULL);
             CostumeListsForeachCharacter[kind].costume_list[costume_id].x4 =
                 NULL;
         }
@@ -1624,13 +1623,12 @@ void ftData_800858E4(FighterKind kind, int costume_id)
                 &temp_r5->x14_archive,
                 ftData_803C2360[kind][costume_id].dat_filename, temp_r5,
                 ftData_803C2360[kind][costume_id].joint_name, &temp_r5->x4,
-                ftData_803C2360[kind][costume_id].matanim_joint_name, 0);
+                ftData_803C2360[kind][costume_id].matanim_joint_name, NULL);
         } else {
             lbArchive_80017040(
                 &temp_r5->x14_archive,
                 ftData_803C2360[kind][costume_id].dat_filename, temp_r5,
-                ftData_803C2360[kind][costume_id].joint_name, 0,
-                ftData_803C2360[kind][costume_id].matanim_joint_name);
+                ftData_803C2360[kind][costume_id].joint_name, NULL);
             CostumeListsForeachCharacter[kind].costume_list[costume_id].x4 =
                 NULL;
         }

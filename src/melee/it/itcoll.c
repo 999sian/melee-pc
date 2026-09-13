@@ -63,20 +63,6 @@ static bool itColl_chkECBOverlap(f32 pos_x, f32 pos_y, itECB* ecb_a,
 
 const Quaternion it_803B8560 = { 0.0f, 0.0f, 1.0f, 0.0f };
 
-typedef struct DISC_STRUCT ItCollDynamicsDesc {
-    s32 bone_id;
-    DiscVec3 offset;
-    f32 size;
-} ItCollDynamicsDesc;
-DISC_ASSERT_SIZE(ItCollDynamicsDesc, 0x14);
-
-typedef struct DISC_STRUCT ItCollDynamics {
-    u8 _pad[8];
-    s32 count;
-    DISC_PTR(ItCollDynamicsDesc) descs;
-} ItCollDynamics;
-DISC_ASSERT_SIZE(ItCollDynamics, 0x10);
-
 void it_8026F9A0(void)
 {
     it_804D6D18 = 0;
@@ -723,7 +709,10 @@ void it_80270E30(Item_GObj* arg_item_gobj)
     struct {
         Vec3* v;
     } hurt_pos_p;
-    u32 index2;
+    /* Indexes it_804A0E70 below; only assigned when a knockback beats
+     * max_knockback, so it needs a valid default instead of a stale
+     * register. */
+    u32 index2 = 0;
     HitCapsule* hit2;
     ItemAttr* attr;
     Vec3* hurt_coll_pos;
@@ -1007,7 +996,7 @@ void it_8027163C(Item_GObj* item_gobj)
     Item* item;
     Article* article;
     ItHurtBoneList* it_hurtbox;
-    ItCollDynamics* it_dynams;
+    ItemDynamics* it_dynams;
     u32 cnt;
     HurtCapsule* hurt;
     ItHurtBoneDesc* hurt_dyn_desc;
@@ -1017,7 +1006,7 @@ void it_8027163C(Item_GObj* item_gobj)
     item = item_gobj->user_data;
     article = item->xC4_article_data;
     it_hurtbox = DP(ItHurtBoneList, article->x8_hurtbones);
-    it_dynams = DP(ItCollDynamics, article->x14_dynamics);
+    it_dynams = DP(ItemDynamics, article->x14_dynamics);
     if (it_hurtbox != NULL) {
         if (it_hurtbox->count > 2) {
             HSD_ASSERTREPORT(0x3F4, 0, "item hit num over!\n");
@@ -1048,15 +1037,16 @@ void it_8027163C(Item_GObj* item_gobj)
         item->xAC8_hurtboxNum = 0;
     }
     if (it_dynams != NULL) {
-        if (it_dynams->count > 2) {
+        if (it_dynams->collision_count > 2) {
             HSD_ASSERTREPORT(0x415, 0, "item dynamics hit num over!\n");
         }
         cnt = 0U;
-        item->xB68 = it_dynams->count;
+        item->xB68 = it_dynams->collision_count;
         index = 0;
-        while (cnt < it_dynams->count) {
+        while (cnt < it_dynams->collision_count) {
             struct xB6C_t* vars = &item->xB6C_vars[cnt];
-            ItCollDynamicsDesc* bone_dyn_desc = &DP(ItCollDynamicsDesc, it_dynams->descs)[index];
+            ItemCollisionDesc* bone_dyn_desc =
+                &DP(ItemCollisionDesc, it_dynams->collision_descs)[index];
             vars->xB90 = bone_dyn_desc->bone_id;
             vars->xB7C =
                 item->xBBC_dynamicBoneTable->bones[bone_dyn_desc->bone_id];

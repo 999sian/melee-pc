@@ -65,6 +65,7 @@ void ft_8007C77C(Fighter_GObj* gobj)
     HSD_GObj* cur_gobj;
     f32(*temp_r26)[4];
     int i;
+    Mtx coll;
 
     f32 temp_f1;
     int var_r0;
@@ -102,16 +103,31 @@ void ft_8007C77C(Fighter_GObj* gobj)
         }
         var_r29 = 0;
         if (ftLib_80086FD4(gobj, ip->owner) != 0) {
-            if (ip->xDD4_itemVar.unk4.xDEC_b1) {
+            if (ip->xDD4_itemVar.it_2E5A.x18.b1) {
                 var_r29 = 1;
             }
-        } else if (ip->xDD4_itemVar.unk4.xDEC_b0) {
+        } else if (ip->xDD4_itemVar.it_2E5A.x18.b0) {
             var_r29 = 1;
         }
         if (!var_r29) {
             continue;
         }
-        temp_r26 = ip->xDD4_itemVar.unk4.xDF0;
+        /* The coin's item vars are owned by it_2E5A_ItemVars, whose `sub`
+         * record holds an HSD_JObj*; reading them back through
+         * itUnk4_ItemVars only coincides while pointers are 4 bytes. On
+         * x86-64 `unk4.xDF0` sits at ip+DD4+0x1C while `it_2E5A.sub` sits at
+         * ip+DD4+0x20, and the two Vec3s inside slip a further 8 and 12
+         * bytes, so lbColl_80007B78 read the sphere from the wrong offsets
+         * and no coin could ever be collected. Read through the owning view
+         * and hand the collider a record in the layout it indexes:
+         * +00 radius, +08 current pos, +14 previous pos, +20 contact pos. */
+        {
+            it_2E5A_SubVars* sub = &ip->xDD4_itemVar.it_2E5A.sub;
+            coll[0][0] = sub->x0;
+            *(Vec3*) &coll[0][2] = sub->x8;
+            *(Vec3*) &coll[1][1] = sub->x14;
+        }
+        temp_r26 = coll;
         for (i = 0; i < 2; i++) {
             struct Fighter_x1614_t* tmp = &fp->x1614[i];
             if (lbColl_80007B78(temp_r26, tmp, ip->scl, fp->x34_scale.y)) {

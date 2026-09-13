@@ -337,11 +337,26 @@ void ftLib_SetScale(HSD_GObj* gobj, float val)
     ftCommon_80080174(fp);
 }
 
+/* MELEE_CAM_BONE=1: the camera bone position feeds lbVector_WorldToScreen,
+ * which asserts on |component| >= 50000. Report the inputs where the value is
+ * produced, so the first bad frame is logged rather than the later frame the
+ * draw path happens to sample it on. Cached: getenv() scans the environment
+ * and this sits on a per-fighter, per-frame path. */
+static int pc_dbg_cam_bone(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_CAM_BONE") != NULL;
+    }
+    return cached;
+}
+
 void ftLib_800866DC(HSD_GObj* gobj, Vec3* v)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     struct ftCo_DatAttrs* r4 = &fp->co_attrs;
     s32 i = DP(struct ftCo_DatAttrs, fp->ft_data->x0)->camera_zoom_target_bone;
+    HSD_JObj* bone = ftLib_80086630(gobj, i);
     Vec3 offset;
 
     /* x170 is a DiscVec3: big-endian floats in disc data. Casting it to Vec3*
@@ -351,7 +366,37 @@ void ftLib_800866DC(HSD_GObj* gobj, Vec3* v)
      * (lbvector.c:384) during a fighter draw. Copy through DISC_VEC3_GET so
      * the values are byte-swapped on the way out. */
     DISC_VEC3_GET(offset, r4->x170);
-    lb_8000B1CC(ftLib_80086630(gobj, i), &offset, v);
+    lb_8000B1CC(bone, &offset, v);
+
+    if (pc_dbg_cam_bone() &&
+        (!(v->x > -50000.0F && v->x < 50000.0F) ||
+         !(v->y > -50000.0F && v->y < 50000.0F) ||
+         !(v->z > -50000.0F && v->z < 50000.0F)))
+    {
+        static int reported;
+
+        if (reported < 64) {
+            /* Bone world position without the offset: says whether the wild
+             * component comes from the bone matrix or from the attribute. */
+            Vec3 bone_world = { 0.0F, 0.0F, 0.0F };
+
+            reported++;
+            if (bone != NULL) {
+                lb_8000B1CC(bone, NULL, &bone_world);
+            }
+            OSReport("[cam-bone] ply=%d kind=%d motion=%d scale=%g part=%d/%u "
+                     "jobj=%p bone=(%g,%g,%g) offset=(%g,%g,%g) "
+                     "out=(%g,%g,%g) cur_pos=(%g,%g,%g) box=%p dst=%p\n",
+                     (int) fp->player_id, (int) fp->kind, (int) fp->motion_id,
+                     fp->x34_scale.y, (int) i,
+                     ((struct FighterPartsTable*) (uintptr_t)
+                          ftPartsTable[fp->kind].v)->parts_num,
+                     (void*) bone, bone_world.x,
+                     bone_world.y, bone_world.z, offset.x, offset.y, offset.z,
+                     v->x, v->y, v->z, fp->cur_pos.x, fp->cur_pos.y,
+                     fp->cur_pos.z, (void*) fp->x890_cameraBox, (void*) v);
+        }
+    }
 }
 
 void ftLib_80086724(HSD_GObj* gobj, HSD_GObj* other)
@@ -766,11 +811,15 @@ bool ftLib_80087074(HSD_GObj* gobj, Vec3* v)
     return false;
 }
 
-bool ftLib_800870BC(HSD_GObj* gobj, int* val)
+bool ftLib_800870BC(HSD_GObj* gobj, GXColor* color)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->x61A_controller_index) {
-        *val = p_ftCommonData->x6D8[fp->x61A_controller_index];
+        /* x6D8[n] is element n of the GXColor run that starts at
+         * ftCommonData+6D8; elements 1..4 are x6DC_colorsByPlayer[0..3].
+         * Copying as GXColor also avoids byte-reversing it on x86. */
+        *color = p_ftCommonData
+                     ->x6DC_colorsByPlayer[fp->x61A_controller_index - 1];
         return true;
     }
     return false;

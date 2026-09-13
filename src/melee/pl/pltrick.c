@@ -83,7 +83,7 @@ void pl_80037C60(Fighter_GObj* fgp, s32 prev2070_int)
     if ((attack_id != 0) && (attack_id != prev_union.x2073)) {
         if (attack_id >= StatsAttack_Count) {
             if (!fp->is_sub_fighter) {
-                acp->by_attack_hi[attack_id]++;
+                acp->ext_attack_counts[attack_id - 0x60]++;
             }
         } else {
             ev.x2070_int = fp->x2070.x2070_int;

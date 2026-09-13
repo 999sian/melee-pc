@@ -1,7 +1,6 @@
 #include "gmscene.h"
 #ifdef TARGET_PC
 #include "pc/widescreen.h"
-#include "gm_1A3F.h"
 #endif
 
 #include "gm_1A36.h"
@@ -192,8 +191,11 @@ void gm_801A4B88(struct GameSceneInfo* info)
 {
     gm_804D6720 = info;
 #ifdef TARGET_PC
-    pc_widescreen_set_scene(info && gm_GetCurrentGameMode() == GM_VS &&
-        (info->scene_kind == GS_VS || info->scene_kind == GS_SUDDEN_DEATH));
+    /* Every mode fights in a VS scene: Classic, Adventure, All-Star, Event,
+     * Stadium and Special Smash all arrive here with GS_VS. Menus, results and
+     * cutscenes keep the original aspect. */
+    pc_widescreen_set_scene(info && (info->scene_kind == GS_VS ||
+        info->scene_kind == GS_SUDDEN_DEATH || info->scene_kind == GS_TRAINING));
 #endif
 }
 

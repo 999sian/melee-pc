@@ -34,8 +34,11 @@ bool ftCo_800984D4(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
     if (inlineA0(fp) || ftCo_800DF644(fp)) {
-        bool msid = fp->motion_id == ftCo_MS_DownWaitU ? ftCo_MS_DownAttackU
-                                                       : ftCo_MS_DownAttackD;
+        /* Typed `bool` by the decompiler, which collapses both motion ids
+         * to 1 here. */
+        FtMotionId msid = fp->motion_id == ftCo_MS_DownWaitU
+                              ? ftCo_MS_DownAttackU
+                              : ftCo_MS_DownAttackD;
         ftCo_8009856C(gobj, msid);
         return true;
     }

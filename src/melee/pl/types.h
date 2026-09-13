@@ -75,19 +75,26 @@ struct plActionStats {
         };
     };
     /* +504 */ u8 x504[StatsAttack_Count]; ///< related to UnkPlBonusBits
-    /* +568 */ u32 x568;
-    /* +56C */ u32 x56C;
-    /* +570 */ u32 x570;
-    /* +574 */ u32 x574;
-    /* +578 */ u32 x578;
-    /* +57C */ u32 x57C;
-    /* +580 */ u32 x580;
-    /* +584 */ u32 x584;
-    /* +588 */ u32 x588;
-    /* +58C */ u32 x58C;
-    /* +590 */ u32 x590;
-    /* +594 */ u32 x594;
-    /* +598 */ u32 x598[8];
+    /// Counters for attack ids >= #StatsAttack_Count, indexed by id - 0x60.
+    /// Retail reaches these by running off the end of #by_attack_hi.
+    /* +568 */ union {
+        u32 ext_attack_counts[20];
+        struct {
+            u32 x568;
+            u32 x56C;
+            u32 x570;
+            u32 x574;
+            u32 x578;
+            u32 x57C;
+            u32 x580;
+            u32 x584;
+            u32 x588;
+            u32 x58C;
+            u32 x590;
+            u32 x594;
+            u32 x598[8];
+        };
+    };
     /* +5B8 */ u8 x5B8[4];
     /* +5BC */ u8 x5BC_b0 : 1;
     /* +5BC */ u8 x5BC_b1 : 1;

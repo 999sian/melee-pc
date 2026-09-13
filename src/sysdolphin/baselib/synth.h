@@ -29,8 +29,11 @@ struct HSD_SynthSFXNode;
 /* 3891D0 */ void dropcallback(void*);
 /* 389334 */ // s32 HSD_Synth_80389334(u16, u8, u8, u8, u8, u8, f32, f32, f32,
              //                       f32, f32);
-/* 3896F0 */ bool HSD_SynthSFXPlayWithGroup(int, u8, u8, u8, int, int, int,
-                                            f32, f32, f32, f32, f32);
+/* Returns the synth node id, or -1. Upstream's `bool` is 1-byte `_Bool` here,
+ * which clamps both the id and the -1 to 1; axdriver's HSD_SM::vID needs the
+ * real value. */
+/* 3896F0 */ int HSD_SynthSFXPlayWithGroup(int, u8, u8, u8, int, int, int, f32,
+                                           f32, f32, f32, f32);
 void HSD_SynthSFXKeyOff(int);
 /* 3899B0 */ void HSD_SynthSFXStopRange(int);
 /* 389A50 */ void HSD_SynthSFXPause(int);
@@ -51,7 +54,7 @@ void HSD_SynthSFXKeyOff(int);
 /* 38ABCC */ void HSD_SynthSFXSetDriverPauseCallback(void (*)(s32));
 /* 38ABD4 */ void HSD_SynthCallback(void);
 /* 38AD60 */ void HSD_SynthResetStreamCounters(int, int, void*, bool);
-/* 38AD74 */ void HSD_Synth_8038AD74(u32, uintptr_t);
+/* 38AD74 */ void HSD_Synth_8038AD74(u32, int);
 /* 38ADD0 */ void HSD_Synth_8038ADD0(void);
 /* 38B120 */ void HSD_Synth_8038B120(void);
 /* 38B380 */ void HSD_SynthPStreamFirstHakoHeaderCallback(void);

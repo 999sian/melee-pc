@@ -148,7 +148,7 @@ static const lbColl_80008D30_arg1 grKg_803B7FB0 = {
     HitCapsule_Enabled, 1, 361, 0, 0, 180, 0, 0, 0,
 };
 
-void grKongo_801D5238(bool arg) {}
+void grKongo_801D5238(s32 arg) {}
 
 void grKongo_801D523C(void)
 {
@@ -286,7 +286,7 @@ void grKongo_801D55D8(Ground_GObj* arg0)
     grAnime_801C8138(arg0, temp_r31->map_id, 0);
     grMaterial_801C94D8(temp_r28);
     temp_r31->u.kongo3.xE4 = 1.0f;
-    temp_r31->u.kongo.xE8 = 1.0f;
+    temp_r31->u.kongo3.xE8 = 1.0f;
     temp_r31->u.kongo.xD4 = 0.0f;
     temp_r31->u.kongo.xD8 = 0.0f;
     temp_r31->u.kongo3.xC4 = 0;
@@ -295,7 +295,7 @@ void grKongo_801D55D8(Ground_GObj* arg0)
     temp_r31->u.kongo.u.taru.keep = NULL;
     temp_r31->u.kongo3.xDC = 0.0f;
     temp_r31->u.kongo3.xE0 = 0.0f;
-    temp_r31->u.kongo.xE8 = yakumono_param->unk60;
+    temp_r31->u.kongo3.xE8 = yakumono_param->unk60;
     temp_r31->u.kongo2.xCC =
         rand_range((s32) yakumono_param->unk30, (s32) yakumono_param->unk2C);
     temp_r31->u.kongo2.xCE =
@@ -407,9 +407,9 @@ void grKongo_801D577C(Ground_GObj* arg0)
         }
     } break;
     case 1:
-        gp->u.kongo2.xE8 += yakumono_param->unk5C;
-        if (gp->u.kongo2.xE8 > yakumono_param->unk60) {
-            gp->u.kongo2.xE8 = yakumono_param->unk60;
+        gp->u.kongo3.xE8 += yakumono_param->unk5C;
+        if (gp->u.kongo3.xE8 > yakumono_param->unk60) {
+            gp->u.kongo3.xE8 = yakumono_param->unk60;
             gp->u.kongo2.xCE =
                 rand_range(yakumono_param->unk68, yakumono_param->unk64);
             gp->u.kongo3.xC8 = 2;
@@ -423,9 +423,9 @@ void grKongo_801D577C(Ground_GObj* arg0)
         }
     } break;
     case 3:
-        gp->u.kongo2.xE8 -= yakumono_param->unk5C;
-        if (gp->u.kongo2.xE8 < 0.0f) {
-            gp->u.kongo2.xE8 = 0.0f;
+        gp->u.kongo3.xE8 -= yakumono_param->unk5C;
+        if (gp->u.kongo3.xE8 < 0.0f) {
+            gp->u.kongo3.xE8 = 0.0f;
             gp->u.kongo2.xCE = rand_range(yakumono_param->unk58,
                                           yakumono_param->unk54);
             gp->u.kongo3.xC8 = 0;
@@ -726,10 +726,10 @@ void grKongo_801D651C(Ground_GObj* gobj)
     gp->u.kongo2.xC4 = Ground_801C247C(list[i].file, list[i].spline);
     gp->u.kongo2.xC8 = 0.0f;
     gp->u.kongo2.xD0 = 0.0f;
-    gp->u.kongo.xCC = 0.0f;
+    gp->u.kongo2.xCC_pos = 0.0f;
     gp->u.kongo2.xD8 = -99999.0f;
     gp->u.kongo2.xDC = F32_MAX;
-    splArcLengthPoint(&sp2C, gp->u.kongo2.xC4, gp->u.kongo.xCC);
+    splArcLengthPoint(&sp2C, gp->u.kongo2.xC4, gp->u.kongo2.xCC_pos);
     HSD_JObjSetTranslate(jobj, &sp2C);
 }
 
@@ -770,9 +770,9 @@ void grKongo_801D6668(Ground_GObj* arg0)
     step = 0.001F;
     jobj = arg0->hsd_obj;
 
-    if ((gp->u.kongo.xCC + step) <= 1.0) {
-        splArcLengthPoint(&sp28, gp->u.kongo2.xC4, gp->u.kongo.xCC);
-        splArcLengthPoint(&sp1C, gp->u.kongo2.xC4, gp->u.kongo.xCC + step);
+    if ((gp->u.kongo2.xCC_pos + step) <= 1.0) {
+        splArcLengthPoint(&sp28, gp->u.kongo2.xC4, gp->u.kongo2.xCC_pos);
+        splArcLengthPoint(&sp1C, gp->u.kongo2.xC4, gp->u.kongo2.xCC_pos + step);
         dx = sp28.x - sp1C.x;
         dz = sp28.z;
         dz -= sp1C.z;
@@ -792,13 +792,13 @@ void grKongo_801D6668(Ground_GObj* arg0)
         }
         if (dist > 0.0) {
             step *= yakumono_param->unk14 / dist;
-            gp->u.kongo.xCC += step;
-            if (gp->u.kongo.xCC > 1.0) {
-                gp->u.kongo.xCC = 1.0F;
+            gp->u.kongo2.xCC_pos += step;
+            if (gp->u.kongo2.xCC_pos > 1.0) {
+                gp->u.kongo2.xCC_pos = 1.0F;
             }
         }
     }
-    dx = gp->u.kongo.xCC;
+    dx = gp->u.kongo2.xCC_pos;
     Ground_801C4B50(gp->u.kongo2.xC4, &sp5C, &sp50, dx);
     HSD_JObjGetTranslation(jobj, &sp44);
     HSD_JObjSetTranslate(jobj, &sp5C);
@@ -807,14 +807,14 @@ void grKongo_801D6668(Ground_GObj* arg0)
     sp34.z = sp50.z;
     sp34.w = 1.0f;
     HSD_JObjSetRotation(jobj, &sp34);
-    if (gp->u.kongo.xD8 < sp5C.y) {
-        gp->u.kongo.xD8 = sp5C.y;
+    if (gp->u.kongo2.xD8 < sp5C.y) {
+        gp->u.kongo2.xD8 = sp5C.y;
     }
     if (gp->u.kongo2.xDC > sp5C.z) {
         gp->u.kongo2.xDC = sp5C.z;
     }
-    if (((gp->u.kongo.xD8 - sp44.y) < 5.0f) &&
-        ((gp->u.kongo.xD8 - sp5C.y) > 5.0f))
+    if (((gp->u.kongo2.xD8 - sp44.y) < 5.0f) &&
+        ((gp->u.kongo2.xD8 - sp5C.y) > 5.0f))
     {
         Ground_801C5440(gp, 0, 0x5A550U);
         Ground_801C5630(gp, 0, 1.0f - (sp5C.z / gp->u.kongo2.xDC));

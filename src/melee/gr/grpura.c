@@ -37,7 +37,7 @@ struct GrPuVtxMapEntry {
     /* 0x8 */ HSD_JObj* jobj;
 };
 
-/* 211CFC */ static void grPura_80211CFC(bool);
+/* 211CFC */ static void grPura_80211CFC(s32);
 /* 211D00 */ static void grPura_80211D00(void);
 /* 211DD8 */ static void grPura_80211DD8(void);
 /* 211DDC */ static void grPura_80211DDC(void);
@@ -290,7 +290,7 @@ StageData grPu_StageData = {
     0,
 };
 
-void grPura_80211CFC(bool num) {}
+void grPura_80211CFC(s32 num) {}
 
 /* 4D6AA0 */ static void* yakumono_param;
 
@@ -468,9 +468,10 @@ void stageGObj1_GObjProc(Ground_GObj* arg0)
         cur = gp->u.pura.xC8;
         t = (f32) cur / 3600.0f;
         gp->u.pura.xC8 = cur + 1;
-        sp18.r = (s8) (t * (f32) (spilC.r - sp18.r) + (f32) sp18.r);
-        sp18.g = (s8) (t * (f32) (spilC.g - sp18.g) + (f32) sp18.g);
-        sp18.b = (s8) (t * (f32) (spilC.b - sp18.b) + (f32) sp18.b);
+        /* Channels reach 255, which is out of range for s8. */
+        sp18.r = (u8) (t * (f32) (spilC.r - sp18.r) + (f32) sp18.r);
+        sp18.g = (u8) (t * (f32) (spilC.g - sp18.g) + (f32) sp18.g);
+        sp18.b = (u8) (t * (f32) (spilC.b - sp18.b) + (f32) sp18.b);
         Ground_801C205C(&sp18);
         Camera_SetBackgroundColor(sp18.r, sp18.g, sp18.b);
         return;

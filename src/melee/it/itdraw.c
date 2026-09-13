@@ -82,10 +82,22 @@ u32 it_8026ECE0(Item_GObj* gobj, u32 arg1)
     ret = 0;
     ip = GET_ITEM(gobj);
     if (ip->kind == It_Kind_Unk4) {
+        /* The coin's item vars are owned by it_2E5A_ItemVars, which stores a
+         * host pointer inside its `sub` record; the old spelling read them
+         * back through it_266F_ItemVars, whose flag byte and collision
+         * record only sit at the same offsets when pointers are 4 bytes.
+         * Read through the owning view and hand the collider a copy in its
+         * own layout (it only reads x0/x8/x14). */
+        it_2E5A_SubVars* sub = &ip->xDD4_itemVar.it_2E5A.sub;
+        struct lbColl_8000A10C_arg0_t sphere;
+        sphere.x0 = sub->x0;
+        sphere.x4 = 0.0f;
+        sphere.x8 = sub->x8;
+        sphere.x14 = sub->x14;
         if (ip->xDAA_flag.b0 &&
-            (ip->xDD4_itemVar.it_266F.x18.b0 ||
-             ip->xDD4_itemVar.it_266F.x18.b1) &&
-            lbColl_8000A10C(&ip->xDD4_itemVar.it_266F.x1C, arg1, ip->scl))
+            (ip->xDD4_itemVar.it_2E5A.x18.b0 ||
+             ip->xDD4_itemVar.it_2E5A.x18.b1) &&
+            lbColl_8000A10C(&sphere, arg1, ip->scl))
         {
             ret = 1;
         }
@@ -134,7 +146,7 @@ u32 it_8026ECE0(Item_GObj* gobj, u32 arg1)
             ret = 1;
         }
         if (ip->xDAA_flag.b3 && ip->xDD0_flag.b0 &&
-            (lb_800149E0((MtxPtr) &ip->xB54, arg1) != false))
+            (lb_800149E0(&ip->xB54, arg1) != false))
         {
             ret = 1;
         }
@@ -142,8 +154,24 @@ u32 it_8026ECE0(Item_GObj* gobj, u32 arg1)
     return ret;
 }
 
+/* The two "hide these bones" lists it_8026EECC walks live in the article's
+ * special attributes inside the .dat: it_8027CE64 relocates that slot and
+ * parks the host pointer in the item-vars union (itGamewatch_ItemVars::attr),
+ * and this is the only reader. The old spelling read it back as a native
+ * `it_266F_ItemVars*`, which assumes the two index pointers sit at +4 and +C
+ * with 4-byte pointers and that the counts are host-endian. Both are false
+ * here: describe the record as on-disc so the counts get swapped and the
+ * slots get relocated. */
+struct DISC_STRUCT it_8026EECC_BoneLists {
+    /* +0 */ u16 n0;
+    /* +4 */ DISC_PTR(u8) idx0;
+    /* +8 */ u16 n1;
+    /* +C */ DISC_PTR(u8) idx1;
+};
+DISC_ASSERT_SIZE(struct it_8026EECC_BoneLists, 0x10);
+
 #define it_8026EECC_VARS(ip)                                                  \
-    (*(it_266F_ItemVars**) &((ip)->xDD4_itemVar.it_266F))
+    ((struct it_8026EECC_BoneLists*) (ip)->xDD4_itemVar.gamewatch.attr)
 
 static inline void it_8026EECC_inline_1(HSD_GObj* gobj, s32 arg1, Vec3* pos)
 {
@@ -151,11 +179,15 @@ static inline void it_8026EECC_inline_1(HSD_GObj* gobj, s32 arg1, Vec3* pos)
 
     ip->xDCF_flag.b4 = 1;
     ip->xDCF_flag.b5 = 0;
-    it_8026EC54(gobj, it_8026EECC_VARS(ip)->x0, it_8026EECC_VARS(ip)->x4);
-    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->x8, it_8026EECC_VARS(ip)->xC);
+    it_8026EC54(gobj, it_8026EECC_VARS(ip)->n0,
+                DP(u8, it_8026EECC_VARS(ip)->idx0));
+    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->n1,
+                DP(u8, it_8026EECC_VARS(ip)->idx1));
     it_8026EB18(gobj, arg1, ip->xDCF_flag.b7 ? pos : NULL);
-    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->x0, it_8026EECC_VARS(ip)->x4);
-    it_8026EC54(gobj, it_8026EECC_VARS(ip)->x8, it_8026EECC_VARS(ip)->xC);
+    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->n0,
+                DP(u8, it_8026EECC_VARS(ip)->idx0));
+    it_8026EC54(gobj, it_8026EECC_VARS(ip)->n1,
+                DP(u8, it_8026EECC_VARS(ip)->idx1));
 }
 
 static inline void it_8026EECC_inline_2(HSD_GObj* gobj, s32 arg1, Vec3* pos)
@@ -173,11 +205,15 @@ static inline void it_8026EECC_inline_3(HSD_GObj* gobj, s32 arg1, Vec3* pos)
 
     ip->xDCF_flag.b4 = 1;
     ip->xDCF_flag.b5 = 1;
-    it_8026EC54(gobj, it_8026EECC_VARS(ip)->x0, it_8026EECC_VARS(ip)->x4);
-    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->x8, it_8026EECC_VARS(ip)->xC);
+    it_8026EC54(gobj, it_8026EECC_VARS(ip)->n0,
+                DP(u8, it_8026EECC_VARS(ip)->idx0));
+    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->n1,
+                DP(u8, it_8026EECC_VARS(ip)->idx1));
     it_8026EB18(gobj, arg1, ip->xDCF_flag.b7 ? pos : NULL);
-    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->x0, it_8026EECC_VARS(ip)->x4);
-    it_8026EC54(gobj, it_8026EECC_VARS(ip)->x8, it_8026EECC_VARS(ip)->xC);
+    it_8026EBC8(gobj, it_8026EECC_VARS(ip)->n0,
+                DP(u8, it_8026EECC_VARS(ip)->idx0));
+    it_8026EC54(gobj, it_8026EECC_VARS(ip)->n1,
+                DP(u8, it_8026EECC_VARS(ip)->idx1));
 }
 
 static inline Item* it_8026EECC_inline_0(HSD_GObj* gobj, Vec3* pos)

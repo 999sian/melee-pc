@@ -16,6 +16,8 @@
 
 static bool s_key[SDL_SCANCODE_COUNT];
 static bool s_active;
+static bool s_suppressed[SDL_SCANCODE_COUNT];
+extern bool pc_menu_is_open(void);
 
 static const struct {
     SDL_Scancode key;
@@ -63,6 +65,11 @@ void pc_keyboard_apply(void)
             n = SDL_SCANCODE_COUNT;
         }
         memcpy(s_key, keys, (size_t) n);
+    }
+    for (i = 0; i < SDL_SCANCODE_COUNT; i++) {
+        if (pc_menu_is_open()) s_suppressed[i] = s_key[i];
+        else if (!s_key[i]) s_suppressed[i] = false;
+        if (s_suppressed[i]) s_key[i] = false;
     }
     for (i = 0; i < sizeof(s_button_map) / sizeof(s_button_map[0]); i++) {
         if (s_key[s_button_map[i].key]) {

@@ -132,8 +132,8 @@ int HSD_Leak_80387DF8(int indent)
                 u32 reg_idx = block[1];
                 if ((u32) (reg_idx + 0x10000) != 0xFFFF && reg_idx < *cap_ptr)
                 {
-                    if ((u32) heap_start_phys ==
-                        *(u32*) ((u32) lc->table + (reg_idx << 2)))
+                    if ((u32) (uintptr_t) heap_start_phys ==
+                        lc->table[reg_idx])
                     {
                         HSD_LeakReportSpaces(i);
                         OSReport(

@@ -194,7 +194,7 @@ typedef struct grGb_804D69E0_t {
 } grGb_804D69E0_t;
 grGb_804D69E0_t grGb_804D69E0;
 
-void grGreatBay_801F423C(bool unused)
+void grGreatBay_801F423C(s32 unused)
 {
     return;
 }

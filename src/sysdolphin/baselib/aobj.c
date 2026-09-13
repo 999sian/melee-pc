@@ -202,8 +202,10 @@ HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc)
             if (hsd_obj != NULL) {
                 ref_INC(hsd_obj);
             } else {
-                phi_r30 =
-                    (HSD_Obj*) HSD_JObjLoadJoint((void*) aobjdesc->obj_id);
+                /* obj_id is a relocated 32-bit slot holding the joint's host
+                 * address, not a native pointer. */
+                phi_r30 = (HSD_Obj*) HSD_JObjLoadJoint(
+                    DP(HSD_Joint, aobjdesc->obj_id));
             }
             if (aobj != NULL) {
                 if (aobj->hsd_obj != NULL) {

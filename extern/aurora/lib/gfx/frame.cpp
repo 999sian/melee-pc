@@ -629,19 +629,20 @@ bool begin_frame() {
   frame.stagingBuffer = *stagingSlot;
   size_t bufferOffset = 0;
   const auto& stagingBuf = g_stagingBuffers[*stagingSlot];
-  const auto mapBuffer = [&](ByteBuffer& buf, uint64_t size) {
+  const auto mapBuffer = [&](ByteBuffer& buf, uint64_t size, const char* name) {
     if (size <= 0) {
       return;
     }
-    buf = ByteBuffer{static_cast<u8*>(stagingBuf.GetMappedRange(bufferOffset, size)), static_cast<size_t>(size)};
+    buf = ByteBuffer{static_cast<u8*>(stagingBuf.GetMappedRange(bufferOffset, size)),
+                     static_cast<size_t>(size), name};
     bufferOffset += size;
   };
-  mapBuffer(frame.verts, VertexBufferSize);
-  mapBuffer(frame.uniforms, UniformBufferSize);
-  mapBuffer(frame.indices, IndexBufferSize);
-  mapBuffer(frame.storage, StorageBufferSize);
+  mapBuffer(frame.verts, VertexBufferSize, "verts");
+  mapBuffer(frame.uniforms, UniformBufferSize, "uniforms");
+  mapBuffer(frame.indices, IndexBufferSize, "indices");
+  mapBuffer(frame.storage, StorageBufferSize, "storage");
   if constexpr (UseTextureBuffer) {
-    mapBuffer(frame.textureUpload, TextureUploadSize);
+    mapBuffer(frame.textureUpload, TextureUploadSize, "textureUpload");
   }
 
   begin_recording(frame, frameSlot);
@@ -669,6 +670,28 @@ void end_frame(EndFrameCallback callback) {
   const uint64_t frameId = frame.frameId;
   end_pipeline_frame();
   ++g_frameIndex;
+
+  /* MELEE_GFX_STATS=1: peak per-pool high-water marks, so the frame budgets
+   * in resources.hpp can be sized from data instead of guessed at. */
+  {
+    static const bool report = getenv("MELEE_GFX_STATS") != nullptr;
+    if (report) {
+      static size_t peakVerts, peakUniforms, peakIndices, peakStorage, peakTexture;
+      static auto last = PresentClock::now();
+      peakVerts = std::max(peakVerts, frame.verts.size());
+      peakUniforms = std::max(peakUniforms, frame.uniforms.size());
+      peakIndices = std::max(peakIndices, frame.indices.size());
+      peakStorage = std::max(peakStorage, frame.storage.size());
+      peakTexture = std::max(peakTexture, frame.textureUpload.size());
+      const auto now = PresentClock::now();
+      if (now - last >= std::chrono::seconds{1}) {
+        last = now;
+        Log.info("staging peak KiB: verts {} uniforms {} indices {} storage {} texture {}",
+                 peakVerts / 1024, peakUniforms / 1024, peakIndices / 1024, peakStorage / 1024,
+                 peakTexture / 1024);
+      }
+    }
+  }
 
   const size_t stagingSlot = frame.stagingBuffer;
   render_worker::enqueue_end_frame(frameId, [frameSlot, stagingSlot, callback = std::move(callback)]() mutable {

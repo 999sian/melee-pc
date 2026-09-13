@@ -35,8 +35,7 @@ typedef volatile char GlyphChar;
 /* 4D6C0C */ u8 mnNameNew_PortInUse;
 
 /// Maps keyboard cursor positions to jobj indices and glyph strings.
-/// Mirrors the key_jobj_ids/x34/xFC/character_bytes fields of
-/// MnNameNewDataLayout (data object at 0x803EDA7C).
+/// The original 0x803EDA58 data object holds these fields at 0x803EDA7C.
 typedef struct MnNameNewKeyMap {
     u16 key_jobj_ids[8];
     GlyphChar* x34[50];
@@ -44,25 +43,12 @@ typedef struct MnNameNewKeyMap {
     GlyphChar* character_bytes[50];
 } MnNameNewKeyMap;
 
-/// Lowercase/uppercase glyph variant rows for each key. Mirrors the
-/// lower_glyphs/upper_glyphs/x8CC fields of MnNameNewDataLayout (data
-/// object at 0x803EDCE4).
+/// Lowercase/uppercase glyph variant rows for each key. The original
+/// 0x803EDA58 data object holds these fields at 0x803EDCE4.
 typedef struct MnNameNewGlyphTable {
     GlyphChar* lower_glyphs[50][4];
     GlyphChar* upper_glyphs[50][4];
 } MnNameNewGlyphTable;
-
-typedef struct MnNameNewDataLayout {
-    AnimLoopSettings anim[3];
-    u16 key_jobj_ids[8];
-    char* x34[50];
-    char* xFC[50];
-    char* character_bytes[50];
-    GlyphRow lower_glyphs[50];
-    GlyphRow upper_glyphs[50];
-    Vec3 x8CC;
-    Vec3 x8D8;
-} MnNameNewDataLayout;
 
 extern StaticModelDesc mnNameNew_804A06F0;
 extern StaticModelDesc mnNameNew_804A0700;
@@ -356,7 +342,6 @@ HSD_Text* mnNameNew_KeySetup(NameNewEntry* arg0, u8 arg1)
     GXColor key_color;
     GXColor selected_key_color;
     GXColor color;
-    MnNameNewDataLayout* layout;
     s32 j;
     HSD_Text* text;
     HSD_JObj* ref1;
@@ -377,22 +362,21 @@ HSD_Text* mnNameNew_KeySetup(NameNewEntry* arg0, u8 arg1)
 
     PAD_STACK(16);
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
     key_color = mnNameNew_804DBF44;
     selected_key_color = mnNameNew_804DBF48;
 
     switch ((s32) arg1) {
     case 0:
         arg0->mode = 0;
-        str_table = layout->x34;
+        str_table = (char**) mnNameNew_KeyMap.x34;
         break;
     case 1:
         arg0->mode = 1;
-        str_table = layout->xFC;
+        str_table = (char**) mnNameNew_KeyMap.xFC;
         break;
     case 2:
         arg0->mode = 2;
-        str_table = layout->character_bytes;
+        str_table = (char**) mnNameNew_KeyMap.character_bytes;
         break;
     }
 
@@ -419,7 +403,7 @@ HSD_Text* mnNameNew_KeySetup(NameNewEntry* arg0, u8 arg1)
         }
     }
 
-    lb_8000B1CC(key_jobj, &layout->x8CC, &text_pos);
+    lb_8000B1CC(key_jobj, &unk_vec, &text_pos);
     pos_x = text_pos.x;
     pos_y = -text_pos.y;
     pos_z = text_pos.z;
@@ -562,16 +546,16 @@ s32 mnNameNew_8023BAA8(NameNewEntry* arg0, s32 arg1, u8 arg2)
     return (s32) arg2;
 }
 
-inline u8 GetAutoNameCharacter(u8** names, s32 char_idx)
+inline u8 GetAutoNameCharacter(const u8* name, s32 char_idx)
 {
-    return (*names)[char_idx];
+    return name[char_idx];
 }
 
 static inline s32 PickAutoNameInline(HSD_GObj* arg0)
 {
     char* cur_text;
     NameNewEntry* data;
-    u8** names;
+    DiscU32* names; /* u8*[] in the archive */
     s32 count;
     s32 pick;
     s32 dup;
@@ -579,7 +563,7 @@ static inline s32 PickAutoNameInline(HSD_GObj* arg0)
     u8 tmp;
     s32 name_idx;
     s8 ch;
-    u8** name_ptr;
+    const u8* name_ptr;
     char* text;
     char* text_start;
     s32 char_idx;
@@ -595,12 +579,12 @@ static inline s32 PickAutoNameInline(HSD_GObj* arg0)
             list_null_ch = (s8) *mnNameNew_NullCharacter;
             count = 0;
             names = AutoNamesList;
-            while (list_null_ch != (s8) * *names) {
+            while (list_null_ch != (s8) *DP(u8, names->v)) {
                 names++;
                 count++;
             }
             pick = HSD_Randi(count);
-        } while (IsNameUnique((char*) AutoNamesList[pick]) != 0);
+        } while (IsNameUnique(DP(char, AutoNamesList[pick].v)) != 0);
 
         if (pick == (s32) data->auto_history[0]) {
             dup = 1;
@@ -623,7 +607,7 @@ static inline s32 PickAutoNameInline(HSD_GObj* arg0)
     cur_text[6] = *mnNameNew_NullCharacter;
     cur_text[9] = *mnNameNew_NullCharacter;
 
-    name_ptr = &AutoNamesList[pick];
+    name_ptr = DP(u8, AutoNamesList[pick].v);
     while ((null_ch = (s8) *mnNameNew_NullCharacter) !=
            (ch = GetAutoNameCharacter(name_ptr, char_idx)))
     {
@@ -737,9 +721,7 @@ char* AddCharacterToName(char* arg0, u8 arg1, u8 arg2, u8 arg3)
     char ch;
     char* dest;
     char** table;
-    MnNameNewDataLayout* layout;
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
     switch (arg3) {
     case 0:
     case 1: {
@@ -748,18 +730,20 @@ char* AddCharacterToName(char* arg0, u8 arg1, u8 arg2, u8 arg3)
 
         if ((u8) (arg1 - 0x30) <= 1U) {
             if ((arg2 % 2) != 0) {
-                table =
-                    AddCharacterToName_getGlyphs(layout->upper_glyphs, arg1);
+                table = AddCharacterToName_getGlyphs(
+                    (GlyphRow*) mnNameNew_GlyphTable.upper_glyphs, arg1);
             } else {
-                table =
-                    AddCharacterToName_getGlyphs(layout->lower_glyphs, arg1);
+                table = AddCharacterToName_getGlyphs(
+                    (GlyphRow*) mnNameNew_GlyphTable.lower_glyphs, arg1);
             }
         } else if ((arg3 == 0 && (arg2 % 2) == 0) ||
                    (arg3 == 1 && (arg2 % 2) != 0))
         {
-            table = AddCharacterToName_getGlyphs(layout->lower_glyphs, arg1);
+            table = AddCharacterToName_getGlyphs(
+                (GlyphRow*) mnNameNew_GlyphTable.lower_glyphs, arg1);
         } else {
-            table = AddCharacterToName_getGlyphs(layout->upper_glyphs, arg1);
+            table = AddCharacterToName_getGlyphs(
+                (GlyphRow*) mnNameNew_GlyphTable.upper_glyphs, arg1);
         }
         dest = arg0;
 
@@ -773,9 +757,9 @@ char* AddCharacterToName(char* arg0, u8 arg1, u8 arg2, u8 arg3)
         break;
     }
     case 2:
-        arg0[0] = layout->character_bytes[arg1][0];
-        arg0[1] = layout->character_bytes[arg1][1];
-        arg0[2] = layout->character_bytes[arg1][2];
+        arg0[0] = mnNameNew_KeyMap.character_bytes[arg1][0];
+        arg0[1] = mnNameNew_KeyMap.character_bytes[arg1][1];
+        arg0[2] = mnNameNew_KeyMap.character_bytes[arg1][2];
         break;
     }
     return arg0;
@@ -926,7 +910,6 @@ void mnNameNew_MainInput(HSD_GObj* arg0)
     char unused[12];
     char name_buffer[16];
     NameNewEntry* data;
-    MnNameNewDataLayout* layout;
     u32 buttons;
     u16* hovered;
     char* key_char;
@@ -939,7 +922,6 @@ void mnNameNew_MainInput(HSD_GObj* arg0)
         NameNewEntry* entry = mnNameNew_804D6C08->user_data;
         data = entry;
     }
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
 
     if (data->variant_gobj != NULL) {
         mnNameNew_GlyphVariantInput(arg0);
@@ -953,7 +935,8 @@ void mnNameNew_MainInput(HSD_GObj* arg0)
         u16 sel = *(hovered = &mn_804A04F0.hovered_selection);
         if (sel < 0x32U) {
             if (data->mode != 2 && sel < 0x32U) {
-                key_char = layout->lower_glyphs[(u8) sel][0];
+                key_char =
+                    (char*) mnNameNew_GlyphTable.lower_glyphs[(u8) sel][0];
                 space_lead = "　"[0];
                 if (space_lead == (s8) key_char[0] &&
                     (s8) "　"[1] == (s8) key_char[1])
@@ -965,8 +948,9 @@ void mnNameNew_MainInput(HSD_GObj* arg0)
                 if (n == 0) {
                     lbAudioAx_80024030(1);
                     mn_804A04F0.confirmed_selection = 0;
-                    n = mnNameNew_CountVariants(layout->lower_glyphs,
-                                                (u8) *hovered);
+                    n = mnNameNew_CountVariants(
+                        (GlyphRow*) mnNameNew_GlyphTable.lower_glyphs,
+                        (u8) *hovered);
                     {
                         u8 variant_count = (u8) (n * 2);
                         data->variant_gobj = mnNameNew_GlyphVariantSetup(
@@ -1363,7 +1347,6 @@ HSD_Text* mnNameNew_8023D130(GlyphVariantEntry* arg0, u16 arg1, u8 arg2,
     f32 pos_z;
     f32 y_range;
     s32 i;
-    MnNameNewDataLayout* layout;
     GXColor* color_ptr;
     f32 col_x;
     f32 pos_x;
@@ -1379,12 +1362,11 @@ HSD_Text* mnNameNew_8023D130(GlyphVariantEntry* arg0, u16 arg1, u8 arg2,
     Vec3 text_pos;
     GXColor glyph_color;
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
     text = HSD_SisLib_803A6754(0, (s32) mn_804D6BB4);
     jobj14 = arg0->jobjs[4];
     jobj18 = arg0->jobjs[5];
     jobj1C = arg0->jobjs[6];
-    lb_8000B1CC(jobj14, &layout->x8CC, &text_pos);
+    lb_8000B1CC(jobj14, &unk_vec, &text_pos);
     pos_x = text_pos.x;
     pos_y = -text_pos.y;
     pos_z = text_pos.z;
@@ -1398,10 +1380,10 @@ HSD_Text* mnNameNew_8023D130(GlyphVariantEntry* arg0, u16 arg1, u8 arg2,
         HSD_JObjGetTranslationX(jobj18) - HSD_JObjGetTranslationX(jobj14);
     y_range =
         -(HSD_JObjGetTranslationY(jobj1C) - HSD_JObjGetTranslationY(jobj14));
-    table_upper =
-        AddCharacterToName_getGlyphs(layout->upper_glyphs, (u8) arg3);
-    table_lower =
-        AddCharacterToName_getGlyphs(layout->lower_glyphs, (u8) arg3);
+    table_upper = AddCharacterToName_getGlyphs(
+        (GlyphRow*) mnNameNew_GlyphTable.upper_glyphs, (u8) arg3);
+    table_lower = AddCharacterToName_getGlyphs(
+        (GlyphRow*) mnNameNew_GlyphTable.lower_glyphs, (u8) arg3);
     arg1 = (u8) arg1;
     for (i = 0; i < (s32) arg1; i++) {
         char* str;
@@ -1590,12 +1572,10 @@ void fn_8023DAEC(HSD_GObj* arg0)
 {
     s32 all_anims_done;
     NameNewEntry* data;
-    MnNameNewDataLayout* layout;
     f32* end_frame;
 
     PAD_STACK(8);
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
     if ((data = arg0->user_data)->key_text != NULL) {
         HSD_SisLib_803A5CC4(data->key_text);
         data->key_text = NULL;
@@ -1609,15 +1589,15 @@ void fn_8023DAEC(HSD_GObj* arg0)
         data->desc_text = NULL;
     }
     all_anims_done = 1;
-    if (mn_8022EFD8(data->jobjs[4], &layout->anim[1]) <
-        *(end_frame = &layout->anim[1].end_frame))
+    if (mn_8022EFD8(data->jobjs[4], &mnNameNew_803EDA58[1]) <
+        *(end_frame = &mnNameNew_803EDA58[1].end_frame))
     {
         all_anims_done = 0;
     }
-    if (mn_8022EFD8(data->jobjs[2], &layout->anim[1]) < *end_frame) {
+    if (mn_8022EFD8(data->jobjs[2], &mnNameNew_803EDA58[1]) < *end_frame) {
         all_anims_done = 0;
     }
-    if (mn_8022EFD8(data->jobjs[6], &layout->anim[1]) < *end_frame) {
+    if (mn_8022EFD8(data->jobjs[6], &mnNameNew_803EDA58[1]) < *end_frame) {
         all_anims_done = 0;
     }
     if (all_anims_done != 0 || mn_804A04F0.x10 == 1) {
@@ -1746,14 +1726,12 @@ void fn_8023DBE8(HSD_GObj* arg0)
 
 void mnNameNew_8023E0D8(NameNewEntry* arg0)
 {
-    MnNameNewDataLayout* layout;
     AnimLoopSettings* anim;
     HSD_JObj* jobj;
     u16* jobj_ids;
     s32 i;
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
-    anim = layout->anim;
+    anim = mnNameNew_803EDA58;
     jobj = arg0->jobjs[12];
     HSD_JObjReqAnim(jobj, anim[2].start_frame);
     HSD_JObjAnim(jobj);
@@ -1782,7 +1760,7 @@ void mnNameNew_8023E0D8(NameNewEntry* arg0)
     HSD_JObjReqAnim(jobj, anim[0].start_frame);
     HSD_JObjAnim(jobj);
 
-    jobj_ids = layout->key_jobj_ids;
+    jobj_ids = mnNameNew_KeyMap.key_jobj_ids;
     for (i = 0x32; i < 0x3A; i++) {
         jobj = arg0->jobjs[jobj_ids[i - 0x32]];
         HSD_JObjReqAnimAll(jobj, (f32) (arg0->x1 == i));
@@ -1794,7 +1772,7 @@ s32 InitNameEntryUIState(NameNewEntry* arg0, s32 arg1)
 {
     s32 result;
     s8 count;
-    u8** names;
+    DiscU32* names; /* u8*[] in the archive */
     s8 null_char;
 
     PAD_STACK(0x20);
@@ -1816,7 +1794,7 @@ s32 InitNameEntryUIState(NameNewEntry* arg0, s32 arg1)
     arg0->desc_text = 0;
     null_char = (s8) *mnNameNew_NullCharacter;
     names = AutoNamesList;
-    while (null_char != (s8) * *names) {
+    while (null_char != (s8) *DP(u8, names->v)) {
         names++;
         count++;
     }

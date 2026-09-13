@@ -43,6 +43,7 @@ wgpu::BindGroupLayout sSamplerBindGroupLayout;
 wgpu::PipelineLayout sPipelineLayout;
 
 std::atomic<int> sPendingViewportPolicy{-1};
+std::atomic<float> sPendingPresentationAspect{-1.f};
 
 template <typename T>
 T round_away_from_zero(float value) noexcept {
@@ -218,8 +219,20 @@ void update() noexcept {
   if (const int pending = sPendingViewportPolicy.exchange(-1, std::memory_order_acq_rel); pending != -1) {
     const auto policy = static_cast<AuroraViewportPolicy>(pending);
     g_gxState.viewportPolicy = policy;
-    window::set_frame_buffer_aspect_fit(policy == AURORA_VIEWPORT_FIT);
+    if (policy == AURORA_VIEWPORT_FIT) {
+      const auto [baseW, baseH] = vi::configured_fb_size();
+      window::set_frame_buffer_aspect(baseH > 0 ? static_cast<float>(baseW) / static_cast<float>(baseH) : 0.f);
+    } else {
+      window::set_frame_buffer_aspect(0.f);
+    }
   }
+  if (const float aspect = sPendingPresentationAspect.exchange(-1.f, std::memory_order_acq_rel); aspect >= 0.f) {
+    window::set_frame_buffer_aspect(aspect);
+  }
+}
+
+void set_presentation_aspect(float aspect) noexcept {
+  sPendingPresentationAspect.store(aspect < 0.f ? 0.f : aspect, std::memory_order_release);
 }
 
 Vec2<uint32_t> logical_fb_size() noexcept {

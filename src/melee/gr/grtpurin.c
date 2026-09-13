@@ -36,13 +36,14 @@ StageData grTPr_StageData = {
     (1 << 0),
 };
 
-typedef struct grTPrSpecialParams {
-    DynamicsDesc* x0;
+/* Read in place out of GrTPr.dat: the slot is a 32-bit disc pointer. */
+typedef struct DISC_STRUCT grTPrSpecialParams {
+    DISC_PTR(DynamicsDesc) x0;
 } grTPrSpecialParams;
 
 static grTPrSpecialParams* yakumono_param;
 
-void grTPurin_80223160(bool unused)
+void grTPurin_80223160(s32 unused)
 {
     return;
 }
@@ -185,10 +186,10 @@ DynamicsDesc* grTPurin_802234F8(enum_t arg0)
         if (i != -1) {
             mpLineGetKind(arg0);
             if (i == (0 << 0)) {
-                return yakumono_param->x0;
+                return DP(DynamicsDesc, yakumono_param->x0);
             }
             if (i == (1 << 0)) {
-                return yakumono_param->x0;
+                return DP(DynamicsDesc, yakumono_param->x0);
             }
         }
     }

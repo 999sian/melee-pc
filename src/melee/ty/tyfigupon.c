@@ -49,7 +49,7 @@
 /* 314BE4 */ static void _tyFigupon_80314BE4(HSD_GObj* gobj, int unused);
 /* 314C5C */ static void _tyFigupon_80314C5C(HSD_GObj*);
 /* 3152BC */ static void _tyFigupon_803152BC(HSD_GObj*);
-/* 3153EC */ static void _tyFigupon_803153EC(s32, s32, s32, s32, s32);
+/* 3153EC */ static void _tyFigupon_803153EC(s32, s32, s32, s32, intptr_t);
 /* 315574 */ static void _tyFigupon_80315574(void);
 /* 3155C8 */ static void _tyFigupon_803155C8(void);
 /* 315C44 */ static void _tyFigupon_80315C44(HSD_GObj*);
@@ -314,7 +314,10 @@ typedef union {
 
 static const TyFiguponDigitInit _tyFigupon_803B8958 = { { 0, 0, 0, 0 } };
 
-void _tyFigupon_803153EC(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
+/* arg4 is unused in the body; one caller passes &ud->x10, so it must be wide
+ * enough to hold a host pointer rather than truncating it to s32. */
+void _tyFigupon_803153EC(s32 arg0, s32 arg1, s32 arg2, s32 arg3,
+                         intptr_t arg4)
 {
     s32 count;
     TyFiguponDigitInit digits_s = _tyFigupon_803B8958;
@@ -729,7 +732,8 @@ void _tyFigupon_80315C44(HSD_GObj* arg0)
             ud->x14 = i;
             ud->x10 = i;
             tyFigupon_StoreDigits(&ud->x10, total);
-            _tyFigupon_803153EC(gm_801623D8() / 10u, 3, 3, 1, (s32) &ud->x10);
+            _tyFigupon_803153EC(gm_801623D8() / 10u, 3, 3, 1,
+                                (intptr_t) &ud->x10);
             HSD_AObjSetRate(ef4->jobjs[3]->child->u.dobj->mobj->tobj->aobj,
                             2.0f);
             HSD_AObjSetRate(ef4->jobjs[4]->child->u.dobj->mobj->tobj->aobj,
@@ -844,8 +848,8 @@ void _tyFigupon_80316420(s32 arg0)
     HSD_SisLib_803A6368(data->x14, Toy_80308328(arg0));
     Toy_803083D8(ef4->jobjs[0xC], id);
     if (((TyModeState*) Toy_804A284C)->x0 == 2) {
-        if ((u32) data->x10 == 0) {
-            data->x10 = (s32) HSD_GObj_SetupProc(
+        if (data->x10 == NULL) {
+            data->x10 = HSD_GObj_SetupProc(
                 data->x0, (void (*)(HSD_GObj*)) _tyFigupon_80315574, 0);
         }
         data->x24 = 0x12C;
@@ -1579,7 +1583,7 @@ void tyFigupon_Scene_OnEnter(void* arg0)
         archive_name = "TyMnFigp.usd";
     }
     ef4->archive = lbArchive_LoadSymbols(archive_name, &sp20,
-                                         "ToyFigurePonPanel_Top_joint", 0);
+                                         "ToyFigurePonPanel_Top_joint", NULL);
     ef4->x58 = 0;
     ed4 = tyFigupon_InitScene(&ef4_2);
     {
@@ -1670,8 +1674,8 @@ s32 _tyFigupon_803181BC(void)
         HSD_GObjProc_RemoveAllProcs(temp_r31->x0);
         temp_r31->x0 = NULL;
     }
-    if ((u32) temp_r31->x4 != 0U) {
-        temp_r31->x4 = 0;
+    if (temp_r31->x4 != NULL) {
+        temp_r31->x4 = NULL;
     }
     if (temp_r31->x8 != NULL) {
         HSD_GObjFree(temp_r31->x8);

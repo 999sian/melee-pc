@@ -1,11 +1,129 @@
 #include "ftcmdscript.h"
 
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "fighter.h"
 #include "types.h"
 #include <melee/lb/lb_00CE.h>
 #include <sysdolphin/baselib/debug.h>
+
+/* Cached once: getenv() scans the whole environment, and this guard sits on
+ * the per-frame CPU-AI path where that cost is not acceptable even when the
+ * diagnostic is switched off. */
+static int pc_dbg_cpu_trace(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_CPU_TRACE") != NULL;
+    }
+    return cached;
+}
+
+/* ponytail: temporary localisation aid for "CPU fighters never attack".
+ * One counter block per player, dumped every 120 AI ticks. Remove with the
+ * ftCo_CpuTrace() call sites once the CPU AI is trusted. */
+struct ftCo_CpuTraceState {
+    u32 ticks, no_script, armed, cmds;
+    u32 think, think_tgt, select, sel_no_table;
+    u32 rej_level, rej_queue, rej_window, rej_period, rej_weight, accept;
+    u32 last_accept;
+    u8 ops[16];
+    u8 ops_n;
+    u8 q_att, q_def;
+};
+
+static struct ftCo_CpuTraceState ftCo_cpu_trace_state[6];
+
+void ftCo_CpuTrace(Fighter* fp, enum ftCo_CpuTraceEvent ev, int arg)
+{
+    struct ftCo_CpuTraceState* t;
+
+    if (!pc_dbg_cpu_trace()) {
+        return;
+    }
+    if (fp->player_id >= ARRAY_SIZE(ftCo_cpu_trace_state)) {
+        return;
+    }
+    t = &ftCo_cpu_trace_state[fp->player_id];
+
+    switch (ev) {
+    case FtCo_Trace_Cmd:
+        t->cmds++;
+        if (t->ops_n < ARRAY_SIZE(t->ops)) {
+            t->ops[t->ops_n++] = (u8) arg;
+        }
+        return;
+    case FtCo_Trace_Armed:
+        t->armed++;
+        return;
+    case FtCo_Trace_Think:
+        t->think++;
+        if (arg != 0) {
+            t->think_tgt++;
+        }
+        return;
+    case FtCo_Trace_Select:
+        t->select++;
+        if (arg == 0) {
+            t->sel_no_table++;
+        }
+        /* Both queues are fully rebuilt by the time a table is scanned. */
+        t->q_att = fp->cpu.xEC;
+        t->q_def = fp->cpu.xC8;
+        return;
+    case FtCo_Trace_RejLevel:
+        t->rej_level++;
+        return;
+    case FtCo_Trace_RejQueue:
+        t->rej_queue++;
+        return;
+    case FtCo_Trace_RejWindow:
+        t->rej_window++;
+        return;
+    case FtCo_Trace_RejPeriod:
+        t->rej_period++;
+        return;
+    case FtCo_Trace_RejWeight:
+        t->rej_weight++;
+        return;
+    case FtCo_Trace_Accept:
+        t->accept++;
+        t->last_accept = (u32) arg;
+        return;
+    case FtCo_Trace_Tick:
+        break;
+    }
+
+    t->ticks++;
+    if (arg == 0) {
+        t->no_script++;
+    }
+    if (t->ticks % 120 != 0) {
+        return;
+    }
+
+    OSReport("cputrace p%d lvl=%d tick=%u noscript=%u armed=%u cmds=%u | "
+             "think=%u tgt=%u sel=%u notbl=%u | rej lvl=%u dup=%u win=%u "
+             "per=%u wt=%u | acc=%u last=0x%X q=%u/%u xA4=%d\n",
+             fp->player_id, fp->cpu.level, t->ticks, t->no_script, t->armed,
+             t->cmds, t->think, t->think_tgt, t->select, t->sel_no_table,
+             t->rej_level, t->rej_queue, t->rej_window, t->rej_period,
+             t->rej_weight, t->accept, t->last_accept, (u32) t->q_att,
+             (u32) t->q_def,
+             fp->cpu.xA4);
+
+    if (t->ops_n != 0) {
+        char line[3 * ARRAY_SIZE(t->ops) + 1];
+        int i, n = 0;
+        for (i = 0; i < t->ops_n; i++) {
+            n += sprintf(&line[n], "%02X ", t->ops[i]);
+        }
+        OSReport("cputrace p%d ops %s\n", fp->player_id, line);
+        t->ops_n = 0;
+    }
+}
 
 void ftCo_800B3E04(Fighter* fp)
 {
@@ -24,6 +142,7 @@ void ftCo_800B3E04(Fighter* fp)
     int var_r3_2;
 
     data = &fp->cpu;
+    ftCo_CpuTrace(fp, FtCo_Trace_Tick, data->csP != NULL);
     if (data->csP == NULL) {
         return;
     }
@@ -48,7 +167,9 @@ void ftCo_800B3E04(Fighter* fp)
         HSD_ASSERTREPORT(0x24, 0, "csP is bad address\n");
     }
     while (data->command_duration == 0) {
-        switch ((u8) *cur++) {
+        u8 op = (u8) *cur++;
+        ftCo_CpuTrace(fp, FtCo_Trace_Cmd, op);
+        switch (op) {
         case CpuCmd_PressA:
             data->buttons |= HSD_PAD_A;
             break;
@@ -376,6 +497,8 @@ void ftCo_800B49F4(Fighter* fp)
 
     data->csP = data->buffer;
     data->command_duration = 1;
+    ftCo_CpuTrace(fp, FtCo_Trace_Armed,
+                  (int) (data->write_pos - data->buffer));
 }
 
 void ftCo_800B4A78(Fighter* fp)

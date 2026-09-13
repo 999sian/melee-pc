@@ -145,7 +145,7 @@ void ftCo_ThrownLw_Coll(Fighter_GObj* gobj) {}
 void fn_800DE798(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftColl_8007B8CC(fp, fp->mv.co.fighterthrow.victim);
+    ftColl_8007B8CC(fp, fp->throw_thrower);
 }
 
 static inline int calcKnockbackAngle(bool is_upward)
@@ -178,7 +178,12 @@ void ftCo_800DE7C0(Fighter_GObj* gobj, Fighter_GObj* victim, bool is_upward)
 
     if (victim != 0) {
         fp->x21EC = fn_800DE798;
-        fp->mv.co.fighterthrow.victim = victim;
+        fp->throw_thrower = victim;
+        /* On GameCube `victim` was the 4-byte word at fp+234C, so this store
+         * also set the byte #ftCo_800DE5A4 tests as mv.co.thrown.xC to the
+         * pointer's (always nonzero) high byte. The pointer no longer lives
+         * there on LP64, so stamp that byte explicitly. */
+        fp->mv.co.thrown.xC = 1;
     }
 
     ftCo_8008DCE0(gobj, calcKnockbackAngle(is_upward), calcFacingDir(fp));

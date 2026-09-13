@@ -44,8 +44,10 @@ typedef struct {
 /* 4D78E4 */ static u16 hsd_804D78E4 = 0;
 #pragma pop
 #endif
-/* 4D78E8 */ u32 hsd_804D78E8 = 0;
-/* 4D78EC */ u32 hsd_804D78EC = 0;
+/* Optional engine hooks. A u32 cannot hold a host function pointer on LP64;
+ * nothing in the tree installs them, so both stay NULL. */
+/* 4D78E8 */ void (*hsd_804D78E8)(HSD_Generator*, Mtx) = NULL;
+/* 4D78EC */ void (*hsd_804D78EC)(HSD_Generator*) = NULL;
 /* 4D78F0 */ HSD_CObj* psCamera = NULL;
 /* 4D78F4 */ HSD_SList* hsd_804D78F4 = NULL;
 static HSD_JObj* hsd_804D08E8[8];
@@ -742,13 +744,13 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     u8 bank = pp->bank;
                     u8 tgIdx = pp->texGroup;
 
-                    texGrp = PS_TEXGROUP(bank, tgIdx);
-                    if (texGrp != NULL
-#ifdef MUST_MATCH
-                        && texGrp->texTable != NULL
-#endif
-                    )
-                    {
+                    texGrp = (psTexGroupArray[bank] != NULL)
+                                 ? PS_TEXGROUP(bank, tgIdx)
+                                 : NULL;
+                    /* poseNum comes straight out of the stream; past
+                     * texGrp->num it reads the TLUT slots, or off the end of
+                     * the group entirely. */
+                    if (texGrp != NULL && pp->poseNum < texGrp->num) {
                         if (texGrp->texTable[pp->poseNum] != 0) {
                             pp->kind |= DispTexture;
                         }
@@ -1524,7 +1526,11 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
             case 0xB7:
                 /* Aim velocity toward JObj */
                 {
-                    HSD_JObj* jobj = hsd_804D08E8[*pc++ + pp->pJObjOfs];
+                    /* &7: hsd_804D08E8 has 8 slots and every other reader
+                     * masks the index the same way (see 0xBF / hsd_8039D048).
+                     * The raw stream byte plus pJObjOfs reaches 510. */
+                    HSD_JObj* jobj =
+                        hsd_804D08E8[(*pc++ + pp->pJObjOfs) & 7];
                     MtxPtr matrix;
                     f32 dz, dy, dx, vel_mag_sq, dist_sq;
 
@@ -1579,7 +1585,7 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     int idx = *pc++;
                     f32 force, range;
 
-                    idx += pp->pJObjOfs;
+                    idx = (idx + pp->pJObjOfs) & 7;
                     psReadFloat(&pc);
                     force = fval;
                     psReadFloat(&pc);
@@ -1913,13 +1919,10 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                         u8 tgIdx = pp->texGroup;
                         HSD_PSTexGroup* texGrp;
 
-                        texGrp = PS_TEXGROUP(bank, tgIdx);
-                        if (texGrp != NULL
-#ifdef MUST_MATCH
-                            && texGrp->texTable != NULL
-#endif
-                        )
-                        {
+                        texGrp = (psTexGroupArray[bank] != NULL)
+                                     ? PS_TEXGROUP(bank, tgIdx)
+                                     : NULL;
+                        if (texGrp != NULL && pp->poseNum < texGrp->num) {
                             if (texGrp->texTable[pp->poseNum] != 0) {
                                 pp->kind |= DispTexture;
                             }
@@ -2493,7 +2496,7 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
                     psReadFloat(&p);
                     pc = p;
                     v = fval;
-                    if (pp->gen->userfunc != NULL &&
+                    if (pp->gen != NULL && pp->gen->userfunc != NULL &&
                         pp->gen->userfunc->setUserData != NULL)
                     {
                         pp->gen->userfunc->setUserData(pp, idx, v);
@@ -2808,7 +2811,9 @@ do_life:
     }
 
     /* --- Physics update --- */
-    if (pp->kind & Tornado) {
+    /* pp->gen is NULL for a particle spawned without a generator; on
+     * GameCube the NULL+offset loads came out of readable low memory. */
+    if ((pp->kind & Tornado) && pp->gen != NULL) {
         /* Tornado rotational physics */
         HSD_Generator* gp = pp->gen;
         f32 sinA, sinB, cosA, cosB;

@@ -588,30 +588,28 @@ static inline MnEventData* GET_EVENTDATA(HSD_GObj* gobj)
 void fn_8024E1B4(HSD_GObj* gobj)
 {
     HSD_JObj* tree = gobj->hsd_obj;
-    MnEventData* tmp;
     MnEventData* data = GET_EVENTDATA(gobj);
-    MnEventData* iter;
     int i;
 
     if (mn_8022EC18(tree, &mnEvent_803EF74C, 0x80) >=
         mnEvent_803EF74C.end_frame)
     {
-        tmp = data;
-        iter = data;
+        /* Retail tested slot 0 of each array through a cursor advanced by a
+         * literal 4 bytes per row, which is only the same slot the store
+         * below uses while a pointer is 4 bytes wide. */
         for (i = 0; i < 9; i++) {
-            if (iter->gobjs[0] != NULL) {
-                HSD_GObjFree(tmp->gobjs[i]);
-                iter->gobjs[0] = NULL;
+            if (data->gobjs[i] != NULL) {
+                HSD_GObjFree(data->gobjs[i]);
+                data->gobjs[i] = NULL;
             }
-            if (iter->texts[0] != NULL) {
-                HSD_SisLib_803A5CC4(tmp->texts[i]);
-                iter->texts[0] = NULL;
+            if (data->texts[i] != NULL) {
+                HSD_SisLib_803A5CC4(data->texts[i]);
+                data->texts[i] = NULL;
             }
-            if (iter->icons[0] != NULL) {
-                HSD_SisLib_803A5CC4(tmp->icons[i]);
-                iter->icons[0] = NULL;
+            if (data->icons[i] != NULL) {
+                HSD_SisLib_803A5CC4(data->icons[i]);
+                data->icons[i] = NULL;
             }
-            iter = (MnEventData*) ((u8*) iter + 4);
         }
         HSD_GObjFree(gobj);
     }
@@ -767,9 +765,14 @@ void mnEvent_8024E838(int event_idx, int first_time)
     mnEvent_804D6C60 = NULL;
     {
         HSD_Archive* archive = mn_804D6BB8;
+        /* The fifth destination is "MenMainMarkEv_Top_joint", which retail
+         * wrote as arr[4]: one past mnEvent_804A08F8, landing on the
+         * adjacent mnEvent_804A0908[0] that mnEvent_CreateIconForSlot
+         * loads. Statics are not adjacent under -no-pie, so that left the
+         * icon joint NULL and clobbered 8 bytes past the array. */
         lbArchive_LoadSections(archive, arr, base + 0x40, arr + 1, base + 0x58,
                                arr + 2, base + 0x74, arr + 3, base + 0x94,
-                               arr + 4, base + 0xB8, 0);
+                               &mnEvent_804A0908[0], base + 0xB8, 0);
     }
 
     if (first_time == 0) {

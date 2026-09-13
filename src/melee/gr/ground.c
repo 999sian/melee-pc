@@ -120,7 +120,7 @@
 #include <sysdolphin/baselib/wobj.h>
 
 /* 1BFFA8 */ static void Ground_OnStart(void);
-/* 1BFFAC */ static void Ground_801BFFAC(bool);
+/* 1BFFAC */ static void Ground_801BFFAC(s32);
 /* 1C0478 */ static void mem_free(void* ptr);
 /* 1C0A70 */ static bool Ground_801C0A70(Vec3* pos);
 /* 1C0C2C */ static void Ground_801C0C2C(HSD_GObj*);
@@ -203,7 +203,7 @@ static ssize_t const Gr_CObj_Max = ARRAY_SIZE(stage_info.x694);
 
 static void Ground_OnStart(void) {}
 
-static void Ground_801BFFAC(bool arg0) {}
+static void Ground_801BFFAC(s32 arg0) {}
 
 void Ground_801BFFB0(void)
 {
@@ -302,7 +302,16 @@ static Ground* alloc_user_data_ground(void)
     Ground* gp = HSD_MemAlloc(sizeof(*gp));
     if (gp == NULL) {
         OSReport("%s:%d: couldn t get user data(Ground)\n", __FILE__, 474);
+        return NULL;
     }
+    /* The decomp leaves this uncleared (see the @bug on Ground_GetStageGObj):
+     * stage callbacks that read Ground::u before their on_init writes it saw
+     * whatever was in the arena, which on retail was zeros. On a host heap it
+     * is stale contents, and grCastle_801CF868 read u.castle12.xC4[] --
+     * three HSD_GObj* -- one frame before grCastle_801CF7B0 filled them,
+     * dereferenced non-NULL garbage and segfaulted in the opening movie.
+     * Zero it so "unwritten means zero" holds here as it did there. */
+    memzero(gp, sizeof(*gp));
     return gp;
 }
 
@@ -458,7 +467,7 @@ void Ground_801C0754(StageIdPair* pair)
     stage = stage_datas[pair->grkind];
     arg3 = (pair->stkind == St_Kind_Heal) ? 0 : 1;
     grDatFiles_801C6038(stage->data1, 0, arg3);
-    Ground_801C28CC(&stage_info.xA0, pair->stkind);
+    Ground_801C28CC(stage_info.xA0, pair->stkind);
     stage_info.on_touch_line = stage->on_touch_line;
     stage_info.on_check_shadow_render = stage->on_check_shadow_render;
     Ground_801C5878();
@@ -697,10 +706,11 @@ void Ground_OnLoad(StageIdPair* pair)
 
 void Ground_801C0FB8(StageIdPair* pair)
 {
+    /* Same record Ground_801C10B8 allocates and fills. */
     struct {
         void* unk0;
-        s32 unk4;
-        void (*unk8)(s32);
+        HSD_GObj* unk4;
+        HSD_GObjEvent unk8;
     }* cur;
     void* next;
     stage_datas[pair->grkind]->on_start();
@@ -1536,7 +1546,7 @@ void Ground_801C28CC(s32* arg0, StKind stkind)
 
 s32* Ground_801C2AD8(void)
 {
-    return &stage_info.xA0;
+    return stage_info.xA0;
 }
 
 float Ground_801C2AE8(StKind stkind)

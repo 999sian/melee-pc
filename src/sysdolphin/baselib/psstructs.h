@@ -29,7 +29,7 @@ enum HSD_ParticleKind {
     DispFog = 1 << 24,
     NoZComp = 1 << 28,
     DispPoint = 1 << 30,
-    DispLighting = 1 << 31
+    DispLighting = 1U << 31
 };
 
 /* The three record types below live inside particle data banks (.dat
@@ -51,12 +51,14 @@ typedef struct DISC_STRUCT _HSD_PSTexGroup {
 
     DISC_PTR(u8) texTable[1]; /* 0x18 */
 } HSD_PSTexGroup;
+DISC_ASSERT_SIZE(HSD_PSTexGroup, 0x1C);
 
 /* size: 0x8 */
 typedef struct DISC_STRUCT _HSD_PSFormGroup {
     u32 num;                   /* 0x0 */
     DISC_PTR(u8) formTable[1]; /* 0x4 */
 } HSD_PSFormGroup;
+DISC_ASSERT_SIZE(HSD_PSFormGroup, 0x8);
 
 /* size: 0x40 */
 typedef struct DISC_STRUCT _HSD_PSCmdList {
@@ -86,6 +88,7 @@ typedef struct DISC_STRUCT _HSD_PSCmdList {
 
     u8 cmdList[1]; /* 0x3C */
 } HSD_PSCmdList;
+DISC_ASSERT_SIZE(HSD_PSCmdList, 0x40);
 
 /* Per-bank lookup tables point into the banks: arrays of 32-bit slots holding
  * host addresses (or 0) after relocation. */
@@ -113,19 +116,12 @@ struct HSD_psAppSRT {
     u16 usedCount; /* 0x32 */
 
     Mtx mmtx;  /* 0x34 */
-    float ssx; /* 0x64 */
-    float ssy; /* 0x68 */
 
-    f32 x6C; /* 0x6C */
-    f32 x70; /* 0x70 */
-    f32 x74; /* 0x74 */
-    f32 x78; /* 0x78 */
-    f32 x7C; /* 0x7C */
-    f32 x80; /* 0x80 */
-    f32 x84; /* 0x84 */
-    f32 x88; /* 0x88 */
-    f32 x8C; /* 0x8C */
-    f32 x90; /* 0x90 */
+    /* vmtx * mmtx, i.e. the model->screen matrix. The decomp originally
+     * spelled these 12 floats out individually (ssx/ssy/x6C..x90) and cast
+     * &ssx to MtxPtr; it is one 3x4 matrix at 0x64. */
+    Mtx smtx; /* 0x64 */
+
     f32 x94; /* 0x94 */
     f32 x98; /* 0x98 */
 

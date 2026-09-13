@@ -1,0 +1,40 @@
+/* Melee palette with a Dusklight-inspired floating settings-window layout. */
+* { box-sizing: border-box; }
+body { width: 100%; height: 100%; margin: 0; font-family: "Liberation Sans"; font-size: 15dp; color: #f0f2f5; background-color: #080d1938; }
+div, h1, h2, h3, p { display: block; }
+#toolbar { display: flex; align-items: center; height: 64dp; background-color: #080d19e8; border-bottom: 2dp #7187a5; backdrop-filter: blur(5dp); }
+.wordmark { margin: 0 28dp; font-size: 19dp; font-weight: bold; letter-spacing: 2dp; }
+.muted { color: #a7b6cc; }
+.toolbar-tab { height: 64dp; line-height: 64dp; padding: 0 24dp; border-bottom: 4dp #f39832; font-weight: bold; font-size: 18dp; }
+.toolbar-note { margin-left: auto; margin-right: 110dp; color: #a7b6cc; font-size: 12dp; letter-spacing: 1dp; }
+#window { display: flex; flex-direction: column; position: absolute; top: 54%; left: 50%; transform: translate(-50%, -50%); width: 84%; max-width: 1088dp; height: 80%; max-height: 768dp; border: 2dp #7187a5; border-radius: 14dp; background-color: #18263ded; backdrop-filter: blur(5dp); overflow: hidden; }
+#heading { display: flex; align-items: center; padding: 20dp 28dp; border-bottom: 1dp #7187a570; background-color: #7187a50b; flex-shrink: 0; }
+.eyebrow { font-size: 11dp; letter-spacing: 2dp; color: #a9c8ef; }
+h1 { font-size: 28dp; margin: 4dp 0 0; }
+.version { margin-left: auto; font-size: 12dp; color: #a7b6cc; }
+#content { flex: 1; min-height: 0; overflow: auto; padding: 8dp 28dp 20dp; }
+.section { margin-bottom: 16dp; }
+.section-heading { padding: 14dp 0 12dp; }
+h2 { margin: 0 0 4dp; font-size: 19dp; color: #a9c8ef; }
+h3 { margin: 0 0 4dp; font-size: 15dp; font-weight: normal; }
+p { margin: 0; font-size: 13dp; line-height: 1.5; color: #a7b6cc; }
+.setting { display: flex; align-items: center; padding: 10dp 0; border-bottom: 1dp #7187a528; }
+.description { flex: 1; margin-right: 24dp; }
+.badge { color: #a9c8ef; font-size: 9dp; margin-left: 8dp; }
+button { display: block; flex-shrink: 0; width: 230dp; min-height: 38dp; padding: 9dp 14dp; border: 1dp #7187a580; border-radius: 7dp; background-color: #080d1980; color: #f0f2f5; font-size: 14dp; text-align: center; cursor: pointer; tab-index: auto; }
+button:hover { background-color: #a9c8ef33; border-color: #a9c8ef; }
+button:focus { background-color: #f398322b; border-color: #f39832; }
+button:active { background-color: #f3983244; }
+.controls { padding-top: 12dp; }
+#bottom { display: flex; align-items: center; padding: 14dp 28dp; border-top: 1dp #7187a570; flex-shrink: 0; }
+#menu-status { flex: 1; margin-right: 20dp; }
+#resume { width: 170dp; background-color: #7187a530; border-color: #7187a5; }
+#resume:focus, #resume:active { background-color: #f398322b; border-color: #f39832; }
+#hints { padding: 0 28dp 14dp; color: #a9c8ef; font-size: 11dp; flex-shrink: 0; }
+#hints span { margin-left: 20dp; }
+scrollbarvertical { width: 8dp; margin: 3dp; }
+scrollbarvertical slidertrack { background-color: #080d19; }
+scrollbarvertical sliderbar { background-color: #7187a5; border-radius: 4dp; min-height: 24dp; }
+scrollbarvertical sliderarrowdec, scrollbarvertical sliderarrowinc { height: 0; }
+@media (max-width: 760dp) { #window { width: 94%; } #heading, #bottom { padding: 14dp; } #content { padding: 4dp 14dp 12dp; } .description { margin-right: 12dp; } button { width: 180dp; } .toolbar-note, .version { display: none; } #hints { padding: 0 14dp 12dp; } #hints .muted { display: none; } }
+@media (max-height: 600dp) { #window { top: 56%; height: 78%; } #heading { padding: 8dp 16dp; } .eyebrow { display: none; } h1 { font-size: 21dp; } }

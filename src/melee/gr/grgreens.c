@@ -190,7 +190,7 @@ static inline struct grGreens_BlockVars* getBlock(Ground* gp, int i, int j)
     return &gp->u.greens.x8_blocks[i][j];
 }
 
-void grGreens_80213458(bool arg)
+void grGreens_80213458(s32 arg)
 {
     grGr_804D6AAC = 1;
 }
@@ -360,15 +360,18 @@ void grGreens_802139C4(Ground_GObj* gobj)
 {
     Ground* gp = gobj->user_data;
     ftCo_800C06E8(gobj, 9, fn_80213B1C);
-    gp->u.greens.x0_flags.whole_thing = 0;
-    gp->u.greens.x4 = NULL;
-    gp->u.greens.x8_blocks = NULL;
-    gp->u.greens.xC = randrange(yakumono_param->x38_windTimerMax,
-                                yakumono_param->x34_windTimerMin);
-    gp->u.greens.x10 = 1;
-    gp->u.greens.x1C = 0;
-    gp->u.greens.x14 = HSD_Randi(2);
-    gp->u.greens.x18 = 0;
+    /* This gobj's state is u.greens2 (grGreens_80213C10, fn_80213B1C).
+     * u.greens describes the block-grid gobj and has two pointers up front,
+     * so its slots stop matching past gp+C4 on PC. */
+    gp->u.greens2.x0 = 0;
+    gp->u.greens2.x4 = 0;
+    gp->u.greens2.x8 = 0;
+    gp->u.greens2.xC = randrange(yakumono_param->x38_windTimerMax,
+                                 yakumono_param->x34_windTimerMin);
+    gp->u.greens2.x10 = 1;
+    gp->u.greens2.x1C = 0;
+    gp->u.greens2.x14 = HSD_Randi(2);
+    gp->u.greens2.x18 = 0;
     grAnime_801C8138(gobj, gp->map_id, 0);
 }
 

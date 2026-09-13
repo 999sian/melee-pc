@@ -613,7 +613,7 @@ static inline void gm_1832_sdata2_order(int unused)
 void fn_80185408(int x, float arg8, float arg9, float argA, float argB)
 {
     u8 _[0x30];
-    Mtx sp1C;
+    Mtx44 sp1C; /* MTXOrtho writes 4x4, not 3x4 */
     GXSetNumChans(1);
     GXSetChanCtrl(GX_COLOR0A0, 0, GX_SRC_REG, GX_SRC_VTX, 0, GX_DF_NONE,
                   GX_AF_NONE);
@@ -647,6 +647,7 @@ void fn_80185408(int x, float arg8, float arg9, float argA, float argB)
     GXTexCoord1f32(argA);
     GXTexCoord1f32(arg9);
     GXTexCoord1f32(-4932.0F);
+    GXEnd();
     GXSetColorUpdate(1);
     HSD_StateInvalidate(-1);
     gm_1832_sdata2_order(0);

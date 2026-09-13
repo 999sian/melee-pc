@@ -16,10 +16,12 @@ ItemStateTable it_803F7158[] = { {
     itYoshistar_UnkMotion0_Coll,
 } };
 
-typedef struct {
+/* Read in place from the article's x4_specialAttributes disc slot. */
+typedef struct DISC_STRUCT {
     f32 speed;
     f32 accel;
 } StarAttrs;
+DISC_ASSERT_SIZE(StarAttrs, 0x8);
 
 Item_GObj* it_802B2FC8(HSD_GObj* parent, Vec3* pos, f32 dir)
 {

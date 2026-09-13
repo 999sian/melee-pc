@@ -121,7 +121,7 @@ StageData grFz_StageData = {
 static struct grFlatzone_YakumonoParam* yakumono_param;
 static const Vec3 grFz_803B8430 = { 0 };
 
-void grFlatzone_80216E74(bool arg0) {}
+void grFlatzone_80216E74(s32 arg0) {}
 
 void grFlatzone_80216E78(void)
 {
@@ -420,7 +420,7 @@ void grFlatzone_802176BC(Ground_GObj* gobj)
     Vec3 pos = grFz_803B8430;
     PAD_STACK(12);
     if (gp->u.flatzone.xC4 != 0) {
-        if (gp->u.flatzone.xD0 == 3) {
+        if (gp->u.flatzone2.xD0 == 3) {
             HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
             if (gp->u.flatzone2.xCC == NULL) {
                 grDynamicAttr_801CA1C0(gp->u.flatzone2.xCC);
@@ -429,11 +429,11 @@ void grFlatzone_802176BC(Ground_GObj* gobj)
         }
         gp->u.flatzone.xC4 = 0;
         gp->u.flatzone2.xC8 = SIGN_RANDOM();
-        gp->u.flatzone.xD0 = 0;
-        gp->u.flatzone.xD4 = yakumono_param->unk20;
+        gp->u.flatzone2.xD0 = 0;
+        gp->u.flatzone2.timer = yakumono_param->unk20;
         if (gp->u.flatzone2.xC8 == 1.0f) {
             pos.x = yakumono_param->unk24;
-            gp->u.flatzone.xD4 = (s32) ((f32) gp->u.flatzone.xD4 / 2.0f);
+            gp->u.flatzone2.timer = (s32) ((f32) gp->u.flatzone2.timer / 2.0f);
         } else {
             pos.x = yakumono_param->unk28;
             {
@@ -496,7 +496,7 @@ void grFlatzone_802176BC(Ground_GObj* gobj)
             f32 other_x;
             f32 other_z;
             s32 line_id;
-            gp->u.unk.xD0 = 3;
+            gp->u.flatzone2.xD0 = 3;
             gp->u.flatzone2.timer = yakumono_param->unk3C;
             HSD_JObjGetTranslation(jobj, &pos);
             pos.x = (36.0f * gp->u.flatzone2.xC8) + pos.x;

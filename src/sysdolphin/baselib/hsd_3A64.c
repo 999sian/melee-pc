@@ -223,7 +223,9 @@ s32 HSD_SisLib_803A67EC(u8* data, u8* string)
 int HSD_SisLib_803A6B98(HSD_Text* text, float x, float y, const char* fmt, ...)
 {
     u8 buffer[128];
-    u8 encoded[128];
+    /* Worst case per input char: 5 bytes of kerning preamble + 2 glyph bytes,
+     * plus a trailing end-kerning byte and the NUL terminator. */
+    u8 encoded[sizeof(buffer) * 7 + 2];
     s32 x_coord;
     s32 y_coord;
     HSD_Text* old_buf;
@@ -243,7 +245,7 @@ int HSD_SisLib_803A6B98(HSD_Text* text, float x, float y, const char* fmt, ...)
     encoded[0] = 0;
     if (fmt) {
         va_start(args, fmt);
-        vsnprintf((char*) buffer, -1, fmt, args);
+        vsnprintf((char*) buffer, sizeof(buffer), fmt, args);
         va_end(args);
         encoded_len = HSD_SisLib_803A67EC(encoded, buffer);
     }
@@ -354,7 +356,7 @@ end:
 s32 HSD_SisLib_803A70A0(HSD_Text* text, s32 entry_idx, char* fmt, ...)
 {
     u8 buffer[128];
-    u8 encoded[128];
+    u8 encoded[sizeof(buffer) * 7 + 2];
     HSD_Text* old_buf;
     u8* playhead;
     SisBlock* alloc;
@@ -377,7 +379,7 @@ s32 HSD_SisLib_803A70A0(HSD_Text* text, s32 entry_idx, char* fmt, ...)
         playhead = entry + 0xE;
         if (fmt != NULL) {
             va_start(args, fmt);
-            vsnprintf((char*) buffer, -1, fmt, args);
+            vsnprintf((char*) buffer, sizeof(buffer), fmt, args);
             va_end(args);
             new_size = HSD_SisLib_803A67EC(encoded, buffer);
         } else {

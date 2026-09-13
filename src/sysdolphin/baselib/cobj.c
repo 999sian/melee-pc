@@ -297,7 +297,8 @@ static bool setupNormalCamera(HSD_CObj* cobj)
 
     projection_type = makeProjectionMtx(cobj, p);
 #ifdef TARGET_PC
-    pc_widescreen_apply_camera(cobj, p);
+    /* Presentation only: the camera object and its queries keep GC semantics. */
+    p[0][0] /= pc_widescreen_scale();
 #endif
     GXSetProjection(p, projection_type);
 

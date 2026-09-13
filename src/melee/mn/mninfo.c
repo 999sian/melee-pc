@@ -23,19 +23,22 @@
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/sislib.h>
 
-typedef struct MnInfoDataLayout {
-    AnimLoopSettings anim;
-    u32 sis_ids[4];
-    char date_format[0xC];
-    char time_format[0xC];
-    char assert_report[0x18];
-    char assert_file[0xC];
-    char assert_expr[0xC];
-    char top_joint[0x18];
-    char top_animjoint[0x1C];
-    char top_matanim_joint[0x20];
-    char top_shapeanim_joint[0x28];
-} MnInfoDataLayout;
+/* These were reached through a synthetic `MnInfoDataLayout` overlay cast over
+ * #mnInfo_803EFC08, whose trailing entries are the string bytes the
+ * decompiler folded into float literals. The overlay is 0xE0 bytes over a
+ * 0xD8 object: `top_shapeanim_joint` ran 8 bytes past the array and relied on
+ * the NUL terminator living in the next static (gap_07_803EFCE0_data). On
+ * GameCube every static shared one .data run; under -no-pie on x86-64 they do
+ * not, so the section name reached lbArchive_LoadSections unterminated. */
+static char mnInfo_DateFormat[] = "%s.%s.%s";
+static char mnInfo_TimeFormat[] = "%s:%s:%s";
+static char mnInfo_AssertReport[] = "Can't get user_data.\n";
+static char mnInfo_AssertFile[] = "mninfo.c";
+static char mnInfo_AssertExpr[] = "user_data";
+static char mnInfo_TopJoint[] = "MenMainConCo_Top_joint";
+static char mnInfo_TopAnimJoint[] = "MenMainConCo_Top_animjoint";
+static char mnInfo_TopMatanimJoint[] = "MenMainConCo_Top_matanim_joint";
+static char mnInfo_TopShapeanimJoint[] = "MenMainConCo_Top_shapeanim_joint";
 
 StaticModelDesc mnInfo_804A0958;
 u8 mnInfo_804A0968[0x48];
@@ -196,12 +199,10 @@ s32 mnInfo_80251D58(mnInfo_GObj* arg0, s32 arg1, u32 arg2, u32 arg3)
     HSD_Text** slot;
     HSD_Text* text;
     MnInfoData* data;
-    MnInfoDataLayout* layout;
 
     data = arg0->user_data;
-    layout = (MnInfoDataLayout*) mnInfo_803EFC08;
-    slot = (HSD_Text**) ((u8*) data + (arg1 * 4));
-    if (*(slot += 2) != NULL) {
+    slot = &data->left_column[arg1];
+    if (*slot != NULL) {
         HSD_SisLib_803A5CC4(data->left_column[arg1]);
     }
     text = HSD_SisLib_803A6754(0, 1);
@@ -221,13 +222,13 @@ s32 mnInfo_80251D58(mnInfo_GObj* arg0, s32 arg1, u32 arg2, u32 arg3)
     mn_8022EA78(sp24, 2, sp18.month);
     mn_8022EA78(sp20, 2, sp18.day);
     if (lbLang_IsSavedLanguageUS() != 0) {
-        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, layout->date_format, sp24, sp20,
+        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, mnInfo_DateFormat, sp24, sp20,
                             sp34);
     } else {
-        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, layout->date_format, sp34, sp24,
+        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, mnInfo_DateFormat, sp34, sp24,
                             sp20);
     }
-    return HSD_SisLib_803A6B98(text, 0.0f, 40.0f, layout->time_format, sp30,
+    return HSD_SisLib_803A6B98(text, 0.0f, 40.0f, mnInfo_TimeFormat, sp30,
                                sp2C, sp28);
 }
 #ifdef MUST_MATCH
@@ -247,8 +248,8 @@ void mnInfo_80251F04(mnInfo_GObj* arg0, s32 arg1, u32 arg2)
     MnInfoData* data;
 
     data = arg0->user_data;
-    slot = (HSD_Text**) ((u8*) data + (arg1 * 4));
-    if (*(slot += 6) != NULL) {
+    slot = &data->right_column[arg1];
+    if (*slot != NULL) {
         HSD_SisLib_803A5CC4(data->right_column[arg1]);
     }
     text = HSD_SisLib_803A5ACC(0, 0, -5.0f, (3.45f * (f32) arg1) + -5.9f,
@@ -571,8 +572,7 @@ s32 mnInfo_80252758(void)
     HSD_GObj* gobj;
     HSD_Archive* archive;
     StaticModelDesc* model = &mnInfo_804A0958;
-    MnInfoDataLayout* layout = (MnInfoDataLayout*) mnInfo_803EFC08;
-    char* top_joint = layout->top_joint;
+    char* top_joint = mnInfo_TopJoint;
     PAD_STACK(8);
 
     mn_804D6BC8.cooldown = 5;
@@ -584,9 +584,9 @@ s32 mnInfo_80252758(void)
     {
         void* dp_[4];
         lbArchive_LoadSections(archive, &dp_[0], top_joint, &dp_[1],
-                               layout->top_animjoint, &dp_[2],
-                               layout->top_matanim_joint, &dp_[3],
-                               layout->top_shapeanim_joint, 0);
+                               mnInfo_TopAnimJoint, &dp_[2],
+                               mnInfo_TopMatanimJoint, &dp_[3],
+                               mnInfo_TopShapeanimJoint, 0);
         DP_SET(model->joint, dp_[0]);
         DP_SET(model->animjoint, dp_[1]);
         DP_SET(model->matanim_joint, dp_[2]);
@@ -600,8 +600,8 @@ s32 mnInfo_80252758(void)
 
     user_data = HSD_MemAlloc(sizeof(*user_data));
     if (user_data == NULL) {
-        OSReport(layout->assert_report);
-        __assert(layout->assert_file, 0x267, layout->assert_expr);
+        OSReport(mnInfo_AssertReport);
+        __assert(mnInfo_AssertFile, 0x267, mnInfo_AssertExpr);
     }
     mnInfo_80252720(user_data);
     GObj_InitUserData(gobj, 0, HSD_Free, user_data);

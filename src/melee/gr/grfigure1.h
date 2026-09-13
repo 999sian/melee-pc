@@ -3,7 +3,7 @@
 
 #include <melee/gr/forward.h>
 
-/* 20E270 */ void grFigure1_8020E270(bool);
+/* 20E270 */ void grFigure1_8020E270(s32);
 /* 3E62C0 */ extern StageData grEF1_StageData;
 
 #endif

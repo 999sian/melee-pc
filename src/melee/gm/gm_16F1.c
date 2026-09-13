@@ -452,7 +452,9 @@ int fn_801701C0(struct lbl_8046B6A0_24C_t* rules, int arg1, int arg2)
     u8* flags = rules->pad3F0;
     struct lbl_8046B6A0_24C_58_t* x58 = rules->x58;
     s32 player_net;
-    s32 scores[4];
+    /* The ranking loops below iterate six slots; the decomp only reserved
+     * four, overflowing the frame by two words. */
+    s32 scores[GM_MAX_PLAYERS];
     u8 rankings[7] = { 0 };
 
     if (lbl_804D65A0.x0 != 0) {

@@ -45,7 +45,7 @@ static int grHr_804D6ADC;
 static f32 grHr_804D6AE0;
 static f32 grHr_804D6AE4;
 static void* yakumono_param;
-static int grHr_804D4998[2] = { 0xA, 0 };
+static GrJoint grHr_804D4998[] = { { 0, 0xA, 0 } };
 static char grHr_804D49A0[] = "/GrHr";
 
 StageCallbacks grHr_StageCallbacks[11] = {
@@ -85,11 +85,11 @@ StageData grHr_StageData = {
     grHomeRun_8021EEB4,
     grHomeRun_8021EEBC,
     1,
-    (GrJoint*) grHr_804D4998,
+    grHr_804D4998,
     1,
 };
 
-void grHomeRun_8021C750(bool arg) {}
+void grHomeRun_8021C750(s32 arg) {}
 
 void grHomeRun_8021C754(void)
 {

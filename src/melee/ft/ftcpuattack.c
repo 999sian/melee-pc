@@ -26,7 +26,11 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/random.h>
 
-typedef struct ftCo_AttackEntry {
+/* Lives in PlCo.dat and is read in place, so it stays big-endian: every
+ * Fighter_804D64FC attack table is an array of these. Without the disc
+ * storage order the level gate, the x1C period and the reach floats all
+ * decode as garbage and no attack candidate ever survives the filter. */
+typedef struct DISC_STRUCT ftCo_AttackEntry {
     /* +00 */ s32 cmd;
     /* +04 */ s32 x04;
     /* +08 */ f32 x08;
@@ -212,6 +216,7 @@ int ftCo_800B4AB0(Fighter* fp, Fighter* target, void* arg2)
     f32 relx;
     f32 halfRange;
 
+    ftCo_CpuTrace(fp, FtCo_Trace_Select, list != NULL);
     cpu->x74.y = 0.0f;
     cpu->x74.x = 0.0f;
     cpu->x6C.y = 0.0f;
@@ -246,6 +251,7 @@ int ftCo_800B4AB0(Fighter* fp, Fighter* target, void* arg2)
         f32 diry;
         found = false;
         if (list->x20 > cpu->level) {
+            ftCo_CpuTrace(fp, FtCo_Trace_RejLevel, list->x20);
             list++;
             continue;
         }
@@ -256,6 +262,7 @@ int ftCo_800B4AB0(Fighter* fp, Fighter* target, void* arg2)
             }
         }
         if (found) {
+            ftCo_CpuTrace(fp, FtCo_Trace_RejQueue, list->cmd);
             list++;
             continue;
         }
@@ -344,7 +351,11 @@ int ftCo_800B4AB0(Fighter* fp, Fighter* target, void* arg2)
             } else if (cpu->x80 % list->x1C == 0) {
                 sp3C[count] = *list;
                 count++;
+            } else {
+                ftCo_CpuTrace(fp, FtCo_Trace_RejPeriod, list->x1C);
             }
+        } else {
+            ftCo_CpuTrace(fp, FtCo_Trace_RejWindow, list->cmd);
         }
         list++;
     }
@@ -362,6 +373,7 @@ int ftCo_800B4AB0(Fighter* fp, Fighter* target, void* arg2)
         nearzero = false;
     }
     if (nearzero) {
+        ftCo_CpuTrace(fp, FtCo_Trace_RejWeight, count);
         return 0;
     }
     inv = 1.0 / sum;
@@ -369,6 +381,7 @@ int ftCo_800B4AB0(Fighter* fp, Fighter* target, void* arg2)
     for (i = 0; i < count; i++) {
         acc += sp3C[i].weight;
         if (acc * inv >= r) {
+            ftCo_CpuTrace(fp, FtCo_Trace_Accept, sp3C[i].cmd);
             return ftCo_CpuSelectAttack(fp, cpu, &sp3C[i]);
         }
     }
@@ -1752,6 +1765,7 @@ bool ftCo_800B8A9C(Fighter* fp)
     int var_r0;
     PAD_STACK(4);
 
+    ftCo_CpuTrace(fp, FtCo_Trace_Think, cpu->xF9_b2 && cpu->x44 != NULL);
     if (!cpu->xF9_b2) {
         return false;
     }

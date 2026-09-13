@@ -10,7 +10,14 @@ static inline void Locate(HSD_Archive* archive)
     DiscU32* ptr;
 
     /* Pointer slots stay big-endian in the archive image and hold absolute
-     * host addresses (the image lives below 4GB, see pc/disc.h). */
+     * host addresses. Every slot is 32 bits wide, so an image loaded above
+     * 4GB would silently truncate every pointer in it; this is the same
+     * check DP_SET makes, applied to the one site that bypasses DP_SET. */
+#ifdef TARGET_PC
+    if (archive->header.nb_reloc != 0 && ((uintptr_t) archive->data >> 32)) {
+        pc_disc_ptr_overflow(archive->data, __FILE__, __LINE__);
+    }
+#endif
     for (i = 0; i < archive->header.nb_reloc; i++) {
         ptr = (DiscU32*) (archive->data + archive->reloc_info[i].offset);
         ptr->v += (u32) (uintptr_t) archive->data;
@@ -98,8 +105,10 @@ char* HSD_ArchiveGetExtern(HSD_Archive* archive, int offset)
 void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbols,
                              void* addr)
 {
-    uintptr_t next;
-    uintptr_t offset = -1;
+    /* Archive offsets and the 0xFFFFFFFF chain terminator are 32-bit; a
+     * uintptr_t -1 is 64-bit all-ones here and never equals -1U. */
+    u32 next;
+    u32 offset = -1;
     u32 i;
 
     for (i = 0; i < archive->header.nb_extern; i++) {

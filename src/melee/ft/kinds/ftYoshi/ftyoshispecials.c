@@ -817,7 +817,8 @@ void ftYs_SpecialAirSEnd_IASA(Fighter_GObj* gobj) {}
 
 void ftYs_SpecialAirSStart_1_IASA(Fighter_GObj* gobj)
 {
-    M2C_FIELD(gobj->user_data, s32*, 0x2370) = 0;
+    /* fp+2370 is mv.ys.specials.x30 on GameCube. */
+    GET_FIGHTER(gobj)->mv.ys.specials.x30 = 0;
 }
 
 void ftYs_SpecialAirSLoop_2_IASA(Fighter_GObj* gobj)
@@ -1198,26 +1199,12 @@ void ftYs_SpecialAirSStart_1_Coll(Fighter_GObj* gobj)
     }
 }
 
-static inline void stack_pad_hack(void)
-{
-    /// @todo egregious stack padding hack
-    GET_FIGHTER(NULL);
-    GET_FIGHTER(NULL);
-    GET_FIGHTER(NULL);
-    GET_FIGHTER(NULL);
-    GET_FIGHTER(NULL);
-    GET_FIGHTER(NULL);
-    GET_FIGHTER(NULL);
-}
-
 void ftYs_SpecialAirSLoop_2_Coll(Fighter_GObj* gobj)
 {
     bool coll_result;
     bool wall_hit;
     Fighter* fp = GET_FIGHTER(gobj);
     ftYoshiAttributes* attributes = fp->dat_attrs;
-
-    stack_pad_hack();
 
     fp->mv.ys.specials.x30 = 0;
     coll_result = ft_800824A0(gobj, &ftYs_Unk3_803CEDA4);

@@ -142,7 +142,7 @@ void vi0401_Scene_OnEnter(void* data)
     char_index = desc->p1_char_index;
 
     lbArchive_LoadSymbols("Vi0401.dat", &un_804D6F48, "visual0401Scene",
-                          &un_804D6F4C, "visual0401InfoScene", 0);
+                          &un_804D6F4C, "visual0401InfoScene", NULL);
     lbArchive_LoadSymbols("IfAll.dat", &un_804D6F50, "ScInfDmg_scene_data",
                           NULL);
     un_804D6F54 = lbArchive_LoadSymbols(viGetCharAnimByIndex(char_index), 0);

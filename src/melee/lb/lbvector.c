@@ -368,7 +368,7 @@ Vec3* lbVector_WorldToScreen(HSD_CObj* cobj, const Vec3* pos3d,
 {
     u8 _[16];
 
-    Mtx projMtx;
+    Mtx44 projMtx; /* MTXPerspective/MTXOrtho write 4x4, not 3x4 */
     float projection[7]; // projection params
     float viewport[6];   // viewport params
     Mtx m;

@@ -695,7 +695,7 @@ static void expEvaluate(HSD_Exp* exp, u32 type, void* obj,
     Vec3 scale;
     float temp_f31;
     float* cur_arg;
-    int cur_bit;
+    u32 cur_bit;
     Vec3 sp2C;
     u8 _[4]; ///< @todo should HSD_ObjData be 4 bytes larger?
     HSD_ObjData sp1C;

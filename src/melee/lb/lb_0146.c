@@ -128,7 +128,7 @@ bool lb_80014770(Vec3* arg0, int arg1)
     return false;
 }
 
-bool lb_800149E0(Mtx arg0, u32 arg1)
+bool lb_800149E0(struct lb_80014638_arg1_t* arg0, u32 arg1)
 {
     PAD_STACK(16);
     if (arg1 == 0) {
@@ -139,11 +139,11 @@ bool lb_800149E0(Mtx arg0, u32 arg1)
             GXSetLineWidth(12, GX_TO_ONE);
             GXBegin(GX_LINESTRIP, GX_VTXFMT0, 2);
             {
-                float y = arg0[1][0];
-                GXPosition3f32(arg0[0][2], y, 0.0f);
+                float y = arg0->x8.z;
+                GXPosition3f32(arg0->x8.x, y, 0.0f);
                 GXColor4u8(yellow.r, yellow.g, yellow.b, yellow.a);
 
-                GXPosition3f32(arg0[0][3], y, 0.0f);
+                GXPosition3f32(arg0->x8.y, y, 0.0f);
                 GXColor4u8(yellow.r, yellow.g, yellow.b, yellow.a);
             }
             GXEnd();

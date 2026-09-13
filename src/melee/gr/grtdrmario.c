@@ -12,7 +12,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-/* 22050C */ static void grtDrMario_8022050C(bool);
+/* 22050C */ static void grtDrMario_8022050C(s32);
 /* 220510 */ static void grtDrMario_80220510(void);
 /* 220580 */ static void grTdrmario_UnkStage0_OnLoad(void);
 /* 220584 */ static void grTdrmario_UnkStage0_OnStart(void);
@@ -74,7 +74,7 @@ StageData grTDr_StageData = {
     0,
 };
 
-void grtDrMario_8022050C(bool unk0) {}
+void grtDrMario_8022050C(s32 unk0) {}
 
 void grtDrMario_80220510(void)
 {

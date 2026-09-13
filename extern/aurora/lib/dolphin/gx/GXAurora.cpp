@@ -46,6 +46,20 @@ void AuroraGetRenderSize(u32* width, u32* height) {
   }
 }
 
+void AuroraSetPresentationAspect(f32 aspect) {
+  aurora::gx::set_presentation_aspect(aspect);
+}
+
+void AuroraGetWindowSize(u32* width, u32* height) {
+  const auto windowSize = aurora::window::get_window_size();
+  if (width != nullptr) {
+    *width = windowSize.native_fb_width;
+  }
+  if (height != nullptr) {
+    *height = windowSize.native_fb_height;
+  }
+}
+
 void AuroraGXSync() {
   GXFlush();
   aurora::gx::fifo::drain();

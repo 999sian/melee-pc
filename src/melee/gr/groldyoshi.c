@@ -64,7 +64,7 @@ static struct DISC_STRUCT {
     s16 x18;
 }* yakumono_param;
 
-void grOldYoshi_8020E798(bool arg) {}
+void grOldYoshi_8020E798(s32 arg) {}
 
 void grOldYoshi_8020E79C(void)
 {

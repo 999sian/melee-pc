@@ -18,6 +18,7 @@ typedef struct DISC_STRUCT {
     float right;
     float left;
 } DiscItECB;
+DISC_ASSERT_SIZE(DiscItECB, 0x10);
 
 typedef struct Article Article;
 typedef struct BobOmbRain BobOmbRain;
@@ -35,6 +36,7 @@ typedef struct Item Item;
 typedef struct Item_DynamicBones Item_DynamicBones;
 typedef struct ItemAttr ItemAttr;
 typedef struct ItemCommonData ItemCommonData;
+typedef struct ItemCollisionDesc ItemCollisionDesc;
 typedef struct ItemDynamics ItemDynamics;
 typedef struct ItemModelDesc ItemModelDesc;
 typedef struct ItemModStruct ItemModStruct;

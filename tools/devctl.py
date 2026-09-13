@@ -60,16 +60,44 @@ def send_key(dpy, win, keysym, down):
     xtest.fake_input(dpy, X.KeyPress if down else X.KeyRelease, code)
     dpy.sync()
 
+def _import(win, out):
+    for _ in range(5):  # capture occasionally yields an empty frame; retry
+        subprocess.check_call(["import", "-window", hex(win.id), out])
+        if os.path.getsize(out) > 4096:
+            return open(out, "rb").read()
+        time.sleep(0.2)
+    return open(out, "rb").read()
+
+
+def grab(dpy, win, out):
+    """Capture the window, working around stale X drawables.
+
+    Under Xwayland the window's drawable can keep returning the last
+    composited frame while the game presents normally, which reads as a
+    frozen game and is not one. Two identical captures 60ms apart are the
+    tell; a one-pixel resize forces the compositor to hand back a fresh
+    one. Only pay for the nudge when the frames actually match.
+    """
+    first = _import(win, out)
+    time.sleep(0.06)
+    if _import(win, out) != first:
+        return
+    geom = win.get_geometry()
+    win.configure(width=geom.width + 1, height=geom.height)
+    dpy.sync()
+    time.sleep(0.25)
+    win.configure(width=geom.width, height=geom.height)
+    dpy.sync()
+    time.sleep(0.25)
+    _import(win, out)
+
+
 def main():
     cmd, args = sys.argv[1], sys.argv[2:]
     dpy = display.Display()
     win = find_window(dpy)
     if cmd == "shot":
-        for _ in range(5):  # capture occasionally yields an empty frame; retry
-            subprocess.check_call(["import", "-window", hex(win.id), args[0]])
-            if os.path.getsize(args[0]) > 4096:
-                break
-            time.sleep(0.2)
+        grab(dpy, win, args[0])
     elif cmd == "key":
         for spec in args:
             key, _, hold = spec.partition(":")

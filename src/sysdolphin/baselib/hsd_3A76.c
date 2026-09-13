@@ -10,9 +10,6 @@
 #include "state.h"
 #include "tev.h"
 #include "wobj.h"
-#ifdef TARGET_PC
-#include "pc/widescreen.h"
-#endif
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
 #include <dolphin/types.h>
@@ -517,9 +514,6 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
             GXSetZMode(0U, 0U, 0U);
             GXSetViewport(0.0F, 0.0F, 640.0F, 480.0F, 0.0F, 1.0F);
             GXSetScissor(0, 0, 0x280, 0x1E0);
-#ifdef TARGET_PC
-            pc_widescreen_apply_screen();
-#endif
 #ifdef MUST_MATCH
             MTXOrtho((MtxPtr) ((u8*) &projection_m[0][0] - 0x14), 0.0F,
                      -480.0F, 0.0F, 640.0F, 0.0F, 2.0F);

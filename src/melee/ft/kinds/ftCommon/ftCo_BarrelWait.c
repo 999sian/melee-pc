@@ -79,10 +79,10 @@ void ftCo_8009EC70(Fighter_GObj* gobj, Vec3* pos, UNK_T arg2, float kb_angle)
     mpColl_80043680(&fp->coll_data, pos);
     ftCamera_80076064(fp);
     {
-        struct SmallerHitCapsule hit;
-        lbColl_80008D30((HitCapsule*) &hit, arg2);
+        HitCapsule hit;
+        lbColl_80008D30(&hit, arg2);
         ftColl_800788D4(gobj);
-        ftCo_Barrel_ApplyKnockback(fp, kb_angle, (HitCapsule*) &hit);
+        ftCo_Barrel_ApplyKnockback(fp, kb_angle, &hit);
         Fighter_UnkTakeDamage_8006CC30(fp, hit.damage);
     }
     ftCo_8008DCE0(gobj, 91, 0);

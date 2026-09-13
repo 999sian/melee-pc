@@ -141,7 +141,7 @@ void vi0102_Scene_OnEnter(void* arg)
     lbAudioAx_80023F28(0x56);
     lbAudioAx_80024E50(1);
     un_804D6F38 = lbArchive_LoadSymbols("Vi0102.dat", &un_804D6F30,
-                                        "visual0102Scene", 0);
+                                        "visual0102Scene", NULL);
 
     cam_gobj = GObj_Create(0x13, 0x14, 0);
     cobj = lb_80013B14(vi_SceneCamDesc(un_804D6F30));

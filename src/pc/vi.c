@@ -15,6 +15,8 @@
 #include <stdlib.h>
 
 #include "pc/pc.h"
+#include "pc/launcher.h"
+#include "pc/widescreen.h"
 
 bool pc_exit_requested;
 
@@ -40,6 +42,7 @@ void pc_frame_boundary(void)
         s_in_frame = false;
     }
     aurora_heap_check(); /* no-op unless MELEE_HEAP_CHECK is set */
+    pc_widescreen_update(); /* Auto mode follows window resizes. */
     if (fps_log < 0) {
         fps_log = getenv("MELEE_FPS") != NULL;
         fps_t0 = SDL_GetTicks();
@@ -59,10 +62,14 @@ void pc_frame_boundary(void)
         if (event->type == AURORA_EXIT) {
             pc_exit_requested = true;
         } else if (event->type == AURORA_SDL_EVENT) {
+            if (event->sdl.type == SDL_EVENT_KEY_DOWN &&
+                event->sdl.key.scancode == SDL_SCANCODE_F1 && !event->sdl.key.repeat)
+                pc_menu_toggle();
             pc_keyboard_event(&event->sdl);
         }
         ++event;
     }
+    pc_menu_update();
     pc_keyboard_apply();
     if (pc_exit_requested) {
         exit(0);
@@ -83,7 +90,9 @@ void pc_frame_boundary(void)
         next_ns += period;
     }
 
-    /* aurora_begin_frame returns false while minimized/paused; keep pumping. */
+    /* aurora_begin_frame returns false while minimized/paused; keep pumping.
+     * Sleep a frame between attempts: without it a minimized window spins a
+     * core at 100% polling SDL. */
     while (!aurora_begin_frame()) {
         event = aurora_update();
         while (event != NULL && event->type != AURORA_NONE) {
@@ -92,6 +101,7 @@ void pc_frame_boundary(void)
             }
             ++event;
         }
+        SDL_Delay(16);
     }
     s_in_frame = true;
 

@@ -549,14 +549,17 @@ void mnCount_CreateRow(HSD_GObj* gobj, int visible_row, mnCount_row data_row)
     text->default_alignment = 2;
     if (inline_is_row_time(data_row)) {
         unsigned int row_value;
-        char buf[4];
+        /* Retail writes two adjacent 4-byte stack buffers; only the
+         * minutes one is read back. */
+        char hours_buf[4];
+        char minutes_buf[4];
         text->font_size.x = 0.03f;
         text->font_size.y = 0.03f;
         row_value = mnCount_GetRowValue_Number(data_row);
-        mn_8022EA78(buf, 2, row_value / 60 / 60);
-        mn_8022EA78(buf - 4, 2, row_value / 60 % 60);
+        mn_8022EA78(hours_buf, 2, row_value / 60 / 60);
+        mn_8022EA78(minutes_buf, 2, row_value / 60 % 60);
         HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%u:%s", row_value / 60 / 60,
-                            (char*) buf - 4);
+                            minutes_buf);
     } else if (inline_is_row_char(data_row)) {
         text->font_size.x = 0.03f;
         text->font_size.y = 0.03f;

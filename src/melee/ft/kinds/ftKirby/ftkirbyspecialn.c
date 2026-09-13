@@ -98,7 +98,9 @@ void ftKb_SpecialN_800F5954(Fighter_GObj* gobj)
 
 bool ftKb_SpecialN_800F597C(Fighter_GObj* gobj)
 {
-    return M2C_FIELD(GET_FIGHTER(gobj), s32*, 0x840) & 0x100;
+    /* fp+840 is coll_data.floor.flags on GameCube. */
+    return (GET_FIGHTER(gobj)->coll_data.floor.flags & LINE_FLAG_PLATFORM) !=
+           0;
 }
 
 void ftKb_SpecialN_800F598C(Fighter_GObj* gobj, int arg1)
@@ -232,7 +234,7 @@ void ftKb_SpecialN_800F5BA4(Fighter* fp)
     ftKb_DatAttrs* da = fp->dat_attrs;
     if ((s32) fp->kind == Ft_Kind_Kirby &&
         (s32) fp->u.kb.hat.kind != Ft_Kind_Kirby && !fp->u.kb.hat.x8_b0 &&
-        (u32) fp->victim_gobj == 0U &&
+        fp->victim_gobj == NULL &&
         fp->dmg.x1860_element != HitElement_Cape &&
         HSD_Randi((s32) da->specialn_odds_lose_ability_on_hit) == 0)
     {
@@ -245,7 +247,7 @@ void ftKb_SpecialN_800F5C34(Fighter* fp)
     ftKb_DatAttrs* da = fp->dat_attrs;
     if ((s32) fp->kind == Ft_Kind_Kirby &&
         (s32) fp->u.kb.hat.kind != Ft_Kind_Kirby && !fp->u.kb.hat.x8_b0 &&
-        (u32) fp->victim_gobj == 0U &&
+        fp->victim_gobj == NULL &&
         HSD_Randi((s32) da->specialn_odds_lose_ability_on_hit) == 0)
     {
         s32 msid = fp->motion_id;

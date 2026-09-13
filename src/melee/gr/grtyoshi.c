@@ -13,7 +13,7 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 
-/* 223B48 */ static void grTYoshi_OnDemoInit(bool);
+/* 223B48 */ static void grTYoshi_OnDemoInit(s32);
 /* 223B4C */ static void grTYoshi_OnInit(void);
 /* 223BBC */ static void grTYoshi_OnLoad(void);
 /* 223BC0 */ static void grTYoshi_OnStart(void);
@@ -75,7 +75,7 @@ StageData grTYs_StageData = {
     0,
 };
 
-static void grTYoshi_OnDemoInit(bool arg0) {}
+static void grTYoshi_OnDemoInit(s32 arg0) {}
 
 static void grTYoshi_OnInit(void)
 {

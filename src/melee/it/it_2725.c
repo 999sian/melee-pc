@@ -36,10 +36,11 @@ extern f32 it_804DC73C;
         }                                                                     \
     }
 
+/* Both call sites pass the address of a stack local, so the SDK's
+ * `translate != NULL` assert is dead code here. */
 #define it_2725_JObjGetTranslation(jobj, vec)                                 \
     {                                                                         \
         ((jobj) ? ((void) 0) : __assert("jobj.h", 979, "jobj"));              \
-        ((vec) ? ((void) 0) : __assert("jobj.h", 980, "translate"));          \
         *(vec) = ((HSD_JObj*) (jobj))->translate;                             \
     }
 

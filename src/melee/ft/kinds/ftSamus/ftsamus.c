@@ -348,17 +348,20 @@ void ftSs_Init_CreateThrowGrappleBeam(HSD_GObj* gobj, s32 motion_state,
 
     Fighter* fp = getFighter(gobj);
     DiscU32* item_list = DP(DiscU32, fp->ft_data->x48_items);
-    struct UNK_SAMUS_S1* beam = (struct UNK_SAMUS_S1*) (uintptr_t) item_list[4].v;
-    ftCommon_SetAccessory(fp, beam->x0_joint);
+    struct UNK_SAMUS_S1* beam = DP(struct UNK_SAMUS_S1, item_list[4].v);
+    ftCommon_SetAccessory(fp, DP(HSD_Joint, beam->x0_joint));
 
     scale.x = scale.y = scale.z = fp->x34_scale.y;
     HSD_JObjSetScale((fighter_copy = fp)->x20A0_accessory, &scale);
 
-    HSD_JObjAddAnimAll(fighter_copy->x20A0_accessory, beam->x8_anim_joint,
-                       beam->xC_matanim_joint, 0);
     HSD_JObjAddAnimAll(fighter_copy->x20A0_accessory,
-                       beam->x4_anim_joints[motion_state - ftCo_MS_ThrowF], 0,
-                       0);
+                       DP(HSD_AnimJoint, beam->x8_anim_joint),
+                       DP(HSD_MatAnimJoint, beam->xC_matanim_joint), 0);
+    HSD_JObjAddAnimAll(
+        fighter_copy->x20A0_accessory,
+        DP(HSD_AnimJoint,
+           DP(DiscU32, beam->x4_anim_joints)[motion_state - ftCo_MS_ThrowF].v),
+        0, 0);
     HSD_ForeachAnim(fighter_copy->x20A0_accessory, JOBJ_TYPE,
                     ALL_TYPE_MASK & ~TOBJ_MASK & ~MOBJ_MASK,
                     &ftSs_Init_80128770, AOBJ_ARG_AF, anim_speed);

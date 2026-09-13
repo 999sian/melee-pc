@@ -137,6 +137,17 @@ void AuroraSetViewportPolicy(AuroraViewportPolicy policy);
 void AuroraGetRenderSize(u32* width, u32* height);
 
 /**
+ * Fits the content framebuffer to the given aspect ratio, letterboxing inside the native surface.
+ * Pass 0 to follow the native surface aspect. Overrides the aspect implied by the viewport policy.
+ */
+void AuroraSetPresentationAspect(f32 aspect);
+
+/**
+ * Retrieves the native surface size in pixels, before any content framebuffer scaling or aspect fit.
+ */
+void AuroraGetWindowSize(u32* width, u32* height);
+
+/**
  * Flush pending GX state and wait for FIFO processing without signaling a draw-done callback.
  */
 void AuroraGXSync(void);

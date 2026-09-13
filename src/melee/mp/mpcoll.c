@@ -937,7 +937,12 @@ bool mpColl_80043754(mpColl_Callback cb, CollData* coll, u32 flags)
     float dist_top_y;
     s32 step;  // r31
     s32 steps; // r30
-    bool ret;
+    /* Only assigned inside the step loop below. The loop is skipped whenever
+     * `steps` ends up <= 0, which happens for a huge-but-finite movement: the
+     * `x / 6.0F` float->s32 conversion is undefined once the quotient exceeds
+     * INT_MAX and yields INT_MIN on x86-64, so steps+1 goes negative. Retail
+     * returned whatever was in r3; return "no collision" instead. */
+    bool ret = false;
 
     lbVector_Diff(&coll->cur_pos, &coll->last_pos, &vel);
     x = ABS(vel.x);

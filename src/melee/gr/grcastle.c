@@ -32,13 +32,6 @@
 #include <sysdolphin/baselib/psstructs.h>
 #include <sysdolphin/baselib/random.h>
 
-struct unkCastle {
-    /* 0x000 */ u8 _pad[0x10C];
-    /* 0x10C */ HSD_GObj* x10C[5];
-    /* 0x120 */ u8 _pad2[0x134 - 0x120];
-    /* 0x134 */ u8 x134[5];
-};
-
 /* 1CF750 */ static void grCastle_801CF750(void* user_data, int joint_id,
                                            CollData* coll, int coll_x50,
                                            mpLib_GroundEnum ground_kind,
@@ -216,7 +209,7 @@ typedef struct grCastle_YOffsets {
     f32 v[6];
 } grCastle_YOffsets;
 
-void grCastle_801CD338(bool arg0)
+void grCastle_801CD338(s32 arg0)
 {
     HSD_GObj* gobj;
     HSD_JObj* jobj;
@@ -839,12 +832,14 @@ void grCastle_801CE3AC(Ground_GObj* gobj)
     HSD_JObj* jobj;
     Ground* gp = GET_GROUND(gobj);
 
-    if (gp->u.castle5.xCC != NULL) {
+    /* grCastle_801CE578 fills this slot as u.castle11.xCC; u.castle5.xCC is a
+     * real pointer on PC and would pull in gp+D0 as its upper half. */
+    if (gp->u.castle11.xCC != 0) {
         Quaternion rot;
         Vec3 pos;
         Vec3 offset;
 
-        jobj = HSD_GObjGetHSDObj(gp->u.castle5.xCC);
+        jobj = HSD_GObjGetHSDObj((HSD_GObj*) gp->u.castle11.xCC);
         rot = grCs_803B7EB8;
 
         offset.z = 0.0f;
@@ -1340,15 +1335,15 @@ void grCastle_801CF308(Ground_GObj* gobj)
                 gp->u.castle11.xCA = (s16) (2.0 * (f64) val);
             } else {
                 gp->u.castle5.xC4 = 3;
-                gp->u.castle11.xD8 = (u32) grMaterial_801C8CFC(
+                gp->u.castle7.xD8 = (u32) grMaterial_801C8CFC(
                     0, 1, gp, jobj, NULL,
                     (void (*)(Item_GObj*, Ground*, Vec3*, HSD_GObj*, f32))(
                         Event) fn_801CFAFC,
                     (void (*)(Item_GObj*, Ground*, HSD_GObj*))(
                         Event) fn_801CFB68);
-                grMaterial_801C8DE0((Item_GObj*) gp->u.castle11.xD8, 0.0f,
+                grMaterial_801C8DE0((Item_GObj*) gp->u.castle7.xD8, 0.0f,
                                     -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 4.0f);
-                grMaterial_801C8E08((Item_GObj*) gp->u.castle11.xD8);
+                grMaterial_801C8E08((Item_GObj*) gp->u.castle7.xD8);
                 gp->u.castle8.plat[0].state = yakumono_param->x54;
             }
         }
@@ -1359,9 +1354,9 @@ void grCastle_801CF308(Ground_GObj* gobj)
         var_r6 = 1;
         break;
     case 4: {
-        if (gp->u.castle11.xD8 != 0) {
-            grMaterial_801C8CDC((HSD_GObj*) gp->u.castle11.xD8);
-            gp->u.castle11.xD8 = 0;
+        if (gp->u.castle7.xD8 != 0) {
+            grMaterial_801C8CDC((HSD_GObj*) gp->u.castle7.xD8);
+            gp->u.castle7.xD8 = 0;
         }
         ((Ground*) (gp->u.castle7.xD0)->user_data)->u.castle5.xC4 = 1;
         gp->u.castle5.xC4 = 5;
@@ -1388,10 +1383,10 @@ void grCastle_801CF308(Ground_GObj* gobj)
     }
 
     if (var_r6 != 0) {
-        lb_8000B1CC((HSD_JObj*) gp->u.castle11.xD4, NULL, &pos);
+        lb_8000B1CC((HSD_JObj*) gp->u.castle7.xD4, NULL, &pos);
         HSD_JObjSetTranslate(jobj, &pos);
 
-        HSD_JObjGetRotation((HSD_JObj*) gp->u.castle11.xD4, &quat);
+        HSD_JObjGetRotation((HSD_JObj*) gp->u.castle7.xD4, &quat);
         HSD_JObjSetRotation(jobj, &quat);
     }
 }
@@ -1487,8 +1482,12 @@ static inline void grCastle_PickSatellite(Ground* gp, s32* wp)
     }
     gp->u.castle12.xD0 = slot;
 
-    sat_gp = (Ground*) gp->u.castle12.xC4[gp->u.castle12.xD0]
-                 ->user_data;
+    /* grCastle_801CD4D0 returns NULL (and OSReports) when a satellite's map
+     * gobj is missing, so a weighted pick can land on an empty slot. */
+    if (gp->u.castle12.xC4[slot] == NULL) {
+        return;
+    }
+    sat_gp = (Ground*) gp->u.castle12.xC4[slot]->user_data;
 
     {
         s32 idx;
@@ -1520,17 +1519,34 @@ void grCastle_801CF868(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     s32* wp;
+    s32 slot = gp->u.castle12.xD0;
+    HSD_GObj* sat = NULL;
+
+    /* Retail guaranteed slot in -1..2 (grCastle_PickSatellite clamps), so it
+     * indexed xC4[] unchecked. If it is ever out of range here the read walks
+     * off a 3-pointer array into the rest of Ground::u and hands ->user_data
+     * a non-NULL garbage pointer -- an immediate SIGSEGV, which is what this
+     * crashed with. Report the value rather than fault on it: the bug is then
+     * whoever wrote the slot, and it is named instead of anonymous. */
+    if (slot < -1 || slot > 2) {
+        static bool reported;
+        if (!reported) {
+            reported = true;
+            OSReport("grCastle: satellite slot %d out of range (map_id %d)\n",
+                     (int) slot, (int) gp->map_id);
+        }
+        slot = -1;
+        gp->u.castle12.xD0 = -1;
+    }
+    if (slot >= 0) {
+        sat = gp->u.castle12.xC4[slot];
+    }
 
     if ((gp->u.castle12.xC4[0] != NULL || gp->u.castle12.xC4[1] != NULL ||
          gp->u.castle12.xC4[2] != NULL) &&
-        (gp->u.castle12.xD0 == -1 ||
-         (gp->u.castle12.xC4[gp->u.castle12.xD0] != NULL &&
-          ((Ground*) gp->u.castle12.xC4[gp->u.castle12.xD0]
-               ->user_data) != NULL &&
-          *(s16*) &(
-               (Ground*) gp->u.castle12.xC4[gp->u.castle12.xD0]
-                   ->user_data)
-                  ->u.castle2.xC4 == 0)))
+        (slot == -1 ||
+         (sat != NULL && (Ground*) sat->user_data != NULL &&
+          *(s16*) &((Ground*) sat->user_data)->u.castle2.xC4 == 0)))
     {
         gp->u.castle12.xD2 = gp->u.castle12.xD2 - 1;
         if (gp->u.castle12.xD2 < 0) {
@@ -1759,77 +1775,85 @@ void grCastle_801D0520(Ground_GObj* gobj, int renderpass)
     }
 }
 
-static inline void grCastle_801D0550_sub(unkCastle* arg0, s32 i)
+/* These ten are item callbacks registered through grMaterial_801C8CFC, whose
+ * user data is the Ground* (`gp`) passed at the registration site. They used
+ * to arrive as a `struct unkCastle*` that re-described the whole Ground with
+ * GameCube-absolute offsets (`u8 _pad[0x10C]` over everything up to
+ * grCastle_GroundVars10::x10C, `_pad2` over x120[5]). Those offsets only held
+ * while every pointer in Ground and in the ground-vars union was 4 bytes, so
+ * name the fields instead: x10C == grCastle_GroundVars10::x10C, x134 ==
+ * grCastle_GroundVars10::state. */
+static inline void grCastle_801D0550_sub(Ground* gp, s32 i)
 {
-    arg0->x134[i] = 1;
-    grMaterial_801C8CDC(arg0->x10C[i]);
-    arg0->x10C[i] = NULL;
+    gp->u.castle10.state[i] = 1;
+    grMaterial_801C8CDC((Item_GObj*) gp->u.castle10.x10C[i]);
+    gp->u.castle10.x10C[i] = 0;
     Ground_801C53EC(0x53020U);
 }
 
-void grCastle_801D0550(void* arg0, unkCastle* arg1)
+void grCastle_801D0550(void* arg0, Ground* gp)
 {
     PAD_STACK(16);
-    grCastle_801D0550_sub(arg1, 0);
+    grCastle_801D0550_sub(gp, 0);
 }
 
-void grCastle_801D059C(void* arg0, unkCastle* arg1)
+void grCastle_801D059C(void* arg0, Ground* gp)
 {
     PAD_STACK(16);
-    grCastle_801D0550_sub(arg1, 1);
+    grCastle_801D0550_sub(gp, 1);
 }
 
-void grCastle_801D05E8(void* arg0, unkCastle* arg1)
+void grCastle_801D05E8(void* arg0, Ground* gp)
 {
     PAD_STACK(16);
-    grCastle_801D0550_sub(arg1, 2);
+    grCastle_801D0550_sub(gp, 2);
 }
 
-void grCastle_801D0634(void* arg0, unkCastle* arg1)
+void grCastle_801D0634(void* arg0, Ground* gp)
 {
     PAD_STACK(16);
-    grCastle_801D0550_sub(arg1, 3);
+    grCastle_801D0550_sub(gp, 3);
 }
 
-void grCastle_801D0680(void* arg0, unkCastle* arg1)
+void grCastle_801D0680(void* arg0, Ground* gp)
 {
     PAD_STACK(16);
-    grCastle_801D0550_sub(arg1, 4);
+    grCastle_801D0550_sub(gp, 4);
 }
 
-static void grCastle_801D06CC_sub(unkCastle* arg0, Ground_GObj* gobj, s32 i)
+static void grCastle_801D06CC_sub(Ground* gp, Ground_GObj* gobj, s32 i)
 {
     if (ftLib_80086960(gobj) || itGetKind(gobj) != It_PKind_Random) {
-        arg0->x134[i] = 1;
-        grMaterial_801C8CDC(arg0->x10C[i]);
-        arg0->x10C[i] = NULL;
+        gp->u.castle10.state[i] = 1;
+        grMaterial_801C8CDC((Item_GObj*) gp->u.castle10.x10C[i]);
+        gp->u.castle10.x10C[i] = 0;
         Ground_801C53EC(0x53020U);
     }
 }
 
-void grCastle_801D06CC(void* arg0, unkCastle* arg1, Ground_GObj* gobj)
+void grCastle_801D06CC(void* arg0, Ground* gp, Ground_GObj* gobj)
 {
-    grCastle_801D06CC_sub(arg1, gobj, 0);
+    grCastle_801D06CC_sub(gp, gobj, 0);
 }
 
-void grCastle_801D0744(void* arg0, unkCastle* arg1, Ground_GObj* gobj)
+void grCastle_801D0744(void* arg0, Ground* gp, Ground_GObj* gobj)
 {
-    grCastle_801D06CC_sub(arg1, gobj, 1);
+    grCastle_801D06CC_sub(gp, gobj, 1);
 }
 
-void grCastle_801D07BC(void* arg0, unkCastle* arg1, Ground_GObj* gobj)
+void grCastle_801D07BC(void* arg0, Ground* gp, Ground_GObj* gobj)
 {
-    grCastle_801D06CC_sub(arg1, gobj, 2);
+    grCastle_801D06CC_sub(gp, gobj, 2);
 }
 
-void grCastle_801D0834(void* arg0, unkCastle* arg1, Ground_GObj* gobj)
+void grCastle_801D0834(void* arg0, Ground* gp, Ground_GObj* gobj)
 {
-    grCastle_801D06CC_sub(arg1, gobj, 3);
+    grCastle_801D06CC_sub(gp, gobj, 3);
 }
 
-void grCastle_801D08AC(void* arg0, unkCastle* arg1, Ground_GObj* gobj)
+void grCastle_801D08AC(void* arg0, Ground* gp, Ground_GObj* gobj)
 {
-    grCastle_801D06CC_sub(arg1, gobj, 4);
+    grCastle_801D06CC_sub(gp, gobj, 4);
 }
 
 void fn_801D0924(HSD_GObj* gobj, int renderpass)

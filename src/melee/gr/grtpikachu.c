@@ -33,7 +33,7 @@ StageData grTPk_StageData = {
     (1 << 0),
 };
 
-void grTPikachu_80222E7C(bool unused)
+void grTPikachu_80222E7C(s32 unused)
 {
     return;
 }

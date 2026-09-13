@@ -91,7 +91,8 @@
 /* 17F14C */ s32 fn_8017F14C(void* arg0);
 /* 17F1B8 */ s32 fn_8017F1B8(void);
 /* 17F2A4 */ s32 fn_8017F2A4(HSD_Text** arg0, f32 farg0, f32 farg1);
-/* 17F47C */ s32 fn_8017F47C(HSD_Text** arg0, int arg1);
+struct lbl_80472D28_t; /* defined in gmregclear.c */
+/* 17F47C */ s32 fn_8017F47C(struct lbl_80472D28_t* state, int arg1);
 /* 17F608 */ void fn_8017F608(void* arg0);
 /* 17FA1C */ s32 fn_8017FA1C(void* arg0);
 /* 17FBA4 */ void fn_8017FBA4(void* arg0);

@@ -1,6 +1,9 @@
 #include <dolphin/os.h>
 
 #include <cstddef>
+#include <unordered_map>
+#include <array>
+#include <execinfo.h>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -45,6 +48,30 @@ static u8* sArenaEnd = nullptr;
 static const bool sCanary = getenv("MELEE_HEAP_CHECK") != nullptr;
 constexpr u8 kCanaryByte = 0xC5;
 
+// Who allocated each live cell, so a stomp report names a call site instead of
+// just an address. Only populated under MELEE_HEAP_CHECK.
+using OwnerTrace = std::array<void*, 4>;
+static std::unordered_map<const void*, OwnerTrace> sCellOwner;
+
+static void recordOwner(const void* cell) {
+  if (!sCanary) {
+    return;
+  }
+  std::array<void*, 6> frames{};
+  const int n = backtrace(frames.data(), static_cast<int>(frames.size()));
+  OwnerTrace trace{};
+  for (int i = 2, o = 0; i < n && o < static_cast<int>(trace.size()); ++i, ++o) {
+    trace[o] = frames[i];
+  }
+  sCellOwner[cell] = trace;
+}
+
+static void forgetOwner(const void* cell) {
+  if (sCanary) {
+    sCellOwner.erase(cell);
+  }
+}
+
 static void checkCanaries(const char* where) {
   if (!sCanary || sHeapArray == nullptr) {
     return;
@@ -54,9 +81,16 @@ static void checkCanaries(const char* where) {
       const u8* canary = reinterpret_cast<const u8*>(c) + c->size - kAlignment;
       for (u32 i = 0; i < kAlignment; ++i) {
         if (canary[i] != kCanaryByte) {
-          AllocLog.fatal("heap stomp detected at {}: cell {} (user {}, size {}) canary at {}", where,
-                         static_cast<const void*>(c), static_cast<const void*>(reinterpret_cast<const u8*>(c) + kHeaderSize),
-                         c->size, static_cast<const void*>(canary));
+          const auto owner = sCellOwner.find(c);
+          AllocLog.fatal("heap stomp detected at {}: cell {} (user {}, size {}) canary at {} "
+                         "first bad byte +{} allocated by {} {} {} {}",
+                         where, static_cast<const void*>(c),
+                         static_cast<const void*>(reinterpret_cast<const u8*>(c) + kHeaderSize),
+                         c->size, static_cast<const void*>(canary), i,
+                         owner == sCellOwner.end() ? nullptr : owner->second[0],
+                         owner == sCellOwner.end() ? nullptr : owner->second[1],
+                         owner == sCellOwner.end() ? nullptr : owner->second[2],
+                         owner == sCellOwner.end() ? nullptr : owner->second[3]);
         }
       }
     }
@@ -406,6 +440,7 @@ void* OSAllocFromHeap(OSHeapHandle heap, u32 size) {
   hd.allocated = addFront(hd.allocated, cell);
   if (sCanary) {
     memset(reinterpret_cast<u8*>(cell) + cell->size - kAlignment, kCanaryByte, kAlignment);
+    recordOwner(cell);
   }
   return reinterpret_cast<u8*>(cell) + kHeaderSize;
 }
@@ -425,6 +460,7 @@ void OSFreeToHeap(OSHeapHandle heap, void* ptr) {
   }
 
   checkCanaries("free");
+  forgetOwner(cell);
   hd.allocated = extract(hd.allocated, cell);
   cell->owner = nullptr;
   hd.freeList = insertAndCoalesce(hd.freeList, cell);

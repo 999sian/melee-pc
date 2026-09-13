@@ -97,8 +97,8 @@ union ftPikachu_MotionVars {
     } specialhi;
 
     struct ftPikachu_SpecialLwVars {
-        Item_GObj* x0;
-        bool x4;
+        /* fp+2340 */ Item_GObj* x0;
+        /* fp+2344 */ s32 x4; ///< thunder state: 0, 1 or 3
     } speciallw;
 };
 

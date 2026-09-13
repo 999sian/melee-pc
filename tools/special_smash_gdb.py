@@ -123,29 +123,21 @@ class Scene(gdb.Breakpoint):
             setvar("pc_exit_requested", 1)
         return False
 
-class WideCamera(gdb.Breakpoint):
+class WideState(gdb.Breakpoint):
     count = 0
     def stop(self):
         if not bool(gdb.parse_and_eval("s_supported")): return False
         self.count += 1
-        if self.count <= 8:
-            mark("WIDE " + str(gdb.parse_and_eval("s_mode")) +
-                 " camera=" + str(gdb.parse_and_eval("camera->projection_type")) +
-                 " aspect=" + str(gdb.parse_and_eval("camera->projection_param.perspective.aspect")))
-        if self.count == 8: self.enabled = False
+        if self.count <= 4:
+            mark("WIDE mode=" + str(gdb.parse_and_eval("s_mode")) +
+                 " supported=" + str(gdb.parse_and_eval("s_supported")))
+        if self.count == 4: self.enabled = False
         return False
 
 if os.environ.get("MELEE_TEST_WIDE_INFO"):
-    WideCamera("pc_widescreen_apply_camera")
-    class WideViewport(gdb.Breakpoint):
-        count = 0
-        def stop(self):
-            if not bool(gdb.parse_and_eval("'widescreen.c'::s_supported")): return False
-            self.count += 1
-            mark("VIEWPORT " + ",".join(str(gdb.parse_and_eval(v)) for v in ("left","top","wd","ht")))
-            if self.count == 8: self.enabled = False
-            return False
-    WideViewport("GXSetViewportRender")
+    # State probe only: calling into the inferior from a breakpoint that fires
+    # every camera setup stalls the game into a black window.
+    WideState("pc_widescreen_update")
 
 class WindowSize(gdb.Breakpoint):
     def stop(self):

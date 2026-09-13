@@ -353,14 +353,12 @@ int it_802BB938(ItemLink* link, int arg1, float arg2)
     if (mpColl_80048844(coll)) {
         if (!link->x2C_b1 && arg1 != 0 && !link->x2C_b2) {
             lbAudioAx_800237A8(0x41F45, 0x7F, 0x40);
-            link->x2C_b2 = 0xF; // weird; gets truncated to 0x1
+            link->x2C_b2 = true;
         }
         link->x2C_b1 = true;
     } else {
         link->x2C_b1 = false;
-        if (link->x2C_b2) {
-            link->x2C_b2--;
-        }
+        link->x2C_b2 = false;
     }
     if (coll->env_flags & 0x18000) {
         coll->cur_pos.x = link->pos.x;

@@ -900,7 +900,7 @@ void mnDiagram2_Think(HSD_GObj* gobj)
             HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
             proc = HSD_GObj_SetupProc(gobj, mnDiagram2_OnAnimComplete, 0);
             proc->flags_3 = HSD_GObj_804D783C;
-            HSD_JObjSetFlagsAll(((HSD_JObj**) data)[4], JOBJ_HIDDEN);
+            HSD_JObjSetFlagsAll(data->x10, JOBJ_HIDDEN);
             if (data->header_text != NULL) {
                 HSD_SisLib_803A5CC4(data->header_text);
                 data->header_text = NULL;
@@ -962,7 +962,6 @@ void mnDiagram2_Create(int arg0)
     HSD_JObj* jobj;
     int offset;
     Diagram2* user_data2;
-    HSD_JObj** cursor;
 
     gobj = GObj_Create(6, 7, 0x80);
     mnDiagram2_804D6C18 = gobj;
@@ -979,11 +978,9 @@ void mnDiagram2_Create(int arg0)
                       user_data);
 
     i = (offset = 0);
-    cursor = (HSD_JObj**) user_data + i;
     do {
-        lb_80011E24(jobj, cursor + 2, i, -1);
+        lb_80011E24(jobj, &user_data->x8 + i, i, -1);
         i++;
-        cursor++;
     } while (i < 15);
 
     HSD_GObj_SetupProc(gobj, mnDiagram2_Think, 0);

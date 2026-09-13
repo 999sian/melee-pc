@@ -67,23 +67,26 @@ bool fn_800D2818(Fighter* fp)
     }
 }
 
+/// Stores the "resume falling" callback that the Kinoko states later invoke as
+/// @c mv.co.mushroom.x0 . On GameCube both views were fp+2340; write the
+/// consumer's member directly so the alias survives LP64 relayout.
 void fn_800D2890(Fighter_GObj* gobj, int ms_id)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->kind == Ft_Kind_Peach && ms_id == 0x172) {
-        fp->mv.co.unk_800D2890.x0 = ftCo_800968C8;
+        fp->mv.co.mushroom.x0 = ftCo_800968C8;
         return;
     }
     switch (ms_id) {
     case ftCo_MS_FallAerial:
-        fp->mv.co.unk_800D2890.x0 = ftCo_FallAerial_Enter;
+        fp->mv.co.mushroom.x0 = ftCo_FallAerial_Enter;
         return;
     case ftCo_MS_FallSpecial:
     case ftCo_MS_ItemParasolFallSpecial:
-        fp->mv.co.unk_800D2890.x0 = ftCo_800968C8;
+        fp->mv.co.mushroom.x0 = ftCo_800968C8;
         return;
     default:
-        fp->mv.co.unk_800D2890.x0 = ftCo_Fall_Enter;
+        fp->mv.co.mushroom.x0 = ftCo_Fall_Enter;
         return;
     }
 }

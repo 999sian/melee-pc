@@ -609,8 +609,12 @@ s32 fn_803AA790(void)
         }
         entry->x0 = 0;
         return result;
-    case 2:
-        switch (state->x28[entry->x8]) {
+    case 2: {
+        /* x28 holds exactly 9 entries. The three handlers below already
+         * reject an index of 9 or more, but this dispatch reads x28 first;
+         * -1 falls through to the same -0x101 rejection. */
+        s32 kind = ((u32) entry->x8 < 9) ? state->x28[entry->x8] : -1;
+        switch (kind) {
         case 0:
             result = fn_803AE7F8(state, entry->x8, entry->xC, 1,
                                  (s32) entry->x14);
@@ -635,6 +639,7 @@ s32 fn_803AA790(void)
         }
         entry->x0 = 0;
         return result;
+    }
     case 3:
         result = fn_803B1F78(state, entry->x8, entry->xC, entry->x10,
                              (s32) entry->x14);
@@ -841,7 +846,7 @@ static inline void unpackCardStat(const s32* cmd, CARDStat* stat)
         CMD_STATE->icon_speed[k] =
             (stat->iconSpeed >> (2 * k)) & CARD_STAT_SPEED_MASK;
     }
-    CMD_STATE->x24 = hsd_803AC340(&CMD_STATE->x3B0);
+    CMD_STATE->x24 = hsd_803AC340(CMD_STATE->file_header);
     {
         u32 used = CMD_STATE->x24 + CMD_STATE->x8;
         used += 0x2F;
@@ -2839,6 +2844,12 @@ s32 fn_803ADF90(struct CardState* arg0, s32 arg1, u8* arg2, s32 arg3,
         }
     }
 
+    /* x28/x4C/x70 hold exactly 9 entries; fn_803AC6B8 already treats an index
+     * of 9 or more as out of range, so reject it before indexing. */
+    if ((u32) arg1 >= 9) {
+        return -0x101;
+    }
+
     blocks_before = fn_803AC6B8_blocks_before(arg0, arg1);
 
     file_size = arg0->x4C[arg1];
@@ -3680,6 +3691,10 @@ s32 fn_803AF3F0(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
         }
     }
 
+    if ((u32) arg1 >= 9) {
+        return -0x101;
+    }
+
     blocks_before = fn_803AC6B8_blocks_before(state, arg1);
 
     file_size = state->x4C[arg1];
@@ -4114,6 +4129,10 @@ s32 fn_803B0120(CardState* state, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
         if (busy) {
             return -264;
         }
+    }
+
+    if ((u32) arg1 >= 9) {
+        return -0x101;
     }
 
     blocks_before = fn_803AC6B8_blocks_before(state, arg1);

@@ -111,10 +111,12 @@ HSD_MemoryEntry* GetMemoryEntry(s32 idx)
 
             memcpy(new_list, memory_list,
                    sizeof(*memory_list) * nb_memory_list);
+            /* sizeof(*memory_list) is 8 here, not the GameCube's 4; a
+             * literal 4 left the upper half of the new tail uninitialised
+             * and the memory_list[idx] == NULL test below would then read
+             * heap garbage as an HSD_MemoryEntry*. */
             memset(&new_list[nb_memory_list], 0,
-                   4 * (new_nb -
-                        nb_memory_list)); // You start *after* existing ptrs
-                                          // and make sure memory is zero'd
+                   sizeof(*memory_list) * (new_nb - nb_memory_list));
 
             old_list = memory_list;
             old_nb = OSRoundDown32B(nb_memory_list * sizeof(*memory_list));

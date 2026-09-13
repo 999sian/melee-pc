@@ -82,11 +82,6 @@ const struct lbl_803B7C80_t {
     1.3333333f,
 };
 
-typedef struct BracketData {
-    /* 0x0000 */ BracketEntry entries[64];
-    /* 0x3700 */ BracketSrcEntry* srcs[3];
-} BracketData;
-
 typedef struct BracketSrcPtr {
     BracketSrcEntry* ptr;
 } BracketSrcPtr;
@@ -233,9 +228,9 @@ static inline void gmTournament_SetTripleRightCoords(BracketEntry* entry,
 }
 
 static inline void gmTournament_SetRegularCoords(s32 entry_idx, s32 slot_idx,
-                                                 u8 x3, BracketData* bracket,
-                                                 s32* p3C, s32* p44, s32* p34,
-                                                 s32* p40, s32* p48, s32* p38)
+                                                 u8 x3, s32* p3C, s32* p44,
+                                                 s32* p34, s32* p40, s32* p48,
+                                                 s32* p38)
 {
     s32 val1;
     s32 val2;
@@ -246,12 +241,12 @@ static inline void gmTournament_SetRegularCoords(s32 entry_idx, s32 slot_idx,
     *p44 = val1;
     *p34 = val1;
     val2 = lbl_80473AB8[entry_idx].x10 + lbl_80473AB8[entry_idx].x18 -
-           lbl_80473AB8[entry_idx].x18 * bracket->entries[entry_idx].x2;
+           lbl_80473AB8[entry_idx].x18 * lbl_80473AB8[entry_idx].x2;
     *p40 = val2;
     *p48 = val2;
     *p38 = val2;
     *p40 = lbl_80473AB8[entry_idx].x10 +
-           lbl_80473AB8[entry_idx].x18 * bracket->entries[entry_idx].x2;
+           lbl_80473AB8[entry_idx].x18 * lbl_80473AB8[entry_idx].x2;
 }
 
 void fn_8018AA74(HSD_JObj* jobj, s32 entry_idx, s32 slot_idx)
@@ -277,15 +272,14 @@ void fn_8018AA74(HSD_JObj* jobj, s32 entry_idx, s32 slot_idx)
     u8 tm_x2E;
 
     TmData* tm = gm_GetTournamentData();
-    BracketData* bracket = (BracketData*) lbl_80473AB8;
 
-    p34 = &bracket->entries[entry_idx].slots[slot_idx].x34;
-    p3C = &bracket->entries[entry_idx].slots[slot_idx].x3C;
-    p44 = &bracket->entries[entry_idx].slots[slot_idx].x44;
-    p38 = &bracket->entries[entry_idx].slots[slot_idx].x38;
-    p40 = &bracket->entries[entry_idx].slots[slot_idx].x40;
+    p34 = &lbl_80473AB8[entry_idx].slots[slot_idx].x34;
+    p3C = &lbl_80473AB8[entry_idx].slots[slot_idx].x3C;
+    p44 = &lbl_80473AB8[entry_idx].slots[slot_idx].x44;
+    p38 = &lbl_80473AB8[entry_idx].slots[slot_idx].x38;
+    p40 = &lbl_80473AB8[entry_idx].slots[slot_idx].x40;
     {
-        s32* slot_x48 = &bracket->entries[entry_idx].slots[slot_idx].x48;
+        s32* slot_x48 = &lbl_80473AB8[entry_idx].slots[slot_idx].x48;
         p48 = slot_x48;
     }
     entry = &lbl_80473AB8[entry_idx];
@@ -432,8 +426,8 @@ void fn_8018AA74(HSD_JObj* jobj, s32 entry_idx, s32 slot_idx)
                 break;
             }
         } else {
-            gmTournament_SetRegularCoords(entry_idx, slot_idx, x3, bracket,
-                                          p3C, p44, p34, p40, p48, p38);
+            gmTournament_SetRegularCoords(entry_idx, slot_idx, x3, p3C, p44,
+                                          p34, p40, p48, p38);
             if (*px3 == 1) {
                 tm_x2E = tm->x2E;
                 if (tm_x2E == 6) {
@@ -1723,8 +1717,10 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
         }
     }
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 1);
-    ((u32*) &gobj->gxlink_prios)[1] = 0x10;
-    ((u32*) &gobj->gxlink_prios)[0] = 0;
+    /* Retail stored the 64-bit link mask as two words (high = 0, low = 0x10),
+     * which on a little-endian host would set bit 36 instead of bit 4. GX
+     * link 4 is the one this scene registers (see above and line 1781). */
+    gobj->gxlink_prios = 0x10;
 
     gmTournament_InitBracket(arg0, farg0, arg1);
 }

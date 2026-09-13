@@ -50,7 +50,7 @@ StageData grTCLink_StageData = {
     0,
 };
 
-void grTCLink_8021FF44(bool unused) {}
+void grTCLink_8021FF44(s32 unused) {}
 
 void grTCLink_8021FF48(void)
 {

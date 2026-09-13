@@ -22,9 +22,12 @@ static BOOL AR_init_flag;
 // and using a simple bump allocator (matching ARAlloc behavior on real hardware).
 static u8* sAramBuffer = nullptr;
 
-// Convert an ARAM "address" (offset) to a real host pointer
-static u8* aramToHost(u32 aramAddr) {
-  if (!sAramBuffer || aramAddr >= aurora::g_config.mem2Size) {
+// Convert an ARAM "address" (offset) to a real host pointer. `length` is the
+// size of the access: a transfer that starts inside ARAM but runs past its end
+// must be rejected, not clipped to the start check.
+static u8* aramToHost(u32 aramAddr, u32 length) {
+  const u32 size = aurora::g_config.mem2Size;
+  if (!sAramBuffer || aramAddr >= size || length > size - aramAddr) {
     return nullptr;
   }
   return sAramBuffer + aramAddr;
@@ -113,12 +116,12 @@ void arq_transfer(const ArqJob& job) {
   // type 0 = MRAM -> ARAM, type 1 = ARAM -> MRAM
   if (job.type == ARAM_DIR_MRAM_TO_ARAM) {
     u8* hostSrc = reinterpret_cast<u8*>(job.source);
-    u8* aramDst = aramToHost(static_cast<u32>(job.dest));
+    u8* aramDst = aramToHost(static_cast<u32>(job.dest), job.length);
     if (aramDst && hostSrc) {
       memcpy(aramDst, hostSrc, job.length);
     }
   } else {
-    u8* aramSrc = aramToHost(static_cast<u32>(job.source));
+    u8* aramSrc = aramToHost(static_cast<u32>(job.source), job.length);
     u8* hostDst = reinterpret_cast<u8*>(job.dest);
     if (aramSrc && hostDst) {
       memcpy(hostDst, aramSrc, job.length);
@@ -169,6 +172,18 @@ void ARQInit() {
   if (!sArqThread.joinable()) {
     sArqStop = false;
     sArqThread = std::thread{arq_worker};
+  }
+}
+
+void ARQReset() {
+  {
+    std::lock_guard lock{sArqMutex};
+    sArqStop = true;
+    sArqQueue.clear();
+  }
+  sArqCv.notify_all();
+  if (sArqThread.joinable()) {
+    sArqThread.join();
   }
 }
 

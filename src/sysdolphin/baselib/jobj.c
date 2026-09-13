@@ -1123,8 +1123,10 @@ void resolveIKJoint1(HSD_JObj* jobj)
     f32 var_f1;
     f32 var_f29;
     f32 var_f29_2;
-    f32 var_f28;
-    f32 var_f27;
+    /* Only assigned on the |target - parent| > epsilon path, but the sign
+     * test below reads them unconditionally. */
+    f32 var_f28 = 0.0F;
+    f32 var_f27 = 0.0F;
     f32 temp_f26;
     f32 var_f4;
     f32 var_f4_2;

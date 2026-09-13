@@ -78,8 +78,12 @@ struct StageInfo {
     bool (*x94)(Vec3*, int);
     s32 x98;
     u32 x9C;
-    s32 xA0;
-    u8 xA4_pad[0x12C - 0xA4];
+    /* Not one word plus filler: Ground_801C28CC fills xA0[0..34] from the
+     * stage params and Ground_801C2AD8 hands the base to itspawn.c, which
+     * indexes it the same way. GameCube: 0xA0 + 35 * 4 == 0x12C, exactly the
+     * end of the old xA4_pad. No pointer lives in the run, so the offsets are
+     * identical on x86-64 - this only makes the shape checkable. */
+    s32 xA0[35];
     HSD_GObj* x12C;
     Vec3 x130, x13C, x148, x154, x160, x16C;
     DynamicsDesc* (*on_touch_line)(int);
@@ -167,7 +171,7 @@ struct StageData {
     StageCallbacks* callbacks;
     char* data1;
     Event on_init;
-    void (*on_demo_init)(bool);
+    void (*on_demo_init)(s32);
     Event on_load;
     Event on_start;
     Predicate callback4;
@@ -289,8 +293,16 @@ struct grKongo_GroundVars {
 struct grKongo_GroundVars2 {
     HSD_Spline* xC4;
     f32 xC8;
-    s16 xCC;
-    s16 xCE;
+    union {
+        struct {
+            s16 xCC;
+            s16 xCE;
+        };
+        /// Spline arc position of the barrel rider (grKongo_801D651C); it is
+        /// gp+CC either way, but #xC4 is pointer-wide so it is not
+        /// #grKongo_GroundVars::xCC on PC.
+        f32 xCC_pos;
+    };
     f32 xD0;
     f32 xD4;
     f32 xD8;
@@ -590,6 +602,9 @@ struct grVenom_GroundVars2 {
             u8 b7 : 1;
         };
     } xE0_state;
+    /* Was read/written as #grVenom_GroundVars::xE4 (gp+E4, same slot on
+     * GameCube), which on PC lands inside this view's xD4 pointer. */
+    /* +20 gp+E4 */ f32 previous_frame;
 };
 
 struct grArwing_GroundVars {
@@ -905,6 +920,11 @@ struct grInishie2_GroundVars3 {
     s16 xCA;
     Vec3 xCC;
     Vec3 xD8;
+    /// Spawner gobj, set by grInishie2_801FD7A8 and read back when the flyer
+    /// leaves the blast zone. Kept here rather than in
+    /// #grInishie2_GroundVars2::xC4 (gp+C4), which is pointer-wide and so
+    /// covers #xC8_flags on PC.
+    HSD_GObj* owner;
 };
 
 struct grStadium_GroundVars {
@@ -1536,9 +1556,22 @@ struct grCastle_GroundVars {
     /*  +0 gp+E0 */ HSD_Spline** xE0;
 };
 
+/* grCastle_801CD8A8 drives ONE Ground through five of these views at once, so
+ * they all have to agree on the HOST layout, not just the GameCube one. The
+ * pointer-bearing view (grCastle_GroundVars2 / 12: three HSD_GObj* at gp+C4,
+ * C8, CC) sets the grid: those three slots are 24 bytes here, not 12, so
+ * every GameCube offset from gp+D0 on sits 12 bytes later than its name.
+ * A pad sized in GameCube bytes lands the field that follows it on top of
+ * someone else's pointer -- which is exactly how grCastle_801CE19C's
+ * satellite timer came to overwrite grCastle_801CF868's third satellite
+ * gobj and segfault the opening movie. */
 struct grCastle_GroundVars3 {
-    /* +00 gp+C4 */ u8 pad_0[0x1C];
-    /* +1C gp+E0 */ DynamicsDesc x1C[12];
+    /* Spelled as the three pointer slots plus the sixteen scalar bytes
+     * rather than one byte count, so it stays correct on both ABIs: 24+16
+     * here, 12+16 on GameCube, landing x1C on gp+E0 either way. */
+    /* +00 gp+C4 */ HSD_GObj* pad_gobj[3];
+    /* +18 gp+D0 */ u8 pad_D0[0xE0 - 0xD0];
+    /* +28 gp+E0 */ DynamicsDesc x1C[12];
 };
 
 struct grCastle_GroundVars4 {
@@ -1572,12 +1605,17 @@ struct grCastle_GroundVars6 {
     /* +08 gp+CC */ s32 xCC;
 };
 
+/* The satellite gobj (grCastle_801CF0F4 / grCastle_801CF308). Its gp+D0/D4/D8
+ * slots MUST be read through this view only: grCastle_GroundVars11 describes a
+ * different gobj and, because #xD0 is a real pointer here, the two views no
+ * longer line up past gp+D0 on PC. */
 struct grCastle_GroundVars7 {
     /* +00 gp+C4 */ s16 xC4;
     /* +02 gp+C6 */ u8 pad_xC6[0xA];
     /* +0C gp+D0 */ HSD_GObj* xD0;
     /* +10 gp+D4 */ u32 xD4;
-    /* +14 gp+D8 */ s32 xD8;
+    /* +14 gp+D8 */ u32 xD8; ///< unsigned: casting back to a pointer must
+                             ///< zero-extend
 };
 
 struct grCastle_Platform {
@@ -1593,18 +1631,22 @@ struct grCastle_GroundVars8 {
 };
 
 struct grCastle_GroundVars9 {
-    /* +00   gp+C4 */ u32 xC4;
-    /* +04   gp+C8 */ u32 xC8;
-    /* +08   gp+CC */ u32 xCC;
-    /* +0C   gp+D0 */ u8 pad_xD0[4];
-    /* +10   gp+D4 */ s16 xD4;
-    /* +12   gp+D6 */ s16 xD6;
-    /* +14   gp+D8 */ s16 xD8;
-    /* +16   gp+DA */ s16 xDA;
-    /* +18   gp+DC */ s16 xDC;
-    /* +1A:0 gp+DE:0 */ u8 xDE_b0 : 1;
-    /* +1B   gp+DF */ u8 pad_xDF[1];
-    /* +1C   gp+E0 */ DynamicsDesc dynamics[12];
+    /* The first three slots are the same three satellite gobjs that
+     * grCastle_GroundVars2 / 12 hold (this view only ever NULLs them,
+     * grcastle.c:460-462), so they must be pointer-width here or every field
+     * below lands inside one of them. */
+    /* +00 gp+C4 */ HSD_GObj* xC4;
+    /* +08 gp+C8 */ HSD_GObj* xC8;
+    /* +10 gp+CC */ HSD_GObj* xCC;
+    /* +18 gp+D0 */ u8 pad_xD0[4]; /* castle12's xD0 / xD2 */
+    /* +1C gp+D4 */ s16 xD4;
+    /* +1E gp+D6 */ s16 xD6;
+    /* +20 gp+D8 */ s16 xD8;
+    /* +22 gp+DA */ s16 xDA;
+    /* +24 gp+DC */ s16 xDC;
+    /* +26:0 gp+DE:0 */ u8 xDE_b0 : 1;
+    /* +27 gp+DF */ u8 pad_xDF[1];
+    /* +28 gp+E0 */ DynamicsDesc dynamics[12];
 };
 
 struct grCastle_GroundVars10 {

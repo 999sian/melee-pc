@@ -1033,6 +1033,13 @@ static inline void it_80279E24_inline(Item_GObj* item_gobj)
     it_80272F7C(jobj, item->xDD4_itemVar.pokemon_spawn
                           .x2C[item->xDD4_itemVar.pokemon_spawn.x58]);
     item->xDD4_itemVar.pokemon_spawn.x58++;
+    /* The caller finishes the animation at the terminal sample: there is no
+     * next sample to interpolate towards, and x2C only has x54 of them. */
+    if (item->xDD4_itemVar.pokemon_spawn.x58 >=
+        item->xDD4_itemVar.pokemon_spawn.x54)
+    {
+        return;
+    }
     item->xDD4_itemVar.pokemon_spawn.x4C =
         (item->xDD4_itemVar.pokemon_spawn
              .x2C[item->xDD4_itemVar.pokemon_spawn.x58] -

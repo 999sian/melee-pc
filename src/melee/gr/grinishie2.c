@@ -181,7 +181,7 @@ DISC_ASSERT_SIZE(struct grInishie2_YakumonoParam, 0x4C);
 
 static struct grInishie2_YakumonoParam* yakumono_param;
 
-void grInishie2_801FCBC0(bool arg) {}
+void grInishie2_801FCBC0(s32 arg) {}
 
 void grInishie2_801FCBC4(void)
 {
@@ -585,7 +585,7 @@ void grInishie2_801FD7A8(HSD_GObj* gobj)
             gp->u.inishie2.xC4_flags.b4 = 0;
 
             if (gobj_2 != NULL) {
-                GET_GROUND(gobj_2)->u.inishie22.xC4 = gobj;
+                GET_GROUND(gobj_2)->u.inishie23.owner = gobj;
             }
         }
     }
@@ -751,7 +751,7 @@ static inline void grInishie2_801FDED8_inline(HSD_GObj* gobj)
     lb_8000B1CC(Ground_801C3FA4(gobj, 0), NULL, &pos);
 
     if ((checkBlastZone(&pos) != 0) && gp->u.inishie23.xC8_flags.b0) {
-        HSD_GObj* gobj_2 = gp->u.inishie22.xC4;
+        HSD_GObj* gobj_2 = gp->u.inishie23.owner;
         Ground* gp_2 = GET_GROUND(gobj_2);
         gp_2->u.inishie2.xC4_flags.b4 = 1;
         gp_2->u.inishie2.xCC =

@@ -45,12 +45,16 @@ HSD_GObj* lbl_8046E38C[4];
 HSD_JObj* lbl_8046E39C[4];
 lbl_8046E3AC_t lbl_8046E3AC;
 
-static U32Pair lbl_804D3FD0 ATTRIBUTE_ALIGN(8) = { 0x00500050, 0x00460034 };
-static U32Pair lbl_804D3FD8 = { 0x006E0072, 0x0064004A };
-static U32Pair lbl_804D3FE0 = { 0x00340034, 0x00340034 };
-static U32Pair lbl_804D3FE8 = { 0x004A004A, 0x004A004A };
-static U32Pair lbl_804D3FF0 = { 0x000C0008, 0x00060000 };
-static U32Pair lbl_804D3FF8 = { 0x000E000E, 0x00060000 };
+/* These six tables feed `u16 [4]` fields of #lbl_8046E3AC_t. The decomp wrote
+ * them as packed u32 pairs and copied them with a single 8-byte store, which
+ * only lands the halfwords in the right slots on a big-endian host; on x86-64
+ * every pair came out swapped. Store the halfwords directly. */
+static u16 const lbl_804D3FD0[4] = { 0x0050, 0x0050, 0x0046, 0x0034 };
+static u16 const lbl_804D3FD8[4] = { 0x006E, 0x0072, 0x0064, 0x004A };
+static u16 const lbl_804D3FE0[4] = { 0x0034, 0x0034, 0x0034, 0x0034 };
+static u16 const lbl_804D3FE8[4] = { 0x004A, 0x004A, 0x004A, 0x004A };
+static u16 const lbl_804D3FF0[4] = { 0x000C, 0x0008, 0x0006, 0x0000 };
+static u16 const lbl_804D3FF8[4] = { 0x000E, 0x000E, 0x0006, 0x0000 };
 
 /// @todo .sdata2 order hack
 #ifdef MUST_MATCH
@@ -618,14 +622,13 @@ void fn_8017AA78(const u8* arg0)
     lbl_8046E3AC.x0_4 = 0;
     lbl_8046E3AC.x0_6 = 0;
 
-    *(U32Pair*) lbl_8046E3AC.dim_w1 = lbl_804D3FD0;
-    *(U32Pair*) lbl_8046E3AC.dim_h1 = lbl_804D3FD8;
-    *(U32Pair*) lbl_8046E3AC.dim_w2 = lbl_804D3FE0;
-    *(U32Pair*) lbl_8046E3AC.dim_h2 = lbl_804D3FE8;
-    *(U32Pair*) lbl_8046E3AC.scissor_y = lbl_804D3FF0;
-    *(U32Pair*) lbl_8046E3AC.scissor_x = lbl_804D3FF8;
-
     for (i = 0; i < 4; i++) {
+        lbl_8046E3AC.dim_w1[i] = lbl_804D3FD0[i];
+        lbl_8046E3AC.dim_h1[i] = lbl_804D3FD8[i];
+        lbl_8046E3AC.dim_w2[i] = lbl_804D3FE0[i];
+        lbl_8046E3AC.dim_h2[i] = lbl_804D3FE8[i];
+        lbl_8046E3AC.scissor_y[i] = lbl_804D3FF0[i];
+        lbl_8046E3AC.scissor_x[i] = lbl_804D3FF8[i];
         lbl_8046E3AC.player_flags[i] = 0;
         lbl_8046E3AC.costume_override[i] = arg0[i];
         if (lbl_8046E3AC.match_end.outcome == OUTCOME_NO_CONTEST) {
@@ -636,7 +639,7 @@ void fn_8017AA78(const u8* arg0)
                 .is_big_loser = 1;
         }
         lbl_8046E3AC.x6[i] = 0;
-        lbl_8046E3AC.score_tbl[i] = ((PackedS16x4*) gmResultScoreTableInit)[i];
-        lbl_8046E3AC.x22F4[i] = ((PackedS16x4*) gmResultX22F4Init)[i];
+        lbl_8046E3AC.score_tbl[i] = gmResultScoreTableInit[i];
+        lbl_8046E3AC.x22F4[i] = gmResultX22F4Init[i];
     }
 }

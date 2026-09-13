@@ -396,6 +396,7 @@ struct gmm_x0 {
      * `gmMainLib_8015EA80` walk the table from a pointer to that block. */
     struct gmm_x0_vsmodes {
         /* 0x0588 */ s8 nametags[PAD_MAX_CONTROLLERS];
+        /* 0x058C */ u8 pad_58C[0x590 - 0x58C];
         /// @todo Maybe array of ::VsModeData with kind-index
         /* 0x0590 */ VsModeData vs_melee;     ///< VS melee
         /* 0x06D0 */ VsModeData unk_6D0;      ///< super sudden death
@@ -414,9 +415,13 @@ struct gmm_x0 {
         /* 0x15D0 */ VsModeData unk_15D0; ///< unused?
         /* 0x1710 */ VsModeData unk_1710; ///< opening movie?
     } modes;
-    /* 0x1850 */ GameRules x1850;
-    /* 0x1898 */ struct gmm_x1868 thing;
-    /* 0x6E50 */ u8 pad_6E50[0x8518 - 0x6E50];
+    /* 0x1850 */ GameRules x1850; /* really 0x18, not 0x48 */
+    /* 0x1868 */ struct gmm_x1868 thing; /* really 0x55E0, not 0x55B8 */
+    /* The two comments above are upstream's, and both are wrong about size;
+     * the members are only ever reached by name, so the internal layout is
+     * self-consistent, but the trailer has to start where `thing` actually
+     * ends or the whole object is 8 bytes short of the disc-documented size. */
+    /* 0x6E48 */ u8 pad_6E48[0x8518 - 0x6E48];
 };
 ASSERT_SIZE(struct EventData, 0x588 - 0x530);
 ASSERT_SIZE(struct gmm_x0_vsdata, 0x588 - 0x51C);
@@ -658,8 +663,10 @@ struct MatchPlayerData {
     u16 self_destructs;
     u16 percent;
     u16 xE;
-    u16 kills[4];
-    u16 x18;
+    /* KOs dealt to each other slot. gm_1601.c fills and sums this over all
+     * six slots; the decomp's `kills[4]` plus a separate `x18` made slots 4
+     * and 5 land on `x18` and its tail padding. */
+    u16 kills[GM_MAX_PLAYERS];
     s32 x1C;
     s32 x20;
     int x24;
@@ -878,8 +885,11 @@ struct TmData {
     HSD_Text* x500[6];
     HSD_Text* x518[3];
     HSD_Text* x524[4];
-    HSD_Text* x534[3];
-    u8 pad_x540[0x574 - 0x540];
+    /* The 0x34 bytes after x534 are not padding: fn_8019D1BC writes
+     * x534[i] for every bracket entrant (i < x2E, bounded by the 16-row
+     * name_buf in that function), and 0x534 + 16 * 4 is exactly the end of
+     * this object (size 0x574; gm_80477738 follows it in .bss). */
+    HSD_Text* x534[16];
 };
 ASSERT_SIZE(struct TmData, 0x574);
 
@@ -1092,8 +1102,7 @@ typedef struct CssSubStruct {
 typedef struct TrainingModeState {
     /* 0x000 */ s32 count;
     /* 0x004 */ s32 mode;
-    /* 0x008 */ s32 char_data[25];
-    /* 0x06C */ s32 pad_6C[2];
+    /* 0x008 */ s32 char_data[27];
     /* 0x074 */ PlayerInitData players[4];
     /* 0x104 */ s32 result_cache[4];
 } TrainingModeState;

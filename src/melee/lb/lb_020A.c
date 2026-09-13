@@ -195,7 +195,9 @@ void fn_8002113C(HSD_JObj* jobj, Vec3* axis, f32 angle)
     Mtx tmpMtx;
     Mtx rotMtx;
     Mtx result;
-    Vec3 rot;
+    /* HSD_JObjGet/SetRotation transfer a whole Quaternion (4 floats) even for
+     * Euler rotations, so this must be quaternion-sized. */
+    Quaternion rot;
     Quaternion rot2;
     Vec3 localAxis;
     Mtx mtx;
@@ -209,11 +211,11 @@ void fn_8002113C(HSD_JObj* jobj, Vec3* axis, f32 angle)
     PSMTXRotAxisRad(rotMtx, (Vec*) &localAxis, -angle);
 
     if (!(jobj->flags & JOBJ_USE_QUATERNION)) {
-        HSD_JObjGetRotation(jobj, (Quaternion*) &rot);
-        HSD_MkRotationMtx(tmpMtx, &rot);
+        HSD_JObjGetRotation(jobj, &rot);
+        HSD_MkRotationMtx(tmpMtx, (Vec3*) &rot);
         PSMTXConcat(tmpMtx, rotMtx, result);
-        HSD_QuatLib_8037EB28(result, &rot);
-        HSD_JObjSetRotation(jobj, (Quaternion*) &rot);
+        HSD_QuatLib_8037EB28(result, (Vec3*) &rot);
+        HSD_JObjSetRotation(jobj, &rot);
     } else {
         HSD_JObjGetRotation(jobj, &rot2);
         HSD_MtxQuat(tmpMtx, &rot2);

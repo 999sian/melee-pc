@@ -9,7 +9,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-/* 221EF4 */ static void grTMars_80221EF4(bool);
+/* 221EF4 */ static void grTMars_80221EF4(s32);
 /* 221EF8 */ static void grTMars_80221EF8(void);
 /* 221F68 */ static void grTmars_UnkStage0_OnLoad(void);
 /* 221F6C */ static void grTmars_UnkStage0_OnStart(void);
@@ -69,7 +69,7 @@ StageData grTMs_StageData = {
     0,
 };
 
-static void grTMars_80221EF4(bool arg0) {}
+static void grTMars_80221EF4(s32 arg0) {}
 
 static void grTMars_80221EF8(void)
 {

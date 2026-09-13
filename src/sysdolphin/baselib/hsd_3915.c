@@ -33,6 +33,7 @@ void DrawRectangle(f32 x_min, f32 y_min, f32 w, f32 h, GXColor* color)
     GXColor4u8(color->r, color->g, color->b, color->a);
     GXPosition2f32(x_min, y_max);
     GXColor4u8(color->r, color->g, color->b, color->a);
+    GXEnd();
 }
 
 static u8 lbl_80408630[0x268] = {
@@ -116,6 +117,7 @@ f32 DrawASCII(int chr, float x, float y, GXColor* color)
             py = lbl_804D6074 * 0.9 + y;
             GXPosition2f32(px, py);
             GXColor4u8(color->r, color->g, color->b, color->a);
+            GXEnd();
             return lbl_804D6070;
         }
         case ':': {
@@ -124,6 +126,7 @@ f32 DrawASCII(int chr, float x, float y, GXColor* color)
             GXColor4u8(color->r, color->g, color->b, color->a);
             GXPosition2f32(lbl_804D6070 * 0.3 + x, lbl_804D6074 * 0.7 + y);
             GXColor4u8(color->r, color->g, color->b, color->a);
+            GXEnd();
             return lbl_804D6070;
         }
         case '-':
@@ -176,6 +179,7 @@ f32 DrawASCII(int chr, float x, float y, GXColor* color)
         GXPosition2f32(lbl_804D6070 * (0.11F * (p1 >> 4)) + x,
                        lbl_804D6074 * (0.11F * (p1 & 0xF)) + y);
         GXColor4u8(color->r, color->g, color->b, color->a);
+        GXEnd();
     }
     return lbl_804D6070;
 }
@@ -303,14 +307,17 @@ void hsd_80391E18(const u8* list, f32 x1, f32 y1, f32 x2, f32 y2)
         prev_x = t * dx + x1;
         prev_y = t * dy + y1;
 
-        r = ((u8*) &color)[0];
-        g = ((u8*) &color)[1];
-        b = ((u8*) &color)[2];
-        a = ((u8*) &color)[3];
+        /* The gradient words are host-native 0xRRGGBBAA (see hsd_392A.c);
+         * aliasing them as bytes reads them back as A,B,G,R here. */
+        r = (u8) (color >> 24);
+        g = (u8) (color >> 16);
+        b = (u8) (color >> 8);
+        a = (u8) color;
 
         GXColor4u8(r, g, b, a);
         GXPosition2f32(prev_x, prev_y);
         GXColor4u8(r, g, b, a);
+        GXEnd();
     }
 }
 
@@ -370,6 +377,7 @@ void hsd_80391F28(GXColor* color, f32 x1, f32 y1, f32 x2, f32 y2, f32 count)
     GXColor4u8(color->r, color->g, color->b, color->a);
     GXPosition2f32(x2, y2);
     GXColor4u8(color->r, color->g, color->b, color->a);
+    GXEnd();
 
     x = x1;
     y = y1;
@@ -384,6 +392,7 @@ void hsd_80391F28(GXColor* color, f32 x1, f32 y1, f32 x2, f32 y2, f32 count)
             GXPosition2f32(x + tick4_x, y + tick4_y);
         }
         GXColor4u8(color->r, color->g, color->b, color->a);
+        GXEnd();
         x += dx / count;
         y += dy / count;
     }

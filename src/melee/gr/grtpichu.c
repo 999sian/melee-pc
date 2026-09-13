@@ -12,7 +12,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-/* 222B98 */ static void grTPichu_80222B98(bool);
+/* 222B98 */ static void grTPichu_80222B98(s32);
 /* 222B9C */ static void grTPichu_80222B9C(void);
 /* 222C0C */ static void grTpichu_UnkStage0_OnLoad(void);
 /* 222C10 */ static void grTpichu_UnkStage0_OnStart(void);
@@ -74,7 +74,7 @@ StageData grTPc_StageData = {
     0,
 };
 
-static void grTPichu_80222B98(bool arg0) {}
+static void grTPichu_80222B98(s32 arg0) {}
 
 static void grTPichu_80222B9C(void)
 {

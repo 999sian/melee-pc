@@ -506,8 +506,16 @@ int HSD_DevComCancelEx(int dcReq, u32 flags, HSD_DevComCallback cb, void* args)
         for (i = 0; i < 2; i++) {
             HSD_DevCom* dc = HSD_DevCom_804D77FC[i];
             if (dc != NULL && dc->dcReq == dcReq) {
-                dc->callback = cb;
-                dc->args = args;
+                /* Only replace what the caller asked for, exactly as the
+                 * queued branch above does. HSD_SynthSFXCancelLoad passes
+                 * flags == 0, and clearing the callback here would strand
+                 * HSD_SynthSFXWaitForLoadCompletion forever. */
+                if (flags & 1) {
+                    dc->callback = cb;
+                }
+                if (flags & 2) {
+                    dc->args = args;
+                }
                 HSD_DevCom_804D77FC[i]->cancelflag = true;
             }
         }

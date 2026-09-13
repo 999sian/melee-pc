@@ -71,6 +71,13 @@ struct unk {
     &lbColl_804D36B8, &lbColl_804D36BC, &lbColl_804D36C0,
 };
 
+/* The four arrays below are byte blobs transcribed from the GameCube binary:
+ * s16 triples in BIG-endian order, drawn with stride 6 and a 14-bit (positions)
+ * or 6-bit (normals) fraction. Read big-endian they are clean unit values
+ * (0x2D41 = 0.7071, 0x2000 = 0.5, 0x3B20 = 0.9239); read little-endian
+ * 0x412D = 1.0184, which is impossible for a unit sphere. So every
+ * GXSETARRAY below must pass le = false -- aurora bakes that flag into the
+ * shader, unlike retail's GXSetArray, which had no such parameter. */
 u8 lbColl_SpherePositions[0x1A0] = {
     0x29, 0xCF, 0x2D, 0x41, 0x11, 0x51, 0x20, 0x00, 0x2D, 0x41, 0x1F, 0xFF,
     0x29, 0xCF, 0xE7, 0x83, 0x29, 0xCF, 0x00, 0x00, 0xC4, 0xE0, 0x18, 0x7D,
@@ -1524,9 +1531,10 @@ void lbColl_800077A0(Vec3* a, MtxPtr arg1, Vec3* b, Vec3* c, Vec3* d, Vec3* e,
                 n1 = 0.0f;
             }
 
-            // The second sqrtf spill is allocated just below the scratch
-            // array.
-            scl = (-n0 - sqrtf_store(n1, sqrt_tmp - 1)) / (2.0f * dot_diff_cb);
+            // Each sqrtf needs its own volatile spill slot; retail put the
+            // second one below the first, which underflows the array here.
+            scl =
+                (-n0 - sqrtf_store(n1, &sqrt_tmp[1])) / (2.0f * dot_diff_cb);
         }
 
         normalize_e.x = scl * diff_cb.x + b->x - a->x;
@@ -2131,9 +2139,9 @@ void lbColl_80008FC8(Vec3 arg0, Vec3 arg1, GXColor* arg2, GXColor* arg3,
     GXSetCullMode(GX_CULL_BACK);
     GXClearVtxDesc();
     GXSETARRAY(GX_VA_POS, lbColl_SpherePositions,
-               sizeof(lbColl_SpherePositions), 6, true);
+               sizeof(lbColl_SpherePositions), 6, false);
     GXSETARRAY(GX_VA_NRM, lbColl_SphereNormals, sizeof(lbColl_SphereNormals),
-               6, true);
+               6, false);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2146,9 +2154,9 @@ void lbColl_80008FC8(Vec3 arg0, Vec3 arg1, GXColor* arg2, GXColor* arg3,
     GXCallDisplayList(lbColl_SphereDisplayList, 0x120);
     GXClearVtxDesc();
     GXSETARRAY(GX_VA_POS, lbColl_SpherePositions,
-               sizeof(lbColl_SpherePositions), 6, true);
+               sizeof(lbColl_SpherePositions), 6, false);
     GXSETARRAY(GX_VA_NRM, lbColl_SphereNormals, sizeof(lbColl_SphereNormals),
-               6, true);
+               6, false);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2162,9 +2170,9 @@ void lbColl_80008FC8(Vec3 arg0, Vec3 arg1, GXColor* arg2, GXColor* arg3,
     if (!isSmall(var_f31)) {
         GXClearVtxDesc();
         GXSETARRAY(GX_VA_POS, lbColl_CylinderPositions,
-                   sizeof(lbColl_CylinderPositions), 6, true);
+                   sizeof(lbColl_CylinderPositions), 6, false);
         GXSETARRAY(GX_VA_NRM, lbColl_CylinderNormals,
-                   sizeof(lbColl_CylinderNormals), 6, true);
+                   sizeof(lbColl_CylinderNormals), 6, false);
         GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
         GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
         GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2266,9 +2274,9 @@ void lbColl_800096B4(MtxPtr arg0, Vec3 arg1, Vec3 arg2, GXColor* arg3,
     GXSetCullMode(GX_CULL_BACK);
     GXClearVtxDesc();
     GXSETARRAY(GX_VA_POS, lbColl_SpherePositions,
-               sizeof(lbColl_SpherePositions), 6, true);
+               sizeof(lbColl_SpherePositions), 6, false);
     GXSETARRAY(GX_VA_NRM, lbColl_SphereNormals, sizeof(lbColl_SphereNormals),
-               6, true);
+               6, false);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2281,9 +2289,9 @@ void lbColl_800096B4(MtxPtr arg0, Vec3 arg1, Vec3 arg2, GXColor* arg3,
     GXCallDisplayList(lbColl_SphereDisplayList, 0x120);
     GXClearVtxDesc();
     GXSETARRAY(GX_VA_POS, lbColl_SpherePositions,
-               sizeof(lbColl_SpherePositions), 6, true);
+               sizeof(lbColl_SpherePositions), 6, false);
     GXSETARRAY(GX_VA_NRM, lbColl_SphereNormals, sizeof(lbColl_SphereNormals),
-               6, true);
+               6, false);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2297,9 +2305,9 @@ void lbColl_800096B4(MtxPtr arg0, Vec3 arg1, Vec3 arg2, GXColor* arg3,
     if (!isSmall(var_f31)) {
         GXClearVtxDesc();
         GXSETARRAY(GX_VA_POS, lbColl_CylinderPositions,
-                   sizeof(lbColl_CylinderPositions), 6, true);
+                   sizeof(lbColl_CylinderPositions), 6, false);
         GXSETARRAY(GX_VA_NRM, lbColl_CylinderNormals,
-                   sizeof(lbColl_CylinderNormals), 6, true);
+                   sizeof(lbColl_CylinderNormals), 6, false);
         GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
         GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
         GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2356,6 +2364,7 @@ void lbColl_80009DD4(Vec3* v0, Vec3* v1, GXColor* clr)
 
     GXPosition3f32(x0, y1, z0);
     GXColor4u8(r, g, b, a);
+    GXEnd();
 
     HSD_StateInvalidate(-1);
     HSD_StateInitTev();

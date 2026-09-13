@@ -1019,7 +1019,9 @@ void mn_8022A440(HSD_GObj* gp, HSD_JObj* root, MainMenuSelection selection)
 void mn_8022A5D0(HSD_GObj* gp, MainMenuSelection selection)
 {
     u8 _[8];
-    HSD_JObj* spA0[7];
+    /* Indexed by menu selection; mn_803EB6B0 has kinds with 10 selections,
+     * so a 7-entry frame array overflowed. */
+    HSD_JObj* spA0[ARRAY_SIZE(mn_803EAE68)];
     HSD_JObj* sp84[7];
     HSD_JObj* sp80;
     Vec3 sp74;
@@ -1205,7 +1207,7 @@ void fn_8022AFEC(HSD_GObj* gp)
     u8 state;
     u8 option_count;
     u8 pad[0x20];
-    HSD_JObj* sp20[4];
+    HSD_JObj* sp20[ARRAY_SIZE(mn_803EAE68)];
     PAD_STACK(18);
 
     var_r26 = 0;

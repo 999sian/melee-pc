@@ -237,13 +237,13 @@ float ftCommon_SandbagKnockbackDeaccel(float kb, float decrement)
 float ftCommon_SandbagGetKnockbackDeaccelX(Fighter* fp)
 {
     HSD_ASSERT(299, fp->kind == Ft_Kind_Sandbag);
-    return ((float*) fp->dat_attrs)[0];
+    return ((DiscF32*) fp->dat_attrs)[0].v;
 }
 
 float ftCommon_SandbagGetKnockbackDeaccelY(Fighter* fp)
 {
     HSD_ASSERT(308, fp->kind == Ft_Kind_Sandbag);
-    return ((float*) fp->dat_attrs)[1];
+    return ((DiscF32*) fp->dat_attrs)[1].v;
 }
 
 void ftCommon_ApplyShieldKnockbackFriction(Fighter* fp, float val)

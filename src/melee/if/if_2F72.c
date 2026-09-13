@@ -215,7 +215,9 @@ void fn_802F770C(HSD_GObj* gobj, int callback)
         }
     }
 
-    if (!status->players[slot].flags.hide_all_digits) {
+    /* The search above yields -1 when the gobj is not in the table; retail
+     * then read players[-1], i.e. 0x94 bytes before the HUD array. */
+    if (slot < 0 || !status->players[slot].flags.hide_all_digits) {
         HSD_GObj_JObjCallback(gobj, callback);
     }
 }
@@ -237,12 +239,19 @@ HSD_GObj* fn_802F77F8(HSD_GObj* gobj, u8 slot, u16 arg2)
 
     gobj = GObj_Create(14, 15, 0);
     if (gobj != NULL) {
-        jobj = HSD_JObjLoadJoint(*(*(HSD_Joint***) base[0]));
+        /* base[0] is a 32-bit disc slot holding the DynamicModelDesc, and
+         * the desc's own `joint` is another 32-bit slot. Both need relocating
+         * -- reading them as host pointers loads 8 bytes of adjacent disc
+         * data and hands HSD_JObjLoadJoint a wild address. */
+        DynamicModelDesc* desc =
+            DP(DynamicModelDesc, ((const DiscU32*) base[0])->v);
+
+        jobj = HSD_JObjLoadJoint(DP(HSD_Joint, desc->joint));
         if (jobj != NULL) {
             HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
             GObj_SetupGXLink(gobj, fn_802F770C, 11, 0);
             j = jobj;
-            gm_8016895C(j, *(DynamicModelDesc**) base[0], (u8) arg2);
+            gm_8016895C(j, desc, (u8) arg2);
             HSD_JObjReqAnimAll(jobj, 0.0f);
             HSD_JObjAnimAll(jobj);
 

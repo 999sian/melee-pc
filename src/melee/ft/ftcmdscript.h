@@ -96,4 +96,25 @@ typedef u8 arg_t;
 /* 0B49F4 */ void ftCo_800B49F4(Fighter*);
 /* 0B4A78 */ void ftCo_800B4A78(Fighter*);
 
+/**
+ * Temporary CPU-AI diagnostic. Off unless the environment variable
+ * @c MELEE_CPU_TRACE is set, in which case every CPU fighter prints a
+ * counter summary every 120 AI ticks (~2s).
+ */
+enum ftCo_CpuTraceEvent {
+    FtCo_Trace_Tick,      ///< ftCo_800B3E04 entered; arg = csP != NULL
+    FtCo_Trace_Cmd,       ///< a command was executed; arg = opcode
+    FtCo_Trace_Armed,     ///< ftCo_800B49F4 armed a freshly written script
+    FtCo_Trace_Think,     ///< ftCo_800B8A9C entered; arg = target != NULL
+    FtCo_Trace_Select,    ///< ftCo_800B4AB0 entered; arg = table != NULL
+    FtCo_Trace_RejLevel,  ///< entry requires a higher cpu_level
+    FtCo_Trace_RejQueue,  ///< entry is in the suppressed-move queue
+    FtCo_Trace_RejWindow, ///< target outside the entry's reach window
+    FtCo_Trace_RejPeriod, ///< entry's x1C period gate missed this frame
+    FtCo_Trace_RejWeight, ///< candidates found but their total weight was 0
+    FtCo_Trace_Accept,    ///< an attack was chosen; arg = command id
+};
+
+void ftCo_CpuTrace(Fighter* fp, enum ftCo_CpuTraceEvent ev, int arg);
+
 #endif

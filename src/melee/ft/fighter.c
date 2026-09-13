@@ -180,7 +180,8 @@ void Fighter_LoadCommonData(void)
 {
     /* ftLoadCommonData is an on-disc array of 23 pointer slots. */
     DiscU32* pData;
-    lbArchive_LoadSymbols("PlCo.dat", (void**) &pData, "ftLoadCommonData", 0);
+    lbArchive_LoadSymbols("PlCo.dat", (void**) &pData, "ftLoadCommonData",
+                          NULL);
 
     // copy 23 4-byte chunks from pData to p_ftCommonData in reverse order,
     // equivalent to this: for(i=0; i<23; i++)
@@ -1255,7 +1256,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
             fp->x594_s32 = unk_struct_x18->x10_animCurrFlags;
             ftCo_8009E7B4(fp, unk_byte_ptr);
             if ((flags & Ft_MF_SkipAnim) == 0) {
-                if (arg3 != 0U) {
+                if (arg3 != NULL) {
                     ftData_80085CD8(fp, GET_FIGHTER(arg3), fp->anim_id);
                     ftColl_8007B8CC(fp, arg3);
                 } else {
@@ -1265,7 +1266,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
                 fp->x3E4_fighterCmdScript.loop_count = 0;
 
                 if (anim_start) {
-                    if (fp->x590 != 0U) {
+                    if (fp->x590 != NULL) {
                         ftAnim_8006EBE8(gobj, anim_start - anim_speed,
                                         anim_speed,
                                         (anim_blend == -1.0f) ? 0.0f
@@ -1287,7 +1288,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
                     }
                     fp->x3E4_fighterCmdScript.timer = -anim_start;
                 } else {
-                    if (fp->x590 != 0U) {
+                    if (fp->x590 != NULL) {
                         ftAnim_8006EBE8(gobj, anim_start, anim_speed,
                                         (anim_blend == -1.0f) ? 0.0f
                                         : anim_blend ? anim_blend

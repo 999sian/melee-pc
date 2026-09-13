@@ -107,7 +107,7 @@ void ftCo_800C92E4(Fighter_GObj* gobj, Vec3* arg1, Vec3* arg2,
                    lbColl_80008D30_arg1* arg3, float kb_angle)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    struct SmallerHitCapsule hit;
+    HitCapsule hit;
 
     {
         HSD_JObj* jobj = GET_JOBJ(gobj);
@@ -121,8 +121,8 @@ void ftCo_800C92E4(Fighter_GObj* gobj, Vec3* arg1, Vec3* arg2,
     }
 
     mpColl_80043680(&fp->coll_data, arg2);
-    lbColl_80008D30((HitCapsule*) &hit, arg3);
-    ftCo_Barrel_ApplyKnockback(fp, kb_angle, (HitCapsule*) &hit);
+    lbColl_80008D30(&hit, arg3);
+    ftCo_Barrel_ApplyKnockback(fp, kb_angle, &hit);
     ftColl_800787B4(fp->mv.co.barrel.x8, gobj, NULL);
     fp->x21EC = fn_800C9290;
     ftCo_8008DCE0(gobj, 0x5B, 0.0F);

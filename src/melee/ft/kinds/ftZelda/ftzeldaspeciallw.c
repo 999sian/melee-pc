@@ -331,7 +331,7 @@ s32 ftZd_SpecialLw_8013B540(HSD_GObj* gobj)
     actionStateIndex = fp->motion_id;
 
     if (((actionStateIndex == 344) || (actionStateIndex == 347)) &&
-        (fp->u.zd.x222C != 0U))
+        (fp->u.zd.x222C != NULL))
     {
         return 1;
     }

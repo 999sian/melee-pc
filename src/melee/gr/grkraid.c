@@ -56,7 +56,7 @@ StageData grKr_StageData = {
 static struct grKraid_YakumonoParam* yakumono_param;
 static int grKr_804D6A0C;
 
-void grKraid_OnDemoInit(bool unused)
+void grKraid_OnDemoInit(s32 unused)
 {
     return;
 }

@@ -17,6 +17,7 @@
 #include <melee/lb/lbaudio_ax.h>
 #include <melee/lb/lblanguage.h>
 #include <melee/lb/lbspdisplay.h>
+#include <melee/lb/types.h>
 #include <melee/mn/inlines.h>
 #include <melee/pl/player.h>
 #include <melee/sc/types.h>
@@ -57,7 +58,10 @@ struct lbl_80472D28_t {
     /* +1C */ HSD_JObj* x1C;
     /* +20 */ HSD_JObj* x20;
     /* +24 */ HSD_JObj* x24;
-    /* +28 */ char pad_28[4];
+    /* +28 */ HSD_JObj* x28; /* 10th slot of the &x4 run filled by
+                              * lb_8001204C with lbl_803D8B88 (0xA indices);
+                              * write-only, but it must be a pointer so the
+                              * run keeps one stride. */
     /* +2C */ HSD_GObj* x2C;
     /* +30 */ HSD_ImageDesc x30;
     /* +48 */ HSD_Archive* x48;
@@ -73,7 +77,12 @@ struct lbl_80472D28_t {
     /* +7C */ HSD_Text* x7C;
     /* +80 */ HSD_Text* x80;
     /* +84 */ HSD_Text* x84;
-    /* +88 */ char pad_88[0x38];
+    /* The 0x38 bytes after x84 are not padding: fn_8017F2A4 fills seven more
+     * HSD_Text* through (&x84)[1..7], and fn_8017F47C caches seven scores
+     * eight words past &x84. On GameCube both landed inside this run; with
+     * 8-byte pointers the two strides no longer agree, so name them. */
+    /* +88 */ HSD_Text* x88[7];
+    /* +A4 */ s32 xA4[7];
     /* +C0 */ u16 xC0;
     /* +C2 */ u16 pad_C2;
     /* +C4 */ u32 xC4;
@@ -111,12 +120,6 @@ struct lbl_80472D28_t {
     /* +11E */ u8 x11E;
     /* +11F */ u8 x11F;
 };
-
-typedef struct RegClearEv {
-    /* 0x00 */ char pad_0[0x1C];
-    /* 0x1C */ HSD_ImageDesc* x1C;
-    /* 0x20 */ f32 x20;
-} RegClearEv;
 
 static struct lbl_80472D28_t lbl_80472D28;
 
@@ -292,11 +295,12 @@ s32 fn_8017F2A4(HSD_Text** arg0, f32 farg0, f32 farg1)
     PAD_STACK(8);
 }
 
-s32 fn_8017F47C(HSD_Text** arg0, int arg1)
+/* Takes the state rather than `&state->x84`: the original walked one pointer
+ * array and one int array off that address with the same 4-byte stride. */
+s32 fn_8017F47C(struct lbl_80472D28_t* state, int arg1)
 {
     u8 mask;
     s32 val;
-    s32* p;
     s32 i;
     int entry;
     s32 prev_idx;
@@ -305,10 +309,9 @@ s32 fn_8017F47C(HSD_Text** arg0, int arg1)
     entry = arg1;
     prev_idx = -999;
     mask = fn_8017F008();
-    fn_8016F39C(arg0 + 1, gm_8016B774(), 7, arg1, mask, 0);
+    fn_8016F39C(state->x88, gm_8016B774(), 7, arg1, mask, 0);
 
     i = 0;
-    p = (s32*) arg0;
 
     do {
         mask = fn_8017F008();
@@ -320,18 +323,17 @@ s32 fn_8017F47C(HSD_Text** arg0, int arg1)
             break;
         }
 
-        if (p[8] != val) {
+        if (state->xA4[i] != val) {
             if (val < 0) {
-                HSD_SisLib_803A70A0(*arg0, i, "%s%d", "－", -val);
+                HSD_SisLib_803A70A0(state->x84, i, "%s%d", "－", -val);
             } else {
-                HSD_SisLib_803A70A0(*arg0, i, "%d", val);
+                HSD_SisLib_803A70A0(state->x84, i, "%d", val);
             }
-            p[8] = val;
+            state->xA4[i] = val;
         }
 
         prev_idx = idx;
         entry = idx + 1;
-        p++;
         i++;
     } while (i < 7);
 
@@ -339,9 +341,9 @@ s32 fn_8017F47C(HSD_Text** arg0, int arg1)
     val = fn_8016FFD4(gm_8016B774(), (s32) mask, 0);
 
     if (val < 0) {
-        HSD_SisLib_803A70A0(*arg0, 7, "%s%d", "\x81\x7c", -val);
+        HSD_SisLib_803A70A0(state->x84, 7, "%s%d", "\x81\x7c", -val);
     } else {
-        HSD_SisLib_803A70A0(*arg0, 7, "%d", val);
+        HSD_SisLib_803A70A0(state->x84, 7, "%d", val);
     }
 
     mask = fn_8017F008();
@@ -625,21 +627,26 @@ void fn_8017FBA4(void* arg0)
     PAD_STACK(4);
 }
 
+/* The user data here is the struct CameraBlurData that lb_800138CC installs.
+ * It used to be read through a local `RegClearEv` overlay sized in GameCube
+ * bytes (`char pad_0[0x1C]`); CameraBlurData carries a callback pointer at
+ * +0x18, so on a 64-bit host +0x1C landed inside that pointer and +0x20 on
+ * efb_copy. */
 void fn_8017FE54(HSD_GObj* gobj)
 {
-    RegClearEv* ev = gobj->user_data;
+    struct CameraBlurData* ev = gobj->user_data;
     struct lbl_80472D28_t* state = &lbl_80472D28;
 
-    lb_800122C8(ev->x1C, 0, 0, 1);
+    lb_800122C8(ev->efb_copy, 0, 0, 1);
     lb_800138D8(state->x2C, (int) (120.0F * state->x10C) + 1);
 
-    ev->x20 = 0.0225F * (f32) state->x110 - 0.175F;
+    ev->tint_factor = 0.0225F * (f32) state->x110 - 0.175F;
 
-    if (ev->x20 < 0.05F) {
-        ev->x20 = 0.0F;
+    if (ev->tint_factor < 0.05F) {
+        ev->tint_factor = 0.0F;
     }
-    if (ev->x20 > 1.0F) {
-        ev->x20 = 1.0F;
+    if (ev->tint_factor > 1.0F) {
+        ev->tint_factor = 1.0F;
     }
 }
 
@@ -671,7 +678,7 @@ void fn_8017FF1C(HSD_GObj* gobj)
     fn_8017FBA4(data.arg);
 
     if (data.state->x117 != 0 && data.state->x110 > 0x29U) {
-        data.state->xC0 = fn_8017F47C(&data.state->x84, (s32) data.state->xC0);
+        data.state->xC0 = fn_8017F47C(data.state, (s32) data.state->xC0);
 
         mask = fn_8017F008();
         if (fn_8016F9A8(gm_8016B774(), data.state->xC0, mask, 0) > 7) {

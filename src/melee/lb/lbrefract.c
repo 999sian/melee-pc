@@ -349,22 +349,13 @@ void lbRefract_800222A4(void)
     int const image_width = 320;
     int const image_height = 240;
 
-    /// @todo Refactor data members into a struct
-    struct lbRefract_DataLayout {
-        Mtx texture_mtx;
-        f32 texture_offset[6];
-        HSD_ImageDesc imagedesc0;
-    };
-
     lbRefract_CallbackData cb;
-    struct lbRefract_DataLayout* data =
-        (struct lbRefract_DataLayout*) &texture_mtx;
     size_t i;
     void* buf;
     PAD_STACK(4);
 
     lbl_804336D0.refractionUserCount = 0;
-    lbArchive_LoadSymbols("LbRf.dat", &refract_data, "lbRefData", 0);
+    lbArchive_LoadSymbols("LbRf.dat", &refract_data, "lbRefData", NULL);
     {
         size_t buf_size =
             GXGetTexBufferSize(image_width, image_height, GX_TF_RGB565, 0, 0);
@@ -385,7 +376,7 @@ void lbRefract_800222A4(void)
         lbRefract_8002219C(&cb, buf, GX_TF_IA8, 32, 32);
         lbRefract_80021CE8(&cb, i);
 
-        lbl_804336D0.imagedesc[i] = data->imagedesc0;
+        lbl_804336D0.imagedesc[i] = imagedesc0;
         DP_SET(tobjdesc1.imagedesc, &lbl_804336D0.imagedesc[i]);
         lbl_804336D0.tobj_list[i] = HSD_TObjLoadDesc(&tobjdesc1);
 

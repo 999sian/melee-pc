@@ -17,7 +17,7 @@ struct DISC_STRUCT grTFox_YakumonoParam {
     DISC_PTR(DynamicsDesc) unkC;
 };
 
-static void grTFox_80220B80(bool);
+static void grTFox_80220B80(s32);
 static void grTFox_80220B84(void);
 static void grTFox_UnkStage0_OnLoad(void);
 static void grTFox_UnkStage0_OnStart(void);
@@ -62,7 +62,7 @@ StageData grTFx_StageData = {
     1,
 };
 
-void grTFox_80220B80(bool unk) {}
+void grTFox_80220B80(s32 unk) {}
 
 void grTFox_80220B84(void)
 {

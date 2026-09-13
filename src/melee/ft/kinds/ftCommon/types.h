@@ -68,7 +68,7 @@ union ftCommon_MotionVars {
     struct {
         /* fp+2340 */ int x0;
         /* fp+2344 */ Vec3 x4;
-        /* fp+2350 */ UNK_T x10;
+        /* fp+2350 */ u32 x10;
         /* fp+2354 */ float x14;
         /* fp+2358 */ float x18;
         /* fp+235C */ float x1C;
@@ -165,8 +165,8 @@ union ftCommon_MotionVars {
         /* fp+2340 */ float x0;
         /* fp+2344 */ int x4;
         /* fp+2348 */ int x8;
-        /* fp+234C */ UNK_T xC;
-        /* fp+2350 */ UNK_T x10;
+        /* fp+234C */ u32 xC;
+        /* fp+2350 */ u32 x10;
         /* fp+2354 */ float x14;
         /* fp+2358 */ u8 x18;
         /* fp+2359 */ u8 x19;
@@ -192,17 +192,25 @@ union ftCommon_MotionVars {
         /* fp+235C */ int x1C;
         /* fp+2360 */ int x20;
         /* fp+2364 */ int x24;
-        /* fp+2368 */ UNK_T x28;
+        /* fp+2368 */ u32 x28;
         /* fp+236C */ float x2C;
     } guard;
     struct {
         /* fp+2340 */ bool x0; // itemget action is heavy type?
     } itemget;
     struct {
-        /* fp+2340 */ UNK_T x0;
+        /* self_vel_y/self_vel_x are the same words as `throw`'s
+         * @c xC.y / @c xC.z (ftCo_Throw.c writes one view and reads the
+         * other), so they must stay at fp+2350 / fp+2354. GameCube kept the
+         * thrower gobj at fp+234C, where a 4-byte pointer only overlapped
+         * @c throw::xC.x ; an 8-byte one would eat both velocities and
+         * anywhere else in the union is written by the damage view that runs
+         * between the store and the read, so it lives in
+         * Fighter::throw_thrower instead. */
+        /* fp+2340 */ u32 x0;
         /* fp+2344 */ int x4;
         /* fp+2348 */ float x8;
-        /* fp+234C */ HSD_GObj* victim;
+        /* fp+234C */ u8 pad_xC[4];
         /* fp+2350 */ float self_vel_y;
         /* fp+2354 */ float self_vel_x;
     } fighterthrow;
@@ -213,8 +221,8 @@ union ftCommon_MotionVars {
         /* fp+234C */ int xC;
         /* fp+2350 */ float x10;
         /* fp+2354 */ int x14;
-        /* fp+2358 */ UNK_T x18;
-        /* fp+235C */ UNK_T x1C;
+        /* fp+2358 */ u32 x18;
+        /* fp+235C */ u32 x1C;
         /* fp+2360 */ int x20;
     } itemthrow;
     struct {
@@ -294,7 +302,11 @@ union ftCommon_MotionVars {
         /* fp+2340 */ float x0;
     } downdamage;
     struct {
-        /* fp+2340 */ Fighter_GObj* x0;
+        /* x4..scale are written through the `walk`, `common` and `ca.specialhi`
+         * views (ftCo_YoshiEgg.c, ftkirbyyoshiegg.c) and read back here, so
+         * they must keep their GameCube offsets. `x0` is write-only, so park
+         * the 8-byte pointer past `scale` instead of at fp+2340. */
+        /* fp+2340 */ u8 pad_x0[4];
         /* fp+2344 */ bool x4;
         /* fp+2348 */ float x8;
         /* fp+234C */ float xC;
@@ -302,10 +314,11 @@ union ftCommon_MotionVars {
         /* fp+2354 */ float x14;
         /* fp+2358 */ Vec3 x18;
         /* fp+2364 */ Vec3 scale;
+        Fighter_GObj* x0; ///< write-only; moved off fp+2340 (see above)
     } yoshiegg;
     struct {
         /* fp+2340 */ bool x0;
-        /* fp+2344 */ UNK_T x4;
+        /* fp+2344 */ u32 x4;
         /* fp+2348 */ float x8;
         /* fp+234C */ float xC;
         /* fp+2350 */ float x10;
@@ -315,14 +328,18 @@ union ftCommon_MotionVars {
         /* fp+2348 */ Vec2 x8;
         /* fp+2350 */ Vec2 x10;
         /* fp+2358 */ bool x18;
-        /* fp+235C */ UNK_T x1C;
-        /* fp+2360 */ UNK_T x20;
-        /* fp+2364 */ UNK_T x24;
-        /* fp+2368 */ UNK_T x28;
+        /* fp+235C */ u32 x1C;
+        /* fp+2360 */ u32 x20;
+        /* fp+2364 */ u32 x24;
+        /* fp+2368 */ u32 x28;
         /* fp+236C */ Vec3 scale;
     } capturekirby;
     struct {
-        /* fp+2340 */ Fighter_GObj* thrower_gobj;
+        /* x4/x8 are also read as `ca.specialhi.vel.x` / `.vel.y`
+         * (ftCo_ThrownKirby.c:171,278), so every member must keep its
+         * GameCube offset. `thrower_gobj` is write-only, so park the 8-byte
+         * pointer past `coll_box` instead of at fp+2340. */
+        /* fp+2340 */ u8 pad_x0[4];
         /* fp+2344 */ float x4;
         /* fp+2348 */ float x8;
         /* fp+234C */ float xC;
@@ -343,6 +360,7 @@ union ftCommon_MotionVars {
         };
         /* fp+235C */ Vec3 scale;
         /* fp+2368 */ ftCollisionBox coll_box;
+        Fighter_GObj* thrower_gobj; ///< write-only; moved off fp+2340
     } thrownkirby;
     struct {
         /* fp+2340 */ int x0;
@@ -380,7 +398,7 @@ union ftCommon_MotionVars {
         /* fp+2348 */ float x8;
     } hammerkneebend;
     struct {
-        /* fp+2340 */ UNK_T x0;
+        /* fp+2340 */ u32 x0;
         /* fp+2344 */ float x4;
     } hammerlanding;
     struct {
@@ -393,7 +411,7 @@ union ftCommon_MotionVars {
         /* fp+2358 */ HSD_JObj* x18;
     } capturedamage;
     struct {
-        /* fp+2340 */ bool timer;
+        /* fp+2340 */ s32 timer; ///< frame timer; `bool` truncated it to 0/1
         /* fp+2344 */ float x4;
         /* fp+2348 */ Vec3 x8;
         /* fp+2354 */ Vec3 x14;
@@ -407,18 +425,21 @@ union ftCommon_MotionVars {
         /* fp+2344 */ int x4;
     } capturelikelike;
     struct {
-        /* fp+2340 */ HSD_GObjEvent x0;
-        /* fp+2344 */ HSD_GObjEvent x4;
-        /* fp+2348 */ int x8;
+        /* GameCube had these three words at fp+2340..2348, which 8-byte
+         * function pointers cannot reproduce. The Kinoko states hold the
+         * `walk` view's anim frames and the `common` view's saved velocities
+         * at the same time, so place these after both (`common` is the
+         * largest, ending at 0x68) instead of letting them overlap. */
+        u8 pad_0[0x68];
+        HSD_GObjEvent x0;
+        HSD_GObjEvent x4;
+        int x8;
     } mushroom;
     struct {
         /* fp+2340 */ int x0;
         /* fp+2344 */ int x4;
         /* fp+2348 */ Item_GObj* x8;
     } barrel;
-    struct {
-        /* fp+2340 */ HSD_GObjEvent x0;
-    } unk_800D2890;
     struct {
         /* fp+2340 */ u8 pad_x0[0x6c - 0x40];
         /* fp+236C */ int x6C;
@@ -430,11 +451,14 @@ union ftCommon_MotionVars {
         /* fp+2370 */ int x70;
     } unk_800D34E0;
     struct {
-        /* fp+2340 */ void* x40;
+        /* x40/x74 are plain 4-byte words on disc+GameCube (a frame counter
+         * shared with #unk_deadleft); typing them `void*` widened them and
+         * shifted x6C/x70 out of alignment with #unk_800D331C. */
+        /* fp+2340 */ int x40;
         /* fp+2344 */ u8 pad_x44[0x6c - 0x44];
         /* fp+236C */ int x6C;
         /* fp+2370 */ int x70;
-        /* fp+2374 */ void* x74;
+        /* fp+2374 */ int x74;
     } unk_800D3680;
     struct {
         /* fp+2340 */ int x40;
@@ -451,7 +475,7 @@ union ftCommon_MotionVars {
     struct {
         /* fp+2340 */ bool unk_bool;
         /* fp+2344 */ float anim_timer;
-        /* fp+2348 */ UNK_T x8;
+        /* fp+2348 */ u32 x8;
         /* fp+234C */ u8 xC;
     } thrown;
     struct {
@@ -496,11 +520,14 @@ struct SmallerHitCapsule {
     /* +34 */ char pad_34[0xFC];
 };
 
-struct TetherAttributes {
+/// Read in place from the tether article's Article::x4_specialAttributes disc
+/// slot (Link/Y.Link hookshot, Samus grapple beam) — big-endian on disc.
+struct DISC_STRUCT TetherAttributes {
     char pad_0[0x38];
     /* +38 */ float pos_x_0;
     /* +3C */ float x3C;
     /* +40 */ float pos_x_1;
 };
+DISC_ASSERT_SIZE(struct TetherAttributes, 0x44);
 
 #endif

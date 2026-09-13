@@ -47,10 +47,14 @@ typedef struct _MenuRulesPlusData {
             u8 pause;
             u8 score;
             u8 sd_penalty;
+            /// Option 5 (stage select) has no adjustable value, but the
+            /// cursor still reaches it and the value array is still indexed
+            /// by the selection, so the slot has to exist. Retail indexed
+            /// one past a 5-byte array into this byte.
+            u8 stage;
         };
-        u8 values[5];
+        u8 values[6];
     } rule_values;
-    u8 x7;
     MenuState8 state;
     HSD_JObj* xC[10];
     HSD_JObj* x34[6][7];

@@ -338,7 +338,9 @@ void DevText_Printf(DevText* text, char* format, ...)
     char str[64];
     va_list args;
     va_start(args, format);
-    vsnprintf(str, -1, format, args);
+    /* `-1` converts to SIZE_MAX, i.e. unbounded: any format longer than 64
+     * bytes overran the frame. */
+    vsnprintf(str, sizeof(str), format, args);
     va_end(args);
     DevText_Print(text, str);
 }

@@ -122,7 +122,7 @@ typedef struct _MenuInputState {
 /* 4D6BC0 */ extern HSD_FogDesc* MenMain_fog;
 /* 4D6BC4 */ extern HSD_CObjDesc* MenMain_cam;
 /* 4D6BC8 */ extern MenuInputState mn_804D6BC8;
-/* 4D6C00 */ extern char** NotAllowedNamesList;
-/* 4D6C04 */ extern u8** AutoNamesList;
+/* 4D6C00 */ extern DiscU32* NotAllowedNamesList; /* char*[] on disc */
+/* 4D6C04 */ extern DiscU32* AutoNamesList;       /* u8*[] on disc */
 
 #endif

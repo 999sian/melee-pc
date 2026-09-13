@@ -247,7 +247,7 @@ static MotionFlags const Ft_MF_SkipAnim = 1 << 29;
 static MotionFlags const Ft_MF_Unk30 = 1 << 30;
 
 /// Unused?
-static MotionFlags const Ft_MF_Unk31 = 1 << 31;
+static MotionFlags const Ft_MF_Unk31 = 1U << 31;
 
 /// Ledge Grab Macros
 

@@ -31,5 +31,6 @@ typedef struct DISC_STRUCT itYoyoAttributes {
     DISC_PTR(HSD_MatAnimJoint) x58_yoyo_matanim;
     s32 x5C_UNK7;
 } itYoyoAttributes;
+DISC_ASSERT_SIZE(itYoyoAttributes, 0x60);
 
 #endif

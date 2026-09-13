@@ -84,8 +84,9 @@
     0,
 };
 
-/// Onett stage yakumono parameters
-struct grOnett_StageParam {
+/// Onett stage yakumono parameters. Read in place out of GrOt.dat, so it is
+/// big-endian: every field here was byte-swapped garbage without DISC_STRUCT.
+struct DISC_STRUCT grOnett_StageParam {
     /* 0x00 */ f32 awning_initial;
     /* 0x04 */ f32 max_velocity;
     /* 0x08 */ f32 vel_threshold;
@@ -118,7 +119,7 @@ static struct grOnett_StageParam* yakumono_param;
 
 static s32 grOt_804D69C4;
 
-void grOnett_801E3734(bool arg) {}
+void grOnett_801E3734(s32 arg) {}
 
 void grOnett_801E3738(void)
 {

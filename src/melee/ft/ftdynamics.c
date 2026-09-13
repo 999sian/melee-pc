@@ -541,10 +541,12 @@ void ftCo_8009E4A8(Fighter* fp)
 
     if (fp->x594_b4) {
         DiscU32* l1 = DP(DiscU32, get_ft_dyn(fp->ft_data)->x10);
-        FigaTree** tree = l1 ? (FigaTree**) (uintptr_t) DP(DiscU32, l1[fp->x28[fp->anim_id][1]].v) : NULL;
+        /* x10 points at 4-byte disc slots, same as ftCo_8009E7B4 reads them. */
+        DiscU32* tree =
+            l1 ? DP(DiscU32, l1[fp->x28[fp->anim_id][1]].v) : NULL;
         if (tree != NULL) {
             for (i = 0; i < fp->dynamics_num; i++) {
-                ftCo_8009CB40(fp, i, 1, tree[i]);
+                ftCo_8009CB40(fp, i, 1, DP(FigaTree, tree[i].v));
                 if (fp->x590 != NULL) {
                     ftAnim_8006EED4(
                         fp, get_adb(get_ft_dyn(fp->ft_data))->array[i].bone_id,

@@ -38,9 +38,11 @@ struct HSD_PadRumbleListData {
     /*0x0C*/ u16 loop_count;
     /*0x0E*/ u16 wait;
     /*0x10*/ s32 frame;
-    /*0x14*/ /* HSD_Rumble* */ u16* stack;
-    /*0x18*/ /* HSD_Rumble* */ u16* listp;
-    /*0x1C*/ /* HSD_Rumble* */ u16* headp;
+    /* The rumble list is a big-endian u16 stream straight out of LbRb.dat:
+     * 3-bit opcode in the top bits, 13-bit operand in the low bits. */
+    /*0x14*/ DiscU16* stack;
+    /*0x18*/ DiscU16* listp;
+    /*0x1C*/ DiscU16* headp;
 };
 
 void HSD_PadRumbleRemoveId(u8, int);

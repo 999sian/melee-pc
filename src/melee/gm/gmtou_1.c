@@ -1607,7 +1607,6 @@ void fn_8019A158(void)
     struct {
         s32 slot;
     } state;
-    u8* cursor;
     s32 local1, local2;
     PAD_STACK(4);
 
@@ -1653,21 +1652,23 @@ void fn_8019A158(void)
 
     if (mode == 1) {
         bracket = fn_8019A158_GetBracketEntry(bracket_idx);
-        cursor = (u8*) bracket;
+        /* Retail stepped this row as raw bytes (stride 0x2C, field at 0x4C).
+         * Probe: BracketEntry::slots is 0x2C on a 32-bit ABI but 0x30 on
+         * LP64, and BracketEntrySlot::x4C moves 0x20 -> 0x24, so byte 0x4C
+         * landed on slots[0].x48 and the stride skewed every later slot. */
         for (i = 0; i < 4; i++) {
             if (i == state.slot) {
                 bracket->slots[state.slot].x4C = 0;
             } else {
-                cursor[0x4C] = 3;
+                bracket->slots[i].x4C = 3;
             }
-            cursor += 0x2C;
         }
     } else if (td1->x2D == 1) {
         bracket = fn_8019A158_GetBracketEntry(bracket_idx);
-        cursor = (u8*) bracket;
         for (i = 0; i < 4; i++) {
-            if (cursor[0x4E] == 3) {
-                cursor[0x4C] = 3;
+            BracketEntrySlot* slot = &bracket->slots[i];
+            if (slot->x4E == 3) {
+                slot->x4C = 3;
             } else {
                 struct MatchPlayerData* standing;
                 u8 v;
@@ -1675,12 +1676,11 @@ void fn_8019A158(void)
                 standing = &(*x48_ptr)->player_standings[i];
                 v = standing->is_small_loser;
                 standing->is_big_loser = v;
-                cursor[0x4C] = v;
+                slot->x4C = v;
                 if ((*x48_ptr)->player_standings[i].is_small_loser == 0) {
                     sel = i;
                 }
             }
-            cursor += 0x2C;
         }
     } else {
         counter = 0;
@@ -1753,9 +1753,10 @@ void fn_8019A158(void)
             }
         }
 
-        cursor = (u8*) &lbl_80473AB8[bracket_idx] + sel * 0x2C;
+        /* `(u8*) &entry + sel * 0x2C` then byte 0x50 was slots[sel].x50 only
+         * with 4-byte pointers; the slot stride is 0x30 on LP64. */
         {
-            u8 model_idx = cursor[0x50];
+            u8 model_idx = lbl_80473AB8[bracket_idx].slots[sel].x50;
             fn_8018F00C((char*) base_ptr->x4E, td1->x37[model_idx].x9);
         }
     }
@@ -2114,18 +2115,18 @@ void fn_8019AF50(s32* arg0, u32 arg1, u32 arg2)
                 lbl_804D6680[0] = 3;
             }
         } else if (lbl_804D6680[0] == 0) {
-            u8* bp = (u8*) &lbl_80473AB8[bracketIdx];
-            s32 j = 0;
-            s32 n;
+            /* Retail scanned the row by bytes: 0x30/0x4C within stride 0x2C
+             * were slots[j].x30/x4C only with 4-byte pointers. Probe: the
+             * slot stride is 0x30 on LP64 and x30 sits at +8, so byte 0x30
+             * read the top of the slot's GObj pointer. */
+            s32 j;
 
-            for (n = 4; n != 0; n--) {
-                if (bp[0x30] != 0 && bp[0x4C] == 0) {
-                    lbl_804D6680[1] =
-                        (&lbl_80473AB8[bracketIdx].slots[0].x4D)[j * 0x2C];
+            for (j = 0; j < 4; j++) {
+                BracketEntrySlot* slot = &lbl_80473AB8[bracketIdx].slots[j];
+                if (slot->x30 != 0 && slot->x4C == 0) {
+                    lbl_804D6680[1] = slot->x4D;
                     break;
                 }
-                bp += 0x2C;
-                j++;
             }
 
             lbAudioAx_80023F28(fn_80160400(fn_8018F6FC(lbl_804D6680[1])));
@@ -2151,11 +2152,13 @@ void fn_8019AF50(s32* arg0, u32 arg1, u32 arg2)
             if (lbl_804799D8.x0 >= 0x64U) {
                 int i;
                 u32 count = (u32) (lbl_804799D8.x0 - 0x64) / 15;
-                u8* base = (u8*) &lbl_804799D8;
+                /* x4E is at 0x4E only with a 4-byte x48 pointer; probe says
+                 * 0x52 on LP64, so the raw offsets read into that pointer. */
+                u8* base = lbl_804799D8.x4E;
                 u8* dest = (u8*) &sp_buf;
                 for (i = 0; i < count; i++) {
-                    dest[0] = base[0x4E];
-                    dest[1] = base[0x4F];
+                    dest[0] = base[0];
+                    dest[1] = base[1];
                     base += 2;
                     dest += 2;
                 }
@@ -2168,7 +2171,7 @@ void fn_8019AF50(s32* arg0, u32 arg1, u32 arg2)
                     lbl_804799D8.x0 = 0xFA;
                 }
             }
-            HSD_SisLib_803A70A0(tm->x524[3], 0, (char*) &lbl_804799D8 + 0x4E);
+            HSD_SisLib_803A70A0(tm->x524[3], 0, (char*) lbl_804799D8.x4E);
         }
     } else {
         if (lbl_804799D8.x0 < 0xFAU) {

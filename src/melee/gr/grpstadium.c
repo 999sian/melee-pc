@@ -158,7 +158,7 @@ StageData grPs_StageData = {
     ARRAY_SIZE(grPs_803E1248),
 };
 
-void grStadium_OnDemoInit(bool unused) {}
+void grStadium_OnDemoInit(s32 unused) {}
 
 void grStadium_OnInit(void)
 {
@@ -2115,7 +2115,9 @@ void grStadium_801D4548(Ground_GObj* gobj)
         }
         break;
     case 2:
-        temp_r31->u.display.xD8 = NULL;
+        /* gp+D8 here is this gobj's u.stadium.xD8 counter; u.display.xD8 is a
+         * pointer and lands on u.stadium.xDC/xDE on PC. */
+        temp_r31->u.stadium.xD8 = 0;
         temp_r3_6 = Ground_GetMapGObj(1);
         if (temp_r3_6 != NULL) {
             temp_r0_2 = temp_r31->u.stadium.xDE;

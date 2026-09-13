@@ -507,8 +507,8 @@ void fn_801913BC(HSD_GObj* gobj)
 
         cur = tm->cur_option;
         if ((s32) idx == cur) {
-            counter_ptr = &lbl_804799B8.x0 + idx;
-            if (*(counter_ptr += 0x10) >= 0x14U) {
+            counter_ptr = &lbl_804799B8.pad2[idx];
+            if (*counter_ptr >= 0x14U) {
                 *counter_ptr = 0xA;
             }
             fn_8019044C(jobj, (f32) *counter_ptr);
@@ -1483,7 +1483,8 @@ void fn_80193308(void)
     idx = 3;
     do {
         created_text2 = HSD_SisLib_803A6754(0, (s32) lbl_804D663C);
-        ptr = &tm->x518[idx];
+        /* Retail runs off the end of x518 into x524. */
+        ptr = &tm->x524[idx - 3];
         *ptr = created_text2;
         text = *ptr;
         text->font_size.x = 0.85f;
@@ -2809,9 +2810,6 @@ void fn_8019610C(s32* state, u32 buttons, u32 trigger)
 {
     TmData* td;
     s32 i;
-    u8* src_ptr;
-    u8* dst_ptr;
-    s32 base_val;
 
     i = 1;
 
@@ -2833,25 +2831,26 @@ void fn_8019610C(s32* state, u32 buttons, u32 trigger)
             if (gm_804771C4.match_type == 0) {
                 gm_SetNextGameModeStateId(1);
             } else {
+                /* The retail code walked `td` twice with raw GameCube byte
+                 * offsets: src_ptr with stride 0x12 over td->x37 (based at
+                 * 0x37) and dst_ptr with stride 0xA over td->x4B8 (based at
+                 * 0x4B8). Neither base holds on a 64-bit host - x37 is only
+                 * packed to 0x12 under MUST_MATCH, so x4B8 moves too - and
+                 * both windows then landed in the wrong records. */
                 td = gm_GetTournamentData();
-                i = 0;
-                src_ptr = (u8*) td;
-                dst_ptr = (u8*) td;
-                base_val = i;
-                while (i < td->x2E) {
-                    src_ptr[0x45] = src_ptr[0x44];
-                    src_ptr[0x46] = base_val;
+                for (i = 0; i < td->x2E; i++) {
+                    struct TmUnkMenuData* src = &td->x37[i];
+                    src->xE = src->xD;
+                    src->xF = 0;
                     if (i < td->x30) {
-                        *(u16*) &dst_ptr[0x4BE] = *(u16*) &src_ptr[0x40];
-                        dst_ptr[0x4BD] = src_ptr[0x39];
-                        dst_ptr[0x4B9] = src_ptr[0x3A];
-                        dst_ptr[0x4B8] = src_ptr[0x37];
-                        dst_ptr[0x4BB] = src_ptr[0x3E];
-                        dst_ptr[0x4BA] = src_ptr[0x3C];
+                        struct UnkSelections* dst = &td->x4B8[i];
+                        dst->x6 = src->x9;
+                        dst->x5 = src->x2;
+                        dst->x1 = src->x3;
+                        dst->x0 = src->x0;
+                        dst->x3 = src->x7;
+                        dst->x2 = src->x5;
                     }
-                    src_ptr += 0x12;
-                    dst_ptr += 0xA;
-                    i++;
                 }
                 gm_SetNextGameModeStateId(2);
             }

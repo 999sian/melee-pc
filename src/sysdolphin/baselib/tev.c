@@ -32,7 +32,8 @@ void HSD_RenderInitAllocData(void)
 {
     HSD_ObjAllocInit(&render_alloc_data, 28, 4);
     HSD_ObjAllocInit(&tevreg_alloc_data, 20, 4);
-    HSD_ObjAllocInit(&chan_alloc_data, 48, 4);
+    /* 48 is the GameCube size of HSD_Chan; it has two pointers. */
+    HSD_ObjAllocInit(&chan_alloc_data, sizeof(HSD_Chan), 4);
 }
 
 HSD_ObjAllocData* HSD_RenderGetAllocData(void)
@@ -50,11 +51,12 @@ HSD_ObjAllocData* HSD_ChanGetAllocData(void)
     return &chan_alloc_data;
 }
 
+/* GXColor is r,g,b,a bytes. Reading it as one u32 and masking 0xFFFFFF00
+ * selects r,g,b on a big-endian target but g,b,a on x86, so the no-alpha
+ * channel path compared and cached the wrong three components. */
 static bool CompareRGB(GXColor* c0, GXColor* c1)
 {
-    u32* d0 = (u32*) c0;
-    u32* d1 = (u32*) c1;
-    return ((*d0 ^ *d1) & 0xFFFFFF00) != 0;
+    return c0->r != c1->r || c0->g != c1->g || c0->b != c1->b;
 }
 
 static bool CompareRGBA(GXColor* c0, GXColor* c1)
@@ -66,9 +68,9 @@ static bool CompareRGBA(GXColor* c0, GXColor* c1)
 
 static void CopyRGB(GXColor* dst, GXColor* src)
 {
-    u32* d = (u32*) dst;
-    u32* s = (u32*) src;
-    *d = (*d & 0xff) | (*s & 0xffffff00);
+    dst->r = src->r;
+    dst->g = src->g;
+    dst->b = src->b;
 }
 
 void HSD_SetupChannel(HSD_Chan* ch)

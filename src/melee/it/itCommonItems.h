@@ -25,6 +25,7 @@ typedef struct DISC_STRUCT {
     bool x0; // [true]
     s32 x4;  // [8]
 } ItCapsuleAttr;
+DISC_ASSERT_SIZE(ItCapsuleAttr, 0x8);
 
 typedef struct {
     /* ip+DD4 */ float dir;
@@ -67,6 +68,7 @@ typedef struct DISC_STRUCT itBatAttributes {
     int x8;
     f32 xC_vel;
 } itBatAttributes;
+DISC_ASSERT_SIZE(itBatAttributes, 0x10);
 
 typedef struct itBombHei_ItemVars {
     /*  +0 */ s32 xDD4;
@@ -97,6 +99,7 @@ typedef struct DISC_STRUCT itBombHeiAttributes {
     /* +1C  */ float x1C;
     /* +20  */ DiscVec3 x20;
 } itBombHeiAttributes;
+DISC_ASSERT_SIZE(itBombHeiAttributes, 0x2C);
 
 typedef struct itBox_ItemVars {
     /* +0 */ s32 opened; ///< True if box has been opened/broken
@@ -112,6 +115,7 @@ typedef struct DISC_STRUCT itEvYoshiEgg_DatAttrs {
     s32 x0;
     DISC_PTR(DiscU32) x4;
 } itEvYoshiEgg_DatAttrs;
+DISC_ASSERT_SIZE(itEvYoshiEgg_DatAttrs, 0x8);
 
 typedef struct itEvYoshiEgg_ItemVars {
     /* +0 */ s32 xDD4;
@@ -128,6 +132,7 @@ typedef struct DISC_STRUCT itWstarAttrEntry {
     /* +0 */ DISC_PTR(HSD_AnimJoint) x0_anim_joint;
     /* +4 */ enum_t x4_sfx;
 } itWstarAttrEntry;
+DISC_ASSERT_SIZE(itWstarAttrEntry, 0x8);
 
 typedef struct DISC_STRUCT itWstarAttributes {
     /* +0 */ f32 x0;
@@ -142,6 +147,7 @@ typedef struct DISC_STRUCT itWstarAttributes {
     /* +24 */ s32 x24_count;
     /* +28 */ itWstarAttrEntry x28_entries[1];
 } itWstarAttributes;
+DISC_ASSERT_SIZE(itWstarAttributes, 0x30);
 
 typedef struct itKyasarin_ItemVars {
     /* +0  ip+DD4 */ char pad_0[0x18];
@@ -178,6 +184,7 @@ typedef struct DISC_STRUCT itKyasarinAttributes {
     /* +44 */ s32 x44;
     /* +48 */ s32 x48;
 } itKyasarinAttributes;
+DISC_ASSERT_SIZE(itKyasarinAttributes, 0x4C);
 
 typedef struct itKyasarinEgg_ItemVars {
     /* +0  ip+DD4 */ char pad_0[0x20];
@@ -192,6 +199,7 @@ typedef struct DISC_STRUCT itKyasarinEggAttributes {
     /* +C  */ s32 xC;
     /* +10 */ s32 x10;
 } itKyasarinEggAttributes;
+DISC_ASSERT_SIZE(itKyasarinEggAttributes, 0x14);
 
 typedef struct DISC_STRUCT itHououAttr {
     /* +00 */ f32 timer;
@@ -203,6 +211,7 @@ typedef struct DISC_STRUCT itHououAttr {
     /* +18 */ f32 x18;
     /* +1C */ f32 x1C;
 } itHououAttr;
+DISC_ASSERT_SIZE(itHououAttr, 0x20);
 
 typedef struct DISC_STRUCT itLugiaAttributes {
     /* +00 */ f32 x0;
@@ -223,6 +232,7 @@ typedef struct DISC_STRUCT itLugiaAttributes {
     /* +3C */ f32 x3C;
     /* +40 */ f32 x40;
 } itLugiaAttributes;
+DISC_ASSERT_SIZE(itLugiaAttributes, 0x44);
 
 /// Box/Crate item attributes loaded from .dat file
 typedef struct DISC_STRUCT itBoxAttributes {
@@ -236,6 +246,7 @@ typedef struct DISC_STRUCT itBoxAttributes {
     /* +1C */ f32
         break_vel_threshold; ///< Velocity needed to break box on landing
 } itBoxAttributes;
+DISC_ASSERT_SIZE(itBoxAttributes, 0x20);
 
 typedef struct itDosei_ItemVars {
     s32 xDD4;
@@ -290,6 +301,7 @@ typedef struct DISC_STRUCT HeartContainerAttr {
     f32 x14; // y velocity? [1.5]
     f32 x18; // y rotation? [0.0349066]
 } HeartContainerAttr;
+DISC_ASSERT_SIZE(HeartContainerAttr, 0x1C);
 
 typedef struct itTomato_ItemVars {
     /* +0   ip+DD4   */ s32 heal_amount;
@@ -305,6 +317,7 @@ typedef struct DISC_STRUCT {
     int x10;
     f32 x14;
 } MaximTomatoSpecialAttr;
+DISC_ASSERT_SIZE(MaximTomatoSpecialAttr, 0x18);
 
 typedef struct itLGun_ItemVars {
     /*  +0 ip+DD4 */ int timer;
@@ -314,6 +327,7 @@ typedef struct DISC_STRUCT ItLGunAttr {
     int max_ammo; // [16]
     DiscVec3 pos;     // [0, 2.128, 6.668]
 } ItLGunAttr;
+DISC_ASSERT_SIZE(ItLGunAttr, 0x10);
 
 /// State shared by Fox/Falco's laser and the Ray Gun projectile.
 typedef struct itRay_ItemVars {
@@ -330,6 +344,7 @@ typedef struct DISC_STRUCT ItLGunRayAttr {
     /* +4 */ float lifetime;  // [80]
     /* +8 */ float max_scale; // [3]
 } ItLGunRayAttr;
+DISC_ASSERT_SIZE(ItLGunRayAttr, 0xC);
 
 typedef struct itLGunBeam_ItemVars {
     /*  +0 ip+DD4 */ Vec3 position0;
@@ -348,11 +363,13 @@ typedef struct DISC_STRUCT ItLGunBeamAttr {
     float xC;       // related to position calcs for var angle0 - [1.22173]
     float x10;      // related to position calcs for var angle0 - [2/3 * pi]
 } ItLGunBeamAttr;
+DISC_ASSERT_SIZE(ItLGunBeamAttr, 0x14);
 
 typedef struct DISC_STRUCT itLipstickAttributes {
     /* +0 */ s32 x0;
     /* +4 */ DiscVec3 x4;
 } itLipstickAttributes;
+DISC_ASSERT_SIZE(itLipstickAttributes, 0x10);
 
 typedef struct itLipstickSpore_ItemVars {
     /* +0 */ s32 xDD4;
@@ -366,6 +383,15 @@ typedef struct itEgg_ItemVars {
     /* +8 */ u8 _8[0x60 - 0x8];
     /* +60 */ int heal_amount;
 } itEgg_ItemVars;
+
+/* The Lucky Egg article's special attributes, read in place through
+ * Article::x4_specialAttributes. Same layout as ItCapsuleAttr; distinct from
+ * itEgg_ItemVars above, which is the native ip+DD4 runtime view. */
+typedef struct DISC_STRUCT itEgg_Attr {
+    s32 x0;       /* it_8026F3D4 drop-table selector */
+    s32 rand_max; /* HSD_Randi bound */
+} itEgg_Attr;
+DISC_ASSERT_SIZE(itEgg_Attr, 0x8);
 
 typedef struct itHeiho_ItemVars {
     f32 x0;
@@ -425,10 +451,12 @@ typedef struct DISC_STRUCT itFlipper_DatAttrs {
     /* +20 */ f32 x20_spinDecay;
     /* +24 */ f32 x24_maxSpinVel;
 } itFlipper_DatAttrs;
+DISC_ASSERT_SIZE(itFlipper_DatAttrs, 0x28);
 
 typedef struct DISC_STRUCT itHarisen_DatAttrs {
     /* +0 */ f32 x0_scale;
 } itHarisen_DatAttrs;
+DISC_ASSERT_SIZE(itHarisen_DatAttrs, 0x4);
 
 typedef struct itFoods_ItemVars {
     /* +0 ip+DD4 */ u32 x0;
@@ -441,6 +469,7 @@ typedef struct DISC_STRUCT itFoodsAttributes {
     s32 x8;
     s32 xC;
 } itFoodsAttributes;
+DISC_ASSERT_SIZE(itFoodsAttributes, 0x10);
 
 typedef struct itWhispyApple_ItemVars {
     s32 xDD4_heal;
@@ -455,6 +484,7 @@ typedef struct DISC_STRUCT itWhispyAppleAttributes {
     f32 x14;
     f32 x18;
 } itWhispyAppleAttributes;
+DISC_ASSERT_SIZE(itWhispyAppleAttributes, 0x1C);
 
 typedef struct itFreeze_ItemVars {
     /*  +0 */ f32 x0;
@@ -474,6 +504,7 @@ typedef struct DISC_STRUCT itUnkAttributes {
     float xC;
     float x10;
 } itUnkAttributes;
+DISC_ASSERT_SIZE(itUnkAttributes, 0x14);
 
 typedef struct {
     HSD_JObj* x0;
@@ -484,10 +515,12 @@ typedef struct DISC_STRUCT {
     f32 x0;
     f32 x4;
 } itMBallAttributes;
+DISC_ASSERT_SIZE(itMBallAttributes, 0x8);
 
 typedef struct DISC_STRUCT {
     s32 x, y, z;
 } DiscS32Vec3;
+DISC_ASSERT_SIZE(DiscS32Vec3, 0xC);
 
 typedef struct DISC_STRUCT {
     union DISC_STRUCT {
@@ -512,6 +545,7 @@ typedef struct DISC_STRUCT {
     /* 0x3E */ s8 x3E;
     /* 0x40 */ lbColl_80008D30_arg1 x40[2];
 } itLikelikeAttributes;
+DISC_ASSERT_SIZE(itLikelikeAttributes, 0x88);
 
 typedef struct itLikelike_ItemVars {
     /*  +0 ip+DD4 */ char pad_0[0x18];
@@ -533,6 +567,7 @@ typedef struct DISC_STRUCT {
     f32 initial_velocity;
     f32 x4;
 } itHammerheadAttributes;
+DISC_ASSERT_SIZE(itHammerheadAttributes, 0x8);
 
 typedef struct {
     u8 b0 : 1;
@@ -598,6 +633,7 @@ typedef struct DISC_STRUCT itTincleAttributes {
     /* 0x54 */ s8 x54;
     /* 0x55 */ s8 x55;
 } itTincleAttributes;
+DISC_ASSERT_SIZE(itTincleAttributes, 0x58);
 
 typedef struct itGShell_HurtInit {
     /* 0x00 */ s32 state;
@@ -680,6 +716,7 @@ typedef struct DISC_STRUCT {
     u8 _pad[0x14];
     DiscVec3 x14;
 } itRshellAttributes;
+DISC_ASSERT_SIZE(itRshellAttributes, 0x20);
 
 typedef struct {
     unsigned char xDD4_b0 : 1;
@@ -715,6 +752,7 @@ typedef struct DISC_STRUCT itPokemonAttributes {
     s32 x14;
     s32 x18;
 } itPokemonAttributes;
+DISC_ASSERT_SIZE(itPokemonAttributes, 0x1C);
 
 typedef struct DISC_STRUCT itKamexAttributes {
     /* +00 */ f32 x0;
@@ -726,6 +764,7 @@ typedef struct DISC_STRUCT itKamexAttributes {
     /* +18 */ f32 x18;
     /* +1C */ f32 x1C;
 } itKamexAttributes;
+DISC_ASSERT_SIZE(itKamexAttributes, 0x20);
 
 typedef struct {
     s16 x0;
@@ -779,6 +818,7 @@ typedef struct DISC_STRUCT MewVars {
     f32 x8;
     f32 xC;
 } MewVars;
+DISC_ASSERT_SIZE(MewVars, 0x10);
 
 typedef struct DISC_STRUCT itCoinAttributes {
     f32 x0;
@@ -801,6 +841,7 @@ typedef struct DISC_STRUCT itCoinAttributes {
     f32 x44;
     f32 x48;
 } itCoinAttributes;
+DISC_ASSERT_SIZE(itCoinAttributes, 0x4C);
 
 typedef struct itCoin_ItemVars {
     int x0;
@@ -824,6 +865,7 @@ typedef struct DISC_STRUCT FFlowerAttr {
     float x10; // [1.5]
     float x14;
 } FFlowerAttr;
+DISC_ASSERT_SIZE(FFlowerAttr, 0x18);
 
 typedef struct itFFlowerFlame_ItemVars {
     /* +0 */ Vec3 pos;
@@ -896,12 +938,14 @@ typedef struct DISC_STRUCT itNokoNoko_DatAttrs2 {
     s32 x0;
     f32 x4;
 } itNokoNoko_DatAttrs2;
+DISC_ASSERT_SIZE(itNokoNoko_DatAttrs2, 0x8);
 
 typedef struct DISC_STRUCT itNokoNoko_DatAttrs {
     DISC_PTR(itNokoNoko_DatAttrs2) x0;
     f32 x4;
     f32 x8;
 } itNokoNoko_DatAttrs;
+DISC_ASSERT_SIZE(itNokoNoko_DatAttrs, 0xC);
 
 typedef struct DISC_STRUCT itTaruAttributes {
     /* +00 */ s32 x0;
@@ -919,6 +963,7 @@ typedef struct DISC_STRUCT itTaruAttributes {
     /* +30 */ f32 x30;
     /* +34 */ f32 x34;
 } itTaruAttributes;
+DISC_ASSERT_SIZE(itTaruAttributes, 0x38);
 
 typedef struct itTaru_ItemVars {
     /* +0  ip+DD4 */ s32 xDD4;
@@ -964,6 +1009,7 @@ typedef struct DISC_STRUCT itTaruCann_DatAttrs {
     /* +4C */ f32 x4C;
     /* +50 */ f32 x50;
 } itTaruCann_DatAttrs;
+DISC_ASSERT_SIZE(itTaruCann_DatAttrs, 0x54);
 
 typedef struct itKusudama_ItemVars {
     /* +0 ip+DD4 */ bool x0;
@@ -984,6 +1030,7 @@ typedef struct DISC_STRUCT itKusudamaAttributes {
     /* +28 */ f32 x28;
     /* +2C */ f32 x2C;
 } itKusudamaAttributes;
+DISC_ASSERT_SIZE(itKusudamaAttributes, 0x30);
 
 typedef struct itKlap_ItemVars {
     /*  +0 ip+DD4 */ f32 x0;
@@ -1003,6 +1050,7 @@ typedef struct DISC_STRUCT itLeadeadAttr_x0 {
     /* 0x00 */ s32 x0;
     /* 0x04 */ f32 x4;
 } itLeadeadAttr_x0;
+DISC_ASSERT_SIZE(itLeadeadAttr_x0, 0x8);
 
 typedef struct DISC_STRUCT itLeadeadAttributes {
     /* 0x00 */ DISC_PTR(itLeadeadAttr_x0) x0;
@@ -1016,6 +1064,7 @@ typedef struct DISC_STRUCT itLeadeadAttributes {
     /* 0x1C */ s16 x1C;
     /* 0x1E */ s8 x1E;
 } itLeadeadAttributes;
+DISC_ASSERT_SIZE(itLeadeadAttributes, 0x20);
 
 typedef struct itChicorita_ItemVars {
     /* ip+DD4 */ u8 _0[0x60 - 0x0];
@@ -1034,6 +1083,7 @@ typedef struct DISC_STRUCT itChicoritaAttr {
     f32 scale;
     s32 x4; // x60 in item vars gets set to this if -1; max timer/lifetime?
 } itChicoritaAttr;
+DISC_ASSERT_SIZE(itChicoritaAttr, 0x8);
 
 typedef struct DISC_STRUCT itMarilAttributes {
     f32 x0;
@@ -1043,6 +1093,7 @@ typedef struct DISC_STRUCT itMarilAttributes {
     f32 x10;
     f32 x14;
 } itMarilAttributes;
+DISC_ASSERT_SIZE(itMarilAttributes, 0x18);
 
 typedef struct itMaril_ItemVars {
     u8 pad[0x60];
@@ -1085,6 +1136,7 @@ typedef struct DISC_STRUCT itLizardonAttributes {
     s32 x28;
     s32 x2C;
 } itLizardonAttributes;
+DISC_ASSERT_SIZE(itLizardonAttributes, 0x30);
 
 typedef struct DISC_STRUCT itLuckyAttributes {
     f32 x0;
@@ -1095,6 +1147,7 @@ typedef struct DISC_STRUCT itLuckyAttributes {
     s32 x14;
     s32 x18;
 } itLuckyAttributes;
+DISC_ASSERT_SIZE(itLuckyAttributes, 0x1C);
 
 typedef struct itLucky_ItemVars {
     /* ip+DD4 */ u8 _0[0x60 - 0x0];
@@ -1110,10 +1163,12 @@ typedef struct DISC_STRUCT itChicoritaLeafAttr {
     f32 xC;  // y pos
     f32 x10; // x vel
 } itChicoritaLeafAttr;
+DISC_ASSERT_SIZE(itChicoritaLeafAttr, 0x14);
 
 typedef struct DISC_STRUCT it_2728_DatAttrs {
     DISC_PTR(Fighter) fighter;
 } it_2728_DatAttrs;
+DISC_ASSERT_SIZE(it_2728_DatAttrs, 0x4);
 
 typedef struct itPokemonSpawn_ItemVars {
     /* ip+DD4 */ s32 x0;
@@ -1179,6 +1234,7 @@ typedef struct DISC_STRUCT itMewtwoShadowball_DatAttrs {
     f32 x38;
     f32 x3C;
 } itMewtwoShadowball_DatAttrs;
+DISC_ASSERT_SIZE(itMewtwoShadowball_DatAttrs, 0x40);
 
 typedef struct DISC_STRUCT itPokemonSpawn_DatAttrs {
     f32 x0;
@@ -1194,7 +1250,7 @@ typedef struct DISC_STRUCT itPokemonSpawn_DatAttrs {
     s32 pokemon_spawn_weights[It_PKind_Terminate - It_PKind_Start];
     u8 _pad[520];
 } itPokemonSpawn_DatAttrs;
-ASSERT_SIZE(itPokemonSpawn_DatAttrs, 0x2BC);
+DISC_ASSERT_SIZE(itPokemonSpawn_DatAttrs, 0x2BC);
 
 typedef struct itZako_ItemVars {
     /* ip+DD4 */ HSD_JObj* jobj;
@@ -1222,6 +1278,7 @@ typedef struct itZako_ItemVars {
 typedef struct DISC_STRUCT itZako_DatAttrs {
     f32 scale;
 } itZako_DatAttrs;
+DISC_ASSERT_SIZE(itZako_DatAttrs, 0x4);
 
 typedef struct itGamewatch_ItemVars {
     /* ip+DD4 */ void* attr;
@@ -1240,6 +1297,7 @@ typedef struct DISC_STRUCT itYoshiEggLay_DatAttrs {
     float x24;    // item->xC98
     ItemKind kind;
 } itYoshiEggLay_DatAttrs;
+DISC_ASSERT_SIZE(itYoshiEggLay_DatAttrs, 0x2C);
 
 typedef struct itUnk2_ItemVars {
     f32 x0;
@@ -1251,6 +1309,7 @@ struct DISC_STRUCT itUnk2_DatAttrs {
     f32 float1; // lifetime
     f32 float2; // item var x0
 };
+DISC_ASSERT_SIZE(itUnk2_DatAttrs, 0x20);
 
 /// Inline sub-struct at ItemVars offset 0x1C (byte offset 0xDF0 in Item).
 /// Tracks a bone used for coin pickup collision.
@@ -1286,6 +1345,7 @@ typedef struct DISC_STRUCT it_2E5A_TierEntry {
     /* 0x18 */ f32 scale;
     /* 0x1C */ DiscItECB ecb;
 } it_2E5A_TierEntry;
+DISC_ASSERT_SIZE(it_2E5A_TierEntry, 0x2C);
 
 /// Special attributes for it_2E5A items. Base physics parameters followed by
 /// three tier entries.
@@ -1305,6 +1365,7 @@ typedef struct DISC_STRUCT it_2E5A_Attrs {
         x2C[4]; // per-player spawn multiplier (indexed by gm_8016C6C0)
     /* 0x3C */ it_2E5A_TierEntry tiers[3];
 } it_2E5A_Attrs;
+DISC_ASSERT_SIZE(it_2E5A_Attrs, 0xC0);
 
 typedef struct it_802E5FXX_struct { // used for it_802E5F00 and it_802E5F8C
     HSD_GObj* x0; // Item GObj assignment/passed to db_80225DD8
@@ -1346,6 +1407,7 @@ typedef struct DISC_STRUCT {
     s32 x0;
     f32 x4;
 } itOttoseaAttr_x0;
+DISC_ASSERT_SIZE(itOttoseaAttr_x0, 0x8);
 
 typedef struct DISC_STRUCT itWhiteBeaAttributes {
     /* +0 */ DISC_PTR(itOttoseaAttr_x0) x0;
@@ -1357,6 +1419,7 @@ typedef struct DISC_STRUCT itWhiteBeaAttributes {
     /* +10 */ f32 x10;
     /* +14 */ s16 x14;
 } itWhiteBeaAttributes;
+DISC_ASSERT_SIZE(itWhiteBeaAttributes, 0x18);
 
 typedef struct itOctarock_ItemVars {
     /*  +0 ip+DD4 */ char pad_0[0x18];
@@ -1375,6 +1438,7 @@ typedef struct DISC_STRUCT itSScopeAttributes {
     /* +C */ float xC[10];
     /* +34 */ DiscVec3 x34;
 } itSScopeAttributes;
+DISC_ASSERT_SIZE(itSScopeAttributes, 0x40);
 
 typedef struct itScopeBeam_ItemVars {
     int x0;
@@ -1393,6 +1457,7 @@ typedef struct DISC_STRUCT itsonansAttributes {
     f32 x20;
     s32 x24; // lifetimeset
 } itsonansAttributes;
+DISC_ASSERT_SIZE(itsonansAttributes, 0x28);
 
 typedef struct itSonans_ItemVars {
     /* ip+DD4 */ u8 _0[0x60 - 0x0];
@@ -1419,11 +1484,13 @@ typedef struct DISC_STRUCT itTosakinto_Attrs {
     float x4_life_timer;
     float x8_vel_x;
 } itTosakinto_Attrs;
+DISC_ASSERT_SIZE(itTosakinto_Attrs, 0xC);
 
 typedef struct DISC_STRUCT itMDisableAttributes {
     /* +0 */ f32 lifetime;
     /* +4 */ f32 x_vel;
 } itMDisableAttributes;
+DISC_ASSERT_SIZE(itMDisableAttributes, 0x8);
 
 typedef struct itMDisable_ItemVars {
     Fighter_GObj* owner;
@@ -1434,6 +1501,7 @@ typedef struct DISC_STRUCT itNessPKFirepillarAttributes {
     /*  +4  */ float x4;
     /*  +8  */ float scale;
 } itNessPKFirepillarAttributes;
+DISC_ASSERT_SIZE(itNessPKFirepillarAttributes, 0xC);
 
 typedef struct itKoopaFlame_ItemVars {
     Vec x0_pos;
@@ -1461,6 +1529,7 @@ typedef struct DISC_STRUCT itOctarockAttributes {
     f32 x18;
     s16 x1C;
 } itOctarockAttributes;
+DISC_ASSERT_SIZE(itOctarockAttributes, 0x20);
 
 typedef struct itOldottosea_ItemVars {
     /* 0x00 */ u8 pad[0x20];
@@ -1488,6 +1557,7 @@ typedef struct DISC_STRUCT itPatapataDatAttrs {
     /* 0x00 */ u8 pad[0x4];
     /* 0x04 */ f32 x4;
 } itPatapataDatAttrs;
+DISC_ASSERT_SIZE(itPatapataDatAttrs, 0x8);
 
 typedef struct DISC_STRUCT itPatapataAttributes {
     /* 0x00 */ DISC_PTR(itPatapataDatAttrs) x0;
@@ -1507,6 +1577,7 @@ typedef struct DISC_STRUCT itPatapataAttributes {
     /* 0x38 */ f32 x38;
     /* 0x3C */ f32 x3C;
 } itPatapataAttributes;
+DISC_ASSERT_SIZE(itPatapataAttributes, 0x40);
 
 typedef struct DISC_STRUCT itOldottoseaAttributes {
     /* 0x00 */ DISC_PTR(itOttoseaAttr_x0) x0;
@@ -1522,6 +1593,7 @@ typedef struct DISC_STRUCT itOldottoseaAttributes {
     /* 0x24 */ f32 x24;
     /* 0x28 */ s8 x28;
 } itOldottoseaAttributes;
+DISC_ASSERT_SIZE(itOldottoseaAttributes, 0x2C);
 
 typedef struct DISC_STRUCT itFreezerAttributes {
     f32 x0;
@@ -1529,6 +1601,7 @@ typedef struct DISC_STRUCT itFreezerAttributes {
     f32 x8;
     s32 xC;
 } itFreezerAttributes;
+DISC_ASSERT_SIZE(itFreezerAttributes, 0x10);
 
 typedef struct itFreezer_ItemVars {
     /* ip+DD4 */ u8 _0[0x60 - 0x0];
@@ -1547,6 +1620,7 @@ typedef struct DISC_STRUCT itFushigibanaAttributes {
     f32 x4;
     f32 x8;
 } itFushigibanaAttributes;
+DISC_ASSERT_SIZE(itFushigibanaAttributes, 0xC);
 
 typedef struct itkireihana_ItemVars {
     /* xDD4 */ f32 x0;
@@ -1566,6 +1640,7 @@ typedef struct DISC_STRUCT itkireihanaAttributes {
     u32 x8;
     u32 xC;
 } itkireihanaAttributes;
+DISC_ASSERT_SIZE(itkireihanaAttributes, 0x10);
 
 typedef struct DISC_STRUCT itKabigonAttributes {
     f32 x0;
@@ -1576,6 +1651,7 @@ typedef struct DISC_STRUCT itKabigonAttributes {
     s32 x14;
     f32 x18;
 } itKabigonAttributes;
+DISC_ASSERT_SIZE(itKabigonAttributes, 0x1C);
 
 typedef struct DISC_STRUCT itMatadogasAttributes {
     /* +00 */ f32 x0;
@@ -1583,6 +1659,7 @@ typedef struct DISC_STRUCT itMatadogasAttributes {
     /* +08 */ f32 x8;
     /* +0C */ f32 xC;
 } itMatadogasAttributes;
+DISC_ASSERT_SIZE(itMatadogasAttributes, 0x10);
 
 typedef struct itThunder_ItemVars {
     /* xDD8 */ u8 pad[0x60 - 0x0];
@@ -1597,6 +1674,7 @@ typedef struct DISC_STRUCT itThunderPokemonAttributes {
     f32 x8;
     u32 xC;
 } itThunderPokemonAttributes;
+DISC_ASSERT_SIZE(itThunderPokemonAttributes, 0x10);
 
 typedef struct itOldkuri_ItemVars {
     /* +00 */ char pad[0x18];
@@ -1632,6 +1710,7 @@ typedef struct DISC_STRUCT itGreatFoxLaser_Attrs {
     f32 x8;
     f32 xC;
 } itGreatFoxLaser_Attrs;
+DISC_ASSERT_SIZE(itGreatFoxLaser_Attrs, 0x10);
 
 typedef struct DISC_STRUCT itUnknownAttributes {
     /* +00 */ union DISC_STRUCT {
@@ -1657,12 +1736,14 @@ typedef struct DISC_STRUCT itUnknownAttributes {
     } x20;
     /* +24 */ DISC_PTR(HSD_Joint) x24[26];
 } itUnknownAttributes;
+DISC_ASSERT_SIZE(itUnknownAttributes, 0x8C);
 
 typedef struct DISC_STRUCT itCrazyHandBombAttributes {
     /* +00 */ f32 x0;
     /* +04 */ f32 x4;
     /* +08 */ f32 x8;
 } itCrazyHandBombAttributes;
+DISC_ASSERT_SIZE(itCrazyHandBombAttributes, 0xC);
 
 typedef struct itLugia_ItemVars {
     /* +00 ip+DD4 */ u8 x0_pad[0x60];
@@ -1698,12 +1779,14 @@ typedef struct DISC_STRUCT itYoshiEggThrowAttributes {
     /* +0 */ f32 x0;
     /* +4 */ f32 x4;
 } itYoshiEggThrowAttributes;
+DISC_ASSERT_SIZE(itYoshiEggThrowAttributes, 0x8);
 
 typedef struct DISC_STRUCT ScopeBeamFloats {
     float velocity;
     float scale;
     float lifetime;
 } ScopeBeamFloats;
+DISC_ASSERT_SIZE(ScopeBeamFloats, 0xC);
 
 typedef struct DISC_STRUCT ScopeBeamAttrs {
     ScopeBeamFloats floats[9];
@@ -1711,5 +1794,6 @@ typedef struct DISC_STRUCT ScopeBeamAttrs {
     /* +78 */ f32 x78;
     /* +7C */ f32 x7C;
 } ScopeBeamAttrs;
+DISC_ASSERT_SIZE(ScopeBeamAttrs, 0x80);
 
 #endif

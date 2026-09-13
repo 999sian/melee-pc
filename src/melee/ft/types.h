@@ -361,20 +361,23 @@ struct DISC_STRUCT ftCommonData {
     /* +4F4 */ float x4F4;
     /* +4F8 */ u32 x4F8;
     /* +4FC */ u32 x4FC;
-    /* +500 */ DISC_PTR(void) x500;
+    /* Death-animation frame counts consumed as ints by ft_0D31.c (assigned to
+     * mv.co.unk_deadup.x40 / unk_800D3680.x40, and cast to f32). They are not
+     * disc pointers, so DISC_PTR(void) widened them wrongly. */
+    /* +500 */ int x500;
     /* +504 */ int x504;
-    /* +508 */ DISC_PTR(void) x508;
-    /* +50C */ DISC_PTR(void) x50C;
+    /* +508 */ int x508;
+    /* +50C */ int x50C;
     /* +510 */ float x510;
     /* +514 */ float x514;
     /* +518 */ DISC_PTR(void) x518;
     /* +51C */ float x51C_radians;
     /* +520 */ int x520;
-    /* +524 */ DISC_PTR(void) x524;
-    /* +528 */ DISC_PTR(void) x528;
-    /* +52C */ DISC_PTR(void) x52C;
-    /* +530 */ DISC_PTR(void) x530;
-    /* +534 */ DISC_PTR(void) x534;
+    /* +524 */ int x524;
+    /* +528 */ int x528;
+    /* +52C */ int x52C;
+    /* +530 */ int x530;
+    /* +534 */ int x534;
     /* +538 */ DiscVec3 x538;
     /* +544 */ DiscVec3 x544;
     /* +550 */ float x550;
@@ -1040,7 +1043,7 @@ struct CpuFighter {
     /*  +3C */ float x3C;
     /*  +40 */ float x40;
     /*  +44 */ Fighter* x44;
-    /*  +48 */ UNK_T x48;
+    /*  +48 */ Fighter* x48; ///< last locked-on target, see ftCo_800A4BEC
     /*  +4C */ Item* x4C;
     /*  +50 */ Item* x50;
     /*  +54 */ Vec2 x54;
@@ -1356,6 +1359,13 @@ struct Fighter {
         Vec3 x20;
     } x1614[2];
     /* fp+166C */ u8 x166C; ///< number of valid entries in x1670 array
+    /* The 0x1B8 bytes fp+1670..fp+1828 are eleven Fighter_x1670_t records, not
+     * one plus filler: ftColl_8007B36C rejects a count above 0xB and then
+     * fills x1670[0 .. x166C-1], and ftColl_8007AF60 /
+     * ftDrawCommon_8006F0F4 / lb_8001044C walk the same range. On GameCube
+     * each record was 0x28 bytes (0x1B8 / 0x28 == 11) so indices 1.. landed
+     * inside the filler; with an 8-byte HSD_JObj* the record is 0x30 and only
+     * nine fit, so the tail entries ran off the end into x1828/dmg. */
     /* fp+1670 */ struct Fighter_x1670_t {
         /* +00 */ Vec3 v1;
         /* +0C */ float v2;
@@ -1363,8 +1373,7 @@ struct Fighter {
         /* +14 */ float x14;
         /* +18 */ Vec3 x18;
         /* +24 */ int x24;
-    } x1670[1]; ///< @todo figure out proper size
-    /* fp+1674 */ u8 filler_x1674[0x1828 - 0x1670 - 0x28];
+    } x1670[11];
     /* fp+1828 */ enum_t x1828;
     /* fp+182C */ struct dmg {
         /* fp+182C */ float x182c_behavior;
@@ -1453,7 +1462,7 @@ struct Fighter {
     /* fp+1988 */ enum_t x1988;
     /* fp+198C */ s32 x198C;
     /* fp+1990 */ s32 x1990;
-    /* fp+1994 */ bool x1994;
+    /* fp+1994 */ s32 x1994; ///< frame timer; `bool` truncated it to 0/1
     /* fp+1998 */ float shield_health;
     /* fp+199C */ float lightshield_amount;
     /* fp+19A0 */ s32 x19A0_shieldDamageTaken;
@@ -1594,6 +1603,11 @@ struct Fighter {
     /* fp+21E4 */ HSD_GObjEvent death2_cb;
     /* fp+21E8 */ HSD_GObjEvent death3_cb;
     /* fp+21EC */ HSD_GObjEvent x21EC;
+    /// The grabber, stashed by ftCo_800DE7C0 for the deferred x21EC callback
+    /// fn_800DE798. GameCube kept it in the motion-var union at fp+234C; an
+    /// 8-byte pointer has nowhere to live there that the damage view running
+    /// in between does not overwrite.
+    HSD_GObj* throw_thrower;
     /* fp+21F0 */ HSD_GObjEvent take_dmg_2_cb;
     /* fp+21F4 */ HSD_GObjEvent hurtbox_detect_cb;
     /* fp+21F8 */ HSD_GObjEvent x21F8;
@@ -1889,9 +1903,11 @@ DISC_ASSERT_SIZE(struct ftDynamics, 0x14);
 struct DISC_STRUCT KirbyHatStruct {
     /*  +0 */ DISC_PTR(HSD_Joint) hat_joint;
     /*  +4 */ FtPartsDesc desc;
-    /*  +C */ DISC_PTR(ftDynamics) hat_dynamics[5];
+    /*  +C */ DISC_PTR(ftDynamics) hat_dynamics[7]; // [5] and [6] are used by
+                                                    // the GameWatch and Yoshi
+                                                    // hats
 };
-DISC_ASSERT_SIZE(struct KirbyHatStruct, 0x20);
+DISC_ASSERT_SIZE(struct KirbyHatStruct, 0x28);
 
 typedef struct DISC_STRUCT Kirby_Unk {
     /*  +0 */ DISC_PTR(HSD_Joint) x0;

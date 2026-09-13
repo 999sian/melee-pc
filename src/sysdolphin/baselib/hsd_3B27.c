@@ -168,7 +168,7 @@ int hsd_803B2ADC(s32* ctx, UNK_T data)
 {
     CardState* state = (CardState*) ctx;
 
-    memcpy(&state->x3B0, data, 18);
-    state->x24 = hsd_803AC340(&state->x3B0);
+    memcpy(state->file_header, data, sizeof(state->file_header));
+    state->x24 = hsd_803AC340(state->file_header);
     return 0;
 }

@@ -15,7 +15,7 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 
-/* 20DFDC */ static void grFigure1_OnDemoInit(bool);
+/* 20DFDC */ static void grFigure1_OnDemoInit(s32);
 /* 20DFE0 */ static void grFigure1_OnInit(void);
 /* 20E050 */ static void grFigure1_OnLoad(void);
 /* 20E054 */ static void grFigure1_OnStart(void);
@@ -63,7 +63,7 @@ StageData grEF1_StageData = {
 
 static void* yakumono_param;
 
-static void grFigure1_OnDemoInit(bool unused) {}
+static void grFigure1_OnDemoInit(s32 unused) {}
 
 static void grFigure1_OnInit(void)
 {
@@ -165,4 +165,4 @@ static bool grFigure1_OnCheckShadowRender(Vec3* v, int n, HSD_JObj* o)
     return true;
 }
 
-void grFigure1_8020E270(bool n) {}
+void grFigure1_8020E270(s32 n) {}

@@ -124,7 +124,7 @@ struct DISC_STRUCT grIceMt_YakumonoParam {
     float xCC;
 };
 
-/* 1F6868 */ static void grIceMt_801F6868(bool id);
+/* 1F6868 */ static void grIceMt_801F6868(s32 id);
 /* 1F686C */ static void grIceMt_801F686C(void);
 /* 1F7080 */ static void grIceMt_801F7080(void);
 /* 1F71DC */ static void grIceMt_801F71DC(void);
@@ -405,7 +405,7 @@ static const GrIm588 grIm_804DB59C = { 3, 4 };
 static const GrIm588 grIm_804DB5A0 = { 1, 2 };
 static const GrIm588 grIm_804DB5A4 = { 3, 4 };
 
-void grIceMt_801F6868(bool id) {}
+void grIceMt_801F6868(s32 id) {}
 
 void grIceMt_801F686C(void)
 {
@@ -971,11 +971,15 @@ void stageGObj2_OnInit(Ground_GObj* arg0)
     gp->u.icemt1.x0_b0 = false;
     sp14 = grIm_804DB58C;
     grIceMt_801F8CDC(arg0, (s16*) &sp14, 2, &gp->u.icemt1.x34[0]);
-    grIceMt_801F91EC(arg0, (s16*) ((u8*) gp + 0x100),
+    /* The two 7-halfword blocks live directly after the two collision-block
+     * materials. u.icemt.x108 and gp+0x100 name the same bytes on GameCube
+     * only; x34 is pointer-strided, so address them through x34. */
+    grIceMt_801F91EC(arg0, (s16*) &gp->u.icemt1.x34[2],
                      grIceMt_801FA500(arg0, jobj), -1, 0x25, 0x109, 0x27E,
                      fn_801F9338);
-    grIceMt_801F91EC(arg0, &gp->u.icemt.x108[3], grIceMt_801FA500(arg0, jobj2),
-                     -1, 38, 265, 638, fn_801F9448);
+    grIceMt_801F91EC(arg0, (s16*) &gp->u.icemt1.x34[2] + 7,
+                     grIceMt_801FA500(arg0, jobj2), -1, 38, 265, 638,
+                     fn_801F9448);
 }
 
 bool stageGObj2_Callback1(Ground_GObj* param1)
@@ -987,7 +991,7 @@ void stageGObj2_GObjProc(Ground_GObj* param1)
 {
     Ground* gp = GET_GROUND(param1);
     grIceMt_801F929C(param1, &gp->u.icemt1.x34[2]);
-    grIceMt_801F929C(param1, &gp->u.icemt.x108[3]);
+    grIceMt_801F929C(param1, (s16*) &gp->u.icemt1.x34[2] + 7);
     grIceMt_801F98A8(param1);
     Ground_801C2FE0(param1);
 }
@@ -1094,7 +1098,10 @@ void stageGObj4_OnInit(Ground_GObj* arg0)
     sp14.x4 = grIm_804DB59C;
     grIceMt_801F8CDC(arg0, (s16*) &sp14, 4, &gp->u.icemt1.x34[0]);
     r = grIceMt_801FA500(arg0, jobj3);
-    grIceMt_801F91EC(arg0, gp->u.icemt.x108, grIceMt_801FA500(arg0, jobj2), r,
+    /* Block state follows the four collision-block materials; see
+     * stageGObj2_OnInit. */
+    grIceMt_801F91EC(arg0, (s16*) &gp->u.icemt1.x34[4],
+                     grIceMt_801FA500(arg0, jobj2), r,
                      117, 265, 638, fn_801F9558);
 }
 
@@ -1498,7 +1505,7 @@ void fn_801F9338(void* user_data, int joint_id, CollData* coll, int coll_x50,
     {
         HSD_GObj* gobj;
         Ground* gp = user_data;
-        s16* s = gp->u.icemt.x100;
+        s16* s = (s16*) &gp->u.icemt1.x34[2];
         if ((s32) coll->x34_flags.b1234 == 1 && s[0] == 0) {
             gobj = Ground_GetMapGObj(2);
             s[0] = 1;
@@ -1524,7 +1531,7 @@ void fn_801F9448(void* user_data, int joint_id, CollData* coll, int coll_x50,
     {
         HSD_GObj* gobj;
         Ground* gp = user_data;
-        s16* s = &gp->u.icemt.x108[3];
+        s16* s = (s16*) &gp->u.icemt1.x34[2] + 7;
         if ((s32) coll->x34_flags.b1234 == 1 && s[0] == 0) {
             gobj = Ground_GetMapGObj(2);
             s[0] = 1;
@@ -1550,7 +1557,7 @@ void fn_801F9558(void* user_data, int joint_id, CollData* coll, int coll_x50,
     {
         HSD_GObj* gobj;
         Ground* gp = user_data;
-        s16* s = gp->u.icemt.x108;
+        s16* s = (s16*) &gp->u.icemt1.x34[4];
         if ((s32) coll->x34_flags.b1234 == 1 && s[0] == 0) {
             gobj = Ground_GetMapGObj(4);
             s[0] = 1;
@@ -1886,6 +1893,7 @@ bool grIceMt_801FA364(struct grIceMt_FA364_State* state, f32* out,
     f32 result;
     int next_delay;
     s16 tmp;
+    f32 target;
 
     switch (state->phase) {
     case 0:
@@ -1899,16 +1907,22 @@ bool grIceMt_801FA364(struct grIceMt_FA364_State* state, f32* out,
         }
         break;
     case 1:
+        /* The scroll targets are a float array that starts at byte 4 of the
+         * param block, i.e. element i is the member at 0x4 + 4*i. That block
+         * is disc data, so read it through DiscF32: a plain (f32*) cast reads
+         * the big-endian bytes host-endian and lerps `cur` toward a garbage
+         * target, which is how a fighter's world y reached 7.26e6 and tripped
+         * lbVector_WorldToScreen's range assert. */
+        target = ((const DiscF32*) ((const u8*) yakumono_param + 4))[state->idx]
+                     .v;
         state->lerp_count = state->lerp_count - 1;
         tmp = state->lerp_count;
         if (tmp != 0) {
-            state->cur += (((f32*) ((u8*) yakumono_param + 4))[state->idx] -
-                           state->cur) /
-                          (f32) tmp;
+            state->cur += (target - state->cur) / (f32) tmp;
             ret = false;
         } else {
             state->phase = 0;
-            state->cur = ((f32*) ((u8*) yakumono_param + 4))[state->idx];
+            state->cur = target;
         }
         break;
     }

@@ -23,7 +23,10 @@ typedef struct {
     u8 b7 : 1, b6 : 1, b5 : 1, b4 : 1, b3 : 1, b2 : 1, b1 : 1, b0 : 1;
 } u8_bits;
 
-static u8 lbl_80472CB0[0x78];
+/* Retail reserves only 0x78 bytes here and lets the tail of the struct spill
+ * into the neighbouring lbl_80472D28; nothing reads that tail through this
+ * object, so give it the full type instead. */
+static UnkAllstarData lbl_80472CB0;
 
 AllstarStageEntry lbl_803D85F0[55] = {
     { 4, 0, 0x3c, 0xaf, { 0, 0, 9 } },
@@ -85,7 +88,7 @@ AllstarStageEntry lbl_803D85F0[55] = {
 
 UnkAllstarData* gm_GetAllStarData(void)
 {
-    return (UnkAllstarData*) lbl_80472CB0;
+    return &lbl_80472CB0;
 }
 
 u8 gm_8017EB3C(u8 difficulty, u8 stage_slot)
@@ -172,7 +175,7 @@ void fn_8017EE40(void* arg0_int)
     int i;
 
     rules = gm_GetStartMeleeRules();
-    allstar = (UnkAllstarData*) lbl_80472CB0;
+    allstar = &lbl_80472CB0;
 
     if (fn_8017E318() > 0) {
         ((u8_bits*) &arg0->_x448[2])->b3 = 1;

@@ -68,7 +68,9 @@ void hsd_80392528(Event event)
 
 typedef struct {
     s32 count;
-    GXColor color;
+    /* Written as a host-native 0xRRGGBBAA word by hsd_392A.c's view of this
+     * same object; reading it as a GXColor would unpack it as A,B,G,R. */
+    u32 color;
 } DispBar;
 
 typedef struct _DispItem {
@@ -235,7 +237,13 @@ void hsd_8039254C(void)
                         f32 prev_x;
                         prev_x = bar_x;
                         bar_x += (600.0F / (f32) char_count) * (f32) count;
-                        bar_col = bar_draw_ptr->content.bars[0].color;
+                        {
+                            u32 c = bar_draw_ptr->content.bars[0].color;
+                            bar_col.r = (u8) (c >> 24);
+                            bar_col.g = (u8) (c >> 16);
+                            bar_col.b = (u8) (c >> 8);
+                            bar_col.a = (u8) c;
+                        }
                         hsd_80391F28(
                             p_bar_col, prev_x, bar_y, bar_x, bar_y,
                             (f32) bar_draw_ptr->content.bars[0].count);

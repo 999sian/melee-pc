@@ -107,7 +107,9 @@ float ftCo_ScaleBy154(float mul)
     return mul * p_ftCommonData->x154;
 }
 
-bool ftCo_8008D8E8(float f)
+/// Knockback severity bucket, 0..3 — see the header. Declaring this @c bool
+/// clamped every strong hit to 1.
+enum_t ftCo_8008D8E8(float f)
 {
     return f < p_ftCommonData->x158   ? 0
            : f < p_ftCommonData->x15C ? 1
@@ -156,7 +158,9 @@ not_squatwait:
 bool ftCo_8008DA4C(Fighter_GObj* gobj, HitElement arg1, enum_t arg2)
 {
     Fighter* fp = gobj->user_data;
-    bool result;
+    /* Nothing is assigned when x1838_percentTemp is clear; on PPC the caller
+     * happened to see r3, here it would be garbage. */
+    bool result = false;
     if (fp->dmg.x1838_percentTemp) {
         switch (arg1) {
         case HitElement_Fire:

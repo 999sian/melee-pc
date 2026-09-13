@@ -419,8 +419,9 @@ static void fn_803B376C(u8* arg0)
     }
 }
 
+/// Overlay for lbl_80430C80: the chroma quantisation table is immediately
+/// followed by the AC Huffman code/length tables in the same object.
 typedef struct JpegEncodeTables {
-    u8 quant_luma[0x40];
     u8 quant_chroma[0x40];
     u16 ac_code_luma[0xA2];
     u8 ac_length_luma[0xA2];
@@ -529,7 +530,7 @@ static inline void jpeg_encode_component(s32 component, s32* ac_value_out,
     s32 length;
 
     work = &hsd_804D2648;
-    tables = (JpegEncodeTables*) lbl_80430C40;
+    tables = (JpegEncodeTables*) lbl_80430C80;
     dc_code = component == 0 ? lbl_80431678 : lbl_8043169C;
     dc_length = component == 0 ? lbl_80431690 : lbl_804316B4;
     ac_code = component == 0 ? tables->ac_code_luma : tables->ac_code_chroma;
@@ -1055,7 +1056,7 @@ hsd_803B51C8_inline(s32 image, s32 image_height, s32 image_width,
                 s32* work_r5_4;
                 s32* work_r4_4;
                 s32 work_r3_2;
-                u8* chroma_quant_table = state.quant_table + 0x40;
+                u8* chroma_quant_table = lbl_80430C80;
                 fn_803B376C(state.base + 0x518);
                 work_r5_4 = work_r26_2 = (s32*) (state.base + 0x718);
                 quant_scale = lbl_804D6398;
@@ -1086,7 +1087,7 @@ hsd_803B51C8_inline(s32 image, s32 image_height, s32 image_width,
                 hsd_803B3CD8(1);
             }
             {
-                u8* chroma_quant_table = state.quant_table + 0x40;
+                u8* chroma_quant_table = lbl_80430C80;
                 u8* scratch_r5;
                 s32* work_r4_5;
                 s32 work_r3_3;

@@ -533,7 +533,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist_arg)
 
         cnt = efLib_AnimCount - 1;
         efLib_AnimCount = cnt;
-        HSD_JObjAnimAll(((HSD_JObj**) efLib_AnimQueue)[cnt]);
+        HSD_JObjAnimAll(efLib_AnimQueue[cnt]);
     }
 
     return ret_obj;

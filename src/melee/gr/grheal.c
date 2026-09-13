@@ -28,7 +28,7 @@ typedef struct DISC_STRUCT grHeal_UnkData {
     s32 x4;
 } grHeal_UnkData;
 
-/* 21EF38 */ static void grHeal_8021EF38(bool);
+/* 21EF38 */ static void grHeal_8021EF38(s32);
 /* 21EF3C */ static void grHeal_8021EF3C(void);
 /* 21EFBC */ static void grHeal_8021EFBC(void);
 /* 21EFC0 */ static void grHeal_8021EFC0(void);
@@ -136,7 +136,7 @@ s16 grHeal_804D49D8[4] = { 7, 8, 9, 0 };
 
 static grHeal_UnkData* grHeal_804D6AF0[2];
 
-void grHeal_8021EF38(bool arg0) {}
+void grHeal_8021EF38(s32 arg0) {}
 
 void grHeal_8021EF3C(void)
 {
@@ -245,7 +245,7 @@ void stageGObj1_OnInit(Ground_GObj* gobj)
         }
 
         for (next_count = 0; next_count < gm_80473A18._94[1]; next_count++) {
-            next_players[next_count] = gm_80473A18._94[next_count + 2];
+            next_players[next_count] = gm_80473A18.x96[next_count];
         }
 
         next_jobjs[0] = Ground_801C3FA4(gobj, 58);

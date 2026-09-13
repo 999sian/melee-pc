@@ -275,7 +275,9 @@ s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
     s32* xfb_out = xfb_out_ptr;
     u32* xfb_cur = xfb_cur_ptr;
     s32 last_draw;
-    u8* vi_base;
+    /* The original walked &HSD_VIData with a hard-coded +0x58 field offset
+     * and a 0x60 element stride. sizeof(XFB) is 0x60 on GameCube but 0x68
+     * here (the void* buffer widened), so only element 0 landed right. */
     s32 nb_xfb;
     s32 i;
     u32 buf;
@@ -285,37 +287,30 @@ s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
     last_draw = HSD_VIGetXFBLastDrawDone();
 
     if (last_draw != -1) {
-        *xfb_cur = (u32) HSD_VIData.xfb[last_draw].buffer;
+        *xfb_cur = (u32) (uintptr_t) HSD_VIData.xfb[last_draw].buffer;
     }
 
-    vi_base = (u8*) &HSD_VIData;
     nb_xfb = HSD_VIData.nb_xfb;
     for (i = 0; i < nb_xfb; i++) {
         if (i == last_draw) {
-            goto next1;
+            continue;
         }
-        buf = *(u32*) (vi_base + 0x58);
+        buf = (u32) (uintptr_t) HSD_VIData.xfb[i].buffer;
         xfb_out[0] = buf;
         if (buf != 0) {
             break;
         }
-    next1:
-        vi_base += 0x60;
     }
 
-    i++;
-    vi_base = (u8*) &HSD_VIData + i * 0x60;
-    for (; i < nb_xfb; i++) {
+    for (i++; i < nb_xfb; i++) {
         if (i == last_draw) {
-            goto next2;
+            continue;
         }
-        buf = *(u32*) (vi_base + 0x58);
+        buf = (u32) (uintptr_t) HSD_VIData.xfb[i].buffer;
         xfb_out[1] = buf;
         if (buf != 0) {
             break;
         }
-    next2:
-        vi_base += 0x60;
     }
 
     if ((u32) xfb_out[0] == 0) {

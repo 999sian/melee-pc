@@ -47,7 +47,7 @@
                                           u32 type, void* param, int arg5);
 ///* 1C7B24 */ static void grAnime_801C7B24(HSD_GObj* gobj, int arg1, u32 arg2,
 ///                                          f32 arg8);
-/* 1C82E8 */ static void fn_801C82E8(int arg0, int* arg1);
+/* 1C82E8 */ static void fn_801C82E8(HSD_AObj* arg0, HSD_AObj** arg1);
 /* 4D6958 */ static float grAnime_804D6958;
 /* 4D695C */ static float grAnime_804D695C;
 
@@ -986,7 +986,7 @@ void grAnime_801C8098(Ground_GObj* gobj, int arg1, int arg2, int arg3,
     }
 }
 
-void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
+void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, s32 arg2)
 {
     HSD_JObj* jobj = gobj->hsd_obj;
     UnkArchiveStruct* archive;
@@ -1048,7 +1048,7 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
     HSD_JObjAnimAll(jobj);
 }
 
-void fn_801C82E8(int arg0, int* arg1)
+void fn_801C82E8(HSD_AObj* arg0, HSD_AObj** arg1)
 {
     *arg1 = arg0;
     longjmp(grAnime_8049EE40, 1);

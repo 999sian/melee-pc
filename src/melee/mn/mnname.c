@@ -1645,8 +1645,8 @@ void mnName_8023A9B4(u8 arg0)
     mnName_80239A24(gobj2);
 }
 
-char** NotAllowedNamesList = NULL;
-u8** AutoNamesList = NULL;
+DiscU32* NotAllowedNamesList = NULL; /* char*[] in the archive */
+DiscU32* AutoNamesList = NULL;       /* u8*[] in the archive */
 
 static inline void mnName_InitNameDisplayOrder(void)
 {
@@ -1752,12 +1752,16 @@ extern char mnNameNew_NullCharacter;
 
 bool IsNameNotAllowed(char* name)
 {
-    char** list = NotAllowedNamesList;
+    /* The section is an array of 32-bit char* slots inside the archive
+     * image; walking it with a host char** strides 8 bytes and reads two
+     * slots as one wild pointer. */
+    DiscU32* list = NotAllowedNamesList;
     while (true) {
-        if (mnNameNew_NullCharacter == **list) {
+        char* entry = DP(char, list->v);
+        if (mnNameNew_NullCharacter == *entry) {
             break;
         }
-        if (!CompareNameStrings(*list, name)) {
+        if (!CompareNameStrings(entry, name)) {
             return true;
         }
         list++;

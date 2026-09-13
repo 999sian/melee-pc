@@ -102,7 +102,7 @@ void ftZd_SpecialSStart_Anim(HSD_GObj* gobj)
     fp = GET_FIGHTER(gobj);
     attributes = fp->dat_attrs;
 
-    if (fp->cmd_vars[0] == 1U && fp->u.zd.x222C == 0U) {
+    if (fp->cmd_vars[0] == 1U && fp->u.zd.x222C == NULL) {
         fp->cmd_vars[0] = 0U;
         lb_8000B1CC(fp->parts[89].joint, NULL, &sp24);
 
@@ -145,7 +145,7 @@ void ftZd_SpecialSLoop_Anim(HSD_GObj* gobj)
     fp = GET_FIGHTER(gobj);
     attributes = fp->dat_attrs;
 
-    if ((fp->cmd_vars[0] == 1U) && (fp->u.zd.x222C == 0U)) {
+    if ((fp->cmd_vars[0] == 1U) && (fp->u.zd.x222C == NULL)) {
         fp->cmd_vars[0] = 0U;
         lb_8000B1CC(fp->parts[89].joint, NULL, &sp20);
 
@@ -230,7 +230,7 @@ void ftZd_SpecialAirSStart_Anim(HSD_GObj* gobj)
 
     fp = GET_FIGHTER(gobj);
     attributes = fp->dat_attrs;
-    if (fp->cmd_vars[0] == 1U && fp->u.zd.x222C == 0U) {
+    if (fp->cmd_vars[0] == 1U && fp->u.zd.x222C == NULL) {
         fp->cmd_vars[0] = 0U;
         lb_8000B1CC(fp->parts[89].joint, NULL, &sp24);
 
@@ -272,7 +272,7 @@ void ftZd_SpecialAirSLoop_Anim(HSD_GObj* gobj)
     fp = GET_FIGHTER(gobj);
     attributes = fp->dat_attrs;
 
-    if (fp->cmd_vars[0] == 1U && fp->u.zd.x222C == 0U) {
+    if (fp->cmd_vars[0] == 1U && fp->u.zd.x222C == NULL) {
         fp->cmd_vars[0] = 0U;
         lb_8000B1CC(fp->parts[89].joint, NULL, &sp20);
 
@@ -299,7 +299,7 @@ void ftZd_SpecialAirSLoop_Anim(HSD_GObj* gobj)
         fp->mv.zd.specials.x4 -= 1;
     }
 
-    if (fp->u.zd.x222C == 0U) {
+    if (fp->u.zd.x222C == NULL) {
         if (fp->mv.zd.specials.x0 <= 0 && fp->mv.zd.specials.x4 <= 0) {
             temp_f1 = 0;
             Fighter_ChangeMotionState(gobj, 348, 0, temp_f1, 1.0, temp_f1,

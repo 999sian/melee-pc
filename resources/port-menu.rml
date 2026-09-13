@@ -1,0 +1,25 @@
+<rml><head><title>PC enhancements</title><link type="text/rcss" href="port-menu.rcss" /></head>
+<body>
+<div id="toolbar"><span class="wordmark">MELEE <span class="muted">/ PC</span></span><span class="toolbar-tab">SETTINGS</span><span class="toolbar-note">F1 TO CLOSE</span></div>
+<div id="window">
+<div id="heading"><div><span class="eyebrow">MAKE IT YOURS</span><h1>PC settings</h1></div><span class="version">NTSC-U 1.02</span></div>
+<div id="content">
+<div class="section"><div class="section-heading"><h2>Graphics</h2><p>Sharper rendering. Original gameplay timing.</p></div>
+<div class="setting"><div class="description"><h3>Display mode</h3><p>Choose windowed or fullscreen.</p></div><button id="display">Display</button></div>
+<div class="setting"><div class="description"><h3>Vertical sync</h3><p>Synchronise presentation with your display.</p></div><button id="sync">VSync</button></div>
+<div class="setting"><div class="description"><h3>Internal resolution</h3><p>Auto follows the window size. Higher values sharpen 3D graphics.</p></div><button id="resolution">Resolution</button></div>
+<div class="setting"><div class="description"><h3>Aspect ratio</h3><p>Widen VS matches. HUD stays centred; other scenes retain their original aspect.</p></div><button id="aspect">Original 4:3</button></div>
+<div class="setting"><div class="description"><h3>Anti-aliasing <span class="badge">RESTART</span></h3><p>Smooth polygon edges with multisampling.</p></div><button id="aa">Anti-aliasing</button></div>
+<div class="setting"><div class="description"><h3>Anisotropic filtering <span class="badge">RESTART</span></h3><p>Improve supported textures viewed at an angle.</p></div><button id="filter">Filtering</button></div>
+</div>
+<div class="section"><div class="section-heading"><h2>Audio &amp; interface</h2><p>Adjust your experience without leaving the game.</p></div>
+<div class="setting"><div class="description"><h3>Master volume</h3><p>Click to cycle in 10% steps.</p></div><button id="volume">Master volume</button></div>
+<div class="setting"><div class="description"><h3>Mute audio</h3><p>Keep your chosen volume for when sound returns.</p></div><button id="mute">Mute</button></div>
+<div class="setting"><div class="description"><h3>Performance display</h3><p>Show the current frame rate.</p></div><button id="fps">FPS counter</button></div>
+</div>
+<div class="section controls"><h2>Keyboard controls</h2><p>WASD / arrows Move · X Attack · Z Special · C / V Jump · Q / E Shield<br/>Tab Grab · Enter Start · IJKL C-stick</p></div>
+</div>
+<div id="bottom"><p id="menu-status">Changes save automatically. Gameplay continues while the menu is open.</p><button id="resume">Return to game</button></div>
+<div id="hints">TAB Navigate <span>ENTER Select</span><span>ESC / F1 Close</span><span class="muted">Game input blocked while open</span></div>
+</div>
+</body></rml>

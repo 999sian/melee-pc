@@ -40,7 +40,7 @@ struct _m2c_stack_ftCo_800A3554 {
 /* 09FB04 */ bool ftCo_800A2C08(Fighter* fp);
 /* 0A0030 */ enum_t ftCo_800A3134(Fighter* fp);
 /* 0A007C */ bool ftCo_IsGrabbing(Fighter* fp);
-/* 0A00FC */ bool ftCo_800A3200(Fighter* fp);
+/* 0A00FC */ enum_t ftCo_800A3200(Fighter* fp); ///< 0/1/2, not a bool
 /* 0A0740 */ bool ftCo_IsAlly(Fighter* fp0, Fighter* fp1);
 /* 0A193C */ Fighter* ftCo_800A4A40(Fighter* fp);
 /* 0A1AB4 */ float ftCo_800A1AB4(Fighter* fp0, Fighter* fp1);

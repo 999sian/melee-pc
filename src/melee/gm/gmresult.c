@@ -17,7 +17,11 @@ static void order_sdata(void)
 #endif
 
 struct ResultsData lbl_8046DBE8;
-static u32 lbl_804D3F8C[2] = { 0x817C817C, 0x817C0000 };
+/* SJIS text passed to the text printer as "%s". Spelling these as u32 words
+ * only produces the right byte order on a big-endian host; on x86-64 the
+ * bytes come out reversed, and a word whose low half is zero (0x817C0000)
+ * starts with a NUL, so the label rendered empty. */
+static char lbl_804D3F8C[] = "\x81\x7c\x81\x7c\x81\x7c";
 
 #ifdef MUST_MATCH
 static void gmresult_sdata2_order(void)
@@ -50,12 +54,9 @@ static void gmresult_sdata2_order(void)
 }
 #endif
 
-u32 lbl_804D3FA0 = 0x817C0000;
-u32 lbl_804D3FA4 = 0x817B0000;
-union {
-    u32 words[2];
-    char text[8];
-} lbl_804D3FA8 = { { 0x817C8146, 0x817C0000 } };
+char lbl_804D3FA0[] = "\x81\x7c";
+char lbl_804D3FA4[] = "\x81\x7b";
+char lbl_804D3FA8[] = "\x81\x7c\x81\x46\x81\x7c";
 
 HSD_Archive* lbl_804D65B8;
 
@@ -254,7 +255,7 @@ void fn_80174468(s32 slot, HSD_Text* text1, HSD_Text* text2, HSD_Text* text3,
             result = entry->check(slot);
             if (result < 0) {
                 value_id = HSD_SisLib_803A6B98(text3, const_zero, const_neg30,
-                                               "%s", &lbl_804D3F8C);
+                                               "%s", lbl_804D3F8C);
             } else {
                 value_id = HSD_SisLib_803A6B98(text3, const_zero, const_neg30,
                                                "%d", result);
@@ -269,14 +270,14 @@ void fn_80174468(s32 slot, HSD_Text* text1, HSD_Text* text2, HSD_Text* text3,
                 if (stat_value < 0) {
                     value_id = HSD_SisLib_803A6B98(text3, const_zero,
                                                    const_neg30, "%s%d",
-                                                   &lbl_804D3FA0, -stat_value);
+                                                   lbl_804D3FA0, -stat_value);
                 } else {
                     value_id = HSD_SisLib_803A6B98(
                         text3, const_zero, const_neg30, "%d", stat_value);
                 }
             } else {
                 value_id = HSD_SisLib_803A6B98(text3, const_zero, const_neg30,
-                                               "%s", &lbl_804D3FA0);
+                                               "%s", lbl_804D3FA0);
             }
         }
         if (list->mode != 2) {
@@ -786,7 +787,7 @@ void fn_80175240(s32 slot)
         color.g = 0xA0;
         color.b = 0xA0;
         line_id = HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_count,
-                                      0.0f, 0.0f, "%s", &lbl_804D3FA0);
+                                      0.0f, 0.0f, "%s", lbl_804D3FA0);
         HSD_SisLib_803A7548(lbl_8046DBE8.player_data[slot].ko_count, line_id,
                             0.11f, 0.08f);
         empty_first_color = color;
@@ -795,7 +796,7 @@ void fn_80175240(s32 slot)
                             color_ptr);
         line_id =
             HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_count, 0.0f,
-                                -first_row_offset, "%s", &lbl_804D3FA0);
+                                -first_row_offset, "%s", lbl_804D3FA0);
         HSD_SisLib_803A7548(lbl_8046DBE8.player_data[slot].ko_count, line_id,
                             0.11f, 0.08f);
         empty_second_color = color;
@@ -804,7 +805,7 @@ void fn_80175240(s32 slot)
                             color_ptr);
         line_id = HSD_SisLib_803A6B98(
             lbl_8046DBE8.player_data[slot].ko_count, 0.0f,
-            -first_row_offset - second_row_offset, "%s", &lbl_804D3FA0);
+            -first_row_offset - second_row_offset, "%s", lbl_804D3FA0);
         HSD_SisLib_803A7548(lbl_8046DBE8.player_data[slot].ko_count, line_id,
                             0.11f, 0.08f);
         empty_third_color = color;
@@ -835,11 +836,11 @@ void fn_8017556C(s32 slot)
             }
             var_r28 = HSD_SisLib_803A6B98(
                 lbl_8046DBE8.player_data[slot].ko_time, 0.0F, -30.0F, "%s%d",
-                &lbl_804D3FA0, var_r6);
+                lbl_804D3FA0, var_r6);
         } else if (var_r6 > 0) {
             var_r28 = HSD_SisLib_803A6B98(
                 lbl_8046DBE8.player_data[slot].ko_time, 0.0F, -30.0F, "%s%d",
-                &lbl_804D3FA4, var_r6);
+                lbl_804D3FA4, var_r6);
         } else {
             var_r28 =
                 HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time,
@@ -850,7 +851,7 @@ void fn_8017556C(s32 slot)
         sp10.g = 0xA0;
         sp10.b = 0xA0;
         var_r28 = HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time,
-                                      0.0F, -30.0F, "%s", &lbl_804D3FA0);
+                                      0.0F, -30.0F, "%s", lbl_804D3FA0);
     }
     HSD_SisLib_803A7548(lbl_8046DBE8.player_data[slot].ko_time, var_r28, 0.11F,
                         0.08F);
@@ -892,11 +893,11 @@ void fn_801756E0(s32 slot)
         }
         var_r28 =
             HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time, 0.0F,
-                                -30.0F, "%s%d", &lbl_804D3FA0, var_r6);
+                                -30.0F, "%s%d", lbl_804D3FA0, var_r6);
     } else if (0 < var_r6) {
         var_r28 =
             HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time, 0.0F,
-                                -30.0F, "%s%d", &lbl_804D3FA4, var_r6);
+                                -30.0F, "%s%d", lbl_804D3FA4, var_r6);
     } else {
         var_r28 = HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time,
                                       0.0F, -30.0F, "%d", var_r6);
@@ -908,7 +909,7 @@ grey_out:
     sp10.g = 0xA0;
     sp10.b = 0xA0;
     var_r28 = HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time, 0.0F,
-                                  -30.0F, "%s", &lbl_804D3FA0);
+                                  -30.0F, "%s", lbl_804D3FA0);
 end_common:
     HSD_SisLib_803A7548(lbl_8046DBE8.player_data[slot].ko_time, var_r28, 0.08F,
                         0.08F);
@@ -946,7 +947,7 @@ void fn_80175880(s32 slot)
         {
             line_num =
                 HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time,
-                                    0.0F, -30.0F, lbl_804D3FA8.text);
+                                    0.0F, -30.0F, lbl_804D3FA8);
         } else {
             seconds = me->player_standings[slot].x28 / 60;
             display_seconds = seconds;
@@ -963,7 +964,7 @@ void fn_80175880(s32 slot)
         color.g = 0xA0;
         color.b = 0xA0;
         line_num = HSD_SisLib_803A6B98(lbl_8046DBE8.player_data[slot].ko_time,
-                                       0.0F, -30.0F, "%s", &lbl_804D3FA0);
+                                       0.0F, -30.0F, "%s", lbl_804D3FA0);
     }
 
     HSD_SisLib_803A7548(lbl_8046DBE8.player_data[slot].ko_time, line_num,
@@ -1027,7 +1028,7 @@ void fn_80175A94(s32 slot, Vec3* position)
             sp14.g = 0xA0;
             sp14.b = 0xA0;
             slot = HSD_SisLib_803A6B98(new_var->player_data[player].ko_time,
-                                       0.0F, -30.0F, "%s", &lbl_804D3FA0);
+                                       0.0F, -30.0F, "%s", lbl_804D3FA0);
         }
         HSD_SisLib_803A7548(new_var->player_data[player].ko_time, slot, 0.09F,
                             0.08F);

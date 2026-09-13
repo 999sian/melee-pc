@@ -3,7 +3,7 @@
 
 #include <melee/gr/forward.h>
 
-/* 2182C4 */ void grPushOn_802182C4(bool);
+/* 2182C4 */ void grPushOn_802182C4(s32);
 /* 2182C8 */ void grPushOn_802182C8(void);
 /* 218330 */ void grPushOn_80218330(void);
 /* 218378 */ void grPushOn_80218378(void);
@@ -27,7 +27,7 @@
 /* 2190D0 */ void grPushOn_802190D0(HSD_GObj*);
 /* 219204 */ void grPushOn_80219204(int arg0, int* out1, int* out2);
 /* 219230 */ int grPushOn_80219230(int);
-/* 2192A4 */ s32 fn_802192A4(void*, HSD_GObj*, s32*);
+/* 2192A4 */ s32 fn_802192A4(void*, HSD_GObj*, DynamicsDesc**);
 /* 219458 */ DynamicsDesc* grPushOn_80219458(enum_t);
 /* 219528 */ bool grPushOn_80219528(Vec3*, int arg, HSD_JObj* jobj);
 /* 3E7B10 */ extern StageData grPushOn_StageData;

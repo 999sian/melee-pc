@@ -959,7 +959,7 @@ bool itLikelike_UnkMotion9_Anim(Item_GObj* gobj)
 
     if (it_80272C6C(gobj) == 0) {
         it_8026D5CC(gobj);
-        if (ip->xDD4_itemVar.likelike.x50 != 0U) {
+        if (ip->xDD4_itemVar.likelike.x50 != NULL) {
             it_802DB8A8(gobj);
         } else {
             it_802D9DDC(gobj);
@@ -997,7 +997,7 @@ bool itLikelike_UnkMotion10_Anim(Item_GObj* gobj)
 
     if (it_80272C6C(gobj) == 0) {
         it_8026D5CC(gobj);
-        if (ip->xDD4_itemVar.likelike.x50 != 0U) {
+        if (ip->xDD4_itemVar.likelike.x50 != NULL) {
             it_802DB8A8(gobj);
         } else {
             it_802D9DDC(gobj);

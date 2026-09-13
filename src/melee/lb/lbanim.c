@@ -10,7 +10,7 @@ static HSD_FObj* lbAnim_InitFrames(FigaTrack* track, s8 frames)
 {
     HSD_FObj* fobj;
     HSD_FObj* next = NULL;
-    HSD_FObj* result;
+    HSD_FObj* result = NULL;
     int i;
 
     for (i = 0; i < frames; i++) {
@@ -31,7 +31,12 @@ static HSD_FObj* lbAnim_InitFrames(FigaTrack* track, s8 frames)
         fobj->flags = 0;
         track++;
     }
-    fobj->next = NULL;
+    /* `fobj` is only assigned inside the loop, which does not run when frames
+     * is 0 or negative (it is s8 and comes from disc data), so terminate
+     * through `next` -- same value after any iteration, NULL-initialised. */
+    if (next != NULL) {
+        next->next = NULL;
+    }
     return result;
 }
 
@@ -62,7 +67,13 @@ HSD_FObj* fn_8001E60C(FigaTrack* track, s8 frames)
             track++;
         }
     }
-    fobj->next = NULL;
+    /* `fobj` is only assigned for tracks that pass the obj_type filter above,
+     * so it stays unset whenever every track is an obj_type 5/6/7 one (or
+     * frames <= 0) and this would write through an uninitialised pointer.
+     * `prev` holds the same value after any assigned iteration. */
+    if (prev != NULL) {
+        prev->next = NULL;
+    }
     return first;
 }
 

@@ -36,7 +36,13 @@ void ftBossLib_8015BD20(HSD_GObj* gobj)
 void ftBossLib_8015BD24(s32 arg0, float* arg1, float arg2, s32 arg3, s32 arg4,
                         s32 arg5)
 {
-    *arg1 = ((arg3 / arg0) + HSD_Randi(arg4 - arg5) + arg5) / arg2;
+    /* arg0 is fp->cpu.level. PowerPC's divw quietly produces garbage for a
+     * zero divisor; x86-64 idiv raises SIGFPE, so any boss path that reaches
+     * here before the level is set is an instant crash. arg2 is a float, so
+     * the second division is IEEE and needs no guard. */
+    s32 level = arg0 != 0 ? arg0 : 1;
+
+    *arg1 = ((arg3 / level) + HSD_Randi(arg4 - arg5) + arg5) / arg2;
 }
 
 void ftBossLib_ReportGObjSlotType(HSD_GObj* gobj)

@@ -14,6 +14,7 @@ typedef struct DISC_STRUCT itPKThunderAttributes {
     float xC_PKTHUNDER_STICK_THRESHOLD;
     float x10_PKTHUNDER_TURN_RADIUS;
 } itPKThunderAttributes;
+DISC_ASSERT_SIZE(itPKThunderAttributes, 0x14);
 
 typedef struct itPKThunder_ItemVars {
     HSD_GObj* xDD4[6];

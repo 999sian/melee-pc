@@ -20,8 +20,12 @@ ItemStateTable it_803F8FD0[] = {
 
 s32 it_802EAF28(Item_GObj* item_gobj)
 {
-    // can't use xDD4_itemVar.greatfoxlaser.x38, which is an s16
-    return GET_ITEM(item_gobj)->xDD4_itemVar.likelike.x38;
+    /* Retail widened the s16 at +0x38 to a word by borrowing
+     * itLikelike_ItemVars, whose x38 lands on the same byte only with 4-byte
+     * pointers; here it aliases the x34/x36 timer pair instead. The only
+     * caller tests against zero, so read the field that is actually written.
+     */
+    return GET_ITEM(item_gobj)->xDD4_itemVar.greatfoxlaser.x38;
 }
 
 Item_GObj* it_802EAF34(HSD_GObj* owner, Vec3* offset, int type)

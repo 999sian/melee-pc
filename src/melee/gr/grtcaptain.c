@@ -15,7 +15,7 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-static void grTCaptain_OnDemoInit(bool);
+static void grTCaptain_OnDemoInit(s32);
 static void grTCaptain_OnInit(void);
 static void grTCaptain_OnLoad(void);
 static void grTCaptain_OnStart(void);
@@ -77,7 +77,7 @@ StageData grTCa_StageData = {
     0,
 };
 
-static void grTCaptain_OnDemoInit(bool unused) {}
+static void grTCaptain_OnDemoInit(s32 unused) {}
 
 static void grTCaptain_OnInit(void)
 {

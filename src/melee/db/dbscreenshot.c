@@ -63,7 +63,7 @@ void db_CheckScreenshot(void)
 
 void db_TakeScreenshotIfPending(void)
 {
-    char spC[32];
+    char spC[40]; /* "USB:shot/screenshot" + INT_MIN + ".frb" + NUL = 35 */
     int temp_r3;
     int temp_r5;
     int temp_ret;

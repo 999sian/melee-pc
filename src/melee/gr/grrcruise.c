@@ -122,7 +122,7 @@ struct StageData grRc_StageData = {
 
 static struct grRCruise_YakumonoParam* yakumono_param;
 
-void grRCruise_801FF164(bool arg) {}
+void grRCruise_801FF164(s32 arg) {}
 
 void grRCruise_801FF168(void)
 {
@@ -247,6 +247,9 @@ void grRCruise_801FF444(Ground_GObj* gobj)
     gp->u.rcruise.x10 = 0;
 }
 
+/* 0x198 / 0x18 on GameCube; the same 17 joints as grRc_803E4FF0. */
+#define GRRCRUISE_ENTRY_COUNT 17
+
 void grRCruise_801FF5B4(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
@@ -255,8 +258,13 @@ void grRCruise_801FF5B4(Ground_GObj* gobj)
     Ground_801C2ED0(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     gp->u.rcruise.x10 = 1;
-    gp->u.map.chikuwa = HSD_MemAlloc(sizeof(*gp->u.map.chikuwa));
-    HSD_ASSERT(410, gp->u.map.chikuwa);
+    /* Retail allocated this through the `map` view (a 0x198-byte blob, which
+     * is exactly 17 * 0x18) and read it back as `rcruise.entries`. Both the
+     * union offset and the record size change on LP64, so allocate through
+     * the view that actually reads it, sized from its own element. */
+    gp->u.rcruise.entries =
+        HSD_MemAlloc(GRRCRUISE_ENTRY_COUNT * sizeof(*gp->u.rcruise.entries));
+    HSD_ASSERT(410, gp->u.rcruise.entries);
     grRCruise_80201410(gobj);
     Ground_801C10B8(gobj, grRCruise_801FF444);
     grRCruise_80200540(gobj);
@@ -745,6 +753,7 @@ s16 grRc_803E4FF0[] = {
     0x20, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
     0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
 };
+STATIC_ASSERT(ARRAY_SIZE(grRc_803E4FF0) == GRRCRUISE_ENTRY_COUNT);
 
 struct Map_VanishDesc lbl_803E5014[] = {
     { 6, 4, false },  { 8, 5, false },  { 16, 10, false }, { 11, 6, false },
@@ -1051,7 +1060,11 @@ void grRCruise_80201410(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     int i;
 
-    gp->u.map.vanish = HSD_MemAlloc(sizeof(lbl_803E5014));
+    /* One Map_VanishEntry per descriptor: sizeof(lbl_803E5014) measures
+     * Map_VanishDesc, which is smaller (much smaller once jobj is a host
+     * pointer), so the loop below wrote past the block. */
+    gp->u.map.vanish =
+        HSD_MemAlloc(ARRAY_SIZE(lbl_803E5014) * sizeof(*gp->u.map.vanish));
     HSD_ASSERT(1453, gp->u.map.vanish);
 
     for (i = 0; i < ARRAY_SIZE(lbl_803E5014); i++) {

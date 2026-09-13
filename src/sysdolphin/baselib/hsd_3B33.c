@@ -28,7 +28,9 @@ void hsd_803B3398(void* src, size_t size)
 
     if ((u32) temp_r3 < (u32) hsd_804D79A4 + (u32) hsd_804D79A8 - size) {
         memcpy(temp_r3, src, size);
-        *((u32*) &hsd_804D79A0) += size;
+        /* hsd_804D79A0 is a pointer: advancing it through a u32 lvalue only
+         * writes half of it on LP64 and breaks strict aliasing. */
+        hsd_804D79A0 += size;
         return;
     }
 

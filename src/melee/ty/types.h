@@ -49,8 +49,10 @@ struct ToyEntry {
     };
 };
 
-/* Trophy metadata entry. Size: 0x24 bytes. */
-struct TrophyData {
+/* One row of tyInitModelTbl / tyInitModelDTbl in TyDataI.dat, read in place,
+ * so it keeps the disc byte order. Size 0x24. Declared native, `id` never
+ * matched and the `id != -1` scan in Toy_803060BC walked off the table. */
+struct DISC_STRUCT TrophyData {
     s32 id;
     s32 x04;
     f32 x08;
@@ -64,6 +66,7 @@ struct TrophyData {
     s8 x22;
     s8 x23;
 };
+DISC_ASSERT_SIZE(struct TrophyData, 0x24);
 
 /* Trophy list entry. Size: 0x34 bytes. */
 struct TyListArg {
@@ -97,7 +100,12 @@ struct Toy {
 // TODO: This struct should only be 0x58
 // STATIC_ASSERT(sizeof(struct Toy) == 0x58);
 
-struct TyDspEntry {
+/* One row of tyDisplayModelTbl / tyDisplayModelUsTbl in TyDataI.dat, read in
+ * place by tyDisplay_8031B9DC, so it keeps the disc byte order. Declared
+ * native, x00 never matched the requested id, the scan ran to the -1
+ * terminator row and callers then used its garbage x04 to index the
+ * 44-entry archive arrays. */
+struct DISC_STRUCT TyDspEntry {
     /* 0x00 */ s32 x00;
     /* 0x04 */ u8 x04;
     /* 0x05 */ u8 x05;
@@ -105,33 +113,7 @@ struct TyDspEntry {
     /* 0x08 */ f32 x08;
     /* 0x0C */ f32 x0C;
 };
-ASSERT_SIZE(struct TyDspEntry, 0x10);
-
-struct ToySubStructS_ {
-    u8 pad0[0x10];
-    s16 x10;
-};
-
-struct ToyGlobalsS_ {
-    HSD_GObj* x0;
-    u8 x4;
-    HSD_GObj* x8;
-    HSD_GObj* xC;
-    s32 x10;
-    u8 pad14[0x1C];
-    void* x30;
-    u8 pad34[0x1C];
-    void* x50;
-    HSD_Archive* x54;
-    s32 x58;
-    u8 pad0[0x140 - 0x5C];
-    ToySubStructS_* x140;
-    void* x144;
-    void* x148;
-    void* x14C;
-    void* x150;
-    s16 x154;
-};
+DISC_ASSERT_SIZE(struct TyDspEntry, 0x10);
 
 /// View of #Toy_sbss_804D6ED4 (see #TyLightArray_).
 struct TyFiguponED4 {
@@ -139,17 +121,6 @@ struct TyFiguponED4 {
     /* 0x04 */ HSD_GObj* x4;
     /* 0x08 */ void* pad_08;
     /* 0x0C */ HSD_GObj* xC;
-};
-
-struct TyDisplayData {
-    /* 0x000 */ u8 pad_000[0x138];
-    /* 0x138 */ ToyListEntry* first_entry;
-    /* 0x13C */ ToyListEntry* last_entry;
-    /* 0x140 */ ToyListEntry* selected_entry;
-    /* 0x144 */ u8 pad_144[0x154 - 0x144];
-    /* 0x154 */ s16 selectedIdx;
-    /* 0x156 */ u8 pad_156;
-    /* 0x157 */ s8 visible_count;
 };
 
 struct ToyListEntry {
@@ -161,6 +132,27 @@ struct ToyListEntry {
     /* 0x12 */ u8 pad_12[2];
     /* 0x14 */ HSD_Archive* archive;
 };
+
+/* GC size 0x158. Neither byte-counted pad here was padding: the 0x138 bytes
+ * at the front are the entry array the list code walks (toy.c reached them
+ * through a second "ToyDisplayList" view of the same object), and
+ * 0x144..0x154 hold four text handles that Toy_80310660 stores and frees.
+ * With 8-byte pointers a pad sized in GameCube bytes no longer lands
+ * first_entry at the end of the entry array, so name both runs. */
+struct TyDisplayData {
+    /* 0x000 */ ToyListEntry entries[13];
+    /* 0x138 */ ToyListEntry* first_entry;
+    /* 0x13C */ ToyListEntry* last_entry;
+    /* 0x140 */ ToyListEntry* selected_entry;
+    /* 0x144 */ HSD_Text* x144;
+    /* 0x148 */ HSD_Text* x148;
+    /* 0x14C */ HSD_Text* x14C;
+    /* 0x150 */ HSD_Text* x150;
+    /* 0x154 */ s16 selectedIdx;
+    /* 0x156 */ u8 pad_156;
+    /* 0x157 */ s8 visible_count;
+};
+ASSERT_SIZE(struct TyDisplayData, 0x158);
 
 struct Toy26B8 {
     /* 0x000 */ Vec3 x0;
@@ -185,10 +177,13 @@ struct Toy26B8 {
     };
 };
 
+/* GC size 0x8. pad_0 was the GObj slot toy_make_gobj creates and
+ * GObj_SetupGXLink registers; it has to be a real pointer or x4 lands past
+ * the 8-byte allocation on a 64-bit host. */
 struct TyViewData {
-    char pad_0[0x4];
-    s8 x4;
-    char pad_5[0x3];
+    /* +0 */ HSD_GObj* x0;
+    /* +4 */ s8 x4;
+    /* +5 */ char pad_5[0x3];
 };
 ASSERT_SIZE(struct TyViewData, 0x8);
 
@@ -197,7 +192,8 @@ struct TyFiguponData {
     /* 0x04 */ HSD_GObj* x4;
     /* 0x08 */ HSD_GObj* x8;
     /* 0x0C */ u8 pad_0C[0x4];
-    /* 0x10 */ s32 x10;
+    /* 0x10 */ HSD_GObjProc* x10; /* holds the HSD_GObj_SetupProc result;
+                                   * declared s32 it truncated the pointer */
     /* 0x14 */ HSD_Text* x14;
     /* 0x18 */ HSD_Text* x18;
     /* 0x1C */ u8 pad_1C[0x4];
@@ -310,21 +306,6 @@ struct TyListGobjEntry {
     /* +16 */ s8 x16;
 };
 
-struct TyListRow {
-    /* 0x00 */ u8 pad_0[0xC];
-    /* 0x0C */ HSD_JObj* jobj;
-    /* 0x10 */ u8 pad_10[0x18 - 0x10];
-    /* 0x18 */ HSD_Text* text0;
-    /* 0x1C */ HSD_Text* text1;
-    /* 0x20 */ HSD_Text* text2;
-    /* 0x24 */ s8 x24;
-    /* 0x25 */ u8 pad_25;
-    /* 0x26 */ s16 idx;
-    /* 0x28 */ s32 x28;
-    /* 0x2C */ u8 pad_2C[0x30 - 0x2C];
-    /* 0x30 */ f32 x30;
-};
-
 struct DigitInit {
     s32 x0, x4, x8, xC;
 };
@@ -337,7 +318,9 @@ struct TyLightData {
     /* 0x0C */ HSD_Archive* archive;
 };
 
-struct ToyNameData {
+/* One row of tyModelSortTbl in TyDataI.dat, read in place by
+ * _Toy_803064B8 (never written), so it keeps the disc byte order. */
+struct DISC_STRUCT ToyNameData {
     s16 x0;
     s16 x2;
     s16 x4;
@@ -345,6 +328,7 @@ struct ToyNameData {
     s16 x8;
     s16 xA;
 };
+DISC_ASSERT_SIZE(struct ToyNameData, 0xC);
 
 struct tyUnkStruct {
     /* 0x00 */ HSD_GObj* x0;
@@ -360,22 +344,6 @@ struct TyCleanupObj {
     /* 0x10 */ void* x10;
 };
 
-struct TyCameraData_ {
-    void* x0;
-    void* x4;
-    HSD_GObj* x8;
-    void* xC;
-    u8 pad10[0x18 - 0x10];
-    f32 x18;
-    f32 x1C;
-    f32 x20;
-    f32 x24;
-    f32 x28;
-    f32 x2C;
-    u8 pad30[0x58 - 0x30];
-    s32 x58;
-};
-
 /// Allocated type of #Toy_sbss_804D6ED4 (0xE4 bytes on GC); #TyLightData,
 /// #ToyCameraControl, #tyUnkStruct and #TyFiguponED4 are views of it.
 struct TyLightArray_ {
@@ -389,50 +357,6 @@ struct TyLightArray_ {
     /* 0x1C */ Vec3 pos[8];
     /* 0x7C */ Vec3 interest[8];
     /* 0xDC */ s8 xDC[8];
-};
-
-struct ToyDataJObj {
-    /* 0x00 */ void* x0;
-    /* 0x04 */ struct ToyDataJObj* x4;
-    /* 0x08 */ u8 pad08[0x40 - 0x08];
-    /* 0x40 */ s32 x40;
-};
-
-struct ToyDataX8 {
-    /* 0x00 */ u8 pad0[0x28];
-    /* 0x28 */ ToyDataJObj* x28;
-};
-
-struct tyLightData {
-    /* 0x00 */ char _pad0[0x0C];
-    /* 0x0C */ HSD_GObj* x0C;
-    /* 0x10 */ char _pad1[0x48];
-    /* 0x58 */ void* x58;
-};
-
-struct tyDispData {
-    u8 pad[0x144];
-    HSD_Text* x144;
-    HSD_Text* x148;
-    HSD_Text* x14C;
-    HSD_Text* x150;
-};
-
-struct un_804D6E68_t {
-    /* 0x00 */ u8 pad[0x18];
-    /* 0x18 */ f32 x18;
-};
-
-struct Toy26B8_2 {
-    u8 x0[0x28];
-    void* x28;
-};
-
-struct ToyJObjNode {
-    u8 x0[0x4];
-    void* x4;
-    u8 x8[0x40 - 0x8];
-    s32 x40;
 };
 
 /// View of #Toy_sbss_804D6ED4 (see #TyLightArray_).
@@ -456,9 +380,13 @@ struct ToyTransitionObj {
 struct Toy6E68 {
     ToyTransitionObj* x0;
     ToyTransitionObj* x4;
-    void* x8;
+    HSD_GObj* x8;
     ToyTransitionObj* xC;
-    u8 pad10[0x18 - 0x10];
+    /* 0x10..0x18 was pad: Toy_80310660 frees the slots at +0x10 and +0x14 as
+     * GObjs while walking this object as an array of pointers, so they have
+     * to be pointers here too or x18 sits at the wrong host offset. */
+    HSD_GObj* x10;
+    HSD_GObj* x14;
     f32 x18;
     f32 x1C;
     f32 x20;
@@ -479,11 +407,6 @@ struct Toy6E68 {
     s32 x5C;
     s8 x60;
     s8 x61;
-};
-
-struct Ty25Entry {
-    u8 pad[0x14];
-    void* x14;
 };
 
 /* Trophy list UI state. Size: 0x2D8 bytes. */
@@ -512,52 +435,37 @@ struct TyListState {
 };
 ASSERT_SIZE(struct TyListState, 0x2AC);
 
-struct TyListData {
-    u8 pad[0x28];
-    HSD_CObj* cobj;
-};
-
 struct SisFontData {
     u8 pad[0x4E8];
     u8* digits;
 };
 
-struct TyListWaitData {
-    u8 pad[0x20];
-    u32 x20;
-    s32 x24;
-};
-
-/// @todo = ToyGlobalsS_
-/// @todo = TyArchiveData
-/// @todo = tyLightData
+/* GC size 0x5C. The bytes from 0x10 to 0x34 are one nine-element joint array:
+ * lb_8001204C fills it from &x10 with the nine indices in _Toy_803FE3F8, and
+ * the slot at +0x30 is read back to drive the panel animation. Naming only
+ * three of the nine slots left the rest inside pad runs, whose GameCube byte
+ * counts stop agreeing with the pointer stride once pointers are 8 bytes.
+ * This is also the one declaration for this object - it used to be viewed
+ * through ToyGlobalsS_, TyArchiveData and tyLightData as well, which each
+ * placed the archive pointer at a different host offset. */
 struct ToyED8Data {
-    /*  +0 */ HSD_JObj** x0;
+    /*  +0 */ HSD_GObj* x0;
     /*  +4 */ HSD_GObj* gobj;
-    /*  +8 */ ToyDataX8* x8;
-    /*  +C */ Toy26B8_2* xC;
-    /* +10 */ u8 pad_10[0x18 - 0x10];
-    /* +18 */ HSD_JObj* jobjs[3];
-    /* +24 */ u8 pad_24[0x30 - 0x24];
-    /* +30 */ HSD_JObj* x30;
-    u8 pad_34[0x50 - 0x34];
-    /* 0x50 */ HSD_Archive* archive;
-    /* 0x54 */ u32 x54;
-    UNK_T x58;
+    /*  +8 */ HSD_GObj* x8;
+    /*  +C */ HSD_GObj* xC;
+    /* +10 */ HSD_JObj* jobjs[9];
+    /* +34 */ u8 pad_34[0x50 - 0x34];
+    /* +50 */ HSD_Archive* archive;
+    /* +54 */ HSD_Archive* x54;
+    /* +58 */ HSD_Archive* x58;
 };
 ASSERT_OFFSET(struct ToyED8Data, x0, 0x0);
 ASSERT_OFFSET(struct ToyED8Data, gobj, 0x4);
 ASSERT_OFFSET(struct ToyED8Data, xC, 0xC);
-ASSERT_OFFSET(struct ToyED8Data, jobjs, 0x18);
-ASSERT_OFFSET(struct ToyED8Data, x30, 0x30);
+ASSERT_OFFSET(struct ToyED8Data, jobjs, 0x10);
 ASSERT_OFFSET(struct ToyED8Data, archive, 0x50);
 ASSERT_OFFSET(struct ToyED8Data, x54, 0x54);
 ASSERT_SIZE(struct ToyED8Data, 0x5C);
-struct TyArchiveData {
-    HSD_GObj* gobj;
-    u8 pad[0x4C];
-    void* data;
-};
 
 struct TyFiguponInner {
     u8 pad[0x4D];
@@ -591,15 +499,6 @@ struct ToyParamEditor {
 struct ToyTable {
     ToyEntry entries[9];
 };
-
-typedef struct ToyEntryData {
-    u8 x0[0x8];
-    char* x8;
-    char* xC;
-    s16 x10;
-    u8 x12[2];
-    HSD_Archive* x14;
-} ToyEntryData;
 
 struct PosArray {
     s32 xy[2];

@@ -12,6 +12,18 @@
 #include <dolphin/dvd.h>
 #include <dolphin/os.h>
 
+/* Cached once: the .sem interpreter below runs this guard for every opcode
+ * of every sound machine inside the 5ms AX callback, with interrupts
+ * disabled; getenv() scans the whole environment on each call. */
+static int pc_dbg_sfx_stats(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = getenv("MELEE_SFX_STATS") != NULL;
+    }
+    return cached;
+}
+
 void* AXDriverAlloc(size_t size)
 {
     void* ptr = &AXDriver_804D77D4[axfxallocsize];
@@ -325,7 +337,7 @@ void AXDriver_8038C6C0(HSD_SM* v)
         /* MELEE_SFX_STATS=1: opcode histogram for the .sem command stream.
          * cmd_type 1 is 'play this sound id'; if the stream were misdecoded
          * the distribution would be dominated by unused opcodes. */
-        if (getenv("MELEE_SFX_STATS") != NULL) {
+        if (pc_dbg_sfx_stats()) {
             static unsigned long hist[256], total;
             hist[cmd_type & 0xFF]++;
             if (++total <= 3 || total % 20000 == 0) {
@@ -536,19 +548,31 @@ static void fn_8038CF48(s32 vID)
 
 /* MELEE_SFX_STATS=1: which guard in AXDriver_8038CFF4 rejects a sound
  * request. Reason 0 is acceptance; 1-3 are bank/sample table bounds, 4-6
- * are track/channel validation, 7 is the free sound-machine pool empty. */
+ * are track/channel validation, 7 is the free sound-machine pool empty.
+ * `live` is AXDriver_804D77D0, the sound machines out of the 0x60 pool that
+ * are linked into AXDriver_804D7794; `heldv` is AXDriver_804D77C8, those of
+ * them currently holding a synth node. Neither is a physical AX voice count:
+ * a node carries sfx_entry->unk8 voices (1 or 2, synth.c:590). Both fall on
+ * an explicit key-off (tmp()) as well as on reclaim, so the leak signal is
+ * sustained growth with no lull back toward 0, ending at live==96 plus
+ * rising `pool` rejects -- that means fn_8038CEA4 is not reclaiming. A
+ * latched bit in `mute` (AXDriver_804D77CC) rejects with reason 6 instead,
+ * a different fault: fighter SFX/voices all use channel 7
+ * (lbAudioAx_80023870). */
 static void sm_reject(int reason, int sound_id)
 {
     static unsigned long counts[8], total;
-    if (getenv("MELEE_SFX_STATS") == NULL) {
+    if (!pc_dbg_sfx_stats()) {
         return;
     }
     counts[reason & 7]++;
     if (++total <= 4 || (total % 25) == 0) {
         OSReport("sm_req total=%lu ok=%lu bank=%lu sample=%lu next=%lu "
-                 "track=%lu chan=%lu busy=%lu pool=%lu (last id=%d)\n",
+                 "track=%lu chan=%lu busy=%lu pool=%lu live=%d/96 heldv=%d "
+                 "mute=%04X (last id=%d)\n",
                  total, counts[0], counts[1], counts[2], counts[3], counts[4],
-                 counts[5], counts[6], counts[7], sound_id);
+                 counts[5], counts[6], counts[7], AXDriver_804D77D0,
+                 AXDriver_804D77C8, AXDriver_804D77CC, sound_id);
     }
 }
 

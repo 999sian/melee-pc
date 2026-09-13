@@ -166,14 +166,21 @@ extern ResultsData lbl_8046DBE8;
     },
 };
 
-/* 3D7018 */ u32 gmResultX22F4Init[0x20 / sizeof(u32)] = {
-    0x00180000, 0x00000000, 0x00150015, 0x00000000,
-    0x00120012, 0x00120000, 0x000E000E, 0x000E000E,
+/* 3D7018 */ /* Consumed as `PackedS16x4` (four s16 per row). The decomp stored
+ * them as packed u32 pairs, which reinterprets with the halfwords of each pair
+ * swapped on a little-endian host. Store the halfwords directly. */
+PackedS16x4 gmResultX22F4Init[4] = {
+    { { 0x18, 0x00, 0x00, 0x00 } },
+    { { 0x15, 0x15, 0x00, 0x00 } },
+    { { 0x12, 0x12, 0x12, 0x00 } },
+    { { 0x0E, 0x0E, 0x0E, 0x0E } },
 };
 
-/* 3D7038 */ u32 gmResultScoreTableInit[0x20 / sizeof(u32)] = {
-    0x00000000, 0x00000000, 0xFFF2000E, 0x00000000,
-    0xFFEE0000, 0x00120000, 0xFFEAFFF9, 0x00070016,
+/* 3D7038 */ PackedS16x4 gmResultScoreTableInit[4] = {
+    { { 0, 0, 0, 0 } },
+    { { -14, 14, 0, 0 } },
+    { { -18, 0, 18, 0 } },
+    { { -22, -7, 7, 22 } },
 };
 
 /* 3D7058 */ ResultsCharacterData gmResultCharacterData = {

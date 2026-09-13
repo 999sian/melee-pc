@@ -174,8 +174,12 @@ struct un_804D6EF4_t {
     /* +0x5E */ s8 x5E;
 };
 
+/* Scene enter data for the Allstar intro: both slots are ints (the consumer,
+ * gm_Scene_IntroAllstar_OnEnter, reads them as `struct enterdata {int x0, x4;}`
+ * and passes x0 to Player_SetPlayerCharacter). A pointer here would also
+ * change the stride of everything after +0x138 in un_803FA258_t. */
 struct un_80301C64_t {
-    void* x0;
+    s32 x0;
     s32 x4;
 };
 ASSERT_SIZE(struct un_80301C64_t, 0x8);
@@ -220,16 +224,23 @@ struct IfStockUserData {
 
 struct ifStock_804A1378_per_player {
     HSD_GObj* x0;
-    HSD_JObj* x4[8];
-    HSD_JObj* x24;
-    HSD_JObj* x28;
-    HSD_JObj* x2C;
-    HSD_JObj* x30;
-    HSD_JObj* x34;
-    HSD_JObj* x38;
-    HSD_JObj* x3C;
-    HSD_JObj* x40;
-    HSD_JObj* x44;
+    /// One contiguous HSD_JObj* run: the coin digits are addressed both by
+    /// name (x28..x38) and as x4[9..13].
+    union {
+        HSD_JObj* x4[17];
+        struct {
+            HSD_JObj* _x4[8];
+            HSD_JObj* x24;
+            HSD_JObj* x28;
+            HSD_JObj* x2C;
+            HSD_JObj* x30;
+            HSD_JObj* x34;
+            HSD_JObj* x38;
+            HSD_JObj* x3C;
+            HSD_JObj* x40;
+            HSD_JObj* x44;
+        };
+    };
     int coins;
     int stocks;
 };

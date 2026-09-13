@@ -10,6 +10,7 @@
 #include "inlines.h"
 #include "types.h"
 #include <dolphin/mtx.h>
+#include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbrefract.h>
 #include <sysdolphin/baselib/class.h>
 #include <sysdolphin/baselib/debug.h>
@@ -668,26 +669,49 @@ void ftParts_80074D7C(FtPartsVis* vis, int idx, DObjList* dobj_list)
     }
 }
 
+/* part_to_joint is on-disc and indexed by the caller's part id; a kind whose
+ * table does not define a part yields FTPART_INVALID (-1), and
+ * `fp->parts[-1]` is a wild write rather than a no-op. Report and skip. */
+static void ftParts_SetInitialFlag(Fighter* fp, Fighter_Part part, int b4)
+{
+    s32 idx = (s32) (s8) ftParts_GetBoneIndex(fp, part);
+
+    if ((u32) idx >= get_parts_tbl(fp->kind)->parts_num) {
+        OSReport("ftParts: kind %d has no bone for part %d (got %d of %u)\n",
+                 fp->kind, (int) part, (int) idx,
+                 get_parts_tbl(fp->kind)->parts_num);
+        return;
+    }
+    if (b4) {
+        fp->parts[idx].flags_b4 = true;
+    } else {
+        fp->parts[idx].flags_b3 = true;
+    }
+}
+
 void ftParts_80074E58(Fighter* fp)
 {
-    int i;
-
     fp->parts = HSD_ObjAlloc(&fighter_parts_alloc_data);
     fp->dobj_list.data = HSD_ObjAlloc(&fighter_dobj_list_alloc_data);
 
-    for (i = 0; i < get_parts_tbl(fp->kind)->parts_num; i++) {
-        fp->parts[i].flags8 = 0;
-        fp->parts[i].flagsC = 0;
-    }
-
+    /* HSD_ObjAlloc hands back a recycled block uncleared (see the @bug note
+     * in Fighter_Create). Only entries below parts_num are ever written by
+     * ftParts_SetupParts / ftParts_8007462C, so entries above it keep the
+     * previous fighter's `joint` / `x4_jobj2` pointers, which now point at
+     * freed HSD_JObjs. Any reader that indexes fp->parts with a part id the
+     * current skeleton does not define -- ftLib_80086630, and therefore
+     * ftLib_800866DC's camera bone -- then dereferences one of those in
+     * lb_8000B1CC and gets an arbitrary matrix. Clear the whole block; a NULL
+     * joint is the benign case every reader already handles. */
+    memzero(fp->parts, MAX_FT_PARTS * sizeof(*fp->parts));
     fp->parts[0].flags_b3 = true;
-    fp->parts[ftParts_GetBoneIndex(fp, FtPart_TransN)].flags_b3 = true;
-    fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].flags_b3 = true;
-    fp->parts[ftParts_GetBoneIndex(fp, FtPart_YRotN)].flags_b3 = true;
-    fp->parts[ftParts_GetBoneIndex(fp, FtPart_HipN)].flags_b3 = true;
-    fp->parts[ftParts_GetBoneIndex(fp, FtPart_TransN2)].flags_b3 = true;
-    fp->parts[ftParts_GetBoneIndex(fp, FtPart_TransN)].flags_b4 = true;
-    fp->parts[ftParts_GetBoneIndex(fp, 0x35)].flags_b4 = true;
+    ftParts_SetInitialFlag(fp, FtPart_TransN, 0);
+    ftParts_SetInitialFlag(fp, FtPart_XRotN, 0);
+    ftParts_SetInitialFlag(fp, FtPart_YRotN, 0);
+    ftParts_SetInitialFlag(fp, FtPart_HipN, 0);
+    ftParts_SetInitialFlag(fp, FtPart_TransN2, 0);
+    ftParts_SetInitialFlag(fp, FtPart_TransN, 1);
+    ftParts_SetInitialFlag(fp, 0x35, 1);
 }
 
 Fighter_Part ftParts_GetBoneIndex(Fighter* fp, Fighter_Part part)

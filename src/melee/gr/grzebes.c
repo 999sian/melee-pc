@@ -24,7 +24,7 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/random.h>
 
-/* 1D84A0 */ static void grZebes_801D84A0(bool arg);
+/* 1D84A0 */ static void grZebes_801D84A0(s32 arg);
 /* 1D8528 */ static void grZebes_801D8528(void);
 /* 1D852C */ void grZebes_801D852C(void);
 /* 1D8550 */ static bool grZebes_801D8550(void);
@@ -87,7 +87,8 @@ typedef struct DISC_STRUCT grZe_YakumonoParam {
     /* 0x08 */ f32 x08;
     /* 0x0C */ f32 x0C;
     /* 0x10 */ s32 x10;
-    /* 0x14 */ u8 pad_14[0x30 - 0x14];
+    /* 0x14 */ u8 pad_14[0x2C - 0x14];
+    /* 0x2C */ DISC_PTR(DynamicsDesc) x2C_bury_dynamics;
     /* 0x30 */ f32 x30;
     /* 0x34 */ f32 x34;
     /* 0x38 */ f32 x38;
@@ -138,15 +139,8 @@ typedef struct grZe_BubbleEntry {
     /* 0x20 */ HSD_GObj* x20_gobj;
 } grZe_BubbleEntry;
 
-typedef struct grZe_BubbleSpawnPos {
-    /* 0x00 */ f32 pad_00[5];
-    /* 0x14 */ f32 x14_x;
-    /* 0x18 */ f32 x18_y;
-    /* 0x1C */ f32 pad_1C[2];
-} grZe_BubbleSpawnPos;
-
-/* 8049F140 */ static Vec3 grZe_8049F140[2];
-/* 8049F158 */ static Vec3 grZe_8049F158[2];
+/* 8049F140 */ static Vec3 grZe_8049F140[4];
+#define grZe_8049F158 (grZe_8049F140 + 2)
 /* 8049F170 */ static grZe_BubbleEntry grZe_8049F170[20];
 
 typedef struct grZe_BubbleScales {
@@ -158,10 +152,18 @@ typedef struct grZe_BubbleConfig {
     Vec3 x4_positions[4];
 } grZe_BubbleConfig;
 
-typedef struct grZe_BubbleState {
-    Vec3 positions[4];
-    grZe_BubbleEntry bubbles[20];
-} grZe_BubbleState;
+/// Retail reads the 0x8049F140 data run with a 0x24 stride and a +0x14/+0x18
+/// field pair: index 0 lands inside #grZe_8049F140, index n > 0 on
+/// grZe_8049F170[n - 1].x08_x / .x0C_y.
+static inline f32 grZe_BubbleSpawnX(s32 n)
+{
+    return n == 0 ? grZe_8049F140[1].z : grZe_8049F170[n - 1].x08_x;
+}
+
+static inline f32 grZe_BubbleSpawnY(s32 n)
+{
+    return n == 0 ? grZe_8049F140[2].x : grZe_8049F170[n - 1].x0C_y;
+}
 
 GrJoint grZe_803E1A10[] = {
     { 1, 6, 21 }, { 4, 6, 14 }, { 3, 6, 1 }, { 2, 7, 6 }, { 5, 7, 1 },
@@ -234,7 +236,7 @@ StageData grZe_StageData = {
     ARRAY_SIZE(grZe_803E1A10),
 };
 
-void grZebes_801D84A0(bool arg) {}
+void grZebes_801D84A0(s32 arg) {}
 
 void grZebes_801D84A4(void)
 {
@@ -369,15 +371,15 @@ Vec3 grZe_803E1C80[8] = {
 }; // clang-format on
 
 static inline void
-grZebes_UpdateCollisionColumns(grZe_BubbleState* state, f32 column_width,
-                               f32* column_x, f32* column_heights,
-                               int* bubble_idx, int* vertex_idx)
+grZebes_UpdateCollisionColumns(f32 column_width, f32* column_x,
+                               f32* column_heights, int* bubble_idx,
+                               int* vertex_idx)
 {
-    grZe_BubbleEntry* bubble = state->bubbles;
+    grZe_BubbleEntry* bubble = grZe_8049F170;
     f32 top_y;
     f32 x_offset;
     f32 left_x;
-    left_x = state->positions[0].x;
+    left_x = grZe_8049F140[0].x;
     for (*bubble_idx = 0; *bubble_idx < 20; (*bubble_idx)++, bubble++) {
         if (bubble->x00_active == 1) {
             f32 left_vertex;
@@ -511,22 +513,19 @@ void grZebes_801D881C(HSD_GObj* gobj)
                 if (spawn_phase < mirror) {
                     f32 rand = HSD_Randf();
                     f32 scale_min = yakumono_param->x58;
-                    grZe_BubbleSpawnPos* pos =
-                        (grZe_BubbleSpawnPos*) grZe_8049F140;
                     {
                         f32 scale_range = yakumono_param->x5C - scale_min;
-                        grZebes_801DAE70(spawn_phase, 4,
-                                         pos[spawn_phase].x14_x,
-                                         pos[spawn_phase].x18_y,
-                                         scale_range * rand + scale_min);
+                        grZebes_801DAE70(
+                            spawn_phase, 4, grZe_BubbleSpawnX(spawn_phase),
+                            grZe_BubbleSpawnY(spawn_phase),
+                            scale_range * rand + scale_min);
                     }
                 }
                 if (spawn_phase <= mirror) {
                     f32 rand2 = HSD_Randf();
-                    grZe_BubbleSpawnPos* pos =
-                        (grZe_BubbleSpawnPos*) grZe_8049F140;
-                    grZebes_801DAE70(mirror, 4, pos[mirror + 2].x14_x,
-                                     pos[mirror + 2].x18_y,
+                    grZebes_801DAE70(mirror, 4,
+                                     grZe_BubbleSpawnX(mirror + 2),
+                                     grZe_BubbleSpawnY(mirror + 2),
                                      (f32) (0.5 * rand2 + 1.0));
                 }
             }
@@ -560,14 +559,12 @@ void grZebes_801D881C(HSD_GObj* gobj)
         Vec3 lower_point_pos;
         int i;
         f32 column_width;
-        grZe_BubbleState* state = (grZe_BubbleState*) grZe_8049F140;
-
         first_column = 0;
         mpJointListAdd(first_column);
         mpLib_80057424(first_column);
 
         column_width =
-            (state->positions[1].x - state->positions[first_column].x) / 5.0f;
+            (grZe_8049F140[1].x - grZe_8049F140[first_column].x) / 5.0f;
         heights = column_heights;
 
         column_heights[first_column] = -9999.0f;
@@ -577,7 +574,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
         column_heights[4] = -9999.0f;
         column_heights[5] = -9999.0f;
 
-        grZebes_UpdateCollisionColumns(state, column_width, column_x,
+        grZebes_UpdateCollisionColumns(column_width, column_x,
                                        column_heights, &i, &vertex_idx);
 
         upper_point_pos = grZe_803B7FF0.upper_point_pos;
@@ -1365,18 +1362,23 @@ s32 grZebes_801DA528(HSD_GObj* arg0, void* arg1, s32 arg2, s32 arg3)
     return st->x00_state;
 }
 
+/* Both callbacks are the same operation on the acid state of two different
+ * gobjs: damage += slope, velocity = hit x. Reaching it through u.zebes.xC
+ * only worked on GameCube: grZebes_GroundVars5 puts grZe_AcidState four bytes
+ * further in on PC (its union alternative holds pointers), so the Vec3 view
+ * landed on x08_offset / x0C_velocity instead. */
 void fn_801DA9D8(Item_GObj* arg0, Ground* gp, Vec3* pos, HSD_GObj* fobj,
                  f32 slope)
 {
-    gp->u.zebes.xC.z += slope;
-    gp->u.zebes.xC.y = pos->x;
+    gp->u.zebes5.acid.x10_damage += slope;
+    gp->u.zebes5.acid.x0C_velocity = pos->x;
 }
 
 void fn_801DA9F0(Item_GObj* arg0, Ground* gp, Vec3* pos, HSD_GObj* fobj,
                  f32 slope)
 {
-    gp->u.zebes.xC.y += slope;
-    gp->u.zebes.xC.x = pos->x;
+    gp->u.zebes4.acid.x10_damage += slope;
+    gp->u.zebes4.acid.x0C_velocity = pos->x;
 }
 
 s32 grZebes_801DAA08(void)
@@ -2383,7 +2385,13 @@ bool grZebes_801DCBFC(Ground_GObj* gobj, HSD_GObj* fobj, void* arg)
     ftLib_80086684(fobj, &prev);
     prev.y += intercept;
     if (pos.y < slope) {
-        *(void**) arg = ((HSD_GObj*) yakumono_param)->user_data;
+        /* GameCube read this as `((HSD_GObj*) yakumono_param)->user_data`,
+         * i.e. the 32-bit word at yakumono_param + 0x2C. The caller
+         * (ftColl_8007BAC0) passes &desc of a DynamicsDesc* and
+         * ftCo_800C08A0 dereferences it, so the slot must be relocated and
+         * stored pointer-wide. */
+        *(DynamicsDesc**) arg =
+            DP(DynamicsDesc, yakumono_param->x2C_bury_dynamics);
         if (prev.y > slope) {
             Ground_801C43A4(&pos);
             Ground_801C53EC(0x61A82);

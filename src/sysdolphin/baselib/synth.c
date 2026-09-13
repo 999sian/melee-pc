@@ -517,13 +517,24 @@ void dropcallback(void* dropped)
 
 /** @remarks The per-voice blocks of an SFX entry are 0x40 apart, which is
  *  less than the AX structures they carry. They are big-endian in memory
- *  (see struct foo in synth.static.h); the AX stubs ignore them.
+ *  (see struct foo in synth.static.h) and are handed to AXSetVoiceAddr /
+ *  AXSetVoiceAdpcm / AXSetVoiceAdpcmLoop raw; those three byte-swap their
+ *  block (src/pc/audio.c), unlike every other AXSetVoice* which takes
+ *  host-native values.
  */
 #define SFX_VOICE(i) ((struct foo*) ((u8*) sfx_entry + (i) * 0x40))
 
 static AXPBMIX lbl_80407FB4 = { 0 };
 
 static AXPBSRC HSD_Synth_80407FD8 = { 1, 0, 0, { 0, 0, 0, 0 } };
+
+/* Retail wrote the 16.16 ratio with `*(u32*) &src->ratioHi`, which only lands
+ * in the right halves on a big-endian target. */
+static void setSrcRatio(AXPBSRC* src, u32 ratio)
+{
+    src->ratioHi = ratio >> 16;
+    src->ratioLo = ratio;
+}
 
 int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
                        int itd_flag, float pitch1, float pitch2,
@@ -609,9 +620,10 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
             while (voice_idx < sfx_entry->unk8) {
                 AXSetVoicePriority(voices[voice_idx], priority);
                 AXSetVoiceVe(voices[voice_idx], &ve);
-                *(u32*) &HSD_Synth_80407FD8.ratioHi =
-                    (65536.0F *
-                     (sfx_node->x18[1] * (sfx_node->x14 * sfx_node->x18[0])));
+                setSrcRatio(
+                    &HSD_Synth_80407FD8,
+                    (u32) (65536.0F * (sfx_node->x18[1] *
+                                       (sfx_node->x14 * sfx_node->x18[0]))));
                 AXSetVoiceSrc(voices[voice_idx], &HSD_Synth_80407FD8);
                 AXSetVoiceAddr(voices[voice_idx],
                                (AXPBADDR*) &SFX_VOICE(voice_idx)->x10);
@@ -667,12 +679,17 @@ static inline struct HSD_SynthSFXNode* getNode(int sfx_id)
     }
 }
 
-bool HSD_SynthSFXPlayWithGroup(int sfx_id, u8 vol, u8 vol2, u8 pan,
-                               int priority, int itd_flag, int group,
-                               f32 pitch1, f32 pitch2, f32 mix_main,
-                               f32 mix_auxA, f32 mix_auxB)
+/* Returns HSD_Synth_80389334's synth node id (0x40 * n + voice index), or -1.
+ * Upstream declares this `bool`; under C11 that is 1-byte `_Bool`, so every id
+ * clamps to 1 and the -1 sentinel clamps to 1 as well. The only caller,
+ * axdriver.c:217, stores it in `int HSD_SM::vID` and needs both the id (to
+ * register in AXDriver_804C5920 and to key the sound off later) and the -1. */
+int HSD_SynthSFXPlayWithGroup(int sfx_id, u8 vol, u8 vol2, u8 pan,
+                              int priority, int itd_flag, int group,
+                              f32 pitch1, f32 pitch2, f32 mix_main,
+                              f32 mix_auxA, f32 mix_auxB)
 {
-    bool result;
+    int result;
     int nodeID;
     struct HSD_SynthSFXNode* node;
 
@@ -741,9 +758,13 @@ static inline void stopRange(size_t lo, size_t hi)
     for (i = 0; i < 0x40; i++) {
         struct HSD_SynthSFXNode* node = &hsd_SynthSFXNodes[i];
         if (hsd_SynthSFXNodes[i].x0 > 0) {
-            addr = *(size_t*) &hsd_SynthSFXNodes[i]
-                        .voice[0]
-                        ->pb.addr.currentAddressHi;
+            /* The current play position is an address PAIR in field order,
+             * not one word: reading it with *(size_t*) takes 8 bytes on LP64
+             * (all of `addr` past the pair plus the first two ADPCM coeffs)
+             * and the range test never matched, so unloading or relocating a
+             * bank left its voices playing out of reused ARAM. */
+            addr = ((u32) node->voice[0]->pb.addr.currentAddressHi << 16) |
+                   node->voice[0]->pb.addr.currentAddressLo;
             if (addr >= lo && addr < hi) {
                 HSD_SynthSFXStopNode(&hsd_SynthSFXNodes[i]);
             }
@@ -1207,9 +1228,13 @@ void HSD_SynthResetStreamCounters(int result, int length, void* buf, bool b)
     HSD_Synth_804D7778 = 0;
 }
 
-void HSD_Synth_8038AD74(u32 offset, uintptr_t src)
+/* Installed as an HSD_DevComCallback, whose 2nd parameter is `int` (devcom
+ * passes `(int) dc->args`). Declaring it `uintptr_t` reads 64 bits out of a
+ * register the SysV ABI only defines the low 32 bits of, so widen from int
+ * here instead. */
+void HSD_Synth_8038AD74(u32 offset, int src)
 {
-    HSD_DevComRequest(HSD_Synth_804D7764, src,
+    HSD_DevComRequest(HSD_Synth_804D7764, (u32) src,
                       HSD_Synth_804D7780 + (HSD_Synth_804D7768 << 16),
                       lbl_804C4540[HSD_Synth_804D7768].x0, 0x23, 0,
                       HSD_SynthResetStreamCounters, 0);
@@ -1323,11 +1348,11 @@ void HSD_Synth_8038B120(void)
         for (i = 0; i < node->voice_count; i++) {
             AXSetVoiceVe(node->voice[i], &ve);
             if (node->flags & 4) {
-                *(u32*) &HSD_Synth_80407FD8.ratioHi = 0;
+                setSrcRatio(&HSD_Synth_80407FD8, 0);
             } else {
-                *(u32*) &HSD_Synth_80407FD8.ratioHi =
-                    (u32) (65536.0F *
-                           (node->x14 * node->x18[0] * node->x18[1]));
+                setSrcRatio(&HSD_Synth_80407FD8,
+                            (u32) (65536.0F * (node->x14 * node->x18[0] *
+                                               node->x18[1])));
             }
             AXSetVoiceSrc(node->voice[i], &HSD_Synth_80407FD8);
             AXSetVoiceCurrentAddr(
@@ -1384,8 +1409,9 @@ void HSD_SynthPStreamHeaderCallback(int arg0, int arg1, void* arg2,
         }
         node->x14 = 0.00003125f * (f32) entry[2].v;
         for (i = 0; i < node->voice_count; i++) {
-            *(u32*) &HSD_Synth_80407FD8.ratioHi = (u32) (65536.0f * node->x14);
-            /* AX blocks handed over big-endian; the AX stubs ignore them. */
+            setSrcRatio(&HSD_Synth_80407FD8,
+                        (u32) (65536.0f * node->x14));
+            /* Raw big-endian block; AXSetVoiceAddr/Adpcm byte-swap it. */
             AXSetVoiceAddr(node->voice[i], (AXPBADDR*) &entry[i * 14 + 4]);
             AXSetVoiceAdpcm(node->voice[i], (AXPBADPCM*) &entry[i * 14 + 8]);
         }

@@ -416,11 +416,14 @@ static HSD_ZList* zlist_sort(HSD_ZList* list, s32 nb, s32 offset)
 void _HSD_ZListSort(void)
 {
     if (zsort_sorting) {
+        /* 0x3C/0x40 are the GameCube offsets of sort.texedge/sort.xlu; with
+         * 8-byte pointers they are 0x48/0x50. The literals aliased the upper
+         * half of jobj and rendermode, and zlist_sort writes through them. */
         zlist_texedge_top =
             zlist_sort(zlist_texedge_top, zlist_texedge_nb,
-                       0x3C); /// @todo Create and use an offsetof macro to get
-                              /// ZList sort.texedge and sort.xlu
-        zlist_xlu_top = zlist_sort(zlist_xlu_top, zlist_xlu_nb, 0x40);
+                       offsetof(HSD_ZList, sort.texedge));
+        zlist_xlu_top = zlist_sort(zlist_xlu_top, zlist_xlu_nb,
+                                   offsetof(HSD_ZList, sort.xlu));
     }
 }
 

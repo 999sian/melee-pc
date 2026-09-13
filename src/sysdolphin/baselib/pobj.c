@@ -980,15 +980,12 @@ void HSD_PObjClearMtxMark(void* obj, u32 mark)
 
 void HSD_PObjSetMtxMark(int idx, void* obj, u32 mark)
 {
-    if (idx >= 2) {
+    if (idx < 0 || 2 <= idx) {
         return;
     }
 
-    if (0 <= idx && idx < 2) {
-    } else {
-        mtx_mark[idx].obj = obj;
-        mtx_mark[idx].mark = mark;
-    }
+    mtx_mark[idx].obj = obj;
+    mtx_mark[idx].mark = mark;
 }
 
 void HSD_PObjGetMtxMark(int idx, void** obj, u32* mark)

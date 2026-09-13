@@ -7,9 +7,9 @@
 
 #include <melee/it/kinds/types.h>
 
-/// Keep this if it is NOT defined in itCommonItems.h or similar.
-/// If you get a redefinition error for this too, remove it.
-typedef struct itDoseiAttributes {
+/* Mr. Saturn's article special attributes, read in place from ItCo.dat
+ * through Article::x4_specialAttributes. */
+typedef struct DISC_STRUCT itDoseiAttributes {
     f32 unk0;
     s32 unk4;
     f32 unk8;
@@ -17,6 +17,7 @@ typedef struct itDoseiAttributes {
     s32 unk10;
     s32 unk14;
 } itDoseiAttributes;
+DISC_ASSERT_SIZE(itDoseiAttributes, 0x18);
 
 /* 281164 */ void itDosei_Logic7_Spawned(Item_GObj*);
 /* 281390 */ void itDosei_80281390(Item_GObj*);

@@ -16,18 +16,20 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-typedef struct grTMewtwo_UnkStruct {
-    DynamicsDesc* x0;
-    DynamicsDesc* x4;
-    DynamicsDesc* xC;
-    DynamicsDesc* x8;
-    DynamicsDesc* x10;
-    DynamicsDesc* x14;
-    DynamicsDesc* x1C;
-    DynamicsDesc* x18;
+/* Read in place out of GrTMw.dat: big-endian, and every slot is a 32-bit
+ * disc pointer, not a host pointer. */
+typedef struct DISC_STRUCT grTMewtwo_UnkStruct {
+    DISC_PTR(DynamicsDesc) x0;
+    DISC_PTR(DynamicsDesc) x4;
+    DISC_PTR(DynamicsDesc) xC;
+    DISC_PTR(DynamicsDesc) x8;
+    DISC_PTR(DynamicsDesc) x10;
+    DISC_PTR(DynamicsDesc) x14;
+    DISC_PTR(DynamicsDesc) x1C;
+    DISC_PTR(DynamicsDesc) x18;
 } grTMewtwo_UnkStruct;
 
-/* 2221D8 */ static void grTMewtwo_802221D8(bool arg0);
+/* 2221D8 */ static void grTMewtwo_802221D8(s32 arg0);
 /* 2221DC */ static void grTMewtwo_802221DC(void);
 /* 222254 */ static void grTmewtwo_UnkStage0_OnLoad(void);
 /* 222258 */ static void grTmewtwo_UnkStage0_OnStart(void);
@@ -96,7 +98,7 @@ StageData grTMewtwo_StageData = {
     NULL,
 };
 
-void grTMewtwo_802221D8(bool arg0) {}
+void grTMewtwo_802221D8(s32 arg0) {}
 
 void grTMewtwo_802221DC(void)
 {
@@ -194,13 +196,13 @@ static inline DynamicsDesc* inlineA0(int arg0)
 {
     int temp = mpLineGetKind(arg0);
     if (temp == CollLine_Floor) {
-        return yakumono_param->x0;
+        return DP(DynamicsDesc, yakumono_param->x0);
     } else if (temp == CollLine_Ceiling) {
-        return yakumono_param->x4;
+        return DP(DynamicsDesc, yakumono_param->x4);
     } else if (temp == CollLine_RightWall) {
-        return yakumono_param->x8;
+        return DP(DynamicsDesc, yakumono_param->x8);
     } else if (temp == CollLine_LeftWall) {
-        return yakumono_param->xC;
+        return DP(DynamicsDesc, yakumono_param->xC);
     } else {
         return NULL;
     }
@@ -210,13 +212,13 @@ static inline DynamicsDesc* inlineA1(int arg0)
 {
     int temp = mpLineGetKind(arg0);
     if (temp == CollLine_Floor) {
-        return yakumono_param->x10;
+        return DP(DynamicsDesc, yakumono_param->x10);
     } else if (temp == CollLine_Ceiling) {
-        return yakumono_param->x14;
+        return DP(DynamicsDesc, yakumono_param->x14);
     } else if (temp == CollLine_RightWall) {
-        return yakumono_param->x18;
+        return DP(DynamicsDesc, yakumono_param->x18);
     } else if (temp == CollLine_LeftWall) {
-        return yakumono_param->x1C;
+        return DP(DynamicsDesc, yakumono_param->x1C);
     } else {
         return NULL;
     }

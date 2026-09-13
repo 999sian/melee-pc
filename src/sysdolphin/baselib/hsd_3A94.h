@@ -33,10 +33,17 @@ typedef struct CardState {
     /* 0x170 */ s32 x170[64];
     /* 0x270 */ s32 x270[64];
     /* 0x370 */ u8 x370[0x40];
-    /* 0x3B0 */ u8 x3B0;
-    /* 0x3B1 */ u8 pad_3B1[1];
-    /* 0x3B2 */ u8 icon_format[8];
-    /* 0x3BA */ u8 icon_speed[8];
+    /// The banner format, icon formats and icon speeds are copied in and
+    /// hashed as one 18-byte block.
+    /* 0x3B0 */ union {
+        u8 file_header[18];
+        struct {
+            u8 x3B0;
+            u8 pad_3B1[1];
+            u8 icon_format[8];
+            u8 icon_speed[8];
+        };
+    };
     /* 0x3C2 */ u8 pad_3C2[2];
     /* 0x3C4 */ CARDStat stat;
     /* 0x430 */ u8 digest[0x30];

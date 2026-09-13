@@ -33,7 +33,7 @@ struct DISC_STRUCT grShrineRoute_YakumonoParam {
     int x4;
     int x8;
     int xC;
-    int x10;
+    DISC_PTR(DynamicsDesc) x10;
     f32 x14;
     f32 x18;
     f32 x1C;
@@ -54,7 +54,7 @@ struct grSh_Route_LightConfig {
     /* 0x30 */ GXDistAttnFn dist_func;
 };
 
-/* 2087B8 */ static void grShrineRoute_OnDemoInit(bool);
+/* 2087B8 */ static void grShrineRoute_OnDemoInit(s32);
 /* 2087BC */ static void grShrineRoute_OnInit(void);
 /* 20882C */ static void grShrineRoute_OnLoad(void);
 /* 208850 */ static void grShrineRoute_OnStart(void);
@@ -95,7 +95,8 @@ struct grSh_Route_LightConfig {
                                           CollData* coll, int coll_x50,
                                           mpLib_GroundEnum ground_kind,
                                           float delta_y);
-/* 20AE08 */ static s32 grShrineRoute_8020AE08(HSD_GObj*, HSD_GObj*, s32*);
+/* 20AE08 */ static s32 grShrineRoute_8020AE08(HSD_GObj*, HSD_GObj*,
+                                               DynamicsDesc**);
 /* 20AF38 */ static void grShrineRoute_8020AF38(HSD_GObj*, s32);
 /* 20B020 */ static void grShrineRoute_8020B020(HSD_GObj* gobj, int r4,
                                                 bool hide);
@@ -176,7 +177,7 @@ StageData grSh_Route_StageData = {
 
 static struct grShrineRoute_YakumonoParam* yakumono_param;
 
-void grShrineRoute_OnDemoInit(bool arg) {}
+void grShrineRoute_OnDemoInit(s32 arg) {}
 
 void grShrineRoute_OnInit(void)
 {
@@ -1466,7 +1467,11 @@ void onJointCollision(void* user_data, int joint_id, CollData* coll,
     }
 }
 
-s32 grShrineRoute_8020AE08(HSD_GObj* gobj, HSD_GObj* player_gobj, s32* out)
+/* `out` is &desc of a DynamicsDesc* in ftColl_8007BAC0; ftCo_800C08A0
+ * dereferences it, so the disc slot must be relocated, not stored as a
+ * 32-bit half of a host pointer. */
+s32 grShrineRoute_8020AE08(HSD_GObj* gobj, HSD_GObj* player_gobj,
+                           DynamicsDesc** out)
 {
     static Vec3 const lo_init = { -285.93, -226.1f, 0.0f };
     static Vec3 const hi_init = { -161.56, -226.1f, 0.0f };
@@ -1498,7 +1503,7 @@ s32 grShrineRoute_8020AE08(HSD_GObj* gobj, HSD_GObj* player_gobj, s32* out)
 
     if (pos.y < lo.y) {
         if (lo.x < pos.x && pos.x < hi.x) {
-            *out = yakumono_param->x10;
+            *out = DP(DynamicsDesc, yakumono_param->x10);
             return 1;
         }
     }

@@ -298,7 +298,14 @@ void end_frame() noexcept {
         wgpu::SurfaceTexture surfaceTexture;
         g_surface.GetCurrentTexture(&surfaceTexture);
         surfaceStatus = surfaceTexture.status;
-        if (surfaceStatus == wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal) {
+        /* SuccessSuboptimal still hands back a usable texture -- the surface
+         * merely no longer matches the compositor's preferred configuration.
+         * Treating it as a failure means never presenting again on a
+         * compositor that reports it persistently (Xwayland/KDE does), which
+         * leaves the window frozen on a stale frame while the game runs on.
+         * Present it, and ask for a reconfigure afterwards. */
+        if (surfaceStatus == wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal ||
+            surfaceStatus == wgpu::SurfaceGetCurrentTextureStatus::SuccessSuboptimal) {
           currentTexture = std::move(surfaceTexture.texture);
           currentView = currentTexture.CreateView();
         }
@@ -364,7 +371,7 @@ void end_frame() noexcept {
         pass.End();
       }
     } else {
-      Log.info("Skipping present; window not presentable");
+      Log.info("Skipping present; no usable surface texture ({})", magic_enum::enum_name(surfaceStatus));
     }
     webgpu::gpu_prof::frame_end(encoder);
     const wgpu::CommandBufferDescriptor cmdBufDescriptor{.label = "Redraw command buffer"};
@@ -385,6 +392,15 @@ void end_frame() noexcept {
       }
       if (status) {
         gfx::after_present();
+        /* Only on the transition into suboptimal: refresh_surface() calls
+         * gpu_synchronize(), so asking every frame would stall the pipeline
+         * for as long as the compositor keeps reporting it. */
+        static bool wasSuboptimal = false;
+        const bool suboptimal = surfaceStatus == wgpu::SurfaceGetCurrentTextureStatus::SuccessSuboptimal;
+        if (suboptimal && !wasSuboptimal) {
+          window::push_custom_event(window::CustomEvent::RefreshSurface);
+        }
+        wasSuboptimal = suboptimal;
       } else {
         Log.warn("Surface present failed");
         webgpu::release_surface();

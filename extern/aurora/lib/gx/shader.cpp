@@ -1518,13 +1518,22 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
     // Avoid implicit LOD for those textures: projected coordinates outside the
     // image produced black samples on Intel Vulkan even with a clamped sampler.
     // Keep implicit derivatives and LOD bias for textures that actually have mips.
-    fragmentFnPre += fmt::format(
-        "\n    var sampled{0}: vec4f;"
-        "\n    if (textureNumLevels(tex{1}) == 1u) {{"
-        "\n        sampled{0} = textureSampleLevel(tex{1}, tex{1}_samp, {2}, 0.0);"
-        "\n    }} else {{"
-        "\n        sampled{0} = textureSampleBias(tex{1}, tex{1}_samp, {2}, ubuf.tex{1}_size_bias.z);"
-        "\n    }}", i, underlying(stage.texMapId), uvIn);
+    // AURORA_LEGACY_TEX_LOD=1 restores the old unconditional bias sample: the
+    // positive control for the black-floor sweep, so the detector is testable.
+    static const bool legacyTexLod = getenv("AURORA_LEGACY_TEX_LOD") != nullptr;
+    if (legacyTexLod) {
+      fragmentFnPre += fmt::format(
+          "\n    var sampled{0} = textureSampleBias(tex{1}, tex{1}_samp, {2}, ubuf.tex{1}_size_bias.z);", i,
+          underlying(stage.texMapId), uvIn);
+    } else {
+      fragmentFnPre += fmt::format(
+          "\n    var sampled{0}: vec4f;"
+          "\n    if (textureNumLevels(tex{1}) == 1u) {{"
+          "\n        sampled{0} = textureSampleLevel(tex{1}, tex{1}_samp, {2}, 0.0);"
+          "\n    }} else {{"
+          "\n        sampled{0} = textureSampleBias(tex{1}, tex{1}_samp, {2}, ubuf.tex{1}_size_bias.z);"
+          "\n    }}", i, underlying(stage.texMapId), uvIn);
+    }
   }
   if (info.usesPTTexMtx.any()) {
     uniBufAttrs += fmt::format("\n    postmtx: array<mat3x4f, {}>,", MaxPTTexMtx);

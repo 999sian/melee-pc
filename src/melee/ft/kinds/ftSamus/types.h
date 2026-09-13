@@ -77,13 +77,15 @@ typedef struct DISC_STRUCT _ftSamusAttributes {
 } ftSs_DatAttrs;
 DISC_ASSERT_SIZE(ftSs_DatAttrs, 0xD4);
 
-/// maybe Samus grapple?
-struct UNK_SAMUS_S1 {
-    HSD_Joint* x0_joint;
-    HSD_AnimJoint** x4_anim_joints;
-    HSD_AnimJoint* x8_anim_joint;
-    HSD_MatAnimJoint* xC_matanim_joint;
+/// Samus's grapple beam accessory, reached through the fighter's item list
+/// in PlSs.dat: on-disc, so 32-bit pointer slots.
+struct DISC_STRUCT UNK_SAMUS_S1 {
+    /* +0 */ DISC_PTR(HSD_Joint) x0_joint;
+    /* +4 */ DISC_PTR(DiscU32) x4_anim_joints; /* HSD_AnimJoint*[] */
+    /* +8 */ DISC_PTR(HSD_AnimJoint) x8_anim_joint;
+    /* +C */ DISC_PTR(HSD_MatAnimJoint) xC_matanim_joint;
 };
+DISC_ASSERT_SIZE(struct UNK_SAMUS_S1, 0x10);
 
 union ftSamus_MotionVars {
     /// @todo Proper state name.

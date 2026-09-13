@@ -929,8 +929,12 @@ void gmClassic_801B3A34(GameModeState* arg0)
     temp_r29->x0.x8 = flags;
     temp_r29->x0.x9 = temp_r31->x2;
     temp_r29->x0.xB = temp_r31->x8;
+    /* Round 0 has no previous round: retail computed index -1 and touched the
+     * byte in front of gm_804908A0, which on GameCube was the unused tail of
+     * gmClassicIntroDataBuffer. Nothing on a 64-bit host guarantees what sits
+     * there, and the value is meaningless for the first match anyway. */
     idx_val = (u16) gm_8017BE84(arg0->id) - 1;
-    temp_r28 = gm_804908A0[idx_val];
+    temp_r28 = idx_val >= 0 ? gm_804908A0[idx_val] : 0;
     sp8 = (u16) gm_8017BE84(arg0->id);
     spC = temp_r28;
     gm_8017CE34(new_var, &temp_r29->x0, temp_r31->xC->x02, temp_r31->x6, 1, 0,
@@ -961,10 +965,9 @@ void gmClassic_801B3B40(GameModeState* arg0)
     exit_result = mei->x8;
     id = arg0->id;
     idx = ((u16) gm_8017BE84(id)) - 1;
-    if (exit_result != 0) {
-        gm_804908A0[idx] = 2;
-    } else {
-        gm_804908A0[idx] = 1;
+    /* See gmClassic_801B3A34: index -1 on the first round. */
+    if (idx >= 0) {
+        gm_804908A0[idx] = exit_result != 0 ? 2 : 1;
     }
 
     if (gm_8017D7AC(mei, &asd->x0, 0x69) != 0 && entry[1].x0 == 0xD) {

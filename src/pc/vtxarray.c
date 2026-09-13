@@ -113,7 +113,11 @@ static u32 direct_attr_size(const HSD_VtxDescList* d)
         n = d->comp_cnt == GX_POS_XY ? 2 : 3;
         break;
     case GX_VA_NRM:
-        n = 3;
+        /* GX_NRM_NBT/NBT3 carry normal+binormal+tangent: nine components, not
+         * three. aurora's comp_cnt_count() sizes them that way, so a
+         * three-component guess here would shift every following attribute
+         * in the display list and mis-size all the indexed arrays. */
+        n = d->comp_cnt == GX_NRM_XYZ ? 3 : 9;
         break;
     case GX_VA_NBT:
         n = 9;
@@ -138,6 +142,12 @@ static u32 direct_attr_size(const HSD_VtxDescList* d)
     return n * elem;
 }
 
+static u32 attr_index_count(const HSD_VtxDescList* d)
+{
+    return (d->attr == GX_VA_NRM || d->attr == GX_VA_NBT) &&
+                   d->comp_cnt == GX_NRM_NBT3 ? 3 : 1;
+}
+
 static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
                               u32 length)
 {
@@ -145,17 +155,20 @@ static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
     u32 n_attr = 0, vtx_size = 0, l = 0, i;
     const HSD_VtxDescList* d;
 
-    for (d = verts; d->attr != GX_VA_NULL; d++, n_attr++) {
+    for (d = verts; d->attr != GX_VA_NULL && n_attr < GX_VA_MAX_ATTR;
+         d++, n_attr++) {
         max_idx[n_attr] = 0;
         switch (d->attr_type) {
+        case GX_NONE:
+            break; /* attribute disabled: contributes no vertex bytes */
         case GX_DIRECT:
             vtx_size += direct_attr_size(d);
             break;
         case GX_INDEX8:
-            vtx_size += 1;
+            vtx_size += attr_index_count(d);
             break;
         default: /* GX_INDEX16 */
-            vtx_size += 2;
+            vtx_size += 2 * attr_index_count(d);
             break;
         }
     }
@@ -163,7 +176,10 @@ static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
     while (l + 3 <= length) {
         u8 op = dl[l] & GX_OPCODE_MASK;
         u32 n, v;
-        if (op == GX_NOP) {
+        /* HSD emits nothing but draw primitives, followed by NOP padding to
+         * the 32-byte chunk. Stop at anything that is not a primitive rather
+         * than mis-reading its payload as a vertex batch. */
+        if (op < GX_DRAW_QUADS || op > GX_DRAW_POINTS) {
             break;
         }
         n = (u32) dl[l + 1] << 8 | dl[l + 2];
@@ -173,29 +189,36 @@ static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
         }
         for (v = 0; v < n; v++) {
             for (d = verts, i = 0; i < n_attr; d++, i++) {
-                u32 idx;
-                switch (d->attr_type) {
-                case GX_DIRECT:
+                if (d->attr_type == GX_NONE) {
+                    continue;
+                }
+                if (d->attr_type == GX_DIRECT) {
                     l += direct_attr_size(d);
                     continue;
-                case GX_INDEX8:
-                    idx = dl[l];
-                    l += 1;
-                    break;
-                default:
-                    idx = (u32) dl[l] << 8 | dl[l + 1];
-                    l += 2;
-                    break;
                 }
-                if (idx > max_idx[i]) {
-                    max_idx[i] = idx;
+                /* NBT3 stores separate normal/binormal/tangent indices.
+                 * Consume all three before the next attribute and retain
+                 * the largest so the GPU upload contains every vector. */
+                for (u32 j = 0; j < attr_index_count(d); j++) {
+                    u32 idx;
+                    if (d->attr_type == GX_INDEX8) {
+                        idx = dl[l++];
+                    } else {
+                        idx = (u32) dl[l] << 8 | dl[l + 1];
+                        l += 2;
+                    }
+                    if (idx > max_idx[i]) {
+                        max_idx[i] = idx;
+                    }
                 }
             }
         }
     }
 
     for (d = verts, i = 0; i < n_attr; d++, i++) {
-        if (d->attr_type != GX_DIRECT && d->vertex != 0) {
+        if ((d->attr_type == GX_INDEX8 || d->attr_type == GX_INDEX16) &&
+            d->vertex != 0)
+        {
             record(DP(void, d->vertex), (max_idx[i] + 1) * d->stride);
         }
     }
@@ -205,8 +228,15 @@ void pc_vtx_array_scan(const HSD_PObjDesc* desc)
 {
     const HSD_VtxDescList* verts = DP(HSD_VtxDescList, desc->verts);
     const u8* dl = DP(u8, desc->display);
-    if (verts == NULL || dl == NULL) {
+    if (verts == NULL) {
         return;
     }
-    scan_display_list(verts, dl, (u32) desc->n_display << 5);
+    /* A missing display list must NOT skip the recording pass. An array the
+     * table has never seen reports size 0, and 0 is not a truncating
+     * under-size like the 1 * stride floor is: aurora pushes a zero-length
+     * storage range, so cachedRange.size stays 0 and the array is re-pushed
+     * on every draw with a degenerate offset. Scanning with length 0 skips
+     * the walk (no index is read, no byte of `dl` is touched) but still
+     * records every indexed array at the floor. */
+    scan_display_list(verts, dl, dl != NULL ? (u32) desc->n_display << 5 : 0);
 }

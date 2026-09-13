@@ -104,7 +104,7 @@ StageData grNKr_StageData = {
     0,
 };
 
-void grKinokoRoute_8020741C(bool arg) {}
+void grKinokoRoute_8020741C(s32 arg) {}
 
 void grKinokoRoute_80207420(void)
 {

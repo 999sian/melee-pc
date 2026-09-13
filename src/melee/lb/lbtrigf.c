@@ -9,7 +9,7 @@
 /* 400770 */ extern float MSL_TrigF_80400770[];
 /* 400774 */ extern float MSL_TrigF_80400774[];
 
-#define SIGN_BIT (1 << 31)
+#define SIGN_BIT (1U << 31)
 #define BITWISE(f) (*(u32*) &f)
 #define SIGNED_BITWISE(f) ((s32) BITWISE(f))
 #define GET_SIGN_BIT(f) (SIGNED_BITWISE(f) & SIGN_BIT)

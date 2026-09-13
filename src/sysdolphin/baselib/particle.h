@@ -39,8 +39,8 @@ psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind,
 /* 4D78DA */ extern u16 hsd_804D78DA;
 /* 4D78DE */ extern u16 hsd_804D78DE;
 /* 4D78E0 */ extern u16 hsd_804D78E0;
-/* 4D78E8 */ extern u32 hsd_804D78E8;
-/* 4D78EC */ extern u32 hsd_804D78EC;
+/* 4D78E8 */ extern void (*hsd_804D78E8)(HSD_Generator*, Mtx);
+/* 4D78EC */ extern void (*hsd_804D78EC)(HSD_Generator*);
 /* 4D78F0 */ extern HSD_CObj* psCamera;
 /* 4D78F4 */ extern struct _HSD_SList* hsd_804D78F4;
 

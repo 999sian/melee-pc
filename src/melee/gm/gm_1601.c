@@ -852,9 +852,9 @@ void fn_80160DE8(HSD_JObj* arg0, u8 arg1, s32 arg2, u8 arg3, f32 farg0,
             use_alt_name = true;
         }
         if (use_alt_name) {
-            temp = lbl_803B75F8[tmp_ckind + 0x63];
+            temp = lbl_803B7784[tmp_ckind];
         } else {
-            temp = lbl_803B75F8[tmp_ckind + 0x21];
+            temp = lbl_803B767C[tmp_ckind];
         }
         size = temp;
     } else {
@@ -864,7 +864,7 @@ void fn_80160DE8(HSD_JObj* arg0, u8 arg1, s32 arg2, u8 arg3, f32 farg0,
             use_alt_name = true;
         }
         if (use_alt_name) {
-            temp = lbl_803B75F8[tmp_ckind + 0x42];
+            temp = lbl_803B7700[tmp_ckind];
         } else {
             temp = lbl_803B75F8[tmp_ckind];
         }
@@ -2784,7 +2784,11 @@ struct fn_80165AC0_loser_bits {
     u8 lo : 4;
 };
 
-s32 fn_80165AC0(MatchEnd* arg0)
+/* These four all end with the PPC idiom "r3 still holds arg0". Returning it
+ * through s32 truncated the pointer on a 64-bit host (and fn_80165D60, which
+ * is declared to return MatchEnd*, then sign-extended it back). Every caller
+ * discards the value, but type it honestly instead of narrowing a pointer. */
+MatchEnd* fn_80165AC0(MatchEnd* arg0)
 {
     s32 i;
     s32 j;
@@ -2818,7 +2822,7 @@ s32 fn_80165AC0(MatchEnd* arg0)
         }
     }
     arg0->n_winners = count;
-    return (s32) arg0;
+    return arg0;
 }
 
 MatchEnd* fn_80165D60(MatchEnd* arg0)
@@ -2887,7 +2891,7 @@ void fn_80165E7C(MatchEnd* arg0)
     }
 }
 
-s32 fn_80165FA4(MatchEnd* arg0)
+MatchEnd* fn_80165FA4(MatchEnd* arg0)
 {
     s32 i;
     s32 max_loser;
@@ -2921,10 +2925,10 @@ s32 fn_80165FA4(MatchEnd* arg0)
         }
     }
     arg0->n_team_winners = count;
-    return (s32) arg0;
+    return arg0;
 }
 
-s32 fn_801661E0(MatchEnd* arg0)
+MatchEnd* fn_801661E0(MatchEnd* arg0)
 {
     s32 i;
     s32 j;
@@ -2946,7 +2950,7 @@ s32 fn_801661E0(MatchEnd* arg0)
         }
     }
 
-    return (s32) arg0;
+    return arg0;
 }
 
 void gm_80166378(lbl_8046B6A0_24C_t* arg0_raw)
@@ -3100,8 +3104,8 @@ float fn_80166A8C(register Vec3* src, register Vec3* dst)
 }
 
 // Probably some code to setup or end a 4 player match?
-s32 gm_80166A98(MatchEnd* arg0, u8 arg1, s8 arg2, u8 arg3, s8 arg4, u8 arg5,
-                s8 arg6, u8 arg7, u8 arg_sp8, u8 arg_spC)
+MatchEnd* gm_80166A98(MatchEnd* arg0, u8 arg1, s8 arg2, u8 arg3, s8 arg4,
+                      u8 arg5, s8 arg6, u8 arg7, u8 arg_sp8, u8 arg_spC)
 {
     s32 score0;
     s32 score1;
@@ -3226,7 +3230,7 @@ void gm_80166CCC(MatchEnd* arg0, MatchEnd* arg1)
         }
     }
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < GM_MAX_TEAMS; i++) {
         if (arg1->team_standings[i].active != 0) {
             team_count += 1;
         }
@@ -3940,6 +3944,26 @@ f32 gm_80168B34(CharacterKind ckind, int arg1, int arg2)
         base = 0xE;
     } else if (ckind > CKind_Seak) {
         base = ckind - 1;
+    } else {
+        /* Every remaining kind is below CKind_Zelda, and those need no shift:
+         * Zelda and Sheik share a single icon slot, which is why only kinds
+         * above CKind_Seak are offset by one. The CKind_PopoNana branch above
+         * proves the identity mapping here -- its explicit base of 0xE is
+         * exactly CKind_PopoNana.
+         *
+         * Without this else, `base` was returned uninitialised for most of
+         * the roster. PowerPC happened to leave a usable value in the
+         * register; x86-64 reads stale stack, so every port's HUD icon came
+         * out of the same garbage frame and all four rendered identically. */
+        base = ckind;
+    }
+    if (getenv("MELEE_ICON_LOG") != NULL) {
+        static unsigned long n;
+        if (++n <= 16) {
+            OSReport("iconframe: ckind=%d arg1=%d costume=%d -> base=%d"
+                     " frame=%d\n",
+                     (int) ckind, arg1, arg2, base, base + arg2 * 30);
+        }
     }
     return base + arg2 * 30;
 }

@@ -125,9 +125,13 @@ void ftLk_SpecialHi_Coll(HSD_GObj* gobj)
 void ftLk_SpecialAirHi_Coll(HSD_GObj* gobj)
 {
     u8 _[8];
-    Fighter* fp = GET_FIGHTER(gobj)->dat_attrs;
+    /* Retail read the landing lag out of dat_attrs+0x30 (this function's
+     * decomp spells that as a Fighter* cast). Read it through the real disc
+     * struct so the big-endian float is swapped and the offset does not move
+     * with Fighter's LP64 layout. */
+    ftLk_DatAttrs* da = GET_FIGHTER(gobj)->dat_attrs;
     if (ft_CheckGroundAndLedge(gobj, 0)) {
-        ftCo_LandingFallSpecial_Enter(gobj, false, fp->facing_dir1);
+        ftCo_LandingFallSpecial_Enter(gobj, false, da->x30);
     } else if (ftCliffCommon_80081298(gobj)) {
         return;
     }

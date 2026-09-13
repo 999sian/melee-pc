@@ -58,11 +58,14 @@ Item_GObj* it_8028EB88(Item_GObj* ref_gobj, Vec3* pos, f32 facing_dir,
 {
     SpawnItem spawn;
     Item_GObj* gobj;
-    Item* ip;
+    /* The `ip != NULL` test below is the intent; on PPC the unset case left a
+     * stale register that happened to read as null. */
+    Item* ip = NULL;
 
     if (ref_gobj != NULL) {
         ip = GET_ITEM(ref_gobj);
     }
+
     spawn.kind = It_Kind_Freeze;
     spawn.prev_pos = *pos;
     if (ip != NULL) {

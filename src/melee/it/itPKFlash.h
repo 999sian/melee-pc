@@ -32,6 +32,7 @@ typedef struct DISC_STRUCT itFlashAttributes {
     float x24_FLASH_UNK3;
     float x28_FLASH_EXPLOSION_DELAY;
 } itFlashAttributes;
+DISC_ASSERT_SIZE(itFlashAttributes, 0x2C);
 
 typedef struct DISC_STRUCT itFlashExplAttributes {
     float x0_FLASH_EXPL_HITBOX_SIZE_MUL;
@@ -40,5 +41,6 @@ typedef struct DISC_STRUCT itFlashExplAttributes {
     float xC_FLASH_EXPL_BASE_DAMAGE;
     float x10_FLASH_EXPL_DAMAGE_MUL;
 } itFlashExplAttributes;
+DISC_ASSERT_SIZE(itFlashExplAttributes, 0x14);
 
 #endif

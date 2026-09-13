@@ -1017,10 +1017,11 @@ struct CommandInfo {
         }* u;
     };
     u32 loop_count; // 0x0C
-    union CmdUnion*
-        event_return[3]; // 0x10 - Array Size is purely made-up for now
-    u32 loop_count_dup;  // 0x14
-    u32 unk_x18;         // 0x18
+    /* 0x10..0x23 on GameCube: five slots, which is what the interpreter can
+     * push (two nested loops of two entries plus one subroutine return).
+     * The old [3] overflowed into the two words that follow it there, which
+     * the decomp had mistaken for separate fields. */
+    union CmdUnion* event_return[5];
 };
 
 struct LbShadow {

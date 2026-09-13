@@ -97,14 +97,14 @@ void ftPp_SpecialN_Coll(HSD_GObj* gobj)
     if (!ft_80082708(gobj)) {
         Fighter* fp1;
         fp1 = GET_FIGHTER(gobj);
-        if (fp1->u.nn.x222C != 0U) {
+        if (fp1->u.nn.x222C != NULL) {
             Fighter* fp2;
             it_802C17DC(fp1->u.nn.x222C);
             fp2 = GET_FIGHTER(gobj);
-            if ((u32) fp1->u.nn.x222C == (u32) fp2->u.nn.x222C) {
-                fp2->u.nn.x222C = 0U;
-                fp2->death2_cb = 0U;
-                fp2->take_dmg_cb = 0U;
+            if (fp1->u.nn.x222C == fp2->u.nn.x222C) {
+                fp2->u.nn.x222C = NULL;
+                fp2->death2_cb = NULL;
+                fp2->take_dmg_cb = NULL;
             }
         }
         ftCo_Fall_Enter(gobj);

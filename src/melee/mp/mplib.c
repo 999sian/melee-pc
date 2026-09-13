@@ -938,8 +938,13 @@ void mpLibLoad(MapCollData* coll_data)
         }
         joint_prev = joint;
     }
-    joint->next = NULL;
-    jointListEnd = joint;
+    /* `joint` is only assigned inside the loop, so a joint_count of 0 would
+     * write through an uninitialised pointer here. `joint_prev` holds the
+     * same value after the loop and is NULL-initialised above. */
+    if (joint_prev != NULL) {
+        joint_prev->next = NULL;
+    }
+    jointListEnd = joint_prev;
     mpPruneEmptyLines(coll_data);
 
     floor_count = coll_data->floor_count;
@@ -5247,7 +5252,11 @@ bool mpLib_80056C54(int line_id, Vec3* pos, int* line_id_out, Vec3* vec_out,
     Vec3 sp4C;
     float sqrt_tmp[2];
     float dist_f28;
-    float total_dist_f27;
+    /* Accumulator: both loops below do `total_dist_f27 += dist` on their
+     * first iteration whenever that line's kind has 0xC set, and it is only
+     * zeroed in the sibling else-branch. Retail read a leftover FPR; start
+     * at 0 so the `> arg7` cutoff is meaningful on the first line. */
+    float total_dist_f27 = 0.0F;
     float x_f2;
     float y_f0;
     int result_r30;
@@ -5269,7 +5278,7 @@ bool mpLib_80056C54(int line_id, Vec3* pos, int* line_id_out, Vec3* vec_out,
             mpLineGetV1Pos(line_id, &sp4C);
             x_f2 = SQ(sp58.x - sp4C.x);
             y_f0 = SQ(sp58.y - sp4C.y);
-            dist_f28 = sqrtf_store(x_f2 + y_f0, sqrt_tmp - 4);
+            dist_f28 = sqrtf_store(x_f2 + y_f0, &sqrt_tmp[0]);
             flags_r0 = mpLineGetKind(line_id);
             if (flags_r0 & 0xC) {
                 total_dist_f27 += dist_f28;
@@ -5304,7 +5313,7 @@ bool mpLib_80056C54(int line_id, Vec3* pos, int* line_id_out, Vec3* vec_out,
             mpLineGetV0Pos(line_id, &sp4C);
             x_f2 = SQ(sp58.x - sp4C.x);
             y_f0 = SQ(sp58.y - sp4C.y);
-            dist_f28 = sqrtf_store(x_f2 + y_f0, sqrt_tmp - 5);
+            dist_f28 = sqrtf_store(x_f2 + y_f0, &sqrt_tmp[1]);
             flags_r0 = mpLineGetKind(line_id);
             if (flags_r0 & 0xC) {
                 total_dist_f27 += dist_f28;
@@ -6947,7 +6956,24 @@ SDATA s16 mpLib_RespawnVtxIds[6] = { 4, 5, 6, 7, 0, 0 };
 
 void mpLib_DrawSpecialPoints(void)
 {
+    /* mpLib_DrawCrosses only calls mpLib_SetupDraw, which sets up TEV/PE/
+     * channel state but no vertex descriptor and no position matrix. Its two
+     * sibling entry points (mpLib_80059E60 and mpLib_DrawZones) establish
+     * those themselves; this one never did. camera.c reaches it right after
+     * mpLib_8005A2DC, which ends in HSD_StateInvalidate(-1) ->
+     * HSD_ClearVtxDesc(), so GX had zero attributes declared and aurora
+     * computed a zero vertex stride for the GX_LINES batch. */
+    Mtx view_mtx;
     PAD_STACK(40);
+
+    GXSetCullMode(GX_CULL_NONE);
+    GXClearVtxDesc();
+    GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA6, 0);
+    HSD_CObjGetViewingMtx(HSD_CObjGetCurrent(), view_mtx);
+    GXSetCurrentMtx(0);
+    GXLoadPosMtxImm(view_mtx, 0);
+
     mpLib_DrawCrosses(mpLib_SpawnVtxIds, 0x04, mpLib_804D8128);
     mpLib_DrawCrosses(mpLib_RespawnVtxIds, 0x04, mpLib_804D812C);
     mpLib_DrawCrosses(mpLib_ItemSpawnVtxIds, 0x15, mpLib_804D8130);

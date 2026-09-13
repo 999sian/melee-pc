@@ -41,7 +41,9 @@ static inline void setPointValue(int player, int kind, unsigned int val)
 #endif
 unsigned int pl_800386D8(plActionStats* arg0, ssize_t arg1)
 {
-    return arg0->by_attack_hi[arg1];
+    /* Every caller passes an id >= StatsAttack_Count; retail reads those
+     * past the end of by_attack_hi, in the u32 run at +0x568. */
+    return arg0->ext_attack_counts[arg1 - 0x60];
 }
 #ifdef MUST_MATCH
 #pragma pop

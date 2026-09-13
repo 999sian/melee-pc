@@ -146,7 +146,15 @@ struct DISC_STRUCT ItemAttr {
 };
 DISC_ASSERT_SIZE(struct ItemAttr, 0x84);
 
-/// @sz{8}
+/// @sz{14}
+struct DISC_STRUCT ItemCollisionDesc {
+    s32 bone_id;
+    DiscVec3 offset;
+    f32 size;
+};
+DISC_ASSERT_SIZE(struct ItemCollisionDesc, 0x14);
+
+/// @sz{10}
 struct DISC_STRUCT ItemDynamics {
     /// @todo Combine with ftDynamics? Can see in it_8027163C that this struct
     /// does not work perfectly
@@ -155,8 +163,14 @@ struct DISC_STRUCT ItemDynamics {
 
     /// @at{4} @sz{4}
     DISC_PTR(BoneDynamicsDesc) dyn_descs;
+
+    /// @at{8} @sz{4}
+    s32 collision_count;
+
+    /// @at{C} @sz{4}
+    DISC_PTR(struct ItemCollisionDesc) collision_descs;
 };
-DISC_ASSERT_SIZE(struct ItemDynamics, 0x8);
+DISC_ASSERT_SIZE(struct ItemDynamics, 0x10);
 
 /// @sz{10}
 struct DISC_STRUCT ItemStateDesc {

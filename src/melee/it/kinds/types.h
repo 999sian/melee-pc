@@ -83,6 +83,7 @@ struct DISC_STRUCT itSword_UnkBytes {
     /*   +F */ u8 xF;
     /*  +10 */ u8 x10;
 };
+DISC_ASSERT_SIZE(itSword_UnkBytes, 0x14);
 
 struct DISC_STRUCT itSword_UnkArticle1 {
     /*  +0 */ DISC_PTR(void) x0;
@@ -94,5 +95,6 @@ struct DISC_STRUCT itSword_UnkArticle1 {
     /* +18 */ int x18;
     /* +1C */ itSword_UnkBytes x1C;
 };
+DISC_ASSERT_SIZE(itSword_UnkArticle1, 0x30);
 
 #endif

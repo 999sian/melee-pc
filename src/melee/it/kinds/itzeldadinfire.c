@@ -27,7 +27,10 @@ ItemStateTable ItemStateTable_ZeldaDinFire[] = {
       itZeldadinfire_UnkMotion1_Coll },
 };
 
-typedef struct {
+/* Din's Fire article special attributes, read in place through
+ * Article::x4_specialAttributes. Distinct from itZeldaDinFire_ItemVars
+ * (itCommonItems.h), which is the native ip+DD4 runtime view. */
+typedef struct DISC_STRUCT {
     float x0;
     float x4;
     float x8;
@@ -41,6 +44,7 @@ typedef struct {
     float x28;
     float x2C;
 } ItZeldaDinFire_ItemVars;
+DISC_ASSERT_SIZE(ItZeldaDinFire_ItemVars, 0x30);
 
 Fighter_GObj* itZeldaDinFire_GetOwner(Item_GObj* gobj)
 {

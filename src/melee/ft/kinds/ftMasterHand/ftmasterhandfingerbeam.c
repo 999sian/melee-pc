@@ -68,10 +68,10 @@ void ftMh_FingerBeamLoop_Anim(HSD_GObj* gobj)
         it_802F046C(fp->mv.mh.fingerbeam.x38);
         it_802F046C(fp->mv.mh.fingerbeam.x3C);
         it_802F046C(fp->mv.mh.fingerbeam.x40);
-        fp->mv.mh.unk0.x34 = 0;
-        fp->mv.mh.unk0.x38 = 0;
-        fp->mv.mh.unk0.x3C = 0;
-        fp->mv.mh.unk0.x40 = 0;
+        fp->mv.mh.fingerbeam.x34 = NULL;
+        fp->mv.mh.fingerbeam.x38 = NULL;
+        fp->mv.mh.fingerbeam.x3C = NULL;
+        fp->mv.mh.fingerbeam.x40 = NULL;
     }
 }
 

@@ -1122,7 +1122,7 @@ void* efAsync_Dispatch(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
     while (efLib_AnimCount != 0) {
         count = efLib_AnimCount - 1;
         efLib_AnimCount = count;
-        HSD_JObjAnimAll(((HSD_JObj**) efLib_AnimQueue)[count]);
+        HSD_JObjAnimAll(efLib_AnimQueue[count]);
     }
 #if 1
 #else
@@ -1258,10 +1258,11 @@ static char efAsync_803C0248[] = "effEmblemDataTable";
 
 void efAsync_LoadAsync(int index)
 {
-    EF_DAT_Entry* entry = &efAsync_DatEntries[index];
+    EF_DAT_Entry* entry;
     if (index >= 50 || index < 0) {
         return;
     }
+    entry = &efAsync_DatEntries[index];
 
     if (entry->ef_DAT_file == NULL) {
         return;
@@ -1287,11 +1288,11 @@ void efAsync_LoadSync(int idx)
 {
     struct EF_DataTable* spC;
     EF_DAT_Entry* lookup;
-    lookup = &efAsync_DatEntries[idx];
 
     if (idx >= 50 || idx < 0) {
         return;
     }
+    lookup = &efAsync_DatEntries[idx];
     if (!lookup->ef_DAT_file) {
         return;
     }
@@ -1300,7 +1301,7 @@ void efAsync_LoadSync(int idx)
     }
     {
         bool chk = lbArchive_80017040(NULL, lookup->ef_DAT_file, &spC,
-                                      lookup->effDataTable_name, 0);
+                                      lookup->effDataTable_name, NULL);
         if (spC->ptcl_bank | spC->tex_bank) {
             if (chk) {
                 psInitDataBankLoad(idx, DP(void, spC->ptcl_bank),

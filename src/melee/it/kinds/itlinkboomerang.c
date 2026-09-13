@@ -362,7 +362,7 @@ static inline void it_802A0C34_sub_2(Item_GObj* gobj, Vec3* rot)
     HSD_JObj* child = HSD_JObjGetChild(gobj->hsd_obj);
     if ((ip->xDAC_itcmd_var0 == 2) || (ip->msid == 3)) {
         ip->xDD4_itemVar.linkboomerang.xDF0[idx] = ip->pos;
-        HSD_MtxGetRotation(&child->mtx[0], rot);
+        HSD_MtxGetRotation(child->mtx, rot);
         ip->xDD4_itemVar.linkboomerang.xEB0[idx].x = rot->x;
         ip->xDD4_itemVar.linkboomerang.xEB0[idx].y = rot->y;
         ip->xDD4_itemVar.linkboomerang.xEB0[idx].z = rot->z;

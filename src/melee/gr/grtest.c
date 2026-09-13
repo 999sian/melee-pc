@@ -47,7 +47,7 @@ StageData grTe_StageData = {
 
 float grTe_804D6A48;
 
-void grTest_80206E2C(bool unused) {}
+void grTest_80206E2C(s32 unused) {}
 
 void grTest_80206E30(void)
 {

@@ -7,7 +7,7 @@
 
 #include <dolphin/mtx.h>
 
-/* 1F2D0C */ void grFourside_801F2D0C(bool);
+/* 1F2D0C */ void grFourside_801F2D0C(s32);
 /* 1F2D10 */ void grFourside_801F2D10(void);
 /* 1F2DA0 */ void grFourside_801F2DA0(void);
 /* 1F2DA4 */ void grFourside_801F2DA4(void);

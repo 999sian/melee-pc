@@ -42,7 +42,12 @@ HSD_LObj* lb_80011AC4(DiscU32* list)
     DiscU32* temp_r4;
 
     prev = NULL;
-    while (list->v != 0) {
+    first = NULL;
+    /* An empty light list left `first` uninitialised: on PowerPC the caller
+     * still got something usable in r3, on x86-64 it is a garbage HSD_LObj*.
+     * A scene with no lights has either a 0 slot (DP() -> NULL) or a table
+     * whose first slot is 0; both mean "no lights". */
+    while (list != NULL && list->v != 0) {
         ll = (LightList*) (uintptr_t) list->v;
         curr = HSD_LObjLoadDesc(DP(HSD_LightDesc, ll->desc));
         temp_r4 = DP(DiscU32, ll->anims);

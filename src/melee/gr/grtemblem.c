@@ -14,7 +14,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-static void grTRoy_802243F4(bool);
+static void grTRoy_802243F4(s32);
 static void grTRoy_802243F8(void);
 static void grTemblem_UnkStage0_OnLoad(void);
 static void grTemblem_UnkStage0_OnStart(void);
@@ -73,7 +73,7 @@ StageData grTFe_StageData = {
     1,
 };
 
-static void grTRoy_802243F4(bool arg0) {}
+static void grTRoy_802243F4(s32 arg0) {}
 
 static void grTRoy_802243F8(void)
 {

@@ -2370,21 +2370,15 @@ void fn_80257D7C(void)
                 HSD_GObjFree(mnSnap_804A0A10.warn_gobj);
             }
 
-            {
-                HSD_Text** text_p;
-                for (text_p = (HSD_Text**) snap, i = 0; i < 4; i++, text_p++) {
-                    if (text_p[0x3E] != NULL) {
-                        HSD_SisLib_803A5CC4(text_p[0x3E]);
-                    }
+            for (i = 0; i < 4; i++) {
+                if (snap->thumb_labels[i] != NULL) {
+                    HSD_SisLib_803A5CC4(snap->thumb_labels[i]);
                 }
             }
 
-            {
-                HSD_Text** text_p;
-                for (i = 0, text_p = (HSD_Text**) snap; i < 2; i++, text_p++) {
-                    if (text_p[0x42] != NULL) {
-                        HSD_SisLib_803A5CC4(text_p[0x42]);
-                    }
+            for (i = 0; i < 2; i++) {
+                if (snap->count_texts[i] != NULL) {
+                    HSD_SisLib_803A5CC4(snap->count_texts[i]);
                 }
             }
 

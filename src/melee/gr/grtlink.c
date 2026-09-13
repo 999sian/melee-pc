@@ -13,7 +13,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-/* 22192C */ static void grTLink_8022192C(bool);
+/* 22192C */ static void grTLink_8022192C(s32);
 /* 221930 */ static void grTLink_80221930(void);
 /* 2219A0 */ static void grTlink_UnkStage0_OnLoad(void);
 /* 2219A4 */ static void grTlink_UnkStage0_OnStart(void);
@@ -75,7 +75,7 @@ StageData grTLk_StageData = {
     0,
 };
 
-void grTLink_8022192C(bool unk0) {}
+void grTLink_8022192C(s32 unk0) {}
 
 void grTLink_80221930(void)
 {

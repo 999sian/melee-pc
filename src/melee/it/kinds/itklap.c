@@ -319,17 +319,17 @@ static inline void it_802E2330_inline(Item_GObj* gobj)
 void it_802E2330(Item_GObj* gobj, Vec3* pos, lbColl_80008D30_arg1* arg2,
                  f32 angle)
 {
-    struct SmallerHitCapsule hit;
+    HitCapsule hit;
     Item* ip = GET_ITEM(gobj);
     PAD_STACK(4);
 
     ip->pos = *pos;
-    lbColl_80008D30((HitCapsule*) &hit, arg2);
+    lbColl_80008D30(&hit, arg2);
     Item_80269CA0(ip, hit.damage);
     if (angle < 0.0f) {
         angle += 360.0f;
     }
-    ip->xCC8_knockback = it_80270CD8(ip, (HitCapsule*) &hit);
+    ip->xCC8_knockback = it_80270CD8(ip, &hit);
     ip->xCAC_angle = angle;
     ip->xCCC_incDamageDirection = ip->facing_dir;
     it_802E2330_inline(gobj);

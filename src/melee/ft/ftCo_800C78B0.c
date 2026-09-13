@@ -69,10 +69,12 @@ void ftCo_CaptureLikelike_Anim(Fighter_GObj* gobj)
     fp->grab_timer -= p_ftCommonData->x758;
     ftCommon_GrabMash(fp, p_ftCommonData->x75C);
 
-    if (*(int*) &fp->mv.co.mushroom.x4 == 0) {
+    /* GameCube read this word through mv.co.mushroom.x4; that is the same
+     * fp+2344 slot this state initialises as capturelikelike.x4. */
+    if (fp->mv.co.capturelikelike.x4 == 0) {
         if (fp->grab_timer <= 0.0f) {
             it_802DB9F4(fp->mv.co.capturelikelike.x0);
-            *(int*) &fp->mv.co.mushroom.x4 = 1;
+            fp->mv.co.capturelikelike.x4 = 1;
         }
     }
 }

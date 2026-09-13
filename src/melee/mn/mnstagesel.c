@@ -240,7 +240,11 @@ void fn_8025A090(HSD_GObj* gobj)
     jobj = GET_JOBJ(gobj);
     temp_r30 = HSD_GObjGetUserData(gobj);
     var_r3 = mnStageSel_804D6CAE;
-    if (mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 < 2) {
+    /* 0x1E is the "random" sentinel (see :485), one past the end of the
+     * 30-entry table. */
+    if (mnStageSel_804D6CAE >= 0x1E ||
+        mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 < 2)
+    {
         var_r3 = 0x1E;
     }
     if (temp_r30->x0 != var_r3) {
@@ -258,7 +262,7 @@ void fn_8025A090(HSD_GObj* gobj)
     }
     if (temp_r30->x4 < 0x5A) {
         temp_r30->x4++;
-        if (temp_r30->x4 == 0x14) {
+        if (temp_r30->x4 == 0x14 && temp_r30->x0 < 0x1E) {
             HSD_JObjReqAnimAll(jobj,
                                50.0F * mnStageSel_803F06D0[temp_r30->x0].x9);
         }

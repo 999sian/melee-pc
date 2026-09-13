@@ -21,7 +21,9 @@ set(CMAKE_COLOR_DIAGNOSTICS ON)
 set(AURORA_ENABLE_DVD ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_CARD ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_THP ON CACHE BOOL "" FORCE)
+set(AURORA_ENABLE_RMLUI ON CACHE BOOL "" FORCE)
 add_subdirectory(extern/aurora EXCLUDE_FROM_ALL)
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 
 # ---- Game code (decomp, compiled as C) -------------------------------------
 # src/thp (Melee's PPC THP decoder) is replaced by aurora::thp; see src/pc/thp.c.
@@ -43,6 +45,14 @@ target_compile_options(melee_game PRIVATE
         -fno-strict-aliasing
         -fwrapv
         -ffp-contract=off
+        # The game's Japanese string literals are consumed as Shift-JIS at
+        # runtime: mnnamenew.c stores name glyphs two bytes at a time into a
+        # fixed 3-bytes-per-slot buffer, and compares that buffer against
+        # auto-name tables read straight off the disc, which are already
+        # Shift-JIS. Upstream gets this from sjiswrap around mwcc. CP932 (not
+        # SHIFT_JIS) because the tables use fullwidth punctuation such as
+        # U+FF0D that glibc's SHIFT_JIS converter rejects.
+        -fexec-charset=CP932
         -fno-pie
         -Wno-scalar-storage-order
         -include ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/compat.h)
@@ -54,7 +64,16 @@ target_link_libraries(melee_game PUBLIC
 file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp)
 add_executable(melee ${PC_SOURCES})
 target_compile_options(melee PRIVATE $<$<COMPILE_LANGUAGE:C>:-fno-pie>)
-target_link_libraries(melee PRIVATE melee_game aurora::main)
+target_link_libraries(melee PRIVATE melee_game aurora::main OpenSSL::Crypto)
 # Non-PIE: static data and code stay below 4GB (32-bit pointer slots in disc data).
 target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)
+add_custom_target(launcher_resources ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:melee>/resources")
+add_dependencies(melee launcher_resources)
+
+add_executable(launcher_data_test EXCLUDE_FROM_ALL tools/test_launcher_data.cpp src/pc/launcher_data.cpp)
+target_include_directories(launcher_data_test PRIVATE src)
+target_link_libraries(launcher_data_test PRIVATE aurora::dvd OpenSSL::Crypto)
+target_compile_options(launcher_data_test PRIVATE -UNDEBUG)

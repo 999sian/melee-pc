@@ -2505,14 +2505,13 @@ MotionState ftKb_Init_UnkMotionStates0[] = {
 
 void ftKb_Init_800EE528(void)
 {
-    /// @todo Bad cast.
-    s32* number_list = (s32*) &ft_80459B88.x0;
     ftKirby_CostumeArchive** struct_list = ftKb_Init_803C9FC8;
 
     s32 i;
+    ft_80459B88.x0 = NULL;
     for (i = 0; i < Ft_Kind_Max; i++) {
         ftKirby_CostumeArchive* unk_struct;
-        number_list[i] = 0;
+        ft_80459B88.hats[i] = NULL;
         unk_struct = struct_list[i];
         if (unk_struct) {
             unk_struct[0].joint = NULL;
@@ -2722,7 +2721,10 @@ case14:
 
 char* ftKb_Init_GetMotionFileString(enum_t arg0)
 {
-    int offset;
+    /* The decomp leaves this uninitialised on the default arm; PPC just read
+     * a stale register, but on x86-64 it is UB and the table index below is
+     * then unbounded. Kirby is only asked for 11 and 14. */
+    int offset = 14;
 
     switch (arg0) {
     case 11:
@@ -2776,7 +2778,7 @@ void ftKb_SpecialN_800EED50(s32 arg0, s32 arg1)
             if (((HSD_Archive**) &ft_80459B88)[arg0] == NULL) {
                 lbArchive_80017040(NULL, ftKb_Init_803CA9D0[arg0].filename,
                                    &((HSD_Archive**) &ft_80459B88)[arg0],
-                                   ftKb_Init_803CA9D0[arg0].name, 0);
+                                   ftKb_Init_803CA9D0[arg0].name, NULL);
             }
         }
         if (ftKb_Init_803CB3E8[arg0] != NULL) {
@@ -2787,10 +2789,10 @@ void ftKb_SpecialN_800EED50(s32 arg0, s32 arg1)
                 if (cs->matanim_joint_name != NULL) {
                     lbArchive_80017040(NULL, costumes[arg1].dat_filename, item,
                                        cs->joint_name, &item->matanim,
-                                       cs->matanim_joint_name, 0);
+                                       cs->matanim_joint_name, NULL);
                 } else {
                     lbArchive_80017040(NULL, costumes[arg1].dat_filename, item,
-                                       cs->joint_name, 0);
+                                       cs->joint_name, NULL);
                     item->matanim = NULL;
                 }
             }
@@ -2885,7 +2887,8 @@ ftKb_SpecialN_insert_joint_refs(s32* total_dobjs, HSD_Joint* root, Fighter* fp,
             bone++;
             (*part_idx)++;
         }
-        HSD_IDInsertToTable(NULL, (u32) *joint, parts[*part_idx].joint);
+        HSD_IDInsertToTable(NULL, (uintptr_t) *joint,
+                            parts[*part_idx].joint);
         (*part_idx)++;
         ftAnim_GetNextJointInTree(joint, joint_idx);
     }
@@ -2937,7 +2940,7 @@ void ftKb_SpecialN_800EF0E4(Fighter_GObj* gobj, int arg1, u8* arg2)
                                     &current_joint, &joint_idx, &byte_base);
     joint_idx = 0;
     arg2_idx = 0;
-    byte_off = total_dobjs << 2;
+    byte_off = total_dobjs * sizeof(HSD_DObj*);
     insert_part_idx = 0;
     while (current_joint != NULL) {
         group_count = 0;
@@ -2978,8 +2981,8 @@ void ftKb_SpecialN_800EF0E4(Fighter_GObj* gobj, int arg1, u8* arg2)
                     hsdChangeClass(mobj, &ftMObj);
                 }
                 dobj = (dobj != NULL) ? dobj->next : NULL;
-                dst_off += 4;
-                byte_off += 4;
+                dst_off += sizeof(HSD_DObj*);
+                byte_off += sizeof(HSD_DObj*);
                 total_dobjs += 1;
                 group_count += 1;
             }
@@ -3046,7 +3049,7 @@ void ftKb_SpecialN_800EF438(Fighter_GObj* gobj, KirbyHatStruct* hat)
                                         &insert_part_idx, &current_joint,
                                         &joint_idx, &byte_base);
         joint_idx = 0;
-        byte_off = total_dobjs << 2;
+        byte_off = total_dobjs * sizeof(HSD_DObj*);
         insert_part_idx = 0;
         while (current_joint != NULL) {
             group_count = 0;
@@ -3090,8 +3093,8 @@ void ftKb_SpecialN_800EF438(Fighter_GObj* gobj, KirbyHatStruct* hat)
                         hsdChangeClass(mobj, &ftMObj);
                     }
                     dobj = (dobj != NULL) ? dobj->next : NULL;
-                    dst_off += 4;
-                    byte_off += 4;
+                    dst_off += sizeof(HSD_DObj*);
+                    byte_off += sizeof(HSD_DObj*);
                     total_dobjs += 1;
                     group_count += 1;
                 }
@@ -3144,9 +3147,10 @@ void ftKb_SpecialN_800EF69C(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
             jobj = bone->joint;
             dobj = (HSD_DObj*) jobj;
             if (jobj != NULL && (bone->flags_b6 || bone->flags2_b7)) {
-                u8* b9p = &((u8*) bone)[9];
-                if ((*b9p >> 1) & 1) {
-                    if ((*b9p >> 2) & 1) {
+                /* GC read bone byte +9 raw: with MSB-first bitfields its
+                 * bit 1 is flags2_b6 and bit 2 is flags2_b5. */
+                if (bone->flags2_b6) {
+                    if (bone->flags2_b5) {
                         dobj = fp->x203C.data[bone->xD];
                     } else {
                         dobj = fp->dobj_list.data[bone->xD];

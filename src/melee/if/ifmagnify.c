@@ -477,11 +477,12 @@ void ifMagnify_802FC3C0(s32 slot)
     } else {
         ifMagnify* base = &ifMagnify_804A1DE0;
 
-        base->image_descs[slot - 1] = *ifMagnify_804A1DE0.player[0].idesc;
-        player->idesc =
-            (base = (ifMagnify*) ((HSD_ImageDesc*) &ifMagnify_804A1DE0 +
-                                  (slot - 1)))
-                ->image_descs;
+        base->image_descs[slot - 1] = *base->player[0].idesc;
+        /* The decomp re-derived this slot by advancing the whole struct base
+         * by (slot - 1) HSD_ImageDescs and then taking `->image_descs`; that
+         * is out-of-bounds pointer arithmetic on the object and only happened
+         * to land right because both terms use the same element size. */
+        player->idesc = &base->image_descs[slot - 1];
         DP_SET(player->idesc->image_ptr,
                HSD_MemAlloc((GXGetTexBufferSize(player->idesc->width,
                                                 player->idesc->height,

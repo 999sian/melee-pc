@@ -1722,7 +1722,9 @@ bool ftCo_IsGrabbing(Fighter* fp)
     return false;
 }
 
-bool ftCo_800A3200(Fighter* fp)
+/// 0 = neither, 1 = CliffCatch, 2 = CliffWait. NOT a @c bool:
+/// #ftCo_800ACB44 branches on all three values.
+enum_t ftCo_800A3200(Fighter* fp)
 {
     switch (fp->motion_id) {
     case ftCo_MS_CliffCatch:
@@ -7323,7 +7325,8 @@ static inline u8 inlineM0(float x)
     if (x >= 0) {
         return 127.0F * x;
     } else {
-        return 128.0F * x;
+        /* float -> u8 is undefined for negatives; go via s8 as PPC did. */
+        return (s8) (128.0F * x);
     }
 }
 

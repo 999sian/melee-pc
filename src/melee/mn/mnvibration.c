@@ -101,7 +101,13 @@ static inline void mnVibration_JObjSetTranslateZ(HSD_JObj* jobj, f32 z)
 
 // --- Static data ---
 static u16 mnVibration_PortPanelJointIds[4] = { 0x16, 0x15, 0x14, 0x13 };
-s32 mnVibration_804D4FF0 = 0x20010000;
+/* Rumble bytecode: a big-endian u16 stream (3-bit opcode in the top bits,
+ * 13-bit operand below), interpreted by HSD_PadRumbleInterpret1. The decomp
+ * spelled it as one host-endian s32 (0x20010000), which on x86-64 lands in
+ * memory as 00 00 01 20 -- the first word decodes as opcode 0, rewinding to
+ * the list head with wait still 0, so the interpreter spins forever.
+ * { 0x2001, 0x0000 } = motor on for one frame, then end of list. */
+static DiscU16 mnVibration_804D4FF0[2] = { { 0x2001 }, { 0x0000 } };
 SDATA char mnVibration_804D4FF4[] = "jobj.h";
 SDATA char mnVibration_804D4FFC[] = "jobj";
 AnimLoopSettings mnVibration_803EECE0 = { 0.0f, 20.0f, -0.1f };
@@ -446,7 +452,7 @@ void mnVibration_HandleInput(HSD_GObj* gobj)
                     lb_80011E24(jobj, &panel_jobj3, 2, -1);
                     HSD_JObjReqAnimAll(panel_jobj3, (f32) rumble_setting);
                     HSD_JObjAnimAll(panel_jobj3);
-                    HSD_PadRumbleAdd(i, 0, 14, 0, &mnVibration_804D4FF0);
+                    HSD_PadRumbleAdd(i, 0, 14, 0, mnVibration_804D4FF0);
                     return;
                 }
             }

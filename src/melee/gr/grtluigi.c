@@ -46,7 +46,7 @@ StageData grTLg_StageData = {
     1,
 };
 
-void grTLuigi_80221C10(bool arg0) {}
+void grTLuigi_80221C10(s32 arg0) {}
 
 void grTLuigi_80221C14(void)
 {

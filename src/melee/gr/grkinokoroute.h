@@ -9,7 +9,7 @@
 
 #include <dolphin/mtx.h>
 
-/* 20741C */ void grKinokoRoute_8020741C(bool);
+/* 20741C */ void grKinokoRoute_8020741C(s32);
 /* 207420 */ void grKinokoRoute_80207420(void);
 /* 207490 */ void grKinokoRoute_80207490(void);
 /* 2074D8 */ void grKinokoRoute_802074D8(void);

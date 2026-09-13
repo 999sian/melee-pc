@@ -148,18 +148,22 @@ void itSamusGrapple_Logic53_Spawned(Item_GObj* gobj)
     ip->xDD4_itemVar.samusgrapple.unk_10 = NULL;
 }
 
+/* Every word of @p data->create_hitbox is a big-endian command word described
+ * by a DISC_STRUCT, so all of its fields must be read through those views.
+ * Retail pulled two of them out by hand instead: @c damage via a native u16
+ * load of `(u8*) data + 2`, and @c hit_grounded via a local `u8 :6; u8 :1`
+ * bitfield laid over byte 3 of create_hitbox_4. On x86-64 the first reads the
+ * halfword byte-swapped (the 0-damage tether became 22 damage) and the second
+ * names bit 6 counted from the LSB where the GameCube named bit 1 counted
+ * from the MSB (the grounded-hit flag always read 0).
+ * @note @c x134_4 below is still read out of the caller's uninitialised stack;
+ * that is faithful to retail and left alone deliberately. */
 void it_802B7160(Fighter_GObj* gobj, itSamusGrapple_HitboxData* data)
 {
-    u16* damage;
     Fighter* fp;
     u32 hit_group;
     HitCapsule* hitbox;
     u32 damage_arg;
-    struct samus_grapple_hitbox_flags {
-        u8 : 6;
-        u8 hit_grounded : 1;
-    };
-    struct samus_grapple_hitbox_flags* hitbox_flags;
     PAD_STACK(8);
 
     fp = GET_FIGHTER(gobj);
@@ -173,7 +177,7 @@ void it_802B7160(Fighter_GObj* gobj, itSamusGrapple_HitboxData* data)
         fp->x2219_b3 = 1;
         ftColl_800768A0(fp, hitbox);
     }
-    damage = (u16*) ((u8*) data + 2);
+
     {
         u32 bone = data->create_hitbox.create_hitbox_0.bone;
         if (data->create_hitbox.create_hitbox_0.use_common_bone_ids) {
@@ -183,8 +187,7 @@ void it_802B7160(Fighter_GObj* gobj, itSamusGrapple_HitboxData* data)
             hitbox->jobj = fp->parts[bone].joint;
         }
     }
-    damage_arg = *damage;
-    damage_arg &= 0x3FF;
+    damage_arg = data->create_hitbox.create_hitbox_0.damage;
     ftColl_8007ABD0(hitbox, damage_arg, gobj);
     hitbox->scale = data->create_hitbox.create_hitbox_1.size * 0.003906f;
     hitbox->b_offset.x =
@@ -194,25 +197,20 @@ void it_802B7160(Fighter_GObj* gobj, itSamusGrapple_HitboxData* data)
     hitbox->b_offset.z =
         data->create_hitbox.create_hitbox_2.x_offset * 0.003906f;
     ftColl_8007AC9C(hitbox, data->create_hitbox.create_hitbox_3.angle, gobj);
-    hitbox_flags = (struct samus_grapple_hitbox_flags*) &data->create_hitbox
-                       .create_hitbox_4 +
-                   3;
+
     hitbox->x24 = data->create_hitbox.create_hitbox_3.knockback_growth;
     hitbox->x28 = data->create_hitbox.create_hitbox_3.weight_set_knockback;
     hitbox->x43_b0 = data->create_hitbox.create_hitbox_3.item_hit_interaction;
     hitbox->x43_b1 = data->create_hitbox.create_hitbox_3.ignore_fighter_scale;
     hitbox->x40_b0 = data->create_hitbox.create_hitbox_3.clank;
     hitbox->x40_b1 = data->create_hitbox.create_hitbox_3.rebound;
-    hitbox->x2C =
-        ((struct spawn_hitbox_4*) (hitbox_flags - 3))->base_knockback;
-    hitbox->element = ((struct spawn_hitbox_4*) (hitbox_flags - 3))->element;
-    hitbox->x34 = ((struct spawn_hitbox_4*) (hitbox_flags - 3))->shield_damage;
-    hitbox->sfx_severity =
-        ((struct spawn_hitbox_4*) (hitbox_flags - 3))->hit_sfx_severity;
-    hitbox->sfx_kind =
-        ((struct spawn_hitbox_4*) (hitbox_flags - 3))->hit_sfx_kind;
-    hitbox->x40_b2 = ((struct spawn_hitbox_4*) (hitbox_flags - 3))->hit_aerial;
-    hitbox->x40_b3 = hitbox_flags->hit_grounded;
+    hitbox->x2C = data->create_hitbox.create_hitbox_4.base_knockback;
+    hitbox->element = data->create_hitbox.create_hitbox_4.element;
+    hitbox->x34 = data->create_hitbox.create_hitbox_4.shield_damage;
+    hitbox->sfx_severity = data->create_hitbox.create_hitbox_4.hit_sfx_severity;
+    hitbox->sfx_kind = data->create_hitbox.create_hitbox_4.hit_sfx_kind;
+    hitbox->x40_b2 = data->create_hitbox.create_hitbox_4.hit_aerial;
+    hitbox->x40_b3 = data->create_hitbox.create_hitbox_4.hit_grounded;
     hitbox->x42_b5 = 1;
     hitbox->x42_b7 = 1;
     hitbox->x41_b4 = 0;

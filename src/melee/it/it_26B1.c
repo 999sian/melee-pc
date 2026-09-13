@@ -1034,10 +1034,15 @@ bool it_8026C1B4(HSD_GObj* gobj)
     return it_80275870(gobj);
 }
 
+/* The Ray Gun article's special attributes are the disc ItLGunAttr, not the
+ * native ip+DD4 itLGun_ItemVars the decomp named here; both start with an
+ * int, so GameCube read the right word by accident. */
 u32 it_8026C1D4(void)
 {
-    itLGun_ItemVars* lgun = DP(itLGun_ItemVars, DP(Article, it_804D6D24[It_Kind_L_Gun].v)->x4_specialAttributes);
-    return lgun->timer;
+    ItLGunAttr* attr =
+        DP(ItLGunAttr, DP(Article, it_804D6D24[It_Kind_L_Gun].v)
+                           ->x4_specialAttributes);
+    return attr->max_ammo;
 }
 
 /// Check if item has grabbed a GObj?

@@ -1,0 +1,41 @@
+<rml>
+<head><title>Melee-PC</title><link type="text/rcss" href="launcher.rcss" /></head>
+<body>
+  <div id="shell">
+    <div class="topline"><span class="brand">MELEE / PC</span><span class="edition">NATIVE PORT · NTSC-U 1.02</span></div>
+    <div class="hero"><div class="eyebrow">SUPER SMASH BROS.</div><h1>MELEE</h1><p class="tagline">Back to the fight.</p></div>
+    <div id="home">
+      <div class="columns">
+        <div class="menu">
+          <button id="play" class="primary">Play Melee</button>
+          <button id="choose">Choose disc</button>
+          <button id="verify">Verify disc</button>
+          <button id="settings">Settings</button>
+          <button id="quit" class="quiet">Quit</button>
+        </div>
+        <div class="disc-card">
+          <div class="eyebrow">YOUR GAME</div>
+          <h2 id="disc-name">Bring your disc.</h2>
+          <p id="disc-info">Select your copy of Melee USA revision 2 to get started.</p>
+          <p id="disc-path" class="path">ISO · GCM · CISO · RVZ</p>
+          <div class="divider"></div>
+          <p class="note">Choose once. Your disc location is remembered for next time.</p>
+          <p class="note">You can also drop a disc image into this window.</p>
+        </div>
+      </div>
+    </div>
+    <div id="preferences">
+      <div class="eyebrow">MAKE IT YOURS</div><h2>Settings</h2>
+      <p class="note">Changes apply immediately and are saved automatically.</p>
+      <div class="settings-list">
+        <button id="fullscreen">Display: Windowed</button>
+        <button id="vsync">VSync: On</button>
+        <button id="scale">UI scale: 100%</button>
+        <button id="back" class="primary">Back to launcher</button>
+      </div>
+    </div>
+    <div id="status">Choose a disc image to begin.</div>
+    <div class="footer">ARROWS / D-PAD Navigate <span>ENTER / A Select</span><span>ESC / B Back</span></div>
+  </div>
+</body>
+</rml>

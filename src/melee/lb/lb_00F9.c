@@ -26,12 +26,20 @@
 #include <sysdolphin/baselib/quatlib.h>
 #include <sysdolphin/baselib/tobj.h>
 
+/* The collider records lb_8001044C walks are Fighter::x1670[]
+ * (melee/ft/types.h) and Item::xB6C_vars[] (melee/it/types.h); both have this
+ * exact member sequence. The two unused words used to be `char pad_10[0x08]`,
+ * which silently assumed the HSD_JObj* in the middle was 4 bytes: on GameCube
+ * that put `position` at +0x18 with a 0x28 stride, but with an 8-byte pointer
+ * the real record is 0x30 and only the first element lined up. Name the joint
+ * slot so the stride is derived from it instead of hardcoded. */
 struct lb_Collider {
-    /* 0x00 */ char pad_00[0x0C];
-    /* 0x0C */ f32 radius;
-    /* 0x10 */ char pad_10[0x08];
-    /* 0x18 */ Vec3 position;
-    /* 0x24 */ char pad_24[0x04];
+    /* +00 */ Vec3 offset;
+    /* +0C */ f32 radius;
+    /* +10 */ HSD_JObj* jobj;
+    /* +14 */ f32 unk_14;
+    /* +18 */ Vec3 position;
+    /* +24 */ int bone_idx;
 };
 
 const struct {
@@ -1043,8 +1051,8 @@ bool lb_800117F4(DynamicsDesc* arg0, GXColor* arg1, GXColor* arg2, int arg3,
         return false;
     }
     HSD_StateInitDirect(0, 2);
-    HSD_CObjGetViewingMtx(HSD_CObjGetCurrent(), &view_mtx[0]);
-    GXLoadPosMtxImm(&view_mtx[0], 0);
+    HSD_CObjGetViewingMtx(HSD_CObjGetCurrent(), view_mtx);
+    GXLoadPosMtxImm(view_mtx, 0);
     GXSetLineWidth(12, GX_TO_ONE);
     GXBegin(GX_LINESTRIP, GX_VTXFMT0, arg0->count);
     for (cur = DP(struct DynamicsData, arg0->data), i = 0; cur != NULL;
@@ -1065,6 +1073,7 @@ bool lb_800117F4(DynamicsDesc* arg0, GXColor* arg1, GXColor* arg2, int arg3,
             }
         }
     }
+    GXEnd();
     return true;
 }
 

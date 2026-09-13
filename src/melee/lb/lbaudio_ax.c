@@ -273,7 +273,7 @@ static struct DISC_STRUCT {
 
 void lbAudioAx_8002392C(void)
 {
-    lbArchive_LoadSymbols("LbAd.dat", &lbl_804D6454, "lbAudioLoadData", 0);
+    lbArchive_LoadSymbols("LbAd.dat", &lbl_804D6454, "lbAudioLoadData", NULL);
 }
 
 static inline DiscS32* getAudioLoadData(int arg0)
@@ -682,6 +682,20 @@ static void fn_800244F4(void)
     lbl_804D38A8 = 0x7F;
     lbl_804D63F0 = 0.0F;
     lbl_804D38CC = 0x7F;
+
+    /* lbl_804D640C == false must mean the pause-menu duck is off, i.e. the
+     * AXDriver channel mask has no bit for 5/6/7/8. lbAudioAx_80024E84()
+     * sets and clears both halves together, and lbAudioAx_80024C84() clears
+     * both; this reset was the one path that cleared the flag without the
+     * matching unmask. That left AXDriver_804D77CC bits 5-8 latched whenever
+     * a scene tore down from a paused match, and AXDriver_8038CFF4 then
+     * rejected every channel-7 request (sm_reject reason 6) for the rest of
+     * the process: HPS music kept playing while all fighter SFX and
+     * character voices were dead. */
+    AXDriver_8038E844(5);
+    AXDriver_8038E844(6);
+    AXDriver_8038E844(8);
+    AXDriver_8038E844(7);
     gm_801603B0();
 }
 
@@ -1301,7 +1315,13 @@ static void fn_80025FAC(HSD_GObj* gobj, lbAudioAx_UserData* ud,
         ud->x44 = false;
         ud->vol = VOL_MAX;
         ud->pan = PAN_MID;
-        ud->x10 = lbl_803BCA24[ud->xC];
+        /* xC is lbAudioAx_800263E8's arg2, which ftAction_80072320 fills from
+         * stage_sfx_0.sfx_base -- a 10-bit action-script field, so 0..1023 --
+         * and this table has ten entries. Reading past it yields a stray
+         * function pointer. */
+        ud->x10 = (unsigned) ud->xC < ARRAY_SIZE(lbl_803BCA24)
+                      ? lbl_803BCA24[ud->xC]
+                      : NULL;
         ud->voice_id = -1;
 
         switch (ud->xC) {
@@ -1382,7 +1402,10 @@ static void fn_800262A0(HSD_GObj* gobj)
         return;
     }
 
+    /* No update proc: the object can never advance or expire, so drop it now
+     * rather than leaving it on the plink list holding its userdata forever. */
     if (ud->x10 == NULL) {
+        HSD_GObjFree(gobj);
         return;
     }
 
@@ -1673,7 +1696,11 @@ static void fn_80026C04(int arg0, int unused)
     slot = fn_80026650();
     if (slot != -1) {
         strcpy(&cur_ssm_file[ssm_stem_pos], ssm_files[slot]);
-        lbl_80433A64[slot] = HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+        /* fn_80026C04 identifies the finished slot by this entrynum, and the
+         * load can complete before HSD_SynthSFXLoad returns, so publish it
+         * first. HSD_SynthSFXLoad returns exactly this value. */
+        lbl_80433A64[slot] = DVDConvertPathToEntrynum(cur_ssm_file);
+        HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
     }
 }
 
@@ -1788,7 +1815,8 @@ static inline void lbAudioAx_80027168_inline_2(void)
     int slot = fn_80026650();
     if (slot != -1) {
         strcpy(&cur_ssm_file[ssm_stem_pos], ssm_files[slot]);
-        lbl_80433A64[slot] = HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+        lbl_80433A64[slot] = DVDConvertPathToEntrynum(cur_ssm_file);
+        HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
     }
 }
 

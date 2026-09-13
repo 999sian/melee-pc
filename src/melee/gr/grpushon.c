@@ -42,7 +42,7 @@ struct grPushOn_LightConfig {
 };
 
 struct DISC_STRUCT grPushon_YakumonoParam {
-    s32 x0;
+    DISC_PTR(DynamicsDesc) x0;
     DISC_PTR(DynamicsDesc) x4;
     DISC_PTR(DynamicsDesc) x8;
     DISC_PTR(DynamicsDesc) xC;
@@ -115,7 +115,7 @@ StageData grPushOn_StageData = {
     0,
 };
 
-void grPushOn_802182C4(bool arg) {}
+void grPushOn_802182C4(s32 arg) {}
 
 void grPushOn_802182C8(void)
 {
@@ -292,15 +292,21 @@ void grPushOn_802187A8(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     HSD_LObj* lobj;
 
-    gp->u.pushon.gobj = ((HSD_GObj*) HSD_GObjGXLinkHead)->next_gx;
+    /* Retail read the word at `(HSD_GObj*) HSD_GObjGXLinkHead`->next_gx, i.e.
+     * the array element at byte offset 0x10 -- index 4 with 4-byte pointers.
+     * On LP64 next_gx sits at 0x18, so the same expression picks up element 3
+     * and the stage came up with the wrong GX link list. */
+    gp->u.pushon.gobj = HSD_GObjGXLinkHead[4];
     PAD_STACK(16);
     grPushOn_802190D0(gp->u.pushon.gobj);
     lobj = ((HSD_GObj*) gp->u.pushon.gobj)->hsd_obj;
     gp->u.pushon.count = 0;
-    while (lobj != NULL) {
+    while (lobj != NULL &&
+           gp->u.pushon.count < (s32) ARRAY_SIZE(gp->u.pushon.lobjs))
+    {
         gp->u.pushon.lobjs[gp->u.pushon.count] = lobj;
         gp->u.pushon.lobj_flags[gp->u.pushon.count] = HSD_LObjGetFlags(lobj);
-        lobj = lobj == NULL ? NULL : lobj->next;
+        lobj = lobj->next;
         gp->u.pushon.count++;
     }
     gp->u.pushon.point_light = grPushOn_80218ED4(gp->u.pushon.gobj);
@@ -410,7 +416,13 @@ void grPushOn_80218888(Ground_GObj* gobj)
             }
         }
 
-        /* Compute weighted direction */
+        /* Compute weighted direction. `sorted[1]` is only initialised when
+         * the stage found at least two lights; retail always did, but reading
+         * an uninitialised index here faults instead of merely picking the
+         * wrong light. */
+        if (gp->u.pushon.count < 2) {
+            return;
+        }
         dir = grPushOn_803B844C;
         ref_dist = distances[sorted[1]];
 
@@ -696,7 +708,10 @@ int grPushOn_80219230(int arg0)
     HSD_ASSERT(861, 0);
 }
 
-s32 fn_802192A4(void* arg0, HSD_GObj* gobj, s32* result)
+/* `result` is &desc of a DynamicsDesc* in ftColl_8007BAC0; ftCo_800C08A0
+ * dereferences it, so the disc slot must be relocated, not stored as a
+ * 32-bit half of a host pointer. */
+s32 fn_802192A4(void* arg0, HSD_GObj* gobj, DynamicsDesc** result)
 {
     Vec3 sp14;
     f32 scale = Ground_801C0498();
@@ -709,7 +724,7 @@ s32 fn_802192A4(void* arg0, HSD_GObj* gobj, s32* result)
             (scale * (-50.0f + grPushOn_803E7CCC[i * 3 + 2]) < sp14.y) &&
             (scale * grPushOn_803E7CCC[i * 3 + 2] > sp14.y))
         {
-            *result = yakumono_param->x0;
+            *result = DP(DynamicsDesc, yakumono_param->x0);
             return 1;
         }
     }

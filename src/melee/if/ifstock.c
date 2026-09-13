@@ -886,9 +886,13 @@ void fn_802FA8C0(HSD_GObj* arg)
     float y = 11.0f;
     signed char* a97c = gm_8016A97C();
     signed char* a98c = gm_8016A98C()->arr1;
-    cur = stock->x10C - (0x10C / sizeof(*cur));
+    /* The decomp biased `cur` below the array and re-added the same constant
+     * on every read. The two cancel, but the intermediate pointer is outside
+     * the object -- and the bias is `0x10C / sizeof(void*)`, which is a
+     * different count on LP64. Just walk the array. */
+    cur = stock->x10C;
     for (i = 0; i < 0x82; i++, cur++, a97c++, a98c++) {
-        HSD_GObj* gobj = cur[0x10C / sizeof(*cur)];
+        HSD_GObj* gobj = *cur;
         if (gobj == NULL) {
             return;
         }

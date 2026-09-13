@@ -5,7 +5,9 @@
 
 /* 08D7F0 */ float ftCo_Damage_CalcAngle(Fighter* fp, float kb_applied);
 /* 08D8D8 */ float ftCo_ScaleBy154(float);
-/* 08D8E8 */ bool ftCo_8008D8E8(float);
+/// Knockback severity bucket, 0..3. NOT a @c bool: the value is used as an
+/// effect-table index (#ftCo_8008DA4C) and compared against 3.
+/* 08D8E8 */ enum_t ftCo_8008D8E8(float);
 /* 08D930 */ void ftCo_Damage_CalcKnockback(Fighter* fp);
 /* 08DB10 */ void ftCo_8008DB10(Fighter_GObj* gobj, HitElement, float);
 /* 08DC0C */ void ftCo_Damage_CalcVel(Fighter* fp, float x, float y);

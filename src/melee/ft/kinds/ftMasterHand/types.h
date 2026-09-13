@@ -108,8 +108,12 @@ DISC_ASSERT_SIZE(struct ftMasterHand_SpecialAttrs, 0x17C);
 
 union ftMasterHand_MotionVars {
     struct ftMasterHand_Unk0Vars {
-        float x0;
-        HSD_GObjEvent x4;
+        /*  +0 */ float x0;
+        /* GameCube kept the callback in this 4-byte word; an 8-byte function
+         * pointer here would shift every member below it out of alignment
+         * with the `dmg0`, `fingerbeam`, `grab`, `ch_dmg` and `ch_backcrush`
+         * views, which name the same words by hard-coded offset. */
+        /*  +4 */ u8 pad_x4[4];
         int x8;
         Vec3 xC;
         float x18;
@@ -133,6 +137,8 @@ union ftMasterHand_MotionVars {
         int x70;
         int x74;
         int x78;
+        /* moved off +4 (see above); nothing else aliases this tail */
+        HSD_GObjEvent x4;
     } unk0;
 
     struct ftMasterHand_Unk4Vars {
@@ -146,20 +152,25 @@ union ftMasterHand_MotionVars {
         float x4;
     } unk13;
 
+    /* GameCube packed the four laser Item_GObj* at a 4-byte stride, sharing
+     * those words with ftMasterHand_Unk0Vars (MasterHand: x34..x40,
+     * CrazyHand: x28..x34). 8-byte pointers cannot reproduce that stride, so
+     * every view parks them past the end of `unk0` (+0x88) instead, and the
+     * code that used to clear them through `unk0` now uses these views. */
     struct ftMasterHand_FingerBeamVars {
-        /*  +0 fp+2340 */ char pad_0[0x34];
-        /* +34 fp+2374 */ Item_GObj* x34;
-        /* +38 fp+2378 */ Item_GObj* x38;
-        /* +3C fp+237C */ Item_GObj* x3C;
-        /* +40 fp+2380 */ Item_GObj* x40;
+        char pad_0[0x88];
+        /* was fp+2374 */ Item_GObj* x34;
+        /* was fp+2378 */ Item_GObj* x38;
+        /* was fp+237C */ Item_GObj* x3C;
+        /* was fp+2380 */ Item_GObj* x40;
     } fingerbeam;
 
     struct ftMasterHand_GrabVars {
-        char pad_0[0x28];
-        Item_GObj* x28;
-        Item_GObj* x2C;
-        Item_GObj* x30;
-        Item_GObj* x34;
+        char pad_0[0x88];
+        /* was fp+2368 */ Item_GObj* x28;
+        /* was fp+236C */ Item_GObj* x2C;
+        /* was fp+2370 */ Item_GObj* x30;
+        /* was fp+2374 */ Item_GObj* x34;
     } grab;
 
     struct ftMasterHand_Damage_0 {
@@ -167,10 +178,11 @@ union ftMasterHand_MotionVars {
         /* +28 fp+2368 */ int x28;
         /* +2C fp+236C */ int x2C;
         /* +30 fp+2370 */ int x30;
-        /* +34 fp+2374 */ Item_GObj* x34;
-        /* +38 fp+2378 */ Item_GObj* x38;
-        /* +3C fp+237C */ Item_GObj* x3C;
-        /* +40 fp+2380 */ Item_GObj* x40;
+        /* +34 */ char pad_x34[0x88 - 0x34];
+        /* was fp+2374 */ Item_GObj* x34;
+        /* was fp+2378 */ Item_GObj* x38;
+        /* was fp+237C */ Item_GObj* x3C;
+        /* was fp+2380 */ Item_GObj* x40;
     } dmg0;
 
     struct ftCrazyHand_DamageVars {

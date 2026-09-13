@@ -171,10 +171,6 @@ void ftCo_800C18A8(Fighter_GObj* gobj, ftCommon_MotionState msid, Vec3* normal,
 
     fp = GET_FIGHTER(gobj);
 
-    /// @todo fix stack padding
-    GET_FIGHTER(0);
-    GET_FIGHTER(0);
-
     vec0.x = fp->cur_pos.x + offset->x;
     vec0.y = fp->cur_pos.y + offset->y;
     vec0.z = fp->cur_pos.z + offset->z;

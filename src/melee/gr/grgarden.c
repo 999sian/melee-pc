@@ -69,7 +69,7 @@ StageData grGd_StageData = {
 
 static struct grGarden_YakumonoParam* yakumono_param;
 
-void grGarden_80202B6C(bool arg) {}
+void grGarden_80202B6C(s32 arg) {}
 
 void grGarden_80202B70(void)
 {

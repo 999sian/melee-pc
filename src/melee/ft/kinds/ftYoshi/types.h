@@ -152,7 +152,7 @@ union ftYoshi_MotionVars {
         /* fp+2350 */ f32 x10;
         /* fp+2354 */ f32 x14;
         /* fp+2358 */ f32 x18;
-        /* fp+235C */ UNK_T x1C;
+        /* fp+235C */ u32 x1C;
         /* fp+2360 */ int x20;
         /* fp+2364 */ int x24;
     } guard;

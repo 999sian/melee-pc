@@ -16,9 +16,9 @@
 void it_8027870C(s32 arg0)
 {
     if (lbLang_IsSettingUS()) {
-        lbArchive_80017040(NULL, it_803F1EE4, &it_804D6D20, it_803F1EF0, 0);
+        lbArchive_80017040(NULL, it_803F1EE4, &it_804D6D20, it_803F1EF0, NULL);
     } else {
-        lbArchive_80017040(NULL, it_803F1ED8, &it_804D6D20, it_803F1EF0, 0);
+        lbArchive_80017040(NULL, it_803F1ED8, &it_804D6D20, it_803F1EF0, NULL);
     }
     it_804D6D28 = DP(ItemCommonData, it_804D6D20->x0);
     it_804D6D24 = DP(DiscU32, it_804D6D20->x4);

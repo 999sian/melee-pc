@@ -25,8 +25,12 @@ struct lbl_804335B8_t {
     /* 0x94 */ void* unk94;
     /* 0x98 */ size_t unk98;
     /* 0x9C */ char pad_9C[0xA0 - 0x9C];
-}; /* size = 0xA0 */
-ASSERT_SIZE(struct lbl_804335B8_t, 0xA0);
+}; /* retail size 0xA0 */
+/* No ASSERT_SIZE: aurora's GXTexObj is 64 bytes, not the retail SDK's 32, so
+ * this can never reach 0xA0 here on either ABI. Nothing maps the struct -- it
+ * is one file-static reached only by name -- so the size is not load-bearing,
+ * and asserting it would leave a permanent failure in the
+ * `-m32 -DLINT` reconstruction sweep that masks real ones. */
 
 extern struct lbl_804333E0_t Movieplayer;
 

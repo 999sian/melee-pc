@@ -183,7 +183,19 @@ static void TObjUpdateFunc(void* obj, enum_t type, HSD_ObjData* val)
     } break;
     case HSD_A_T_TCLT: {
         if (tobj->tluttbl) {
-            tobj->tlut_no = (u8) val->fv;
+            /* tluttbl is a NULL-terminated table; HSD_TObjSetup indexes it
+             * with tlut_no unchecked, so an out-of-range animated index
+             * reads past the table and installs a garbage HSD_Tlut (whose
+             * lut pointer then goes to GXInitTlutObj). Keep the previous
+             * palette instead. */
+            int n = (int) val->fv;
+            int len = 0;
+            while (tobj->tluttbl[len] != NULL) {
+                len++;
+            }
+            if (n >= 0 && n < len) {
+                tobj->tlut_no = (u8) n;
+            }
         }
     } break;
     case HSD_A_T_BLEND:

@@ -32,12 +32,18 @@ ItCmd it_803F22A8[16] = {
     it_802798D4, it_8027990C, it_80279958, it_802799A8,
 };
 
-typedef struct itAnimlistCmdUnk {
+/* One word of the item command stream, read in place: like every other
+ * CmdUnion member this is big-endian with MSB-first bitfields, so `opcode`
+ * is bits 9..2 of the first halfword. Untagged, it read bits 6..13 of a
+ * byte-swapped halfword and every SFX command dispatched to the wrong (or
+ * no) case. */
+typedef struct DISC_STRUCT itAnimlistCmdUnk {
     u16 x0_b0 : 6;
     u16 opcode : 8;
     u16 x0_b14 : 2;
     u16 x2;
 } itAnimlistCmdUnk;
+DISC_ASSERT_SIZE(itAnimlistCmdUnk, 0x4);
 
 void it_80278F2C(Item_GObj* item_gobj, CommandInfo* cmd)
 {
