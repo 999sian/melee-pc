@@ -588,16 +588,13 @@ void fn_801852FC(HSD_GObj* gobj)
             }
             Camera_800313E0(gobj, 1);
             HSD_StateInvalidate(-1);
-#ifdef TARGET_PC
-            /* The capture camera is widened, so its picture sits in the
-             * centred 1/s of the viewport; 320 is that viewport's horizontal
-             * centre and also the centre of the 130..510 copy rect. */
-            pc_widescreen_copy_efb(&lbl_804735E8.x40[i], 0x82, 0, 320.0f, 0);
-            pc_widescreen_copy_efb(&lbl_804735E8.x88[i], 0x82, 0, 320.0f, 1);
-#else
+            /* Deliberately the plain copy, not pc_widescreen_copy_efb:
+             * routing these two through the widened-copy helper put black
+             * slivers through the VS glyph even at scale 1, where the helper
+             * is supposed to be a no-op. The widescreen framing of this
+             * splash is the lesser defect of the two. */
             HSD_ImageDescCopyFromEFB(&lbl_804735E8.x40[i], 0x82, 0, 0, 0);
             HSD_ImageDescCopyFromEFB(&lbl_804735E8.x88[i], 0x82, 0, 1, 1);
-#endif
         }
         HSD_CObjEndCurrent();
     }

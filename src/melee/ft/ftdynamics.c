@@ -335,7 +335,12 @@ void ftCo_8009DC54(Fighter* fp)
         ssize_t dyn_idx = 0;
         i = 0;
         do {
-            HSD_JObj* cur = fp->u.kb.hat.jobj;
+            /* This is Jigglypuff's hat, and ftpurin.c stores it in
+             * u.pr.x223C. Reading it through u.kb.hat worked on GameCube
+             * because both views put it on fp+223C; with 8-byte pointers the
+             * two views diverge (u.kb.hat.jobj is 8 bytes past u.pr.x223C),
+             * so this read returned garbage and the bone walk below faulted. */
+            HSD_JObj* cur = fp->u.pr.x223C;
             ftDynamics* dynamics = get_ft_dyn(data);
             ArticleDynamicBones* bones = get_adb(dynamics);
             ssize_t j;

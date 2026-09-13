@@ -79,6 +79,11 @@ def grab(dpy, win, out):
     one. Only pay for the nudge when the frames actually match.
     """
     first = _import(win, out)
+    if os.environ.get("MELEE_SHOT_NO_NUDGE"):
+        # Capturing a game halted under gdb: two frames always match because
+        # nothing is presenting, and the nudge cannot be repainted. The stale
+        # drawable is exactly the frame we want.
+        return
     time.sleep(0.06)
     if _import(win, out) != first:
         return
