@@ -27,7 +27,13 @@ handed to `GXSetProjection` changes.
 - `src/pc/widescreen.c` is the whole feature: pick the presented aspect from the
   mode, scene eligibility and window size; hand it to Aurora once per frame; and
   report the widening factor. No viewport or scissor overrides.
-- `setupNormalCamera` (`cobj.c`) divides `p[0][0]` by that factor;
+- `setupNormalCamera` (`cobj.c`) divides the projection's whole horizontal row
+  by that factor — `p[0][0]` and the offset term (`p[0][2]` for perspective and
+  frustum cameras, `p[0][3]` for ortho). Dividing `p[0][0]` alone is only a
+  centre-symmetric scale when the projection is already centred; every ortho
+  HUD camera and every asymmetric frustum keeps its horizontal offset in that
+  second term, and leaving it alone shifted those images sideways. The symptom
+  was the P1/P2/CP nametags drifting ~200px left of their fighters at 16:9.
   `HSD_CObjEraseScreen` widens its erase rectangle by the same amount.
 - `AuroraSetPresentationAspect` / `AuroraGetWindowSize` (new) generalise Aurora's
   4:3-only `set_frame_buffer_aspect_fit` into an arbitrary framebuffer aspect.
