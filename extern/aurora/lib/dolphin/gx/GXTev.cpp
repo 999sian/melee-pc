@@ -169,7 +169,34 @@ void GXSetTevOrder(GXTevStageID id, GXTexCoordID tcid, GXTexMapID tmid, GXChanne
 }
 
 void GXSetZTexture(GXZTexOp op, GXTexFmt fmt, u32 bias) {
-  // TODO
+  // BP registers 0xF4 (ztex1: 24-bit bias) and 0xF5 (ztex2: format, op)
+  u32 zfmt;
+  switch (fmt) {
+  case GX_TF_Z8:
+    zfmt = 0;
+    break;
+  case GX_TF_Z16:
+    zfmt = 1;
+    break;
+  case GX_TF_Z24X8:
+    zfmt = 2;
+    break;
+  default:
+    CHECK(false, "GXSetZTexture: invalid format {}", static_cast<int>(fmt));
+    zfmt = 2;
+    break;
+  }
+
+  u32 ztex1 = 0;
+  SET_REG_FIELD(0, ztex1, 24, 0, bias & 0xFFFFFF);
+  SET_REG_FIELD(0, ztex1, 8, 24, 0xF4);
+  u32 ztex2 = 0;
+  SET_REG_FIELD(0, ztex2, 2, 0, zfmt);
+  SET_REG_FIELD(0, ztex2, 2, 2, op);
+  SET_REG_FIELD(0, ztex2, 8, 24, 0xF5);
+  GX_WRITE_RAS_REG(ztex1);
+  GX_WRITE_RAS_REG(ztex2);
+  __gx->bpSent = 1;
 }
 
 void GXSetNumTevStages(u8 num) {

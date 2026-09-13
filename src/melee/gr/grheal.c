@@ -312,7 +312,9 @@ void onJointCollision(void* user_data, int joint_id, CollData* coll,
                       float delta_y)
 {
     Ground* gp = user_data;
-    if ((((*(u8*) ((u8*) coll + 0x34) >> 3U) & 0xF) == 1) &&
+    /* Was *(u8*)((u8*) coll + 0x34): a GameCube byte offset, and CollData's
+     * flags do not live at +0x34 once its pointers are 8 bytes wide. */
+    if ((coll->x34_flags.b1234 == 1) &&
         ((ground_kind - 1) <= 1U))
     {
         gp->u.unk.xC4 = 1;

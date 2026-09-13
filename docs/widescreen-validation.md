@@ -35,6 +35,65 @@ handed to `GXSetProjection` changes.
   second term, and leaving it alone shifted those images sideways. The symptom
   was the P1/P2/CP nametags drifting ~200px left of their fighters at 16:9.
   `HSD_CObjEraseScreen` widens its erase rectangle by the same amount.
+- **The fill-frame opt-out.** A camera whose projection box *is* the screen
+  rectangle is geometrically indistinguishable from a HUD camera — only intent
+  separates them, so intent is recorded explicitly. `PC_COBJ_FILL_FRAME`
+  (`src/pc/widescreen.h`, bit 29 of `HSD_CObj::flags`; 0, 1, 30 and 31 are
+  taken, and `CObjLoad` only reseeds the low bits from the disc desc, so a bit
+  set after `HSD_CObjLoadDesc` survives) marks a camera that must cover the
+  whole frame. `pc_widescreen_cobj_scale(cobj)` returns 1.0 for such a camera
+  and `pc_widescreen_scale()` otherwise; everything that has to agree with the
+  submitted matrix asks that one function, so there is a single scale factor in
+  the port, not one per effect.
+  - **Widens:** the world, stage backgrounds, effects, items — everything drawn
+    through a normal scene camera.
+  - **Deliberately does not widen:** the HUD (damage panels, nametags, stock
+    icons, timer). Those cameras stay unflagged, which is exactly what keeps
+    their classic 4:3 layout. Fighter shadows likewise: they run in
+    `HSD_RP_OFFSCREEN`, where the scale is already 1.
+  - **Flagged fill-frame:** the `lbbgflash` overlay camera (`lbl_803BB028`),
+    whose only purpose is to make the plane z=0 the screen rectangle for the
+    full-screen flash and fade-to-black quad. Before the flag, every KO fade
+    and every heavy-hit element flash covered only ndc.x [−1/s, +1/s] — a live
+    strip of gameplay 12.5% of the frame wide down each edge at 16:9, 21% at
+    21:9. Widening the quad instead was rejected: 0..640 means "the screen" in
+    both builds, and a baked-in factor would break the moment the eye position
+    or fov animates.
+- **`HSD_CObjEraseScreen` scales its rect about the rect's own centre**, not
+  about the world origin. `left *= s; right *= s` is only a centre-symmetric
+  scale when `left == -right`; for the Pokémon Stadium text-window camera
+  (ortho 0..250) it also translated the rect, leaving the left 12.5% unerased
+  and overhanging the right edge by 25% at 16:9. Symmetric frusta are
+  bit-identical to before.
+- **Projected-texture matrices are built from the projection that was actually
+  submitted.** `C_MTXLightPerspective` sets `m[0][0] = scaleS·cot/aspect`, so
+  passing `aspect · pc_widescreen_cobj_scale(cobj)` reproduces the rendered
+  `p[0][0]` exactly; the `transS` term in `m[0][2]` is untouched. Fixed in
+  `lbrefract.c` (refraction / heat-haze: Cloaking Device, Special Smash
+  Invisible) and `grizumi.c` (Fountain of Dreams water reflection), which were
+  sampling displaced by a factor of s about the frame centre. `lbrefract`'s
+  frustum and ortho arms widen `left`/`right` about their midpoint, the same
+  rule as the erase rect.
+- **EFB captures that a model re-draws with fixed UVs copy the centred `1/s`
+  rect.** `HSD_ImageDescCopyFromEFB` passes `idesc->width/height` as both src
+  and dst, and Aurora's `copy_tex` then sizes the texture from the *mapped*
+  render-target rect — `round(w·s) × h` — while the game declares `w × h`, so
+  the image arrives squashed by s. `pc_widescreen_copy_efb()` copies the
+  centred rect of width `w/s` instead, which is precisely the region the
+  widened projection drew the 4:3 picture into; keeping src == dst there makes
+  Aurora resolve it 1:1 rather than resample. Used by the off-screen-fighter
+  magnifier (`ifmagnify.c`) and all three Pokémon Stadium captures
+  (`grpstadium.c`: jumbotron feed, text window, vision sub-rect). The
+  sub-rect capture contracts about the frame centre (320) rather than its own,
+  because that is the centre its source camera widened about.
+  - The alternative — making Aurora produce a logical-sized texture — was not
+    taken: `copy_tex` cannot tell a capture that will be re-drawn with fixed
+    UVs from one that is projected back with a matrix (`lbrefract`,
+    `grizumi`), and the latter is correct as-is. The knowledge lives at the
+    call site.
+  - Not affected: `lbrefract`'s own copy (src 640×480, dst 320×240 takes
+    Aurora's uniform-scale path) and `grizumi`'s reflection copy (sampled
+    projectively, so the texture's pixel dimensions never matter).
 - `AuroraSetPresentationAspect` / `AuroraGetWindowSize` (new) generalise Aurora's
   4:3-only `set_frame_buffer_aspect_fit` into an arbitrary framebuffer aspect.
 - `HSD_Init_803755A8` (`initialize.c`) now really ends the offscreen pass under
@@ -74,6 +133,27 @@ and stage floors turned black. Sizing the framebuffer removes the offset entirel
 - Regression smoke tests after the render-pass and Aurora changes:
   `tools/test_special_smash.py --mode camera --mode giant` and
   `tools/test_stadium.py --mode home-run` passed.
+- Screen-effect NDC-coverage probe (`/tmp/ws-gaps/probe_fix.c`): links Aurora's
+  real `C_MTXPerspective` / `C_MTXOrtho` / `C_MTXLookAt` /
+  `C_MTXLightPerspective` and replays `setupNormalCamera`'s widening,
+  `HSD_CObjEraseScreen`'s compensation and Aurora's EFB-copy mapping, scoring
+  before and after in one run. At 4:3 / 16:9 / 21:9:
+
+  | effect | before | after |
+  | --- | --- | --- |
+  | `lbbgflash` flash/fade quad | ndc.x ±0.75 / ±0.5714 | ±1.0 at every aspect |
+  | `EraseScreen`, ortho 0..250 | [−0.75, +1.25] / [−0.5714, +1.4286] | [−1.0, +1.0] |
+  | `EraseScreen`, symmetric ±300 | [−1.0, +1.0] | unchanged |
+  | HUD ortho 0..640 (control) | ±0.75 / ±0.5714 | **unchanged** |
+  | magnifier fighter width | ×0.75 / ×0.5714 | ×1.0 |
+  | `MTXLightPerspective` vs render | ×1.3333 / ×1.75 | ×1.0 |
+  | jumbotron horizontal scale | ×0.75 / ×0.5714 | ×1.0 |
+
+  Injection-validated as the audit was: one deliberately-broken row per aspect
+  moves the flag count 0 → 3 when scoring the fixed column and 10 → 13 when
+  scoring the original column, and the 10 original flags are exactly the five
+  defect rows at the two widened aspects — the HUD and symmetric-frustum
+  controls never flag.
 
 ## Known limitations
 
@@ -88,6 +168,12 @@ and stage floors turned black. Sizing the framebuffer removes the offset entirel
 - Scene transitions resize the framebuffer when eligibility changes; a widened
   frame may persist for a frame at the boundary.
 - Frame interpolation and any HUD rework remain out of scope.
+- Two screen-space paths in files outside this change are still 4:3-only, and
+  neither is reachable in a widening scene today: `lbspdisplay.c`'s
+  EFB-capture replay camera (`lb_800138EC`, ortho 0..640) would need the same
+  `PC_COBJ_FILL_FRAME` flag, and `cmsnap.c`'s camera-mode snapshot allocates a
+  640×480 buffer for a copy Aurora sizes wider. Both surface immediately if
+  either is ever used during a fight.
 
 ## Commands
 

@@ -1348,7 +1348,7 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
     const bool hasIndirectStage = stage.indTexStage < config.numIndStages;
     const bool needsTevTexCoord =
         needsIndirectCoord || stage.indTexWrapS != GX_ITW_OFF || stage.indTexWrapT != GX_ITW_OFF || stage.indTexAddPrev;
-    const bool needsTextureSample = uses_texture_sample(stage);
+    const bool needsTextureSample = uses_texture_sample(stage) || i == info.zTexStage;
     if (!needsTevTexCoord && !needsTextureSample) {
       continue;
     }
@@ -1643,6 +1643,46 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
   }
   if constexpr (EnableNormalVisualization) {
     fragmentFn += "\n    prev = vec4f(in.nrm, prev.a);";
+  }
+
+  // Z texture: the fragment depth is derived from the last TEV stage's texture
+  // sample. Writing frag_depth defeats early-Z, which is precisely the late
+  // depth test GXSetZCompLoc(GX_FALSE) asks for, so that call becomes correct
+  // by construction for these pipelines.
+  std::string fragOutStruct;
+  std::string_view fragRetType = "@location(0) vec4f"sv;
+  std::string fragReturn = "\n    return prev;";
+  if (info.zTexStage >= 0) {
+    const auto& stage = config.tevStages[info.zTexStage];
+    // Same swap table the TEV colour input mux would have applied.
+    const auto& swap = config.tevSwapTable[stage.tevSwapTex];
+    const auto texel = fmt::format("sampled{}.{}{}{}", static_cast<int>(info.zTexStage), chan_comp(swap.red),
+                                   chan_comp(swap.green), chan_comp(swap.blue));
+    // ztex2 format: U8 carries the high byte of the 24-bit depth (GX_TF_Z8
+    // decodes as intensity, so every channel holds it); U24 is R:G:B, MSB
+    // first, matching FragZ24X8 in tex_copy_conv.cpp.
+    const std::string_view ztexExpr =
+        config.zTexFmt == 2 ? "(zt_t.r << 16u) | (zt_t.g << 8u) | zt_t.b"sv : "zt_t.r << 16u"sv;
+    fragOutStruct =
+        "\nstruct FragmentOutput {\n"
+        "    @location(0) color: vec4f,\n"
+        "    @builtin(frag_depth) depth: f32,\n"
+        "};\n";
+    fragRetType = "FragmentOutput"sv;
+    fragReturn = fmt::format("\n    // Z texture ({})\n    let zt_t = vec3u(round({} * 255.0));",
+                             config.zTexOp == GX_ZT_ADD ? "add" : "replace", texel);
+    if (config.zTexOp == GX_ZT_ADD) {
+      fragReturn += fmt::format("\n    let zt_poly = u32(clamp({}, 0.0, 1.0) * 16777215.0 + 0.5);",
+                                UseReversedZ ? "1.0 - in.pos.z" : "in.pos.z");
+      fragReturn += fmt::format("\n    let zt_z = (zt_poly + ({}) + {}u) & 0xFFFFFFu;", ztexExpr, config.zTexBias);
+    } else {
+      fragReturn += fmt::format("\n    let zt_z = (({}) + {}u) & 0xFFFFFFu;", ztexExpr, config.zTexBias);
+    }
+    fragReturn += fmt::format("\n    var out_frag: FragmentOutput;"
+                              "\n    out_frag.color = prev;"
+                              "\n    out_frag.depth = {};"
+                              "\n    return out_frag;",
+                              UseReversedZ ? "1.0 - f32(zt_z) / 16777215.0" : "f32(zt_z) / 16777215.0");
   }
 
   const auto shaderSource = fmt::format(R"""(
@@ -2008,13 +2048,14 @@ fn vs_main(
     return out;
 }}
 
+{9}
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4f {{{6}{5}
-    return prev;
+fn fs_main(in: VertexOutput) -> {10} {{{6}{5}{11}
 }}
 )""",
                                         uniBufAttrs, texBindings, vtxOutAttrs, vtxInAttrs, vtxXfrAttrs, fragmentFn,
-                                        fragmentFnPre, vtxXfrAttrsPre, uniformPre);
+                                        fragmentFnPre, vtxXfrAttrsPre, uniformPre, fragOutStruct, fragRetType,
+                                        fragReturn);
   if (EnableDebugPrints) {
     Log.info("Generated shader (hash {:x}): {}", hash, shaderSource);
   }

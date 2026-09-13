@@ -213,6 +213,37 @@ u32 line_texcoord_mask() noexcept {
   }
   return mask;
 }
+
+// The Z texture unit consumes the texture sample of the last TEV stage.
+// Returns that stage index, or -1 when the fragment shader must not write
+// frag_depth (ztex disabled, or a case we don't implement).
+s8 ztex_source_stage(const ShaderConfig& config) noexcept {
+  if (config.zTexOp == GX_ZT_DISABLE || config.tevStageCount == 0) {
+    return -1;
+  }
+  if (config.zTexFmt == 1 /* U16 */) {
+    // Unused by any known title on this port, and the GX_TF_Z16 copy
+    // conversion in tex_copy_conv.cpp packs its two bytes the other way round
+    // from Dolphin's U16 ztex coefficients, so the byte order here is
+    // unverified. Refuse rather than guess.
+    static bool warned = false;
+    if (!warned) {
+      warned = true;
+      Log.warn("Z texture format U16 is not implemented; ignoring ztex");
+    }
+    return -1;
+  }
+  const auto& stage = config.tevStages[config.tevStageCount - 1];
+  if (stage.texMapId == GX_TEXMAP_NULL || stage.texCoordId == GX_TEXCOORD_NULL) {
+    static bool warned = false;
+    if (!warned) {
+      warned = true;
+      Log.warn("Z texture enabled but the last TEV stage has no texture; ignoring ztex");
+    }
+    return -1;
+  }
+  return static_cast<s8>(config.tevStageCount - 1);
+}
 } // namespace
 
 ShaderInfo build_shader_info(const ShaderConfig& config) noexcept {
@@ -260,6 +291,14 @@ ShaderInfo build_shader_info(const ShaderConfig& config) noexcept {
       info.loadsTevReg.set(stage.alphaOp.outReg);
       info.writesTevReg.set(stage.alphaOp.outReg);
     }
+  }
+  info.zTexStage = ztex_source_stage(config);
+  if (info.zTexStage >= 0) {
+    // The ztex source sample is needed even when the TEV stage discards it in
+    // the colour path (the Classic intro's stage 1 does exactly that).
+    const auto& stage = config.tevStages[info.zTexStage];
+    info.sampledTexCoords.set(stage.texCoordId);
+    info.sampledTextures.set(stage.texMapId);
   }
   for (int i = 0; i < config.tevStageCount; ++i) {
     const auto& stage = config.tevStages[i];

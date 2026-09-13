@@ -351,6 +351,11 @@ struct GXState {
   GXPixelFmt pixelFmt = GX_PF_RGB8_Z24;
   GXZFmt16 zFmt = GX_ZC_LINEAR;
   bool zCompLocBeforeTex = false;
+  // Z texture unit (BP 0xF4/0xF5). zTexFmt is the raw ztex2 encoding:
+  // 0 = U8, 1 = U16, 2 = U24.
+  GXZTexOp zTexOp = GX_ZT_DISABLE;
+  u8 zTexFmt = 0;
+  u32 zTexBias = 0;
   u32 dstAlpha; // u8; UINT32_MAX = disabled
   AlphaCompare alphaCompare;
   std::array<Vec4<float>, MaxTevRegs> colorRegs;
@@ -492,7 +497,9 @@ struct ShaderConfig {
   u8 vtxStride = 0;
   u8 lineMode : 2 = 0; // 1 = GX_LINES, 2 = GX_LINESTRIP, 3 = GX_POINTS
   u8 fogRangeEnabled : 1 = false;
-  u8 pad1 : 5 = 0;
+  u8 zTexOp : 2 = 0;  // GXZTexOp
+  u8 zTexFmt : 2 = 0; // ztex2 encoding: 0 = U8, 1 = U16, 2 = U24
+  u8 pad1 : 1 = 0;
   u8 pad2 = 0;
   std::array<AttrConfig, MaxVtxAttr> attrs;
   std::array<TevSwap, MaxTevSwap> tevSwapTable;
@@ -503,6 +510,7 @@ struct ShaderConfig {
   AlphaCompare alphaCompare;
   std::array<IndStage, MaxIndStages> indStages{};
   u32 numIndStages = 0;
+  u32 zTexBias = 0;
 
   bool operator==(const ShaderConfig& rhs) const { return memcmp(this, &rhs, sizeof(*this)) == 0; }
 };
@@ -527,6 +535,9 @@ struct ShaderInfo {
   std::bitset<MaxTextures> sampledIndTextures;
   std::bitset<MaxIndTexMtxs> usedIndTexMtxs;
   u32 uniformSize = 0;
+  // TEV stage whose texture sample feeds the Z texture unit, or -1 if the
+  // fragment shader emits no frag_depth.
+  s8 zTexStage = -1;
   bool usesFog : 1 = false;
   bool lightingEnabled : 1 = false;
   u8 lineMode : 2 = 0;

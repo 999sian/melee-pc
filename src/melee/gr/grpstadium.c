@@ -37,6 +37,9 @@
 #include <sysdolphin/baselib/random.h>
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/wobj.h>
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 
 static struct DISC_STRUCT grPStadium_YakumonoParam {
     int x0;
@@ -1262,7 +1265,14 @@ void fn_801D2ED0(HSD_GObj* gobj, int unused)
         HSD_GObj_80390ED0(gobj, 7);
         HSD_CObjEndCurrent();
     }
+#ifdef TARGET_PC
+    /* Text-window camera: ortho 0..250 drawn through the widened SCREEN pass,
+     * so the window sits in the centred 1/s of its own 250px viewport. */
+    pc_widescreen_copy_efb(&wrapper->desc, 0, 0, 0.5f * wrapper->desc.width,
+                           1);
+#else
     lb_800122C8(&wrapper->desc, 0, 0, 1);
+#endif
     vision_gobj = Ground_GetMapGObj(PsType_Display);
     HSD_ASSERT(0x6D2, vision_gobj);
     gp2 = GET_GROUND(vision_gobj);
@@ -1279,7 +1289,13 @@ void grStadium_801D2FD0(Ground_GObj* gobj, int unused)
 
     copy = wrapper;
     if (!wrapper->flag) {
+#ifdef TARGET_PC
+        /* Jumbotron feed: a full-frame grab off the main camera, whose
+         * widening is about the frame centre. */
+        pc_widescreen_copy_efb(&copy->desc, 0, 36, 320.0f, 0);
+#else
         lb_800122C8(&copy->desc, 0, 36, 0);
+#endif
         wrapper->flag = true;
 
         vision_gobj = Ground_GetMapGObj(PsType_Display);
@@ -1300,7 +1316,14 @@ void grStadium_801D3084(HSD_GObj* gobj, int unused)
 
     new_var = wrapper;
     if (!new_var->flag) {
+#ifdef TARGET_PC
+        /* Same main-camera frame, but a corner sub-rect: contract it about
+         * the frame centre, not about the rect's own centre. */
+        pc_widescreen_copy_efb(&new_var->desc, new_var->x1A, new_var->x1C,
+                               320.0f, 0);
+#else
         lb_800122C8(&new_var->desc, new_var->x1A, new_var->x1C, 0);
+#endif
         new_var->flag = true;
         vision_gobj = Ground_GetMapGObj(PsType_Display);
         HSD_ASSERT(0x703, vision_gobj);

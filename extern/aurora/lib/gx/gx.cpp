@@ -381,6 +381,9 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
   config.shaderConfig = {};
   config.shaderConfig.fogType = g_gxState.fog.type;
   config.shaderConfig.fogRangeEnabled = g_gxState.fog.rangeEnabled;
+  config.shaderConfig.zTexOp = static_cast<u8>(g_gxState.zTexOp);
+  config.shaderConfig.zTexFmt = g_gxState.zTexFmt;
+  config.shaderConfig.zTexBias = g_gxState.zTexBias;
   u8 vtxOffset = 0;
   for (int i = GX_VA_PNMTXIDX; i <= GX_VA_TEX7; ++i) {
     const auto attr = static_cast<GXAttr>(i);

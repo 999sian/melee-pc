@@ -24,6 +24,11 @@ struct alignas(32) Cell {
   Cell* prev;
   Cell* next;
   s32 size;
+  // melee-pc: the caller's requested byte count, written only under
+  // MELEE_HEAP_CHECK. It occupies the 4 bytes of padding LP64 already inserts
+  // before `owner`, so sizeof(Cell) stays 32 and the flag-off layout is
+  // byte-identical to before.
+  s32 request;
   HeapDesc* owner;
 };
 
@@ -72,31 +77,6 @@ static void forgetOwner(const void* cell) {
   }
 }
 
-static void checkCanaries(const char* where) {
-  if (!sCanary || sHeapArray == nullptr) {
-    return;
-  }
-  for (int h = 0; h < sNumHeaps; ++h) {
-    for (Cell* c = sHeapArray[h].allocated; c != nullptr; c = c->next) {
-      const u8* canary = reinterpret_cast<const u8*>(c) + c->size - kAlignment;
-      for (u32 i = 0; i < kAlignment; ++i) {
-        if (canary[i] != kCanaryByte) {
-          const auto owner = sCellOwner.find(c);
-          AllocLog.fatal("heap stomp detected at {}: cell {} (user {}, size {}) canary at {} "
-                         "first bad byte +{} allocated by {} {} {} {}",
-                         where, static_cast<const void*>(c),
-                         static_cast<const void*>(reinterpret_cast<const u8*>(c) + kHeaderSize),
-                         c->size, static_cast<const void*>(canary), i,
-                         owner == sCellOwner.end() ? nullptr : owner->second[0],
-                         owner == sCellOwner.end() ? nullptr : owner->second[1],
-                         owner == sCellOwner.end() ? nullptr : owner->second[2],
-                         owner == sCellOwner.end() ? nullptr : owner->second[3]);
-        }
-      }
-    }
-  }
-}
-
 static uintptr_t roundUp32(const uintptr_t value) {
   return (value + (kAlignment - 1)) & ~(static_cast<uintptr_t>(kAlignment - 1));
 }
@@ -115,6 +95,144 @@ static bool inArena(const void* ptr) {
 
 static bool validHeapHandle(const OSHeapHandle heap) {
   return sHeapArray != nullptr && heap >= 0 && heap < sNumHeaps && sHeapArray[heap].size >= 0;
+}
+
+static bool cellAligned(const void* ptr) {
+  return (reinterpret_cast<uintptr_t>(ptr) & (kAlignment - 1)) == 0;
+}
+
+// melee-pc: shared structural validation for one cell header -- exactly the
+// chain OSCheckHeap already had, plus the one guard it was missing: `next` is
+// bounds- and alignment-checked BEFORE `next->prev` is read. Without that the
+// heap check can be killed by the very corruption it is hunting. Returns
+// nullptr when the header looks sane, else a short description of the defect.
+// Never dereferences a pointer it has not already validated. Kept to those
+// checks so OSCheckHeap, which the game itself calls with MELEE_HEAP_CHECK off,
+// does not get slower; the extra paranoia checkCanaries wants lives in
+// checkCanaries.
+static inline __attribute__((always_inline)) const char*
+cellDefect(const HeapDesc& hd, const Cell* cell, const bool allocated) {
+  if (!inArena(cell)) {
+    return "cell pointer outside arena";
+  }
+  if (!cellAligned(cell)) {
+    return "cell pointer misaligned";
+  }
+  if (cell->size < static_cast<s32>(kMinObjectSize) || (cell->size & (kAlignment - 1)) != 0) {
+    return "cell size implausible";
+  }
+  if (cell->owner != (allocated ? &hd : nullptr)) {
+    return "cell owner wrong";
+  }
+  if (cell->next != nullptr) {
+    if (!inArena(cell->next) || !cellAligned(cell->next)) {
+      return "next link invalid";
+    }
+    if (cell->next->prev != cell) {
+      return "next->prev mismatch";
+    }
+  }
+  return nullptr;
+}
+
+// Size sanity against the arena extent. Only the canary sweep pays for this;
+// OSCheckHeap already rejects an oversized cell through its running total.
+static const char* cellExtentDefect(const HeapDesc& hd, const Cell* cell) {
+  if (cell->size > hd.size) {
+    return "cell size exceeds its heap";
+  }
+  if (reinterpret_cast<uintptr_t>(cell) + static_cast<uintptr_t>(cell->size)
+      > reinterpret_cast<uintptr_t>(sArenaEnd)) {
+    return "cell extends past arena end";
+  }
+  return nullptr;
+}
+
+// The guarded region of a live cell runs from the end of the caller's request
+// to the end of the cell, so the up-to-63 bytes of rounding slack that used to
+// be a blind spot are guarded too.
+static u32 guardLength(const Cell* cell) {
+  return static_cast<u32>(cell->size) - kHeaderSize - static_cast<u32>(cell->request);
+}
+
+static bool guardPlausible(const Cell* cell) {
+  return cell->request > 0
+      && cell->request <= cell->size - static_cast<s32>(kHeaderSize + kAlignment);
+}
+
+// Reports a broken header without dereferencing the suspect cell. The owner
+// map lives on the host heap, not in the arena, so its backtraces survive an
+// arena stomp; we name the failing cell's allocator if we know it, else the
+// last cell that validated cleanly.
+[[noreturn]] static void reportBrokenHeader(const char* where, const char* defect, const int heap,
+                                            const void* cell, const void* lastGood,
+                                            const u32 walked) {
+  static const OwnerTrace kNoTrace{};
+  const auto self = sCellOwner.find(cell);
+  const auto prev = sCellOwner.find(lastGood);
+  const bool haveSelf = self != sCellOwner.end();
+  const OwnerTrace trace = haveSelf ? self->second
+                           : prev != sCellOwner.end() ? prev->second
+                                                      : kNoTrace;
+  AllocLog.fatal("heap header corrupted at {}: {} in heap {} cell {}, walked {} cells "
+                 "(last good cell {}) allocated by {} {} {} {}",
+                 where, defect, heap, cell, walked, lastGood, trace[0], trace[1], trace[2],
+                 trace[3]);
+}
+
+static void checkCanaries(const char* where) {
+  if (!sCanary || sHeapArray == nullptr) {
+    return;
+  }
+  for (int h = 0; h < sNumHeaps; ++h) {
+    auto& hd = sHeapArray[h];
+    if (hd.size < 0) {
+      continue;
+    }
+    // Cells never overlap and are never smaller than kMinObjectSize, so a sane
+    // allocated list cannot be longer than this. Bounds the walk, so a cycle
+    // introduced by a stomped link terminates with a report instead of hanging.
+    const u32 maxCells = static_cast<u32>(hd.size) / kMinObjectSize + 1;
+    const Cell* lastGood = nullptr;
+    const Cell* expectedPrev = nullptr;
+    u32 walked = 0;
+    for (Cell* c = hd.allocated; c != nullptr; c = c->next) {
+      if (walked++ >= maxCells) {
+        reportBrokenHeader(where, "allocated list longer than the heap can hold (link cycle)", h, c,
+                           lastGood, walked);
+      }
+      if (const char* defect = cellDefect(hd, c, true); defect != nullptr) {
+        reportBrokenHeader(where, defect, h, c, lastGood, walked);
+      }
+      if (c->prev != expectedPrev) {
+        reportBrokenHeader(where, "prev link does not match walk order", h, c, lastGood, walked);
+      }
+      if (!guardPlausible(c)) {
+        reportBrokenHeader(where, "recorded request size implausible", h, c, lastGood, walked);
+      }
+      if (const char* defect = cellExtentDefect(hd, c); defect != nullptr) {
+        reportBrokenHeader(where, defect, h, c, lastGood, walked);
+      }
+      const u8* canary = reinterpret_cast<const u8*>(c) + kHeaderSize + static_cast<u32>(c->request);
+      const u32 len = guardLength(c);
+      for (u32 i = 0; i < len; ++i) {
+        if (canary[i] != kCanaryByte) {
+          const auto owner = sCellOwner.find(c);
+          AllocLog.fatal("heap stomp detected at {}: cell {} (user {}, size {}) canary at {} "
+                         "first bad byte +{} allocated by {} {} {} {}",
+                         where, static_cast<const void*>(c),
+                         static_cast<const void*>(reinterpret_cast<const u8*>(c) + kHeaderSize),
+                         c->size, static_cast<const void*>(canary), i,
+                         owner == sCellOwner.end() ? nullptr : owner->second[0],
+                         owner == sCellOwner.end() ? nullptr : owner->second[1],
+                         owner == sCellOwner.end() ? nullptr : owner->second[2],
+                         owner == sCellOwner.end() ? nullptr : owner->second[3]);
+        }
+      }
+      expectedPrev = c;
+      lastGood = c;
+    }
+  }
 }
 
 static Cell* addFront(Cell* list, Cell* cell) {
@@ -439,7 +557,8 @@ void* OSAllocFromHeap(OSHeapHandle heap, u32 size) {
   cell->owner = &hd;
   hd.allocated = addFront(hd.allocated, cell);
   if (sCanary) {
-    memset(reinterpret_cast<u8*>(cell) + cell->size - kAlignment, kCanaryByte, kAlignment);
+    cell->request = static_cast<s32>(size);
+    memset(reinterpret_cast<u8*>(cell) + kHeaderSize + size, kCanaryByte, guardLength(cell));
     recordOwner(cell);
   }
   return reinterpret_cast<u8*>(cell) + kHeaderSize;
@@ -521,12 +640,7 @@ s32 OSCheckHeap(OSHeapHandle heap) {
   }
 
   for (Cell* cell = hd.allocated; cell != nullptr; cell = cell->next) {
-    if (!inArena(cell)
-        || (reinterpret_cast<uintptr_t>(cell) & (kAlignment - 1)) != 0
-        || cell->size < static_cast<s32>(kMinObjectSize)
-        || (cell->size & (kAlignment - 1)) != 0
-        || cell->owner != &hd
-        || (cell->next != nullptr && cell->next->prev != cell)) {
+    if (cellDefect(hd, cell, true) != nullptr) {
       return -1;
     }
     total += cell->size;
@@ -540,12 +654,7 @@ s32 OSCheckHeap(OSHeapHandle heap) {
   }
 
   for (Cell* cell = hd.freeList; cell != nullptr; cell = cell->next) {
-    if (!inArena(cell)
-        || (reinterpret_cast<uintptr_t>(cell) & (kAlignment - 1)) != 0
-        || cell->size < static_cast<s32>(kMinObjectSize)
-        || (cell->size & (kAlignment - 1)) != 0
-        || cell->owner != nullptr
-        || (cell->next != nullptr && cell->next->prev != cell)) {
+    if (cellDefect(hd, cell, false) != nullptr) {
       return -1;
     }
     if (cell->next != nullptr) {

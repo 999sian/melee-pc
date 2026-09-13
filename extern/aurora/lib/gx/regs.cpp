@@ -255,6 +255,15 @@ void bp_pe_ctrl(u8, u32 value) noexcept {
   g_gxState.zCompLocBeforeTex = reg_get(value, 1, 6) != 0;
 }
 
+// Z texture bias (0xF4)
+void bp_ztex1(u8, u32 value) noexcept { g_gxState.zTexBias = reg_get(value, 24, 0); }
+
+// Z texture format / op (0xF5)
+void bp_ztex2(u8, u32 value) noexcept {
+  g_gxState.zTexFmt = static_cast<u8>(reg_get(value, 2, 0));
+  g_gxState.zTexOp = static_cast<GXZTexOp>(reg_get(value, 2, 2));
+}
+
 // Copy clear color (0x4F/0x50) and depth (0x51)
 void bp_clear_ra(u8, u32 value) noexcept {
   g_gxState.clearColor[0] = static_cast<float>(reg_get(value, 8, 0)) / 255.f;
@@ -571,6 +580,8 @@ constexpr auto kBpRegs = [] {
   regs[0xF1] = {bp_fog3, DirtyPipeline | DirtyUniform}; // fog.type affects shader
   regs[0xF2] = {bp_fog_color, DirtyUniform};
   regs[0xF3] = {bp_alpha_compare, DirtyPipeline};
+  regs[0xF4] = {bp_ztex1, DirtyPipeline}; // ztex bias is baked into the shader
+  regs[0xF5] = {bp_ztex2, DirtyPipeline};
   for (u8 r = 0xF6; r <= 0xFD; ++r) {
     regs[r] = {bp_ksel, DirtyPipeline};
   }

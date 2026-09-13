@@ -46,6 +46,9 @@ BgFlashData lbl_80433658;
 #include <sysdolphin/baselib/gobjobject.h>
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/hsd_3915.h>
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 
 static GXColor lbl_804D3840 = { 0, 0, 0, 255 };
 static GXColor lbl_804D3844 = { 0, 0, 0, 0 };
@@ -468,6 +471,14 @@ void lbBgFlash_800208EC(int arg0)
 #endif
 
     temp2 = (temp1 = HSD_CObjLoadDesc((HSD_CObjDesc*) &lbl_803BB028));
+#ifdef TARGET_PC
+    /* This camera exists only to make the plane z=0 the screen rectangle for
+     * the full-screen flash/fade quad, so it must map 0..640 onto the whole
+     * frame rather than keep a 4:3 box inside it. Widening the quad instead
+     * would put a scale factor into geometry that means "the screen" in both
+     * builds, and would break the moment the eye position or fov animates. */
+    HSD_CObjSetFlags(temp1, PC_COBJ_FILL_FRAME);
+#endif
     temp3 = HSD_GObj_CameraKind;
     gobj1_slot = &flash->x44;
     HSD_GObjObject_80390A70(*gobj1_slot, temp3 & 0xFFFFFFFF, temp2);
@@ -500,9 +511,15 @@ void lbBgFlash_800209F4(void)
     // This is flash->x44
     lbl_80433658.x44 = GObj_Create(0x14, 0x16, 0);
     gobj1_slot = &flash->x44;
-    HSD_GObjObject_80390A70(*gobj1_slot,
-                            HSD_GObj_CameraKind & 0xFFFFFFFFFFFFFFFF,
-                            HSD_CObjLoadDesc((HSD_CObjDesc*) &lbl_803BB028));
+    {
+        HSD_CObj* cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &lbl_803BB028);
+#ifdef TARGET_PC
+        HSD_CObjSetFlags(cobj, PC_COBJ_FILL_FRAME);
+#endif
+        HSD_GObjObject_80390A70(*gobj1_slot,
+                                HSD_GObj_CameraKind & 0xFFFFFFFFFFFFFFFF,
+                                cobj);
+    }
     GObj_SetupGXLinkMax(*gobj1_slot, HSD_GObj_803910D8, 0xa);
     (*gobj1_slot)->gxlink_prios = 0x10000;
 

@@ -75,9 +75,17 @@ void HSD_CObjEraseScreen(HSD_CObj* cobj, s32 enable_color, s32 enable_alpha,
     }
 
 #ifdef TARGET_PC
-    float presentation_scale = pc_widescreen_scale();
-    left_res *= presentation_scale;
-    right_res *= presentation_scale;
+    /* setupNormalCamera widens about the camera's horizontal centre, so the
+     * erase rect has to be scaled about its own centre too. Multiplying both
+     * edges by the scale is only equivalent when left == -right; for a
+     * non-centred ortho box (the Pokemon Stadium display camera is 0..250) it
+     * also translates the rect, leaving the left margin unerased and
+     * overhanging the right edge. */
+    {
+        f32 s = pc_widescreen_cobj_scale(cobj);
+        pc_widescreen_widen(s, 0.5f * (left_res + right_res), &left_res,
+                            &right_res);
+    }
 #endif
     HSD_EraseRect(top_res, bottom_res, left_res, right_res, -z_val,
                   enable_color, enable_alpha, enable_depth);
@@ -305,7 +313,7 @@ static bool setupNormalCamera(HSD_CObj* cobj)
      * about the frame centre. That is what pulled the P1/CP nametags off
      * their fighters in 16:9. */
     {
-        f32 s = pc_widescreen_scale();
+        f32 s = pc_widescreen_cobj_scale(cobj);
         p[0][0] /= s;
         if (projection_type == GX_ORTHOGRAPHIC) {
             p[0][3] /= s;

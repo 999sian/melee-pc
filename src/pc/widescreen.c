@@ -4,6 +4,7 @@
 #include <dolphin/gx/GXAurora.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/initialize.h>
+#include <sysdolphin/baselib/tobj.h>
 
 /* Widescreen is a framebuffer-shape change, not a viewport trick: Aurora sizes
  * the content framebuffer to the presented aspect and letterboxes it inside the
@@ -54,4 +55,44 @@ float pc_widescreen_scale(void)
     AuroraGetRenderSize(&width, &height);
     if (!width || !height) return 1;
     return fmaxf(1.0f, ((float) width / height) / ORIGINAL_ASPECT);
+}
+
+float pc_widescreen_cobj_scale(struct HSD_CObj* cobj)
+{
+    if (cobj != NULL && (HSD_CObjGetFlags(cobj) & PC_COBJ_FILL_FRAME)) {
+        return 1;
+    }
+    return pc_widescreen_scale();
+}
+
+void pc_widescreen_copy_efb(struct HSD_ImageDesc* idesc, int origx, int origy,
+                            float center_x, int clear)
+{
+    float scale, left, right;
+    u16 width;
+
+    if (idesc == NULL) {
+        return;
+    }
+
+    scale = pc_widescreen_scale();
+    if (scale <= 1.0f) {
+        HSD_ImageDescCopyFromEFB(idesc, origx, origy, clear, true);
+        return;
+    }
+
+    left = origx;
+    right = origx + idesc->width;
+    pc_widescreen_widen(1.0f / scale, center_x, &left, &right);
+
+    /* Borrowing idesc->width for the call keeps src == dst, which is what
+     * makes Aurora resolve the mapped rect 1:1 instead of resampling it: the
+     * copy comes back at the region's true physical size with the 4:3 aspect
+     * the model's UVs expect. The declared width is restored immediately;
+     * nothing else reads it between these two lines. */
+    width = idesc->width;
+    idesc->width = (u16) lroundf(right - left);
+    HSD_ImageDescCopyFromEFB(idesc, (u16) lroundf(left), (u16) origy, clear,
+                             true);
+    idesc->width = width;
 }

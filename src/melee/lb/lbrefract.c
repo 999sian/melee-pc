@@ -22,6 +22,9 @@
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/state.h>
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 
 /* 022650 */ static void fn_80022650(void);
 /* 022940 */ static void fn_80022940(void);
@@ -401,32 +404,69 @@ void lbRefract_800222A4(void)
 /// @brief Copy framebuffer to refraction source texture.
 void lbRefract_8002247C(HSD_CObj* cobj)
 {
+#ifdef TARGET_PC
+    /* The frame this matrix will sample was submitted with its horizontal
+     * projection row divided by the presentation scale, so the lookup has to
+     * be built from the widened projection, not from the camera's stored 4:3
+     * one -- otherwise every sample is displaced by s about the frame centre.
+     */
+    f32 s = pc_widescreen_cobj_scale(cobj);
+    f32 left, right;
+#endif
+
     if (lbl_804336D0.refractionUserCount == 0) {
         return;
     }
 
     switch (HSD_CObjGetProjectionType(cobj)) {
     case PROJ_PERSPECTIVE:
+#ifdef TARGET_PC
+        MTXLightPerspective(lbl_804336D0.texture_mtx,
+                            cobj->projection_param.perspective.fov,
+                            cobj->projection_param.perspective.aspect * s,
+                            0.5F, -0.5F, 0.5F, 0.5F);
+#else
         MTXLightPerspective(lbl_804336D0.texture_mtx,
                             cobj->projection_param.perspective.fov,
                             cobj->projection_param.perspective.aspect, 0.5F,
                             -0.5F, 0.5F, 0.5F);
+#endif
         break;
     case PROJ_FRUSTUM:
+#ifdef TARGET_PC
+        left = cobj->projection_param.frustum.left;
+        right = cobj->projection_param.frustum.right;
+        pc_widescreen_widen(s, 0.5f * (left + right), &left, &right);
+        MTXLightFrustum(lbl_804336D0.texture_mtx,
+                        cobj->projection_param.frustum.top,
+                        cobj->projection_param.frustum.bottom, left, right,
+                        cobj->near, 0.5F, -0.5F, 0.5F, 0.5F);
+#else
         MTXLightFrustum(lbl_804336D0.texture_mtx,
                         cobj->projection_param.frustum.top,
                         cobj->projection_param.frustum.bottom,
                         cobj->projection_param.frustum.left,
                         cobj->projection_param.frustum.right, cobj->near, 0.5F,
                         -0.5F, 0.5F, 0.5F);
+#endif
         break;
     case PROJ_ORTHO:
     default:
+#ifdef TARGET_PC
+        left = cobj->projection_param.ortho.left;
+        right = cobj->projection_param.ortho.right;
+        pc_widescreen_widen(s, 0.5f * (left + right), &left, &right);
+        MTXLightOrtho(lbl_804336D0.texture_mtx,
+                      cobj->projection_param.ortho.top,
+                      cobj->projection_param.ortho.bottom, left, right, 0.5F,
+                      -0.5F, 0.5F, 0.5F);
+#else
         MTXLightOrtho(
             lbl_804336D0.texture_mtx, cobj->projection_param.ortho.top,
             cobj->projection_param.ortho.bottom,
             cobj->projection_param.ortho.left,
             cobj->projection_param.ortho.right, 0.5F, -0.5F, 0.5F, 0.5F);
+#endif
         break;
     }
 }

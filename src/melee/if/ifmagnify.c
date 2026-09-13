@@ -30,6 +30,9 @@
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 
 static HSD_WObjDesc ifMagnify_803F97C0 = { 0, { 0.0F, 0.0F, 300.0F }, 0 };
 static HSD_WObjDesc ifMagnify_803F97D4 = { 0, { 0.0F, 0.0F, 0.0F }, 0 };
@@ -437,7 +440,16 @@ void ifMagnify_802FBBDC(HSD_GObj* gobj)
             ftDrawCommon_80080C28(fighter_gobj, 1);
             ftDrawCommon_80080C28(fighter_gobj, 2);
             HSD_GObj_804D7814 = NULL;
+#ifdef TARGET_PC
+            /* The widening keeps the fighter's pixel aspect correct inside a
+             * physically wider viewport, so it is the copy that has to be
+             * narrowed: only the centred 1/s of this viewport holds the image
+             * the bubble's fixed UVs will stretch back over. */
+            pc_widescreen_copy_efb(player->idesc, 0, 0,
+                                   0.5f * player->idesc->width, true);
+#else
             lb_800122C8(player->idesc, 0, 0, true);
+#endif
             HSD_CObjEndCurrent();
             player->state.is_offscreen = 1;
         }

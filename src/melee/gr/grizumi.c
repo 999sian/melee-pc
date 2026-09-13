@@ -37,6 +37,9 @@
 #include <sysdolphin/baselib/state.h>
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 
 struct DISC_STRUCT grIzumi_YakumonoParam {
     float x0;
@@ -792,9 +795,20 @@ void grIzumi_801CCEA0(HSD_GObj* gobj, int renderpass)
             HSD_CObjEndCurrent();
         }
         lb_800122C8(refl->image, 0, 0, 1);
+#ifdef TARGET_PC
+        /* Built from the projection actually submitted: the reflection was
+         * rendered through this camera in the widened SCREEN pass, so a
+         * lookup built from the stored 4:3 aspect slides the mirrored image
+         * outward from the frame centre. */
+        MTXLightPerspective(mtx, cobj->projection_param.perspective.fov,
+                            cobj->projection_param.perspective.aspect *
+                                pc_widescreen_cobj_scale(cobj),
+                            0.49f, -0.49f, 0.5f, 0.5f);
+#else
         MTXLightPerspective(mtx, cobj->projection_param.perspective.fov,
                             cobj->projection_param.perspective.aspect, 0.49f,
                             -0.49f, 0.5f, 0.5f);
+#endif
         PSMTXConcat(mtx, HSD_CObjGetViewingMtxPtr(cobj), refl->texture_matrix);
         ftDrawCommon_80081118();
     }
