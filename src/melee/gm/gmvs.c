@@ -46,6 +46,7 @@
 #include <melee/sfx/crowdsfx.h>
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/gobjproc.h>
+#include <stdlib.h>
 
 static u32 lbl_803D5620[] = {
     0x7C859,
@@ -888,6 +889,11 @@ MatchOutcome gm_GetMatchOutcome(void)
     if (controller.state.match_result != OUTCOME_NONE) {
         return controller.state.match_result;
     }
+#ifdef TARGET_PC
+    if (getenv("MELEE_INSTANT_WIN") != NULL && controller.state.frame_count > 60) {
+        return OUTCOME_ELIMINATION;
+    }
+#endif
     if (controller.state.terminate_match == 1) {
         return OUTCOME_TERMINATED;
     }

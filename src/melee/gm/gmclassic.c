@@ -1065,16 +1065,19 @@ void gmClassic_801B3E44(GameModeState* scene)
     {
         const char* stage_ovr = getenv("MELEE_CLASSIC_STAGE_OVERRIDE");
         if (stage_ovr != NULL && *stage_ovr != '\0') {
-            /* Force Stage 1 to be the Stage 8 team fight */
-            r4[0].x1 = 0x08; /* Team match flag (triggers model_scale_kind = 4) */
-            r4[0].x4 = 300;
-            r4[0].x6 = 10;
-            r4[0].x8 = 4;
-            const char* team_ovr = getenv("MELEE_CLASSIC_TEAM");
-            if (team_ovr != NULL && strstr(team_ovr, "kirby") != NULL) {
-                r4[0].xC = &gmClassic_803DDEC8.x2B0[2]; /* Team Kirby */
-            } else {
-                r4[0].xC = &gmClassic_803DDEC8.x2B0[1]; /* Team DK */
+            int stg = atoi(stage_ovr);
+            if (stg >= 1 && stg <= 11) {
+                int idx = stg - 1;
+                temp_r29->x5 = idx;
+                int team_idx = 7; /* Stage 8 is index 7 */
+                const char* team_ovr = getenv("MELEE_CLASSIC_TEAM");
+                if (team_ovr != NULL && (strstr(team_ovr, "jiggly") != NULL || strstr(team_ovr, "purin") != NULL)) {
+                    r4[team_idx].xC = &gmClassic_803DDEC8.x2B0[5]; /* Team Jigglypuff */
+                } else if (team_ovr != NULL && strstr(team_ovr, "kirby") != NULL) {
+                    r4[team_idx].xC = &gmClassic_803DDEC8.x2B0[2]; /* Team Kirby */
+                } else if (team_ovr != NULL) {
+                    r4[team_idx].xC = &gmClassic_803DDEC8.x2B0[1]; /* Team DK */
+                }
             }
         }
     }
