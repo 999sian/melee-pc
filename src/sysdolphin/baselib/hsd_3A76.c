@@ -10,6 +10,9 @@
 #include "state.h"
 #include "tev.h"
 #include "wobj.h"
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
 #include <dolphin/types.h>
@@ -63,10 +66,10 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
         }
         text->string_buffer[text->x6C++] =
             (u8) ((s32) (256.0F * text->x78.x) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x78.x);
+        text->string_buffer[text->x6C++] = (u8) (s32) (256.0F * text->x78.x);
         text->string_buffer[text->x6C++] =
             (u8) ((s32) (256.0F * text->x78.y) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x78.y);
+        text->string_buffer[text->x6C++] = (u8) (s32) (256.0F * text->x78.y);
         text->string_buffer[text->x6C++] = flags;
         return;
     }
@@ -124,10 +127,10 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
         }
         text->string_buffer[text->x6C++] =
             (u8) ((s32) (256.0F * text->x80.x) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x80.x);
+        text->string_buffer[text->x6C++] = (u8) (s32) (256.0F * text->x80.x);
         text->string_buffer[text->x6C++] =
             (u8) ((s32) (256.0F * text->x80.y) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x80.y);
+        text->string_buffer[text->x6C++] = (u8) (s32) (256.0F * text->x80.y);
         text->string_buffer[text->x6C++] = flags;
         return;
     }
@@ -290,7 +293,7 @@ void HSD_SisLib_803A8134(void* cursor, HSD_Text* text, f32* out_width,
                          f32* out_height)
 {
     SIS* sis;
-    TextGlyphTexture* glyph_tex;
+    TextGlyphTexture* glyph_tex = NULL;
     u8* default_kerning = HSD_SisLib_8040CB00;
     f32 line_height;
     f32 saved_scale_x;
@@ -394,7 +397,7 @@ loop_3:
                     kern_width = kern_data->left + kern_data->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
-                } else {
+                } else if (glyph_tex != NULL) {
                     kern_data_2 =
                         (TextKerning*) &glyph_tex
                             ->data[((glyph_code - 0x4000) * 2) & 0x1FFFE];
@@ -509,11 +512,14 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
             }
             HSD_CObjGetViewingMtx(HSD_CObjGetCurrent(), (MtxPtr)&m);
         } else {
-            Mtx projection_m;
+            Mtx44 projection_m; /* MTXOrtho writes 4x4, not 3x4 */
 
             GXSetZMode(0U, 0U, 0U);
             GXSetViewport(0.0F, 0.0F, 640.0F, 480.0F, 0.0F, 1.0F);
             GXSetScissor(0, 0, 0x280, 0x1E0);
+#ifdef TARGET_PC
+            pc_widescreen_apply_screen();
+#endif
 #ifdef MUST_MATCH
             MTXOrtho((MtxPtr) ((u8*) &projection_m[0][0] - 0x14), 0.0F,
                      -480.0F, 0.0F, 640.0F, 0.0F, 2.0F);
@@ -745,7 +751,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
                             sis_cursor = (u8*) (uintptr_t) sis_rd_u32((sis_cursor + 1)) - 1;
                             break;
                         case 10:
-                            if (((u32) text->alloc_data == 0U) || (saved_kerning == 0)) {
+                            if ((text->alloc_data == NULL) || (saved_kerning == 0)) {
                                 HSD_SisLib_803A7684(text, sis_cursor, 1U);
                                 text->x78.x = (f32) sis_rd_s16((sis_cursor + 1)) / 256.0F;
                                 text->x78.y = (f32) sis_rd_s16((sis_cursor + 3)) / 256.0F;
@@ -753,7 +759,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
                             sis_cursor += 4;
                             break;
                         case 11:
-                            if (((u32) text->alloc_data == 0U) || (saved_kerning == 0)) {
+                            if ((text->alloc_data == NULL) || (saved_kerning == 0)) {
                                 HSD_SisLib_803A7F0C(text, 1);
                             }
                             break;

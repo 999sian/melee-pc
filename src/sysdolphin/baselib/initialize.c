@@ -256,7 +256,15 @@ void HSD_Init_803755A8(void)
 {
     // Does nothing, but need to force a comparison to make this match
     if (current_render_pass == HSD_RP_OFFSCREEN) {
+#ifdef TARGET_PC
+        /* The retail build leaves the pass flagged offscreen for the rest of
+         * the frame, which is harmless on GC because both camera setups agree
+         * there. PC presentation keys screen-space adjustments off this flag,
+         * so end the shadow pass for real. */
+        current_render_pass = HSD_RP_SCREEN;
+#else
         current_render_pass == 0;
+#endif
     }
 }
 

@@ -1,4 +1,7 @@
 #include "cobj.h"
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
 
 #include <math.h>
 #include <placeholder.h>
@@ -45,6 +48,9 @@ void HSD_CObjEraseScreen(HSD_CObj* cobj, s32 enable_color, s32 enable_alpha,
     z_val = (0.5 * (HSD_CObjGetNear(cobj) + HSD_CObjGetFar(cobj)));
 
     switch (HSD_CObjGetProjectionType(cobj)) {
+    /* A cobj that was allocated but never given a projection type would
+     * otherwise leave every result below uninitialised. */
+    default:
     case PROJ_PERSPECTIVE:
         top_res =
             (z_val *
@@ -68,6 +74,11 @@ void HSD_CObjEraseScreen(HSD_CObj* cobj, s32 enable_color, s32 enable_alpha,
         break;
     }
 
+#ifdef TARGET_PC
+    float presentation_scale = pc_widescreen_scale();
+    left_res *= presentation_scale;
+    right_res *= presentation_scale;
+#endif
     HSD_EraseRect(top_res, bottom_res, left_res, right_res, -z_val,
                   enable_color, enable_alpha, enable_depth);
 }
@@ -200,6 +211,7 @@ GXProjectionType makeProjectionMtx(HSD_CObj* cobj, Mtx44 mtx)
 {
     GXProjectionType projection_type;
     switch (cobj->projection_type) {
+    default: /* keep mtx and projection_type defined; see HSD_CObjEraseScreen */
     case PROJ_PERSPECTIVE:
         projection_type = GX_PERSPECTIVE;
         MTXPerspective(mtx, cobj->projection_param.perspective.fov,
@@ -284,6 +296,9 @@ static bool setupNormalCamera(HSD_CObj* cobj)
     GXSetScissor((u32) left, (u32) top, (u32) width, (u32) height);
 
     projection_type = makeProjectionMtx(cobj, p);
+#ifdef TARGET_PC
+    pc_widescreen_apply_camera(cobj, p);
+#endif
     GXSetProjection(p, projection_type);
 
     return true;
@@ -338,6 +353,7 @@ static bool setupTopHalfCamera(HSD_CObj* cobj)
         int unused_2[1];
 
         switch (cobj->projection_type) {
+        default:
         case PROJ_PERSPECTIVE:
             projection_type = GX_PERSPECTIVE;
             t = cobj->near *
@@ -423,6 +439,7 @@ static bool setupBottomHalfCamera(HSD_CObj* cobj)
 
     {
         switch (cobj->projection_type) {
+        default:
         case PROJ_PERSPECTIVE:
             projection_type = GX_PERSPECTIVE;
             b = cobj->near *
@@ -753,7 +770,7 @@ int HSD_CObjGetLeftVector(HSD_CObj* cobj, Vec3* left)
 
 void HSD_CObjSetMtxDirty(HSD_CObj* cobj)
 {
-    cobj->flags |= (1 << 30) | (1 << 31);
+    cobj->flags |= (1 << 30) | (1U << 31);
 }
 
 bool HSD_CObjMtxIsDirty(HSD_CObj* cobj)
@@ -780,12 +797,12 @@ void HSD_CObjGetViewingMtx(HSD_CObj* cobj, Mtx mtx)
 
 MtxPtr HSD_CObjGetInvViewingMtxPtrDirect(HSD_CObj* cobj)
 {
-    if (cobj->flags & (1 << 31)) {
+    if (cobj->flags & (1U << 31)) {
         if (cobj->proj_mtx == NULL) {
             cobj->proj_mtx = HSD_MtxAlloc();
         }
         PSMTXInverse(cobj->view_mtx, *cobj->proj_mtx);
-        HSD_CObjClearFlags(cobj, (1 << 31));
+        HSD_CObjClearFlags(cobj, (1U << 31));
     }
     return *cobj->proj_mtx;
 }

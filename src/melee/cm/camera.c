@@ -4425,8 +4425,22 @@ void Camera_SetQuakeScale(f32 scale)
 void Camera_RequestQuake(CmQuakeKind kind, Vec3* pos)
 {
     HSD_GObj** pquake;
-    s32 quake_length;
+    /* The default arm below never assigns this, and QuakeKind_None reaches it.
+     * PowerPC left a usable value in the register; x86-64 does not, and it is
+     * written straight into quake_frames_left[], which Camera_UpdateQuakes
+     * decrements once per frame while nonzero -- a negative garbage count
+     * never reaches 0, so the quake and its gobj would never be released.
+     * 0 means "not quaking", matching Camera_StopQuake. */
+    s32 quake_length = 0;
 
+    /* kind is not statically in range: efAsync passes a graphics-effect id
+     * here for EF_SPAWN_CAMERA_SHAKE (ef/efasync.c:1367). quake_frames_left
+     * has only QuakeKind_Count entries, and the fields immediately after it
+     * are quake_gobj / quake_offset / quake_scale, so an out-of-range kind
+     * would corrupt the camera rather than just mis-shake it. */
+    if ((unsigned) kind >= QuakeKind_Count) {
+        return;
+    }
     switch (kind) {
     case QuakeKind_Loop:
         pquake = &game_camera.quake_gobj;

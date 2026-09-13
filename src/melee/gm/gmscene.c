@@ -1,4 +1,8 @@
 #include "gmscene.h"
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#include "gm_1A3F.h"
+#endif
 
 #include "gm_1A36.h"
 #include "gm_unsplit.h"
@@ -187,6 +191,10 @@ void gm_801A4B74(void)
 void gm_801A4B88(struct GameSceneInfo* info)
 {
     gm_804D6720 = info;
+#ifdef TARGET_PC
+    pc_widescreen_set_scene(info && gm_GetCurrentGameMode() == GM_VS &&
+        (info->scene_kind == GS_VS || info->scene_kind == GS_SUDDEN_DEATH));
+#endif
 }
 
 /// @brief returns a pointer to the current scenes enter data
