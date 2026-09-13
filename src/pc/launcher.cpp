@@ -383,7 +383,7 @@ public:
         else if (id == "fps") prefs.fps = !prefs.fps;
         pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
         std::string error;
-        label("menu-status", launcher::save_preferences(config_path, prefs, error) ? "Settings saved. Gameplay continues while this menu is open." : error);
+        label("menu-status", launcher::save_preferences(config_path, prefs, error) ? "Saved." : error);
         refresh();
     }
 };

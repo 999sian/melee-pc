@@ -23,7 +23,6 @@ body {
 h1 { font-size: 94dp; font-weight: bold; letter-spacing: 7dp; margin: 0; line-height: 1.0; }
 h2 { font-size: 27dp; line-height: 1.2; margin: 12dp 0 18dp; }
 p { line-height: 1.5; margin: 10dp 0; }
-.tagline { color: #a7b3c8; font-size: 23dp; margin: 8dp 0 0; }
 .columns { display: flex; align-items: stretch; }
 .menu { width: 35%; margin-right: 24dp; }
 button {
