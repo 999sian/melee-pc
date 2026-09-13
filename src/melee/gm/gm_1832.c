@@ -36,6 +36,10 @@
 #include <sysdolphin/baselib/util.h>
 #include <sysdolphin/baselib/wobj.h>
 
+#ifdef TARGET_PC
+#include "pc/widescreen.h"
+#endif
+
 static struct {
     int x0;
     HSD_JObj* x4[13];
@@ -584,8 +588,16 @@ void fn_801852FC(HSD_GObj* gobj)
             }
             Camera_800313E0(gobj, 1);
             HSD_StateInvalidate(-1);
+#ifdef TARGET_PC
+            /* The capture camera is widened, so its picture sits in the
+             * centred 1/s of the viewport; 320 is that viewport's horizontal
+             * centre and also the centre of the 130..510 copy rect. */
+            pc_widescreen_copy_efb(&lbl_804735E8.x40[i], 0x82, 0, 320.0f, 0);
+            pc_widescreen_copy_efb(&lbl_804735E8.x88[i], 0x82, 0, 320.0f, 1);
+#else
             HSD_ImageDescCopyFromEFB(&lbl_804735E8.x40[i], 0x82, 0, 0, 0);
             HSD_ImageDescCopyFromEFB(&lbl_804735E8.x88[i], 0x82, 0, 1, 1);
+#endif
         }
         HSD_CObjEndCurrent();
     }
