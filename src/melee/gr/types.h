@@ -664,18 +664,44 @@ struct grGreatBay_GroundVars3 {
     s32 xF0;
 };
 
+/* The tingle Ground (grGb_StageCallbacks[10]) runs on this view, but its
+ * joint-collision callback grGreatBay_801F5914 -- registered by
+ * grGreatBay_801F5460 with that same gp -- writes gp+D4, gp+D8 and gp+E0
+ * through grGreatBay_GroundVars. That view holds an HSD_Generator* at gp+C8,
+ * so on the host everything from gp+C8 on sits four bytes later than a
+ * packed spelling puts it: the ledge-grab flag landed on xDC, the hit
+ * counter incremented xE0's float bits and the impact accumulator was added
+ * into xE4.y, the tingle's world Y, which the proc tests against -50.0f to
+ * destroy and respawn the item. Inherit that alignment by spelling gp+C8 as
+ * the pointer slot that causes it: 4 bytes on GameCube, 8 here. */
 struct grGreatBay_GroundVars4 {
-    s32 xC4;
-    s32 xC8;
-    s32 xCC;
-    s32 xD0;
-    s32 xD4;
-    s32 xD8;
-    s32 xDC;
-    f32 xE0;
-    Vec3 xE4;
-    Item_GObj* xF0;
+    /* +00 gp+C4 */ s32 xC4;
+    union {
+        /* Alignment only: grGreatBay_GroundVars::xC8. */
+        HSD_Generator* pad_gen;
+        struct {
+            /* +08 gp+C8 */ s32 xC8;
+        };
+    };
+    /* +10 gp+CC */ s32 xCC;
+    /* +14 gp+D0 */ s32 xD0;
+    /* +18 gp+D4 */ s32 xD4;
+    /* +1C gp+D8 */ s32 xD8;
+    /* +20 gp+DC */ s32 xDC;
+    /* +24 gp+E0 */ f32 xE0;
+    /* +28 gp+E4 */ Vec3 xE4;
+    /* +38 gp+F0 */ Item_GObj* xF0;
 };
+
+/* One GameCube offset, one host offset, for the three fields
+ * grGreatBay_801F5914 writes through grGreatBay_GroundVars and
+ * grGreatBay_801F5600 reads back through grGreatBay_GroundVars4. */
+STATIC_ASSERT(offsetof(struct grGreatBay_GroundVars4, xD4) ==
+              offsetof(struct grGreatBay_GroundVars, xD4));
+STATIC_ASSERT(offsetof(struct grGreatBay_GroundVars4, xD8) ==
+              offsetof(struct grGreatBay_GroundVars, xD8));
+STATIC_ASSERT(offsetof(struct grGreatBay_GroundVars4, xE0) ==
+              offsetof(struct grGreatBay_GroundVars, xE0));
 
 struct grGarden_GroundVars { // Cranky Kong
     s32 xc4;
@@ -999,12 +1025,28 @@ struct grYorster_GroundVars {
     struct grYorster_TrackElement elements[9];
 };
 
+/* grZebes_GroundVars5 is a second view of the SAME Ground: grZebes_801D9758
+ * writes x4 = 1 on the acid Ground whose init grZebes_801D9798 seeds and
+ * whose proc grZebes_801D99E0 reads back as zebes5.xC8. zebes5 puts gp+C8
+ * inside a union holding real host pointers (HSD_LObj* xDC, and
+ * grZe_AcidState's jobj/item slots), so gp+C8 is 8-aligned here and
+ * 4-aligned on GameCube. Packed flat, x4 landed on host +4 -- zebes5's
+ * alignment hole -- so the acid state machine never left state 0. Spell the
+ * gap as the pointer alignment that causes it rather than as a byte count:
+ * zero extra bytes on GameCube, four here, and gp+C8 lands where zebes5
+ * puts it on both ABIs. */
 struct grZebes_GroundVars {
     /*  +0 gp+C4:0 */ u8 x0_b0 : 1;
-    /*  +4 gp+C8 */ u32 x4;
-    /*  +8 gp+CC */ s16 x8;
-    /*  +A gp+CE */ s16 xA;
-    /*  +C gp+D0 */ Vec3 xC;
+    union {
+        /* Alignment only: grZebes_GroundVars5's gp+C8 union. */
+        void* pad_align;
+        struct {
+            /*  +8 gp+C8 */ u32 x4;
+            /*  +C gp+CC */ s16 x8;
+            /*  +E gp+CE */ s16 xA;
+            /* +10 gp+D0 */ Vec3 xC;
+        };
+    };
 };
 
 struct grZebes_GroundVars2 {
@@ -1044,25 +1086,38 @@ struct grZebes_GroundVars5 {
     /* +02 gp+C6 */ s16 xC6;
     union {
         struct {
-            /* +04 gp+C8 */ u32 xC8;
-            /* +08 gp+CC */ f32 xCC;
-            /* +0C gp+D0 */ f32 xD0;
-            /* +10 gp+D4 */ f32 xD4;
-            /* +14 gp+D8 */ f32 xD8;
-            /* +18 gp+DC */ HSD_LObj* xDC; /* acid light, see grZebes_801DA254 */
-            /* +24 gp+E8 */ s16 xE8;
-            /* +26 gp+EA */ s16 xEA;
+            /* +08 gp+C8 */ u32 xC8;
+            /* +0C gp+CC */ f32 xCC;
+            /* +10 gp+D0 */ f32 xD0;
+            /* +14 gp+D4 */ f32 xD4;
+            /* +18 gp+D8 */ f32 xD8;
+            /* +20 gp+DC */ HSD_LObj* xDC; /* acid light, grZebes_801DA254 */
+            /* +28 gp+E8 */ s16 xE8;
+            /* +2A gp+EA */ s16 xEA;
         };
-        grZe_AcidState acid; /* the acid Ground's view of +04..+27 */
+        grZe_AcidState acid; /* the acid Ground's view of gp+C8..gp+EB */
     };
-    /* +28 gp+EC */ u32 xEC;
-    /* +2C gp+F0 */ u32 xF0;
-    /* +30 gp+F4 */ s16 xF4;
-    /* +32 gp+F6 */ s16 xF6;
-    /* +34 gp+F8 */ u32 xF8;
-    /* +38 gp+FC */ u32 xFC;
-    /* +3C gp+100 */ u32 x100;
+    /* +40 gp+EC */ u32 xEC;
+    /* +44 gp+F0 */ u32 xF0;
+    /* +48 gp+F4 */ s16 xF4;
+    /* +4A gp+F6 */ s16 xF6;
+    /* +4C gp+F8 */ u32 xF8;
+    /* +50 gp+FC */ u32 xFC;
+    /* +54 gp+100 */ u32 x100;
 };
+
+/* One GameCube offset, one host offset. The Brinstar acid Ground is written
+ * through grZebes_GroundVars by the deferred callback grZebes_801D9758 and
+ * read back through grZebes_GroundVars5 by grZebes_801D99E0, so gp+C8
+ * onwards has to resolve to the same HOST byte in both views. Restoring a
+ * GameCube-packed layout in either view fails here instead of silently
+ * parking the state write in zebes5's alignment hole. */
+STATIC_ASSERT(offsetof(struct grZebes_GroundVars, x4) ==
+              offsetof(struct grZebes_GroundVars5, xC8));
+STATIC_ASSERT(offsetof(struct grZebes_GroundVars, x8) ==
+              offsetof(struct grZebes_GroundVars5, xCC));
+STATIC_ASSERT(offsetof(struct grZebes_GroundVars, xC) ==
+              offsetof(struct grZebes_GroundVars5, xD0));
 
 struct grRCruise_Entry {
     /* 0x00 */ u8 x0;
@@ -1541,13 +1596,28 @@ struct grBigBlueRoute_Track {
     HSD_JObj* jobj;
 };
 
+/* Route map gobj 30 is driven through this view, but its deferred callback
+ * grBigBlueRoute_8020BC34 stores a gobj through grBigBlueRoute_GroundVars
+ * (u.car.xC4) on the same Ground. gp+C4 is a pointer slot, so spelling it as
+ * four GameCube bytes put xC8 -- the route checkpoint index -- under the
+ * upper half of that 8-byte store. Spell the slot as the pointer it holds:
+ * 8 bytes here, 4 on GameCube, and gp+C8 stays clear of it on both. */
 struct grBigBlueRoute_GroundVars2 {
-    /* +00 gp+C4 */ u8 pad_C4[0xC8 - 0xC4];
-    /* +04 gp+C8 */ s16 xC8;
-    /* +06 gp+CA */ u8 pad_CA[0xCC - 0xCA];
-    /* +08 gp+CC */ Vec3 xCC;
-    /* +14 gp+D8 */ struct grBigBlueRoute_Track tracks[4];
+    /* +00 gp+C4 */ HSD_GObj* xC4;
+    /* +08 gp+C8 */ s16 xC8;
+    /* +0A gp+CA */ u8 pad_CA[0xCC - 0xCA];
+    /* +0C gp+CC */ Vec3 xCC;
+    /* +18 gp+D8 */ struct grBigBlueRoute_Track tracks[4];
 };
+
+/* One GameCube offset, one host offset, for the two members map gobj 30
+ * reaches through both views: gp+C4 is the same slot in both, and gp+C8 must
+ * begin at or after its end. A GameCube-sized pad at gp+C4 fails here. */
+STATIC_ASSERT(offsetof(struct grBigBlueRoute_GroundVars2, xC4) ==
+              offsetof(struct grBigBlueRoute_GroundVars, xC4));
+STATIC_ASSERT(offsetof(struct grBigBlueRoute_GroundVars2, xC8) >=
+              offsetof(struct grBigBlueRoute_GroundVars, xC4) +
+                  sizeof(((struct grBigBlueRoute_GroundVars*) 0)->xC4));
 
 struct grCastle_GroundVars {
     /*  +0 gp+C4 */ u32 xC4;

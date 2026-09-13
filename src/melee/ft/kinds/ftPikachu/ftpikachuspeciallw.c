@@ -56,7 +56,10 @@ void ftPk_SpecialLw_80127608(HSD_GObj* gobj)
 void ftPk_SpecialLw_SetState_Unk0(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    /* The SpecialHi alias puts x4 inside speciallw.x0's upper half on LP64. */
+    /* Called by the thunder ITEM on destruction (it_2725_Logic39_Destroyed),
+     * which can land here after SpecialLw ended. x4 is pinned to the sibling
+     * views' gp+04 host offset in ftPikachu/types.h so this stays a write to
+     * a harmless scalar rather than to a neighbouring view's pointer. */
     fp->mv.pk.speciallw.x4 = 3;
 }
 
