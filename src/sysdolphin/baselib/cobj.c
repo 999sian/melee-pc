@@ -297,8 +297,22 @@ static bool setupNormalCamera(HSD_CObj* cobj)
 
     projection_type = makeProjectionMtx(cobj, p);
 #ifdef TARGET_PC
-    /* Presentation only: the camera object and its queries keep GC semantics. */
-    p[0][0] /= pc_widescreen_scale();
+    /* Presentation only: the camera object and its queries keep GC semantics.
+     * Scale the whole horizontal row, not just p[0][0]: a camera whose
+     * projection is not centred (any asymmetric frustum, and every ortho HUD
+     * camera) carries its x offset in p[0][2] / p[0][3], and dividing the
+     * scale term alone would move its image sideways instead of widening it
+     * about the frame centre. That is what pulled the P1/CP nametags off
+     * their fighters in 16:9. */
+    {
+        f32 s = pc_widescreen_scale();
+        p[0][0] /= s;
+        if (projection_type == GX_ORTHOGRAPHIC) {
+            p[0][3] /= s;
+        } else {
+            p[0][2] /= s;
+        }
+    }
 #endif
     GXSetProjection(p, projection_type);
 

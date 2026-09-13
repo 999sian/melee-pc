@@ -98,7 +98,10 @@ class Match(gdb.Breakpoint):
                 raise RuntimeError(f"Wrong mode: expected {mode}, got {actual}")
             mark("MATCH entered")
         match_frames += 1
-        if match_frames == 300:
+        if os.environ.get("MELEE_TEST_FORCE_TAGS"):
+            for i in range(6):
+                setvar("'ifnametag.c'::un_804D6D70[%d]" % i, 1)
+        if match_frames == int(os.environ.get("MELEE_TEST_SHOT_FRAME", "300")):
             shot("match")
         if match_frames == limit - 120 and not os.environ.get("MELEE_TEST_SINGLE_SHOT"):
             shot("final")
