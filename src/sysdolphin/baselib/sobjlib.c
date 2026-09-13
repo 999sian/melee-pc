@@ -19,6 +19,28 @@
 /* 004D4540 */ u8 HSD_SObjLib_804D7960;
 /* 004CDCC0 */ extern HSD_ObjAllocData HSD_SObjLib_804D10E0;
 
+#ifdef TARGET_PC
+#include <stdlib.h>
+/* MELEE_ZTEX_BIAS=<n>: constant added to the sampled Z texel before the depth
+ * compare, for diagnosing the Classic team-intro splash. The mask rejects a
+ * fragment when the captured forward depth is at or beyond the primed
+ * 0xFC8000 plane, so a bias of 1 wraps an all-far (0xFFFFFF) Z image round to
+ * 0 and lets every tile through -- which separates "the Z capture is empty"
+ * from "the tile draw never reached the framebuffer". 0 (the default) is the
+ * retail value. */
+static u32 pc_sobj_ztex_bias(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        const char* v = getenv("MELEE_ZTEX_BIAS");
+        cached = (v != NULL && *v != '\0') ? (int) strtol(v, NULL, 0) : 0;
+    }
+    return (u32) cached & 0xFFFFFF;
+}
+#else
+#define pc_sobj_ztex_bias() 0
+#endif
+
 GObjFunc HSD_SObjLib_8040C3A0[] = { (void*) HSD_SObjLib_803A4740 };
 
 GObjFuncs HSD_SObjLib_8040C3A4 = {
@@ -290,7 +312,7 @@ void HSD_SObjLib_803A4A68(HSD_SObj* sobj)
 
     GXClearVtxDesc();
     if (sobj->x40 & 4) {
-        GXSetZTexture(GX_ZT_REPLACE, GX_TF_Z24X8, 0);
+        GXSetZTexture(GX_ZT_REPLACE, GX_TF_Z24X8, pc_sobj_ztex_bias());
         if (sobj->x40 & 8) {
             HSD_StateSetZMode(1, GX_LESS, 0);
         } else {

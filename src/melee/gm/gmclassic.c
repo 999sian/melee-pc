@@ -4,6 +4,9 @@
 #include "gmmain_lib.h"
 #include "gmregcommon.h"
 #include <string.h>
+#ifdef TARGET_PC
+#include <stdlib.h>
+#endif
 #include <melee/gr/ground.h>
 #include <melee/gr/stage.h>
 #include <melee/lb/lbaudio_ax.h>
@@ -1058,6 +1061,24 @@ void gmClassic_801B3E44(GameModeState* scene)
     temp_r31->x0.x0.stocks = temp_r29->stocks;
     temp_r31->x0.x0.nametag = temp_r29->nametag;
     gmClassic_801B2D54(r4);
+#ifdef TARGET_PC
+    {
+        const char* stage_ovr = getenv("MELEE_CLASSIC_STAGE_OVERRIDE");
+        if (stage_ovr != NULL && *stage_ovr != '\0') {
+            /* Force Stage 1 to be the Stage 8 team fight */
+            r4[0].x1 = 0x08; /* Team match flag (triggers model_scale_kind = 4) */
+            r4[0].x4 = 300;
+            r4[0].x6 = 10;
+            r4[0].x8 = 4;
+            const char* team_ovr = getenv("MELEE_CLASSIC_TEAM");
+            if (team_ovr != NULL && strstr(team_ovr, "kirby") != NULL) {
+                r4[0].xC = &gmClassic_803DDEC8.x2B0[2]; /* Team Kirby */
+            } else {
+                r4[0].xC = &gmClassic_803DDEC8.x2B0[1]; /* Team DK */
+            }
+        }
+    }
+#endif
     gm_SetNextGameModeStateId(temp_r29->x5 << 3);
     gm_80168F88();
 }

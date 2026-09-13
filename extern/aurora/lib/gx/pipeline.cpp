@@ -42,6 +42,17 @@ static bool env_flag(const char* name) {
 
 void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
   if (!gfx::bind_pipeline(data.pipeline, pass)) {
+    /* AURORA_LOG_SKIPPED=1: report draws dropped because their pipeline is
+     * still compiling. Pipelines are built asynchronously and an unready one
+     * silently skips its draw, so a short-lived screen can miss its geometry
+     * entirely on a cold cache. */
+    if (env_flag("AURORA_LOG_SKIPPED")) {
+      static u32 count = 0;
+      if (++count <= 4000) {
+        std::fprintf(stderr, "[WARN] aurora::gx: skipped draw: pipeline not ready (vtx %u, tag %u)\n",
+                     static_cast<unsigned>(data.vtxCount), aurora_draw_tag);
+      }
+    }
     return;
   }
 

@@ -6,6 +6,7 @@
 #include "aurora/aurora.h"
 #include "texture.hpp"
 #include "texture_convert.hpp"
+#include "../gx/gx.hpp"
 #include "../gx/gx_fmt.hpp"
 
 #include <algorithm>
@@ -326,6 +327,11 @@ wgpu::SamplerDescriptor TextureBind::get_descriptor() const noexcept {
     magFilter = wgpu::FilterMode::Linear;
     minFilter = wgpu::FilterMode::Linear;
     mipFilter = wgpu::MipmapFilterMode::Linear;
+  }
+  if (gx::is_depth_format(texObj.format())) {
+    magFilter = wgpu::FilterMode::Nearest;
+    minFilter = wgpu::FilterMode::Nearest;
+    mipFilter = wgpu::MipmapFilterMode::Nearest;
   }
   return {
       .label = "Generated Filtering Sampler",

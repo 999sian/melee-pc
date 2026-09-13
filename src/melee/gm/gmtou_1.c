@@ -530,8 +530,14 @@ typedef union TmPlayerAnimFrameTable {
 ASSERT_SIZE(TmPlayerAnimFrameTable, sizeof(s32) * 9);
 
 TmPlayerAnimFrameTable const lbl_803B7CE0 = {
-    { 0x0000001E, 0x00000032, 0x003B0000, 0x003C0046, 0x0001005A, 0x00640000,
-      0x006E0082, 0x00000096, 0x00A00000 }
+    .states = {
+        {   0,  30, 0 },
+        {  50,  59, 0 },
+        {  60,  70, 1 },
+        {  90, 100, 0 },
+        { 110, 130, 0 },
+        { 150, 160, 0 },
+    },
 };
 
 void fn_80196FFC(HSD_GObj* gobj)
@@ -1491,13 +1497,13 @@ void fn_80199AF0(void)
     if (result == 1) {
         slot = local2;
     } else {
-        u8* p = (u8*) &gm_80477738;
         for (i = 0; i < 4; i++) {
-            if (p[0x58] != 3 && p[0x5E] == 0) {
+            if (gm_80477738.player_standings[i].pkind != 3 &&
+                gm_80477738.player_standings[i].is_small_loser == 0)
+            {
                 slot = i;
                 goto found;
             }
-            p += 0xA8;
         }
         slot = -1;
     found:;

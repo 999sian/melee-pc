@@ -38,6 +38,7 @@
 
 #ifdef TARGET_PC
 #include "pc/widescreen.h"
+#include <stdlib.h>
 #endif
 
 static struct {
@@ -747,19 +748,17 @@ void fn_801857C4(HSD_GObj* arg0)
     u64 num_cols;
     s32 row;
     u32 total_tiles;
-    u8* img_idx;
     u32 delay;
     s32 i;
 
     if (lbl_804735E8.xE1 != 0) {
         HSD_GObjFree(lbl_804D65F0);
-        img_idx = (u8*) lbl_804735E8.x40;
-        i = 0;
         delay = 1;
-        for (; i < 10; i++, img_idx++) {
-            DP_SET(desc.desc.image, &lbl_804735E8.x40[img_idx[0x90]]);
+        for (i = 0; i < 10; i++) {
+            u8 cidx = lbl_804735E8.xD0[i];
+            DP_SET(desc.desc.image, &lbl_804735E8.x40[cidx]);
             DP_SET(desc.desc.tlut, NULL);
-            DP_SET(desc.image2, &lbl_804735E8.x88[img_idx[0x90]]);
+            DP_SET(desc.image2, &lbl_804735E8.x88[cidx]);
             sobj = HSD_SObjLib_803A477C(lbl_804735E8.xDC, &desc.desc, 0, 0,
                                         0x80, 1);
             total_tiles = 10;
@@ -798,7 +797,7 @@ void fn_801859C8(HSD_GObj* gobj)
     }
 }
 
-static inline void fn_80185A0C_Tail(const u8* count_ptr, u8** img_idx, s32* i)
+static inline void fn_80185A0C_Tail(const u8* count_ptr, s32* i)
 {
     s32 k;
     HSD_ImageDesc* img;
@@ -812,15 +811,24 @@ static inline void fn_80185A0C_Tail(const u8* count_ptr, u8** img_idx, s32* i)
         lb_800121FC(img, 0x17C, 0x190, GX_TF_RGB5A3, 0);
         DP_SET(img[3].image_ptr, NULL);
         lb_800121FC(&img[3], 0x17C, 0x190, GX_TF_Z24X8, 0);
+#ifdef TARGET_PC
+        /* MELEE_INTRO_LOG=1: the team splash allocates six 380x400 capture
+         * buffers here and never frees the previous set. A zero here means
+         * the HSD heap ran out, and every tile then samples nothing. */
+        if (getenv("MELEE_INTRO_LOG") != NULL) {
+            OSReport("intro capture %d: colour=%08x depth=%08x\n", (int) *i,
+                     (unsigned) img->image_ptr, (unsigned) img[3].image_ptr);
+        }
+#endif
         img++;
     }
 
-    for (k = 0; k < 10; (*img_idx)++, k++) {
+    for (k = 0; k < 10; k++) {
         if ((k / (s32) *count_ptr) % 2 != 0) {
-            (*img_idx)[0x90] =
+            lbl_804735E8.xD0[k] =
                 (u8) ((*count_ptr - 1) - (k % (s32) *count_ptr));
         } else {
-            (*img_idx)[0x90] = (u8) (k % (s32) *count_ptr);
+            lbl_804735E8.xD0[k] = (u8) (k % (s32) *count_ptr);
         }
     }
 
@@ -837,7 +845,6 @@ static inline void fn_80185A0C_Tail(const u8* count_ptr, u8** img_idx, s32* i)
 s32 fn_80185A0C(void)
 {
     u8* count_ptr;
-    u8* img_idx;
     HSD_GObj* gobj2;
     HSD_GObj* gobj;
     HSD_GObjProc* proc;
@@ -861,10 +868,9 @@ s32 fn_80185A0C(void)
     count = gm_GetNumCostumesForCKind(lbl_8047368C.xF4[0]);
     lbl_804735E8.xE0 = (s32) count > 3 ? 3 : count;
 
-    img_idx = lbl_804735E8.xD0 - 0x90;
     lbl_804735E8.xDC = gobj2;
     count_ptr = &lbl_804735E8.xE0;
-    fn_80185A0C_Tail(count_ptr, &img_idx, &i);
+    fn_80185A0C_Tail(count_ptr, &i);
     return fn_801851C0();
 }
 

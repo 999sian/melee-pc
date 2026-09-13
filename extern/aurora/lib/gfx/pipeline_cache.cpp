@@ -1104,9 +1104,16 @@ PipelineRef find_pipeline(ShaderType type, const clear::PipelineConfig& config, 
   return find_pipeline_impl(type, config, std::move(cb));
 }
 
+/* GX draws block on their pipeline rather than being skipped. Skipping is
+ * invisible on a long-lived screen (the geometry appears a frame or two late)
+ * but silently loses it entirely on a short one: the Classic team-intro
+ * splash lives about a second and needs ten never-before-seen variants, so
+ * every one of its tiles was dropped on every frame. Correctness over
+ * smoothness -- and the compiled result is persisted, so the stall is once
+ * per variant per install, not per visit. */
 template <>
 PipelineRef find_pipeline(ShaderType type, const gx::PipelineConfig& config, NewPipelineCallback&& cb) {
-  return find_pipeline_impl(type, config, std::move(cb));
+  return find_pipeline_impl(type, config, std::move(cb), PipelinePriority::Blocking);
 }
 
 #ifdef AURORA_ENABLE_RMLUI

@@ -654,10 +654,9 @@ void gm_801B5ACC(GameModeState* arg0)
         for (i = 0; i < ri->count; i++) {
             u8* slot_ptr;
             s32 slot;
-            UnkAllstarData* p;
             do {
                 slot = HSD_Randi(CKind_Playable_Count);
-                slot_ptr = (p = (UnkAllstarData*) ((u8*) allstar + slot))->x76;
+                slot_ptr = &allstar->x76[slot];
             } while ((s32) *slot_ptr != ChKind_None);
             *slot_ptr = gm_803DEBE8[i + ri->start].character;
         }
