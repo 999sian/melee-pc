@@ -1645,10 +1645,11 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
     fragmentFn += "\n    prev = vec4f(in.nrm, prev.a);";
   }
 
-  // Z texture: the fragment depth is derived from the last TEV stage's texture
-  // sample. Writing frag_depth defeats early-Z, which is precisely the late
-  // depth test GXSetZCompLoc(GX_FALSE) asks for, so that call becomes correct
-  // by construction for these pipelines.
+  // Z texture: the fragment depth is derived from the last TEV stage's
+  // texture sample. Only reached with compare-after-texture selected
+  // (ztex_source_stage refuses the before-texture case), so writing
+  // frag_depth and losing early-Z is exactly the late depth test
+  // GXSetZCompLoc(GX_FALSE) asked for.
   std::string fragOutStruct;
   std::string_view fragRetType = "@location(0) vec4f"sv;
   std::string fragReturn = "\n    return prev;";
@@ -1658,9 +1659,13 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
     const auto& swap = config.tevSwapTable[stage.tevSwapTex];
     const auto texel = fmt::format("sampled{}.{}{}{}", static_cast<int>(info.zTexStage), chan_comp(swap.red),
                                    chan_comp(swap.green), chan_comp(swap.blue));
-    // ztex2 format: U8 carries the high byte of the 24-bit depth (GX_TF_Z8
-    // decodes as intensity, so every channel holds it); U24 is R:G:B, MSB
-    // first, matching FragZ24X8 in tex_copy_conv.cpp.
+    /* U24 is R:G:B, MSB first, matching FragZ24X8 in tex_copy_conv.cpp.
+     * U8's expansion is genuinely unsettled -- Dolphin's coefficients say
+     * z = alpha, this says high byte, and HSD_EraseRect's all-0xFF texture
+     * reads like it wants 0xFFFFFF. Three answers, so leave it: no site in
+     * this tree pairs U8 ztex with compare-after-texture, and ztex is
+     * ignored entirely under compare-before-texture (see ztex_source_stage),
+     * which is what HSD_EraseRect selects. */
     const std::string_view ztexExpr =
         config.zTexFmt == 2 ? "(zt_t.r << 16u) | (zt_t.g << 8u) | zt_t.b"sv : "zt_t.r << 16u"sv;
     fragOutStruct =

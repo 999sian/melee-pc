@@ -499,7 +499,12 @@ struct ShaderConfig {
   u8 fogRangeEnabled : 1 = false;
   u8 zTexOp : 2 = 0;  // GXZTexOp
   u8 zTexFmt : 2 = 0; // ztex2 encoding: 0 = U8, 1 = U16, 2 = U24
-  u8 pad1 : 1 = 0;
+  /* GX only lets a Z texture reach the depth buffer under compare-after-
+   * texture; before-texture writes the polygon's own depth and ztex affects
+   * fog only. In the shader key because it decides whether frag_depth is
+   * emitted. Takes the spare pad bit, so sizeof is unchanged and the
+   * persisted pipeline cache stays valid. */
+  u8 zCompLocBeforeTex : 1 = 0;
   u8 pad2 = 0;
   std::array<AttrConfig, MaxVtxAttr> attrs;
   std::array<TevSwap, MaxTevSwap> tevSwapTable;

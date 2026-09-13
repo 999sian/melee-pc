@@ -221,6 +221,14 @@ s8 ztex_source_stage(const ShaderConfig& config) noexcept {
   if (config.zTexOp == GX_ZT_DISABLE || config.tevStageCount == 0) {
     return -1;
   }
+  if (config.zCompLocBeforeTex) {
+    /* Compare-before-texture: the depth buffer gets the polygon's own depth
+     * and the Z texture only feeds fog. HSD_EraseRect selects this, and
+     * emitting frag_depth there replaced its erase quad's near-far depth
+     * with 0xFF0000/0xFFFFFF = 0.996, which against a 0.1 near plane cut
+     * every Adventure cutscene off at ~25 world units. */
+    return -1;
+  }
   if (config.zTexFmt == 1 /* U16 */) {
     // Unused by any known title on this port, and the GX_TF_Z16 copy
     // conversion in tex_copy_conv.cpp packs its two bytes the other way round
