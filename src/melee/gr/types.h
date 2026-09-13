@@ -1574,12 +1574,25 @@ struct grCastle_GroundVars3 {
     /* +28 gp+E0 */ DynamicsDesc x1C[12];
 };
 
+/* The satellite-history view. grCastle_801CE054 is called from
+ * grCastle_801CE19C on the SAME Ground grCastle_801CDFD8 seeded through
+ * grCastle_GroundVars9, and the same one grCastle_801CF7B0 filled through
+ * grCastle_GroundVars2 / 12, so the fields below must land where those views
+ * put them. Spelled as the three pointer slots plus the six scalar bytes
+ * rather than one 0x12 byte count: 24+6 here, 12+6 on GameCube, landing xD6
+ * on gp+D6 either way. As a raw 0x12 it landed on host +0x12, i.e. inside
+ * castle12's third satellite HSD_GObj* (host +0x10..+0x18) -- and since
+ * grCastle_801CE054 both reads xD6 as an index and writes
+ * (&xD8)[xD6], it shredded the upper half of that pointer plus the slot
+ * number at gp+D0, which is what made grCastle_PickSatellite dereference
+ * non-NULL garbage. */
 struct grCastle_GroundVars4 {
-    /* +00 gp+C4 */ u8 pad_0[0x12];
-    /* +12 gp+D6 */ s16 xD6;
-    /* +14 gp+D8 */ s16 xD8;
-    /* +16 gp+DA */ s16 xDA;
-    /* +18 gp+DC */ s16 xDC;
+    /* +00 gp+C4 */ HSD_GObj* pad_gobj[3];
+    /* +18 gp+D0 */ u8 pad_D0[0xD6 - 0xD0];
+    /* +1E gp+D6 */ s16 xD6;
+    /* +20 gp+D8 */ s16 xD8;
+    /* +22 gp+DA */ s16 xDA;
+    /* +24 gp+DC */ s16 xDC;
 };
 
 struct grCastle_GroundVars2 {
@@ -1688,9 +1701,74 @@ struct grCastle_GroundVars11 {
 struct grCastle_GroundVars12 {
     /* Same slots as grCastle_GroundVars2 (host pointers on PC). */
     /* +00 gp+C4 */ HSD_GObj* xC4[3];
-    /* +0C gp+D0 */ s16 xD0;
-    /* +0E gp+D2 */ s16 xD2;
+    /* +18 gp+D0 */ s16 xD0;
+    /* +1A gp+D2 */ s16 xD2;
 };
+
+/* One GameCube offset, one host offset.
+ *
+ * grcastle.c drives each of its Ground objects through several of the views
+ * above at once, so a field two views both reach on the SAME object has to
+ * land on the same HOST byte. These are cross-view equalities rather than
+ * byte counts on purpose: a pad respelled as a raw GameCube byte count
+ * (which is how grCastle_GroundVars4 came to write the satellite timer over
+ * grCastle_801CF868's third satellite gobj) moves one side only and fails
+ * here at compile time instead of at the next dereference.
+ *
+ * Only the fields that actually alias are pinned. Object families and the
+ * procs that establish them:
+ *   main ground   id 3     801CD658 / 801CD8A8  -- views 2, 12, 9, 3, 4
+ *   satellite     id 18-20 801CF0F4 / 801CF308  -- views 7, 5, 11, 8, base
+ *   switch        id 5,7,17 801CEACC / 801CEF04 -- views 10, 6, 5, base
+ */
+#define GRCASTLE_ALIAS(ta, ma, tb, mb)                                        \
+    STATIC_ASSERT(offsetof(struct ta, ma) == offsetof(struct tb, mb))
+#define GRCASTLE_BELOW(ta, ma, tb, mb)                                        \
+    STATIC_ASSERT(offsetof(struct ta, ma) + sizeof(((struct ta*) 0)->ma) <=   \
+                  offsetof(struct tb, mb))
+
+/* main ground: the three satellite gobjs and the slot/timer pair. */
+GRCASTLE_ALIAS(grCastle_GroundVars2, xC4, grCastle_GroundVars12, xC4[0]);
+GRCASTLE_ALIAS(grCastle_GroundVars2, xC8, grCastle_GroundVars12, xC4[1]);
+GRCASTLE_ALIAS(grCastle_GroundVars2, xCC, grCastle_GroundVars12, xC4[2]);
+GRCASTLE_ALIAS(grCastle_GroundVars2, xD0, grCastle_GroundVars12, xD0);
+GRCASTLE_ALIAS(grCastle_GroundVars2, xD2, grCastle_GroundVars12, xD2);
+GRCASTLE_ALIAS(grCastle_GroundVars9, xC4, grCastle_GroundVars12, xC4[0]);
+GRCASTLE_ALIAS(grCastle_GroundVars9, xC8, grCastle_GroundVars12, xC4[1]);
+GRCASTLE_ALIAS(grCastle_GroundVars9, xCC, grCastle_GroundVars12, xC4[2]);
+GRCASTLE_ALIAS(grCastle_GroundVars3, pad_gobj, grCastle_GroundVars12, xC4);
+GRCASTLE_ALIAS(grCastle_GroundVars4, pad_gobj, grCastle_GroundVars12, xC4);
+/* main ground: the satellite history grCastle_801CDFD8 seeds through view 9
+ * and grCastle_801CE054 walks through view 4. */
+GRCASTLE_ALIAS(grCastle_GroundVars4, xD6, grCastle_GroundVars9, xD6);
+GRCASTLE_ALIAS(grCastle_GroundVars4, xD8, grCastle_GroundVars9, xD8);
+GRCASTLE_ALIAS(grCastle_GroundVars4, xDA, grCastle_GroundVars9, xDA);
+GRCASTLE_ALIAS(grCastle_GroundVars4, xDC, grCastle_GroundVars9, xDC);
+/* main ground: the DynamicsDesc block, gp+E0 in both views. */
+GRCASTLE_ALIAS(grCastle_GroundVars3, x1C, grCastle_GroundVars9, dynamics);
+
+/* satellite: the state word at gp+C4 (views 7, 5 and the s16 read of 2). */
+GRCASTLE_ALIAS(grCastle_GroundVars7, xC4, grCastle_GroundVars5, xC4);
+GRCASTLE_ALIAS(grCastle_GroundVars7, xC4, grCastle_GroundVars2, xC4);
+/* satellite: view 7 owns gp+D0 onwards because #xD0 is a real pointer here.
+ * Everything the other views touch on a satellite must stay below it. */
+GRCASTLE_BELOW(grCastle_GroundVars, xC8, grCastle_GroundVars7, xD0);
+GRCASTLE_BELOW(grCastle_GroundVars11, xCA, grCastle_GroundVars7, xD0);
+GRCASTLE_BELOW(grCastle_GroundVars8, plat[0].state, grCastle_GroundVars7, xD0);
+
+/* switch: the state/timer pair at gp+C4 / gp+C8. */
+GRCASTLE_ALIAS(grCastle_GroundVars10, xC4, grCastle_GroundVars6, xC4);
+GRCASTLE_ALIAS(grCastle_GroundVars10, xC4, grCastle_GroundVars5, xC4);
+GRCASTLE_ALIAS(grCastle_GroundVars10, xC8, grCastle_GroundVars6, xC8);
+GRCASTLE_ALIAS(grCastle_GroundVars10, xC8, grCastle_GroundVars, xC8);
+GRCASTLE_BELOW(grCastle_GroundVars6, xCC, grCastle_GroundVars10, jobjs);
+
+/* mover (id 8-16): grCastle_801CE19C reads view 5's xC6 off a Ground that
+ * grCastle_801CE578 otherwise drives through view 11. */
+GRCASTLE_BELOW(grCastle_GroundVars5, xC6, grCastle_GroundVars11, xC8);
+
+#undef GRCASTLE_ALIAS
+#undef GRCASTLE_BELOW
 
 struct grPura_GroundVars {
     /*  +0 gp+C4:0 */ s16 xC4;
