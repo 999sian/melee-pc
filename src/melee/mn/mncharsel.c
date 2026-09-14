@@ -521,8 +521,7 @@ static inline HSD_JObj* inline3(int i, float x)
     HSD_ForeachAnim(cc0, JOBJ_TYPE, MOBJ_MASK, HSD_AObjReqAnim, AOBJ_ARG_AF,
                     frame);
     HSD_JObjAnimAll(sp5C);
-    HSD_ForeachAnim(sp5C, JOBJ_TYPE, MOBJ_MASK, HSD_AObjStopAnim, AOBJ_ARG_AOV,
-                    0, 0);
+    HSD_ForeachAnim(sp5C, JOBJ_TYPE, MOBJ_MASK, HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
     return sp5C;
 }
 
@@ -910,8 +909,7 @@ static inline HSD_JObj* animateJoint(HSD_JObj* root, u8 joint, u32 mask,
     HSD_ForeachAnim(cc0, JOBJ_TYPE, mask, HSD_AObjReqAnim, AOBJ_ARG_AF, frame);
     HSD_JObjAnimAll(jobj);
     cc1 = jobj;
-    HSD_ForeachAnim(cc1, JOBJ_TYPE, mask, HSD_AObjStopAnim, AOBJ_ARG_AOV, 0,
-                    0);
+    HSD_ForeachAnim(cc1, JOBJ_TYPE, mask, HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
     return jobj;
 }
 
@@ -929,8 +927,7 @@ static inline HSD_JObj* animateJointPadded(HSD_JObj* root, u8 joint, u32 mask,
     HSD_ForeachAnim(cc0, JOBJ_TYPE, mask, HSD_AObjReqAnim, AOBJ_ARG_AF, frame);
     HSD_JObjAnimAll(state.jobj);
     cc1 = state.jobj;
-    HSD_ForeachAnim(cc1, JOBJ_TYPE, mask, HSD_AObjStopAnim, AOBJ_ARG_AOV, 0,
-                    0);
+    HSD_ForeachAnim(cc1, JOBJ_TYPE, mask, HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
     return state.jobj;
 }
 
@@ -957,8 +954,7 @@ static inline HSD_JObj* animateJointLeadingPad(HSD_JObj* root, u8 joint,
     HSD_ForeachAnim(cc0, JOBJ_TYPE, mask, HSD_AObjReqAnim, AOBJ_ARG_AF, frame);
     HSD_JObjAnimAll(jobj);
     cc1 = jobj;
-    HSD_ForeachAnim(cc1, JOBJ_TYPE, mask, HSD_AObjStopAnim, AOBJ_ARG_AOV, 0,
-                    0);
+    HSD_ForeachAnim(cc1, JOBJ_TYPE, mask, HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
     return jobj;
 }
 
@@ -1273,7 +1269,7 @@ void mnCharSel_8025DB34(u8 arg0)
             HSD_JObjAnimAll(sp90);
             if (mnCharSel_803F0DFC.doors[arg0].p_kind == 3) {
                 HSD_ForeachAnim(sp90, JOBJ_TYPE, ALL_TYPE_MASK,
-                                HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
             } else {
                 mnCharSel_8025D1C4((int) arg0, 2);
                 pickUniqueCostume((int) arg0);
@@ -1297,7 +1293,7 @@ void mnCharSel_8025DB34(u8 arg0)
                 }
             } else {
                 HSD_ForeachAnim(sp90, JOBJ_TYPE, ALL_TYPE_MASK,
-                                HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
             }
         }
 
@@ -1588,7 +1584,7 @@ void mnCharSel_8025EE8C(u8 idx)
 
         HSD_JObjAnimAll(sp14);
         HSD_ForeachAnim(sp14, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                        AOBJ_ARG_AOV, 0, 0);
+                        AOBJ_ARG_AOV, NULL);
         mnCharSel_8025DB34(0);
         if (mnCharSel_804D6CB0->match_type == TRAINING_MODE) {
             mnCharSel_8025DB34(1);
@@ -1604,7 +1600,7 @@ void mnCharSel_8025EE8C(u8 idx)
                         AOBJ_ARG_AF, mode_frame);
         HSD_JObjAnimAll(result_jobj);
         HSD_ForeachAnim(result_jobj, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                        AOBJ_ARG_AOV, 0, 0);
+                        AOBJ_ARG_AOV, NULL);
     } else {
         mode_frame = mnCharSel_803F0A48.mode_info[idx].mode_ffa_frame;
         cc0 = mnCharSel_804D6CC0;
@@ -1614,7 +1610,7 @@ void mnCharSel_8025EE8C(u8 idx)
                         AOBJ_ARG_AF, mode_frame);
         HSD_JObjAnimAll(spC);
         HSD_ForeachAnim(spC, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                        AOBJ_ARG_AOV, 0, 0);
+                        AOBJ_ARG_AOV, NULL);
     }
     for (i = 0; i < mnCharSel_804D6CF5; i++) {
         mnCharSel_8025DB34(i);
@@ -1697,14 +1693,14 @@ void fn_8025F0E0(HSD_GObj* gobj)
                                     HSD_AObjReqAnim, AOBJ_ARG_AF, 0.0f);
                     HSD_JObjAnimAll(sp4C);
                     HSD_ForeachAnim(sp4C, JOBJ_TYPE, TOBJ_MASK,
-                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                 } else {
                     lb_80011E24(jobj, &sp48, icons[i].joint_id_vs, -1);
                     HSD_ForeachAnim(sp48, JOBJ_TYPE, TOBJ_MASK,
                                     HSD_AObjReqAnim, AOBJ_ARG_AF, 0.0f);
                     HSD_JObjAnimAll(sp48);
                     HSD_ForeachAnim(sp48, JOBJ_TYPE, TOBJ_MASK,
-                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                 }
             }
         }
@@ -1721,7 +1717,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                 if (timer == 0) {
                     lb_80011E24(jobj, &sp54, doors->door_joint, -1);
                     HSD_ForeachAnim(sp54, JOBJ_TYPE, ALL_TYPE_MASK,
-                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                 }
             }
 
@@ -1753,8 +1749,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                             }
                             HSD_JObjAnimAll(sp44);
                             HSD_ForeachAnim(sp44, JOBJ_TYPE, ALL_TYPE_MASK,
-                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, 0,
-                                            0);
+                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                         } else {
                             rules = gmMainLib_GetGameRules();
                             if (rules->handicap == 1) {
@@ -1776,8 +1771,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                             }
                             HSD_JObjAnimAll(sp40);
                             HSD_ForeachAnim(sp40, JOBJ_TYPE, ALL_TYPE_MASK,
-                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, 0,
-                                            0);
+                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                         }
 
                         rules = gmMainLib_GetGameRules();
@@ -1808,7 +1802,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                         }
                         HSD_JObjAnimAll(sp3C);
                         HSD_ForeachAnim(sp3C, JOBJ_TYPE, TOBJ_MASK,
-                                        HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                        HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
 
                         {
                             u8 cpuslider2_joint = doors->cpuslider2_joint;
@@ -1826,7 +1820,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                         }
                         HSD_JObjAnimAll(sp38);
                         HSD_ForeachAnim(sp38, JOBJ_TYPE, TOBJ_MASK,
-                                        HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                        HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                     } else {
                         if (doors->p_kind == 1) {
                             u8 slidername_joint = doors->slidername_joint;
@@ -1837,8 +1831,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                                             50.0f);
                             HSD_JObjAnimAll(sp34);
                             HSD_ForeachAnim(sp34, JOBJ_TYPE, ALL_TYPE_MASK,
-                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, 0,
-                                            0);
+                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                         } else {
                             u8 slidername_joint = doors->slidername_joint;
                             lb_80011E24(mnCharSel_804D6CC0, &sp30,
@@ -1848,8 +1841,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                                             40.0f);
                             HSD_JObjAnimAll(sp30);
                             HSD_ForeachAnim(sp30, JOBJ_TYPE, ALL_TYPE_MASK,
-                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, 0,
-                                            0);
+                                            HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                         }
                         {
                             u8 cpuslider_joint = doors->cpuslider_joint;
@@ -1867,7 +1859,7 @@ void fn_8025F0E0(HSD_GObj* gobj)
                         }
                         HSD_JObjAnimAll(sp2C);
                         HSD_ForeachAnim(sp2C, JOBJ_TYPE, TOBJ_MASK,
-                                        HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                        HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                     }
                 }
             }
@@ -2233,7 +2225,7 @@ static inline void updateCursorDisplay(HSD_JObj* jobj,
                         AOBJ_ARG_AF, state);
         HSD_JObjAnimAll(*state_jobj);
         HSD_ForeachAnim(*state_jobj, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                        AOBJ_ARG_AOV, 0, 0);
+                        AOBJ_ARG_AOV, NULL);
     }
 
     {
@@ -2278,7 +2270,7 @@ static inline void updateCursorDisplay(HSD_JObj* jobj,
             }
             HSD_JObjAnimAll(*color_jobj);
             HSD_ForeachAnim(*color_jobj, JOBJ_TYPE, TOBJ_MASK,
-                            HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                            HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
         }
     }
 
@@ -2338,7 +2330,7 @@ static inline void updateGrabbedSlider(struct CSSCursorData* cursor,
     }
     HSD_JObjAnimAll(*slider_jobj);
     HSD_ForeachAnim(*slider_jobj, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                    AOBJ_ARG_AOV, 0, 0);
+                    AOBJ_ARG_AOV, NULL);
     HSD_JObjSetTranslateX(*slider_jobj, pos->x);
     cursor->xC = (f32) (-2.9f + (pos->x - base_x));
     cursor->x10 = (f32) (1.7f + pos->y);
@@ -3384,7 +3376,7 @@ static inline void animateCharModel(HSD_JObj* jobj, f32 frame)
     }
     HSD_JObjAnimAll(child);
     HSD_ForeachAnim(child, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                    AOBJ_ARG_AOV, 0, 0);
+                    AOBJ_ARG_AOV, NULL);
 }
 
 void fn_80262648(HSD_GObj* gobj)
@@ -3869,7 +3861,7 @@ void fn_802633B0(HSD_GObj* gobj)
         tag->timer = t;
         if (t > 0xAU) {
             HSD_ForeachAnim(list_jobj, JOBJ_TYPE, ALL_TYPE_MASK,
-                            HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                            HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
             tag->name_ls->hidden = 0;
             tag->state = 3;
         }
@@ -4143,7 +4135,7 @@ void fn_802633B0(HSD_GObj* gobj)
                 }
                 HSD_JObjAnimAll(handicap_slider_jobj);
                 HSD_ForeachAnim(handicap_slider_jobj, JOBJ_TYPE, TOBJ_MASK,
-                                HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                 list_jobj = handicap_slider_jobj;
                 hval = getHandicapValue((int) tag->port);
                 hval_f = 1.25f * (f32) (hval - 1);
@@ -4347,7 +4339,7 @@ s32 mnCharSel_802640A0(void)
     HSD_JObjReqAnimAll(mnCharSel_804D6CC0, 0.0f);
     HSD_JObjAnimAll(mnCharSel_804D6CC0);
     HSD_ForeachAnim(mnCharSel_804D6CC0, JOBJ_TYPE, ALL_TYPE_MASK,
-                    HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                    HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
 
     if (gm_IsCKindUnlocked(CKind_Luigi) == 0) {
         row_a = 2;
@@ -4435,7 +4427,7 @@ s32 mnCharSel_802640A0(void)
                                   css_models->regend_options.shapeanim_joint));
             HSD_JObjReqAnimAll(mnCharSel_804D6CC8, 0.0f);
             HSD_ForeachAnim(mnCharSel_804D6CC8, JOBJ_TYPE, ALL_TYPE_MASK,
-                            HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                            HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
         }
     }
 
@@ -4454,7 +4446,7 @@ s32 mnCharSel_802640A0(void)
                               css_models->door.shapeanim_joint));
         HSD_JObjReqAnimAll(mnCharSel_804D6CC4, 0.0f);
         HSD_ForeachAnim(mnCharSel_804D6CC4, JOBJ_TYPE, ALL_TYPE_MASK,
-                        HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                        HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
         ck = mnCharSel_804D6CB0->vs.start.players[mnCharSel_804D6CF1].ckind;
         if ((s8) ck >= CKind_Playable_Count || gm_IsCKindUnlocked(ck) == 0) {
             u8* char_kinds;
@@ -4506,7 +4498,7 @@ s32 mnCharSel_802640A0(void)
         HSD_JObjReqAnimAll(jobj, 0.0f);
         HSD_JObjAnimAll(jobj);
         HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
-                        AOBJ_ARG_AOV, 0, 0);
+                        AOBJ_ARG_AOV, NULL);
         mnCharSel_804A0BC0[i] = cursor;
         cursor->gobj = cursor_gobj;
         cursor->x4 = i;
@@ -4541,7 +4533,7 @@ s32 mnCharSel_802640A0(void)
                 {
                     HSD_JObj* anim_jobj = jobj;
                     HSD_ForeachAnim(anim_jobj, JOBJ_TYPE, TOBJ_MASK,
-                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                 }
                 mnCharSel_804A0BD0[slot] = model;
                 model->gobj = model_gobj;
@@ -4628,7 +4620,7 @@ s32 mnCharSel_802640A0(void)
                 {
                     HSD_JObj* anim_jobj = spA4;
                     HSD_ForeachAnim(anim_jobj, JOBJ_TYPE, JOBJ_MASK,
-                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                    HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                 }
                 sp108 = spA4;
                 lb_8000B1CC(sp108, NULL, &spEC);
@@ -4656,7 +4648,7 @@ s32 mnCharSel_802640A0(void)
             {
                 HSD_JObj* anim_jobj = tag_name_jobj;
                 HSD_ForeachAnim(anim_jobj, JOBJ_TYPE, JOBJ_MASK,
-                                HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
             }
             sp108 = tag_name_jobj;
             lb_8000B1CC(sp108, NULL, &spEC);
@@ -4912,7 +4904,7 @@ s32 mnCharSel_802640A0(void)
                                 AOBJ_ARG_AF, 0.0);
                 HSD_JObjAnimAll(jobj43);
                 HSD_ForeachAnim(jobj43, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                                AOBJ_ARG_AOV, 0, 0);
+                                AOBJ_ARG_AOV, NULL);
                 sp108 = jobj43;
             }
             HSD_JObjSetFlags(sp108, JOBJ_HIDDEN);
@@ -5241,7 +5233,7 @@ s32 mnCharSel_802640A0(void)
                           css_models->press_start.shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0f);
     HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
-                    AOBJ_ARG_AOV, 0, 0);
+                    AOBJ_ARG_AOV, NULL);
 
     mnCharSel_804D6CF7 = 0;
     if (mnCharSel_804D6CF5 == 1) {

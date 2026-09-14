@@ -328,14 +328,17 @@ void ftCl_Init_OnLoad(HSD_GObj* gobj)
         lbAnim_8001E8F8(ftData_80085E50(fp, 72));
     ftLk_Init_OnLoadForCLink(fp);
     ea = fp->dat_attrs;
-    it_8026B3F8((void*) (uintptr_t) items[0].v, ea->x48);
-    it_8026B3F8((void*) (uintptr_t) items[1].v, ea->x2C);
-    it_8026B3F8((void*) (uintptr_t) items[2].v, ea->xBC);
-    it_8026B3F8((void*) (uintptr_t) items[3].v, ea->xC);
-    it_8026B3F8((void*) (uintptr_t) items[4].v, ea->x10);
-    it_8026B3F8((void*) (uintptr_t) items[5].v, It_Kind_CLink_Milk);
-    struct Fighter_804D6540_t* t40 = (struct Fighter_804D6540_t*) (uintptr_t) Fighter_804D6540[fp->kind].v;
-    ftParts_800753D4(fp, DP(struct Fighter_804D6540_x0_t, t40->x0), (void*) (uintptr_t) items[6].v);
+    it_8026B3F8(DP(Article, items[0].v), ea->x48);
+    it_8026B3F8(DP(Article, items[1].v), ea->x2C);
+    it_8026B3F8(DP(Article, items[2].v), ea->xBC);
+    it_8026B3F8(DP(Article, items[3].v), ea->xC);
+    it_8026B3F8(DP(Article, items[4].v), ea->x10);
+    it_8026B3F8(DP(Article, items[5].v), It_Kind_CLink_Milk);
+    ftParts_800753D4(
+        fp,
+        DP(struct Fighter_804D6540_x0_t,
+           DP(struct Fighter_804D6540_t, Fighter_804D6540[fp->kind].v)->x0),
+        DP(HSD_Joint, items[6].v));
 }
 
 void ftCl_Init_OnItemPickupExt(HSD_GObj* gobj, bool flag)

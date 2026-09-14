@@ -68,7 +68,7 @@ void grAnime_801C65B0(UnkArchiveStruct* arg0)
     if (arg0 == NULL) {
         return;
     }
-    if ((uintptr_t) arg0->unk0 != -1U) {
+    if ((uintptr_t) arg0->unk0 != (uintptr_t) -1) {
         if (arg0->unk8 == 0) {
             lbArchive_80016EFC(arg0->unk0);
         } else if (arg0->unk8 == 1) {
@@ -80,7 +80,7 @@ void grAnime_801C65B0(UnkArchiveStruct* arg0)
 
 void grAnime_801C6620(HSD_PObj* arg0, HSD_ShapeAnim* arg1)
 {
-    struct _unk_struct_pobj* unk;
+    HSD_ShapeSet* shape_set;
     HSD_PObj* pobj;
     HSD_ShapeAnim* shape_anim;
 
@@ -94,12 +94,12 @@ void grAnime_801C6620(HSD_PObj* arg0, HSD_ShapeAnim* arg1)
             HSD_ASSERT(38, pobj_type(pobj) == POBJ_SHAPEANIM &&
                                 pobj->u.shape_set);
             if (shape_anim != NULL) {
-                unk = pobj->u.unk;
+                shape_set = pobj->u.shape_set;
                 if (shape_anim->aobjdesc != 0) {
-                    if (unk->aobj != NULL) {
-                        HSD_AObjRemove(unk->aobj);
+                    if (shape_set->aobj != NULL) {
+                        HSD_AObjRemove(shape_set->aobj);
                     }
-                    unk->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, shape_anim->aobjdesc));
+                    shape_set->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, shape_anim->aobjdesc));
                 }
             }
         }
@@ -131,6 +131,7 @@ void grAnime_801C6710(HSD_TObj* tobj, HSD_TexAnim* texanim)
         }
         tobj->aobj = HSD_AObjLoadDesc(DP(HSD_AObjDesc, texanim->aobjdesc));
         tobj->imagetbl = DP(DiscU32, texanim->imagetbl);
+        tobj->n_imagetbl = texanim->n_imagetbl;
     }
 }
 
@@ -494,52 +495,50 @@ enum {
     CALL_ON_TOBJ = 1 << (ARG_TYPE_TOBJ - 1),
 };
 
-typedef void (*Callback1)(HSD_AObj* aobj, HSD_TObj* obj, u32 flags,
-                          float param);
-typedef void (*Callback2)(HSD_AObj* aobj, int param);
-typedef void (*Callback4)(HSD_AObj* aobj, HSD_TObj* obj, u32 flags, int param);
-typedef void (*Callback3)(HSD_AObj* aobj, HSD_TObj* obj, int param);
-
 void grAnime_801C6F50(HSD_AObj* aobj, void* obj, u32 flags, void* func,
                       u32 type, void* param)
 {
+    callbackArg* arg = (callbackArg*) param;
     switch (type) {
-    case 0:
-        ((Event) func)();
-        break;
-    case 1:
-        ((Callback1) func)(aobj, obj, flags, *(float*) param);
-        break;
-    case 2:
-        ((Callback2) func)(aobj, *(int*) param);
-        break;
-    case 3:
-        ((Callback2) func)(aobj, *(int*) param);
-        break;
-    case 4:
-        ((Event) func)();
-        break;
-    case 8:
-        ((Event) func)();
-        break;
-    case 5:
-        ((Callback1) func)(aobj, obj, flags, *(float*) param);
-        break;
-    case 6:
-        ((Callback3) func)(aobj, obj, *(int*) param);
-        break;
-    case 7:
-        ((Callback3) func)(aobj, obj, *(int*) param);
-        break;
-    case 9:
-        ((Callback1) func)(aobj, obj, flags, *(float*) param);
-        break;
-    case 10:
-        ((Callback4) func)(aobj, obj, flags, *(int*) param);
-        break;
-    case 11:
-        ((Callback4) func)(aobj, obj, flags, *(int*) param);
-        break;
+    case AOBJ_ARG_A:
+        (*(void (*)(HSD_AObj*)) func)(aobj);
+        return;
+    case AOBJ_ARG_AF:
+        (*(void (*)(HSD_AObj*, f32)) func)(aobj, arg->f);
+        return;
+    case AOBJ_ARG_AV:
+        (*(void (*)(HSD_AObj*, void*)) func)(aobj, arg->v);
+        return;
+    case AOBJ_ARG_AU:
+        (*(void (*)(HSD_AObj*, u32)) func)(aobj, arg->d);
+        return;
+    case AOBJ_ARG_AO:
+        (*(void (*)(HSD_AObj*, void*)) func)(aobj, obj);
+        return;
+    case AOBJ_ARG_AOF:
+        (*(void (*)(HSD_AObj*, void*, f32)) func)(aobj, obj, arg->f);
+        return;
+    case AOBJ_ARG_AOV:
+        (*(void (*)(HSD_AObj*, void*, void*)) func)(aobj, obj, arg->v);
+        return;
+    case AOBJ_ARG_AOU:
+        (*(void (*)(HSD_AObj*, void*, u32)) func)(aobj, obj, arg->d);
+        return;
+    case AOBJ_ARG_AOT:
+        (*(void (*)(HSD_AObj*, void*, u32)) func)(aobj, obj, flags);
+        return;
+    case AOBJ_ARG_AOTF:
+        (*(void (*)(HSD_AObj*, void*, u32, f32)) func)(aobj, obj, flags,
+                                                            arg->f);
+        return;
+    case AOBJ_ARG_AOTV:
+        (*(void (*)(HSD_AObj*, void*, u32, void*)) func)(aobj, obj, flags,
+                                                              arg->v);
+        return;
+    case AOBJ_ARG_AOTU:
+        (*(void (*)(HSD_AObj*, void*, u32, u32)) func)(aobj, obj, flags,
+                                                            arg->d);
+        return;
     }
 }
 
@@ -570,10 +569,10 @@ static inline void grAnime_PObjForeachAnim(HSD_PObj* pobj, int flags,
                                            void* func, u32 type, void* param)
 {
     if ((flags & CALL_ON_POBJ) && pobj != NULL &&
-        pobj_type(pobj) == POBJ_SHAPEANIM && pobj->u.unk != NULL &&
-        pobj->u.unk->aobj != NULL)
+        pobj_type(pobj) == POBJ_SHAPEANIM && pobj->u.shape_set != NULL &&
+        pobj->u.shape_set->aobj != NULL)
     {
-        grAnime_801C6F50(pobj->u.unk->aobj, pobj, ARG_TYPE_POBJ, func, type,
+        grAnime_801C6F50(pobj->u.shape_set->aobj, pobj, ARG_TYPE_POBJ, func, type,
                          param);
     }
 }

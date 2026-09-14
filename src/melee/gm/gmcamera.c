@@ -430,7 +430,7 @@ void gmCamera_801A2BF0(void)
     HSD_JObjReqAnimAll(jobj_a, var_f1);
     HSD_JObjAnimAll(jobj_a);
     HSD_ForeachAnim(jobj_a, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                    AOBJ_ARG_AOV, 0, 0);
+                    AOBJ_ARG_AOV, NULL);
     px18 = &gcus->x18;
     *px18 = 0;
     lb_80011E24(*px8, &jobj_b, 0xC, -1);
