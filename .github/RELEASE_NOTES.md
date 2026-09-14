@@ -22,7 +22,30 @@ image path directly:
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
 
-## Changes since v0.1.0-beta
+## Changes since v0.1.1-beta
+
+- Fixed disc pointers being used without resolution in the HSD object
+  loaders. `HSD_IDGetData` is keyed on the resolved host pointer, but jobj,
+  pobj and robj looked up with the raw 32-bit disc slot, so those lookups
+  always missed and left child joints and envelope references null.
+- Rewrote the AObj animation callback dispatch. It previously guessed at
+  four signatures, reading a float out of parameters that hold an integer
+  or a pointer and dropping arguments entirely in other cases; it now
+  dispatches on the real calling convention.
+- Kept MEM1 below 4GB on Windows. The allocator fell back to letting the OS
+  place it anywhere, which on 64-bit Windows means above 4GB, and every
+  32-bit disc pointer slot into it then truncates.
+- `MELEE_BACKEND` pins the graphics backend (`vulkan`, `d3d12`, `null`, ...)
+  and the log now records which one a run selected. Thanks to
+  @alexscott2718-gif.
+- The log is timestamped, records a marker for any frame over 50ms, and
+  survives a crash: output is flushed per line, Windows writes
+  `melee-pc.log` beside the exe, and a fault logs a backtrace naming the
+  module it came from.
+- The Windows zip ships a pipeline cache seed, so shaders are not all
+  compiled the first time each one is used.
+
+## Changes in v0.1.1-beta
 
 - Fixed a crash in the attract demo. Kirby's and Jigglypuff's multi-jump
   attributes are read straight off the disc, but were decoded in the wrong
