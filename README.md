@@ -239,8 +239,10 @@ a backtrace disagree, believe the backtrace.
 
 ## License
 
-Three situations, spelled out in [LICENSE](LICENSE): the decompiled game code
-in `src/melee` and `src/sysdolphin` is **not licensed** and remains the
-property of its copyright holders; the port code in `src/pc`, `tools`,
-`platforms`, `cmake` and `.github` is MIT; bundled third-party components keep
-their own licenses. No game assets are in this repository.
+Three situations, spelled out in [LICENSING.md](LICENSING.md): the decompiled
+game code in `src/melee` and `src/sysdolphin` is **not licensed** and remains
+the property of its copyright holders; the port code in `src/pc`, `tools`,
+`platforms`, `cmake` and `.github` is **GPL-3.0-or-later** ([LICENSE](LICENSE));
+bundled third-party components keep their own licenses. Because the game code
+cannot be relicensed, the repository as a whole is not distributable under the
+GPL. No game assets are in this repository.

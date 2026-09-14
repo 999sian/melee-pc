@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * Software AX: the GameCube audio voice mixer, on an SDL3 audio stream.
  *

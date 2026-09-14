@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Leftover SDK / runtime symbols with no aurora equivalent. */
 #include <dolphin/gx.h>
 #include <dolphin/mcc.h>

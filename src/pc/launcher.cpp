@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "launcher.h"
 #include "widescreen.h"
 #include "launcher_data.hpp"

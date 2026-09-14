@@ -263,6 +263,19 @@ SDL_ThreadPriority to_sdl_priority(Priority priority) noexcept {
 
 void set_thread_name(const std::string& name) noexcept {
 #if defined(_WIN32)
+  /* SetThreadDescription is Windows 10 1607+, and mingw-w64 before v12 does
+   * not declare it at all, so a cross build cannot call it directly.
+   * Resolve it at runtime and skip naming where it is unavailable. */
+  using SetThreadDescriptionFn = HRESULT(WINAPI*)(HANDLE, PCWSTR);
+  static const auto setThreadDescription = [] {
+    const HMODULE kernelBase = GetModuleHandleW(L"KernelBase.dll");
+    return kernelBase == nullptr ? nullptr
+                                 : reinterpret_cast<SetThreadDescriptionFn>(reinterpret_cast<void*>(
+                                       GetProcAddress(kernelBase, "SetThreadDescription")));
+  }();
+  if (setThreadDescription == nullptr) {
+    return;
+  }
   const int length = MultiByteToWideChar(CP_UTF8, 0, name.data(), static_cast<int>(name.size()), nullptr, 0);
   if (length <= 0) {
     return;
@@ -270,7 +283,7 @@ void set_thread_name(const std::string& name) noexcept {
   std::wstring wideName;
   wideName.resize(static_cast<size_t>(length));
   MultiByteToWideChar(CP_UTF8, 0, name.data(), static_cast<int>(name.size()), wideName.data(), length);
-  SetThreadDescription(GetCurrentThread(), wideName.c_str());
+  setThreadDescription(GetCurrentThread(), wideName.c_str());
 #elif defined(__APPLE__)
   const std::string truncated = name.substr(0, 63);
   pthread_setname_np(truncated.c_str());

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "launcher_data.hpp"
 #include <nod.h>
 #include <array>

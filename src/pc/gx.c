@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* GX entry points aurora declares but does not implement. */
 #include <dolphin/gx.h>
 
@@ -47,4 +48,3 @@ void GXInitFogAdjTable(GXFogAdjTable* table, u16 width, f32 projmtx[4][4])
     (void) projmtx;
     memset(table, 0xFF, sizeof(*table));
 }
-

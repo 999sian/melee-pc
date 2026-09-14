@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * VI layer. aurora provides the window/framebuffer (VIInit/VIConfigure/VIFlush);
  * retrace timing and the XFB flip are emulated here on top of aurora's frame

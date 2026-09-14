@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <aurora/aurora.h>
 #include <aurora/dvd.h>
 #include <aurora/main.h>

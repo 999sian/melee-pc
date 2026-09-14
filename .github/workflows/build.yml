@@ -89,11 +89,15 @@ jobs:
           sudo apt-get install -y --no-install-recommends ninja-build cmake
           # nod has no Android prebuilt, so aurora builds it from Rust source.
           rustup target add aarch64-linux-android
+          # aurora uses std::jthread/std::stop_token, which the runner's
+          # newest NDK libc++ does not expose. r26 is the version this port
+          # is developed against.
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install 'ndk;26.3.11579264' > /dev/null
 
       - name: Build APK
-        # The runner image exports ANDROID_NDK_HOME/ANDROID_HOME already;
-        # build_android.sh picks the newest NDK when neither is set.
-        run: tools/build_android.sh
+        run: |
+          export ANDROID_NDK_HOME="${ANDROID_HOME}/ndk/26.3.11579264"
+          tools/build_android.sh
 
       - uses: actions/upload-artifact@v4
         with:

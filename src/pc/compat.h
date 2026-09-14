@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Force-included into every game translation unit (see CMakeLists.txt). */
 #ifndef PC_COMPAT_H
 #define PC_COMPAT_H

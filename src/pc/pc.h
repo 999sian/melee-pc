@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #ifndef PC_PC_H
 #define PC_PC_H
 

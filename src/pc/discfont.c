@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Load the two HSD font atlases out of the user's own disc at boot.
  *
  * The decomp keeps HSD_DebugFontAtlas and HSD_SisLib_FontAtlas out of the

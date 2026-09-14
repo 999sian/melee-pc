@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "compat.h"
 #include "widescreen.h"
 #include <math.h>
