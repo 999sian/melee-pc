@@ -97,7 +97,14 @@ target_link_libraries(melee PRIVATE melee_game aurora::main ${MELEE_CRYPTO_LIBS}
 
 # Non-PIE: static data and code stay below 4GB (32-bit pointer slots in disc data).
 if (WIN32)
-    target_link_options(melee PRIVATE -Wl,--image-base,0x10000000 -Wl,--disable-dynamicbase -Wl,--disable-high-entropy-va -Wl,-u,WinMain)
+    # -static-libstdc++/-static-libgcc: linking the C++ runtime as a DLL makes the linker
+    # auto-import its data symbols, including C++ vtables, through MinGW's runtime
+    # pseudo-relocation (_pei386_runtime_relocator). This image carries 330 such auto-imported
+    # vtable/typeinfo symbols. Constructing the first std::ifstream reads a virtual-base offset
+    # out of the auto-imported std::basic_ifstream<char> vtable to compute `this`, and on native
+    # Windows that yields a bad pointer: std::basic_ios<char>::init() then writes to address 0.
+    # Linking the runtime statically removes the auto-imported vtables entirely.
+    target_link_options(melee PRIVATE -static-libstdc++ -static-libgcc -Wl,--image-base,0x10000000 -Wl,--disable-dynamicbase -Wl,--disable-high-entropy-va -Wl,-u,WinMain)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/platforms/windows/melee.rc")
         target_sources(melee PRIVATE platforms/windows/melee.rc)
     endif ()
