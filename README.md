@@ -76,7 +76,7 @@ NDK (`ANDROID_NDK_HOME`) and a JDK 17.
 ```sh
 tools/package_linux.sh      # dist/Melee-x86_64.AppImage + tarball
 tools/package_windows.sh    # dist/Melee-Windows-x86_64.zip
-tools/build_android.sh      # dist/Melee-Android-arm64-debug.apk
+tools/build_android.sh      # dist/Melee-Android-arm64.apk (signed release)
 ```
 
 ## Running

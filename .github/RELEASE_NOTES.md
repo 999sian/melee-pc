@@ -13,7 +13,7 @@ Only **USA revision 2 (NTSC-U 1.02, GALE01)** is supported.
 | Linux x86-64 | `Melee-x86_64.AppImage` | Needs a Vulkan driver. `chmod +x`, then run. |
 | Linux x86-64 | `melee-linux-x86_64.tar.gz` | Portable directory; run `run.sh`. |
 | Windows x86-64 | `Melee-Windows-x86_64.zip` | Extract and run `melee.exe`. Keep the DLLs and `resources/` beside it. |
-| Android arm64 | `Melee-Android-arm64-debug.apk` | Debug-signed. |
+| Android arm64 | `Melee-Android-arm64.apk` | Release build, signed. Allow install from unknown sources. |
 
 Launch with no arguments to open the launcher and pick a disc, or pass the
 image path directly:

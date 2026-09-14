@@ -16,3 +16,7 @@ platforms/android/*/build/
 platforms/android/app/libs/
 platforms/android/app/src/main/jniLibs/
 platforms/android/app/src/main/assets/
+
+# Release signing material stays local; CI reads it from repository secrets.
+platforms/android/melee-release.keystore
+platforms/android/release-signing.env

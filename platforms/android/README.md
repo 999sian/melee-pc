@@ -15,13 +15,24 @@ This directory contains the Android application wrapper for Super Smash Bros. Me
 
 3. **Building the APK**:
    ```bash
-   cd platforms/android
-   ./gradlew :app:assembleDebug
+   tools/build_android.sh
    ```
-   The resulting APK will be placed at:
-   `platforms/android/app/build/outputs/apk/debug/app-debug.apk`
+   This builds the native library, stages assets, and produces a signed
+   release APK at `dist/Melee-Android-arm64.apk`.
+
+   Signing key resolution, in order:
+   - `MELEE_KEYSTORE_BASE64` (what CI sets from repository secrets), or
+   - `platforms/android/melee-release.keystore` plus a
+     `platforms/android/release-signing.env` holding
+     `MELEE_KEYSTORE_PASSWORD`, `MELEE_KEY_ALIAS`, and `MELEE_KEY_PASSWORD`.
+
+   Both are gitignored. Generate one with:
+   ```bash
+   keytool -genkeypair -keystore platforms/android/melee-release.keystore \
+       -storetype PKCS12 -alias melee -keyalg RSA -keysize 4096 -validity 10000
+   ```
 
 4. **Running on Device**:
    ```bash
-   adb install -r platforms/android/app/build/outputs/apk/debug/app-debug.apk
+   adb install -r dist/Melee-Android-arm64.apk
    ```

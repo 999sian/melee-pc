@@ -95,6 +95,12 @@ jobs:
           "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install 'ndk;26.3.11579264' > /dev/null
 
       - name: Build APK
+        env:
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.1' }}
+          MELEE_KEYSTORE_BASE64: ${{ secrets.MELEE_KEYSTORE_BASE64 }}
+          MELEE_KEYSTORE_PASSWORD: ${{ secrets.MELEE_KEYSTORE_PASSWORD }}
+          MELEE_KEY_ALIAS: ${{ secrets.MELEE_KEY_ALIAS }}
+          MELEE_KEY_PASSWORD: ${{ secrets.MELEE_KEY_PASSWORD }}
         run: |
           export ANDROID_NDK_HOME="${ANDROID_HOME}/ndk/26.3.11579264"
           tools/build_android.sh
@@ -102,7 +108,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: android-arm64
-          path: dist/Melee-Android-arm64-debug.apk
+          path: dist/Melee-Android-arm64.apk
           if-no-files-found: error
 
   release:
