@@ -20,6 +20,11 @@ void pc_platform_init(void);
  * frame and runs due OSAlarms. Called from VIWaitForRetrace. */
 void pc_frame_boundary(void);
 
+/* Append a line to the diagnostic log (src/pc/main.c), so frame stalls
+ * interleave with aurora's own records and can be attributed to whatever
+ * the engine reported around them. */
+void pc_log_line(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+
 /* Keyboard -> virtual controller (src/pc/keyboard.c). */
 typedef union SDL_Event SDL_Event;
 void pc_keyboard_event(const SDL_Event* e);

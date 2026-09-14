@@ -94,8 +94,46 @@ static void GuardGCMemory() { }
 
 #if defined(_WIN32)
 static void* AllocMEM1(u32 size) {
-  void* want = reinterpret_cast<void*>(0x80000000ULL);
-  void* p = VirtualAlloc(want, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+  // Try preferred address first, then try candidates strictly < 4GB.
+  // Pointers in disc files and relocations require addresses to fit in 32 bits.
+  static const uintptr_t candidates[] = {
+    0x80000000ULL,
+    0x70000000ULL,
+    0x60000000ULL,
+    0x50000000ULL,
+    0x40000000ULL,
+    0x30000000ULL,
+    0x20000000ULL,
+    0x90000000ULL,
+    0xA0000000ULL,
+    0xB0000000ULL,
+  };
+
+  void* p = nullptr;
+  for (uintptr_t addr : candidates) {
+    if (addr + size <= 0x100000000ULL) {
+      p = VirtualAlloc(reinterpret_cast<void*>(addr), size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+      if (p) break;
+    }
+  }
+
+  // If fixed address probing failed, try VirtualAlloc2 with 4GB limit if available
+  if (!p) {
+    typedef PVOID (WINAPI *VirtualAlloc2_t)(HANDLE, PVOID, SIZE_T, ULONG, ULONG, MEM_EXTENDED_PARAMETER*, ULONG);
+    HMODULE kernelBase = GetModuleHandleA("kernelbase.dll");
+    if (kernelBase) {
+      auto pVirtualAlloc2 = reinterpret_cast<VirtualAlloc2_t>(GetProcAddress(kernelBase, "VirtualAlloc2"));
+      if (pVirtualAlloc2) {
+        MEM_ADDRESS_REQUIREMENTS reqs = {};
+        reqs.HighestEndingAddress = reinterpret_cast<PVOID>(0xFFFFFFFFULL);
+        MEM_EXTENDED_PARAMETER param = {};
+        param.Type = MemExtendedParameterAddressRequirements;
+        param.Pointer = &reqs;
+        p = pVirtualAlloc2(GetCurrentProcess(), nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &param, 1);
+      }
+    }
+  }
+
   if (!p) {
     p = VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
   }

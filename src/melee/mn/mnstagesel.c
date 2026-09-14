@@ -160,7 +160,7 @@ void fn_80259D84(HSD_GObj* gobj)
         }
         if (++temp_r31->x4 >= 9U) {
             HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
-                            AOBJ_ARG_AOV, 0, 0);
+                            AOBJ_ARG_AOV, NULL);
             temp_r31->x2 = 1;
         }
         break;
@@ -195,7 +195,7 @@ static void do_anim(HSD_JObj* jobj, int frame)
     HSD_JObjReqAnimAllByFlags(jobj, 0x10, frame);
     HSD_JObjAnimAll(jobj);
     HSD_ForeachAnim(jobj, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim, AOBJ_ARG_AOV,
-                    0, 0);
+                    NULL);
 }
 
 void mnStageSel_80259ED8(int id)
@@ -254,7 +254,7 @@ void fn_8025A090(HSD_GObj* gobj)
             HSD_JObjReqAnimAll(jobj, 50.0F * mnStageSel_803F06D0[var_r3].x9);
             HSD_JObjAnimAll(jobj);
             HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
-                            AOBJ_ARG_AOV, 0, 0);
+                            AOBJ_ARG_AOV, NULL);
             HSD_JObjSetTranslateX(jobj, 0.0F);
         } else {
             HSD_JObjSetTranslateX(jobj, 100.0F);
@@ -268,7 +268,7 @@ void fn_8025A090(HSD_GObj* gobj)
         }
         if (temp_r30->x4 == 0x45) {
             HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
-                            AOBJ_ARG_AOV, 0, 0);
+                            AOBJ_ARG_AOV, NULL);
         }
     } else if (mnStageSel_804D6CAF) {
         mnStageSel_804D6CAF = 2;
@@ -591,7 +591,7 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             }
             HSD_JObjAnimAll(jobj);
             HSD_ForeachAnim(jobj, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
-                            AOBJ_ARG_AOV, 0, 0);
+                            AOBJ_ARG_AOV, NULL);
         }
 
         for (i = 0xB; i <= 0xF; i++) {
@@ -773,7 +773,7 @@ void mnStageSel_Scene_OnEnter(void* arg0)
                 HSD_JObjReqAnimAll(jobj, 0.0F);
                 HSD_JObjAnimAll(jobj);
                 HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK,
-                                HSD_AObjStopAnim, AOBJ_ARG_AOV, 0, 0);
+                                HSD_AObjStopAnim, AOBJ_ARG_AOV, NULL);
                 HSD_JObjSetTranslateX(jobj, 100.0F);
                 temp_r3_14->x0 = 0x1E;
                 temp_r3_14->x4 = 0;
