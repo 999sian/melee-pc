@@ -56,8 +56,10 @@ jobs:
       - name: Install MinGW-w64 toolchain
         run: |
           sudo apt-get update
+          # cabextract unpacks the VC++ redistributable that package_windows.sh
+          # ships app-local; curl fetches it.
           sudo apt-get install -y --no-install-recommends \
-            mingw-w64 ninja-build cmake zip
+            mingw-w64 ninja-build cmake zip cabextract curl
           # aurora's C++20 code needs std::thread, which only the POSIX
           # threading model provides; Ubuntu defaults some links to win32.
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix

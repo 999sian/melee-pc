@@ -32,6 +32,12 @@ image path directly:
   and truncated on 64-bit builds: the HSD id table and object heap, the
   sislib text cursor stack, the THP video decoder, and pointer slots in the
   Hyrule Castle, Brinstar, Big Blue and Fountain of Dreams stage state.
+- Fixed the Windows build failing to start on a real Windows PC. The zip did
+  not ship the Visual C++ runtime that Dawn, dxcompiler, SDL3 and nod import,
+  so Windows refused to load it with "VCRUNTIME140.dll was not found". Wine
+  and Proton supply that runtime themselves, which is why it only broke on
+  actual Windows. Those DLLs now ship in the zip, and packaging fails if any
+  import is left unresolved.
 - The Android APK is now a signed release build rather than a debug build,
   and is named `Melee-Android-arm64.apk`.
 - Fixed the Android CI build, which depended on a toolchain path that only

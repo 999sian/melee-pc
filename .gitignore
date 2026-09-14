@@ -20,3 +20,7 @@ platforms/android/app/src/main/assets/
 # Release signing material stays local; CI reads it from repository secrets.
 platforms/android/melee-release.keystore
 platforms/android/release-signing.env
+
+# Proton/wine leavings from tools/run_proton.sh.
+vkd3d-proton.cache*
+steam_appid.txt
