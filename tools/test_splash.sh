@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd "/home/sian/Documents/Smash GC Port /melee-pc"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 out_dir="/tmp/classic_splash_test"
 mkdir -p "$out_dir"

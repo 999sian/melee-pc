@@ -68,12 +68,8 @@
       "inherits": [
         "release"
       ],
-      "environment": {
-        "ANDROID_HOME": "/home/sian/Android",
-        "ANDROID_NDK_HOME": "/home/sian/Android/ndk/26.3.11579264"
-      },
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "/home/sian/Android/ndk/26.3.11579264/build/cmake/android.toolchain.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
         "ANDROID_PLATFORM": "android-26",
         "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": true
       }
