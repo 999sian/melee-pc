@@ -41,14 +41,26 @@ done
 cp "${BUILD_DIR}/_deps/nod_prebuilt-src/bin/nod.dll" "${STAGE_DIR}/"
 cp "${BUILD_DIR}/_deps/nod_prebuilt-src/bin/nod.dll" "${STAGE_DIR}/libnod.dll"
 
-# MinGW runtime DLLs: Arch keeps them under /usr/x86_64-w64-mingw32/bin,
-# Debian/Ubuntu under /usr/lib/gcc/x86_64-w64-mingw32/*/. Search both.
+# MinGW runtime DLLs. libstdc++ and libgcc are linked statically (see
+# CMakeLists.txt), so only libwinpthread is still imported.
+#
+# Shipping libstdc++-6.dll used to pick it with `find -print -quit`, which is
+# not safe on Debian/Ubuntu: those carry both a win32-threads and a
+# posix-threads build of the same filename, and the first hit won. CI selects
+# the posix compiler because aurora's C++20 needs std::thread, so the win32
+# copy landed beside an exe built against the posix one and the first
+# std::ifstream died in basic_ios::init. Derive the path from the compiler
+# actually used instead of searching for a name.
 echo "=== Locating MinGW runtime DLLs ==="
-for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
-    src="$(find /usr/x86_64-w64-mingw32 /usr/lib/gcc/x86_64-w64-mingw32 \
-            -name "${dll}" -print -quit 2>/dev/null || true)"
-    if [[ -z "${src}" ]]; then
-        echo "error: ${dll} not found in the MinGW sysroot" >&2
+CXX_BIN="${CXX:-x86_64-w64-mingw32-g++}"
+for dll in libwinpthread-1.dll; do
+    src="$("${CXX_BIN}" -print-file-name="${dll}" 2>/dev/null || true)"
+    if [[ ! -f "${src}" ]]; then
+        # Arch keeps them in the sysroot bin rather than beside the compiler.
+        src="$(find /usr/x86_64-w64-mingw32/bin -name "${dll}" -print -quit 2>/dev/null || true)"
+    fi
+    if [[ ! -f "${src}" ]]; then
+        echo "error: ${dll} not found for ${CXX_BIN}" >&2
         exit 1
     fi
     echo "  ${dll} <- ${src}"
