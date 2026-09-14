@@ -2076,11 +2076,12 @@ HSD_LObj* Toy_LoadLObjList(DiscU32* list, s32* hasAnim)
         *hasAnim = 0;
     }
 
-    while ((ent = (LightList*) (uintptr_t) list->v) != NULL) {
+    while (list != NULL && list->v != 0) {
+        ent = DP(LightList, list->v);
         lobj = HSD_LObjLoadDesc(DP(HSD_LightDesc, ent->desc));
         if (lobj != NULL) {
             DiscU32* anim_slots = DP(DiscU32, ent->anims);
-            HSD_LightAnim* anim = anim_slots ? (HSD_LightAnim*) (uintptr_t) anim_slots[0].v : NULL;
+            HSD_LightAnim* anim = anim_slots ? DP(HSD_LightAnim, anim_slots[0].v) : NULL;
             animFlag = (u8*) &base->xDC[idx];
             *animFlag = 0;
             if (anim != NULL) {

@@ -350,11 +350,18 @@ void pc_platform_init(void)
 /* aurora declares these weak and leaves them to the game. */
 
 #include <stdarg.h>
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
 
 void OSVReport(const char* msg, va_list list)
 {
+#if defined(__ANDROID__)
+    __android_log_vprint(ANDROID_LOG_INFO, "OSReport", msg, list);
+#else
     vfprintf(stdout, msg, list);
     fflush(stdout);
+#endif
 }
 
 void OSReport(const char* msg, ...)
@@ -369,10 +376,16 @@ void OSPanic(const char* file, int line, const char* msg, ...)
 {
     va_list args;
     va_start(args, msg);
+#if defined(__ANDROID__)
+    char buf[1024];
+    vsnprintf(buf, sizeof(buf), msg, args);
+    __android_log_print(ANDROID_LOG_FATAL, "OSPanic", "PANIC %s:%d: %s", file, line, buf);
+#else
     fprintf(stderr, "PANIC %s:%d: ", file, line);
     vfprintf(stderr, msg, args);
     fputc('\n', stderr);
-    va_end(args);
     fflush(stderr);
+#endif
+    va_end(args);
     abort();
 }

@@ -45,6 +45,7 @@ endif ()
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
         src/melee/*.c
         src/sysdolphin/*.c)
+list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
 # PowerPC/MetroTRK debugger integration; no PC equivalent.
 list(FILTER GAME_SOURCES EXCLUDE REGEX "baselib/debugconsole_main\\.c$")
 
@@ -78,8 +79,13 @@ target_link_libraries(melee_game PUBLIC
         aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx
         aurora::os aurora::dvd aurora::card aurora::thp)
 
+if (ANDROID)
+    set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
+endif ()
+
 # ---- PC platform layer -----------------------------------------------------
 file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp)
+list(REMOVE_ITEM PC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
 if (ANDROID)
     add_library(melee SHARED ${PC_SOURCES})
 else ()
@@ -101,6 +107,8 @@ if (WIN32)
     endif ()
 elseif (NOT ANDROID)
     target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
+else ()
+    target_link_options(melee PRIVATE -Wl,-z,max-page-size=16384)
 endif ()
 
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)

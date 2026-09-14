@@ -466,6 +466,15 @@ extern "C" void pc_launcher_configure(AuroraConfig* config) {
     if (!std::getenv("MELEE_VSYNC")) config->vsync = prefs.vsync;
 }
 
+static std::filesystem::path pc_resources_path() {
+#if defined(__ANDROID__)
+    return "";
+#else
+    const char* base = SDL_GetBasePath();
+    return std::filesystem::path(base ? base : ".") / "resources";
+#endif
+}
+
 extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window) {
     try {
         std::string error;
@@ -482,7 +491,7 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
         }
         auto* context = aurora::rmlui::get_context();
         if (!context) { SDL_Log("Launcher: RmlUi context is unavailable."); return -1; }
-        auto resources = std::filesystem::path(SDL_GetBasePath()) / "resources";
+        auto resources = pc_resources_path();
         if (!Rml::LoadFontFace((resources / "font.ttf").string())) {
             SDL_Log("Launcher: could not load font from %s", resources.c_str()); return -1;
         }
@@ -887,7 +896,7 @@ extern "C" void pc_menu_init(SDL_Window* window) {
     pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
     auto* context = aurora::rmlui::get_context();
     if (!context) { SDL_Log("F1 menu: RmlUi context unavailable"); return; }
-    auto resources = std::filesystem::path(SDL_GetBasePath()) / "resources";
+    auto resources = pc_resources_path();
     Rml::LoadFontFace((resources / "font.ttf").string());
     Rml::LoadFontFace((resources / "font-bold.ttf").string());
     aurora::rmlui::set_ui_scale(prefs.scale);

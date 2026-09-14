@@ -21,7 +21,7 @@ struct LBMgr {
     u8* dst;       // 0x2C
     u32 size;      // 0x30
     u32 offset;    // 0x34
-    u32 cb_arg;    // 0x38
+    uintptr_t cb_arg; // 0x38
     HSD_DevComCallback cb;
 };
 
@@ -42,7 +42,7 @@ struct Allocator {
     u8 x6EC[0x6F0 - 0x6EC];
 };
 
-/* 015320 */ static void lbMemory_80015320(int, int, void*, bool);
+/* 015320 */ static void lbMemory_80015320(int, uintptr_t, void*, bool);
 
 struct Allocator lbMemory_804318B0;
 #define _p(x) (lbMemory_804318B0.x)
@@ -98,17 +98,17 @@ void lbMemory_80014EEC(Handle* handle)
 
 u32 lbMemory_80014F7C(Handle* h)
 {
-    u32 r0;
-    u32 r4 = (u32) h->x4_lo;
+    uintptr_t r0;
+    uintptr_t r4 = (uintptr_t) h->x4_lo;
     Handle* iter = (Handle*) &h->xC_prev;
     u32 sum = 0;
 
 loop:
     iter = iter->x0_next;
-    r0 = (u32) ((iter != NULL) ? iter->x4_lo : h->x8_hi);
-    sum += r0 - r4;
+    r0 = (uintptr_t) ((iter != NULL) ? iter->x4_lo : h->x8_hi);
+    sum += (u32) (r0 - r4);
     if (iter != NULL) {
-        r4 = (u32) iter->x4_lo + (u32) iter->x8_hi;
+        r4 = (uintptr_t) iter->x4_lo + (uintptr_t) iter->x8_hi;
         goto loop;
     }
     return sum;
@@ -119,13 +119,13 @@ Handle* lbMemory_80014FC8(Handle* arg0, size_t size)
     void* lo;
     Handle* memp_kouho;
     void* end;
-    u32 least_leftover;
-    u32 leftover;
-    u32 available_space;
+    uintptr_t least_leftover;
+    uintptr_t leftover;
+    uintptr_t available_space;
     void* start;
     Handle* iter;
 
-    least_leftover = 0x40000000U;
+    least_leftover = (uintptr_t) -1;
     HSD_ASSERT(0xCC, _p(free_mem));
     size = ((size + 0x1F) & 0xFFFFFFE0);
     start = arg0->x4_lo;
@@ -134,10 +134,9 @@ Handle* lbMemory_80014FC8(Handle* arg0, size_t size)
 
     while (1) {
         end = (iter->x0_next != NULL) ? iter->x0_next->x4_lo : arg0->x8_hi;
-        available_space = (u32) end - (u32) start;
+        available_space = (uintptr_t) end - (uintptr_t) start;
         if (available_space >= size) {
-            leftover = available_space;
-            leftover = leftover - size;
+            leftover = available_space - size;
             if (leftover <= least_leftover) {
                 least_leftover = leftover;
                 lo = start;
@@ -228,7 +227,7 @@ u32 lbMemory_8001529C(Handle* h, void (*arg1)(u32), u32 arg2)
     for (iter = h->xC_prev; iter != NULL; iter = iter->x0_next) {
         lo = iter->x4_lo;
         if (lo != *r7) {
-            lbMemory_80015320(0, (int) (uintptr_t) iter, NULL, false);
+            lbMemory_80015320(0, (uintptr_t) iter, NULL, false);
             return 1;
         }
         *r7 = (u8*) lo + (uintptr_t) iter->x8_hi;
@@ -236,62 +235,62 @@ u32 lbMemory_8001529C(Handle* h, void (*arg1)(u32), u32 arg2)
     return 0;
 }
 
-static void start_ram_copy(u32 old, u32 current, u32 size, Handle* next)
+static void start_ram_copy(uintptr_t old, uintptr_t current, u32 size, Handle* next)
 {
     struct LBMgr* p = &_p(x6A0_mgr);
     int enabled = OSDisableInterrupts();
 
     HSD_ASSERT(0x14F, !p->size);
-    p->src = (u8*) (uintptr_t) old;
-    p->dst = (u8*) (uintptr_t) current;
+    p->src = (u8*) old;
+    p->dst = (u8*) current;
     p->size = size;
     p->offset = 0;
-    p->cb_arg = (u32) next;
+    p->cb_arg = (uintptr_t) next;
     p->cb = lbMemory_80015320;
     OSRestoreInterrupts(enabled);
     OSCreateAlarm(&p->alarm);
     OSSetAlarm(&p->alarm, OSMillisecondsToTicks(3), fn_80015184);
 }
 
-static void lbMemory_80015320(int arg0, int _handle, void* arg2,
+static void lbMemory_80015320(int arg0, uintptr_t _handle, void* arg2,
                               bool cancelflag)
 {
     void* null_or_old;
-    Handle* handle = (Handle*) (uintptr_t) (u32) _handle;
+    Handle* handle = (Handle*) _handle;
     void** currentp;
     void* old;
-    u32 current;
+    uintptr_t current;
     void* copy_src;
     void* loaded_old;
 
     currentp = &_p(x6E4);
-    current = (u32) _p(x6E4);
+    current = (uintptr_t) _p(x6E4);
     null_or_old = NULL;
 
     HSD_ASSERT(0x188, !cancelflag);
 
     if (handle != null_or_old) {
         loaded_old = handle->x4_lo;
-        if ((old = loaded_old) != (void*) (uintptr_t) current) {
+        if ((old = loaded_old) != (void*) current) {
             null_or_old = old;
-            handle->x4_lo = (void*) (uintptr_t) current;
+            handle->x4_lo = (void*) current;
             *currentp = (u8*) handle->x4_lo + (uintptr_t) handle->x8_hi;
             copy_src = null_or_old;
 
             if (PC_IS_ARAM_ADDR(handle->x4_lo)) {
-                HSD_DevComRequest(0, (u32) copy_src, current,
-                                  OSRoundUp32B(handle->x8_hi), 0x1B, 1,
+                HSD_DevComRequest(0, (uintptr_t) copy_src, current,
+                                  OSRoundUp32B((uintptr_t) handle->x8_hi), 0x1B, 1,
                                   lbMemory_80015320, handle->x0_next);
                 return;
             } else {
-                start_ram_copy((u32) copy_src, current,
-                               OSRoundUp32B(handle->x8_hi), handle->x0_next);
+                start_ram_copy((uintptr_t) copy_src, current,
+                               OSRoundUp32B((uintptr_t) handle->x8_hi), handle->x0_next);
                 return;
             }
         }
 
         *currentp = (u8*) old + (uintptr_t) handle->x8_hi;
-        lbMemory_80015320(0, (int) handle->x0_next, null_or_old, false);
+        lbMemory_80015320(0, (uintptr_t) handle->x0_next, null_or_old, false);
         return;
     }
 

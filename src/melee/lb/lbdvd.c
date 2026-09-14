@@ -332,7 +332,7 @@ void lbDvd_80017CC4(void)
     }
 }
 
-void lbDvd_80017E64(int key, int index, void* value, bool cancelflag)
+void lbDvd_80017E64(int key, uintptr_t index, void* value, bool cancelflag)
 {
     PreloadEntry* preloadEntry = &preloadCache.entries[index];
     if (cancelflag != 0) {

@@ -48,11 +48,11 @@ HSD_LObj* lb_80011AC4(DiscU32* list)
      * A scene with no lights has either a 0 slot (DP() -> NULL) or a table
      * whose first slot is 0; both mean "no lights". */
     while (list != NULL && list->v != 0) {
-        ll = (LightList*) (uintptr_t) list->v;
+        ll = DP(LightList, list->v);
         curr = HSD_LObjLoadDesc(DP(HSD_LightDesc, ll->desc));
         temp_r4 = DP(DiscU32, ll->anims);
         if (temp_r4 != NULL) {
-            HSD_LObjAddAnimAll(curr, (HSD_LightAnim*) (uintptr_t) temp_r4[0].v);
+            HSD_LObjAddAnimAll(curr, DP(HSD_LightAnim, temp_r4[0].v));
         }
         if (prev != NULL) {
             HSD_LObjSetNext(prev, curr);

@@ -148,7 +148,7 @@ void arq_worker() {
 }
 } // namespace
 
-void ARQPostRequest(ARQRequest* request, u32 owner, u32 type, u32 priority, uintptr_t source, uintptr_t dest,
+void ARQPostRequest(ARQRequest* request, uintptr_t owner, u32 type, u32 priority, uintptr_t source, uintptr_t dest,
                     u32 length, ARQCallback callback) {
   // The SDK records the request parameters in the request itself; callbacks
   // read them back (e.g. `owner` carries the caller's context).
@@ -156,8 +156,8 @@ void ARQPostRequest(ARQRequest* request, u32 owner, u32 type, u32 priority, uint
   request->owner = owner;
   request->type = type;
   request->priority = priority;
-  request->source = static_cast<u32>(source);
-  request->dest = static_cast<u32>(dest);
+  request->source = source;
+  request->dest = dest;
   request->length = length;
   request->callback = callback;
   {

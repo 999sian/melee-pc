@@ -13,7 +13,7 @@
 
 static bool cancel;
 
-static void lbFile_8001615C(int dcreq, int args, void* buf, bool cancelflag)
+static void lbFile_8001615C(int dcreq, uintptr_t args, void* buf, bool cancelflag)
 {
     HSD_ASSERT(71, !cancelflag);
     cancel = true;

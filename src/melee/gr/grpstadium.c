@@ -1862,7 +1862,7 @@ void grStadium_801D4194(Ground_GObj* arg0)
 }
 
 /// HSD_DevComCallback
-static void fn_801D4220(int dcreq, int args, void* buf, bool cancelflag)
+static void fn_801D4220(int dcreq, uintptr_t args, void* buf, bool cancelflag)
 {
     Ground_GObj* map_gobj;
     Ground* gp;

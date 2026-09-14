@@ -51,8 +51,8 @@ static inline s32 SfxLoadStreamDataSize(s32 size)
     return size + 8;
 }
 
-static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
-                                           bool cancelflag)
+static void HSD_SynthSFXSampleLoadCallback(int result, uintptr_t length,
+                                           void* addr, bool cancelflag)
 {
     BOOL intr;
     s32 i;
@@ -153,8 +153,8 @@ static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
     OSRestoreInterrupts(intr);
 }
 
-static void HSD_SynthSFXHeaderLoadCallback(int result, int length, void* addr,
-                                           bool cancelflag)
+static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t length,
+                                           void* addr, bool cancelflag)
 {
     s32 header_size;
     size_t alloc_size;
@@ -360,7 +360,7 @@ void HSD_Synth_80388E08(int sfx_id)
     }
 }
 
-static void HSD_SynthSFXGroupDataReaddressCallback(void* result, int length,
+static void HSD_SynthSFXGroupDataReaddressCallback(void* result, uintptr_t length,
                                                    void* addr, int cancelflag)
 {
     HSD_ASSERT(0x182, sfxGroupDataReaddressCounter > 0);
@@ -1222,17 +1222,13 @@ void HSD_SynthCallback(void)
     OSRestoreInterrupts(enabled);
 }
 
-void HSD_SynthResetStreamCounters(int result, int length, void* buf, bool b)
+void HSD_SynthResetStreamCounters(int result, uintptr_t length, void* buf, bool b)
 {
     HSD_Synth_804D776C = HSD_Synth_804D7768;
     HSD_Synth_804D7778 = 0;
 }
 
-/* Installed as an HSD_DevComCallback, whose 2nd parameter is `int` (devcom
- * passes `(int) dc->args`). Declaring it `uintptr_t` reads 64 bits out of a
- * register the SysV ABI only defines the low 32 bits of, so widen from int
- * here instead. */
-void HSD_Synth_8038AD74(u32 offset, int src)
+void HSD_Synth_8038AD74(u32 offset, uintptr_t src)
 {
     HSD_DevComRequest(HSD_Synth_804D7764, (u32) src,
                       HSD_Synth_804D7780 + (HSD_Synth_804D7768 << 16),
@@ -1393,7 +1389,7 @@ void HSD_SynthPStreamFirstHakoHeaderCallback(void)
                       (HSD_DevComCallback) HSD_Synth_8038B120, 0);
 }
 
-void HSD_SynthPStreamHeaderCallback(int arg0, int arg1, void* arg2,
+void HSD_SynthPStreamHeaderCallback(int arg0, uintptr_t arg1, void* arg2,
                                     bool cancelflag)
 {
     DiscU32* entry = arg2; /* HPS header, big-endian */

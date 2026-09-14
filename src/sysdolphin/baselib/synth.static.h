@@ -88,7 +88,7 @@ static struct {
     /* 08 */ void (*x8)(int, int);
     /* 0C */ int xC;
 } HSD_Synth_804C2A60[6];
-static DiscU32 hsd_SynthSFXLoadBuf[0x20 / 4]; /* raw SSM header, big-endian */
+static DiscU32 hsd_SynthSFXLoadBuf[0x20 / 4] __attribute__((aligned(32))); /* raw SSM header, big-endian */
 static struct SfxLoadStreamNode* HSD_Synth_804C2AE0[0x80 / 4];
 static int hsd_SynthSFXBank[0x80 / 4];
 static int hsd_SynthSFXBankHead[0x84 / 4];
@@ -113,7 +113,7 @@ static struct DISC_STRUCT {
     /* 04 */ s32 x4;
     /* 08 */ s32 x8;
     /* 0C */ char pad[0x14];
-} lbl_804C4540[3];
+} lbl_804C4540[3] __attribute__((aligned(32)));
 
 /* 4D7720 */ static int HSD_Synth_804D7720;
 /* 4D7724 */ static int hsd_SynthSFXBankNum;

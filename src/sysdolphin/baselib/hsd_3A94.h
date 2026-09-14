@@ -7,10 +7,14 @@
 
 #include <dolphin/card.h>
 
-/// Everything the game addresses lives below 4GB, so the card work area
-/// stores pointers in 32-bit slots. Stores truncate, loads must zero-extend.
+#ifdef TARGET_PC
+#include "pc/disc.h"
+#define PTR_TO_U32(p) pc_encode_dp((const void*) (uintptr_t) (p))
+#define U32_TO_PTR(T, v) ((T) (uintptr_t) pc_resolve_dp((uint32_t) (v)))
+#else
 #define PTR_TO_U32(p) ((u32) (uintptr_t) (p))
 #define U32_TO_PTR(T, v) ((T) (uintptr_t) (u32) (v))
+#endif
 
 /* Layout must match GameCube exactly (0x464 bytes): the driver addresses it
  * with word offsets and embeds it in game state. Pointer members are 32-bit

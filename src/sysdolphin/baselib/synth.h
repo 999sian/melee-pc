@@ -53,12 +53,12 @@ void HSD_SynthSFXKeyOff(int);
 /* 38ABC4 */ void HSD_SynthSFXSetDriverMasterClockCallback(UNK_T);
 /* 38ABCC */ void HSD_SynthSFXSetDriverPauseCallback(void (*)(s32));
 /* 38ABD4 */ void HSD_SynthCallback(void);
-/* 38AD60 */ void HSD_SynthResetStreamCounters(int, int, void*, bool);
-/* 38AD74 */ void HSD_Synth_8038AD74(u32, int);
+/* 38AD60 */ void HSD_SynthResetStreamCounters(int, uintptr_t, void*, bool);
+/* 38AD74 */ void HSD_Synth_8038AD74(u32, uintptr_t);
 /* 38ADD0 */ void HSD_Synth_8038ADD0(void);
 /* 38B120 */ void HSD_Synth_8038B120(void);
 /* 38B380 */ void HSD_SynthPStreamFirstHakoHeaderCallback(void);
-/* 38B3E0 */ void HSD_SynthPStreamHeaderCallback(int, int, void*,
+/* 38B3E0 */ void HSD_SynthPStreamHeaderCallback(int, uintptr_t, void*,
                                                  bool cancelflag);
 /* 38B5AC */ int HSD_Synth_8038B5AC(int, u8, u8, int);
 /* 38B81C */ void HSD_SynthStreamSetVolume(float);

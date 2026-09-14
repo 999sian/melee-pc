@@ -24,13 +24,29 @@
 
 int melee_main(void);
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 static void log_callback(AuroraLogLevel level, const char* module, const char* message, unsigned int len)
 {
+#if defined(__ANDROID__)
+    int prio = ANDROID_LOG_INFO;
+    switch (level) {
+        case LOG_DEBUG: prio = ANDROID_LOG_DEBUG; break;
+        case LOG_INFO: prio = ANDROID_LOG_INFO; break;
+        case LOG_WARNING: prio = ANDROID_LOG_WARN; break;
+        case LOG_ERROR: prio = ANDROID_LOG_ERROR; break;
+        case LOG_FATAL: prio = ANDROID_LOG_FATAL; break;
+    }
+    __android_log_print(prio, "Aurora", "[%s] %.*s", module, (int) len, message);
+#else
     static const char* const names[] = { "DEBUG", "INFO", "WARN", "ERROR", "FATAL" };
     FILE* out = level >= LOG_ERROR ? stderr : stdout;
     fprintf(out, "[%s] %s: %.*s\n", names[level], module, (int) len, message);
+#endif
     if (level == LOG_FATAL) {
-        fflush(out);
+        fflush(stderr);
         abort();
     }
 }
@@ -83,7 +99,11 @@ MELEE_EXPORT int main(int argc, char* argv[])
          * compositors stop scanning out a FifoRelaxed surface and the window
          * then sits on a stale frame while the game runs on. */
         .vsync = !(getenv("MELEE_VSYNC") && getenv("MELEE_VSYNC")[0] == '0'),
+#if defined(__ANDROID__)
+        .logLevel = LOG_DEBUG,
+#else
         .logLevel = getenv("MELEE_DEBUG") ? LOG_DEBUG : LOG_INFO,
+#endif
         .windowWidth = 1280,
         .windowHeight = 960,
         .logCallback = log_callback,

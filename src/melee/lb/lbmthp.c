@@ -21,7 +21,7 @@
 /* Frame buffers start with the packed size of the next frame, big-endian on
  * disc. */
 #ifdef TARGET_PC
-#define PACKED_SIZE(p) __builtin_bswap32(*(u32*) (p))
+#define PACKED_SIZE(p) __builtin_bswap32(*(u32*) (uintptr_t) (p))
 #else
 #define PACKED_SIZE(p) (*(u32*) (p))
 #endif
@@ -41,7 +41,7 @@ typedef struct THPDecComp {
     /* 0x40 */ u32 unk_40;
     /* 0x44 */ u32 width;
     /* 0x48 */ u32 height;
-    /* 0x4C */ u32* frame_buffers;
+    /* 0x4C */ uintptr_t* frame_buffers;
     /* 0x50 */ void* unk_50;
     /* 0x54 */ void* unk_54;
     /* 0x58 */ void* unk_58;
@@ -103,7 +103,7 @@ struct lbl_803BAFE8_t {
 /* 01F294 */ static s32 fn_8001F294(void);
 /* 4333E0 */ static THPDecComp MoviePlayer;
 
-static void fn_8001E910(int arg0, int arg1, void* arg2, bool cancelflag)
+static void fn_8001E910(int arg0, uintptr_t arg1, void* arg2, bool cancelflag)
 {
     THPDecComp* streamPlayer = &MoviePlayer;
     s32 tick_diff;
@@ -176,7 +176,7 @@ static s32 fn_8001EB14(THPDecComp* data, const char* path)
 {
     THPInit();
     data->file_entrynum = DVDConvertPathToEntrynum(path);
-    lbFile_800161C4(data->file_entrynum, 0, (u32) data, 0x40, 0x21, 1);
+    lbFile_800161C4(data->file_entrynum, 0, (uintptr_t) data, 0x40, 0x21, 1);
 #ifdef TARGET_PC
     /* The 0x40-byte file header is read verbatim and is big-endian. */
     for (u32* p = &data->version; p <= &data->first_frame_size; p++) {
@@ -260,8 +260,8 @@ size_t fn_8001EBF0(THPDecComp* data)
     data->unk_AA = data->height;
     data->unk_AC = 0;
 
-    size += ALIGN_32(data->unk_104 * 4);
-    size += ALIGN_32(data->unk_40 * 4);
+    size += ALIGN_32(data->unk_104 * sizeof(uintptr_t));
+    size += ALIGN_32(data->unk_40 * sizeof(uintptr_t));
 
     return size;
 }
@@ -280,18 +280,18 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     width = data->width;
     height = data->height;
     y_size = width * height;
-    data->frame_buffers = (u32*) buf;
+    data->frame_buffers = (uintptr_t*) buf;
     count = data->unk_104;
     data->unk_64 = 0;
     uv_size = (width * height) >> 2U;
-    var_r29 = (u8*) buf + (((count * 4) + 0x1F) & 0xFFFFFFE0);
+    var_r29 = (u8*) buf + (((count * sizeof(uintptr_t)) + 0x1F) & 0xFFFFFFE0);
     if ((data->unk_6C != 0) && (data->unk_11C != 0)) {
         var_r24 = data->first_frame_size;
         csizep = (u8*) &data->first_frame_size;
         var_r25 = 0;
         data->curr_file_offset = data->first_frame;
         for (; var_r25 < data->unk_104; var_r25++) {
-            data->frame_buffers[var_r25] = (u32) var_r29;
+            data->frame_buffers[var_r25] = (uintptr_t) var_r29;
             if (var_r24 == 0) {
                 OSReport("by sugano & yoshiki.\n");
                 OSReport("base %x\n", var_r29);
@@ -312,7 +312,7 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
                 HSD_ASSERT(266, 0);
             }
             lbFile_800161C4(data->file_entrynum, data->curr_file_offset,
-                            (u32) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0, 0x21,
+                            (uintptr_t) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0, 0x21,
                             1);
             csizep = var_r29;
             data->curr_file_offset += var_r24;

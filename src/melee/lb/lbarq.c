@@ -131,7 +131,7 @@ void lbArq_80014BD0(unsigned int source, void* dest, size_t length,
 
     rp_tmp = rp;
     source_tmp = source;
-    ARQPostRequest(&rp->arq, (u32) (uintptr_t) rp_tmp, 1, 0, source_tmp,
+    ARQPostRequest(&rp->arq, (uintptr_t) rp_tmp, 1, 0, source_tmp,
                    (uintptr_t) dest, length, lbArq_80014AC4);
 
     if (rp->callback == NULL) {
