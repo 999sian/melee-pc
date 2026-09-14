@@ -10,13 +10,20 @@ set MELEE_LOG_FILE=melee-pc.log
 
 echo === system ===> melee-pc-env.log
 ver >> melee-pc-env.log 2>&1
-wmic path win32_VideoController get name,driverversion >> melee-pc-env.log 2>&1
+REM wmic is gone from current Windows 11, so ask PowerShell instead.
+powershell -NoProfile -Command "Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,AdapterRAM | Format-List; [Environment]::OSVersion.VersionString" >> melee-pc-env.log 2>&1
 echo === files ===>> melee-pc-env.log
 dir /b >> melee-pc-env.log 2>&1
 
-echo Running melee.exe with logging enabled...
+REM Use a disc image sitting next to the exe if there is one, otherwise fall
+REM through to the launcher.
+set DISC=
+if exist "%~dp0melee.ciso" set DISC=melee.ciso
+if exist "%~dp0melee.iso" set DISC=melee.iso
+
+echo Running melee.exe %DISC% with logging enabled...
 echo.
-melee.exe %* 2>&1
+melee.exe %DISC% %* 2>&1
 set RC=%ERRORLEVEL%
 
 echo.
