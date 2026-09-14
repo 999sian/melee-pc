@@ -42,6 +42,7 @@ std::string resolution_name(float scale) {
 }
 
 std::string identity(const std::string& path) {
+    if (path.rfind("content://", 0) == 0) return path;
     struct stat s{};
     if (stat(path.c_str(), &s) != 0) return {};
 #ifdef _WIN32
@@ -232,7 +233,7 @@ class Launcher final : public Rml::EventListener {
         save();
     }
     void inspect(const std::string& path) {
-        pending_path = std::filesystem::absolute(path).string();
+        pending_path = (path.rfind("content://", 0) == 0) ? path : std::filesystem::absolute(path).string();
         status("Checking disc image...");
         inspection = std::async(std::launch::async, [path] { return launcher::inspect_disc(path); });
         controls();
@@ -421,7 +422,16 @@ public:
                 auto info = inspection.get();
                 if (info.supported) {
                     prefs.disc = pending_path; supported = true; selected_identity = identity(prefs.disc);
-                    text("disc-name", std::filesystem::path(prefs.disc).filename().string());
+                    std::string display_name;
+                    if (prefs.disc.rfind("content://", 0) == 0) {
+                        auto last_slash = prefs.disc.find_last_of('/');
+                        display_name = (last_slash != std::string::npos) ? prefs.disc.substr(last_slash + 1) : prefs.disc;
+                        if (auto col = display_name.find_last_of("%3A"); col != std::string::npos) display_name = display_name.substr(col + 1);
+                        if (auto col = display_name.find_last_of(':'); col != std::string::npos) display_name = display_name.substr(col + 1);
+                    } else {
+                        display_name = std::filesystem::path(prefs.disc).filename().string();
+                    }
+                    text("disc-name", display_name);
                     text("disc-path", prefs.disc); text("disc-info", info.message);
                     status("Ready to play / Disc not verified."); save();
                 } else {
@@ -482,7 +492,9 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
             auto info = launcher::inspect_disc(command_line_disc);
             if (info.supported && aurora_dvd_open(command_line_disc)) {
                 pc_load_disc_fonts(command_line_disc);
-                prefs.disc = std::filesystem::absolute(command_line_disc).string();
+                prefs.disc = (std::string(command_line_disc).rfind("content://", 0) == 0)
+                    ? command_line_disc
+                    : std::filesystem::absolute(command_line_disc).string();
                 if (!launcher::save_preferences(config_path, prefs, error)) SDL_Log("%s", error.c_str());
                 return 1;
             }

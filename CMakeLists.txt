@@ -125,7 +125,7 @@ add_custom_target(launcher_resources ALL
 add_dependencies(melee launcher_resources)
 
 if (NOT ANDROID)
-    add_executable(launcher_data_test EXCLUDE_FROM_ALL tools/test_launcher_data.cpp src/pc/launcher_data.cpp)
+    add_executable(launcher_data_test EXCLUDE_FROM_ALL tools/test_launcher_data.cpp src/pc/launcher_data.cpp src/pc/disc_open.c)
     target_include_directories(launcher_data_test PRIVATE src)
     target_link_libraries(launcher_data_test PRIVATE aurora::dvd ${MELEE_CRYPTO_LIBS})
     target_compile_options(launcher_data_test PRIVATE -UNDEBUG)

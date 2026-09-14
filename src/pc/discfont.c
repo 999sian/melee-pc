@@ -22,6 +22,7 @@
 #include <sysdolphin/baselib/sislib_font.h>
 
 #include "pc/discfont.h"
+#include "disc_open.h"
 
 #define DOL_OFFSET_FIELD 0x420
 #define FST_OFFSET_FIELD 0x424
@@ -137,7 +138,7 @@ static bool read_exact(NodHandle* disc, u8* buf, long len)
 bool pc_load_disc_fonts(const char* disc_path)
 {
     NodHandle* disc = NULL;
-    if (nod_disc_open(disc_path, NULL, &disc) != NOD_RESULT_OK || disc == NULL) {
+    if (pc_open_nod_disc(disc_path, &disc) != NOD_RESULT_OK || disc == NULL) {
         fprintf(stderr, "discfont: cannot open %s\n", disc_path);
         return false;
     }

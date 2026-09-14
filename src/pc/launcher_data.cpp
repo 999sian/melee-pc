@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "launcher_data.hpp"
+#include "disc_open.h"
 #include <nod.h>
 #include <array>
 #include <cmath>
@@ -49,7 +50,7 @@ std::string nod_error() {
 }
 Disc open_disc(const std::string& path) {
     NodHandle* handle = nullptr;
-    nod_disc_open(path.c_str(), nullptr, &handle);
+    pc_open_nod_disc(path.c_str(), &handle);
     return Disc(handle, nod_free);
 }
 DiscInfo inspect_handle(NodHandle* disc) {
@@ -220,9 +221,13 @@ public:
 };
 }
 
+static bool is_content_uri(const std::string& path) {
+    return path.rfind("content://", 0) == 0;
+}
+
 DiscInfo inspect_disc(const std::string& path) {
     std::error_code ec;
-    if (path.empty() || !std::filesystem::is_regular_file(path, ec))
+    if (path.empty() || (!is_content_uri(path) && !std::filesystem::is_regular_file(path, ec)))
         return {false, "Disc image is missing or cannot be accessed. Choose a disc to continue."};
     auto disc = open_disc(path);
     if (!disc) return {false, "Cannot open disc image: " + nod_error()};

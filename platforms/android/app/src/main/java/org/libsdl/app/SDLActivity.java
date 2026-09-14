@@ -759,11 +759,23 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
                     filelist = new String[clipData.getItemCount()];
 
                     for (int i = 0; i < filelist.length; i++) {
-                        String uri = clipData.getItemAt(i).getUri().toString();
-                        filelist[i] = uri;
+                        Uri itemUri = clipData.getItemAt(i).getUri();
+                        try {
+                            getContext().getContentResolver().takePersistableUriPermission(
+                                itemUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        } catch (Exception e) {
+                            Log.w(TAG, "Failed to take persistable URI permission: " + e.getMessage());
+                        }
+                        filelist[i] = itemUri.toString();
                     }
                 } else {
                     /* Only one file is selected. */
+                    try {
+                        getContext().getContentResolver().takePersistableUriPermission(
+                            singleFileUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed to take persistable URI permission: " + e.getMessage());
+                    }
                     filelist = new String[]{singleFileUri.toString()};
                 }
             } else {
@@ -2084,6 +2096,7 @@ public class SDLActivity extends Activity implements View.OnSystemUiVisibilityCh
         /* Display the file dialog */
         Intent intent = new Intent(forWrite ? Intent.ACTION_CREATE_DOCUMENT : Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, allowMultiple);
         switch (mimes.size()) {
             case 0:
