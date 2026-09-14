@@ -3,3 +3,16 @@ build-win/
 dist/
 *.inc
 __pycache__/
+
+# Internal working notes stay local; only the screenshots are published.
+docs/*
+!docs/screenshots/
+
+# Android build outputs (CI builds these from source).
+platforms/android/.gradle/
+platforms/android/.idea/
+platforms/android/local.properties
+platforms/android/*/build/
+platforms/android/app/libs/
+platforms/android/app/src/main/jniLibs/
+platforms/android/app/src/main/assets/
