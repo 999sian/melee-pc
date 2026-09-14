@@ -9,6 +9,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,35 @@ static FILE* log_file(void)
     return fp;
 }
 
+/* Milliseconds since the first log record. Without a time base there is no
+ * way to line a frame stall up against what the engine was loading. */
+static double log_now_ms(void)
+{
+    static Uint64 t0;
+    const Uint64 now = SDL_GetTicksNS();
+    if (t0 == 0) {
+        t0 = now;
+    }
+    return (double) (now - t0) / 1e6;
+}
+
+void pc_log_line(const char* fmt, ...)
+{
+    char msg[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(msg, sizeof(msg), fmt, ap);
+    va_end(ap);
+    const double t = log_now_ms();
+    fprintf(stderr, "[%9.3f] %s\n", t, msg);
+    fflush(stderr);
+    FILE* lf = log_file();
+    if (lf != NULL) {
+        fprintf(lf, "[%9.3f] %s\n", t, msg);
+        fflush(lf);
+    }
+}
+
 static void log_callback(AuroraLogLevel level, const char* module, const char* message, unsigned int len)
 {
 #if defined(__ANDROID__)
@@ -66,14 +96,15 @@ static void log_callback(AuroraLogLevel level, const char* module, const char* m
 #else
     static const char* const names[] = { "DEBUG", "INFO", "WARN", "ERROR", "FATAL" };
     FILE* out = level >= LOG_ERROR ? stderr : stdout;
-    fprintf(out, "[%s] %s: %.*s\n", names[level], module, (int) len, message);
+    const double t = log_now_ms();
+    fprintf(out, "[%9.3f] [%s] %s: %.*s\n", t, names[level], module, (int) len, message);
     /* stdout is block-buffered when redirected to a file, and the abort()
      * below does not flush it. Without this, `melee.exe > log.txt` drops the
      * lines leading up to a fatal -- exactly the ones worth reading. */
     fflush(out);
     FILE* lf = log_file();
     if (lf != NULL) {
-        fprintf(lf, "[%s] %s: %.*s\n", names[level], module, (int) len, message);
+        fprintf(lf, "[%9.3f] [%s] %s: %.*s\n", t, names[level], module, (int) len, message);
         fflush(lf);
     }
 #endif

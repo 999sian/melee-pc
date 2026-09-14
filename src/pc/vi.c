@@ -72,6 +72,14 @@ void pc_frame_boundary(void)
             if (delta > 33000000ull) {
                 frame_late_33++;
             }
+            /* Put the stall in the main log too, where it sits next to
+             * whatever aurora reported loading at that moment. An average
+             * cannot tell a shader compile from a disc read; a timestamped
+             * marker beside the surrounding records can. */
+            if (delta > 50000000ull) {
+                pc_log_line("STALL %.1fms at frame %u", delta / 1e6,
+                            s_retrace_count);
+            }
         }
         frame_prev_ns = now_ns;
         if (now - fps_t0 >= 1000) {
