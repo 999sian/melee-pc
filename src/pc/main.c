@@ -28,6 +28,29 @@ int melee_main(void);
 #include <android/log.h>
 #endif
 
+/* A log file sink, so a double-clicked build still leaves a diagnosable
+ * trace after its console disappears. MELEE_LOG_FILE picks the path; an
+ * empty value disables it. Windows defaults it on because that is where the
+ * console is not a reliable place to read errors from. */
+static FILE* log_file(void)
+{
+    static FILE* fp;
+    static bool tried;
+    if (!tried) {
+        tried = true;
+        const char* path = getenv("MELEE_LOG_FILE");
+#if defined(_WIN32)
+        if (path == NULL) {
+            path = "melee-pc.log";
+        }
+#endif
+        if (path != NULL && path[0] != '\0') {
+            fp = fopen(path, "w");
+        }
+    }
+    return fp;
+}
+
 static void log_callback(AuroraLogLevel level, const char* module, const char* message, unsigned int len)
 {
 #if defined(__ANDROID__)
@@ -48,6 +71,11 @@ static void log_callback(AuroraLogLevel level, const char* module, const char* m
      * below does not flush it. Without this, `melee.exe > log.txt` drops the
      * lines leading up to a fatal -- exactly the ones worth reading. */
     fflush(out);
+    FILE* lf = log_file();
+    if (lf != NULL) {
+        fprintf(lf, "[%s] %s: %.*s\n", names[level], module, (int) len, message);
+        fflush(lf);
+    }
 #endif
     if (level == LOG_FATAL) {
         fflush(stdout);
@@ -55,6 +83,38 @@ static void log_callback(AuroraLogLevel level, const char* module, const char* m
         abort();
     }
 }
+
+#if defined(_WIN32)
+#include <windows.h>
+
+/* A hard crash never reaches log_callback, so the log would just stop with no
+ * reason. Record the exception and, most usefully, which module the faulting
+ * address belongs to -- that alone separates a fault inside webgpu_dawn.dll
+ * from one in melee.exe. */
+static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info)
+{
+    void* addr = (void*) info->ExceptionRecord->ExceptionAddress;
+    char module[MAX_PATH] = "<unknown>";
+    HMODULE mod = NULL;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                               GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCSTR) addr, &mod)) {
+        GetModuleFileNameA(mod, module, sizeof(module));
+    }
+    FILE* streams[] = { stderr, log_file() };
+    for (size_t i = 0; i < sizeof(streams) / sizeof(*streams); i++) {
+        if (streams[i] == NULL) {
+            continue;
+        }
+        fprintf(streams[i],
+                "[FATAL] crash: exception 0x%08lX at %p in %s (base %p)\n",
+                (unsigned long) info->ExceptionRecord->ExceptionCode, addr,
+                module, (void*) mod);
+        fflush(streams[i]);
+    }
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
 
 static void usage(const char* argv0)
 {
@@ -79,6 +139,9 @@ static void pc_shutdown_once(void)
 
 MELEE_EXPORT int main(int argc, char* argv[])
 {
+#if defined(_WIN32)
+    SetUnhandledExceptionFilter(crash_handler);
+#endif
     const char* disc = NULL;
     bool card = true;
     for (int i = 1; i < argc; i++) {

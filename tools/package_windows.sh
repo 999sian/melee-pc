@@ -22,6 +22,9 @@ mkdir -p "${STAGE_DIR}"
 
 cp "${BUILD_DIR}/melee.exe" "${STAGE_DIR}/"
 cp -r "${ROOT_DIR}/resources" "${STAGE_DIR}/"
+# A double-clicked run loses its console on exit, so ship a launcher that
+# turns on verbose logging, records the environment, and stays open.
+cp "${ROOT_DIR}/tools/windows/RUN-AND-LOG.bat" "${STAGE_DIR}/"
 
 # Dawn, SDL3, zlib/png DLLs land in the build root via AuroraCopyRuntimeDLLs.
 for dll in dxcompiler.dll dxil.dll webgpu_dawn.dll SDL3.dll libpng16.dll libzlib1.dll; do
