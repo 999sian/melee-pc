@@ -21,17 +21,6 @@
 #include <sysdolphin/baselib/object.h>
 #include <sysdolphin/baselib/sislib.h>
 
-/*
- * This gobj's user_data is a `struct Menu` (mn/types.h). It used to be
- * declared here a second time as a private `struct mnUserData` whose x4 was a
- * u32; on GameCube that aliased Menu::text exactly (both at +4, both 8 bytes
- * total), but on LP64 Menu::text moves to host +8..15 while the private view
- * stays 8 bytes, so every GET_MENU access to ->text read and wrote past the
- * end of the allocation. Field map of the removed view:
- * x0 -> cursor (selected language), x1 -> unk1 (saved language),
- * x2 -> unk2 (input-enabled flag), x3 -> unk3 (unused), x4 -> text.
- */
-
 static HSD_GObj* mn_gobj;
 static StaticModelDesc model_desc;
 static f32 lang_jobj_frames[LANG_COUNT] = { 1.0f, 0.0f };
@@ -181,14 +170,7 @@ void mnLanguage_8024C3C4(HSD_GObj* arg0)
                        DP(HSD_ShapeAnimJoint, model_desc.shapeanim_joint));
     HSD_JObjReqAnimAll(jobj, 0.0F);
     HSD_JObjAnimAll(jobj);
-    /*
-     * The same allocation is re-read as a Menu through GET_MENU (fn_8024C270,
-     * fn_8024C2E8, and 15 lines below), so it must cover the whole Menu view
-     * on every ABI. Narrowing user_data to a private, GameCube-sized view
-     * makes Menu::text land past the end of the block on LP64.
-     */
-    STATIC_ASSERT(sizeof(*user_data) >= sizeof(Menu));
-    user_data = HSD_MemAlloc(sizeof(*user_data));
+    user_data = HSD_MemAlloc(sizeof(Menu));
     HSD_ASSERTREPORT(355, user_data, "Can't get user_data.\n");
     lang = lbLang_GetSavedLanguage();
     user_data->cursor = lang;
