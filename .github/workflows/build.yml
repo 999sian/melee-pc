@@ -31,7 +31,7 @@ jobs:
             build-essential ninja-build cmake pkg-config \
             libssl-dev zip file desktop-file-utils \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxfixes-dev libxss-dev libxkbcommon-dev \
+            libxfixes-dev libxss-dev libxkbcommon-dev libxtst-dev \
             libwayland-dev wayland-protocols libdecor-0-dev \
             libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
             libgl1-mesa-dev libegl1-mesa-dev libgbm-dev
@@ -87,11 +87,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ninja-build cmake
+          # nod has no Android prebuilt, so aurora builds it from Rust source.
+          rustup target add aarch64-linux-android
 
       - name: Build APK
-        env:
-          # Runner image ships an NDK; pin to it rather than downloading one.
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+        # The runner image exports ANDROID_NDK_HOME/ANDROID_HOME already;
+        # build_android.sh picks the newest NDK when neither is set.
         run: tools/build_android.sh
 
       - uses: actions/upload-artifact@v4
