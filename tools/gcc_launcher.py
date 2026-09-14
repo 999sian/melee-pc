@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""Compile decomp translation units with GCC instead of the NDK's Clang.
+
+The decomp relies on __attribute__((scalar_storage_order)), which Clang does
+not implement, so melee_game's sources go through an aarch64 GCC cross
+compiler pointed at the NDK sysroot. Everything else keeps using Clang.
+"""
+import shutil
 import sys
 import os
 
@@ -21,12 +28,20 @@ if not is_decomp:
     os.execv(compiler, [compiler] + cmd_args)
 
 # Setup GCC paths
-gcc_bin = os.environ.get('GCC_AARCH64_BIN', '/home/sian/toolchains/gcc-aarch64/usr/bin/aarch64-linux-gnu-gcc')
+gcc_bin = os.environ.get('GCC_AARCH64_BIN') or shutil.which(
+    'aarch64-linux-gnu-gcc')
+if not gcc_bin or not os.path.exists(gcc_bin):
+    sys.exit(
+        'gcc_launcher: no aarch64 GCC found. Install gcc-aarch64-linux-gnu '
+        'or set GCC_AARCH64_BIN. Clang cannot build the decomp because it '
+        'lacks scalar_storage_order.')
 gcc_dir = os.path.dirname(gcc_bin)
 if gcc_dir:
     os.environ['PATH'] = gcc_dir + ':' + os.environ.get('PATH', '')
 
-ndk_root = os.environ.get('ANDROID_NDK_HOME', '/home/sian/Android/ndk/26.3.11579264')
+ndk_root = os.environ.get('ANDROID_NDK_HOME')
+if not ndk_root:
+    sys.exit('gcc_launcher: ANDROID_NDK_HOME is not set')
 sysroot = os.path.join(ndk_root, 'toolchains/llvm/prebuilt/linux-x86_64/sysroot')
 
 filtered_args = []

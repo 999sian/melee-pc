@@ -86,7 +86,11 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ninja-build cmake
+          # The decomp needs scalar_storage_order, which the NDK's Clang does
+          # not implement, so tools/gcc_launcher.py routes melee_game through
+          # this cross compiler with the NDK sysroot.
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build cmake gcc-aarch64-linux-gnu
           # nod has no Android prebuilt, so aurora builds it from Rust source.
           rustup target add aarch64-linux-android
           # aurora uses std::jthread/std::stop_token, which the runner's

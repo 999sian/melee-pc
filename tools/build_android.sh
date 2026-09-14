@@ -21,6 +21,18 @@ if [[ -d "${HOME}/Android/jdk17" && -z "${JAVA_HOME:-}" ]]; then
 fi
 [[ -n "${JAVA_HOME:-}" ]] && export PATH="${JAVA_HOME}/bin:${PATH}"
 
+# The decomp needs GCC's scalar_storage_order, so melee_game is compiled by an
+# aarch64 cross GCC (see tools/gcc_launcher.py) rather than the NDK's Clang.
+# CI installs gcc-aarch64-linux-gnu; a local unpacked toolchain also works.
+if [[ -z "${GCC_AARCH64_BIN:-}" ]] && ! command -v aarch64-linux-gnu-gcc >/dev/null; then
+    GCC_AARCH64_BIN="${HOME}/toolchains/gcc-aarch64/usr/bin/aarch64-linux-gnu-gcc"
+    [[ -x "${GCC_AARCH64_BIN}" ]] || {
+        echo "error: no aarch64 GCC; install gcc-aarch64-linux-gnu or set GCC_AARCH64_BIN" >&2
+        exit 1
+    }
+    export GCC_AARCH64_BIN
+fi
+
 STRIP_TOOL="$(find "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt" -name llvm-strip -print -quit)"
 echo "=== NDK ${ANDROID_NDK_HOME} ==="
 
