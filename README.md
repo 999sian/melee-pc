@@ -239,5 +239,8 @@ a backtrace disagree, believe the backtrace.
 
 ## License
 
-Game code derives from the decompilation and remains the property of its
-copyright holders. Aurora is MIT. See the upstream projects for details.
+Three situations, spelled out in [LICENSE](LICENSE): the decompiled game code
+in `src/melee` and `src/sysdolphin` is **not licensed** and remains the
+property of its copyright holders; the port code in `src/pc`, `tools`,
+`platforms`, `cmake` and `.github` is MIT; bundled third-party components keep
+their own licenses. No game assets are in this repository.

@@ -1,0 +1,60 @@
+melee-pc licensing
+==================
+
+This repository contains code under three different situations. Read all
+three before redistributing any part of it.
+
+
+1. Game code -- NOT licensed
+----------------------------
+
+`src/melee/` and `src/sysdolphin/` are a decompilation of Super Smash Bros.
+Melee, derived from https://github.com/doldecomp/melee and adapted here to a
+64-bit little-endian data model.
+
+Super Smash Bros. Melee is copyright Nintendo / HAL Laboratory. The upstream
+decompilation project publishes no license, and neither this repository nor
+its authors can grant one. No permission to copy, modify or redistribute this
+code is offered or implied.
+
+No game assets are contained in this repository. Textures, audio, models,
+text, and the two HSD font atlases are all read at runtime from a disc image
+the user supplies; see `src/pc/discfont.c`.
+
+
+2. Port code -- MIT
+-------------------
+
+`src/pc/`, `tools/`, `platforms/`, `cmake/` and `.github/` are original work
+for this port.
+
+Copyright (c) 2026 the melee-pc contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+3. Third-party components
+-------------------------
+
+- `extern/aurora/` -- aurora, MIT. See `extern/aurora/LICENSE`.
+- `resources/font.ttf`, `resources/font-bold.ttf` -- Liberation Sans, SIL Open
+  Font License. See `resources/FONT-LICENSE.txt`.
+- `platforms/android/app/src/main/java/org/libsdl/` -- SDL3, zlib license.
+- Dawn, SDL3, nod, RmlUi and the other dependencies are fetched at build time
+  under their own licenses.
