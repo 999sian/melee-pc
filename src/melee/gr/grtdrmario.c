@@ -111,8 +111,7 @@ HSD_GObj* grtDrMario_802205B0(int arg0)
 
 void grtDrMario_80220698(Ground_GObj* gobj)
 {
-    Ground* gp = gobj->user_data;
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 bool grtDrMario_802206C4(Ground_GObj* gobj)
@@ -136,8 +135,7 @@ bool grtDrMario_80220724(Ground_GObj* gobj)
 
 void grtDrMario_8022072C(Ground_GObj* gobj)
 {
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_ProcTargetStage(gobj);
 }
 
 void grtDrMario_80220760(Ground_GObj* gobj) {}

@@ -3,6 +3,9 @@
 
 #include <Runtime/platform.h>
 
+#define HSD_GOBJ_PLINK_20 20
+#define HSD_GOBJ_PLINK_27 27
+
 /// @todo Put in proper places. ::GM_MAX_PLAYERS is ::Gm_Player_NumMax but
 /// needs to be used for array size declarations.
 /// @{
@@ -152,6 +155,7 @@ typedef struct GameSceneInfo GameSceneInfo;
 typedef struct gm_8016A92C_arg0_t gm_8016A92C_arg0_t;
 typedef struct gm_8017DB6C_arg0_t gm_8017DB6C_arg0_t;
 typedef struct gmm_x0_528_t gmm_x0_528_t;
+typedef struct gmm_x1868_1A8_t gmm_x1868_1A8_t;
 typedef struct VsSceneState VsSceneState;
 typedef struct VsSceneController VsSceneController;
 typedef struct ChallengerData ChallengerData;

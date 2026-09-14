@@ -4,7 +4,6 @@
 
 #include "inlines.h"
 #include "itoctarockstone.h"
-#include <melee/cm/camera.h>
 #include <melee/ft/ftlib.h>
 #include <melee/it/inlines.h>
 #include <melee/it/it_26B1.h>
@@ -12,7 +11,6 @@
 #include <melee/it/it_3F14.h>
 #include <melee/it/item.h>
 #include <melee/it/itgroundcoll.h>
-#include <melee/it/ithitbox.h>
 #include <melee/it/itmaplib.h>
 #include <melee/it/itzako.h>
 #include <melee/lb/lb_00B0.h>
@@ -89,11 +87,7 @@ void it_802E4A44(Item_GObj* gobj)
     ip->facing_dir = it_8026B684(&ip->pos);
     itOctarock_SetFacingDir(ip);
     it_8027C56C(gobj, ip->facing_dir);
-    ip->xD5C = 0;
-    ip->xDC8_word.flags.x15 = false;
-    it_8027542C(gobj);
-    it_80275270(gobj);
-    ip->xDC8_word.flags.x19 = true;
+    Item_InitZakoCollision(gobj, ip);
     ip->xDD4_itemVar.octarock.x32 = 0;
     it_802E4DB4(gobj);
 }
@@ -460,9 +454,7 @@ bool itOctarock_UnkMotion7_Coll(Item_GObj* gobj)
 void it_802E58A0(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    it_802762BC(ip);
-    it_8027BA54(gobj, &ip->x40_vel);
-    it_802762BC(ip);
+    Item_UpdateZakoVelocity(gobj, ip);
     Item_80268E5C(gobj, 8, 3);
 }
 

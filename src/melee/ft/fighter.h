@@ -187,16 +187,16 @@ DISC_ASSERT_SIZE(struct Fighter_ShakeTable_t, 0x8);
 /* 4D6534 */ extern DiscU32* Fighter_804D6534; ///< void*[]
 /* 4D6538 */ extern struct Fighter_804D653C_t* Fighter_804D6538;
 /* 4D653C */ extern struct Fighter_804D653C_t* Fighter_804D653C;
-struct DISC_STRUCT Fighter_804D6540_x0_t {
+typedef struct DISC_STRUCT Fighter_804D6540_x0_t {
     u8 x0;
     u8 x1;
     u8 x2;
     u8 x3;
-};
-struct DISC_STRUCT Fighter_804D6540_t {
+} Fighter_804D6540_x0_t;
+typedef struct DISC_STRUCT Fighter_804D6540_t {
     DISC_PTR(struct Fighter_804D6540_x0_t) x0;
     int x4;
-};
+} Fighter_804D6540_t;
 DISC_ASSERT_SIZE(struct Fighter_804D6540_t, 0x8);
 /* 4D6540 */ extern DiscU32* Fighter_804D6540; ///< struct Fighter_804D6540_t*[kind]
 /* 4D6544 */ extern DiscU32* ftPartsTable;     ///< FighterPartsTable*[kind]

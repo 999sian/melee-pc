@@ -109,8 +109,7 @@ HSD_GObj* grTSamus_80223624(int arg0)
 
 void grTSamus_8022370C(Ground_GObj* gobj)
 {
-    Ground* gp = gobj->user_data;
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 bool grTSamus_80223738(Ground_GObj* gobj)
@@ -134,8 +133,7 @@ bool grTSamus_80223798(Ground_GObj* gobj)
 
 void grTSamus_802237A0(Ground_GObj* gobj)
 {
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_ProcTargetStage(gobj);
 }
 
 void grTSamus_802237D4(Ground_GObj* gobj) {}

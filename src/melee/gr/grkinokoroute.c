@@ -501,8 +501,7 @@ void grKinokoRoute_80207C88(Ground_GObj* gobj)
         gp->u.kinokoroute2.cam_timer -= 1;
     }
 
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_ProcTargetStage(gobj);
     if (gp->u.kinokoroute2.flags_0) {
         mpLib_80058560();
         gp->u.kinokoroute2.flags_0 = false;
@@ -645,7 +644,7 @@ void grKinokoRoute_802086EC(Vec3* arg0, f32 arg8)
 
 DynamicsDesc* grKinokoRoute_80208754(enum_t arg)
 {
-    return false;
+    return NULL;
 }
 
 bool grKinokoRoute_8020875C(Vec3* a, int b, HSD_JObj* jobj)

@@ -10,7 +10,6 @@
 #include <melee/ef/eflib.h>
 #include <melee/ft/ftanim.h>
 #include <melee/ft/types.h>
-#include <melee/gm/gmvs.h>
 #include <melee/it/it_26B1.h>
 #include <melee/lb/lbvector.h>
 #include <sysdolphin/baselib/archive.h>
@@ -210,6 +209,30 @@ static inline void Fighter_UnsetCmdVar0(Fighter_GObj* gobj)
     fp->cmd_vars[0] = 0;
 }
 
+static inline void Fighter_SetDamageCallback(Fighter_GObj* gobj,
+                                             HSD_GObjEvent cb)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    fp->take_dmg_cb = cb;
+    fp->death2_cb = cb;
+}
+
+static inline void Fighter_SetDamageCallbacks(Fighter* fp,
+                                              HSD_GObjEvent take_dmg_cb,
+                                              HSD_GObjEvent death2_cb)
+{
+    fp->take_dmg_cb = take_dmg_cb;
+    fp->death2_cb = death2_cb;
+}
+
+static inline void Fighter_ClearCmdVars(Fighter* fp)
+{
+    fp->cmd_vars[3] = 0;
+    fp->cmd_vars[2] = 0;
+    fp->cmd_vars[1] = 0;
+    fp->cmd_vars[0] = 0;
+}
+
 static inline CollData* Fighter_GetCollData(Fighter* fp)
 {
     return &fp->coll_data;
@@ -283,32 +306,6 @@ static inline int ftGetFacingDirInt(Fighter* fp)
         return -1;
     } else {
         return +1;
-    }
-}
-
-static inline int ftGetFacingDirInt2(Fighter_GObj* gobj)
-{
-    return ftGetFacingDirInt(GET_FIGHTER(gobj));
-}
-
-/// @todo Fix naming.
-#define gmScriptEventCast(p_event, type) ((type*) p_event)
-#define gmScriptEventUpdatePtr(event, type)                                   \
-    (event = (void*) ((uintptr_t) event + 4))
-
-static inline CommandInfo* getCmdScript(Fighter* fp)
-{
-    return &fp->x3E4_fighterCmdScript;
-}
-
-static inline bool canUseCstick(Fighter* fp)
-{
-    /// Returns true if single-button mode is off,
-    /// and the held item allows using the C-stick.
-    if (!gm_8016B0FC() || it_8026B30C(fp->item_gobj) == 0) {
-        return true;
-    } else {
-        return false;
     }
 }
 

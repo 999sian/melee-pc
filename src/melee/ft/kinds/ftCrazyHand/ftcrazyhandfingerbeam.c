@@ -8,6 +8,7 @@
 #include "ftcrazyhandcapturewaitcrazyhand.h"
 #include "ftcrazyhandfingergun2.h"
 #include "ftcrazyhandtagcancel.h"
+#include "inlines.h"
 #include "types.h"
 #include <dolphin/mtx.h>
 #include <melee/ft/fighter.h>

@@ -114,9 +114,7 @@ Item_GObj* itKoopaFlame_Spawn(Fighter_GObj* parent, Vec* pos, f32 facing_dir,
     float min;
     PAD_STACK(4);
     spawn.kind = kind;
-    spawn.prev_pos = *pos;
-    spawn.prev_pos.z = 0.0f;
-    it_8026BB68(parent, &spawn.pos);
+    Item_InitSpawnPositionFromParent(&spawn, parent, pos);
     spawn.facing_dir = facing_dir;
     spawn.x3C_damage = 0;
     spawn.vel.x = spawn.vel.y = spawn.vel.z = 0.0f;
@@ -183,10 +181,7 @@ void itKoopaFlame_Setup(Item_GObj* gobj_i, Fighter_GObj* gobj_f, int unk)
     char pad_stack[0x19C]; // PAD_STACK doesn't work here
     Vec vec;
     char pad_stack_2[0x14];
-    it_8026B3A8(gobj_i);
-    it->xDC8_word.flags.x13 = 0;
-    it_80272940(gobj_i);
-    Item_80268E5C(gobj_i, 0, ITEM_ANIM_UPDATE);
+    Item_ClearFlagsAndEnterState(gobj_i, it, 0);
     vec = it->pos;
     Item_802694CC(gobj_i);
     itKoopaFlame_UnkMotion0_Phys(gobj_i);

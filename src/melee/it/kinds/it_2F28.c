@@ -4,6 +4,7 @@
 
 #include <math.h>
 
+#include "inlines.h"
 #include "types.h"
 #include <melee/it/inlines.h>
 #include <melee/it/it_26B1.h>

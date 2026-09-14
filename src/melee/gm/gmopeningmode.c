@@ -347,7 +347,7 @@ void gm_SetupTitleDemo(void)
     /* MELEE_SEED: reseed here so the attract demo (fighters, stage, match)
      * replays identically regardless of how long the title screen ran. */
     if (getenv("MELEE_SEED") != NULL) {
-        *seed_ptr = (u32) strtoul(getenv("MELEE_SEED"), NULL, 0);
+        *HSD_RandSeedPtr = (u32) strtoul(getenv("MELEE_SEED"), NULL, 0);
     }
 #endif
     count = 0;

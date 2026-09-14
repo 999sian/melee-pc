@@ -7,7 +7,7 @@
 #include <math.h>
 #include <placeholder.h>
 
-#include <melee/cm/camera.h>
+#include "inlines.h"
 #include <melee/ft/ftCo_800C78B0.h>
 #include <melee/ft/ftlib.h>
 #include <melee/it/inlines.h>
@@ -1343,9 +1343,7 @@ bool itLikelike_UnkMotion20_Coll(Item_GObj* gobj)
 void it_802DC3DC(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    it_802762BC(ip);
-    it_8027BA54(gobj, &ip->x40_vel);
-    it_802762BC(ip);
+    Item_UpdateZakoVelocity(gobj, ip);
     Item_80268E5C(gobj, 0x15, 3);
 }
 

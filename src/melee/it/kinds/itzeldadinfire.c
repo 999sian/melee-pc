@@ -5,6 +5,7 @@
 
 #include <math.h>
 
+#include "inlines.h"
 #include "itzeldadinfireexplode.h"
 #include <melee/db/db.h>
 #include <melee/ef/eflib.h>

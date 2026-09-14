@@ -1679,7 +1679,7 @@ bool mpCheckFloor(float ax, float ay, float bx, float by, float y_offset,
 
             if (line_id_skip == (line_offset = (intptr_t) line_r26 -
                                                (intptr_t) groundCollLine) /
-                                    (s32) sizeof(CollLine))
+                                    (ssize_t) sizeof(CollLine))
             {
                 continue;
             }
@@ -1691,7 +1691,7 @@ bool mpCheckFloor(float ax, float ay, float bx, float by, float y_offset,
                 continue;
             }
 
-            mpLib_8004ED5C(line_offset / (s32) sizeof(CollLine), &x0_sp48,
+            mpLib_8004ED5C(line_offset / (ssize_t) sizeof(CollLine), &x0_sp48,
                            &y0_sp44, &x1_sp40, &y1_sp3C);
             y0_sp44 += y_offset;
             y1_sp3C += y_offset;
@@ -4624,60 +4624,33 @@ bool mpLinesConnected(int start_id, int target_id)
     return false;
 }
 
-static inline HSD_JObj* jobj_child(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-
-    return jobj->child;
-}
-
-static inline HSD_JObj* jobj_next(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-
-    return jobj->next;
-}
-
-static inline HSD_JObj* jobj_parent(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-
-    return jobj->parent;
-}
-
 /// what even is this lol
 void mpLib_800552B0(int joint_id, HSD_JObj* jobj, int z)
 {
     s32 i;
     HSD_JObj* r7;
 
-    for (r7 = jobj_child(jobj), i = 0; r7 != NULL && i != z; i++) {
+    for (r7 = HSD_JObjGetChild(jobj), i = 0; r7 != NULL && i != z; i++) {
         if (!(r7->flags & CollJoint_TooFar)) {
-            if (jobj_child(r7) != NULL) {
-                r7 = jobj_child(r7);
+            if (HSD_JObjGetChild(r7) != NULL) {
+                r7 = HSD_JObjGetChild(r7);
                 continue;
             }
         }
 
-        if (jobj_next(r7) != NULL) {
-            r7 = jobj_next(r7);
+        if (HSD_JObjGetNext(r7) != NULL) {
+            r7 = HSD_JObjGetNext(r7);
             continue;
         }
 
         while (true) {
-            if (jobj_parent(r7) == NULL) {
+            if (HSD_JObjGetParent(r7) == NULL) {
                 r7 = NULL;
             } else {
-                if (jobj_next(jobj_parent(r7)) != NULL) {
-                    r7 = jobj_next(jobj_parent(r7));
+                if (HSD_JObjGetNext(HSD_JObjGetParent(r7)) != NULL) {
+                    r7 = HSD_JObjGetNext(HSD_JObjGetParent(r7));
                 } else {
-                    r7 = jobj_parent(r7);
+                    r7 = HSD_JObjGetParent(r7);
                     continue;
                 }
             }

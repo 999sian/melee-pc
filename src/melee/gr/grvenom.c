@@ -585,8 +585,7 @@ static int grVe_803E55F0[5] = { 3, 3, 3, 3, 6 };
 
 void grVenom_80203F98(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 bool grVenom_80203FC4(Ground_GObj* arg)

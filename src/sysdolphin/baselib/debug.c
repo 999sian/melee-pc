@@ -41,13 +41,13 @@ void HSD_LogInit(void)
 }
 #endif
 
-void __assert(char* str, u32 arg1, char* arg2)
+void __assert(const char* str, u32 arg1, const char* arg2)
 {
     OSReport("assertion \"%s\" failed", arg2);
     HSD_Panic(str, arg1, "");
 }
 
-void HSD_Panic(char* arg0, u32 line, char* arg2)
+void HSD_Panic(const char* arg0, u32 line, const char* arg2)
 {
 #ifndef TARGET_PC
     if (panicCallback != NULL) {

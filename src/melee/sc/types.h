@@ -28,22 +28,22 @@ struct DISC_STRUCT DynamicModelDesc {
 };
 DISC_ASSERT_SIZE(struct DynamicModelDesc, 0x10);
 
-struct DISC_STRUCT SceneCameraDesc {
+typedef struct DISC_STRUCT SceneCameraDesc {
     DISC_PTR(HSD_CObjDesc) desc;
     DISC_PTR(DiscU32) anims; /* HSD_CameraAnim*[] */
-};
+} SceneCameraDesc;
 DISC_ASSERT_SIZE(struct SceneCameraDesc, 0x8);
 
-struct DISC_STRUCT LightList {
+typedef struct DISC_STRUCT LightList {
     DISC_PTR(HSD_LightDesc) desc;
     DISC_PTR(DiscU32) anims; /* HSD_LightAnim*[] */
-};
+} LightList;
 DISC_ASSERT_SIZE(struct LightList, 0x8);
 
-struct DISC_STRUCT SceneFogDesc {
+typedef struct DISC_STRUCT SceneFogDesc {
     DISC_PTR(HSD_FogDesc) desc;
     DISC_PTR(DiscU32) anims; /* HSD_CameraAnim*[] */
-};
+} SceneFogDesc;
 DISC_ASSERT_SIZE(struct SceneFogDesc, 0x8);
 
 /// The basis of a rendered scene, like a stage, menu, or HUD overlay

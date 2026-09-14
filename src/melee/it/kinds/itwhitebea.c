@@ -3,8 +3,8 @@
 #include <math.h> // IWYU pragma: keep
 #include <placeholder.h>
 
+#include "inlines.h"
 #include "itfreeze.h"
-#include <melee/cm/camera.h>
 #include <melee/gr/gricemt.h>
 #include <melee/gr/stage.h>
 #include <melee/it/inlines.h>
@@ -198,9 +198,7 @@ void it_2725_Logic3_Destroyed(Item_GObj* gobj)
 void it_802E3528(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    it_802762BC(ip);
-    it_8027BA54(gobj, &ip->x40_vel);
-    it_802762BC(ip);
+    Item_UpdateZakoVelocity(gobj, ip);
     Item_80268E5C(gobj, 0xB, 3);
 }
 
@@ -841,9 +839,7 @@ bool itWhitebea_UnkMotion10_Coll(Item_GObj* gobj)
 void it_802E4980(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    it_802762BC(ip);
-    it_8027BA54(gobj, &ip->x40_vel);
-    it_802762BC(ip);
+    Item_UpdateZakoVelocity(gobj, ip);
     Item_80268E5C(gobj, 0xB, 3);
 }
 

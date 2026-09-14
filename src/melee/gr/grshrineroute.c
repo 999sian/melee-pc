@@ -247,8 +247,7 @@ HSD_GObj* grShrineRoute_802088C0(int gobj_id)
 
 void grShrineRoute_802089AC(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 bool grShrineRoute_802089D8(Ground_GObj* arg)
@@ -1116,8 +1115,7 @@ void grShrineRoute_8020A864(Ground_GObj* arg) {}
 
 void grShrineRoute_8020A868(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 bool grShrineRoute_8020A894(Ground_GObj* arg)

@@ -209,7 +209,7 @@ union ftCommon_MotionVars {
          * Fighter::throw_thrower instead. */
         /* fp+2340 */ u32 x0;
         /* fp+2344 */ int x4;
-        /* fp+2348 */ float x8;
+        /* fp+2348 */ int x8;
         /* fp+234C */ u8 pad_xC[4];
         /* fp+2350 */ float self_vel_y;
         /* fp+2354 */ float self_vel_x;
@@ -253,7 +253,7 @@ union ftCommon_MotionVars {
     } downspot;
     struct {
         /* fp+2340 */ float x0;
-    } catch;
+    } catch_;
     struct {
         /* fp+2340 */ bool x0;
         /* fp+2344 */ bool x4;
@@ -491,7 +491,7 @@ union ftCommon_MotionVars {
         /* fp+2344 */ int x4;
         /* fp+2348 */ int x8;
         /* fp+234C */ Vec xC;
-    } throw;
+    } throw_;
     struct {
         /* fp+2340 */ float x0;
         /* fp+2344 */ float x4;

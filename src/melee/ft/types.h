@@ -683,10 +683,6 @@ struct DISC_STRUCT FtSFX {
 };
 DISC_ASSERT_SIZE(struct FtSFX, 0x38);
 
-typedef struct DISC_STRUCT {
-    u32 unk0;
-    f32 unk4;
-} ftData_x34;
 
 typedef struct DISC_STRUCT ftData_x44_t {
     s16 unk0;
@@ -760,31 +756,31 @@ struct DISC_STRUCT ftData_x8 {
 };
 DISC_ASSERT_SIZE(struct ftData_x8, 0x18);
 
-struct DISC_STRUCT ftData_x1C {
+typedef struct DISC_STRUCT ftData_x1C {
     u16 x0; ///< Fighter_Part
     u16 x2;
     DISC_PTR(u8) x4; ///< an array of Fighter part indices
     DISC_PTR(DISC_PTR(HSD_AnimJoint)) x8;
-};
+} ftData_x1C;
 DISC_ASSERT_SIZE(struct ftData_x1C, 0xC);
 
-struct DISC_STRUCT ftData_x30 {
+typedef struct DISC_STRUCT ftData_x30 {
     /* +0 */ int count;
     /* +4 */ DISC_PTR(ftHurtboxInit) inits;
-};
+} ftData_x30;
 DISC_ASSERT_SIZE(struct ftData_x30, 0x8);
 
-struct DISC_STRUCT ftData_x34 {
+typedef struct DISC_STRUCT ftData_x34 {
     /* +0 */ Fighter_Part x0;
     /* +4 */ float scale;
-};
+} ftData_x34;
 DISC_ASSERT_SIZE(struct ftData_x34, 0x8);
 
-struct DISC_STRUCT ftData_x38 {
+typedef struct DISC_STRUCT ftData_x38 {
     int x0;
     DiscVec3 x4;
     float x10;
-};
+} ftData_x38;
 DISC_ASSERT_SIZE(struct ftData_x38, 0x14);
 
 typedef struct _ThrowFlags {
@@ -1286,6 +1282,51 @@ struct ft_800898B4_t {
     /*  +11 */ u8 x11_b4 : 1;
 };
 
+typedef struct Fighter_x1614_t {
+    f32 x0;
+    HSD_JObj* x4;
+    Vec3 x8;
+    Vec3 x14;
+    Vec3 x20;
+} Fighter_x1614_t;
+
+typedef struct Fighter_x8B0_t {
+    int x0;
+    float x4;
+    float x8;
+    float xC;
+    s8 x10;
+    s8 x11;
+} Fighter_x8B0_t;
+
+typedef struct Fighter_x20B0_t {
+    Vec3 x0;
+    Vec3 xC;
+} Fighter_x20B0_t;
+
+typedef struct Fighter_x2D0_t {
+    /// @warning i didnt confirm these comments, they come from altimors
+    /// ghidra db
+    int x0;       ///< turn frames
+    float x4;     ///< turn threshold
+    float x8;     ///< x impulse
+    float xC;     ///< accel mult
+    float x10;    ///< speed mult
+    float x14[5]; ///< y impulse
+    int x28;      ///< state count
+    enum_t x2C;   ///< start state
+    enum_t x30;   ///< start state helmet
+} Fighter_x2D0_t;
+
+typedef struct Fighter_x1670_t {
+    /* +00 */ Vec3 v1;
+    /* +0C */ float v2;
+    /* +10 */ HSD_JObj* jobj;
+    /* +14 */ float x14;
+    /* +18 */ Vec3 x18;
+    /* +24 */ int x24;
+} Fighter_x1670_t; ///< @todo figure out proper size
+
 struct Fighter {
     /*    fp+0 */ HSD_GObj* gobj;
     /*    fp+4 */ FighterKind kind;
@@ -1330,19 +1371,7 @@ struct Fighter {
     /*  fp+294 */ itPickup x294_itPickup;
     /*  fp+2C4 */ Vec2 x2C4;
     /*  fp+2CC */ ftDonkeyAttributes* x2CC;
-    /*  fp+2D0 */ struct DISC_STRUCT Fighter_x2D0_t { ///< view onto dat_attrs
-        /// @warning i didnt confirm these comments, they come from altimors
-        /// ghidra db
-        int x0;       ///< turn frames
-        float x4;     ///< turn threshold
-        float x8;     ///< x impulse
-        float xC;     ///< accel mult
-        float x10;    ///< speed mult
-        float x14[5]; ///< y impulse
-        int x28;      ///< state count
-        enum_t x2C;   ///< start state
-        enum_t x30;   ///< start state helmet
-    }* x2D0;          ///< multi jump stats
+    /*  fp+2D0 */ Fighter_x2D0_t* x2D0;          ///< multi jump stats
     /*  fp+2D4 */ void* dat_attrs;
     /*  fp+2D8 */ void* dat_attrs_backup;
     /*  fp+2DC */ float x2DC;
@@ -1463,14 +1492,7 @@ struct Fighter {
     /*  fp+8A4 */ float x8A4_animBlendFrames;
     /*  fp+8A8 */ float x8A8_anim_frame;
     /*  fp+8AC */ HSD_JObj* x8AC_animSkeleton;
-    /*  fp+8B0 */ struct Fighter_x8B0_t {
-        int x0;
-        float x4;
-        float x8;
-        float xC;
-        s8 x10;
-        s8 x11;
-    } x8B0[5];
+    /*  fp+8B0 */ Fighter_x8B0_t x8B0[5];
     /*  fp+914 */ HitCapsule x914[4];
     /*  fp+DF4 */ HitCapsule xDF4[2];
     /* fp+1064 */ HitCapsule x1064_thrownHitbox;
@@ -1479,13 +1501,7 @@ struct Fighter {
     /* fp+119E */ u8 hurt_capsules_len;
     /* fp+119F */ u8 x119F;
     /* fp+11A0 */ FighterHurtCapsule hurt_capsules[15];
-    /* fp+1614 */ struct Fighter_x1614_t {
-        f32 x0;
-        HSD_JObj* x4;
-        Vec3 x8;
-        Vec3 x14;
-        Vec3 x20;
-    } x1614[2];
+    /* fp+1614 */ Fighter_x1614_t x1614[2];
     /* fp+166C */ u8 x166C; ///< number of valid entries in x1670 array
     /* The 0x1B8 bytes fp+1670..fp+1828 are eleven Fighter_x1670_t records, not
      * one plus filler: ftColl_8007B36C rejects a count above 0xB and then
@@ -1494,14 +1510,7 @@ struct Fighter {
      * each record was 0x28 bytes (0x1B8 / 0x28 == 11) so indices 1.. landed
      * inside the filler; with an 8-byte HSD_JObj* the record is 0x30 and only
      * nine fit, so the tail entries ran off the end into x1828/dmg. */
-    /* fp+1670 */ struct Fighter_x1670_t {
-        /* +00 */ Vec3 v1;
-        /* +0C */ float v2;
-        /* +10 */ HSD_JObj* jobj;
-        /* +14 */ float x14;
-        /* +18 */ Vec3 x18;
-        /* +24 */ int x24;
-    } x1670[11];
+    /* fp+1670 */ Fighter_x1670_t x1670[11];
     /* fp+1828 */ enum_t x1828;
     /* fp+182C */ struct dmg {
         /* fp+182C */ float x182c_behavior;
@@ -1670,10 +1679,7 @@ struct Fighter {
     /* fp+20A0 */ HSD_JObj* x20A0_accessory;
     /* fp+20A4 */ LbShadow x20A4;
     /* fp+20AC */ HSD_GObj* unk_gobj;
-    /* fp+20B0 */ struct Fighter_x20B0_t {
-        Vec3 x0;
-        Vec3 xC;
-    } x20B0[3];
+    /* fp+20B0 */ Fighter_x20B0_t x20B0[3];
     /* fp+20F8 */ float x20F8;
     /* fp+20FC */ float x20FC;
     /* fp+2100 */ s8 x2100;

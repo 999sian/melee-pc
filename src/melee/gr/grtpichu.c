@@ -111,8 +111,7 @@ static HSD_GObj* grTPichu_80222C3C(int gobj_id)
 
 static void grTPichu_80222D24(Ground_GObj* gobj)
 {
-    Ground* gp = gobj->user_data;
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 static bool grTPichu_80222D50(Ground_GObj* arg0)
@@ -136,8 +135,7 @@ static bool grTPichu_80222DB0(Ground_GObj* arg0)
 
 static void grTPichu_80222DB8(Ground_GObj* gobj)
 {
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_ProcTargetStage(gobj);
 }
 
 static void grTPichu_80222DEC(Ground_GObj* arg0) {}

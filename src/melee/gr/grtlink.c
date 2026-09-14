@@ -112,8 +112,7 @@ HSD_GObj* grTLink_802219D0(int arg0)
 
 void grTLink_80221AB8(Ground_GObj* gobj)
 {
-    Ground* gp = gobj->user_data;
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 bool grTLink_80221AE4(Ground_GObj* gobj)
@@ -137,8 +136,7 @@ bool grTLink_80221B44(Ground_GObj* gobj)
 
 void grTLink_80221B4C(Ground_GObj* gobj)
 {
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_ProcTargetStage(gobj);
 }
 
 void grTLink_80221B80(Ground_GObj* gobj) {}

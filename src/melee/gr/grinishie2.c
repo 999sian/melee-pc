@@ -261,8 +261,7 @@ HSD_GObj* grInishie2_801FCCDC(int gobj_id)
 
 void grInishie2_801FCDC8(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_AnimateMap(gobj);
 }
 
 bool grInishie2_801FCDF4(Ground_GObj* gobj)
@@ -781,7 +780,7 @@ void grInishie2_801FDFE4(Ground_GObj* gobj) {}
 
 DynamicsDesc* grInishie2_801FDFE8(enum_t arg)
 {
-    return 0;
+    return NULL;
 }
 
 bool grInishie2_801FDFF0(Vec3* arg, int arg0, HSD_JObj* jobj)

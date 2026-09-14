@@ -2,6 +2,7 @@
 
 #include <melee/it/forward.h>
 
+#include "inlines.h"
 #include "types.h"
 #include <melee/ef/efasync.h>
 #include <melee/it/inlines.h>
