@@ -3,7 +3,22 @@
 #include <cstddef>
 #include <unordered_map>
 #include <array>
+#if defined(_WIN32)
+#include <windows.h>
+static inline int capture_backtrace(void** buffer, int max_frames) {
+  return CaptureStackBackTrace(0, max_frames, buffer, NULL);
+}
+#define backtrace capture_backtrace
+#elif defined(__ANDROID__)
+static inline int capture_backtrace(void** buffer, int max_frames) {
+  (void)buffer;
+  (void)max_frames;
+  return 0;
+}
+#define backtrace capture_backtrace
+#else
 #include <execinfo.h>
+#endif
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>

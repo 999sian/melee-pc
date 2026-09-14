@@ -21,6 +21,12 @@
 
 /* ---- interrupts ------------------------------------------------------- */
 
+#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#ifdef PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+#endif
+#endif
+
 static pthread_mutex_t s_intr_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static __thread int s_intr_depth;
 static __thread int s_is_game_thread;
@@ -293,6 +299,38 @@ OSErrorHandler OSSetErrorHandler(OSError error, OSErrorHandler handler)
 BOOL DBIsDebuggerPresent(void)
 {
     return 0;
+}
+
+#define PC_MAX_EXT_PTRS 65536
+static void* s_ext_ptrs[PC_MAX_EXT_PTRS];
+static uint32_t s_ext_ptr_count = 0;
+static pthread_mutex_t s_ext_ptr_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+uint32_t pc_register_ext_ptr(const void* p)
+{
+    if (!p) return 0;
+    pthread_mutex_lock(&s_ext_ptr_mutex);
+    for (uint32_t i = 0; i < s_ext_ptr_count; i++) {
+        if (s_ext_ptrs[i] == p) {
+            pthread_mutex_unlock(&s_ext_ptr_mutex);
+            return i + 1;
+        }
+    }
+    if (s_ext_ptr_count < PC_MAX_EXT_PTRS) {
+        uint32_t id = s_ext_ptr_count++;
+        s_ext_ptrs[id] = (void*) p;
+        pthread_mutex_unlock(&s_ext_ptr_mutex);
+        return id + 1;
+    }
+    pthread_mutex_unlock(&s_ext_ptr_mutex);
+    fprintf(stderr, "pc_register_ext_ptr: table overflow (max %d)\n", PC_MAX_EXT_PTRS);
+    abort();
+}
+
+void* pc_resolve_ext_ptr(uint32_t id)
+{
+    if (id == 0 || id > s_ext_ptr_count) return NULL;
+    return s_ext_ptrs[id - 1];
 }
 
 void pc_disc_ptr_overflow(const void* p, const char* file, int line)

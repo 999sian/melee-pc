@@ -1,7 +1,7 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#include <Windows.h>
+#include <windows.h>
 #endif
 
 #include "fmt/base.h"
@@ -92,38 +92,14 @@ static void GuardGCMemory() {
 static void GuardGCMemory() { }
 #endif
 
-#if _WIN64 && !NDEBUG
+#if defined(_WIN32)
 static void* AllocMEM1(u32 size) {
-  // Allocate an entire 32-bit's worth of memory and allocate the real MEM1 in that.
-  // This way, if a 64-bit pointer gets truncated to 32-bit, it will still fall in our guard pages.
-
-  void* bulkChunk = VirtualAlloc(
-    nullptr,
-    8ll * 1024 * 1024 * 1024,
-    MEM_RESERVE,
-    PAGE_NOACCESS);
-
-  if (bulkChunk == nullptr) {
-    DWORD err = GetLastError();
-    fmt::memory_buffer msg;
-    fmt::format_system_error(
-      msg,
-      static_cast<int>(err),
-      "Failed to allocate bulk chunk for MEM1");
-    Log.fatal("{}", fmt::to_string(msg));
+  void* want = reinterpret_cast<void*>(0x80000000ULL);
+  void* p = VirtualAlloc(want, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+  if (!p) {
+    p = VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
   }
-
-  uintptr_t memSpace = (reinterpret_cast<uintptr_t>(bulkChunk) | 0xFFFFFFFF) + 1;
-  void* mem1Address = reinterpret_cast<void*>(memSpace + 0x80000000);
-
-  Log.debug("Reserved memory map at {:016X}-{:016X}", memSpace, memSpace + 0xFFFFFFFF);
-  Log.debug(
-    "MEM1 at {:016X}-{:016X}",
-    reinterpret_cast<uintptr_t>(mem1Address),
-    reinterpret_cast<uintptr_t>(mem1Address) + size);
-
-  void* result = VirtualAlloc(mem1Address, size, MEM_COMMIT, PAGE_READWRITE);
-  if (result == nullptr) {
+  if (!p) {
     DWORD err = GetLastError();
     fmt::memory_buffer msg;
     fmt::format_system_error(
@@ -132,11 +108,9 @@ static void* AllocMEM1(u32 size) {
       "Failed to commit memory for MEM1");
     Log.fatal("{}", fmt::to_string(msg));
   }
-
-  assert(result == mem1Address);
-  return result;
+  return p;
 }
-#elif defined(__linux__) && defined(__x86_64__)
+#elif defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
 #include <sys/mman.h>
 // Map MEM1 at the GameCube's own address, 0x80000000, so that
 //  - 32-bit pointer slots inside big-endian disc structures can hold real host

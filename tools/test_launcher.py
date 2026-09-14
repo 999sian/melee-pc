@@ -16,6 +16,7 @@ from Xlib.ext import xtest
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--disc", type=Path)
+parser.add_argument("--binary", type=Path, help="Path to executable or AppImage to test (defaults to build/melee)")
 parser.add_argument("--screenshots", type=Path)
 parser.add_argument("--case", action="append", help="Run only this named case (repeatable)")
 parser.add_argument("--native-picker", action="store_true", help="Also test the desktop's Zenity file picker (requires working GTK/X11)")
@@ -24,16 +25,17 @@ root = Path(__file__).resolve().parent.parent
 dpy = display.Display()
 
 
-def key(win, name):
-    if dpy.get_input_focus().focus != win:
-        win.set_input_focus(X.RevertToParent, X.CurrentTime)
-    code = dpy.keysym_to_keycode(XK.string_to_keysym(name))
-    xtest.fake_input(dpy, X.KeyPress, code)
-    dpy.sync()
-    time.sleep(0.05)
-    xtest.fake_input(dpy, X.KeyRelease, code)
-    dpy.sync()
-    time.sleep(0.25)
+def key(win, name, repeat=1):
+    for _ in range(repeat):
+        if dpy.get_input_focus().focus != win:
+            win.set_input_focus(X.RevertToParent, X.CurrentTime)
+        code = dpy.keysym_to_keycode(XK.string_to_keysym(name))
+        xtest.fake_input(dpy, X.KeyPress, code)
+        dpy.sync()
+        time.sleep(0.05)
+        xtest.fake_input(dpy, X.KeyRelease, code)
+        dpy.sync()
+        time.sleep(0.35)
 
 
 def close(win, proc):
@@ -88,7 +90,8 @@ def run_case(name, arguments, saved_disc=None, interact=None, saved_preferences=
         with tempfile.TemporaryFile(mode="w+") as log:
             if name == "relative-cli":
                 arguments = [os.path.relpath(args.disc.resolve(), directory)]
-            proc = subprocess.Popen([str(root / "build/melee"), "--no-card", *arguments], env=env,
+            target_bin = str(args.binary.resolve()) if args.binary else str(root / "build/melee")
+            proc = subprocess.Popen([target_bin, "--no-card", *arguments], env=env,
                                     cwd=directory, stdout=log, stderr=log)
             try:
                 win = None
@@ -127,13 +130,18 @@ def settings(win, proc, config):
     # Initial focus: Choose Disc. Verify is disabled, so Down reaches Settings.
     key(win, "Down")
     key(win, "Return")
-    key(win, "Down")  # Vsync
-    key(win, "Down")  # Scale
+    time.sleep(0.5)
+    key(win, "Right")  # tab strip: Graphics -> Audio & interface
+    for _ in range(4):
+        key(win, "Down")  # volume -> mute -> fps -> scale
+    time.sleep(0.5)
     screenshot(win, "settings")
     key(win, "Return")
+    time.sleep(0.5)
     assert config.exists() and "scale 1.25" in config.read_text(), "UI scale was not saved"
     screenshot(win, "settings-scaled")
     resize(win, 720, 760)
+    time.sleep(0.5)
     screenshot(win, "settings-small")
     key(win, "Escape")
     key(win, "Down")  # Quit
@@ -143,7 +151,8 @@ def settings(win, proc, config):
 
 def settings_live(win, proc, config):
     key(win, "Down")
-    key(win, "Return")
+    key(win, "Return")  # open settings, focus lands on the tab strip
+    key(win, "Down")    # Display mode
     key(win, "Return")  # Fullscreen
     assert "fullscreen 1" in config.read_text(), "fullscreen setting was not saved"
     key(win, "Return")  # Windowed
@@ -194,24 +203,30 @@ try:
         def port_menu(win, proc, config):
             time.sleep(12)
             key(win, "F1")
-            key(win, "Tab")  # VSync
-            key(win, "Tab")  # Resolution
+            time.sleep(1)
+            # Focus opens on the tab strip; Down walks the Graphics page.
+            key(win, "Down", 3)  # display -> sync -> resolution
             key(win, "Return")
             assert "render_scale 1\n" in config.read_text(), "F1 resolution change was not saved"
-            key(win, "Tab")  # Aspect ratio
+            key(win, "Down")  # Aspect ratio
             key(win, "Return")
             assert "widescreen 1\n" in config.read_text(), "widescreen choice was not saved"
-            key(win, "Tab")  # MSAA
+            key(win, "Down")  # Anti-aliasing
             key(win, "Return")
             assert "msaa 4\n" in config.read_text(), "MSAA preference was not saved"
-            key(win, "Tab")  # Filtering
-            key(win, "Tab")  # Volume
+            key(win, "Up", 5)  # back up to the tab strip
+            key(win, "Right")  # Audio & interface
+            key(win, "Down")   # Master volume
             key(win, "Return")
             assert "volume 0\n" in config.read_text(), "master volume was not saved"
-            key(win, "Tab")  # Mute
-            key(win, "Tab")  # FPS
+            key(win, "Down", 2)  # Mute -> FPS counter
             key(win, "Return")
             assert "fps 1\n" in config.read_text(), "FPS preference was not saved"
+            key(win, "Up", 3)  # back to the tab strip
+            key(win, "Right")  # Controls
+            time.sleep(0.5)
+            screenshot(win, "f1-controls")
+            key(win, "Left")
             screenshot(win, "f1-enhancements")
             key(win, "Escape")
             key(win, "F1")
@@ -224,8 +239,7 @@ try:
             time.sleep(12)
             key(win, "F1")
             time.sleep(1)
-            key(win, "Tab")
-            key(win, "Tab")
+            key(win, "Down", 3)  # display -> sync -> resolution
             key(win, "Return")
             assert "render_scale 3\n" in config.read_text(), "F1 menu failed after loading saved renderer settings: " + config.read_text()
             screenshot(win, "f1-msaa-restart")

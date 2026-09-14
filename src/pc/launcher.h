@@ -9,6 +9,8 @@ int pc_launcher_run(const char* command_line_disc, SDL_Window* window);
 void pc_menu_init(SDL_Window* window);
 void pc_menu_update(void);
 void pc_menu_toggle(void);
+void pc_menu_event(const union SDL_Event* event);
+bool pc_menu_is_open(void);
 #ifdef __cplusplus
 }
 #endif

@@ -65,6 +65,9 @@ function(_aurora_dawn_fix_android_link_interface)
     if (_dawn_link_lib MATCHES "^/.*/sysroot/usr/lib/[^/]+/[0-9]+/liblog\\.so$")
       list(APPEND _dawn_fixed_link_libs "$<LINK_ONLY:log>")
       set(_dawn_replaced_log TRUE)
+    elseif (_dawn_link_lib MATCHES "rt")
+      # Android Bionic libc includes librt symbols; no separate librt exists
+      set(_dawn_replaced_log TRUE)
     else ()
       list(APPEND _dawn_fixed_link_libs "${_dawn_link_lib}")
     endif ()
@@ -79,8 +82,7 @@ endfunction()
 aurora_get_target_arch(_dawn_target_arch)
 string(TOLOWER "${CMAKE_SYSTEM_NAME}" _dawn_system)
 string(TOLOWER "${_dawn_target_arch}" _dawn_arch)
-set(_has_dawn_package FALSE)
-if ("${_dawn_system}-${_dawn_arch}" MATCHES "^(windows-(amd64|arm64)|linux-(x86_64|aarch64)|darwin-(arm64|x86_64)|ios-arm64|android-aarch64)$")
+if ("${_dawn_system}-${_dawn_arch}" MATCHES "^(windows-(amd64|arm64)|linux-(x86_64|aarch64)|darwin-(arm64|x86_64)|ios-arm64|android-(aarch64|x86_64))$")
   set(_has_dawn_package TRUE)
 endif ()
 
@@ -182,8 +184,13 @@ elseif (_aurora_dawn_provider STREQUAL "package")
         "No prebuilt Dawn package is available for ${CMAKE_SYSTEM_NAME}/${CMAKE_SYSTEM_PROCESSOR}"
         " with CMAKE_OSX_ARCHITECTURES='${CMAKE_OSX_ARCHITECTURES}'.")
     endif ()
-    set(AURORA_DAWN_PACKAGE_URL
-      "https://github.com/encounter/dawn/releases/download/${AURORA_DAWN_VERSION}/dawn-${_dawn_system}-${_dawn_arch}.tar.gz")
+    if ("${_dawn_system}-${_dawn_arch}" STREQUAL "android-x86_64")
+      set(AURORA_DAWN_PACKAGE_URL
+        "https://github.com/encounter/dawn/releases/download/${AURORA_DAWN_VERSION}/dawn-linux-x86_64.tar.gz")
+    else ()
+      set(AURORA_DAWN_PACKAGE_URL
+        "https://github.com/encounter/dawn/releases/download/${AURORA_DAWN_VERSION}/dawn-${_dawn_system}-${_dawn_arch}.tar.gz")
+    endif ()
   endif ()
   message(STATUS "aurora: Fetching prebuilt Dawn package from ${AURORA_DAWN_PACKAGE_URL}")
 

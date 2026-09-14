@@ -40,18 +40,39 @@
 
 #ifdef TARGET_PC
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+uint32_t pc_register_ext_ptr(const void* p);
+void* pc_resolve_ext_ptr(uint32_t id);
+void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute__((noreturn));
+
+static inline uint32_t pc_encode_dp(const void* p)
+{
+    if (!p) return 0;
+    if (!((uintptr_t) p >> 32)) {
+        return (uint32_t) (uintptr_t) p;
+    }
+    return 0x02000000u | pc_register_ext_ptr(p);
+}
+
+static inline void* pc_resolve_dp(uint32_t slot)
+{
+    if ((slot & 0xFF000000u) == 0x02000000u) {
+        return pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
+    }
+    return (void*) (uintptr_t) slot;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
 #define DISC_STRUCT __attribute__((scalar_storage_order("big-endian")))
 #define DISC_PTR(T) uint32_t
-#define DP(T, slot) ((T*) (uintptr_t) (uint32_t) (slot)) /* zero-extend even if the slot is signed */
-
-void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute__((noreturn));
-#define DP_SET(slot, p)                                                        \
-    do {                                                                       \
-        const void* _dp_p = (const void*) (p);                                 \
-        if ((uintptr_t) _dp_p >> 32)                                           \
-            pc_disc_ptr_overflow(_dp_p, __FILE__, __LINE__);                   \
-        (slot) = (uint32_t) (uintptr_t) _dp_p;                                 \
-    } while (0)
+#define DP(T, slot) ((T*) pc_resolve_dp((uint32_t) (slot)))
+#define DP_SET(slot, p) do { (slot) = pc_encode_dp((const void*) (p)); } while (0)
 
 #define DISC_ASSERT_SIZE(T, size) _Static_assert(sizeof(T) == (size), #T " disc size")
 

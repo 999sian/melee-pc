@@ -20,13 +20,38 @@ namespace {
 launcher::Preferences prefs;
 std::filesystem::path config_path;
 
+const char* filter_name(int mode) {
+    // Mode 0 is the plain present blit -- no effect at all, so it is the
+    // "off" setting; the bilinear filter it uses is just the scaler.
+    static const char* const names[] = {"Off", "Area sampling", "CRT scanlines", "Vibrant"};
+    return names[mode & 3];
+}
+
+constexpr const char* tab_ids[] = {"tab-graphics", "tab-audio", "tab-controls"};
+constexpr const char* page_ids[] = {"page-graphics", "page-audio", "page-controls"};
+constexpr int tab_count = 3;
+int tab_index(const Rml::String& id) {
+    for (int i = 0; i < tab_count; ++i)
+        if (id == tab_ids[i]) return i;
+    return -1;
+}
+std::string resolution_name(float scale) {
+    return scale == 0 ? std::string("Auto") : std::to_string(int(scale)) + "x";
+}
+
 std::string identity(const std::string& path) {
     struct stat s{};
     if (stat(path.c_str(), &s) != 0) return {};
+#ifdef _WIN32
+    return std::to_string(s.st_dev) + ":" + std::to_string(s.st_ino) + ":" +
+        std::to_string(s.st_size) + ":" + std::to_string(s.st_mtime) + ":" +
+        std::to_string(s.st_ctime);
+#else
     return std::to_string(s.st_dev) + ":" + std::to_string(s.st_ino) + ":" +
         std::to_string(s.st_size) + ":" + std::to_string(s.st_mtim.tv_sec) + ":" +
         std::to_string(s.st_mtim.tv_nsec) + ":" + std::to_string(s.st_ctim.tv_sec) + ":" +
         std::to_string(s.st_ctim.tv_nsec);
+#endif
 }
 
 // The native dialog can finish after the window closes. Its callback owns a
@@ -53,21 +78,33 @@ class Launcher final : public Rml::EventListener {
     std::atomic_bool cancel{false};
     std::atomic_uint progress{0};
     std::string pending_path, verification_identity, selected_identity;
-    bool supported = false, settings = false;
-    uint64_t last_identity_check = 0, last_axis = 0;
+    bool supported = false, settings = false, quiet = false;
+    uint64_t last_identity_check = 0, last_axis = 0, last_axis_x = 0;
     unsigned last_progress = 101;
     std::vector<std::string> focus_ids;
-    int result = -2;
+    int result = -2, tab = 0;
 
-    Rml::Element* element(const char* id) { return document->GetElementById(id); }
+    Rml::Element* element(const char* id) {
+        if (std::strcmp(id, "fullscreen") == 0) {
+            auto* e = document->GetElementById("display");
+            if (e) return e;
+        }
+        if (std::strcmp(id, "vsync") == 0) {
+            auto* e = document->GetElementById("sync");
+            if (e) return e;
+        }
+        return document->GetElementById(id);
+    }
     void text(const char* id, const std::string& value) {
         auto* e = element(id);
+        if (!e) return;
         e->SetInnerRML("");
         auto node = document->CreateTextNode(value);
         e->AppendChild(std::move(node));
     }
     void enabled(const char* id, bool value) {
         auto* e = element(id);
+        if (!e) return;
         e->SetPseudoClass("disabled", !value);
         e->SetProperty("focus", value ? "auto" : "none");
         e->SetProperty("tab-index", value ? "auto" : "none");
@@ -75,11 +112,18 @@ class Launcher final : public Rml::EventListener {
     }
     bool busy() const { return dialog || inspection.valid() || verification.valid(); }
     void status(const std::string& value, bool error = false) {
-        text("status", value); element("status")->SetClass("error", error);
+        text("status", value); auto* e = element("status"); if (e) e->SetClass("error", error);
     }
     void save() {
         std::string error;
         if (!launcher::save_preferences(config_path, prefs, error)) status(error, true);
+    }
+    std::vector<std::string> page_focus() const {
+        switch (tab) {
+        case 0: return {"display", "sync", "resolution", "aspect", "aa", "filter", "filter-mode"};
+        case 1: return {"volume", "mute", "fps", "scale"};
+        default: return {};
+        }
     }
     void controls() {
         enabled("play", supported && !busy());
@@ -87,8 +131,24 @@ class Launcher final : public Rml::EventListener {
         enabled("verify", verification.valid() || (supported && !busy()));
         enabled("settings", !busy());
         text("verify", verification.valid() ? "Cancel verification" : "Verify disc");
-        focus_ids = settings ? std::vector<std::string>{"fullscreen", "vsync", "scale", "back"}
-                             : std::vector<std::string>{"play", "choose", "verify", "settings", "quit"};
+        if (!settings) {
+            focus_ids = {"play", "choose", "verify", "settings", "quit"};
+            return;
+        }
+        // The strip itself is one stop in the vertical order; left/right on it
+        // changes page, so every control stays reachable without extra keys.
+        focus_ids = {tab_ids[tab]};
+        for (const auto& id : page_focus()) focus_ids.push_back(id);
+        focus_ids.push_back("back");
+    }
+    void show_tab(int next) {
+        tab = (next + tab_count) % tab_count;
+        for (int i = 0; i < tab_count; ++i) {
+            if (auto* e = element(tab_ids[i])) e->SetClass("selected", i == tab);
+            if (auto* e = element(page_ids[i])) e->SetClass("selected", i == tab);
+        }
+        controls();
+        if (auto* e = element(tab_ids[tab])) { e->Focus(); e->ScrollIntoView(); }
     }
     void focus_step(int direction) {
         auto* focus = document->GetContext()->GetFocusElement();
@@ -98,7 +158,7 @@ class Launcher final : public Rml::EventListener {
         for (size_t i = 0; i < focus_ids.size(); ++i) {
             index = (index + direction + static_cast<int>(focus_ids.size())) % static_cast<int>(focus_ids.size());
             auto* e = element(focus_ids[index].c_str());
-            if (!e->IsPseudoClassSet("disabled")) { e->Focus(); e->ScrollIntoView(); break; }
+            if (e && !e->IsPseudoClassSet("disabled")) { e->Focus(); e->ScrollIntoView(); break; }
         }
     }
     void activate_focus() {
@@ -109,17 +169,65 @@ class Launcher final : public Rml::EventListener {
             break;
         }
     }
+    void slider(const char* id, float value) {
+        auto* e = document->GetElementById(id);
+        if (e) e->SetAttribute("value", value);
+    }
+    static bool is_slider(const Rml::String& id) {
+        return id == "volume" || id == "resolution" || id == "scale";
+    }
+    // Writing a slider's value fires Change; `quiet` keeps that from looping
+    // back into another save.
+    void refresh_settings() {
+        if (!settings) return;
+        quiet = true;
+        text("display", prefs.fullscreen ? "Fullscreen" : "Windowed");
+        const char* override = std::getenv("MELEE_VSYNC");
+        const bool effective_vsync = override ? override[0] != '0' : prefs.vsync;
+        text("sync", std::string(effective_vsync ? "On" : "Off") + (override ? " (environment)" : ""));
+        slider("resolution", prefs.render_scale);
+        text("resolution-val", resolution_name(prefs.render_scale));
+        text("aspect", prefs.widescreen == 0 ? "Original 4:3" : prefs.widescreen == 1 ? "Widescreen 16:9" : "Auto (window aspect)");
+        text("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
+        text("filter", std::to_string(prefs.anisotropy) + "x");
+        text("filter-mode", filter_name(prefs.filter_mode));
+        slider("volume", prefs.volume * 100.0f);
+        text("volume-val", std::to_string(int(prefs.volume * 100 + 0.5f)) + "%");
+        text("mute", prefs.mute ? "On" : "Off");
+        text("fps", prefs.fps ? "On" : "Off");
+        slider("scale", prefs.scale * 100.0f);
+        text("scale-val", std::to_string(int(prefs.scale * 100 + 0.5f)) + "%");
+        notice();
+        quiet = false;
+    }
+    void notice() {
+        text("settings-status", prefs.render_scale >= 6
+            ? resolution_name(prefs.render_scale) + " native needs a lot of video memory; drop it if the game stutters."
+            : std::string("Saved automatically."));
+    }
     void show_settings(bool show) {
         settings = show;
         element("home")->SetProperty("display", show ? "none" : "block");
         element("preferences")->SetProperty("display", show ? "block" : "none");
-        text("fullscreen", prefs.fullscreen ? "Display: Fullscreen" : "Display: Windowed");
-        const char* override = std::getenv("MELEE_VSYNC");
-        const bool effective_vsync = override ? override[0] != '0' : prefs.vsync;
-        text("vsync", std::string(effective_vsync ? "VSync: On" : "VSync: Off") + (override ? " (environment)" : ""));
-        text("scale", "UI scale: " + std::to_string(static_cast<int>(prefs.scale * 100)) + "%");
+        refresh_settings();
+        if (show) { show_tab(tab); return; }
         controls();
-        element(show ? "fullscreen" : "settings")->Focus();
+        element("settings")->Focus();
+    }
+    // Left/right: adjusts the focused slider, or pages the tab strip.
+    void step_slider(int direction) {
+        auto* focus = document->GetContext()->GetFocusElement();
+        if (!focus) return;
+        auto id = focus->GetId();
+        if (tab_index(id) >= 0) { show_tab(tab + direction); return; }
+        if (id == "volume") prefs.volume = std::clamp(prefs.volume + direction * 0.05f, 0.0f, 1.0f);
+        else if (id == "resolution") prefs.render_scale = std::clamp(prefs.render_scale + direction, 0.0f, 10.0f);
+        else if (id == "scale") {
+            prefs.scale = std::clamp(prefs.scale + direction * 0.25f, 0.75f, 1.5f);
+            aurora::rmlui::set_ui_scale(prefs.scale);
+        } else return;
+        refresh_settings();
+        save();
     }
     void inspect(const std::string& path) {
         pending_path = std::filesystem::absolute(path).string();
@@ -129,6 +237,7 @@ class Launcher final : public Rml::EventListener {
     }
     void action(const std::string& id) {
         if (id == "quit") { result = 0; cancel = true; return; }
+        if (tab_index(id) >= 0) { show_tab(tab_index(id)); return; }
         if (id == "verify" && verification.valid()) { cancel = true; status("Canceling verification..."); return; }
         if (busy()) return;
         if (id == "choose") {
@@ -151,23 +260,50 @@ class Launcher final : public Rml::EventListener {
             });
             controls(); element("verify")->Focus();
         } else if (id == "settings" || id == "back") show_settings(id == "settings");
-        else if (id == "fullscreen") {
+        else if (id == "display" || id == "fullscreen") {
             if (SDL_SetWindowFullscreen(window, !prefs.fullscreen)) prefs.fullscreen = !prefs.fullscreen;
             else status(std::string("Could not change display mode: ") + SDL_GetError(), true);
-            save(); show_settings(true);
-        } else if (id == "vsync") {
+            save(); refresh_settings(); element("display")->Focus();
+        } else if (id == "sync" || id == "vsync") {
             if (std::getenv("MELEE_VSYNC")) status("VSync is controlled by the MELEE_VSYNC environment setting.");
             else { prefs.vsync = !prefs.vsync; aurora_enable_vsync(prefs.vsync); save(); }
-            show_settings(true); element("vsync")->Focus();
+            refresh_settings(); element("sync")->Focus();
+        } else if (id == "resolution") {
+            prefs.render_scale = prefs.render_scale >= 10 ? 0 : int(prefs.render_scale) + 1;
+            save(); refresh_settings(); element("resolution")->Focus();
+        } else if (id == "aspect") {
+            prefs.widescreen = (prefs.widescreen + 1) % 3;
+            save(); refresh_settings(); element("aspect")->Focus();
+        } else if (id == "aa") {
+            prefs.msaa = prefs.msaa == 1 ? 4 : 1;
+            save(); refresh_settings(); element("aa")->Focus();
+        } else if (id == "filter") {
+            prefs.anisotropy = prefs.anisotropy >= 16 ? 1 : prefs.anisotropy * 2;
+            save(); refresh_settings(); element("filter")->Focus();
+        } else if (id == "filter-mode") {
+            prefs.filter_mode = (prefs.filter_mode + 1) % 4;
+            aurora_set_resampler(static_cast<AuroraSampler>(prefs.filter_mode));
+            save(); refresh_settings(); element("filter-mode")->Focus();
+        } else if (id == "volume") {
+            int step = int(prefs.volume * 10 + 0.5f);
+            prefs.volume = (step >= 10 ? 0 : step + 1) / 10.0f;
+            save(); refresh_settings(); element("volume")->Focus();
+        } else if (id == "mute") {
+            prefs.mute = !prefs.mute;
+            save(); refresh_settings(); element("mute")->Focus();
+        } else if (id == "fps") {
+            prefs.fps = !prefs.fps;
+            save(); refresh_settings(); element("fps")->Focus();
         } else if (id == "scale") {
             prefs.scale = prefs.scale >= 1.5f ? 0.75f : prefs.scale + 0.25f;
-            aurora::rmlui::set_ui_scale(prefs.scale); save(); show_settings(true); element("scale")->Focus();
+            aurora::rmlui::set_ui_scale(prefs.scale); save(); refresh_settings(); element("scale")->Focus();
         }
     }
 public:
     Launcher(SDL_Window* w, Rml::ElementDocument* d) : window(w), document(d) {
         document->AddEventListener(Rml::EventId::Click, this);
         document->AddEventListener(Rml::EventId::Keydown, this);
+        document->AddEventListener(Rml::EventId::Change, this);
         document->Show();
         controls(); element("choose")->Focus();
     }
@@ -177,6 +313,7 @@ public:
         if (inspection.valid()) inspection.wait();
         document->RemoveEventListener(Rml::EventId::Click, this);
         document->RemoveEventListener(Rml::EventId::Keydown, this);
+        document->RemoveEventListener(Rml::EventId::Change, this);
         auto* context = document->GetContext();
         document->Close();
         context->Update();
@@ -191,10 +328,39 @@ public:
                 }
                 target = target->GetParentNode();
             }
+        } else if (event.GetId() == Rml::EventId::Change) {
+            auto* target = event.GetTargetElement();
+            if (!target || quiet) return;
+            auto id = target->GetId();
+            if (id == "volume") {
+                prefs.volume = std::clamp(event.GetParameter<float>("value", 100.0f) / 100.0f, 0.0f, 1.0f);
+                text("volume-val", std::to_string(int(prefs.volume * 100 + 0.5f)) + "%");
+            } else if (id == "resolution") {
+                prefs.render_scale = std::clamp(float(int(event.GetParameter<float>("value", 0.0f) + 0.5f)), 0.0f, 10.0f);
+                text("resolution-val", resolution_name(prefs.render_scale));
+                notice();
+            } else if (id == "scale") {
+                prefs.scale = std::clamp(event.GetParameter<float>("value", 100.0f) / 100.0f, 0.75f, 1.5f);
+                text("scale-val", std::to_string(int(prefs.scale * 100 + 0.5f)) + "%");
+                aurora::rmlui::set_ui_scale(prefs.scale);
+            } else return;
+            save();
         } else if (event.GetId() == Rml::EventId::Keydown) {
             auto key = event.GetParameter<int>("key_identifier", 0);
             if (key == Rml::Input::KI_UP || key == Rml::Input::KI_DOWN) {
                 focus_step(key == Rml::Input::KI_UP ? -1 : 1); event.StopPropagation();
+            } else if (key == Rml::Input::KI_RETURN) {
+                auto* focus = document->GetContext()->GetFocusElement();
+                if (focus && is_slider(focus->GetId())) {
+                    action(focus->GetId());
+                    event.StopPropagation();
+                }
+            } else if (key == Rml::Input::KI_LEFT || key == Rml::Input::KI_RIGHT) {
+                auto* focus = document->GetContext()->GetFocusElement();
+                if (focus && (is_slider(focus->GetId()) || tab_index(focus->GetId()) >= 0)) {
+                    step_slider(key == Rml::Input::KI_LEFT ? -1 : 1);
+                    event.StopPropagation();
+                }
             } else if (key == Rml::Input::KI_ESCAPE) {
                 if (settings) show_settings(false);
                 else if (verification.valid()) { cancel = true; }
@@ -214,16 +380,26 @@ public:
                     auto button = e->sdl.gbutton.button;
                     if (button == SDL_GAMEPAD_BUTTON_DPAD_DOWN) focus_step(1);
                     else if (button == SDL_GAMEPAD_BUTTON_DPAD_UP) focus_step(-1);
+                    else if (button == SDL_GAMEPAD_BUTTON_DPAD_LEFT) step_slider(-1);
+                    else if (button == SDL_GAMEPAD_BUTTON_DPAD_RIGHT) step_slider(1);
                     else if (button == SDL_GAMEPAD_BUTTON_SOUTH || button == SDL_GAMEPAD_BUTTON_START) activate_focus();
                     else if (button == SDL_GAMEPAD_BUTTON_EAST) {
                         if (settings) show_settings(false);
                         else if (verification.valid()) cancel = true;
                     }
-                } else if (e->sdl.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && e->sdl.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY) {
-                    auto value = e->sdl.gaxis.value;
-                    auto now = SDL_GetTicks();
-                    if (std::abs(value) > 18000 && now - last_axis > 200) {
-                        focus_step(value > 0 ? 1 : -1); last_axis = now;
+                } else if (e->sdl.type == SDL_EVENT_GAMEPAD_AXIS_MOTION) {
+                    if (e->sdl.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY) {
+                        auto value = e->sdl.gaxis.value;
+                        auto now = SDL_GetTicks();
+                        if (std::abs(value) > 18000 && now - last_axis > 200) {
+                            focus_step(value > 0 ? 1 : -1); last_axis = now;
+                        }
+                    } else if (e->sdl.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX) {
+                        auto value = e->sdl.gaxis.value;
+                        auto now = SDL_GetTicks();
+                        if (std::abs(value) > 18000 && now - last_axis_x > 150) {
+                            step_slider(value > 0 ? 1 : -1); last_axis_x = now;
+                        }
                     }
                 } else if (e->sdl.type == SDL_EVENT_DROP_FILE && !busy() && e->sdl.drop.data) {
                     inspect(e->sdl.drop.data);
@@ -309,6 +485,7 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
         }
         Rml::LoadFontFace((resources / "font-bold.ttf").string());
         aurora::rmlui::set_ui_scale(prefs.scale);
+        aurora_set_resampler(static_cast<AuroraSampler>(prefs.filter_mode));
         auto* document = context->LoadDocument((resources / "launcher.rml").string());
         if (!document) { SDL_Log("Launcher: could not load launcher.rml"); return -1; }
         Launcher launcher(window, document);
@@ -322,6 +499,9 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
 #include <dolphin/vi.h>
 #include <dolphin/pad.h>
 extern "C" void pc_audio_set_volume(float volume);
+// Melee's own menu bank: 0 is back/cancel, 1 confirm, 2 the cursor tick.
+extern "C" void lbAudioAx_80024030(int);
+enum { SFX_BACK = 0, SFX_CONFIRM = 1, SFX_MOVE = 2 };
 namespace {
 class PortMenu final : public Rml::EventListener {
 public:
@@ -329,62 +509,370 @@ public:
     Rml::ElementDocument* counter = nullptr;
     SDL_Window* window = nullptr;
     bool open = false;
-    uint64_t last_fps = 0;
+    // Set while the menu writes its own widgets: suppresses the Change and
+    // Focus events that echo back, which would otherwise loop or chatter.
+    bool quiet = false;
+    uint64_t last_fps = 0, last_axis_y = 0, last_axis_x = 0;
+    int tab = 0;
+    u32 pad_port = 0;
+    // -1 when idle, otherwise the mapping slot waiting for input. Axis slots
+    // index the axis table instead of the button table.
+    int binding = -1;
+    bool binding_axis = false;
+    // The press that opened the prompt has to be released first, or the A
+    // that selected the row binds itself immediately.
+    bool binding_armed = false;
+    std::vector<std::string> focus_ids;
+    // Resizing the framebuffer allocates a fresh, empty texture. While the
+    // overlay pauses the game nothing redraws it, so the frozen frame behind
+    // the menu would go black: hold the change until the menu closes.
+    bool resize_pending = false;
+
+    static bool is_slider(const Rml::String& id) {
+        return id == "volume" || id == "resolution" || id == "scale";
+    }
     void label(const char* id, const std::string& value) {
         auto* e = document->GetElementById(id);
+        if (!e) return;
         e->SetInnerRML("");
         e->AppendChild(document->CreateTextNode(value));
     }
+    void slider(const char* id, float value) {
+        auto* e = document->GetElementById(id);
+        if (e) e->SetAttribute("value", value);
+    }
+    std::vector<std::string> page_focus() const {
+        switch (tab) {
+        case 0: return {"display", "sync", "resolution", "aspect", "aa", "filter", "filter-mode"};
+        case 1: return {"volume", "mute", "fps", "scale"};
+        default: {
+            std::vector<std::string> ids{"pad-port"};
+            for (int i = 0; i < PAD_BUTTON_COUNT; ++i) ids.push_back("bind-" + std::to_string(i));
+            for (int i = 0; i < PAD_AXIS_COUNT; ++i) ids.push_back("axis-" + std::to_string(i));
+            ids.push_back("bind-reset");
+            return ids;
+        }
+        }
+    }
+    void show_tab(int next) {
+        tab = (next + tab_count) % tab_count;
+        for (int i = 0; i < tab_count; ++i) {
+            if (auto* e = document->GetElementById(tab_ids[i])) e->SetClass("selected", i == tab);
+            if (auto* e = document->GetElementById(page_ids[i])) e->SetClass("selected", i == tab);
+        }
+        focus_ids = {tab_ids[tab]};
+        for (const auto& id : page_focus()) focus_ids.push_back(id);
+        focus_ids.push_back("resume");
+        quiet = true;
+        if (auto* e = document->GetElementById(tab_ids[tab])) { e->Focus(); e->ScrollIntoView(); }
+        quiet = false;
+    }
+    void focus_step(int direction) {
+        auto* focus = document->GetContext()->GetFocusElement();
+        int index = direction > 0 ? -1 : 0;
+        for (size_t i = 0; i < focus_ids.size(); ++i)
+            if (document->GetElementById(focus_ids[i]) == focus) index = static_cast<int>(i);
+        index = (index + direction + static_cast<int>(focus_ids.size())) % static_cast<int>(focus_ids.size());
+        if (auto* e = document->GetElementById(focus_ids[index])) { e->Focus(); e->ScrollIntoView(); }
+    }
+    void activate_focus() {
+        auto* focus = document->GetContext()->GetFocusElement();
+        if (focus) apply(focus->GetId());
+    }
+    void refresh_bindings() {
+        label("pad-port", "Port " + std::to_string(pad_port + 1));
+        const char* name = PADGetName(pad_port);
+        label("pad-name", name && *name ? name : "No controller in this port.");
+        u32 count = 0;
+        const PADButtonMapping* map = PADGetButtonMappings(pad_port, &count);
+        for (int i = 0; i < PAD_BUTTON_COUNT; ++i) {
+            const auto row = std::to_string(i);
+            const char* gc = map && u32(i) < count ? PADGetButtonName(map[i].padButton) : nullptr;
+            const char* native = map && u32(i) < count && map[i].nativeButton != PAD_NATIVE_BUTTON_INVALID
+                ? PADGetNativeButtonName(map[i].nativeButton) : nullptr;
+            label(("bind-name-" + row).c_str(), gc ? gc : "-");
+            label(("bind-" + row).c_str(),
+                  binding == i && !binding_axis ? "Press a button..." : native ? native : "Unbound");
+        }
+        u32 axes = 0;
+        const PADAxisMapping* amap = PADGetAxisMappings(pad_port, &axes);
+        for (int i = 0; i < PAD_AXIS_COUNT; ++i) {
+            const auto row = std::to_string(i);
+            const char* gc = amap && u32(i) < axes ? PADGetAxisName(amap[i].padAxis) : nullptr;
+            std::string bound = "Unbound";
+            if (amap && u32(i) < axes) {
+                if (amap[i].nativeAxis.nativeAxis >= 0) {
+                    const char* a = PADGetNativeAxisName(amap[i].nativeAxis);
+                    bound = std::string(a ? a : "axis") +
+                        (amap[i].nativeAxis.sign == AXIS_SIGN_NEGATIVE ? " -" : " +");
+                } else if (amap[i].nativeButton >= 0) {
+                    const char* b = PADGetNativeButtonName(u32(amap[i].nativeButton));
+                    if (b) bound = b;
+                }
+            }
+            label(("axis-name-" + row).c_str(), gc ? gc : "-");
+            label(("axis-" + row).c_str(),
+                  binding == i && binding_axis ? "Move a stick..." : bound);
+        }
+    }
     void refresh() {
+        quiet = true;
         label("display", VIGetWindowFullscreen() ? "Fullscreen" : "Windowed");
         label("sync", std::getenv("MELEE_VSYNC") ? "Environment override" : prefs.vsync ? "On" : "Off");
-        label("resolution", prefs.render_scale == 0 ? "Auto (window size)" : "" + std::to_string(int(prefs.render_scale)) + "x native");
+        slider("resolution", prefs.render_scale);
+        label("resolution-val", resolution_name(prefs.render_scale));
         label("aspect", prefs.widescreen == 0 ? "Original 4:3" : prefs.widescreen == 1 ? "Widescreen 16:9" : "Auto (window aspect)");
-        label("aa", prefs.msaa == 1 ? "Off" : "4x MSAA");
+        label("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
         label("filter", std::to_string(prefs.anisotropy) + "x");
-        label("volume", std::to_string(int(prefs.volume * 100 + 0.5f)) + "%");
+        label("filter-mode", filter_name(prefs.filter_mode));
+        slider("volume", prefs.volume * 100.0f);
+        label("volume-val", std::to_string(int(prefs.volume * 100 + 0.5f)) + "%");
         label("mute", prefs.mute ? "On" : "Off");
         label("fps", prefs.fps ? "On" : "Off");
+        slider("scale", prefs.scale * 100.0f);
+        label("scale-val", std::to_string(int(prefs.scale * 100 + 0.5f)) + "%");
+        refresh_bindings();
+        quiet = false;
+    }
+    void saved() {
+        std::string error;
+        label("menu-status", launcher::save_preferences(config_path, prefs, error) ? "Saved." : error);
+        refresh();
     }
     void toggle() {
         if (!document) return;
         open = !open;
+        binding = -1;
         PADBlockInput(open);
-        if (open) { refresh(); document->Show(); document->GetElementById("display")->Focus(); }
-        else document->Hide();
+        lbAudioAx_80024030(open ? SFX_CONFIRM : SFX_BACK);
+        if (open) {
+            refresh();
+            document->Show();
+            show_tab(tab);
+        } else {
+            document->Hide();
+            // Both reallocate the framebuffer; each is a no-op when the value
+            // has not actually moved.
+            if (resize_pending) {
+                pc_widescreen_set_mode(prefs.widescreen);
+                VISetFrameBufferScale(prefs.render_scale);
+                resize_pending = false;
+            }
+        }
     }
-    void ProcessEvent(Rml::Event& event) override {
-        if (event.GetId() == Rml::EventId::Keydown) {
-            if (event.GetParameter<int>("key_identifier", 0) == Rml::Input::KI_ESCAPE && open) toggle();
+    void start_binding(int slot, bool axis) {
+        u32 count = 0;
+        if (!PADGetButtonMappings(pad_port, &count) || count == 0) {
+            label("menu-status", "No controller in port " + std::to_string(pad_port + 1) + ".");
             return;
         }
-        auto* target = event.GetTargetElement();
-        while (target && target != document && target->GetTagName() != "button") target = target->GetParentNode();
-        if (!target || target == document) return;
-        auto id = target->GetId();
+        binding = slot;
+        binding_axis = axis;
+        binding_armed = false;
+        label("menu-status", axis ? "Move a stick or press a button. Escape cancels."
+                                  : "Press a button on the controller. Escape cancels.");
+        refresh_bindings();
+    }
+    // Runs once a frame while a bind prompt is up.
+    void poll_binding() {
+        if (binding < 0) return;
+        const int native = PADGetNativeButtonPressed(pad_port);
+        const PADSignedNativeAxis axis = binding_axis ? PADGetNativeAxisPulled(pad_port)
+                                                      : PADSignedNativeAxis{-1, AXIS_SIGN_POSITIVE};
+        if (!binding_armed) {
+            binding_armed = native < 0 && axis.nativeAxis < 0;
+            return;
+        }
+        if (native < 0 && axis.nativeAxis < 0) return;
+        if (axis.nativeAxis < 0 && native == SDL_GAMEPAD_BUTTON_BACK) {
+            label("menu-status", "Back opens this menu; pick another input.");
+            binding_armed = false;
+            return;
+        }
+        u32 count = 0;
+        if (binding_axis) {
+            const PADAxisMapping* map = PADGetAxisMappings(pad_port, &count);
+            if (map && u32(binding) < count) {
+                // One source or the other, never neither: aurora reads the
+                // axis when nativeAxis is set and asserts on the button
+                // otherwise.
+                PADSetAxisMapping(pad_port, axis.nativeAxis >= 0
+                    ? PADAxisMapping{axis, SDL_GAMEPAD_BUTTON_INVALID, map[binding].padAxis}
+                    : PADAxisMapping{{-1, AXIS_SIGN_POSITIVE}, native, map[binding].padAxis});
+                PADSerializeMappings();
+                label("menu-status", "Bound.");
+            }
+        } else {
+            const PADButtonMapping* map = PADGetButtonMappings(pad_port, &count);
+            if (map && u32(binding) < count) {
+                PADSetButtonMapping(pad_port, {u32(native), map[binding].padButton});
+                PADSerializeMappings();
+                label("menu-status", "Bound.");
+            }
+        }
+        binding = -1;
+        lbAudioAx_80024030(SFX_CONFIRM);
+        refresh_bindings();
+    }
+    void cancel_binding() {
+        if (binding < 0) return;
+        binding = -1;
+        lbAudioAx_80024030(SFX_BACK);
+        label("menu-status", "Canceled.");
+        refresh_bindings();
+    }
+    void apply(const Rml::String& id) {
         if (id == "resume") { toggle(); return; }
+        if (tab_index(id) >= 0) { lbAudioAx_80024030(SFX_CONFIRM); show_tab(tab_index(id)); return; }
+        if (id == "pad-port") {
+            pad_port = (pad_port + 1) % 4;
+            binding = -1;
+            lbAudioAx_80024030(SFX_CONFIRM);
+            refresh_bindings();
+            return;
+        }
+        if (id == "bind-reset") {
+            PADRestoreDefaultMapping(pad_port);
+            PADSerializeMappings();
+            binding = -1;
+            lbAudioAx_80024030(SFX_CONFIRM);
+            label("menu-status", "Defaults restored.");
+            refresh_bindings();
+            return;
+        }
+        if (id.compare(0, 5, "bind-") == 0 || id.compare(0, 5, "axis-") == 0) {
+            lbAudioAx_80024030(SFX_CONFIRM);
+            start_binding(std::atoi(id.c_str() + 5), id[0] == 'a');
+            return;
+        }
         if (id == "display") {
             if (!SDL_SetWindowFullscreen(window, !VIGetWindowFullscreen())) { label("menu-status", SDL_GetError()); return; }
             prefs.fullscreen = VIGetWindowFullscreen();
         } else if (id == "sync" && !std::getenv("MELEE_VSYNC")) {
             prefs.vsync = !prefs.vsync; aurora_enable_vsync(prefs.vsync);
         } else if (id == "resolution") {
-            prefs.render_scale = prefs.render_scale >= 4 ? 0 : int(prefs.render_scale) + 1;
-            VISetFrameBufferScale(prefs.render_scale);
+            prefs.render_scale = prefs.render_scale >= 10 ? 0 : int(prefs.render_scale) + 1;
+            resize_pending = true;
         } else if (id == "aspect") {
             prefs.widescreen = (prefs.widescreen + 1) % 3;
-            pc_widescreen_set_mode(prefs.widescreen);
+            resize_pending = true;
         } else if (id == "aa") prefs.msaa = prefs.msaa == 1 ? 4 : 1;
         else if (id == "filter") prefs.anisotropy = prefs.anisotropy >= 16 ? 1 : prefs.anisotropy * 2;
-        else if (id == "volume") {
+        else if (id == "filter-mode") {
+            prefs.filter_mode = (prefs.filter_mode + 1) % 4;
+            aurora_set_resampler(static_cast<AuroraSampler>(prefs.filter_mode));
+        } else if (id == "volume") {
             int step = int(prefs.volume * 10 + 0.5f);
             prefs.volume = (step >= 10 ? 0 : step + 1) / 10.0f;
         } else if (id == "mute") prefs.mute = !prefs.mute;
         else if (id == "fps") prefs.fps = !prefs.fps;
+        else if (id == "scale") {
+            prefs.scale = prefs.scale >= 1.5f ? 0.75f : prefs.scale + 0.25f;
+            aurora::rmlui::set_ui_scale(prefs.scale);
+        } else return;
         pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
-        std::string error;
-        label("menu-status", launcher::save_preferences(config_path, prefs, error) ? "Saved." : error);
-        refresh();
+        lbAudioAx_80024030(SFX_CONFIRM);
+        saved();
+    }
+    void drag(const Rml::String& id, float value) {
+        if (id == "volume") prefs.volume = std::clamp(value / 100.0f, 0.0f, 1.0f);
+        else if (id == "resolution") {
+            prefs.render_scale = std::clamp(float(int(value + 0.5f)), 0.0f, 10.0f);
+            resize_pending = true;
+        } else if (id == "scale") {
+            prefs.scale = std::clamp(value / 100.0f, 0.75f, 1.5f);
+            aurora::rmlui::set_ui_scale(prefs.scale);
+        } else return;
+        pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
+        lbAudioAx_80024030(SFX_MOVE);
+        saved();
+    }
+    // Left/right: pages the tab strip, otherwise nudges the focused slider.
+    void step(int direction) {
+        auto* focus = document->GetContext()->GetFocusElement();
+        if (!focus) return;
+        const auto id = focus->GetId();
+        if (tab_index(id) >= 0) { show_tab(tab + direction); return; }
+        if (id == "volume") prefs.volume = std::clamp(prefs.volume + direction * 0.05f, 0.0f, 1.0f);
+        else if (id == "resolution") {
+            prefs.render_scale = std::clamp(prefs.render_scale + direction, 0.0f, 10.0f);
+            resize_pending = true;
+        } else if (id == "scale") {
+            prefs.scale = std::clamp(prefs.scale + direction * 0.25f, 0.75f, 1.5f);
+            aurora::rmlui::set_ui_scale(prefs.scale);
+        } else return;
+        pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
+        lbAudioAx_80024030(SFX_MOVE);
+        saved();
+    }
+    // Gamepad drives the overlay directly: while it is open PADBlockInput
+    // keeps the game from seeing any of this.
+    void gamepad(const SDL_Event& e) {
+        if (!document) return;
+        if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+            const auto button = e.gbutton.button;
+            if (button == SDL_GAMEPAD_BUTTON_BACK && binding < 0) { toggle(); return; }
+            if (!open || binding >= 0) return; // a bind prompt owns every button
+            switch (button) {
+            case SDL_GAMEPAD_BUTTON_DPAD_UP: focus_step(-1); break;
+            case SDL_GAMEPAD_BUTTON_DPAD_DOWN: focus_step(1); break;
+            case SDL_GAMEPAD_BUTTON_DPAD_LEFT: step(-1); break;
+            case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: step(1); break;
+            case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: show_tab(tab - 1); break;
+            case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: show_tab(tab + 1); break;
+            case SDL_GAMEPAD_BUTTON_SOUTH: activate_focus(); break;
+            case SDL_GAMEPAD_BUTTON_EAST:
+            case SDL_GAMEPAD_BUTTON_START: toggle(); break;
+            default: break;
+            }
+        } else if (e.type == SDL_EVENT_GAMEPAD_AXIS_MOTION && open && binding < 0) {
+            const auto value = e.gaxis.value;
+            const auto now = SDL_GetTicks();
+            if (std::abs(value) <= 18000) return;
+            if (e.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY && now - last_axis_y > 200) {
+                focus_step(value > 0 ? 1 : -1); last_axis_y = now;
+            } else if (e.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX && now - last_axis_x > 200) {
+                step(value > 0 ? 1 : -1); last_axis_x = now;
+            }
+        }
+    }
+    void ProcessEvent(Rml::Event& event) override {
+        if (event.GetId() == Rml::EventId::Focus) {
+            if (open && !quiet) lbAudioAx_80024030(SFX_MOVE);
+            return;
+        }
+        if (event.GetId() == Rml::EventId::Keydown) {
+            const auto key = event.GetParameter<int>("key_identifier", 0);
+            if (key == Rml::Input::KI_ESCAPE && open) {
+                if (binding >= 0) cancel_binding();
+                else toggle();
+                return;
+            }
+            if (binding >= 0) return;
+            auto* focus = document->GetContext()->GetFocusElement();
+            const auto id = focus ? focus->GetId() : Rml::String();
+            if (key == Rml::Input::KI_UP || key == Rml::Input::KI_DOWN) {
+                focus_step(key == Rml::Input::KI_UP ? -1 : 1);
+                event.StopPropagation();
+            } else if (key == Rml::Input::KI_RETURN && focus && is_slider(id)) {
+                apply(id);
+                event.StopPropagation();
+            } else if ((key == Rml::Input::KI_LEFT || key == Rml::Input::KI_RIGHT) && tab_index(id) >= 0) {
+                show_tab(tab + (key == Rml::Input::KI_LEFT ? -1 : 1));
+                event.StopPropagation();
+            }
+            return;
+        }
+        if (event.GetId() == Rml::EventId::Change) {
+            auto* target = event.GetTargetElement();
+            if (target && !quiet) drag(target->GetId(), event.GetParameter<float>("value", 0.0f));
+            return;
+        }
+        if (binding >= 0) return;
+        auto* target = event.GetTargetElement();
+        while (target && target != document && target->GetTagName() != "button") target = target->GetParentNode();
+        if (!target || target == document) return;
+        apply(target->GetId());
     }
 };
 PortMenu port_menu;
@@ -406,8 +894,15 @@ extern "C" void pc_menu_init(SDL_Window* window) {
     if (!port_menu.document) { SDL_Log("F1 menu: could not load port-menu.rml"); return; }
     port_menu.document->AddEventListener(Rml::EventId::Click, &port_menu);
     port_menu.document->AddEventListener(Rml::EventId::Keydown, &port_menu);
+    port_menu.document->AddEventListener(Rml::EventId::Change, &port_menu);
+    // Focus does not bubble; the capture pass still reaches the document.
+    port_menu.document->AddEventListener(Rml::EventId::Focus, &port_menu, true);
+    aurora_set_resampler(static_cast<AuroraSampler>(prefs.filter_mode));
 }
 extern "C" void pc_menu_toggle(void) { port_menu.toggle(); }
+extern "C" void pc_menu_event(const SDL_Event* event) {
+    if (event) port_menu.gamepad(*event);
+}
 extern "C" void pc_menu_update(void) {
     if (port_menu.counter) {
         if (prefs.fps) {
@@ -419,4 +914,5 @@ extern "C" void pc_menu_update(void) {
             }
         } else if (port_menu.counter->IsVisible()) port_menu.counter->Hide();
     }
+    port_menu.poll_binding();
 }

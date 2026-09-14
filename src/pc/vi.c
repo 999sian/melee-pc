@@ -65,11 +65,15 @@ void pc_frame_boundary(void)
             if (event->sdl.type == SDL_EVENT_KEY_DOWN &&
                 event->sdl.key.scancode == SDL_SCANCODE_F1 && !event->sdl.key.repeat)
                 pc_menu_toggle();
+            pc_menu_event(&event->sdl);
             pc_keyboard_event(&event->sdl);
         }
         ++event;
     }
     pc_menu_update();
+    /* Nothing draws while the overlay pauses the game, so hold the last
+     * frame instead of clearing the EFB to black underneath the menu. */
+    aurora_preserve_frame_buffer(pc_menu_is_open());
     pc_keyboard_apply();
     if (pc_exit_requested) {
         exit(0);
@@ -119,6 +123,12 @@ void pc_frame_boundary(void)
 void VIWaitForRetrace(void)
 {
     pc_frame_boundary();
+    /* The overlay pauses the game. Melee's whole simulation hangs off this
+     * call returning, so keep presenting frames and pumping input here and
+     * simply do not hand one back until the menu closes. */
+    while (pc_menu_is_open() && !pc_exit_requested) {
+        pc_frame_boundary();
+    }
 }
 
 u32 VIGetRetraceCount(void)

@@ -1,5 +1,6 @@
 #include <aurora/aurora.h>
 #include <aurora/time.hpp>
+#include <cmath>
 
 #ifdef AURORA_ENABLE_GX
 #include "gfx/resources.hpp"
@@ -120,9 +121,10 @@ AuroraInfo initialize(int argc, char* argv[], const AuroraConfig& config) noexce
   } else {
     g_config.resourcesPath = strdup(g_config.resourcesPath);
   }
-  if (g_config.msaa == 0) {
-    g_config.msaa = 1;
-  }
+  // WebGPU only guarantees sample counts 1 and 4, and Dawn rejects the rest
+  // outright: an unsupported count aborts device creation rather than
+  // degrading, so clamp here instead of trusting the caller.
+  g_config.msaa = g_config.msaa > 1 ? 4 : 1;
   if (g_config.maxTextureAnisotropy == 0) {
     g_config.maxTextureAnisotropy = 16;
   }
@@ -488,6 +490,13 @@ void aurora_set_resampler(AuroraSampler sampler) {
   aurora::webgpu::set_resampler(sampler);
 #else
   (void)sampler;
+#endif
+}
+void aurora_preserve_frame_buffer(bool preserve) {
+#ifdef AURORA_ENABLE_GX
+  aurora::gfx::set_preserve_frame_buffer(preserve);
+#else
+  (void)preserve;
 #endif
 }
 void aurora_set_timescale(float scale) { aurora::time::set_scale(scale); }

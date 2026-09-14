@@ -1,3 +1,5 @@
 build/
+build-win/
+dist/
 *.inc
 __pycache__/

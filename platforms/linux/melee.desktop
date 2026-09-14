@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Super Smash Bros. Melee
+Comment=Native PC port of Super Smash Bros. Melee
+Exec=melee %f
+Icon=melee
+Terminal=false
+Categories=Game;ActionGame;
+StartupNotify=true
+MimeType=application/x-gamecube-rom;application/x-iso9660-image;

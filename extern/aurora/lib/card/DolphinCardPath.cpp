@@ -9,9 +9,14 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <Windows.h>
+#include <windows.h>
 #include <winreg.h>
+#include <shlobj.h>
+#if defined(__has_include)
+#if __has_include(<shlobj_core.h>)
 #include <shlobj_core.h>
+#endif
+#endif
 #endif
 
 #include <SDL3/SDL_filesystem.h>

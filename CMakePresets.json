@@ -1,0 +1,126 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "release",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "relwithdebinfo",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "linux-default",
+      "displayName": "Linux (Default Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux",
+      "inherits": [
+        "release"
+      ],
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install"
+      }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "inherits": [
+        "debug"
+      ]
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows (MinGW-w64 Cross)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows",
+      "inherits": [
+        "release"
+      ],
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/x86_64-w64-mingw32.cmake"
+      }
+    },
+    {
+      "name": "android-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/android-${presetName}",
+      "inherits": [
+        "release"
+      ],
+      "environment": {
+        "ANDROID_HOME": "/home/sian/Android",
+        "ANDROID_NDK_HOME": "/home/sian/Android/ndk/26.3.11579264"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "/home/sian/Android/ndk/26.3.11579264/build/cmake/android.toolchain.cmake",
+        "ANDROID_PLATFORM": "android-26",
+        "CMAKE_DISABLE_FIND_PACKAGE_PkgConfig": true
+      }
+    },
+    {
+      "name": "android-arm64",
+      "displayName": "Android (arm64-v8a)",
+      "inherits": [
+        "android-base"
+      ],
+      "binaryDir": "${sourceDir}/build/android-arm64",
+      "cacheVariables": {
+        "ANDROID_ABI": "arm64-v8a"
+      }
+    },
+    {
+      "name": "android-x86_64",
+      "displayName": "Android (x86_64)",
+      "inherits": [
+        "android-base"
+      ],
+      "binaryDir": "${sourceDir}/build/android-x86_64",
+      "cacheVariables": {
+        "ANDROID_ABI": "x86_64"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-default",
+      "configurePreset": "linux-default"
+    },
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "windows-mingw",
+      "configurePreset": "windows-mingw"
+    },
+    {
+      "name": "android-arm64",
+      "configurePreset": "android-arm64"
+    },
+    {
+      "name": "android-x86_64",
+      "configurePreset": "android-x86_64"
+    }
+  ]
+}

@@ -7,9 +7,16 @@
 #include <dolphin/os.h>
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if defined(__ANDROID__)
+#define MELEE_EXPORT __attribute__((visibility("default")))
+#else
+#define MELEE_EXPORT
+#endif
 
 #include "pc/pc.h"
 #include "pc/launcher.h"
@@ -48,7 +55,7 @@ static void pc_shutdown_once(void)
     aurora_shutdown();
 }
 
-int main(int argc, char* argv[])
+MELEE_EXPORT int main(int argc, char* argv[])
 {
     const char* disc = NULL;
     bool card = true;

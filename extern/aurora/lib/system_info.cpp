@@ -5,7 +5,7 @@
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
 #include <combaseapi.h>
-#include <Wbemidl.h>
+#include <wbemidl.h>
 #include <comutil.h>
 #include <dxgi.h>
 #include <wrl/client.h>

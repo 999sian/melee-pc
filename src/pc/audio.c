@@ -769,10 +769,10 @@ void AXRegisterAuxBCallback(void (*callback)(void*, void*), void* context)
 
 /* ---- AXFX -------------------------------------------------------------- */
 
-void* (*__AXFXAlloc)(unsigned long) = NULL;
+void* (*__AXFXAlloc)(size_t) = NULL;
 void (*__AXFXFree)(void*) = NULL;
 
-void* AXFXAllocFunction(unsigned long size)
+void* AXFXAllocFunction(size_t size)
 {
     return __AXFXAlloc != NULL ? __AXFXAlloc(size) : calloc(1, size);
 }
@@ -786,7 +786,7 @@ void AXFXFreeFunction(void* ptr)
     }
 }
 
-void AXFXSetHooks(void* (*alloc_hook)(unsigned long), void (*free_hook)(void*))
+void AXFXSetHooks(void* (*alloc_hook)(size_t), void (*free_hook)(void*))
 {
     __AXFXAlloc = alloc_hook;
     __AXFXFree = free_hook;

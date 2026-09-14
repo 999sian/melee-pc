@@ -6,7 +6,7 @@ endif ()
 
 project(melee-pc LANGUAGES C CXX)
 
-if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
+if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID)
     # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
     # on-disc structures, which only GCC implements (C only).
     message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
@@ -23,7 +23,22 @@ set(AURORA_ENABLE_CARD ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_THP ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_RMLUI ON CACHE BOOL "" FORCE)
 add_subdirectory(extern/aurora EXCLUDE_FROM_ALL)
-find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+if (WIN32)
+    set(MELEE_CRYPTO_LIBS bcrypt)
+    add_compile_definitions(MELEE_USE_BCRYPT)
+elseif (ANDROID)
+    set(MELEE_CRYPTO_LIBS)
+    add_compile_definitions(MELEE_USE_BUILTIN_SHA1)
+else ()
+    find_package(OpenSSL COMPONENTS Crypto QUIET)
+    if (OpenSSL_FOUND)
+        set(MELEE_CRYPTO_LIBS OpenSSL::Crypto)
+        add_compile_definitions(MELEE_USE_OPENSSL)
+    else ()
+        set(MELEE_CRYPTO_LIBS)
+        add_compile_definitions(MELEE_USE_BUILTIN_SHA1)
+    endif ()
+endif ()
 
 # ---- Game code (decomp, compiled as C) -------------------------------------
 # src/thp (Melee's PPC THP decoder) is replaced by aurora::thp; see src/pc/thp.c.
@@ -52,9 +67,12 @@ target_compile_options(melee_game PRIVATE
         # Shift-JIS. Upstream gets this from sjiswrap around mwcc. CP932 (not
         # SHIFT_JIS) because the tables use fullwidth punctuation such as
         # U+FF0D that glibc's SHIFT_JIS converter rejects.
-        -fexec-charset=CP932
-        -fno-pie
-        -Wno-scalar-storage-order
+        $<$<C_COMPILER_ID:GNU>:-fexec-charset=CP932>
+        $<$<C_COMPILER_ID:GNU>:-Wno-scalar-storage-order>
+        $<$<C_COMPILER_ID:Clang>:-Wno-unknown-attributes>
+        $<$<C_COMPILER_ID:Clang>:-Wno-unknown-warning-option>
+        $<$<NOT:$<BOOL:${WIN32}>>:-fPIC>
+        $<$<BOOL:${WIN32}>:-mno-ms-bitfields>
         -include ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/compat.h)
 target_link_libraries(melee_game PUBLIC
         aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx
@@ -62,18 +80,38 @@ target_link_libraries(melee_game PUBLIC
 
 # ---- PC platform layer -----------------------------------------------------
 file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp)
-add_executable(melee ${PC_SOURCES})
-target_compile_options(melee PRIVATE $<$<COMPILE_LANGUAGE:C>:-fno-pie>)
-target_link_libraries(melee PRIVATE melee_game aurora::main OpenSSL::Crypto)
+if (ANDROID)
+    add_library(melee SHARED ${PC_SOURCES})
+else ()
+    add_executable(melee ${PC_SOURCES})
+endif ()
+
+target_compile_options(melee PRIVATE $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>>:-fno-pie>)
+target_link_libraries(melee PRIVATE melee_game aurora::main ${MELEE_CRYPTO_LIBS})
+
 # Non-PIE: static data and code stay below 4GB (32-bit pointer slots in disc data).
-target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
+if (WIN32)
+    target_link_options(melee PRIVATE -Wl,--image-base,0x10000000 -Wl,--disable-dynamicbase -Wl,--disable-high-entropy-va -Wl,-u,WinMain)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/platforms/windows/melee.rc")
+        target_sources(melee PRIVATE platforms/windows/melee.rc)
+    endif ()
+    include("${CMAKE_CURRENT_SOURCE_DIR}/extern/aurora/cmake/AuroraCopyRuntimeDLLs.cmake" OPTIONAL)
+    if (COMMAND aurora_copy_runtime_dlls)
+        aurora_copy_runtime_dlls(melee)
+    endif ()
+elseif (NOT ANDROID)
+    target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
+endif ()
+
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)
 add_custom_target(launcher_resources ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:melee>/resources")
 add_dependencies(melee launcher_resources)
 
-add_executable(launcher_data_test EXCLUDE_FROM_ALL tools/test_launcher_data.cpp src/pc/launcher_data.cpp)
-target_include_directories(launcher_data_test PRIVATE src)
-target_link_libraries(launcher_data_test PRIVATE aurora::dvd OpenSSL::Crypto)
-target_compile_options(launcher_data_test PRIVATE -UNDEBUG)
+if (NOT ANDROID)
+    add_executable(launcher_data_test EXCLUDE_FROM_ALL tools/test_launcher_data.cpp src/pc/launcher_data.cpp)
+    target_include_directories(launcher_data_test PRIVATE src)
+    target_link_libraries(launcher_data_test PRIVATE aurora::dvd ${MELEE_CRYPTO_LIBS})
+    target_compile_options(launcher_data_test PRIVATE -UNDEBUG)
+endif ()

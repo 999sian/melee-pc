@@ -529,6 +529,7 @@ void enqueue_pass(FramePacket& frame, uint32_t passIndex) {
 } // namespace
 
 namespace detail {
+bool g_preserveFrameBuffer = false;
 
 void begin_recording(FramePacket& packet, size_t frameSlot) {
   CHECK(!g_recorder.active(), "A recording session is already active");
@@ -545,6 +546,13 @@ void begin_recording(FramePacket& packet, size_t frameSlot) {
   set_efb_targets(pass);
   pass.colorAttachments[SceneColorAttachmentIndex].clearValue = gx::g_gxState.clearColor;
   pass.clearDepthValue = gx::clear_depth_value();
+  if (g_preserveFrameBuffer) {
+    for (uint32_t i = 0; i < pass.colorAttachmentCount; ++i) {
+      pass.colorAttachments[i].clear = false;
+      pass.colorAttachments[i].loadOp = wgpu::LoadOp::Undefined;
+    }
+    pass.clearDepth = false;
+  }
   g_recorder.currentRenderPass = 0;
   g_recorder.cachedViewport = gx::map_logical_viewport(gx::g_gxState.logicalViewport);
   g_recorder.cachedScissor = gx::map_logical_scissor(gx::g_gxState.logicalScissor);
@@ -621,6 +629,10 @@ void increment_merged_draw_count() noexcept {
 }
 
 } // namespace detail
+
+void set_preserve_frame_buffer(bool preserve) noexcept {
+  detail::g_preserveFrameBuffer = preserve;
+}
 
 void queue_texture_upload(TextureUpload upload) {
   if (g_recorder.currentRenderPass != UINT32_MAX) {

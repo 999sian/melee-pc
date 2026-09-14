@@ -185,6 +185,22 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(t, s, in.uv);
     if (uniforms.sampler_mode == 1u) {
         color = sample_area(in.position);
+    } else if (uniforms.sampler_mode == 2u) {
+        // Scanlines follow the 480 virtual lines of the original display, not
+        // the output pixel grid. The gap has to be asymmetric inside the line:
+        // any pattern symmetric about the line centre (a cos, a triangle) gives
+        // the two output rows of a 960-tall window the same value and flattens
+        // into a uniform dim. The grille is a three-phosphor triad.
+        let scanline = mix(1.0, 0.72, step(0.5, fract(in.uv.y * 480.0)));
+        let phase = u32(in.position.x) % 3u;
+        let grille = vec3<f32>(select(0.9, 1.0, phase == 0u),
+                               select(0.9, 1.0, phase == 1u),
+                               select(0.9, 1.0, phase == 2u));
+        color = vec4(color.rgb * scanline * grille, 1.0);
+    } else if (uniforms.sampler_mode == 3u) {
+        let lum = dot(color.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let saturated = mix(vec3<f32>(lum), color.rgb, 1.25);
+        color = vec4(clamp(saturated, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
     }
     return vec4(color.rgb, 1.0);
 }
@@ -217,6 +233,10 @@ uint32_t sampler_mode(AuroraSampler sampler) noexcept {
   switch (sampler) {
   case SAMPLER_AREA:
     return 1;
+  case SAMPLER_CRT:
+    return 2;
+  case SAMPLER_VIBRANT:
+    return 3;
   case SAMPLER_BILINEAR:
   default:
     return 0;
@@ -319,6 +339,8 @@ const TextureWithSampler& present_source() noexcept {
 void set_resampler(AuroraSampler sampler) noexcept {
   switch (sampler) {
   case SAMPLER_AREA:
+  case SAMPLER_CRT:
+  case SAMPLER_VIBRANT:
   case SAMPLER_BILINEAR:
     g_Resampler = sampler;
     return;
@@ -756,7 +778,7 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
         .requiredFeatureCount = requiredInstanceFeatures.size(),
         .requiredFeatures = requiredInstanceFeatures.data(),
     };
-#ifdef WEBGPU_DAWN
+#if defined(WEBGPU_DAWN) && !defined(__MINGW32__)
     dawn::native::DawnInstanceDescriptor dawnInstanceDescriptor;
     dawnInstanceDescriptor.backendValidationLevel = dawn::native::BackendValidationLevel::Disabled;
     dawnInstanceDescriptor.SetLoggingCallback(wgpu_log);

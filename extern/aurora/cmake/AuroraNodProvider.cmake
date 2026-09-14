@@ -132,7 +132,20 @@ elseif (_aurora_nod_provider STREQUAL "package")
 
   # The prebuilt package ships a CMake config that creates nod::nod_shared,
   # nod::nod_static, and a default nod::nod (based on BUILD_SHARED_LIBS).
-  # Set BUILD_SHARED_LIBS so the config selects the right default target.
+  if (WIN32 AND NOT MSVC)
+    # nod prebuilt Windows package was built with MSVC naming (nod.dll, nod.lib)
+    # MinGW expects libnod.dll and libnod.dll.a/libnod.a
+    if (EXISTS "${nod_prebuilt_SOURCE_DIR}/bin/nod.dll" AND NOT EXISTS "${nod_prebuilt_SOURCE_DIR}/bin/libnod.dll")
+      file(CREATE_LINK "${nod_prebuilt_SOURCE_DIR}/bin/nod.dll" "${nod_prebuilt_SOURCE_DIR}/bin/libnod.dll" COPY_ON_ERROR SYMBOLIC)
+    endif ()
+    if (EXISTS "${nod_prebuilt_SOURCE_DIR}/lib/nod.lib" AND NOT EXISTS "${nod_prebuilt_SOURCE_DIR}/lib/libnod.dll.a")
+      file(CREATE_LINK "${nod_prebuilt_SOURCE_DIR}/lib/nod.lib" "${nod_prebuilt_SOURCE_DIR}/lib/libnod.dll.a" COPY_ON_ERROR SYMBOLIC)
+    endif ()
+    if (EXISTS "${nod_prebuilt_SOURCE_DIR}/lib/nod_static.lib" AND NOT EXISTS "${nod_prebuilt_SOURCE_DIR}/lib/libnod.a")
+      file(CREATE_LINK "${nod_prebuilt_SOURCE_DIR}/lib/nod_static.lib" "${nod_prebuilt_SOURCE_DIR}/lib/libnod.a" COPY_ON_ERROR SYMBOLIC)
+    endif ()
+  endif ()
+
   set(_aurora_nod_saved_bsl "${BUILD_SHARED_LIBS}")
   if (AURORA_NOD_LINKAGE STREQUAL "static")
     set(BUILD_SHARED_LIBS OFF)
