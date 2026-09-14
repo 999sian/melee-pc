@@ -313,17 +313,9 @@ MELEE_EXPORT int main(int argc, char* argv[])
     /* Record which backend was actually selected. Without this the log cannot
      * say whether a run went through D3D12 or Vulkan, which is the first thing
      * worth knowing about a fault that only reproduces on one platform. */
-    {
-        FILE* streams[] = { stderr, log_file() };
-        for (size_t i = 0; i < sizeof(streams) / sizeof(*streams); i++) {
-            if (streams[i] != NULL) {
-                fprintf(streams[i], "[INFO] main: graphics backend: %s%s\n",
-                        backend_name(info.backend),
-                        config.desiredBackend == BACKEND_AUTO ? " (auto)" : " (MELEE_BACKEND)");
-                fflush(streams[i]);
-            }
-        }
-    }
+    pc_log_line("graphics backend: %s%s", backend_name(info.backend),
+                config.desiredBackend == BACKEND_AUTO ? " (auto)"
+                                                      : " (MELEE_BACKEND)");
     /* Closing the window exits from inside the frame loop (pc/vi.c), which
      * would otherwise skip aurora_shutdown() entirely: Dawn's static
      * destructors then tear the device down while aurora still thinks it is
