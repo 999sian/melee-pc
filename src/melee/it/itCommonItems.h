@@ -1295,7 +1295,7 @@ typedef struct DISC_STRUCT itChicoritaLeafAttr {
 DISC_ASSERT_SIZE(itChicoritaLeafAttr, 0x14);
 
 typedef struct DISC_STRUCT it_2728_DatAttrs {
-    DISC_PTR(Fighter) fighter;
+    s32 duration;
 } it_2728_DatAttrs;
 DISC_ASSERT_SIZE(it_2728_DatAttrs, 0x4);
 

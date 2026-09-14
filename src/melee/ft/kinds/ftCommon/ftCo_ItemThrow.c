@@ -40,7 +40,7 @@ typedef struct DISC_STRUCT ftCo_ItemThrowAttrs {
 } ftCo_ItemThrowAttrs;
 DISC_ASSERT_SIZE(ftCo_ItemThrowAttrs, 0xC);
 #define ITEM_THROW_ATTRS(msid)                                                 \
-    (&DP(ftCo_ItemThrowAttrs, Fighter_804D6550)[(msid) - ftCo_MS_LightThrowF])
+    (&((ftCo_ItemThrowAttrs*) Fighter_804D6550)[(msid) - ftCo_MS_LightThrowF])
 
 typedef struct ftCo_ItemThrowCmd {
     /* +0:0  */ u32 pad : 20;

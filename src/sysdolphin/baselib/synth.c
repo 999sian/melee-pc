@@ -175,7 +175,7 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t length,
         HSD_Synth_804D7730 =
             HSD_AudioMalloc(OSRoundUp32B(alloc_size + header_size));
         HSD_Synth_804D6028[1] = HSD_DevComRequest(
-            HSD_Synth_804C2A60[0].entrynum, 0x20, (u32) HSD_Synth_804D7730,
+            HSD_Synth_804C2A60[0].entrynum, 0x20, (uintptr_t) HSD_Synth_804D7730,
             OSRoundUp32B(header_size - 0x10), 0x21, 1, NULL, NULL);
         HSD_Synth_804D6028[0] = HSD_DevComRequest(
             HSD_Synth_804C2A60[0].entrynum, OSRoundUp32B(header_size + 0x10),
@@ -1260,7 +1260,7 @@ static inline void HSD_Synth_8038ADD0_inline(u32 pos)
                     HSD_Synth_804D7764, src,
                     (uintptr_t) &lbl_804C4540[HSD_Synth_804D7768], 0x20, 0x21,
                     0, (HSD_DevComCallback) (Event) HSD_Synth_8038AD74,
-                    (struct HSD_SynthStreamHeader*) (src + 0x20));
+                    (void*) (uintptr_t) (src + 0x20));
             }
         }
         OSRestoreInterrupts(intr);

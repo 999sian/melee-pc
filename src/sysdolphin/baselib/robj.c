@@ -850,7 +850,7 @@ static HSD_Rvalue* loadRvalue(HSD_RvalueList* list)
     if (list == NULL) {
         return NULL;
     } else {
-        for (; list->joint != NULL; list++) {
+        for (; list->joint != 0; list++) {
             rp->next = HSD_RvalueAlloc();
             rp->next->flags = list->flags;
             rp = rp->next;
@@ -903,7 +903,7 @@ void HSD_RvalueResolveRefsAll(HSD_Rvalue* rvalue, HSD_RvalueList* list)
     if (list == NULL) {
         return;
     }
-    for (; rvalue != NULL && list->joint != NULL;
+    for (; rvalue != NULL && list->joint != 0;
          rvalue = rvalue->next, list++)
     {
         HSD_RvalueResolveRefs(rvalue, list);

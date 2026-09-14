@@ -1116,7 +1116,7 @@ bool ftColl_80077C60(Item* item, HitCapsule* hit, Fighter* fp,
             case It_Kind_Star:
                 hit->state = HitCapsule_Disabled;
                 item->xC34_damageDealt = 1;
-                ftColl_8007B7FC(fp, (int) it_80272818(item));
+                ftColl_8007B7FC(fp, it_80272818(item));
                 ft_PlaySFX(fp, 0xF9, 0x7F, 0x40);
                 ftCommon_8007EBAC(fp, 0x11, 0);
                 break;

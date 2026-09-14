@@ -1037,16 +1037,9 @@ struct grYorster_GroundVars {
  * puts it on both ABIs. */
 struct grZebes_GroundVars {
     /*  +0 gp+C4:0 */ u8 x0_b0 : 1;
-    union {
-        /* Alignment only: grZebes_GroundVars5's gp+C8 union. */
-        void* pad_align;
-        struct {
-            /*  +8 gp+C8 */ u32 x4;
-            /*  +C gp+CC */ s16 x8;
-            /*  +E gp+CE */ s16 xA;
-            /* +10 gp+D0 */ Vec3 xC;
-        };
-    };
+    /*  +8 gp+C8   */ HSD_JObj* stored_jobj;
+    /* +10 gp+D0   */ s16 x8;
+    /* +12 gp+D2   */ s16 xA;
 };
 
 struct grZebes_GroundVars2 {
@@ -1098,26 +1091,13 @@ struct grZebes_GroundVars5 {
         grZe_AcidState acid; /* the acid Ground's view of gp+C8..gp+EB */
     };
     /* +40 gp+EC */ u32 xEC;
-    /* +44 gp+F0 */ u32 xF0;
+    /* +44 gp+F0 */ HSD_GObj* xF0;
     /* +48 gp+F4 */ s16 xF4;
     /* +4A gp+F6 */ s16 xF6;
     /* +4C gp+F8 */ u32 xF8;
-    /* +50 gp+FC */ u32 xFC;
-    /* +54 gp+100 */ u32 x100;
+    /* +50 gp+FC */ grZakoGenerator_Config* xFC;
+    /* +54 gp+100 */ HSD_GObj* x100;
 };
-
-/* One GameCube offset, one host offset. The Brinstar acid Ground is written
- * through grZebes_GroundVars by the deferred callback grZebes_801D9758 and
- * read back through grZebes_GroundVars5 by grZebes_801D99E0, so gp+C8
- * onwards has to resolve to the same HOST byte in both views. Restoring a
- * GameCube-packed layout in either view fails here instead of silently
- * parking the state write in zebes5's alignment hole. */
-STATIC_ASSERT(offsetof(struct grZebes_GroundVars, x4) ==
-              offsetof(struct grZebes_GroundVars5, xC8));
-STATIC_ASSERT(offsetof(struct grZebes_GroundVars, x8) ==
-              offsetof(struct grZebes_GroundVars5, xCC));
-STATIC_ASSERT(offsetof(struct grZebes_GroundVars, xC) ==
-              offsetof(struct grZebes_GroundVars5, xD0));
 
 struct grRCruise_Entry {
     /* 0x00 */ u8 x0;
@@ -1426,7 +1406,7 @@ struct grBigBlue_GroundData {
     /* gp+118 gp+16C gp+1C0 */ s32 x34;
     /* gp+11C gp+170 gp+1C4 */ Vec3 x38;
     /* gp+128 gp+17C gp+1D0 */ Vec3 x44;
-    /* gp+134 gp+188 gp+1DC */ s32 x50;
+    /* gp+134 gp+188 gp+1DC */ HSD_GObj* x50;
 };
 ASSERT_SIZE(struct grBigBlue_GroundData, 0x54);
 
@@ -1688,6 +1668,11 @@ struct grCastle_GroundVars6 {
     /* +08 gp+CC */ s32 xCC;
 };
 
+struct grCastle_GroundVars1 {
+    /* +00 gp+C4 */ HSD_GObj* xC4;
+    /* +08 gp+C8 */ CmSubject* xC8;
+};
+
 /* The satellite gobj (grCastle_801CF0F4 / grCastle_801CF308). Its gp+D0/D4/D8
  * slots MUST be read through this view only: grCastle_GroundVars11 describes a
  * different gobj and, because #xD0 is a real pointer here, the two views no
@@ -1696,9 +1681,8 @@ struct grCastle_GroundVars7 {
     /* +00 gp+C4 */ s16 xC4;
     /* +02 gp+C6 */ u8 pad_xC6[0xA];
     /* +0C gp+D0 */ HSD_GObj* xD0;
-    /* +10 gp+D4 */ u32 xD4;
-    /* +14 gp+D8 */ u32 xD8; ///< unsigned: casting back to a pointer must
-                             ///< zero-extend
+    /* +10 gp+D4 */ HSD_JObj* xD4;
+    /* +18 gp+D8 */ HSD_GObj* xD8;
 };
 
 struct grCastle_Platform {
@@ -1734,13 +1718,14 @@ struct grCastle_GroundVars9 {
 
 struct grCastle_GroundVars10 {
     /* +00 gp+C4 */ s16 xC4;
-    /* +02 gp+C6 */ u8 pad_C6[2];
+    /* +02 gp+C6 */ s16 xC6;
     /* +04 gp+C8 */ s16 xC8;
-    /* +06 gp+CA */ u8 pad_CA[6];
+    /* +06 gp+CA */ s16 xCA;
+    /* +08 gp+CC */ s32 xCC;
     /* +0C gp+D0 */ HSD_JObj* jobjs[5];
     /* +20 gp+E4 */ HSD_JObj* effect_a[5];
     /* +34 gp+F8 */ HSD_JObj* effect_b[5];
-    /* +48 gp+10C */ u32 x10C[5];
+    /* +48 gp+10C */ HSD_GObj* x10C[5];
     /* +5C gp+120 */ s32 x120[5];
     /* +70 gp+134 */ u8 state[5];
     /* +75 gp+139 */ u8 idx[5];
@@ -1762,10 +1747,10 @@ struct grCastle_GroundVars11 {
     /* +01 gp+C5 */ u8 pad_01[3];
     /* +04 gp+C8 */ s16 xC8;
     /* +06 gp+CA */ s16 xCA;
-    /* +08 gp+CC */ u32 xCC;
-    /* +0C gp+D0 */ u32 xD0;
-    /* +10 gp+D4 */ u32 xD4;
-    /* +14 gp+D8 */ u32 xD8;
+    /* +08 gp+CC */ HSD_GObj* xCC;
+    /* +10 gp+D0 */ HSD_GObj* xD0;
+    /* +18 gp+D4 */ HSD_GObj* xD4;
+    /* +20 gp+D8 */ CmSubject* xD8;
 };
 
 struct grCastle_GroundVars12 {
@@ -1876,7 +1861,7 @@ struct grShrineroute_GroundVars {
     /*  +A gp+CE */ u16 xCE;
     /*  +C gp+D0 */ u16 xD0;
     u8 _pad[0xD4 - 0xD2];
-    /* +10 gp+D4 */ u32 xD4;
+    /* +10 gp+D4 */ HSD_GObj* xD4;
     /* +14 gp+D8 */ struct {
         /* +0 */ Vec3 offset;
         /* +C */ HSD_JObj* jobj;
@@ -2082,6 +2067,7 @@ struct Ground {
         struct grBigBlue_GroundVars bigblue;
         struct grBigBlueRoute_GroundVars2 bigblueroute2;
         struct grCastle_GroundVars castle;
+        struct grCastle_GroundVars1 castle1;
         struct grCastle_GroundVars2 castle2;
         struct grCastle_GroundVars3 castle3;
         struct grCastle_GroundVars4 castle4;

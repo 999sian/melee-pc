@@ -320,7 +320,7 @@ void grZebes_801D8644(HSD_GObj* gobj)
     Vec3 pos;
     UNUSED u8 _[4];
 
-    gp->u.zebes5.xF0 = (u32) grZebes_801D8558(7);
+    gp->u.zebes5.xF0 = grZebes_801D8558(7);
     Ground_801C2ED0(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     child_jobj = Ground_801C3FA4(gobj, 0x1E);
@@ -349,9 +349,9 @@ void grZebes_801D8644(HSD_GObj* gobj)
     mat_gobj2 =
         grMaterial_801C8D44(0, 0, gp, &pos, 0, NULL, fn_801DAC90, NULL);
     grMaterial_801C8E08(mat_gobj2);
-    gp->u.zebes5.x100 = (u32) mat_gobj2;
+    gp->u.zebes5.x100 = mat_gobj2;
     grZebes_801DC9DC(gobj);
-    gp->u.zebes5.xFC = (u32) grZakoGenerator_801CA394(
+    gp->u.zebes5.xFC = (grZakoGenerator_Config*) grZakoGenerator_801CA394(
         (UNK_T) &grZe_803E1B90, 0xA, (UNK_T) grZebes_801DCB64, 1.0f);
     mpJointSetB10(0);
     Ground_801C2FE0((Ground_GObj*) gobj);
@@ -430,7 +430,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
     HSD_JObj* sima_jobj;
     s32 result;
     int vertex_idx;
-    sima_gobj = (HSD_GObj*) gp->u.zebes5.xF0;
+    sima_gobj = gp->u.zebes5.xF0;
     result = grZebes_801DA528(gobj, &gp->u.zebes5.acid, 1, 2);
     PAD_STACK(0x8);
 
@@ -462,7 +462,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
     {
         result = grZebes_801DB3CC(gobj);
         grZebes_801DC260();
-        grZebes_801DBB60((HSD_GObj*) gp->u.zebes5.x100);
+        grZebes_801DBB60(gp->u.zebes5.x100);
         grZebes_801DC408(gobj);
 
         switch (gp->u.zebes5.xC4) {
@@ -624,7 +624,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
         f32 slope;
         f32 intercept;
         Ground_801C4368(&slope, &intercept);
-        grZakoGenerator_801CA43C((grZakoGenerator_Config*) gp->u.zebes5.xFC,
+        grZakoGenerator_801CA43C(gp->u.zebes5.xFC,
                                  Ground_801C3FA4(gobj, 0xE), slope);
     }
     Ground_801C2FE0((Ground_GObj*) gobj);
@@ -753,7 +753,7 @@ void grZebes_801D9508(Ground_GObj* gobj)
     HSD_GObj* map_a_gobj = Ground_GetMapGObj(6);
     PAD_STACK(0x10);
     HSD_ASSERT(909, map_a_gobj);
-    gp->u.zebes.x4 = (u32) Ground_801C3FA4(map_a_gobj, 14);
+    gp->u.zebes.stored_jobj = Ground_801C3FA4(map_a_gobj, 14);
     gp->u.zebes.x8 = 1;
     gp->u.zebes.xA = (s16) (HSD_Randi(600) + 3000);
     gp->u.zebes.x0_b0 = true;
@@ -769,7 +769,7 @@ void grZebes_801D95B8(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    HSD_JObj* stored_jobj = (HSD_JObj*) gp->u.zebes.x4;
+    HSD_JObj* stored_jobj = gp->u.zebes.stored_jobj;
 
     if (stored_jobj != NULL) {
         Vec3 pos;
@@ -801,7 +801,7 @@ void grZebes_801D9758(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     ftCo_800C07F8(gobj, 3, grZebes_801DCBFC);
-    gp->u.zebes.x4 = 1;
+    gp->u.zebes5.xC8 = 1;
 }
 
 void grZebes_801D9798(HSD_GObj* gobj)

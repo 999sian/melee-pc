@@ -88,8 +88,8 @@ void __THPPrepBitStream(THPFileInfo* info)
     u32* ptr;
     u32 offset, i, j, k;
 
-    ptr = (u32*) ((u32) info->file & 0xFFFFFFFC);
-    offset = (u32) info->file & 3;
+    ptr = (u32*) ((uintptr_t) info->file & ~(uintptr_t) 3);
+    offset = (u32) ((uintptr_t) info->file & 3);
 
     if (info->cnt != 33) {
         info->cnt -= (3 - offset) * 8;
@@ -304,8 +304,8 @@ typedef struct THPVideoDecodeInfoView {
  * @return       Error code indicating the success or failure of the decoding
  * process.
  */
-s32 THPVideoDecode(void* file, void* tileY, void* tileU, void* tileV,
-                   void* workArea)
+uintptr_t THPVideoDecode(void* file, void* tileY, void* tileU, void* tileV,
+                         void* workArea)
 {
     u8 done;
     THPVideoDecodeInfoView* info = tileU;
@@ -400,7 +400,7 @@ s32 THPVideoDecode(void* file, void* tileY, void* tileU, void* tileV,
 
         if (done) {
             *statusOut = 0;
-            return (s32) info;
+            return (uintptr_t) info;
         }
     }
 
@@ -726,7 +726,7 @@ static u8 __THPReadHuffmanTableSpecification(THPFileInfo* info)
         *(u16*) &info->huffmanTabs[tab_index].pad2[1] = num_Vij;
         info->file += num_Vij;
         result =
-            __THPHuffGenerateSizeTable(info, tab_index, (int) huffmanBits);
+            __THPHuffGenerateSizeTable(info, tab_index, huffmanBits);
         if (result) {
             return result;
         }
@@ -791,7 +791,7 @@ static u8 __THPReadScaneHeader(THPFileInfo* info)
         rows *= scan->x8D4;
         shift = scan->x7B - scan->components[i].samplingV;
         rows >>= shift;
-        scan->components[i].x10 = (u32) scan->x904;
+        scan->components[i].x10 = (uintptr_t) scan->x904;
         scan->x904 += blocksPerRow * rows;
     }
 
@@ -820,7 +820,7 @@ typedef struct THPFileInfoHuffmanSizeView {
     u8* x904;
 } THPFileInfoHuffmanSizeView;
 
-static u8 __THPHuffGenerateSizeTable(THPFileInfo* info, u8 tab_index, int huffmanBits)
+static u8 __THPHuffGenerateSizeTable(THPFileInfo* info, u8 tab_index, u8* huffmanBits)
 {
     THPFileInfoHuffmanSizeView* huff;
     u8* bits;
@@ -828,7 +828,7 @@ static u8 __THPHuffGenerateSizeTable(THPFileInfo* info, u8 tab_index, int huffma
     s32 l;
     s32 i;
 
-    bits = (u8*) huffmanBits;
+    bits = huffmanBits;
 
     p = 0;
     for (l = 1; l <= 16; l++) {
@@ -968,7 +968,7 @@ static u8 __THPRestartDefinition(THPFileInfo* info)
 #pragma function_align 16
 #endif
 
-void THPDec_80331340(s32 arg0, void* arg1, void* arg2, void* arg3)
+void THPDec_80331340(uintptr_t arg0, void* arg1, void* arg2, void* arg3)
 {
     THPDecodeInfo* info = (THPDecodeInfo*) arg0;
     info->x8F0 = arg1;
@@ -993,7 +993,7 @@ void THPDec_80331340(s32 arg0, void* arg1, void* arg2, void* arg3)
     }
 }
 
-void THPDec_803313D0(s32 arg0, void* arg1, void* arg2, void* arg3, u32 x)
+void THPDec_803313D0(uintptr_t arg0, void* arg1, void* arg2, void* arg3, u32 x)
 {
     u32 width = x;
     THPDecodeInfo* info = (THPDecodeInfo*) arg0;
@@ -1657,11 +1657,11 @@ inline s32 __THPHuffDecodeTab(register THPFileInfo* info,
     _done: return code;
 
     {
-        register u32 maxcodebase;
+        register uintptr_t maxcodebase;
         register u32 tmp2;
 
     _FailedCheckEnoughBits:
-        maxcodebase = (u32) & (h->maxCode);
+        maxcodebase = (uintptr_t) & (h->maxCode);
         cnt += 5;
 
 #ifdef __MWERKS__ // clang-format off
@@ -1758,7 +1758,7 @@ _FCEB_Done:
     return tmp;
 
 _Read4: {
-    register u32 maxcodebase = (u32) & (h->maxCode);
+    register uintptr_t maxcodebase = (uintptr_t) & (h->maxCode);
     register u32 tmp2;
 
 #ifdef __MWERKS__ // clang-format off
@@ -1826,11 +1826,11 @@ _FailedCheckNoBits0:
 _FailedCheckNoBits1:
 
 {
-    register u32 mask = 0xFFFFFFFF << (33 - cnt);
+    register uintptr_t mask = 0xFFFFFFFFU << (33 - cnt);
     register u32 tmp2;
 
     code = (s32) (cb & (~mask));
-    mask = (u32) & (h->maxCode);
+    mask = (uintptr_t) & (h->maxCode);
 
 #ifdef __MWERKS__ // clang-format off
     asm {
@@ -2130,12 +2130,12 @@ static void __THPHuffDecodeDCTCompY(register THPFileInfo* info,
 #endif // clang-format on
 
             {
-                register u32 maxcodebase;
+                register uintptr_t maxcodebase;
                 register u32 tmp2;
 
             _FailedCheckEnoughBits:
                 cnt += 5;
-                maxcodebase = (u32) & (h->maxCode);
+                maxcodebase = (uintptr_t) & (h->maxCode);
 #ifdef __MWERKS__ // clang-format off
                 asm {
                     li          tmp2, sizeof(s32)*(5);
@@ -2262,7 +2262,7 @@ static void __THPHuffDecodeDCTCompY(register THPFileInfo* info,
             goto _DoneDecodeTab;
 
         _Read4: {
-            register u32 maxcodebase = (u32) & (h->maxCode);
+            register uintptr_t maxcodebase = (uintptr_t) & (h->maxCode);
             register u32 tmp2;
 
 #ifdef __MWERKS__ // clang-format off
@@ -2292,11 +2292,11 @@ static void __THPHuffDecodeDCTCompY(register THPFileInfo* info,
         _FailedCheckNoBits0:
         _FailedCheckNoBits1:
         _REALFAILEDCHECKNOBITS: {
-            register u32 mask = 0xFFFFFFFF << (33 - cnt);
+            register uintptr_t mask = 0xFFFFFFFFU << (33 - cnt);
             register u32 tmp2;
             register u32 tmp3;
             code = (s32) (cb & (~mask));
-            mask = (u32) & (h->maxCode);
+            mask = (uintptr_t) & (h->maxCode);
 
 #ifdef __MWERKS__ // clang-format off
             asm {

@@ -593,7 +593,7 @@ static void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, int shape_id,
     }
 
     HSD_ASSERT(1102, shape_set->vertex_desc->comp_cnt == GX_POS_XYZ);
-    src_base = ((u8*) shape_set->vertex_desc->vertex) +
+    src_base = DP(u8, shape_set->vertex_desc->vertex) +
                idx * shape_set->vertex_desc->stride;
 
     if (shape_set->vertex_desc->comp_type == GX_F32) {
@@ -638,7 +638,7 @@ static void get_shape_normal_xyz(HSD_ShapeSet* shape_set, int shape_id,
     }
 
     HSD_ASSERT(1165, shape_set->normal_desc->comp_cnt == GX_NRM_XYZ);
-    src_base = ((u8*) shape_set->normal_desc->vertex) +
+    src_base = DP(u8, shape_set->normal_desc->vertex) +
                idx * shape_set->normal_desc->stride;
 
     if (shape_set->normal_desc->comp_type == GX_F32) {
@@ -683,7 +683,7 @@ static void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, int shape_id,
 
     HSD_ASSERT(1230, shape_set->normal_desc->comp_cnt == GX_NRM_XYZ);
 
-    src_base = ((u8*) shape_set->normal_desc->vertex) +
+    src_base = DP(u8, shape_set->normal_desc->vertex) +
                idx * shape_set->normal_desc->stride;
 
     if (shape_set->normal_desc->comp_type == GX_F32) {

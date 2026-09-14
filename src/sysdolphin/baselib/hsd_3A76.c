@@ -1,5 +1,6 @@
 #include <m2c_macros.h>
 #include <printf.h> // IWYU pragma: keep
+#include <string.h>
 
 #include "cobj.h"
 #include "gobj.h"
@@ -166,7 +167,7 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
         int old_x6E;
 
         old_x6E = text->x6E;
-        if (old_x6E < (s32) (text->x6C + 5)) {
+        if (old_x6E < (s32) (text->x6C + sizeof(void*) + 1)) {
             new_x6E = old_x6E + 0x10;
             old_buf = (u8*) text->string_buffer;
             text->string_buffer = HSD_SisLib_Alloc(new_x6E);
@@ -181,23 +182,20 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
             }
             HSD_SisLib_Free(old_buf);
         }
-        text->string_buffer[text->x6C++] = (u8) ((u32) cursor >> 0x18U);
-        text->string_buffer[text->x6C++] =
-            (u8) (((u32) cursor >> 0x10U) & 0xFFU);
-        text->string_buffer[text->x6C++] = (u8) (((u32) cursor >> 8U) & 0xFFU);
-        text->string_buffer[text->x6C++] = (u8) (u32) cursor;
+        memcpy(&text->string_buffer[text->x6C], &cursor, sizeof(void*));
+        text->x6C += sizeof(void*);
         text->string_buffer[text->x6C++] = flags;
     }
     }
 }
 
-s32 HSD_SisLib_803A7F0C(HSD_Text* text, s32 flags)
+uintptr_t HSD_SisLib_803A7F0C(HSD_Text* text, s32 flags)
 {
     s8 entry;
     s32 flag_hi;
     s32 entry_flags;
     s32 target_type;
-    s32 result;
+    uintptr_t result;
     s32 remove_size;
     s32 pos;
 
@@ -259,11 +257,13 @@ s32 HSD_SisLib_803A7F0C(HSD_Text* text, s32 flags)
             }
             break;
         case 5:
-            pos -= 4;
+            pos -= sizeof(void*);
             if (target_type == 5) {
-                result = sis_rd_s32((text->string_buffer + pos));
+                void* ptr_val;
+                memcpy(&ptr_val, text->string_buffer + pos, sizeof(void*));
+                result = (uintptr_t) ptr_val;
                 if (flag_hi == entry_flags) {
-                    remove_size = 5;
+                    remove_size = sizeof(void*) + 1;
                 }
                 goto done;
             }
@@ -302,7 +302,7 @@ void HSD_SisLib_803A8134(void* cursor, HSD_Text* text, f32* out_width,
     u16 glyph_code;
     s32 kern_width;
     s32 clear_idx;
-    u32 pop_result;
+    uintptr_t pop_result;
     TextKerning* kern_data_2;
     u8 opcode;
     TextKerning* kern_data;
@@ -637,7 +637,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
                     text->x94--;
                     break;
                 } else {
-                    u32 pop_result;
+                    uintptr_t pop_result;
                     s32 clear_idx;
                     f32 x_origin;
                     s16 y_offset;

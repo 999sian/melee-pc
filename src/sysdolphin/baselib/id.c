@@ -23,9 +23,9 @@ void HSD_IDSetup(void)
     memset(&default_table, 0, sizeof(HSD_IDTable));
 }
 
-static inline u32 hash(u32 id)
+static inline u32 hash(uintptr_t id)
 {
-    return id % 0x65;
+    return (u32) (id % 0x65);
 }
 
 static inline IDEntry* IDEntryAlloc(void)
@@ -39,7 +39,7 @@ static inline IDEntry* IDEntryAlloc(void)
     return entry;
 }
 
-void HSD_IDInsertToTable(HSD_IDTable* table, u32 id, void* data)
+void HSD_IDInsertToTable(HSD_IDTable* table, uintptr_t id, void* data)
 {
     IDEntry* entry;
 
@@ -72,7 +72,7 @@ static inline void IDEntryFree(IDEntry* entry)
     HSD_ObjFree(HSD_IDGetAllocData(), entry);
 }
 
-void HSD_IDRemoveByIDFromTable(HSD_IDTable* table, u32 id)
+void HSD_IDRemoveByIDFromTable(HSD_IDTable* table, uintptr_t id)
 {
     IDEntry* entry;
     IDEntry* prev;
@@ -96,7 +96,7 @@ void HSD_IDRemoveByIDFromTable(HSD_IDTable* table, u32 id)
     }
 }
 
-void* HSD_IDGetDataFromTable(HSD_IDTable* table, u32 id, s32* success)
+void* HSD_IDGetDataFromTable(HSD_IDTable* table, uintptr_t id, s32* success)
 {
     IDEntry* entry;
 

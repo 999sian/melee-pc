@@ -17,7 +17,7 @@ struct lb_80014638_arg1_t;
 /* 2725D4 */ void it_802725D4(Item_GObj*);
 /* 272674 */ void it_80272674(Item_GObj*, s32);
 /* 272784 */ void it_80272784(Item_GObj*);
-/* 272818 */ Fighter* it_80272818(Item*);
+/* 272818 */ s32 it_80272818(Item*);
 /* 272828 */ Item_GObj* it_80272828(ItemKind);
 /* 272860 */ void it_80272860(Item_GObj*, f32, f32);
 /* 2728C8 */ void it_802728C8(Item_GObj*);

@@ -600,13 +600,13 @@ void grBigBlue_801E6904(Ground_GObj* gobj)
 
     gp->u.bigblue.data[0].index = 0;
     gp->u.bigblue.data[0].x1 = 0;
-    gp->u.bigblue.data[0].x50 = 0;
+    gp->u.bigblue.data[0].x50 = NULL;
     gp->u.bigblue.data[1].index = 1;
     gp->u.bigblue.data[1].x1 = 0;
-    gp->u.bigblue.data[1].x50 = 0;
+    gp->u.bigblue.data[1].x50 = NULL;
     gp->u.bigblue.data[2].index = 2;
     gp->u.bigblue.data[2].x1 = 0;
-    gp->u.bigblue.data[2].x50 = 0;
+    gp->u.bigblue.data[2].x50 = NULL;
     gp->u.bigblue.x0_w = 0;
 
     grBigBlue_801E8978(0, NULL, NULL);
@@ -806,7 +806,7 @@ void grBigBlue_801E6C60(Ground_GObj* gobj)
                     gp->u.bigblue.data[i].x2C = 0;
                     gp->u.bigblue.data[i].x1 = 3;
                     HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
-                    gp->u.bigblue.data[i].x50 = 0;
+                    gp->u.bigblue.data[i].x50 = NULL;
                     {
                         s32 chance = yakumono_param->xB8;
                         s32 cr;
@@ -1337,7 +1337,7 @@ void grBigBlue_801E8A1C(int idx)
         }
 
         spawn.x1C.b0 = 1;
-        gp->u.bigblue.data[idx].x50 = (s32) it_8026BE84(&spawn);
+        gp->u.bigblue.data[idx].x50 = it_8026BE84(&spawn);
     }
 }
 
