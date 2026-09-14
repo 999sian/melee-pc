@@ -1304,7 +1304,9 @@ typedef struct Fighter_x20B0_t {
     Vec3 xC;
 } Fighter_x20B0_t;
 
-typedef struct Fighter_x2D0_t {
+/// Aliases the fighter's `dat_attrs` blob (see Kirby/Purin `OnLoad`), so it is
+/// big-endian disc data just like the ftCo_DatAttrs view of the same bytes.
+typedef struct DISC_STRUCT Fighter_x2D0_t {
     /// @warning i didnt confirm these comments, they come from altimors
     /// ghidra db
     int x0;       ///< turn frames
