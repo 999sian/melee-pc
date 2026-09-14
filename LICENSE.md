@@ -14,7 +14,7 @@ decompilation project publishes no license, and neither this repository nor
 its authors can grant one. **No permission to copy, modify or redistribute
 this code is offered or implied.**
 
-The GPL in `LICENSE` does not, and cannot, apply to this code. Because these
+The GPL in `COPYING` does not, and cannot, apply to this code. Because these
 files cannot be relicensed, the repository as a whole is not distributable
 under the GPL — only the port code in section 2 is.
 
@@ -42,7 +42,7 @@ for this port.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-The full text is in [`LICENSE`](LICENSE).
+The full text is in [`COPYING`](COPYING).
 
 ## 3. Third-party components
 
