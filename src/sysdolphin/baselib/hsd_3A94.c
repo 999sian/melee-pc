@@ -2806,11 +2806,8 @@ static inline s32 loadCardDataBlock(s32 data_block)
     return data_block;
 }
 
-#ifdef __MWERKS__
-#pragma opt_loop_invariants off
-#endif
-s32 fn_803ADF90(struct CardState* arg0, s32 arg1, u8* arg2, s32 arg3,
-                void (*arg4)(s32, s32))
+s32 fn_803ADF90(CardState* state, s32 file_idx, u8* buf, s32 async,
+                void (*callback)(s32, s32))
 {
     CardBufEntry* entries = (CardBufEntry*) hsd_804D1138;
     u8* dst;
@@ -2994,9 +2991,6 @@ s32 fn_803ADF90(struct CardState* arg0, s32 arg1, u8* arg2, s32 arg3,
 
     return callback_seq;
 }
-#ifdef __MWERKS__
-#pragma opt_loop_invariants on
-#endif
 
 static inline void fn_803AE7F8_rewind(CardBufEntry* entries)
 {

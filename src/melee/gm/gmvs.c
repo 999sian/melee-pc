@@ -401,10 +401,6 @@ bool fn_8016B510(void)
     return false;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 int gm_8016B558(void)
 {
     int i;
@@ -417,9 +413,6 @@ int gm_8016B558(void)
     }
     return count;
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 float fn_8016B5B0(void)
 {
