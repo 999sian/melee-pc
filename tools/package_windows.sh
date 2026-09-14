@@ -26,6 +26,14 @@ cp -r "${ROOT_DIR}/resources" "${STAGE_DIR}/"
 # turns on verbose logging, records the environment, and stays open.
 cp "${ROOT_DIR}/tools/windows/RUN-AND-LOG.bat" "${STAGE_DIR}/"
 
+# Without a seed, every pipeline is compiled the first time it is used, which
+# is what players hit as stuttering. Machines that have played for a while
+# have a warm pipeline_cache.db and never see it, so the bug is invisible to
+# us. The blob is aurora's own backend-independent pipeline descriptors, so
+# one recorded anywhere seeds D3D12 just as well.
+gzip -dc "${ROOT_DIR}/tools/initial_pipeline_cache.db.gz" \
+    > "${STAGE_DIR}/initial_pipeline_cache.db"
+
 # Dawn, SDL3, zlib/png DLLs land in the build root via AuroraCopyRuntimeDLLs.
 for dll in dxcompiler.dll dxil.dll webgpu_dawn.dll SDL3.dll libpng16.dll libzlib1.dll; do
     cp "${BUILD_DIR}/${dll}" "${STAGE_DIR}/"

@@ -87,30 +87,61 @@ static void log_callback(AuroraLogLevel level, const char* module, const char* m
 #if defined(_WIN32)
 #include <windows.h>
 
-/* A hard crash never reaches log_callback, so the log would just stop with no
- * reason. Record the exception and, most usefully, which module the faulting
- * address belongs to -- that alone separates a fault inside webgpu_dawn.dll
- * from one in melee.exe. */
-static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info)
+/* A hard crash never reaches log_callback, so the log would otherwise just
+ * stop with no reason. Record the exception, the faulting address, and a
+ * backtrace as "module+RVA" per frame -- that names the failing module and
+ * feeds straight into addr2line against the matching build. */
+
+/* Resolve an address to "module+RVA", which is what addr2line needs. */
+static void describe_addr(void* addr, char* out, size_t out_size)
 {
-    void* addr = (void*) info->ExceptionRecord->ExceptionAddress;
-    char module[MAX_PATH] = "<unknown>";
+    char path[MAX_PATH];
     HMODULE mod = NULL;
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           (LPCSTR) addr, &mod)) {
-        GetModuleFileNameA(mod, module, sizeof(module));
+                           (LPCSTR) addr, &mod) &&
+        GetModuleFileNameA(mod, path, sizeof(path)) != 0)
+    {
+        const char* base = strrchr(path, '\\');
+        base = base != NULL ? base + 1 : path;
+        snprintf(out, out_size, "%p %s+0x%llX", addr, base,
+                 (unsigned long long) ((uintptr_t) addr - (uintptr_t) mod));
+    } else {
+        snprintf(out, out_size, "%p <unknown>", addr);
     }
+}
+
+static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info)
+{
+    void* frames[32];
+    const USHORT count = CaptureStackBackTrace(0, 32, frames, NULL);
+    const EXCEPTION_RECORD* rec = info->ExceptionRecord;
+
     FILE* streams[] = { stderr, log_file() };
     for (size_t i = 0; i < sizeof(streams) / sizeof(*streams); i++) {
-        if (streams[i] == NULL) {
+        FILE* s = streams[i];
+        if (s == NULL) {
             continue;
         }
-        fprintf(streams[i],
-                "[FATAL] crash: exception 0x%08lX at %p in %s (base %p)\n",
-                (unsigned long) info->ExceptionRecord->ExceptionCode, addr,
-                module, (void*) mod);
-        fflush(streams[i]);
+        char where[MAX_PATH + 64];
+        describe_addr((void*) rec->ExceptionAddress, where, sizeof(where));
+        fprintf(s, "[FATAL] crash: exception 0x%08lX at %s\n",
+                (unsigned long) rec->ExceptionCode, where);
+        /* For an access violation the second parameter is the address that
+         * was touched; 0 vs garbage distinguishes a null deref from a wild
+         * pointer, which is the first thing worth knowing. */
+        if (rec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+            rec->NumberParameters >= 2)
+        {
+            fprintf(s, "[FATAL] crash: %s address 0x%llX\n",
+                    rec->ExceptionInformation[0] ? "write to" : "read from",
+                    (unsigned long long) rec->ExceptionInformation[1]);
+        }
+        for (USHORT f = 0; f < count; f++) {
+            describe_addr(frames[f], where, sizeof(where));
+            fprintf(s, "[FATAL]   #%02u %s\n", (unsigned) f, where);
+        }
+        fflush(s);
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
