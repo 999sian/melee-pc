@@ -3,13 +3,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BUILD_DIR="${ROOT_DIR}/build"
+BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build}"
 DIST_DIR="${ROOT_DIR}/dist"
 APPDIR="${BUILD_DIR}/AppDir"
 TOOLS_DIR="${BUILD_DIR}/tools"
 
+# SDL3 is not packaged on most distros yet, so build it from source by
+# default; set AURORA_SDL3_PROVIDER=system where a system SDL3 exists.
+SDL3_PROVIDER="${AURORA_SDL3_PROVIDER:-vendor}"
+
 echo "=== Building Melee PC (Linux x86-64) ==="
-cmake -B "${BUILD_DIR}" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -B "${BUILD_DIR}" -G Ninja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DAURORA_SDL3_PROVIDER="${SDL3_PROVIDER}" \
+    -DAURORA_DAWN_PROVIDER="${AURORA_DAWN_PROVIDER:-package}" \
+    -DAURORA_NOD_PROVIDER="${AURORA_NOD_PROVIDER:-package}"
 ninja -C "${BUILD_DIR}" melee
 
 echo "=== Fetching packaging tools ==="
@@ -21,6 +29,10 @@ fi
 if [[ ! -x "${TOOLS_DIR}/linuxdeploy" ]]; then
     curl -fL "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -o "${TOOLS_DIR}/linuxdeploy"
     chmod +x "${TOOLS_DIR}/linuxdeploy"
+fi
+# CI runners have no FUSE, so the AppImage tools must self-extract instead.
+if [[ ! -e /dev/fuse ]]; then
+    export APPIMAGE_EXTRACT_AND_RUN=1
 fi
 
 echo "=== Staging AppDir ==="
@@ -44,6 +56,8 @@ TAR_STAGE="${BUILD_DIR}/melee-linux-x86_64"
 rm -rf "${TAR_STAGE}"
 mkdir -p "${TAR_STAGE}"
 cp "${BUILD_DIR}/melee" "${TAR_STAGE}/"
+# RelWithDebInfo leaves ~180MB of DWARF in the binary; ship it stripped.
+strip --strip-debug "${TAR_STAGE}/melee"
 cp -r "${ROOT_DIR}/resources" "${TAR_STAGE}/"
 cp "${ROOT_DIR}/platforms/linux/melee.png" "${TAR_STAGE}/"
 cp "${ROOT_DIR}/platforms/linux/melee.desktop" "${TAR_STAGE}/"

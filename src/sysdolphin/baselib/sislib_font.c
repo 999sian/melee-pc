@@ -1,5 +1,5 @@
 #include "sislib_font.h"
 
-TextGlyphTexture HSD_SisLib_FontAtlas[] ATTRIBUTE_ALIGN(32) = {
-#include <sysdolphin/baselib/sislib_font.inc>
-};
+/* Pixel data, not code: filled at boot from the user's own disc by
+ * pc_load_disc_fonts (src/pc/discfont.c) rather than committed here. */
+TextGlyphTexture HSD_SisLib_FontAtlas[287] ATTRIBUTE_ALIGN(32);

@@ -3,7 +3,7 @@
 **Beta, for testing only.** "melee-pc" is a working name. Online play with
 rollback netcode is planned and **not implemented yet**.
 
-A native Linux PC port of Super Smash Bros. Melee (NTSC-U 1.02), built from
+A native PC port of Super Smash Bros. Melee (NTSC-U 1.02), built from
 [doldecomp/melee](https://github.com/doldecomp/melee) on top of
 [aurora](https://github.com/encounter/aurora) (GX/OS/PAD/DVD/CARD/THP
 compatibility layer with a WebGPU backend) and SDL3. Same approach as
@@ -13,7 +13,8 @@ You need your own disc image. No game data ships here.
 
 ## Features
 
-- Native Linux x86-64 build, rendered through Vulkan (Dawn/WebGPU) and SDL3.
+- Native Linux, Windows and Android (arm64) builds, rendered through
+  Dawn/WebGPU (Vulkan, D3D12) and SDL3.
 - RmlUi launcher with disc selection and SHA-1 verification against the Redump
   database before boot.
 - In-game settings overlay on **F1**, with the game paused underneath.
@@ -37,7 +38,7 @@ You need your own disc image. No game data ships here.
 | ![Gameplay](docs/screenshots/gameplay-onett.png) | ![Settings](docs/screenshots/pc-settings.png) |
 | Onett | F1 settings overlay |
 
-![Launcher](docs/launcher-preview.png)
+![Launcher](docs/screenshots/launcher.png)
 
 ## Status
 
@@ -51,22 +52,32 @@ Works end to end:
 - Music and sound effects, saves.
 
 Not done: online play with rollback netcode, All-Star (unreachable until the
-roster is unlocked), widescreen camera and HUD, Windows and macOS.
+roster is unlocked), widescreen camera and HUD, macOS.
 
 ## Building
 
-Needs Linux x86-64, GCC (the game code relies on
-`scalar_storage_order("big-endian")`, which only GCC implements), CMake 3.25+,
-Ninja, SDL3, and a Vulkan driver. Aurora fetches its own Dawn/nod prebuilts.
+Needs GCC (the game code relies on `scalar_storage_order("big-endian")`, which
+only GCC implements), CMake 3.25+, Ninja, and a Vulkan driver. Aurora fetches
+its own Dawn/SDL3/nod prebuilts.
 
 ```sh
-python3 tools/extract_fonts.py <disc sys dir> src/sysdolphin/baselib   # once
 cmake -B build -G Ninja
 ninja -C build
 ```
 
-`extract_fonts.py` needs the disc's `sys/main.dol` (extract the ISO with Dolphin
-or `nodtool`) and writes the two font atlases kept out of tree.
+No disc data is needed to build. The two HSD font atlases are pixel data from
+the retail DOL, so instead of being committed they are read out of the disc
+you supply, at boot (`src/pc/discfont.c`).
+
+The release artifacts are produced by the same scripts CI runs, so they work
+locally too. Windows cross-compiles from Linux with MinGW-w64; Android needs an
+NDK (`ANDROID_NDK_HOME`) and a JDK 17.
+
+```sh
+tools/package_linux.sh      # dist/Melee-x86_64.AppImage + tarball
+tools/package_windows.sh    # dist/Melee-Windows-x86_64.zip
+tools/build_android.sh      # dist/Melee-Android-arm64-debug.apk
+```
 
 ## Running
 

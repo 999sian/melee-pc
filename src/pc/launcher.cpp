@@ -1,6 +1,7 @@
 #include "launcher.h"
 #include "widescreen.h"
 #include "launcher_data.hpp"
+#include "discfont.h"
 #include <aurora/dvd.h>
 #include <aurora/event.h>
 #include <aurora/gfx.h>
@@ -249,7 +250,7 @@ class Launcher final : public Rml::EventListener {
         } else if (id == "play" && supported) {
             auto check = launcher::inspect_disc(prefs.disc);
             if (!check.supported) { supported = false; status(check.message, true); controls(); return; }
-            if (aurora_dvd_open(prefs.disc.c_str())) { save(); result = 1; }
+            if (aurora_dvd_open(prefs.disc.c_str())) { pc_load_disc_fonts(prefs.disc.c_str()); save(); result = 1; }
             else { aurora_dvd_close(); status("Could not load this disc. Choose another image or verify it.", true); }
         } else if (id == "verify" && supported) {
             cancel = false; progress = 0; last_progress = 101;
@@ -470,6 +471,7 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
         if (command_line_disc) {
             auto info = launcher::inspect_disc(command_line_disc);
             if (info.supported && aurora_dvd_open(command_line_disc)) {
+                pc_load_disc_fonts(command_line_disc);
                 prefs.disc = std::filesystem::absolute(command_line_disc).string();
                 if (!launcher::save_preferences(config_path, prefs, error)) SDL_Log("%s", error.c_str());
                 return 1;

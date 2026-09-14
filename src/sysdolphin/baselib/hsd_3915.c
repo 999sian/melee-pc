@@ -425,9 +425,9 @@ GlyphEntry lbl_80408898[4] = {
     { 0xB3808000, hsd_80392194 },
 };
 
-DebugFontGlyph HSD_DebugFontAtlas[] = {
-#include <sysdolphin/baselib/debug_font.inc>
-};
+/* Pixel data, not code: filled at boot from the user's own disc by
+ * pc_load_disc_fonts (src/pc/discfont.c) rather than committed here. */
+DebugFontGlyph HSD_DebugFontAtlas[128];
 
 void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
                   s32 stride, void* tbl)
