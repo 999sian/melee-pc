@@ -44,8 +44,13 @@ static void log_callback(AuroraLogLevel level, const char* module, const char* m
     static const char* const names[] = { "DEBUG", "INFO", "WARN", "ERROR", "FATAL" };
     FILE* out = level >= LOG_ERROR ? stderr : stdout;
     fprintf(out, "[%s] %s: %.*s\n", names[level], module, (int) len, message);
+    /* stdout is block-buffered when redirected to a file, and the abort()
+     * below does not flush it. Without this, `melee.exe > log.txt` drops the
+     * lines leading up to a fatal -- exactly the ones worth reading. */
+    fflush(out);
 #endif
     if (level == LOG_FATAL) {
+        fflush(stdout);
         fflush(stderr);
         abort();
     }
