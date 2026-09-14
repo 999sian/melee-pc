@@ -70,7 +70,7 @@
 /* 21B2E0 */ static void grLast_8021B2E0(Ground_GObj*);
 /* 21B2E4 */ static void grLast_8021B2E4(Ground_GObj*);
 /* 21B2E8 */ static void grLast_8021B2E8(Ground_GObj*);
-/* 21B5C4 */ static bool grLast_8021B5C4(Ground_GObj*);
+/* 21B5C4 */ static int grLast_8021B5C4(Ground_GObj*);
 /* 21B920 */ static void grLast_8021B920(Ground_GObj*, int);
 /* 21C40C */ static void grLast_8021C40C(Ground_GObj*, GXColor, float);
 /* 21C500 */ static void grLast_8021C500(Ground_GObj*);
@@ -679,7 +679,7 @@ static inline bool animate_all(Ground* gp)
     return true;
 }
 
-static bool grLast_8021B5C4(Ground_GObj* gobj)
+static int grLast_8021B5C4(Ground_GObj* gobj)
 {
     Ground* gp;
     int i;
@@ -725,7 +725,7 @@ static bool grLast_8021B5C4(Ground_GObj* gobj)
     case 9:
         aobj = grAnime_801C8318(gp->u.map.lv_gobj[3], grNLa_803E8010[3][2], 7);
         HSD_ASSERT(0x3F4, aobj);
-        if (aobj->curr_frame == 100) {
+        if (aobj->curr_frame >= 100) {
             result = 10;
         }
         break;

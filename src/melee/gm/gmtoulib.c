@@ -39,7 +39,7 @@
 #include <sysdolphin/baselib/wobj.h>
 
 int lbl_804D663C;
-u8 lbl_804D6638[0x4];
+HSD_Archive* lbl_804D6638;
 
 extern SceneDesc* lbl_804D666C;
 extern SceneDesc* lbl_804D6674;

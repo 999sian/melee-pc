@@ -117,6 +117,14 @@ static void* AllocMEM1(u32 size) {
     }
   }
 
+  // If fixed candidate probing failed, scan 32-bit user space below 4GB
+  if (!p) {
+    for (uintptr_t addr = 0x10000000ULL; addr <= 0xE0000000ULL - size; addr += 0x01000000ULL) {
+      p = VirtualAlloc(reinterpret_cast<void*>(addr), size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+      if (p) break;
+    }
+  }
+
   // If fixed address probing failed, try VirtualAlloc2 with 4GB limit if available
   if (!p) {
     typedef PVOID (WINAPI *VirtualAlloc2_t)(HANDLE, PVOID, SIZE_T, ULONG, ULONG, MEM_EXTENDED_PARAMETER*, ULONG);
@@ -134,16 +142,19 @@ static void* AllocMEM1(u32 size) {
     }
   }
 
-  if (!p) {
-    p = VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+  if (p && reinterpret_cast<uintptr_t>(p) + size > 0x100000000ULL) {
+    Log.error("Allocated MEM1 at {:p}, which exceeds 4GB boundary (required for 32-bit disc slots)", p);
+    VirtualFree(p, 0, MEM_RELEASE);
+    p = nullptr;
   }
+
   if (!p) {
     DWORD err = GetLastError();
     fmt::memory_buffer msg;
     fmt::format_system_error(
       msg,
       static_cast<int>(err),
-      "Failed to commit memory for MEM1");
+      "Failed to commit memory for MEM1 strictly under 4GB");
     Log.fatal("{}", fmt::to_string(msg));
   }
   return p;

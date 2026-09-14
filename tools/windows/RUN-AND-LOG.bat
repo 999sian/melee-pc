@@ -21,6 +21,11 @@ REM through to the launcher.
 set DISC=
 if exist "%~dp0melee.ciso" set DISC=melee.ciso
 if exist "%~dp0melee.iso" set DISC=melee.iso
+if not defined DISC (
+    for %%i in ("%~dp0*.iso" "%~dp0*.ciso") do (
+        if not defined DISC if exist "%%~fi" set DISC="%%~nxi"
+    )
+)
 
 echo Running melee.exe %DISC% with logging enabled...
 echo.

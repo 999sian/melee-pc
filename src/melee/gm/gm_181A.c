@@ -327,7 +327,7 @@ void fn_80181E18(void)
     case 0x23:
     case 0x24:
         if (gm_8016AEEC() == 0 && gm_8016AEFC() == 0x3B) {
-            data->x0 = 1;
+            lbl_80473594.x0 = 1;
             gm_8016B33C(7);
             gm_8016B328();
         }
@@ -404,7 +404,7 @@ void fn_80181E18(void)
                 }
             }
             if (count == 0) {
-                data->x0 = 1;
+                lbl_80473594.x0 = 1;
                 gm_8016B33C(7);
                 gm_8016B328();
             }
