@@ -168,6 +168,73 @@ static void pc_shutdown_once(void)
     aurora_shutdown();
 }
 
+static const struct {
+    const char* name;
+    AuroraBackend backend;
+} k_backends[] = {
+    { "auto", BACKEND_AUTO },     { "d3d11", BACKEND_D3D11 },
+    { "d3d12", BACKEND_D3D12 },   { "metal", BACKEND_METAL },
+    { "vulkan", BACKEND_VULKAN }, { "opengl", BACKEND_OPENGL },
+    { "gles", BACKEND_OPENGLES }, { "webgpu", BACKEND_WEBGPU },
+    { "null", BACKEND_NULL },
+};
+
+/* Local, so this costs no header question: strcasecmp lives in <strings.h> on
+ * POSIX and is declared in <string.h> on MinGW only when __STRICT_ANSI__ is
+ * off, which depends on the -std the target happens to use. */
+static int ieq(const char* a, const char* b)
+{
+    for (; *a != '\0' && *b != '\0'; a++, b++) {
+        int ca = (unsigned char) *a, cb = (unsigned char) *b;
+        if (ca >= 'A' && ca <= 'Z') {
+            ca += 'a' - 'A';
+        }
+        if (cb >= 'A' && cb <= 'Z') {
+            cb += 'a' - 'A';
+        }
+        if (ca != cb) {
+            return 0;
+        }
+    }
+    return *a == *b;
+}
+
+static const char* backend_name(AuroraBackend b)
+{
+    for (size_t i = 0; i < sizeof(k_backends) / sizeof(*k_backends); i++) {
+        if (k_backends[i].backend == b) {
+            return k_backends[i].name;
+        }
+    }
+    return "?";
+}
+
+/* MELEE_BACKEND pins the graphics backend instead of taking aurora's preferred
+ * order. That order is per-platform -- on Windows D3D12 comes before Vulkan,
+ * and on Linux only Vulkan is built -- so the same code takes a different path
+ * on each, and a fault that appears on one and not the other cannot be bisected
+ * without being able to pin it. `MELEE_BACKEND=vulkan` on Windows is the direct
+ * test for "is this the D3D12 path?". An unknown value lists the valid ones and
+ * falls back to BACKEND_AUTO rather than failing the run. */
+static AuroraBackend backend_from_env(void)
+{
+    const char* want = getenv("MELEE_BACKEND");
+    if (want == NULL || want[0] == '\0') {
+        return BACKEND_AUTO;
+    }
+    for (size_t i = 0; i < sizeof(k_backends) / sizeof(*k_backends); i++) {
+        if (ieq(want, k_backends[i].name)) {
+            return k_backends[i].backend;
+        }
+    }
+    fprintf(stderr, "MELEE_BACKEND: unknown backend '%s'; valid values are", want);
+    for (size_t i = 0; i < sizeof(k_backends) / sizeof(*k_backends); i++) {
+        fprintf(stderr, "%s %s", i ? "," : "", k_backends[i].name);
+    }
+    fprintf(stderr, "\nMELEE_BACKEND: falling back to auto\n");
+    return BACKEND_AUTO;
+}
+
 MELEE_EXPORT int main(int argc, char* argv[])
 {
 #if defined(_WIN32)
@@ -206,11 +273,26 @@ MELEE_EXPORT int main(int argc, char* argv[])
         .windowWidth = 1280,
         .windowHeight = 960,
         .logCallback = log_callback,
+        .desiredBackend = backend_from_env(),
         .mem1Size = PC_MEM1_SIZE,
         .mem2Size = PC_ARAM_SIZE,
     };
     pc_launcher_configure(&config);
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
+    /* Record which backend was actually selected. Without this the log cannot
+     * say whether a run went through D3D12 or Vulkan, which is the first thing
+     * worth knowing about a fault that only reproduces on one platform. */
+    {
+        FILE* streams[] = { stderr, log_file() };
+        for (size_t i = 0; i < sizeof(streams) / sizeof(*streams); i++) {
+            if (streams[i] != NULL) {
+                fprintf(streams[i], "[INFO] main: graphics backend: %s%s\n",
+                        backend_name(info.backend),
+                        config.desiredBackend == BACKEND_AUTO ? " (auto)" : " (MELEE_BACKEND)");
+                fflush(streams[i]);
+            }
+        }
+    }
     /* Closing the window exits from inside the frame loop (pc/vi.c), which
      * would otherwise skip aurora_shutdown() entirely: Dawn's static
      * destructors then tear the device down while aurora still thinks it is
