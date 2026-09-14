@@ -22,6 +22,21 @@ image path directly:
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
 
+## Changes since v0.1.0-beta
+
+- Fixed a crash in the attract demo. Kirby's and Jigglypuff's multi-jump
+  attributes are read straight off the disc, but were decoded in the wrong
+  byte order, so the second jump looked up motion state `0x55010000` instead
+  of `341` and faulted.
+- Fixed the remaining places where a pointer was stashed in a 32-bit field
+  and truncated on 64-bit builds: the HSD id table and object heap, the
+  sislib text cursor stack, the THP video decoder, and pointer slots in the
+  Hyrule Castle, Brinstar, Big Blue and Fountain of Dreams stage state.
+- The Android APK is now a signed release build rather than a debug build,
+  and is named `Melee-Android-arm64.apk`.
+- Fixed the Android CI build, which depended on a toolchain path that only
+  existed on one machine.
+
 ## What works
 
 Boot and opening movie, memory card create/load, title and attract demos, main
