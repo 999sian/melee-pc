@@ -37,6 +37,15 @@ void pc_frame_boundary(void)
     static int fps_log = -1;
     static u64 fps_t0;
     static u32 fps_n;
+    /* An average hides stutter: one 60ms hitch a second barely moves it.
+     * Track the outliers instead, plus how far the pacing sleep overshoots
+     * its request -- on Windows a coarse timer resolution turns a 5ms wait
+     * into ~16ms, which is stutter the frame average never shows. */
+    static u64 frame_prev_ns;
+    static u64 frame_worst_ns;
+    static u32 frame_late_20;
+    static u32 frame_late_33;
+    static u64 sleep_worst_over_ns;
 
     if (s_in_frame) {
         aurora_end_frame();
@@ -50,11 +59,35 @@ void pc_frame_boundary(void)
     }
     if (fps_log) {
         u64 now = SDL_GetTicks();
+        u64 now_ns = SDL_GetTicksNS();
         fps_n++;
+        if (frame_prev_ns != 0) {
+            u64 delta = now_ns - frame_prev_ns;
+            if (delta > frame_worst_ns) {
+                frame_worst_ns = delta;
+            }
+            if (delta > 20000000ull) {
+                frame_late_20++;
+            }
+            if (delta > 33000000ull) {
+                frame_late_33++;
+            }
+        }
+        frame_prev_ns = now_ns;
         if (now - fps_t0 >= 1000) {
-            fprintf(stderr, "fps %.1f\n", fps_n * 1000.0 / (double) (now - fps_t0));
+            fprintf(stderr,
+                    "fps %.1f worst %.1fms late>20ms %u late>33ms %u "
+                    "sleep_overshoot %.1fms\n",
+                    fps_n * 1000.0 / (double) (now - fps_t0),
+                    frame_worst_ns / 1e6, frame_late_20, frame_late_33,
+                    sleep_worst_over_ns / 1e6);
+            fflush(stderr);
             fps_t0 = now;
             fps_n = 0;
+            frame_worst_ns = 0;
+            frame_late_20 = 0;
+            frame_late_33 = 0;
+            sleep_worst_over_ns = 0;
         }
     }
 
@@ -90,7 +123,14 @@ void pc_frame_boundary(void)
         if (next_ns == 0 || now > next_ns + period) {
             next_ns = now; /* first frame, or we fell behind: resync */
         } else if (now < next_ns) {
-            SDL_DelayPrecise(next_ns - now);
+            const u64 want = next_ns - now;
+            SDL_DelayPrecise(want);
+            if (fps_log > 0) {
+                const u64 slept = SDL_GetTicksNS() - now;
+                if (slept > want && slept - want > sleep_worst_over_ns) {
+                    sleep_worst_over_ns = slept - want;
+                }
+            }
         }
         next_ns += period;
     }

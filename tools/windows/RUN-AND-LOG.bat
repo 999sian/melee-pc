@@ -7,6 +7,7 @@ cd /d "%~dp0"
 
 set MELEE_DEBUG=1
 set MELEE_LOG_FILE=melee-pc.log
+set MELEE_FPS=1
 
 echo === system ===> melee-pc-env.log
 ver >> melee-pc-env.log 2>&1
@@ -23,7 +24,7 @@ if exist "%~dp0melee.iso" set DISC=melee.iso
 
 echo Running melee.exe %DISC% with logging enabled...
 echo.
-melee.exe %DISC% %* 2>&1
+melee.exe %DISC% %* 2>melee-frames.log
 set RC=%ERRORLEVEL%
 
 echo.
@@ -32,5 +33,6 @@ echo.
 echo Send back these two files from this folder:
 echo    melee-pc.log
 echo    melee-pc-env.log
+echo    melee-frames.log
 echo.
 pause
