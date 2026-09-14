@@ -374,7 +374,7 @@ void grBigBlue_801E613C(Ground_GObj* gobj)
     PAD_STACK(16);
 
     grAnime_801C8138(gobj, gp->map_id, 0);
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grBigBlue_801EB004(gobj);
     gp->u.bigblue.x0_b1 = true;
     Ground_801C10B8(gobj, fn_801E6124);
@@ -389,7 +389,7 @@ void grBigBlue_801E61C4(Ground_GObj* gobj)
 {
     PAD_STACK(16);
     grBigBlue_801EBAF8(gobj);
-    Ground_ProcTargetStage(gobj);
+    Ground_UpdateWindAndMapColl(gobj);
 }
 
 void grBigBlue_801E61FC(Ground_GObj* arg) {}
@@ -481,7 +481,7 @@ void grBigBlue_801E6364(Ground_GObj* gobj)
     s32 i;
     Vec3 scale;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     PAD_STACK(4);
 
     scale.x = scale.y = scale.z = 1.0F;
@@ -566,7 +566,7 @@ bool grBigBlue_801E687C(Ground_GObj* arg)
 void grBigBlue_801E6884(Ground_GObj* gobj)
 {
     grBigBlue_801EF424(gobj);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grBigBlue_801E68B8(Ground_GObj* gobj)
@@ -586,7 +586,7 @@ void grBigBlue_801E6904(Ground_GObj* gobj)
     Vec3 scale;
     PAD_STACK(16);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->x10_flags.b5 = 1;
 
     scale.x = scale.y = scale.z = 1.0F;
@@ -1166,7 +1166,7 @@ void grBigBlue_801E6C60(Ground_GObj* gobj)
         }
     }
 
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grBigBlue_801E855C(Ground_GObj* arg) {}
@@ -1456,7 +1456,7 @@ void grBigBlue_801E8D64(Ground_GObj* gobj)
     f32 y_pos;
     PAD_STACK(0xC);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->x10_flags.b5 = 1;
 
     scale.x = scale.y = scale.z = Ground_801C0498();
@@ -1777,7 +1777,7 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
             break;
         }
     }
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grBigBlue_801E9F38(Ground_GObj* arg) {}
@@ -1789,7 +1789,7 @@ void grBigBlue_801E9F3C(Ground_GObj* gobj)
     Vec3 v;
     PAD_STACK(8);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->x10_flags.b5 = 1;
 
     v.x = v.y = v.z = Ground_801C0498();
@@ -2107,7 +2107,7 @@ void grBigBlue_801EA05C(Ground_GObj* gobj)
     }
     }
 
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grBigBlue_801EAB4C(Ground_GObj* arg) {}
