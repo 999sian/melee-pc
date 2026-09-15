@@ -22,7 +22,23 @@ image path directly:
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
 
-## Changes since v0.1.1-beta
+## Changes since v0.1.2-beta
+
+- **Performance & Stuttering:**
+  - Deconflicted hardware VSync and software frame pacing in `vi.c`. Manual `SDL_DelayPrecise` sleep now only runs when VSync is disabled, preventing monitor refresh rate drift from tripping sudden 30 FPS drops under strict FIFO VSync.
+  - Bundled the pre-recorded pipeline cache seed (`initial_pipeline_cache.db`) into the Linux AppImage, Linux portable tarball, and Android APK assets (previously only shipped on Windows), eliminating first-run shader compilation pop-in and stutter across all platforms.
+  - Added user-facing Graphics Backend selection (Direct3D 12 vs. Vulkan vs. Auto) in the Launcher settings, in-game F1 overlay, and `launcher.cfg`.
+  - Scaled disc preloader threads dynamically up to 4 concurrent threads in Aurora's DVD reader, parallelizing block decompression for compressed `.ciso` and `.rvz` disc images to reduce synchronous asset load hitches.
+  - Added CMake support for Link-Time Optimization (`MELEE_ENABLE_LTO`).
+- **Game & Platform Fixes:**
+  - Fixed #5: Prevented memory corruption and crash when backing out of Tournament mode by properly typing archive handles.
+  - Fixed #4: Set stage clear flag on 100-man melee completion so Falco challenger approach is triggered.
+  - Fixed #8: Fixed infinite sparkle loop on Final Destination.
+  - Fixed #7: Scanned user space under 4GB for MEM1 allocation on Windows, and auto-detected ISOs in `RUN-AND-LOG.bat`.
+  - Added GameCube ISO file selection support on Android.
+  - Statically linked `libstdc++` and `libgcc` on Windows and removed mismatched compiler runtime DLLs.
+
+## Changes in v0.1.2-beta
 
 - Fixed disc pointers being used without resolution in the HSD object
   loaders. `HSD_IDGetData` is keyed on the resolved host pointer, but jobj,
