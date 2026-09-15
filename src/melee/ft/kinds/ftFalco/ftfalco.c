@@ -469,7 +469,7 @@ void ftFc_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
     ftData* ftdata = fp->ft_data;
-    s32* sa2;
+    ftFox_DatAttrs* sa2;
     DiscU32* items = DP(DiscU32, ftdata->x48_items);
 
     u8 _[8];
@@ -478,8 +478,8 @@ void ftFc_Init_OnLoad(HSD_GObj* gobj)
     ftFx_Init_OnLoadForFalco(fp);
 
     sa2 = fp->dat_attrs;
-    it_8026B3F8(DP(Article, items[0].v), sa2[7]);
-    it_8026B3F8(DP(Article, items[1].v), sa2[8]);
+    it_8026B3F8(DP(Article, items[0].v), sa2->x1C_FOX_BLASTER_SHOT_ITKIND);
+    it_8026B3F8(DP(Article, items[1].v), sa2->x20_FOX_BLASTER_GUN_ITKIND);
     it_8026B3F8(DP(Article, items[3].v), It_Kind_Falco_Phantasm);
 }
 

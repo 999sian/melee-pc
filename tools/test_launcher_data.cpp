@@ -72,6 +72,12 @@ int main(int argc, char** argv) {
     }
     { std::ofstream f(config); f << "widescreen -1\nwidescreen 99\n"; }
     assert(load_preferences(config).widescreen == 0);
+    loaded.check_updates = false;
+    assert(save_preferences(config, loaded, error));
+    assert(!load_preferences(config).check_updates);
+    loaded.check_updates = true;
+    assert(save_preferences(config, loaded, error));
+    assert(load_preferences(config).check_updates);
     assert(!save_preferences(dir / "missing" / "config", prefs, error));
     assert(!error.empty());
     std::filesystem::remove_all(dir);

@@ -304,6 +304,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
         } else if (key == "scale") {
             float value; if (row >> value && std::isfinite(value) && value >= 0.75f && value <= 1.5f)
                 prefs.scale = value;
+        } else if (key == "check_updates") {
+            int value; if (row >> value && (value == 0 || value == 1)) prefs.check_updates = value;
         }
     }
     return prefs;
@@ -320,7 +322,8 @@ bool save_preferences(const std::filesystem::path& path, const Preferences& pref
          << "render_scale " << prefs.render_scale << "\nvolume " << prefs.volume
          << "\nmsaa " << prefs.msaa << "\nanisotropy " << prefs.anisotropy
          << "\nwidescreen " << prefs.widescreen << "\nmute " << prefs.mute << "\nfps " << prefs.fps
-         << "\nfilter_mode " << prefs.filter_mode << "\nbackend " << prefs.backend << '\n';
+         << "\nfilter_mode " << prefs.filter_mode << "\nbackend " << prefs.backend
+         << "\ncheck_updates " << prefs.check_updates << '\n';
     auto data = text.str();
     size_t done = 0;
     bool ok = true;

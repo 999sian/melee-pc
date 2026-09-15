@@ -506,7 +506,7 @@ char* gm_80160438(s32 ckind)
     }
 }
 
-bool gm_80160474(CharacterKind ckind, GameModeKind mode)
+s32 gm_80160474(CharacterKind ckind, GameModeKind mode)
 {
     switch (mode) {
     case GM_CLASSIC_GOVER:

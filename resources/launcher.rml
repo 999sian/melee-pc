@@ -2,9 +2,30 @@
 <head><title>Melee-PC</title><link type="text/rcss" href="launcher.rcss" /></head>
 <body>
   <div id="shell">
-    <div class="topline"><span class="brand">MELEE / PC</span><span class="edition">NTSC-U 1.02</span></div>
+    <div class="topline"><span class="brand">MELEE / PC</span><span class="edition"><span id="app-version">v0.1.4-beta</span> · NTSC-U 1.02</span></div>
     <div class="hero"><div class="eyebrow">SUPER SMASH BROS.</div><h1>MELEE</h1></div>
     <div id="home">
+      <div id="update-card" class="update-card" style="display: none;">
+        <div class="update-content">
+          <div class="update-badge-row">
+            <span class="update-badge">UPDATE AVAILABLE</span>
+            <span id="update-tag" class="update-tag">v0.1.5-beta</span>
+          </div>
+          <div id="update-title" class="update-title">Melee PC Update</div>
+          <p id="update-desc" class="update-desc">A newer version is available.</p>
+          <div id="update-progress-row" class="update-progress-row" style="display: none;">
+            <div class="progress-bar-bg">
+              <div id="update-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <span id="update-progress-text" class="progress-text">0%</span>
+          </div>
+        </div>
+        <div class="update-actions">
+          <button id="update-action" class="primary">Update Now</button>
+          <button id="update-browser">View Release</button>
+          <button id="update-later" class="quiet">Later</button>
+        </div>
+      </div>
       <div class="columns">
         <div class="menu">
           <button id="play" class="primary">Play Melee</button>
@@ -94,6 +115,14 @@
                 <input type="range" class="range" id="scale" min="75" max="150" step="25" value="100" />
                 <span id="scale-val" class="slider-value">100%</span>
               </div>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Check for updates on launch</h3><p>Automatically query GitHub for new releases on startup.</p></div>
+              <button id="check-updates">On</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Check for updates now</h3><p id="check-status">Melee-PC is up to date.</p></div>
+              <button id="check-now">Check now</button>
             </div>
           </div>
           <div id="page-controls" class="page">
