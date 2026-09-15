@@ -405,7 +405,7 @@ static inline void gm_801A9630_fog(void)
     fog = HSD_FogLoadDesc(DP(HSD_FogDesc, fog_desc->desc));
     HSD_GObjObject_80390A70(gobj, (u8) HSD_GObj_FogKind, fog);
     GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 0, 0);
-    HSD_CameraAnim* canim = (HSD_CameraAnim*) (uintptr_t) DP(DiscU32, fog_desc->anims)[0].v;
+    HSD_CameraAnim* canim = GM_DISC_ARR(HSD_CameraAnim, fog_desc->anims, 0);
     HSD_Fog_8037DE7C(fog, DP(HSD_AObjDesc, canim->aobjdesc));
     HSD_FogReqAnim(fog, 0.0f);
     HSD_FogInterpretAnim(fog);
@@ -420,8 +420,8 @@ static inline void gm_801A9630_light(void)
     lobj = lb_80011AC4(GM_SCENE_LIGHTS(gm_804D67A4));
     HSD_GObjObject_80390A70(gobj, (u8) HSD_GObj_LightKind, lobj);
     GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0, 0);
-    struct LightList* ll = (struct LightList*) (uintptr_t) GM_SCENE_LIGHTS(gm_804D67A4)[0].v;
-    HSD_LightAnim* lanim = (HSD_LightAnim*) (uintptr_t) DP(DiscU32, ll->anims)[0].v;
+    struct LightList* ll = DP(struct LightList, GM_SCENE_LIGHTS(gm_804D67A4)[0].v);
+    HSD_LightAnim* lanim = GM_DISC_ARR(HSD_LightAnim, ll->anims, 0);
     HSD_LObjAddAnimAll(lobj, lanim);
     HSD_LObjReqAnimAll(lobj, 0.0f);
     HSD_LObjAnimAll(lobj);
@@ -439,7 +439,7 @@ static inline void gm_801A9630_camera(void)
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 8);
     gobj->gxlink_prios = 0x801;
-    HSD_CameraAnim* cam_anim = (HSD_CameraAnim*) (uintptr_t) DP(DiscU32, cam_desc[0].anims)[0].v;
+    HSD_CameraAnim* cam_anim = GM_DISC_ARR(HSD_CameraAnim, cam_desc[0].anims, 0);
     HSD_CObjAddAnim(cobj, cam_anim);
     HSD_CObjReqAnim(cobj, 0.0f);
     HSD_CObjAnim(cobj);
