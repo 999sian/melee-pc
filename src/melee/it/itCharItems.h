@@ -579,7 +579,7 @@ typedef struct DISC_STRUCT itPeachTurnipAttributes {
         s32 x4_damage;
     } x8[8];
 } itPeachTurnipAttributes;
-DISC_ASSERT_SIZE(itPeachTurnipAttributes, 0x8);
+DISC_ASSERT_SIZE(itPeachTurnipAttributes, 0x48);
 
 typedef struct itPeachTurnip_ItemVars {
     /*  +0 ip+DD4 */ UnkFlagStruct xDD4;
