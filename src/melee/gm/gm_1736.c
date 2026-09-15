@@ -308,7 +308,7 @@ void gm_80173DE4(MatchEnd* arg0)
     }
 }
 
-static inline bool gm_80173EEC_inline(u8 arg0, int arg1)
+static inline s32 gm_80173EEC_inline(u8 arg0, int arg1)
 {
     return gm_80160474(arg0, arg1);
 }

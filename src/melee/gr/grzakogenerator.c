@@ -254,6 +254,10 @@ void grZakoGenerator_801CAC14(HSD_GObj* gobj)
     Item* ip = GET_ITEM(gobj);
     s32 kind = itGetKind(gobj);
 
+    if (lbl_8049F030.x4 == NULL) {
+        return;
+    }
+
     if (kind == It_Kind_Coin) {
         int i;
         for (i = 80; i < ARRAY_SIZE(lbl_8049F030.x4->entries); i++) {
@@ -263,7 +267,7 @@ void grZakoGenerator_801CAC14(HSD_GObj* gobj)
         }
     } else {
         s32 idx = ip->xDD4_itemVar.zako.idx;
-        if (idx != -1) {
+        if (idx >= 0 && idx < ARRAY_SIZE(lbl_8049F030.x4->entries)) {
             lbl_8049F030.x4->entries[idx].x4 = NULL;
             lbl_8049F030.x4->entries[idx].x2 = 2;
         }
@@ -277,6 +281,10 @@ void grZakoGenerator_801CACB8(Item_GObj* gobj)
 
     it_8027CE18(gobj);
 
+    if (lbl_8049F030.x4 == NULL) {
+        return;
+    }
+
     if (kind == It_Kind_Coin) {
         int i;
         for (i = 80; i < ARRAY_SIZE(lbl_8049F030.x4->entries); i++) {
@@ -287,10 +295,10 @@ void grZakoGenerator_801CACB8(Item_GObj* gobj)
         }
     } else {
         s32 idx = ip->xDD4_itemVar.zako.idx;
-        if (idx != -1) {
+        if (idx >= 0 && idx < ARRAY_SIZE(lbl_8049F030.x4->entries)) {
             int off = lbl_8049F030.x4->entries[idx].x0 - 0x20;
             lbl_8049F030.x4->entries[idx].x4 = NULL;
-            if (lbl_8049F030.x0[off].respawn == 1) {
+            if (lbl_8049F030.x0 != NULL && off >= 0 && lbl_8049F030.x0[off].respawn == 1) {
                 lbl_8049F030.x4->entries[idx].x2 = 0x708;
             } else {
                 lbl_8049F030.x4->entries[idx].x2 = -1;

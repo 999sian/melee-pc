@@ -138,9 +138,11 @@ static void HSD_SynthSFXSampleLoadCallback(int result, uintptr_t length,
                                      HSD_Synth_804C2A60[0].xC);
         }
         hsd_SynthSFXBank[bankID] += hsd_SynthSFXLoadBuf[1].v;
+        HSD_Synth_804D7730 = NULL;
     } else {
         if (HSD_Synth_804D7730 != NULL) {
             HSD_AudioFree(HSD_Synth_804D7730);
+            HSD_Synth_804D7730 = NULL;
         }
         HSD_Synth_804D7738 = 0;
     }
@@ -177,11 +179,6 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t length,
             void (*cb)(int, int) = HSD_Synth_804C2A60[0].x8;
             int entrynum = HSD_Synth_804C2A60[0].entrynum;
             int mode = HSD_Synth_804C2A60[0].xC;
-
-            if (HSD_Synth_804D7730 != NULL) {
-                HSD_AudioFree(HSD_Synth_804D7730);
-                HSD_Synth_804D7730 = NULL;
-            }
 
             if (cb != NULL) {
                 cb(entrynum, mode);

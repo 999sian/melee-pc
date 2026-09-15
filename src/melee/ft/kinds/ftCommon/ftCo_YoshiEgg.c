@@ -141,8 +141,9 @@ void ftCo_YoshiEgg_Anim(Fighter_GObj* gobj)
             HSD_JObj* jobj = fp->parts[FtPart_TopN].joint;
             ftCo_DatAttrs* ca = &fp->co_attrs;
             ftCo_DatAttrs_xBC_t* ca_xBC = &ca->xBC;
+            f32 size = ca_xBC->size;
             efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 4, 1231, jobj,
-                          ca_xBC);
+                          &size);
             ftYs_SpecialN_8012CD88(&fp->self_vel);
         }
         ftCommon_8007D5D4(fp);

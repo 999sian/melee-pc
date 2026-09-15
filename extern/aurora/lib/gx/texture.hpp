@@ -24,8 +24,13 @@ struct TextureStats {
 const TextureStats& texture_stats() noexcept;
 
 namespace texture {
+#if defined(__ANDROID__)
+constexpr uint64_t ContentCacheBudgetBytes = 32ull * 1024ull * 1024ull;
+constexpr uint64_t ObjectCacheIdleFrames = 120;
+#else
 constexpr uint64_t ContentCacheBudgetBytes = 128ull * 1024ull * 1024ull;
 constexpr uint64_t ObjectCacheIdleFrames = 600;
+#endif
 constexpr bool AsyncTextureReplacements = true;
 constexpr uint32_t ReplacementThumbnailDim = 64;
 constexpr uint64_t ReplacementPublishBudgetBytes = 12ull * 1024ull * 1024ull;

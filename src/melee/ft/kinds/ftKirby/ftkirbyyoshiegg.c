@@ -118,10 +118,13 @@ void ftCo_KirbyYoshiEgg_Anim(Fighter_GObj* gobj)
     if (fp->grab_timer <= 0.0f) {
         Fighter* fp2;
         ftCo_DatAttrs_xBC_t* xBCp;
+        f32 size;
         ft_PlaySFX(fp, 0x44618, 0x7F, 0x40);
         fp2 = gobj->user_data;
+        xBCp = &fp->co_attrs.xBC;
+        size = xBCp->size;
         efAsync_Spawn(gobj, &fp2->x60C, 4, 0x4CF, fp->parts[0].joint,
-                      (xBCp = &fp->co_attrs.xBC));
+                      &size);
         ftKb_SpecialNYs_80109354(&fp->self_vel);
         ftCommon_8007D5D4(fp);
         ftColl_8007B760(gobj, ftKb_SpecialNYs_8010933C());

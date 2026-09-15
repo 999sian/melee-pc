@@ -90,6 +90,7 @@ bool it_2725_Logic8_DmgReceived(Item_GObj* gobj)
         if (ip->xDD4_itemVar.oldottosea.x20 != NULL) {
             it_8028ECE0(ip->xDD4_itemVar.oldottosea.x20);
             it_802E37A4(gobj);
+            ip->xDD4_itemVar.oldottosea.x20 = NULL;
         }
         Item_ZakoDefeat(gobj, ip);
         if (HSD_Randf() < it_804D6D40->x8) {

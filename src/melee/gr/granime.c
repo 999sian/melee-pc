@@ -1078,7 +1078,7 @@ HSD_AObj* grAnime_801C8318(HSD_GObj* gobj, int arg1, u32 arg2)
     return sp14;
 }
 
-bool grAnime_801C83D0(HSD_GObj* gobj, bool arg1, enum_t arg2)
+bool grAnime_801C83D0(HSD_GObj* gobj, s32 arg1, enum_t arg2)
 {
     HSD_AObj* aobj = grAnime_801C8318(gobj, arg1, arg2);
     PAD_STACK(8);

@@ -16,6 +16,7 @@
 #include "pc/pc.h"
 
 static bool s_key[SDL_SCANCODE_COUNT];
+static bool s_key_latched[SDL_SCANCODE_COUNT];
 static bool s_active;
 static bool s_suppressed[SDL_SCANCODE_COUNT];
 extern bool pc_menu_is_open(void);
@@ -35,7 +36,9 @@ static const struct {
 static s8 axis(SDL_Scancode neg, SDL_Scancode pos)
 {
     /* A real GameCube stick reads about +-80 at full deflection. */
-    return (s8) ((s_key[pos] ? 80 : 0) - (s_key[neg] ? 80 : 0));
+    const bool neg_on = s_key[neg] || s_key_latched[neg];
+    const bool pos_on = s_key[pos] || s_key_latched[pos];
+    return (s8) ((pos_on ? 80 : 0) - (neg_on ? 80 : 0));
 }
 
 void pc_keyboard_event(const SDL_Event* e)
@@ -46,7 +49,12 @@ void pc_keyboard_event(const SDL_Event* e)
     if (e->key.scancode >= SDL_SCANCODE_COUNT || e->key.repeat) {
         return;
     }
-    s_key[e->key.scancode] = e->type == SDL_EVENT_KEY_DOWN;
+    if (e->type == SDL_EVENT_KEY_DOWN) {
+        s_key[e->key.scancode] = true;
+        s_key_latched[e->key.scancode] = true;
+    } else {
+        s_key[e->key.scancode] = false;
+    }
     s_active = true;
 }
 
@@ -73,7 +81,8 @@ void pc_keyboard_apply(void)
         if (s_suppressed[i]) s_key[i] = false;
     }
     for (i = 0; i < sizeof(s_button_map) / sizeof(s_button_map[0]); i++) {
-        if (s_key[s_button_map[i].key]) {
+        SDL_Scancode key = s_button_map[i].key;
+        if (s_key[key] || s_key_latched[key]) {
             st.button |= s_button_map[i].button;
         }
     }
@@ -87,7 +96,8 @@ void pc_keyboard_apply(void)
     }
     st.substickX = axis(SDL_SCANCODE_J, SDL_SCANCODE_L);
     st.substickY = axis(SDL_SCANCODE_K, SDL_SCANCODE_I);
-    st.triggerLeft = s_key[SDL_SCANCODE_Q] ? 255 : 0;
-    st.triggerRight = s_key[SDL_SCANCODE_E] ? 255 : 0;
+    st.triggerLeft = (s_key[SDL_SCANCODE_Q] || s_key_latched[SDL_SCANCODE_Q]) ? 255 : 0;
+    st.triggerRight = (s_key[SDL_SCANCODE_E] || s_key_latched[SDL_SCANCODE_E]) ? 255 : 0;
+    memset(s_key_latched, 0, sizeof(s_key_latched));
     PADSetVirtualStatus(0, &st);
 }
