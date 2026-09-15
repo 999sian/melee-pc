@@ -169,6 +169,34 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t length,
                          "Can't load SFX file; bank(id=%d) buffer overflow.\n",
                          HSD_Synth_804C2A60[0].bankID);
 
+        if (hsd_SynthSFXBankHead[bankID + 1] - hsd_SynthSFXBank[bankID] <
+            hsd_SynthSFXLoadBuf[1].v)
+        {
+            BOOL intr;
+            int i;
+            void (*cb)(int, int) = HSD_Synth_804C2A60[0].x8;
+            int entrynum = HSD_Synth_804C2A60[0].entrynum;
+            int mode = HSD_Synth_804C2A60[0].xC;
+
+            if (HSD_Synth_804D7730 != NULL) {
+                HSD_AudioFree(HSD_Synth_804D7730);
+                HSD_Synth_804D7730 = NULL;
+            }
+
+            if (cb != NULL) {
+                cb(entrynum, mode);
+            }
+
+            intr = OSDisableInterrupts();
+            HSD_Synth_804D772C -= 1;
+            for (i = 0; i < HSD_Synth_804D772C; i++) {
+                HSD_Synth_804C2A60[i] = HSD_Synth_804C2A60[i + 1];
+            }
+            HSD_SynthSFXLoadNewProc();
+            OSRestoreInterrupts(intr);
+            return;
+        }
+
         alloc_size =
             hsd_SynthSFXLoadBuf[2].v * 8 + sizeof(struct SfxLoadStreamNode);
         header_size = hsd_SynthSFXLoadBuf[0].v;

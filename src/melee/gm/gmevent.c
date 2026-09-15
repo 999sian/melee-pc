@@ -278,6 +278,7 @@ void onExitCss(GameModeState* arg0)
     temp_r31 = &gmMainLib_804D3EE0->vs.unk_530;
     temp_r3 = gm_GetGameModeStateExitData(arg0);
     if (temp_r3->pending_scene_change == 2) {
+        lbAudioAx_80026F2C(0x1C);
         gm_ChangeGameModeAfterCurrentScene(GM_MENU);
         return;
     }
@@ -687,6 +688,7 @@ void onExitVs(GameModeState* arg0)
         return;
     }
     if (exit->match_end.outcome == OUTCOME_NO_CONTEST) {
+        lbAudioAx_80026F2C(0x1C);
         gm_ChangeGameModeAfterCurrentScene(GM_MENU);
         return;
     }
@@ -703,6 +705,7 @@ void onExitVs(GameModeState* arg0)
         gm_SetNextGameModeStateId(1);
         return;
     }
+    lbAudioAx_80026F2C(0x1C);
     if (ev->xB_1) {
         u32 cur = ev->xC;
         u32 best = gmMainLib_8015CF5C(stage);
@@ -957,7 +960,10 @@ void gm_Mode_Event_OnLoad(void)
     }
 }
 
-void gm_Mode_Event_OnUnload(void) {}
+void gm_Mode_Event_OnUnload(void)
+{
+    lbAudioAx_80026F2C(0x1C);
+}
 
 void fn_801BBFE8(void)
 {

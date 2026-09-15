@@ -88,7 +88,7 @@ static void order_sdata2(void)
 #pragma push
 #pragma dont_inline on
 #endif
-bool gm_801A659C(int arg0)
+s32 gm_801A659C(int arg0)
 {
     switch (gm_GetCurrentGameMode()) {
     case GM_CLASSIC_GOVER:

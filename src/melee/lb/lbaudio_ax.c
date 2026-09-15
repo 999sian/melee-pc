@@ -1576,7 +1576,7 @@ static void fn_800267B0(void)
     }
 
     for (i = 0; i < 5; i++) {
-        for (j = 0; lbl_804D6438 < lbl_804D6448 + lbl_804D6450 && j < 55; j++)
+        for (j = 0; lbl_804D6444 < lbl_804D6448 + lbl_804D6450 && j < 55; j++)
         {
             if (lbl_80433984[j] != -1 && i == s32_arr_803BB5D0[j][2] &&
                 lbl_804338A4[j] == -1)
@@ -1845,7 +1845,7 @@ void lbAudioAx_80027168(void)
     fn_800268B4();
     fn_800267B0();
 
-    if (lbl_804D6438 < lbl_804D6448 + lbl_804D6450) {
+    if (lbl_804D6444 < lbl_804D6448 + lbl_804D6450) {
         OSReport("******** CAUTION ********\n"
                  "FGM load size is over\n");
         HSD_ASSERT(0xDB3, 0);
