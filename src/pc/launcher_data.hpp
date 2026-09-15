@@ -13,8 +13,13 @@ struct Preferences {
     bool vsync = true;
     bool fullscreen = false;
     float scale = 1.0f;
+#if defined(__ANDROID__)
+    float render_scale = 1.0f, volume = 1.0f;
+    int msaa = 1, anisotropy = 1;
+#else
     float render_scale = 0.0f, volume = 1.0f;
     int msaa = 1, anisotropy = 16;
+#endif
     int widescreen = 0;
     int filter_mode = 0;
     int backend = 0;
