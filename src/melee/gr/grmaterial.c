@@ -529,7 +529,11 @@ void grMaterial_801C9470(Item_GObj* gobj, CommandInfo* cmd)
 void grMaterial_801C9490(Item_GObj* gobj, CommandInfo* cmd)
 {
     Ground* gp = gobj->user_data;
+#if !defined(MUST_MATCH) && defined(__GNUC__)
+    u32 val = (__builtin_bswap16(*(const u16*) cmd->ptr[0]) >> 2) & 0xFF;
+#else
     u32 val = (*(u16*) cmd->ptr[0] >> 2) & 0xFF;
+#endif
     gp->xC0 = (f32) val;
     gp->x10_flags.b6 = 1;
 }

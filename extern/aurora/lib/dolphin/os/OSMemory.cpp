@@ -161,16 +161,78 @@ static void* AllocMEM1(u32 size) {
 }
 #elif defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
 #include <sys/mman.h>
-// Map MEM1 at the GameCube's own address, 0x80000000, so that
-//  - 32-bit pointer slots inside big-endian disc structures can hold real host
-//    addresses (see melee-pc src/pc/disc.h), and
-//  - the game's "is this main RAM or ARAM?" heuristics (`ptr >= 0x80000000`)
-//    keep working. The executable is linked non-PIE above this range.
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE 0x100000
+#endif
+// Map MEM1 strictly below 4GB (preferably at 0x80000000) so that 32-bit pointer slots
+// inside big-endian disc structures can hold real host addresses (see src/pc/disc.h).
+// On Android 11+, 0x80000000 is frequently mapped by ART/dalvik heap, so probe candidate
+// addresses and scan 32-bit address space if 0x80000000 is occupied.
 static void* AllocMEM1(u32 size) {
-  void* want = reinterpret_cast<void*>(0x80000000u);
-  void* p = mmap(want, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
-  if (p == MAP_FAILED || p != want) {
-    Log.fatal("Failed to map MEM1 ({} bytes) at 0x80000000", size);
+  static const uintptr_t candidates[] = {
+    0x80000000ULL,
+    0x70000000ULL,
+    0x60000000ULL,
+    0x50000000ULL,
+    0x40000000ULL,
+    0x30000000ULL,
+    0x20000000ULL,
+    0x90000000ULL,
+    0xA0000000ULL,
+    0xB0000000ULL,
+  };
+
+  void* p = nullptr;
+  for (uintptr_t addr : candidates) {
+    if (addr + size <= 0x100000000ULL) {
+      void* want = reinterpret_cast<void*>(addr);
+      void* res = mmap(want, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+      if (res != MAP_FAILED) {
+        if ((uintptr_t)res >= 0x01000000ULL && (uintptr_t)res + size <= 0x100000000ULL) {
+          p = res;
+          break;
+        }
+        munmap(res, size);
+      }
+    }
+  }
+
+  // If fixed candidate probing failed, scan 32-bit user space below 4GB in 16MB steps
+  if (!p) {
+    for (uintptr_t addr = 0x10000000ULL; addr <= 0xE0000000ULL - size; addr += 0x01000000ULL) {
+      void* want = reinterpret_cast<void*>(addr);
+      void* res = mmap(want, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
+      if (res != MAP_FAILED) {
+        if ((uintptr_t)res >= 0x01000000ULL && (uintptr_t)res + size <= 0x100000000ULL) {
+          p = res;
+          break;
+        }
+        munmap(res, size);
+      }
+    }
+  }
+
+#if defined(MAP_32BIT)
+  if (!p) {
+    void* res = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
+    if (res != MAP_FAILED) {
+      if ((uintptr_t)res >= 0x01000000ULL && (uintptr_t)res + size <= 0x100000000ULL) {
+        p = res;
+      } else {
+        munmap(res, size);
+      }
+    }
+  }
+#endif
+
+  if (p && reinterpret_cast<uintptr_t>(p) + size > 0x100000000ULL) {
+    Log.error("Allocated MEM1 at {:p}, which exceeds 4GB boundary (required for 32-bit disc slots)", p);
+    munmap(p, size);
+    p = nullptr;
+  }
+
+  if (!p) {
+    Log.fatal("Failed to map MEM1 ({} bytes) strictly under 4GB", size);
   }
   return p;
 }

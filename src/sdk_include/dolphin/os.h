@@ -177,8 +177,14 @@ void OSSetSoundMode(u32 mode);
 void OSReport(char*, ...);
 DOLPHIN_ATTRIBUTE_NORETURN void OSPanic(char* file, int line, char* msg, ...);
 
+#ifdef TARGET_PC
+#include <stdint.h>
+#define OSRoundUp32B(x) (((uintptr_t) (x) + 32 - 1) & ~(uintptr_t) (32 - 1))
+#define OSRoundDown32B(x) (((uintptr_t) (x)) & ~(uintptr_t) (32 - 1))
+#else
 #define OSRoundUp32B(x) (((u32) (x) + 32 - 1) & ~(32 - 1))
 #define OSRoundDown32B(x) (((u32) (x)) & ~(32 - 1))
+#endif
 
 void* OSPhysicalToCached(u32 paddr);
 void* OSPhysicalToUncached(u32 paddr);

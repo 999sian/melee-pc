@@ -125,7 +125,7 @@ struct DISC_STRUCT ReflectDesc {
 
     /// @remarks Setting this to 1 causes the reflector to skip ownership
     /// change
-    u8 x20_behavior;
+    s32 x20_behavior;
 };
 DISC_ASSERT_SIZE(struct ReflectDesc, 0x24);
 

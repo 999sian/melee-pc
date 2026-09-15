@@ -1132,8 +1132,16 @@ void initialize_pipeline_cache() {
   if (webgpu::g_backendType == wgpu::BackendType::WebGPU) {
     g_hasPipelineThread = false;
   } else {
+#if defined(__ANDROID__)
+    // On Android, background worker thread floods mobile GPU drivers (e.g. Adreno
+    // libllvm-qglc.so) during asset extraction and menu initialization with unthrottled
+    // vkCreateGraphicsPipelines, leading to driver crashes or memory exhaustion.
+    // Pipelines are instead built smoothly on the main thread via BuildPipelinesPerFrame.
+    g_hasPipelineThread = false;
+#else
     g_hasPipelineThread = true;
     g_pipelineThread = std::thread(pipeline_worker);
+#endif
   }
 
   const size_t loadedCount = load_pipeline_cache();

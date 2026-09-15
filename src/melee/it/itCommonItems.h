@@ -1546,7 +1546,7 @@ typedef struct DISC_STRUCT itWhiteBeaAttributes {
     /* +C */ s16 xC;
     /* +E */ s16 xE;
     /* +10 */ f32 x10;
-    /* +14 */ s16 x14;
+    /* +14 */ s32 x14;
 } itWhiteBeaAttributes;
 DISC_ASSERT_SIZE(itWhiteBeaAttributes, 0x18);
 
@@ -1713,14 +1713,13 @@ typedef struct DISC_STRUCT itOldottoseaAttributes {
     /* 0x04 */ f32 x4;
     /* 0x08 */ f32 x8;
     /* 0x0C */ f32 xC;
-    /* 0x10 */ s8 x10;
-    /* 0x11 */ u8 pad0[0x3];
+    /* 0x10 */ s32 x10;
     /* 0x14 */ f32 x14;
     /* 0x18 */ f32 x18;
     /* 0x1C */ f32 x1C;
     /* 0x20 */ f32 x20;
     /* 0x24 */ f32 x24;
-    /* 0x28 */ s8 x28;
+    /* 0x28 */ s32 x28;
 } itOldottoseaAttributes;
 DISC_ASSERT_SIZE(itOldottoseaAttributes, 0x2C);
 
@@ -1918,8 +1917,7 @@ typedef struct DISC_STRUCT ScopeBeamFloats {
 DISC_ASSERT_SIZE(ScopeBeamFloats, 0xC);
 
 typedef struct DISC_STRUCT ScopeBeamAttrs {
-    ScopeBeamFloats floats[9];
-    /* +6C */ u8 _pad[0x78 - 0x6C];
+    ScopeBeamFloats floats[10];
     /* +78 */ f32 x78;
     /* +7C */ f32 x7C;
 } ScopeBeamAttrs;

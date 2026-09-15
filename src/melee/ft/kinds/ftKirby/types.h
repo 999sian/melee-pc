@@ -90,7 +90,7 @@ struct DISC_STRUCT ftKb_DatAttrs {
     /*  +28 */ u32 jumpaerial_number_of_jumps;
     /*  +2C */ u32 jumpaerial_first_jump_action_state;
     /*  +30 */ u32 jumpaerial_final_jump_action_state;
-    /*  +34 */ s16 jumpaerial_unk;
+    /*  +34 */ s32 jumpaerial_unk;
 
     // Neutral B (no hat)
     /*  +38 */ float specialn_x_offset_inhaled;

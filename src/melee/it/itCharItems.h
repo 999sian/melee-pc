@@ -914,7 +914,7 @@ typedef struct itTools_ItemVars {
     /* +0 ip+DD4 */ s32 x0;
 } itTools_ItemVars;
 
-typedef struct itToolsMotionAttrs {
+typedef struct DISC_STRUCT itToolsMotionAttrs {
     /* +00 */ f32 x0;
     /* +04 */ f32 x4;
     /* +08 */ f32 x8;
@@ -923,6 +923,7 @@ typedef struct itToolsMotionAttrs {
     /* +14 */ f32 x14;
     /* +18 */ f32 x18;
 } itToolsMotionAttrs;
+DISC_ASSERT_SIZE(itToolsMotionAttrs, 0x1C);
 
 typedef struct DISC_STRUCT itToolsAttributes {
     /* +00 */ f32 x0;
