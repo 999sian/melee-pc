@@ -14,7 +14,17 @@
  * copy regions -- therefore stays consistent, and the only thing the game has to
  * do is divide the submitted horizontal projection term by the same factor. */
 
-#define ORIGINAL_ASPECT (4.0f / 3.0f)
+/* Melee renders to a 640x480 framebuffer on GameCube. Due to NTSC analog line
+ * timings and sample rate (ITU-R BT.601 / SMPTE 170M), the GameCube video
+ * interface has a non-square pixel aspect ratio (PAR) of 73:80 (~0.9125).
+ * The effective display aspect ratio (DAR) is therefore (640/480) * (73/80)
+ * = 73:60 (~1.2167, or 584x480 at 1x). Displaying Melee at 4:3 (1.3333) results
+ * in an image stretched horizontally by ~9.6%. Dolphin (since 4.0-7138) and
+ * Slippi emulate this hardware PAR, presenting Melee at 73:60.
+ *
+ * For 16:9 widescreen, the FOV scale is (16/9) / (73/60) = 320/219 (~1.4612),
+ * matching the canonical Melee widescreen Gecko code / Slippi ASM. */
+#define ORIGINAL_ASPECT (73.0f / 60.0f)
 
 static int s_mode;
 static bool s_supported;

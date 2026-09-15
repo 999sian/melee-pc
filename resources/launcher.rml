@@ -52,8 +52,8 @@
               </div>
             </div>
             <div class="setting">
-              <div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and the HUD stay 4:3.</p></div>
-              <button id="aspect">Original 4:3</button>
+              <div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and the HUD keep original aspect.</p></div>
+              <button id="aspect">Original (73:60)</button>
             </div>
             <div class="setting">
               <div class="description"><h3>Anti-aliasing <span class="badge">RESTART</span></h3><p>Smooth polygon edges with multisampling.</p></div>

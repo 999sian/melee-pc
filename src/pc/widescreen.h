@@ -7,7 +7,7 @@ extern "C" {
 /* Opt-out flag for cameras whose projection box IS the screen rectangle and
  * whose job is to cover the whole frame (full-screen overlays). A HUD camera
  * is geometrically identical to one of these, so only intent separates them:
- * the HUD deliberately keeps its 4:3 layout and does NOT set this, while an
+ * the HUD deliberately keeps its original layout and does NOT set this, while an
  * overlay that must reach both edges does.
  *
  * Bit 29 is free in HSD_CObj::flags -- 0, 1, 30 and 31 are taken, and CObjLoad

@@ -9,7 +9,7 @@
 <div class="setting"><div class="description"><h3>Display mode</h3></div><button id="display">Display</button></div>
 <div class="setting"><div class="description"><h3>Vertical sync</h3></div><button id="sync">VSync</button></div>
 <div class="setting"><div class="description"><h3>Internal resolution</h3><p>Auto follows the window size. Applied when the menu closes.</p></div><div class="slider-control"><input type="range" id="resolution" min="0" max="10" step="1" value="0" /><span id="resolution-val" class="slider-value">Auto</span></div></div>
-<div class="setting"><div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and the HUD stay 4:3. Applied when the menu closes.</p></div><button id="aspect">Original 4:3</button></div>
+<div class="setting"><div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and the HUD keep original aspect. Applied when the menu closes.</p></div><button id="aspect">Original (73:60)</button></div>
 <div class="setting"><div class="description"><h3>Anti-aliasing <span class="badge">RESTART</span></h3></div><button id="aa">Anti-aliasing</button></div>
 <div class="setting"><div class="description"><h3>Anisotropic filtering <span class="badge">RESTART</span></h3></div><button id="filter">Filtering</button></div>
 <div class="setting"><div class="description"><h3>Post-processing filter</h3><p>Off presents the frame as rendered.</p></div><button id="filter-mode">Off</button></div>

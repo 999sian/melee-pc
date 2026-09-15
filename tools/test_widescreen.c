@@ -36,31 +36,31 @@ static float scene(int mode, bool supported, u32 w, u32 h)
 int main(void)
 {
     /* Original mode and unsupported scenes present the classic aspect. */
-    near(scene(0, true, 1920, 1080), 1); near(requested, 4.0f / 3);
-    near(render_w, 1440); near(render_h, 1080);
-    near(scene(1, false, 1920, 1080), 1); near(requested, 4.0f / 3);
+    near(scene(0, true, 1920, 1080), 1); near(requested, 73.0f / 60.0f);
+    near(render_w, 1314); near(render_h, 1080);
+    near(scene(1, false, 1920, 1080), 1); near(requested, 73.0f / 60.0f);
 
-    /* 16:9 widens by exactly the aspect ratio of the aspect ratios. */
-    near(scene(1, true, 1920, 1080), (16.0f / 9) / (4.0f / 3));
+    /* 16:9 widens by exactly the aspect ratio of the aspect ratios (320/219). */
+    near(scene(1, true, 1920, 1080), (16.0f / 9) / (73.0f / 60.0f));
     near(requested, 16.0f / 9); near(render_w, 1920); near(render_h, 1080);
 
     /* 16:9 in a wider window letterboxes sideways, not vertically. */
-    near(scene(1, true, 2560, 1080), (16.0f / 9) / (4.0f / 3));
+    near(scene(1, true, 2560, 1080), (16.0f / 9) / (73.0f / 60.0f));
     near(render_w, 1920); near(render_h, 1080);
 
     /* 16:9 in a narrower window keeps 16:9 and letterboxes top/bottom. */
-    near(scene(1, true, 1280, 800), (16.0f / 9) / (4.0f / 3));
+    near(scene(1, true, 1280, 800), (16.0f / 9) / (73.0f / 60.0f));
     near(render_w, 1280); near(render_h, 720);
 
     /* Auto follows the window and never narrows below the original aspect. */
-    near(scene(2, true, 2560, 1080), (2560.0f / 1080) / (4.0f / 3));
+    near(scene(2, true, 2560, 1080), (2560.0f / 1080) / (73.0f / 60.0f));
     near(requested, 2560.0f / 1080); near(render_w, 2560); near(render_h, 1080);
-    near(scene(2, true, 800, 1000), 1); near(requested, 4.0f / 3);
-    near(render_w, 800); near(render_h, 600);
+    near(scene(2, true, 800, 1000), 1); near(requested, 73.0f / 60.0f);
+    near(render_w, 800); near(render_h, 658);
 
     /* Invalid modes and degenerate windows fall back to the original aspect. */
-    near(scene(99, true, 1920, 1080), 1); near(requested, 4.0f / 3);
-    near(scene(2, true, 0, 0), 1); near(requested, 4.0f / 3);
+    near(scene(99, true, 1920, 1080), 1); near(requested, 73.0f / 60.0f);
+    near(scene(2, true, 0, 0), 1); near(requested, 73.0f / 60.0f);
 
     /* Offscreen passes are never widened. */
     window_w = 2560; window_h = 1080;
@@ -68,7 +68,7 @@ int main(void)
     test_pass = HSD_RP_OFFSCREEN;
     near(pc_widescreen_scale(), 1);
     test_pass = HSD_RP_SCREEN;
-    near(pc_widescreen_scale(), (2560.0f / 1080) / (4.0f / 3));
+    near(pc_widescreen_scale(), (2560.0f / 1080) / (73.0f / 60.0f));
 
     puts("PASS: widescreen aspect selection, framebuffer fit and scale");
 }

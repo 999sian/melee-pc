@@ -36,7 +36,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-ORIGINAL_ASPECT = 4 / 3
+ORIGINAL_ASPECT = 73 / 60
 # A floor polygon that lost its shadow multiply is multiplied to exactly zero.
 # Measured: Temple 4:3 shows 0.11-0.28 exactly-black; a clean Yoshi's Story shot
 # 0.0002; Final Destination's night sky is near-black but only 0.05 exactly black,

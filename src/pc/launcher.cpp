@@ -196,7 +196,7 @@ class Launcher final : public Rml::EventListener {
         text("sync", std::string(effective_vsync ? "On" : "Off") + (override ? " (environment)" : ""));
         slider("resolution", prefs.render_scale);
         text("resolution-val", resolution_name(prefs.render_scale));
-        text("aspect", prefs.widescreen == 0 ? "Original 4:3" : prefs.widescreen == 1 ? "Widescreen 16:9" : "Auto (window aspect)");
+        text("aspect", prefs.widescreen == 0 ? "Original (73:60)" : prefs.widescreen == 1 ? "Widescreen 16:9" : "Auto (window aspect)");
         text("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
         text("filter", std::to_string(prefs.anisotropy) + "x");
         text("filter-mode", filter_name(prefs.filter_mode));
@@ -666,7 +666,7 @@ public:
         label("sync", std::getenv("MELEE_VSYNC") ? "Environment override" : prefs.vsync ? "On" : "Off");
         slider("resolution", prefs.render_scale);
         label("resolution-val", resolution_name(prefs.render_scale));
-        label("aspect", prefs.widescreen == 0 ? "Original 4:3" : prefs.widescreen == 1 ? "Widescreen 16:9" : "Auto (window aspect)");
+        label("aspect", prefs.widescreen == 0 ? "Original (73:60)" : prefs.widescreen == 1 ? "Widescreen 16:9" : "Auto (window aspect)");
         label("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
         label("filter", std::to_string(prefs.anisotropy) + "x");
         label("filter-mode", filter_name(prefs.filter_mode));
