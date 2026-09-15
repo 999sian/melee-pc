@@ -50,6 +50,10 @@ echo "=== Staging assets and native libraries ==="
 mkdir -p "${ANDROID_DIR}/app/src/main/assets/resources"
 cp -r "${ROOT_DIR}/resources/"* "${ANDROID_DIR}/app/src/main/assets/"
 cp -r "${ROOT_DIR}/resources/"* "${ANDROID_DIR}/app/src/main/assets/resources/"
+gzip -dc "${ROOT_DIR}/tools/initial_pipeline_cache.db.gz" \
+    > "${ANDROID_DIR}/app/src/main/assets/initial_pipeline_cache.db"
+cp "${ANDROID_DIR}/app/src/main/assets/initial_pipeline_cache.db" \
+    "${ANDROID_DIR}/app/src/main/assets/resources/initial_pipeline_cache.db"
 
 mkdir -p "${ANDROID_DIR}/app/src/main/jniLibs/arm64-v8a"
 "${STRIP_TOOL}" --strip-unneeded -o "${ANDROID_DIR}/app/src/main/jniLibs/arm64-v8a/libmelee.so" "${BUILD_DIR}/libmelee.so"

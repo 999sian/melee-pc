@@ -666,8 +666,9 @@ bool aurora_dvd_open(const char* disc_path) {
       .stream_len = sdlStreamLen,
       .close = sdlStreamClose,
   };
+  const uint32_t hwThreads = std::thread::hardware_concurrency();
   const NodDiscOptions options{
-      .preloader_threads = 1,
+      .preloader_threads = hwThreads > 0 ? std::clamp(hwThreads, 2u, 4u) : 2u,
   };
 
   NodHandle* discHandle;

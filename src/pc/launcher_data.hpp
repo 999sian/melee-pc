@@ -17,6 +17,7 @@ struct Preferences {
     int msaa = 1, anisotropy = 16;
     int widescreen = 0;
     int filter_mode = 0;
+    int backend = 0;
     bool mute = false, fps = false;
 };
 DiscInfo inspect_disc(const std::string& path);

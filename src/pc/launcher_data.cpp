@@ -293,6 +293,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
                 (key == "volume" ? prefs.volume : prefs.render_scale) = value;
         } else if (key == "filter_mode") {
             int value; if (row >> value && value >= 0 && value <= 3) prefs.filter_mode = value;
+        } else if (key == "backend") {
+            int value; if (row >> value && value >= 0 && value <= 2) prefs.backend = value;
         } else if (key == "msaa") {
             // Only 1x and 4x exist on this renderer; see aurora's clamp.
             int value; if (row >> value && (value == 1 || value == 4)) prefs.msaa = value;
@@ -318,7 +320,7 @@ bool save_preferences(const std::filesystem::path& path, const Preferences& pref
          << "render_scale " << prefs.render_scale << "\nvolume " << prefs.volume
          << "\nmsaa " << prefs.msaa << "\nanisotropy " << prefs.anisotropy
          << "\nwidescreen " << prefs.widescreen << "\nmute " << prefs.mute << "\nfps " << prefs.fps
-         << "\nfilter_mode " << prefs.filter_mode << '\n';
+         << "\nfilter_mode " << prefs.filter_mode << "\nbackend " << prefs.backend << '\n';
     auto data = text.str();
     size_t done = 0;
     bool ok = true;

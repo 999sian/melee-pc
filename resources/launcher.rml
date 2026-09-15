@@ -67,6 +67,10 @@
               <div class="description"><h3>Post-processing filter</h3><p>Off presents the frame as rendered.</p></div>
               <button id="filter-mode">Off</button>
             </div>
+            <div class="setting">
+              <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Choose Direct3D 12 or Vulkan.</p></div>
+              <button id="backend">Auto</button>
+            </div>
           </div>
           <div id="page-audio" class="page">
             <div class="setting">

@@ -1173,3 +1173,7 @@ void aurora_enable_vsync(const bool enabled) {
       aurora::webgpu::select_present_mode(aurora::webgpu::g_surfaceCapabilities);
   aurora::window::push_custom_event(aurora::window::CustomEvent::RefreshSurface);
 }
+
+bool aurora_vsync_enabled(void) {
+  return aurora::webgpu::vsync_enabled();
+}

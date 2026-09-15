@@ -47,6 +47,8 @@ mkdir -p "${APPDIR}"
 
 # Copy resources beside the binary
 cp -r "${ROOT_DIR}/resources" "${APPDIR}/usr/bin/resources"
+gzip -dc "${ROOT_DIR}/tools/initial_pipeline_cache.db.gz" \
+    > "${APPDIR}/usr/bin/initial_pipeline_cache.db"
 
 echo "=== Generating AppImage ==="
 ARCH=x86_64 "${TOOLS_DIR}/appimagetool" "${APPDIR}" "${DIST_DIR}/Melee-x86_64.AppImage"
@@ -59,6 +61,8 @@ cp "${BUILD_DIR}/melee" "${TAR_STAGE}/"
 # RelWithDebInfo leaves ~180MB of DWARF in the binary; ship it stripped.
 strip --strip-debug "${TAR_STAGE}/melee"
 cp -r "${ROOT_DIR}/resources" "${TAR_STAGE}/"
+gzip -dc "${ROOT_DIR}/tools/initial_pipeline_cache.db.gz" \
+    > "${TAR_STAGE}/initial_pipeline_cache.db"
 cp "${ROOT_DIR}/platforms/linux/melee.png" "${TAR_STAGE}/"
 cp "${ROOT_DIR}/platforms/linux/melee.desktop" "${TAR_STAGE}/"
 cat << 'APP_RUN' > "${TAR_STAGE}/run.sh"

@@ -7,6 +7,7 @@
  */
 #include <aurora/aurora.h>
 #include <aurora/event.h>
+#include <aurora/gfx.h>
 #include <dolphin/os.h>
 #include <dolphin/vi.h>
 
@@ -121,10 +122,12 @@ void pc_frame_boundary(void)
         exit(0);
     }
 
-    /* The game is a fixed 60 Hz simulation. Vsync normally paces it, but
-     * when the window is not presentable (occluded, minimized) aurora skips
-     * the present and the loop would free-run; pace it ourselves. */
-    {
+    /* The game is a fixed 60 Hz simulation. When Vsync is active, aurora's
+     * presentation pass is paced by the hardware display's VBlank. Only pace
+     * via SDL_DelayPrecise when Vsync is disabled or unavailable; running
+     * software sleep while hardware Vsync is active causes timing drift and
+     * missed VBlank deadlines (tripping sudden drops to 30 FPS). */
+    if (!aurora_vsync_enabled()) {
         static u64 next_ns;
         const u64 period = 1000000000ull / 60;
         u64 now = SDL_GetTicksNS();

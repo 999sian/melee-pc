@@ -29,6 +29,12 @@ const char* filter_name(int mode) {
     return names[mode & 3];
 }
 
+const char* backend_name(int mode) {
+    static const char* const names[] = {"Auto", "Direct3D 12", "Vulkan"};
+    if (mode < 0 || mode > 2) return "Auto";
+    return names[mode];
+}
+
 constexpr const char* tab_ids[] = {"tab-graphics", "tab-audio", "tab-controls"};
 constexpr const char* page_ids[] = {"page-graphics", "page-audio", "page-controls"};
 constexpr int tab_count = 3;
@@ -194,6 +200,7 @@ class Launcher final : public Rml::EventListener {
         text("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
         text("filter", std::to_string(prefs.anisotropy) + "x");
         text("filter-mode", filter_name(prefs.filter_mode));
+        text("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
         text("volume-val", std::to_string(int(prefs.volume * 100 + 0.5f)) + "%");
         text("mute", prefs.mute ? "On" : "Off");
@@ -287,6 +294,15 @@ class Launcher final : public Rml::EventListener {
             prefs.filter_mode = (prefs.filter_mode + 1) % 4;
             aurora_set_resampler(static_cast<AuroraSampler>(prefs.filter_mode));
             save(); refresh_settings(); element("filter-mode")->Focus();
+        } else if (id == "backend") {
+            if (std::getenv("MELEE_BACKEND")) {
+                status("Backend is controlled by the MELEE_BACKEND environment setting.");
+            } else {
+                prefs.backend = (prefs.backend + 1) % 3;
+                save(); refresh_settings();
+                status("Graphics backend set to " + std::string(backend_name(prefs.backend)) + " (takes effect on restart).");
+            }
+            element("backend")->Focus();
         } else if (id == "volume") {
             int step = int(prefs.volume * 10 + 0.5f);
             prefs.volume = (step >= 10 ? 0 : step + 1) / 10.0f;
@@ -474,6 +490,11 @@ extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config->msaa = prefs.msaa;
     config->maxTextureAnisotropy = prefs.anisotropy;
     if (!std::getenv("MELEE_VSYNC")) config->vsync = prefs.vsync;
+    if (!std::getenv("MELEE_BACKEND")) {
+        if (prefs.backend == 1) config->desiredBackend = BACKEND_D3D12;
+        else if (prefs.backend == 2) config->desiredBackend = BACKEND_VULKAN;
+        else config->desiredBackend = BACKEND_AUTO;
+    }
 }
 
 static std::filesystem::path pc_resources_path() {
@@ -649,6 +670,7 @@ public:
         label("aa", prefs.msaa == 1 ? "Off" : std::to_string(prefs.msaa) + "x MSAA");
         label("filter", std::to_string(prefs.anisotropy) + "x");
         label("filter-mode", filter_name(prefs.filter_mode));
+        label("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
         label("volume-val", std::to_string(int(prefs.volume * 100 + 0.5f)) + "%");
         label("mute", prefs.mute ? "On" : "Off");
@@ -785,6 +807,13 @@ public:
         else if (id == "filter-mode") {
             prefs.filter_mode = (prefs.filter_mode + 1) % 4;
             aurora_set_resampler(static_cast<AuroraSampler>(prefs.filter_mode));
+        } else if (id == "backend") {
+            if (std::getenv("MELEE_BACKEND")) {
+                label("menu-status", "Backend set by MELEE_BACKEND environment.");
+            } else {
+                prefs.backend = (prefs.backend + 1) % 3;
+                label("menu-status", "Backend set to " + std::string(backend_name(prefs.backend)) + " (restart required).");
+            }
         } else if (id == "volume") {
             int step = int(prefs.volume * 10 + 0.5f);
             prefs.volume = (step >= 10 ? 0 : step + 1) / 10.0f;

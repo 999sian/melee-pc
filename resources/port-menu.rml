@@ -13,6 +13,7 @@
 <div class="setting"><div class="description"><h3>Anti-aliasing <span class="badge">RESTART</span></h3></div><button id="aa">Anti-aliasing</button></div>
 <div class="setting"><div class="description"><h3>Anisotropic filtering <span class="badge">RESTART</span></h3></div><button id="filter">Filtering</button></div>
 <div class="setting"><div class="description"><h3>Post-processing filter</h3><p>Off presents the frame as rendered.</p></div><button id="filter-mode">Off</button></div>
+<div class="setting"><div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3></div><button id="backend">Auto</button></div>
 </div>
 <div id="page-audio" class="page">
 <div class="setting"><div class="description"><h3>Master volume</h3><p>Left/right or drag to adjust.</p></div><div class="slider-control"><input type="range" id="volume" min="0" max="100" step="5" value="100" /><span id="volume-val" class="slider-value">100%</span></div></div>

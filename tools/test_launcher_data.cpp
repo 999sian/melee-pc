@@ -49,19 +49,21 @@ int main(int argc, char** argv) {
     { std::ofstream f(config); f << "scale nan\nvsync rubbish\n"; }
     loaded = load_preferences(config);
     assert(loaded.scale == 1.0f && loaded.vsync);
-    { std::ofstream f(config); f << "render_scale 10\nmsaa 4\nanisotropy 8\nvolume 0.4\nmute 1\nfps 1\nfilter_mode 2\n"; }
+    { std::ofstream f(config); f << "render_scale 10\nmsaa 4\nanisotropy 8\nvolume 0.4\nmute 1\nfps 1\nfilter_mode 2\nbackend 2\n"; }
     loaded = load_preferences(config);
+    assert(loaded.backend == 2);
     assert(save_preferences(config, loaded, error));
     { std::ifstream f(config); std::string saved((std::istreambuf_iterator<char>(f)), {});
       assert(saved.find("render_scale 10\n") != std::string::npos);
       assert(saved.find("volume 0.4\n") != std::string::npos);
       assert(saved.find("msaa 4\n") != std::string::npos);
       assert(saved.find("filter_mode 2\n") != std::string::npos);
+      assert(saved.find("backend 2\n") != std::string::npos);
     }
     // msaa 8 is the dangerous one: Dawn aborts device creation on it.
-    { std::ofstream f(config); f << "render_scale -1\nmsaa 8\nanisotropy 32\nvolume 2\nmute 9\nfps -1\nfilter_mode 99\n"; }
+    { std::ofstream f(config); f << "render_scale -1\nmsaa 8\nanisotropy 32\nvolume 2\nmute 9\nfps -1\nfilter_mode 99\nbackend 99\n"; }
     loaded = load_preferences(config);
-    assert(loaded.render_scale == 0 && loaded.msaa == 1 && loaded.anisotropy == 16 && loaded.filter_mode == 0);
+    assert(loaded.render_scale == 0 && loaded.msaa == 1 && loaded.anisotropy == 16 && loaded.filter_mode == 0 && loaded.backend == 0);
     assert(loaded.volume == 1 && !loaded.mute && !loaded.fps);
     for (int mode = 0; mode <= 2; ++mode) {
         loaded.widescreen = mode;
