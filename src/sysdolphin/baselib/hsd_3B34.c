@@ -558,10 +558,20 @@ static inline void jpeg_encode_component(s32 component, s32* ac_value_out,
 
         if (coefficient != 0) {
             length = jpeg_run_bit_length((*run_out));
+#ifdef MUST_MATCH
             hsd_803B3CD8_write_bits(ac_code[length], ac_length[length], &work);
+#else
+            hsd_803B3CD8_write_bits(__builtin_bswap16(ac_code[length]),
+                                    ac_length[length], &work);
+#endif
             jpeg_write_run_payload((*run_out), length, &work);
             length = hsd_803B3CD8_bit_length(abs((*ac_value_out)));
+#ifdef MUST_MATCH
             hsd_803B3CD8_write_bits(ac_code[length], ac_length[length], &work);
+#else
+            hsd_803B3CD8_write_bits(__builtin_bswap16(ac_code[length]),
+                                    ac_length[length], &work);
+#endif
             if ((*ac_value_out) < 0) {
                 (*ac_value_out)--;
             }

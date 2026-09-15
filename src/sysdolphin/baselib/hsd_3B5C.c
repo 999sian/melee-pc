@@ -262,7 +262,11 @@ read_bit:
     code_table_tmp = code_cursor;
     goto read_huffman_code;
 check_code:
+#ifdef MUST_MATCH
     if (code == (s32) *code_table_tmp) {
+#else
+    if (code == (s32) __builtin_bswap16(*code_table_tmp)) {
+#endif
         return value_table[value_idx];
     }
     code_table_tmp += 1;
