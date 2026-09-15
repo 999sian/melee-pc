@@ -69,7 +69,7 @@ void ftKp_SpecialLw_80134ACC(Fighter_GObj* gobj)
                        ftKp_SpecialN_80134ACC_inline(gobj, dirs),
                        fp->u.kp.x222C, fp->u.kp.x2230, It_Kind_Koopa_Flame);
     if (fp->mv.kp.specialn.x14 == 0) {
-        fp->mv.kp.unk1.x4 = Item_8026AE60();
+        fp->mv.kp.specialn.x4 = Item_8026AE60();
         ft_80089824(gobj);
         ft_800892A0(gobj);
     }

@@ -30,12 +30,12 @@ union ftKoopa_MotionVars {
     } specials;
     struct ftKoopa_SpecialNVars {
         /* fp+2340 */ int x0;
-        /* fp+2344 */ bool x4;
+        /* fp+2344 */ u32 x4;
         /* fp+2348 */ int facing_dir;
-        /* fp+2348 */ bool xC;
-        /* fp+234C */ s32 x10;
-        /* fp+2350 */ s32 x14;
-        /* fp+2354 */ s32 x18;
+        /* fp+234C */ s32 xC;
+        /* fp+2350 */ s32 x10;
+        /* fp+2354 */ s32 x14;
+        /* fp+2358 */ s32 x18;
     } specialn;
 };
 

@@ -104,7 +104,7 @@ void itKoopaFlame_Update_Angle(Item_GObj* gobj, int flags)
 }
 
 Item_GObj* itKoopaFlame_Spawn(Fighter_GObj* parent, Vec* pos, f32 facing_dir,
-                              bool unk, s32 gfx, s32 base_speed, s32 scale,
+                              u32 unk, s32 gfx, s32 base_speed, s32 scale,
                               s32 kind)
 {
     SpawnItem spawn;
