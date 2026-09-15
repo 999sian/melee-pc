@@ -21,7 +21,7 @@
 #include <shellapi.h>
 #pragma comment(lib, "winhttp.lib")
 #pragma comment(lib, "shell32.lib")
-#elif defined(__linux__) || defined(__APPLE__)
+#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
 #include <curl/curl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -415,7 +415,7 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
 
 #endif
 
-#if defined(__linux__) || defined(__APPLE__)
+#if (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
 
 static size_t curl_write_string_cb(void* ptr, size_t size, size_t nmemb, void* userdata) {
     size_t total = size * nmemb;
@@ -563,7 +563,7 @@ void check_for_updates_async(bool include_prereleases) {
 
 #if defined(_WIN32)
         ok = http_get_string_winhttp(L"api.github.com", L"/repos/999sian/melee-pc/releases", body, error);
-#elif defined(__linux__) || defined(__APPLE__)
+#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
         ok = http_get_string_curl("https://api.github.com/repos/999sian/melee-pc/releases", body, error);
 #else
         error = "Networking unsupported on this platform";
@@ -666,7 +666,7 @@ void start_download_async() {
         // Or open in browser if download URL is direct
         open_release_in_browser();
         ok = true;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
         ok = http_download_file_curl(download_url, dest_path, error);
         if (ok) {
             chmod(dest_path.c_str(), 0755);
