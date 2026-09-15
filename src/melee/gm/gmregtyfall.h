@@ -6,7 +6,7 @@
 
 #include <placeholder.h>
 
-/* 1A659C */ bool gm_801A659C(int);
+/* 1A659C */ s32 gm_801A659C(int);
 /* 1A6630 */ void gm_801A6630(int);
 /* 1A6664 */ void fn_801A6664(HSD_GObj*);
 /* 1A6844 */ void fn_801A6844(HSD_GObj*);

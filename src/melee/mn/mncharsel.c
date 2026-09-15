@@ -5347,7 +5347,11 @@ void mnCharSel_Scene_OnEnter(void* arg0)
     mnCharSel_803F0DFC.doors[2].selected_since_load = 0;
     mnCharSel_803F0DFC.doors[3].selected_since_load = 0;
 
-    lbAudioAx_80026F2C(0x12);
+    if (mnCharSel_804D6CB0->match_type != EVENT_MATCH) {
+        lbAudioAx_80026F2C(0x1E);
+    } else {
+        lbAudioAx_80026F2C(0x12);
+    }
 
     lbAudioAx_8002702C(2, 8);
     lbAudioAx_80027168();

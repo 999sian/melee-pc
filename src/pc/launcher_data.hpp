@@ -24,6 +24,7 @@ struct Preferences {
     int filter_mode = 0;
     int backend = 0;
     bool mute = false, fps = false;
+    bool check_updates = true;
 };
 DiscInfo inspect_disc(const std::string& path);
 Verification verify_disc(const std::string& path, std::atomic_bool& cancel, std::atomic_uint& progress);

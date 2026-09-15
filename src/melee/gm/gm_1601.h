@@ -35,7 +35,7 @@ struct gm_SceneSlice {
 /// gets character result anim path
 /* 160438 */ char* gm_80160438(s32);
 
-/* 160474 */ bool gm_80160474(CharacterKind, GameModeKind);
+/* 160474 */ s32 gm_80160474(CharacterKind, GameModeKind);
 
 /// gets characters trophy model
 /* 1604DC */ char* gm_801604DC(CharacterKind, GameModeKind);
