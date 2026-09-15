@@ -22,7 +22,28 @@ image path directly:
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
 
-## Changes since v0.1.2-beta
+## Changes since v0.1.3-beta
+
+- **Fighter & Gameplay Fixes:**
+  - Fixed #16: Fixed Bowser's Neutral Special (Fire Breath) getting stuck permanently. Frame counter `xC` in `ftKoopa_SpecialNVars` was previously declared as `bool`, preventing the timer from reaching the 40-frame threshold required to detect B-button release and transition into `SpecialNEnd`.
+  - Fixed #15: Fixed Bunny Hood attachment rendering on fighter heads by loading ear offset vectors through `DISC_VEC3_GET` in `ftCommon_8007FA00`, restoring big-endian float byte-swapping.
+  - Fixed #14: Fixed Giant Melee sound effects playing at high pitch instead of low pitch by correcting `Player_GetMoreFlagsBit6` return type from `bool` to `u8`, preserving the Giant flag without truncating it to Tiny.
+  - Fixed #12: Fixed reflector and shield item behavior by correcting `ReflectDesc.x20_behavior` to `s32`.
+  - Fixed #11: Fixed item capsule drop crash caused by `ItCapsuleAttr.x0` being typed as `bool` instead of `s32`.
+  - Fixed #10: Fixed Tournament Mode crash caused by big-endian `u16` table access in `lbl_803D9F80`.
+  - Corrected big-endian disc layouts for `itOldottoseaAttributes`, `ScopeBeamAttrs`, `itToolsMotionAttrs`, `GroundParam`, `itWhiteBeaAttributes`, and `ftKb_DatAttrs`.
+  - Fixed command stream endian decoding in `grMaterial_801C9490`.
+
+- **Platform & System Stability:**
+  - Fixed #9: Fixed Android MEM1 mapping crash (`Failed to map MEM1 at 0x80000000`) on Android 11+ by scanning candidate ranges strictly below 4GB when the default base address is occupied.
+  - Fixed #13: Fixed Android crash shortly after launch by disabling pre-warmed background Vulkan pipeline worker threads that conflicted with Qualcomm Adreno drivers during asset loading.
+  - Fixed 64-bit pointer truncation in `OSRoundUp32B` and `OSRoundDown32B` using `uintptr_t`.
+  - Fixed 64-bit pointer safety across `HSD_SisLib_803A84BC`, screenshot saves, Sheik chain joint creation, Green Greens blocks, and fighter accessory cleanup.
+  - Clamped audio pitch ratio to 4.0f to eliminate `cvttss2si` signed integer overflow undefined behavior on x86-64.
+  - Fixed JPEG Huffman AC code byte-swapping in snapshot saving (`hsd_3B34.c`, `hsd_3B5C.c`) and added `DISC_STRUCT` to snapshot save headers.
+  - Fixed Event Mode text color RGBA channel ordering on little-endian platforms.
+
+## Changes in v0.1.3-beta
 
 - **Performance & Stuttering:**
   - Deconflicted hardware VSync and software frame pacing in `vi.c`. Manual `SDL_DelayPrecise` sleep now only runs when VSync is disabled, preventing monitor refresh rate drift from tripping sudden 30 FPS drops under strict FIFO VSync.
