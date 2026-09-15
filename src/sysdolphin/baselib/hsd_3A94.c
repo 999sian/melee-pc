@@ -1,5 +1,7 @@
 #include "hsd_3A94.h"
 
+#include <placeholder.h>
+
 #include "hsd_3B2B.h"
 #include "hsd_3B2E.h"
 
@@ -2806,8 +2808,8 @@ static inline s32 loadCardDataBlock(s32 data_block)
     return data_block;
 }
 
-s32 fn_803ADF90(CardState* state, s32 file_idx, u8* buf, s32 async,
-                void (*callback)(s32, s32))
+s32 fn_803ADF90(CardState* arg0, s32 arg1, u8* arg2, s32 arg3,
+                void (*arg4)(s32, s32))
 {
     CardBufEntry* entries = (CardBufEntry*) hsd_804D1138;
     u8* dst;

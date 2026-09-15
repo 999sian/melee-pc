@@ -106,7 +106,6 @@ STATIC_ASSERT(sizeof(CardState) == 0x464);
 /* 4D1138 */ extern u8 hsd_804D1138[0x1510];
 /* 4D1148 */ #define hsd_804D1148 ((u32(*)[9]) (hsd_804D1138 + 0x10))
 /* 4D2348 */ #define hsd_804D2348 (*(u8(*)[0x300]) (hsd_804D1138 + 0x1210))
-/* 4D2E70 */ extern u8 hsd_804D2E70[2084];
 /* 4D7990 */ extern s32 hsd_804D7990;
 /* 4D7994 */ extern s32 hsd_804D7994;
 /* 4D79A0 */ extern u8* hsd_804D79A0;
