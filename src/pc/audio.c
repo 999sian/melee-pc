@@ -103,7 +103,7 @@ static bool next_sample(Voice* v, s16* out)
     AXPB* pb = &v->vpb.pb;
     u16 format = pb->addr.format;
 
-    if (!pb->state) {
+    if (!pb->state || !s_aram) {
         return false;
     }
 
@@ -744,8 +744,8 @@ void AXSetVoiceSrcRatio(AXVPB* p, float ratio)
      * only clamp_ratio caps -- and reports -- the top.  */
     if (!(isfinite(ratio) && ratio > 0.0f)) {
         ratio = 0.0f;
-    } else if (ratio > 65535.0f) {
-        ratio = 65535.0f;
+    } else if (ratio > 4.0f) {
+        ratio = 4.0f;
     }
     u32 fixed = clamp_ratio((u32) (ratio * 65536.0f));
     set_addr(&p->pb.src.ratioHi, &p->pb.src.ratioLo, fixed);

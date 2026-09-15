@@ -290,7 +290,7 @@ void lbDvd_CachePreloadedFile(s32 index)
             lbFile_800164A4(preloadEntry->entry_num,
                             (uintptr_t) preloadEntry->raw_data->addr,
                             &preloadEntry->size, 2, lbDvd_80017E64,
-                            (void*) index);
+                            (void*) (uintptr_t) index);
         }
     }
 }

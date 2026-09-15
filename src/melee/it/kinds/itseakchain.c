@@ -68,7 +68,7 @@ static inline HSD_JObj* it_802BAF2C_Load_x68(Item* ip)
     return HSD_JObjLoadJoint(DP(HSD_Joint, attrs->x68_joint));
 }
 
-int it_802BAF2C(Item* ip, HSD_JObj* jobj)
+HSD_JObj* it_802BAF2C(Item* ip, HSD_JObj* jobj)
 {
     ItemLink* prev_link;
     ItemLink* head_link;
@@ -89,7 +89,7 @@ int it_802BAF2C(Item* ip, HSD_JObj* jobj)
                 HSD_GObjFree(prev_link->gobj);
                 prev_link = prev_link->next;
             }
-            return 0;
+            return NULL;
         }
 
         link = HSD_ObjAlloc(&item_link_alloc_data);
@@ -142,7 +142,7 @@ int it_802BAF2C(Item* ip, HSD_JObj* jobj)
     }
     ip->xDD4_itemVar.seakchain.x0 = tail_link;
     ip->xDD4_itemVar.seakchain.x4 = head_link;
-    return (int) result;
+    return result;
 }
 
 static void inlineA0(Item_GObj* gobj)

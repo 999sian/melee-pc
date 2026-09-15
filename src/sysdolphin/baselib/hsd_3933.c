@@ -311,7 +311,7 @@ static inline f32 kbps_scale(void)
     return 1.0F / 1024.0F;
 }
 
-int hsd_80393A5C(char* filename, int data, int size)
+int hsd_80393A5C(char* filename, void* data, int size)
 {
     int ready;
     u32 start;
@@ -350,7 +350,7 @@ int hsd_80393A5C(char* filename, int data, int size)
     }
 
     fd_arg = fd;
-    data_p = (u32*) (uintptr_t) (u32) data;
+    data_p = (u32*) data;
     written_f = (f32) FIOFwrite(fd_arg, data_p, size);
 
     if ((f32) (s32) size != written_f) {

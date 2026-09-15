@@ -309,6 +309,9 @@ HSD_JObj* ftLib_800865F0(HSD_GObj* gobj)
 HSD_JObj* ftLib_80086630(HSD_GObj* gobj, Fighter_Part part)
 {
     Fighter* fp = GET_FIGHTER(gobj);
+    if ((u32) part >= MAX_FT_PARTS) {
+        return NULL;
+    }
     return fp->parts[part].joint;
 }
 

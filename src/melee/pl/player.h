@@ -238,7 +238,7 @@ void Player_SetMoreFlagsBit4(s32 slot, u8 bit4);
 bool Player_GetMoreFlagsBit4(s32 slot);
 bool Player_GetMoreFlagsBit5(s32 slot);
 void Player_SetMoreFlagsBit5(s32 slot, u8 bit5);
-bool Player_GetMoreFlagsBit6(s32 slot);
+u8 Player_GetMoreFlagsBit6(s32 slot);
 void Player_SetMoreFlagsBit6(s32 slot, u8 bit6);
 u8 Player_GetFlagsAEBit0(s32 slot);
 s32 Player_GetRemainingHPByIndex(s32 slot, s32 index);

@@ -66,7 +66,7 @@ static inline Handle* new_handle(void* arenaLo, void* arenaHi)
     HSD_ASSERT(0x7B, _p(free_heap));
 
     if (PC_IS_ARAM_ADDR(arenaLo) && PC_IS_ARAM_ADDR(arenaHi)) {
-        HSD_ASSERT(0x80, (u32)arenaLo >= (u32)_p(a_arenaLo) && (u32)arenaHi <= (u32)_p(a_arenaHi));
+        HSD_ASSERT(0x80, (uintptr_t) arenaLo >= (uintptr_t) _p(a_arenaLo) && (uintptr_t) arenaHi <= (uintptr_t) _p(a_arenaHi));
     }
 
     POP_HANDLE(&_p(free_heap), h);

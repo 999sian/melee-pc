@@ -1057,7 +1057,7 @@ void grGreens_80215358(Ground_GObj* gobj, int col, int row, int arg3, int arg4)
     block->x10 = item_gobj;
     block->x14 = jobj;
     block->x18 = Ground_801C32D4(6, grGr_803E7840[num]);
-    block->x1C = 0;
+    block->x1C = NULL;
     block->x1_4 = 0;
     block->x1_7 = 0;
     vec.x = ((Vec(*)[6]) gp->u.greens.x4)[row][col].x;
@@ -1083,7 +1083,7 @@ void fn_802159B4(Item_GObj* item_gobj, Ground* gp)
     return;
 }
 
-void grGreens_802159B8(Ground* gp, int i, int j, int value)
+void grGreens_802159B8(Ground* gp, int i, int j, HSD_GObj* value)
 {
     UNUSED u8 pad[8];
     Vec vec;
@@ -1153,7 +1153,7 @@ void fn_80215B84(Item_GObj* item_gobj, Ground* gp, Vec* arg2, HSD_GObj* gobj,
     if (!find_block(ground, item_gobj, &row, &col)) {
         HSD_ASSERT(1465, 0);
     }
-    grGreens_802159B8(ground, col, row, (s32) hit);
+    grGreens_802159B8(ground, col, row, hit);
 }
 
 void fn_80215D50(Item_GObj* item_gobj, Ground* gp, HSD_GObj* gobj)
@@ -1161,7 +1161,7 @@ void fn_80215D50(Item_GObj* item_gobj, Ground* gp, HSD_GObj* gobj)
     return;
 }
 
-s32 grGreens_80215D54(Ground_GObj* gobj, int arg1, int arg2)
+void grGreens_80215D54(Ground_GObj* gobj, int arg1, int arg2)
 {
     Ground* gp = GET_GROUND(gobj);
     int row;
@@ -1185,7 +1185,6 @@ s32 grGreens_80215D54(Ground_GObj* gobj, int arg1, int arg2)
             row = 0;
         }
     }
-    return (s32) gobj;
 }
 
 void grGreens_80215ED8(Ground_GObj* gobj, int col, int row)
@@ -1216,7 +1215,7 @@ void grGreens_80215ED8(Ground_GObj* gobj, int col, int row)
         if (gp->u.greens.x8_blocks[row][col].x1_4) {
             gp->u.greens.x8_blocks[row][col].x4 = 0.0f;
             gp->u.greens.x8_blocks[row][col].x1_4 = 0;
-            grGreens_802159B8(gp, col, row, 0);
+            grGreens_802159B8(gp, col, row, NULL);
         } else {
             gp->u.greens.x8_blocks[row][col].x4 += yakumono_param->x30;
             if (gp->u.greens.x8_blocks[row][col].x4 > yakumono_param->x2C) {

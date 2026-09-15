@@ -1529,12 +1529,13 @@ void ftCommon_8007F9B4(HSD_GObj* gobj)
 void ftCommon_8007FA00(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    DiscVec3* vec = &fp->co_attrs.x114;
+    Vec3 pos0, pos1;
 
-    u8 _[8];
+    DISC_VEC3_GET(pos1, fp->co_attrs.x120);
+    DISC_VEC3_GET(pos0, fp->co_attrs.x114);
 
-    it_80294EB0(fp->x197C, (Vec3*) &vec[1], (Vec3*) &vec[0]);
-    it_80294E78(fp->x197C, fp->x34_scale.y * vec[2].x);
+    it_80294EB0(fp->x197C, &pos1, &pos0);
+    it_80294E78(fp->x197C, fp->x34_scale.y * fp->co_attrs.x12C);
 }
 
 void ftCommon_8007FA58(Fighter_GObj* gobj, Item_GObj* arg1)

@@ -349,7 +349,7 @@ void lbShadow_8000F38C(s32 arg0)
     {
         LbShadow* lbs = ftLib_800872B0(gobj);
         if (lbs != NULL) {
-            lbs->x0_b2 = (s32) nextGx;
+            lbs->x0_b2 = false;
         }
     }
 
@@ -478,7 +478,7 @@ void lbShadow_8000F38C(s32 arg0)
                         }
                     }
 
-                    if ((s32) lobj) {
+                    if (lobj != NULL) {
                         fp2->x20A4.x0_b3 = false;
                     } else {
                         fp2->x20A4.x0_b3 = true;

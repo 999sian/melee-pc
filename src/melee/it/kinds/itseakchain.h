@@ -8,7 +8,7 @@
 
 /* 2BAEEC */ void it_802BAEEC(Item_GObj*);
 /* 2BAF0C */ void it_802BAF0C(Item_GObj*);
-/* 2BAF2C */ int it_802BAF2C(Item* ip, HSD_JObj* jobj);
+/* 2BAF2C */ HSD_JObj* it_802BAF2C(Item* ip, HSD_JObj* jobj);
 /* 2BB20C */ void it_802BB20C(Item_GObj*);
 /* 2BB290 */ Item_GObj* itSeakChain_Spawn(Fighter_GObj* owner_gobj, Vec3* arg1,
                                           float facing_dir);

@@ -281,7 +281,11 @@ void mnEvent_8024D15C(s32 idx, s32 event_id)
         text->pos_y = text_y;
         text->pos_z = 17.0f;
         text->default_kerning = 1;
+#ifdef MUST_MATCH
         *(s32*) &text->text_color = mnEvent_804D5028;
+#else
+        text->text_color = (GXColor){ 0xCA, 0xBC, 0x9F, 0xFF };
+#endif
         HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "Ｌｖ． %d", event_id + 1);
 
         icon_base = data->icons;
@@ -328,7 +332,11 @@ void mnEvent_8024D5B0(HSD_GObj* gobj, u8 event)
     temp_r3_2->pos_x = 3.8f;
     temp_r3_2->pos_y = 6.9f;
     temp_r3_2->pos_z = 17.0f;
+#ifdef MUST_MATCH
     *(s32*) &temp_r3_2->text_color = mnEvent_804D502C;
+#else
+    temp_r3_2->text_color = (GXColor){ 0x00, 0x00, 0x00, 0xFF };
+#endif
     temp_r3_2->default_alignment = 2;
     temp_r3_2->font_size.x = 0.03f;
     temp_r3_2->font_size.y = 0.03f;

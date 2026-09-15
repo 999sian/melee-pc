@@ -1230,7 +1230,7 @@ void HSD_SynthResetStreamCounters(int result, uintptr_t length, void* buf, bool 
 
 void HSD_Synth_8038AD74(u32 offset, uintptr_t src)
 {
-    HSD_DevComRequest(HSD_Synth_804D7764, (u32) src,
+    HSD_DevComRequest(HSD_Synth_804D7764, src,
                       HSD_Synth_804D7780 + (HSD_Synth_804D7768 << 16),
                       lbl_804C4540[HSD_Synth_804D7768].x0, 0x23, 0,
                       HSD_SynthResetStreamCounters, 0);

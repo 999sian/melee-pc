@@ -35,7 +35,7 @@ void Command_03(CommandInfo* info)
 {
     info->event_return[info->loop_count++] = info->u + 1;
     info->event_return[info->loop_count++] =
-        (union CmdUnion*) info->u->Command_03.value;
+        (union CmdUnion*) (uintptr_t) info->u->Command_03.value;
     NEXT_CMD(info);
 }
 

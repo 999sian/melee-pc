@@ -1,6 +1,7 @@
 #include "lbsnap.h"
 
 #include <placeholder.h>
+#include <stddef.h>
 #include <stdio.h>
 
 #include "lbarchive.h"
@@ -30,7 +31,7 @@ struct Unk80433380_48 {
 };
 ASSERT_SIZE(struct Unk80433380_48, 0x408);
 
-struct Unk80433380_0 {
+struct DISC_STRUCT Unk80433380_0 {
     s32 x0;
     u16 width;
     u16 height;
@@ -393,7 +394,7 @@ int lbSnap_8001DE8C(void* arg0)
 
 static inline int lbSnap_GetSaveDataOffset(struct Unk80433380_0* snap)
 {
-    return snap->xC + ((int) &snap->x38 - (int) snap);
+    return snap->xC + (int) offsetof(struct Unk80433380_0, x38);
 }
 
 #ifdef MUST_MATCH
