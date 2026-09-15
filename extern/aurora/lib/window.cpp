@@ -454,6 +454,19 @@ AuroraWindowSize get_window_size() {
 
   int fb_w = native_fb_w;
   int fb_h = native_fb_h;
+#if defined(__ANDROID__)
+  // On mobile devices, native display pixel size (e.g. 2000x1200, 2400x1080) imposes severe fillrate
+  // and memory bandwidth bottlenecks on mobile GPUs (such as Adreno 610).
+  // For "Auto" (0.0f) render scale, clamp baseline to 1.0x GameCube native resolution (480p height)
+  // aspect-scaled to the window dimensions.
+  const float effective_scale = (g_frameBufferScale > 0.f) ? g_frameBufferScale : 1.0f;
+  const auto [baseW, baseH] = vi::configured_fb_size();
+  const auto [scaledW, scaledH] =
+      scale_frame_buffer_to_aspect(static_cast<int>(baseW), static_cast<int>(baseH), effective_scale,
+                                   static_cast<float>(fb_w) / static_cast<float>(fb_h));
+  fb_w = scaledW;
+  fb_h = scaledH;
+#else
   if (g_frameBufferScale > 0.f) {
     const auto [baseW, baseH] = vi::configured_fb_size();
     const auto [scaledW, scaledH] =
@@ -462,6 +475,7 @@ AuroraWindowSize get_window_size() {
     fb_w = scaledW;
     fb_h = scaledH;
   }
+#endif
   if (g_frameBufferAspect > 0.f) {
     const auto [fitW, fitH] = fit_frame_buffer_to_aspect(fb_w, fb_h, g_frameBufferAspect);
     fb_w = fitW;
