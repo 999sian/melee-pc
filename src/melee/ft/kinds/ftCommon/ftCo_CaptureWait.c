@@ -111,18 +111,12 @@ void ftCo_CaptureWaitHi_Anim(Fighter_GObj* gobj)
     fp->mv.co.capturewait.x0 += 1.0;
     fp->grab_timer -= p_ftCommonData->grab_timer_decrement;
     fp->mv.co.capturewait.x8 = ftCommon_GrabMash(fp, p_ftCommonData->x3A8);
-    if (fp->grab_timer <= 0.0F) {
-        ftCo_800DA698(fp->victim_gobj, 0);
-        if (fp->mv.co.capturewait.xC != 0 || fn_800DC044(gobj)) {
-            fn_800DC070(gobj);
-            return;
-        }
-
-        ftCo_CaptureCut_Enter(gobj);
+    zero = 0.0F;
+    if (fp->grab_timer <= zero) {
+        ftCo_8009A640(gobj);
         return;
     }
 
-    zero = 0.0F;
     if (fp->mv.co.capturewait.x4 != zero) {
         dec = 1.0F;
         fp->mv.co.capturewait.x4 -= dec;
