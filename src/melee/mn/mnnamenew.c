@@ -546,7 +546,7 @@ s32 mnNameNew_8023BAA8(NameNewEntry* arg0, s32 arg1, u8 arg2)
     return (s32) arg2;
 }
 
-inline u8 GetAutoNameCharacter(const u8* name, s32 char_idx)
+static inline u8 GetAutoNameCharacter(const u8* name, s32 char_idx)
 {
     return name[char_idx];
 }

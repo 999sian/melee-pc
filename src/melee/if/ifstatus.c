@@ -740,7 +740,7 @@ HSD_GObj* ifStatus_802F6194(HSD_GObj* node, s32 n)
     return (HSD_GObj*) cur;
 }
 
-inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
+static inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
 {
     *gobj = GObj_Create(0xE, 0xF, 0);
 }
