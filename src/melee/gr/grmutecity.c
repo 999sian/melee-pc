@@ -1916,6 +1916,9 @@ s32 grMuteCity_801F2AB0(s32 arg0, HSD_JObj* arg1)
         gen->type &= ~(PSAPPSRT_UNK_B09 | PSAPPSRT_UNK_B10);
         gen->type |= PSAPPSRT_UNK_B11;
         appsrt->gp = gen;
+#ifndef MUST_MATCH
+        return 1;
+#endif
     }
 #ifndef MUST_MATCH
     return 0;
