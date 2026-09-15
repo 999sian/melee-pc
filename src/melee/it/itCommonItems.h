@@ -22,8 +22,8 @@ typedef struct {
 } itCapsule_ItemVars;
 
 typedef struct DISC_STRUCT {
-    bool x0; // [true]
-    s32 x4;  // [8]
+    s32 x0;  /* it_8026F3D4 drop count (1) */
+    s32 x4;  /* HSD_Randi explode bound (8) */
 } ItCapsuleAttr;
 DISC_ASSERT_SIZE(ItCapsuleAttr, 0x8);
 

@@ -1213,7 +1213,7 @@ struct lbl_8046B488_t {
 ASSERT_SIZE(struct lbl_8046B488_t, 0x1E0);
 
 typedef struct TmSettingTable {
-    u8 pad_0[0x40];
+    u16 strings[32];
     u8 min[6][2];
     u8 max[6][2];
 } TmSettingTable;

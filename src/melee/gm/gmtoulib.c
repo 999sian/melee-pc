@@ -2170,7 +2170,7 @@ char* fn_8018F5F0(void)
 #endif
 u32 fn_8018F62C(HSD_GObj* gobj)
 {
-    return (u32) gobj->user_data;
+    return (u32) (uintptr_t) gobj->user_data;
 }
 #ifdef MUST_MATCH
 #pragma dont_inline off
@@ -2419,7 +2419,7 @@ void fn_8018FA24(void)
 #endif
 void fn_8018FBD8(void* arg0, s32 arg1)
 {
-    ((HSD_GObj*) arg0)->user_data = (void*) arg1;
+    ((HSD_GObj*) arg0)->user_data = (void*) (intptr_t) arg1;
 }
 #ifdef MUST_MATCH
 #pragma pop

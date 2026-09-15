@@ -129,11 +129,28 @@ static void order_sdata2_1(void)
 #endif
 
 /* 3D9F80 */ static struct TmSettingTable lbl_803D9F80 = {
-    0, 74,  0, 74,  0, 77,  0, 75, 0,  75,  0,  77, 0, 80,  0, 78, 0, 79,
-    0, 79,  0, 81,  0, 0,   0, 82, 0,  82,  0,  92, 0, 92,  0, 96, 0, 93,
-    0, 93,  0, 96,  0, 95,  0, 97, 0,  98,  0,  98, 0, 100, 0, 0,  0, 83,
-    0, 111, 0, 111, 0, 111, 0, 88, 0,  101, 0,  0,  2, 3,   0, 2,  0, 1,
-    0, 0,   0, 0,   2, 2,   4, 16, 31, 3,   63, 3,  3, 3,   9, 0,
+    {
+        74, 74, 77, 75, 75, 77, 80, 78, 79,
+        79, 81, 0, 82, 82, 92, 92, 96, 93,
+        93, 96, 95, 97, 98, 98, 100, 0, 83,
+        111, 111, 111, 88, 101,
+    },
+    {
+        { 0, 0 },
+        { 2, 3 },
+        { 0, 2 },
+        { 0, 1 },
+        { 0, 0 },
+        { 0, 0 },
+    },
+    {
+        { 2, 2 },
+        { 4, 16 },
+        { 31, 3 },
+        { 63, 3 },
+        { 3, 3 },
+        { 9, 0 },
+    },
 };
 
 typedef void (*lbl_803D9FD8_fn)(s32*, u32, u32);
@@ -1633,13 +1650,21 @@ void fn_801937C4(s32* arg0, u32 arg1, u32 arg2)
         global = &gm_804771C4;
         arg0[0] = idx + 1;
         idx = arg0[0];
-        tp = table->pad_0 + (idx << 1);
+#ifdef MUST_MATCH
+        tp = (u8*) table + (idx << 1);
         dp = arg0 + idx;
         for (; idx < 6; idx++) {
             *++dp =
                 tp[(global->match_type != 0) + offsetof(TmSettingTable, min)];
             tp += 2;
         }
+#else
+        dp = arg0 + idx;
+        (void) tp;
+        for (; idx < 6; idx++) {
+            *++dp = table->min[idx][global->match_type != 0];
+        }
+#endif
         if (gm_804771C4.match_type == 0) {
             if (fn_8018F808() < 2) {
                 idx = arg0[0];
