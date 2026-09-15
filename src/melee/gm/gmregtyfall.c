@@ -285,6 +285,10 @@ void fn_801A6B6C(HSD_GObj* gobj)
         HSD_Free(DP(void, gm_80480964.x0[0][1].image_ptr));
         HSD_Free(DP(void, gm_80480964.x0[1][0].image_ptr));
         HSD_Free(DP(void, gm_80480964.x0[1][1].image_ptr));
+        DP_SET(gm_80480964.x0[0][0].image_ptr, NULL);
+        DP_SET(gm_80480964.x0[0][1].image_ptr, NULL);
+        DP_SET(gm_80480964.x0[1][0].image_ptr, NULL);
+        DP_SET(gm_80480964.x0[1][1].image_ptr, NULL);
         gm_801A7B00();
         HSD_GObjFree(gobj);
     }
