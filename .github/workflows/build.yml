@@ -17,8 +17,15 @@ concurrency:
 
 jobs:
   linux:
-    name: Linux (x86-64)
-    runs-on: ubuntu-24.04
+    name: Linux (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,10 +48,10 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-x86_64
+          name: linux-${{ matrix.arch }}
           path: |
-            dist/Melee-x86_64.AppImage
-            dist/melee-linux-x86_64.tar.gz
+            dist/Melee-${{ matrix.arch }}.AppImage
+            dist/melee-linux-${{ matrix.arch }}.tar.gz
           if-no-files-found: error
 
   windows:

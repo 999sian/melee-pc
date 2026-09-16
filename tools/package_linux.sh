@@ -8,11 +8,17 @@ DIST_DIR="${ROOT_DIR}/dist"
 APPDIR="${BUILD_DIR}/AppDir"
 TOOLS_DIR="${BUILD_DIR}/tools"
 
+ARCH="$(uname -m)"
+case "${ARCH}" in
+    x86_64|aarch64) ;;
+    *) echo "Unsupported architecture: ${ARCH}" >&2; exit 1 ;;
+esac
+
 # SDL3 is not packaged on most distros yet, so build it from source by
 # default; set AURORA_SDL3_PROVIDER=system where a system SDL3 exists.
 SDL3_PROVIDER="${AURORA_SDL3_PROVIDER:-vendor}"
 
-echo "=== Building Melee PC (Linux x86-64) ==="
+echo "=== Building Melee PC (Linux ${ARCH}) ==="
 cmake -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DAURORA_SDL3_PROVIDER="${SDL3_PROVIDER}" \
@@ -23,11 +29,11 @@ ninja -C "${BUILD_DIR}" melee
 echo "=== Fetching packaging tools ==="
 mkdir -p "${TOOLS_DIR}" "${DIST_DIR}"
 if [[ ! -x "${TOOLS_DIR}/appimagetool" ]]; then
-    curl -fL "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" -o "${TOOLS_DIR}/appimagetool"
+    curl -fL "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${ARCH}.AppImage" -o "${TOOLS_DIR}/appimagetool"
     chmod +x "${TOOLS_DIR}/appimagetool"
 fi
 if [[ ! -x "${TOOLS_DIR}/linuxdeploy" ]]; then
-    curl -fL "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage" -o "${TOOLS_DIR}/linuxdeploy"
+    curl -fL "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${ARCH}.AppImage" -o "${TOOLS_DIR}/linuxdeploy"
     chmod +x "${TOOLS_DIR}/linuxdeploy"
 fi
 # CI runners have no FUSE, so the AppImage tools must self-extract instead.
@@ -51,10 +57,10 @@ gzip -dc "${ROOT_DIR}/tools/initial_pipeline_cache.db.gz" \
     > "${APPDIR}/usr/bin/initial_pipeline_cache.db"
 
 echo "=== Generating AppImage ==="
-ARCH=x86_64 "${TOOLS_DIR}/appimagetool" "${APPDIR}" "${DIST_DIR}/Melee-x86_64.AppImage"
+ARCH="${ARCH}" "${TOOLS_DIR}/appimagetool" "${APPDIR}" "${DIST_DIR}/Melee-${ARCH}.AppImage"
 
 echo "=== Generating Portable Tarball ==="
-TAR_STAGE="${BUILD_DIR}/melee-linux-x86_64"
+TAR_STAGE="${BUILD_DIR}/melee-linux-${ARCH}"
 rm -rf "${TAR_STAGE}"
 mkdir -p "${TAR_STAGE}"
 cp "${BUILD_DIR}/melee" "${TAR_STAGE}/"
@@ -72,7 +78,7 @@ exec "${HERE}/melee" "$@"
 APP_RUN
 chmod +x "${TAR_STAGE}/run.sh"
 
-tar -czf "${DIST_DIR}/melee-linux-x86_64.tar.gz" -C "${BUILD_DIR}" "melee-linux-x86_64"
+tar -czf "${DIST_DIR}/melee-linux-${ARCH}.tar.gz" -C "${BUILD_DIR}" "melee-linux-${ARCH}"
 
 echo "=== Packaging Complete ==="
 ls -lh "${DIST_DIR}"
