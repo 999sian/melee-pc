@@ -238,7 +238,7 @@ void ftAnim_8006E054(Fighter* fp, HSD_JObj* jobj, HSD_JObj* arg2,
             }
         }
     }
-    if (fp->x594_b5) {
+    if (fp->x594_b5 && arg2 != NULL) {
         sp5C.x = fp->x68C_transNPos.x - fp->x6C0.x;
         sp5C.y = fp->x68C_transNPos.y - fp->x6C0.y;
         sp5C.z = fp->x68C_transNPos.z - fp->x6C0.z;
@@ -332,10 +332,12 @@ void ftAnim_8006E9B4(Fighter_GObj* gobj)
     if (fp->x8A4_animBlendFrames == 0.0F) {
         HSD_JObjClearFlagsAll(jobj, JOBJ_USE_QUATERNION);
         if (fp->x594_b0) {
+            FighterBone* transN = ftParts_GetBone(fp, FtPart_TransN);
+            FighterBone* bone35 = ftParts_GetBone(fp, 0x35);
             ftAnim_8006E054(
                 fp, jobj,
-                fp->parts[ftParts_GetBoneIndex(fp, FtPart_TransN)].joint,
-                fp->parts[ftParts_GetBoneIndex(fp, 0x35)].joint);
+                transN != NULL ? transN->joint : NULL,
+                bone35 != NULL ? bone35->joint : NULL);
         } else {
             ftAnim_8006E7B8(fp, FtPart_TopN);
         }
@@ -355,10 +357,12 @@ void ftAnim_8006E9B4(Fighter_GObj* gobj)
         }
         ftAnim_8006E7B8(fp, FtPart_TopN);
         if (fp->x594_b0) {
+            FighterBone* transN = ftParts_GetBone(fp, FtPart_TransN);
+            FighterBone* bone35 = ftParts_GetBone(fp, 0x35);
             ftAnim_8006E054(
                 fp, anim_jobj,
-                fp->parts[ftParts_GetBoneIndex(fp, FtPart_TransN)].x4_jobj2,
-                fp->parts[ftParts_GetBoneIndex(fp, 0x35)].joint);
+                transN != NULL ? transN->x4_jobj2 : NULL,
+                bone35 != NULL ? bone35->joint : NULL);
         } else {
             HSD_JObjAnimAll(anim_jobj);
         }
@@ -1377,6 +1381,10 @@ void ftAnim_80070FB4(Fighter_GObj* arg0, s32 arg1, s32 arg2)
 
 bool ftAnim_80070FD0(Fighter* fp)
 {
+    FighterBone* bone = ftParts_GetBone(fp, 0x35);
+    if (bone == NULL || bone->joint == NULL) {
+        return false;
+    }
     float rotation = ftPartGetRotX(fp, ftParts_GetBoneIndex(fp, 0x35));
     if (fp->x100 != rotation) {
         fp->x100 = rotation;

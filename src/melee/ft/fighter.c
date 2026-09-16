@@ -1298,15 +1298,22 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
                 }
 
                 ftAnim_8006E9B4(gobj);
-                if ((bone_index != 0) && (*unk_byte_ptr)[0] != 0U) {
-                    HSD_JObj* temp_joint = fp->parts[bone_index].x4_jobj2;
+                {
+                    FighterPartsTable* parts =
+                        (FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v;
+                    if ((bone_index != 0) &&
+                        (u32) bone_index < parts->parts_num &&
+                        (*unk_byte_ptr)[0] != 0U)
+                    {
+                        HSD_JObj* temp_joint = fp->parts[bone_index].x4_jobj2;
 
-                    HSD_JObjGetTranslation(temp_joint, &translation);
-                    HSD_JObjSetTranslate(fp->parts[bone_index].joint,
-                                         &translation);
-                    HSD_JObjGetRotation(temp_joint, &quat);
-                    ftParts_JObjSetRotation(fp->parts[bone_index].joint,
-                                            &quat);
+                        HSD_JObjGetTranslation(temp_joint, &translation);
+                        HSD_JObjSetTranslate(fp->parts[bone_index].joint,
+                                             &translation);
+                        HSD_JObjGetRotation(temp_joint, &quat);
+                        ftParts_JObjSetRotation(fp->parts[bone_index].joint,
+                                                &quat);
+                    }
                 }
 
                 if (fp->x594_b0 != 0U) {

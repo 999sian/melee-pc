@@ -716,7 +716,26 @@ void ftParts_80074E58(Fighter* fp)
 
 Fighter_Part ftParts_GetBoneIndex(Fighter* fp, Fighter_Part part)
 {
-    return DP(s8, get_parts_tbl(fp->kind)->part_to_joint)[part];
+    FighterPartsTable* tbl = get_parts_tbl(fp->kind);
+    if (tbl == NULL || (u32) part >= 56) {
+        return (Fighter_Part) -1;
+    }
+    return DP(s8, tbl->part_to_joint)[part];
+}
+
+FighterBone* ftParts_GetBone(Fighter* fp, Fighter_Part part)
+{
+    Fighter_Part idx = ftParts_GetBoneIndex(fp, part);
+    if ((u32) (s8) idx >= get_parts_tbl(fp->kind)->parts_num) {
+        return NULL;
+    }
+    return &fp->parts[(u8) idx];
+}
+
+HSD_JObj* ftParts_GetPartJoint(Fighter* fp, Fighter_Part part)
+{
+    FighterBone* bone = ftParts_GetBone(fp, part);
+    return bone != NULL ? bone->joint : NULL;
 }
 
 int ftPartsRemap(size_t to_table_idx, size_t from_table_idx, size_t joint_idx)
@@ -1014,11 +1033,18 @@ void ftParts_JObjSetRotation(HSD_JObj* jobj, Vec4* quat)
 
 void ftPartSetRotX(Fighter* fp, int part_idx, f32 rotate_x)
 {
-    HSD_JObj* jobj = fp->parts[part_idx].joint;
+    if ((u32) (s8) part_idx >= get_parts_tbl(fp->kind)->parts_num) {
+        return;
+    }
+    HSD_JObj* jobj = fp->parts[(u8) part_idx].joint;
+    if (jobj == NULL) {
+        return;
+    }
     if (HSD_JObjGetFlags(jobj) & JOBJ_USE_QUATERNION) {
-        HSD_JObj* jobj2 = fp->parts[part_idx].x4_jobj2;
-        if (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION) {
+        HSD_JObj* jobj2 = fp->parts[(u8) part_idx].x4_jobj2;
+        if (jobj2 == NULL || (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION)) {
             HSD_ASSERTREPORT(1120, 0, "cant set fighter rot x!\n");
+            return;
         }
         HSD_JObjSetRotationX(jobj2, rotate_x);
     } else {
@@ -1028,11 +1054,18 @@ void ftPartSetRotX(Fighter* fp, int part_idx, f32 rotate_x)
 
 void ftPartSetRotY(Fighter* fp, int part_idx, f32 rotate_y)
 {
-    HSD_JObj* jobj = fp->parts[part_idx].joint;
+    if ((u32) (s8) part_idx >= get_parts_tbl(fp->kind)->parts_num) {
+        return;
+    }
+    HSD_JObj* jobj = fp->parts[(u8) part_idx].joint;
+    if (jobj == NULL) {
+        return;
+    }
     if (HSD_JObjGetFlags(jobj) & JOBJ_USE_QUATERNION) {
-        HSD_JObj* jobj2 = fp->parts[part_idx].x4_jobj2;
-        if (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION) {
+        HSD_JObj* jobj2 = fp->parts[(u8) part_idx].x4_jobj2;
+        if (jobj2 == NULL || (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION)) {
             HSD_ASSERTREPORT(1139, 0, "cant set fighter rot y!\n");
+            return;
         }
         HSD_JObjSetRotationY(jobj2, rotate_y);
     } else {
@@ -1042,14 +1075,18 @@ void ftPartSetRotY(Fighter* fp, int part_idx, f32 rotate_y)
 
 void ftPartSetRotZ(Fighter* arg0, int part_idx, f32 rotate_z)
 {
-    HSD_JObj* jobj;
-    HSD_JObj* jobj2;
-
-    jobj = arg0->parts[part_idx].joint;
+    if ((u32) (s8) part_idx >= get_parts_tbl(arg0->kind)->parts_num) {
+        return;
+    }
+    HSD_JObj* jobj = arg0->parts[(u8) part_idx].joint;
+    if (jobj == NULL) {
+        return;
+    }
     if (HSD_JObjGetFlags(jobj) & JOBJ_USE_QUATERNION) {
-        jobj2 = arg0->parts[part_idx].x4_jobj2;
-        if (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION) {
+        HSD_JObj* jobj2 = arg0->parts[(u8) part_idx].x4_jobj2;
+        if (jobj2 == NULL || (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION)) {
             HSD_ASSERTREPORT(1158, 0, "cant set fighter rot z!\n");
+            return;
         }
         HSD_JObjSetRotationZ(jobj2, rotate_z);
     } else {
@@ -1059,26 +1096,40 @@ void ftPartSetRotZ(Fighter* arg0, int part_idx, f32 rotate_z)
 
 f32 ftPartGetRotX(Fighter* fp, int part_idx)
 {
-    HSD_JObj* jobj = fp->parts[part_idx].joint;
+    if ((u32) (s8) part_idx >= get_parts_tbl(fp->kind)->parts_num) {
+        return 0.0f;
+    }
+    HSD_JObj* jobj = fp->parts[(u8) part_idx].joint;
+    if (jobj == NULL) {
+        return 0.0f;
+    }
     if (HSD_JObjGetFlags(jobj) & JOBJ_USE_QUATERNION) {
-        HSD_JObj* jobj = fp->parts[part_idx].x4_jobj2;
-        if (HSD_JObjGetFlags(jobj) & JOBJ_USE_QUATERNION) {
+        HSD_JObj* jobj2 = fp->parts[(u8) part_idx].x4_jobj2;
+        if (jobj2 == NULL || (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION)) {
             HSD_ASSERTREPORT(1177, 0, "cant get fighter rot x!\n");
+            return 0.0f;
         }
-        return HSD_JObjGetRotationX(jobj);
+        return HSD_JObjGetRotationX(jobj2);
     }
     return HSD_JObjGetRotationX(jobj);
 }
 
 f32 ftPartGetRotZ(Fighter* fp, int part_idx)
 {
-    HSD_JObj* jobj = fp->parts[part_idx].joint;
+    if ((u32) (s8) part_idx >= get_parts_tbl(fp->kind)->parts_num) {
+        return 0.0f;
+    }
+    HSD_JObj* jobj = fp->parts[(u8) part_idx].joint;
+    if (jobj == NULL) {
+        return 0.0f;
+    }
     if (HSD_JObjGetFlags(jobj) & JOBJ_USE_QUATERNION) {
-        HSD_JObj* jobj = fp->parts[part_idx].x4_jobj2;
-        if (HSD_JObjGetFlags(jobj) & JOBJ_USE_QUATERNION) {
+        HSD_JObj* jobj2 = fp->parts[(u8) part_idx].x4_jobj2;
+        if (jobj2 == NULL || (HSD_JObjGetFlags(jobj2) & JOBJ_USE_QUATERNION)) {
             HSD_ASSERTREPORT(1196, 0, "cant get fighter rot y!\n");
+            return 0.0f;
         }
-        return HSD_JObjGetRotationY(jobj);
+        return HSD_JObjGetRotationY(jobj2);
     }
     return HSD_JObjGetRotationY(jobj);
 }
