@@ -117,9 +117,34 @@ jobs:
           path: dist/Melee-Android-arm64.apk
           if-no-files-found: error
 
+  macos:
+    name: macOS (arm64)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          # Apple clang builds the C++; the decomp's C needs GCC for
+          # scalar_storage_order, so tools/gcc_launcher.py routes melee_game
+          # through Homebrew's gcc. SDL3 comes from Homebrew and is bundled
+          # into the .app with the other dylibs by package_macos.sh.
+          brew install gcc cmake ninja sdl3 zstd libpng freetype
+
+      - name: Build and package
+        env:
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.4' }}
+        run: tools/package_macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: dist/Melee-macOS-arm64.zip
+          if-no-files-found: error
+
   release:
     name: Publish release
-    needs: [linux, windows, android]
+    needs: [linux, windows, android, macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:

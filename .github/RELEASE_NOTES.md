@@ -4,7 +4,9 @@ You need your own Super Smash Bros. Melee disc image. **No game data ships in
 these artifacts** — the port reads everything, including its font atlases, from
 the image you supply at runtime.
 
-Only **USA revision 2 (NTSC-U 1.02, GALE01)** is supported.
+**USA revision 2 (NTSC-U 1.02, GALE01)** is the supported disc. A Europe (PAL,
+GALP01) image boots experimentally, running the USA game code on PAL data with
+English (UK) text.
 
 ## Downloads
 
@@ -14,6 +16,7 @@ Only **USA revision 2 (NTSC-U 1.02, GALE01)** is supported.
 | Linux x86-64 | `melee-linux-x86_64.tar.gz` | Portable directory; run `run.sh`. |
 | Windows x86-64 | `Melee-Windows-x86_64.zip` | Extract and run `melee.exe`. Keep the DLLs and `resources/` beside it. |
 | Android arm64 | `Melee-Android-arm64.apk` | Release build, signed. Allow install from unknown sources. |
+| macOS arm64 | `Melee-macOS-arm64.zip` | Apple Silicon. Ad-hoc signed: right-click > Open on first launch. |
 
 Launch with no arguments to open the launcher and pick a disc, or pass the
 image path directly:

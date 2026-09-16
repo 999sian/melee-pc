@@ -13,8 +13,8 @@ You need your own disc image. No game data ships here.
 
 ## Features
 
-- Native Linux, Windows and Android (arm64) builds, rendered through
-  Dawn/WebGPU (Vulkan, D3D12) and SDL3.
+- Native Linux, Windows, macOS (Apple Silicon) and Android (arm64) builds,
+  rendered through Dawn/WebGPU (Vulkan, D3D12, Metal) and SDL3.
 - RmlUi launcher with disc selection and SHA-1 verification against the Redump
   database before boot.
 - In-game settings overlay on **F1**, with the game paused underneath.
@@ -52,7 +52,7 @@ Works end to end:
 - Music and sound effects, saves.
 
 Not done: online play with rollback netcode, All-Star (unreachable until the
-roster is unlocked), widescreen camera and HUD, macOS.
+roster is unlocked), widescreen camera and HUD, Intel macOS.
 
 ## Building
 
@@ -76,8 +76,32 @@ NDK (`ANDROID_NDK_HOME`) and a JDK 17.
 ```sh
 tools/package_linux.sh      # dist/Melee-x86_64.AppImage + tarball
 tools/package_windows.sh    # dist/Melee-Windows-x86_64.zip
+tools/package_macos.sh      # dist/Melee-macOS-arm64.zip (Melee.app)
 tools/build_android.sh      # dist/Melee-Android-arm64.apk (signed release)
 ```
+
+### macOS
+
+Apple Silicon only. Apple's clang builds the C++; the decomp's C still needs
+GCC, so `tools/gcc_launcher.py` routes `melee_game` through Homebrew's `gcc`
+(the same split the Android build uses). Dawn comes as a prebuilt with a Metal
+backend.
+
+```sh
+brew install gcc cmake ninja sdl3 zstd libpng freetype
+cmake --preset macos-default
+ninja -C build/macos
+build/macos/melee <disc>
+```
+
+arm64 macOS kills native binaries whose `__PAGEZERO` is under 4GB and requires
+PIE, so the non-PIE/`MAP_32BIT` layout the other platforms use is impossible.
+Instead MEM1 is mapped at an address whose low 32 bits are `0x80000000`, so a
+MEM1 pointer truncated to 32 bits *is* its GameCube address, and `DP()` restores
+the high half (`PC_MEM1_ALIAS` in `src/pc/disc.h`).
+
+`Melee.app` is ad-hoc signed, so the first launch of a downloaded copy needs
+right-click > Open, or `xattr -d com.apple.quarantine Melee.app`.
 
 ## Running
 
@@ -86,17 +110,22 @@ build/melee                              # open the launcher
 build/melee <disc.iso|.gcm|.ciso|.rvz>
 ```
 
-Only **Melee USA revision 2 (NTSC-U 1.02, GALE01)** is supported. A valid disc
-path on the command line boots straight in; a missing or invalid one returns to
-the launcher. Settings and the selected path live in `launcher.cfg` in SDL's
-`melee-pc` preference directory (usually `~/.local/share/melee-pc`).
+**Melee USA revision 2 (NTSC-U 1.02, GALE01)** is the supported disc. A
+**Europe (PAL, GALP01)** image also boots, experimentally: the game code is
+still the USA build, the DVD layer serves the English (UK) `.ukd` text files
+where the code asks for `.usd`, and the USA-only trophy tables missing from
+`TyDatai` get empty stand-ins (`src/pc/region.c`). Gameplay is therefore
+NTSC (60 Hz) on PAL data. A valid disc path on the command line boots straight
+in; a missing or invalid one returns to the launcher. Settings and the selected path live in `launcher.cfg` in SDL's
+`melee-pc` preference directory (usually `~/.local/share/melee-pc`, or
+`~/Library/Application Support/melee-pc` on macOS).
 
 Verification reads the disc through nod, compressed images included, and compares
 SHA-1 against the
 [Redump DAT](https://github.com/libretro/libretro-database/blob/master/metadat/redump/Nintendo%20-%20GameCube.dat):
 `d4e70c064cc714ba8400a849cf299dbd1aa326fc`, 1,459,978,240 bytes. It supports
 progress and cancellation, and is not cached between launches. Unverified images
-still play.
+still play; PAL images have no reference hash and always report as unverified.
 
 Keep `resources/` next to the binary when distributing. The bundled Liberation
 Sans fonts are covered by `resources/FONT-LICENSE.txt`.
