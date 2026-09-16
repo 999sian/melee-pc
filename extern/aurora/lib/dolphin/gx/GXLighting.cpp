@@ -171,52 +171,94 @@ void GXLoadLightObjImm(GXLightObj* light_, GXLightID id) {
 }
 
 void GXSetChanAmbColor(GXChannelID id, GXColor color) {
-  if (id == GX_COLOR0A0) {
-    GXSetChanAmbColor(GX_COLOR0, color);
-    GXSetChanAmbColor(GX_ALPHA0, color);
-    return;
-  } else if (id == GX_COLOR1A1) {
-    GXSetChanAmbColor(GX_COLOR1, color);
-    GXSetChanAmbColor(GX_ALPHA1, color);
-    return;
-  }
-  CHECK(id >= GX_COLOR0 && id <= GX_ALPHA1, "bad channel {}", static_cast<int>(id));
+  u32 reg = 0;
+  u32 colIdx;
 
-  // XF ambient color registers: 0x100A (chan 0), 0x100B (chan 1)
-  u32 packed = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-               (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
-  if (id == GX_COLOR0 || id == GX_ALPHA0) {
-    __gx->ambColor[0] = packed;
-    GX_WRITE_XF_REG(0xA, packed);
-  } else {
-    __gx->ambColor[1] = packed;
-    GX_WRITE_XF_REG(0xB, packed);
+  switch (id) {
+  case GX_COLOR0: {
+    u32 alpha = __gx->ambColor[0] & 0xFF;
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | alpha;
+    colIdx = 0;
+    break;
   }
+  case GX_COLOR1: {
+    u32 alpha = __gx->ambColor[1] & 0xFF;
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | alpha;
+    colIdx = 1;
+    break;
+  }
+  case GX_ALPHA0:
+    reg = (__gx->ambColor[0] & 0xFFFFFF00) | static_cast<u32>(color.a);
+    colIdx = 0;
+    break;
+  case GX_ALPHA1:
+    reg = (__gx->ambColor[1] & 0xFFFFFF00) | static_cast<u32>(color.a);
+    colIdx = 1;
+    break;
+  case GX_COLOR0A0:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
+    colIdx = 0;
+    break;
+  case GX_COLOR1A1:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
+    colIdx = 1;
+    break;
+  default:
+    return;
+  }
+
+  __gx->ambColor[colIdx] = reg;
+  GX_WRITE_XF_REG(colIdx + 0xA, reg);
   __gx->bpSent = 0;
 }
 
 void GXSetChanMatColor(GXChannelID id, GXColor color) {
-  if (id == GX_COLOR0A0) {
-    GXSetChanMatColor(GX_COLOR0, color);
-    GXSetChanMatColor(GX_ALPHA0, color);
-    return;
-  } else if (id == GX_COLOR1A1) {
-    GXSetChanMatColor(GX_COLOR1, color);
-    GXSetChanMatColor(GX_ALPHA1, color);
-    return;
-  }
-  CHECK(id >= GX_COLOR0 && id <= GX_ALPHA1, "bad channel {}", static_cast<int>(id));
+  u32 reg = 0;
+  u32 colIdx;
 
-  // XF material color registers: 0x100C (chan 0), 0x100D (chan 1)
-  u32 packed = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-               (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
-  if (id == GX_COLOR0 || id == GX_ALPHA0) {
-    __gx->matColor[0] = packed;
-    GX_WRITE_XF_REG(0xC, packed);
-  } else {
-    __gx->matColor[1] = packed;
-    GX_WRITE_XF_REG(0xD, packed);
+  switch (id) {
+  case GX_COLOR0: {
+    u32 alpha = __gx->matColor[0] & 0xFF;
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | alpha;
+    colIdx = 0;
+    break;
   }
+  case GX_COLOR1: {
+    u32 alpha = __gx->matColor[1] & 0xFF;
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | alpha;
+    colIdx = 1;
+    break;
+  }
+  case GX_ALPHA0:
+    reg = (__gx->matColor[0] & 0xFFFFFF00) | static_cast<u32>(color.a);
+    colIdx = 0;
+    break;
+  case GX_ALPHA1:
+    reg = (__gx->matColor[1] & 0xFFFFFF00) | static_cast<u32>(color.a);
+    colIdx = 1;
+    break;
+  case GX_COLOR0A0:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
+    colIdx = 0;
+    break;
+  case GX_COLOR1A1:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
+    colIdx = 1;
+    break;
+  default:
+    return;
+  }
+
+  __gx->matColor[colIdx] = reg;
+  GX_WRITE_XF_REG(colIdx + 0xC, reg);
   __gx->bpSent = 0;
 }
 

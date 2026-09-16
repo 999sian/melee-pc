@@ -181,7 +181,7 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t length,
             int mode = HSD_Synth_804C2A60[0].xC;
 
             if (cb != NULL) {
-                cb(entrynum, mode);
+                cb(-1, mode);
             }
 
             intr = OSDisableInterrupts();

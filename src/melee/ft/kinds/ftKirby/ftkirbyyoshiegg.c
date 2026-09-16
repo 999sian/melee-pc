@@ -26,6 +26,10 @@ static void fn_8010AA64(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj = gobj->hsd_obj;
+    if (fp->x20A0_accessory == NULL) {
+        fp->accessory4_cb = NULL;
+        return;
+    }
     if (fp->mv.co.yoshiegg.x14 <= 0.0f) {
         Fighter_UpdateModelScale(gobj);
         fp->accessory4_cb = NULL;
