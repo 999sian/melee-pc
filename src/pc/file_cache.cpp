@@ -21,6 +21,7 @@
 #include <sys/resource.h>
 #endif
 
+#include <dolphin/ar.h>
 #include <dolphin/dvd.h>
 #include <dolphin/os.h>
 
@@ -228,6 +229,46 @@ bool preload_single_file(const char* name, int entryNum) {
     return success;
 }
 
+#ifndef PC_IS_ARAM_ADDR
+#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < 0x01000000u)
+#endif
+
+uint8_t* resolve_host_dst(void* dst, size_t size) {
+    if (dst == nullptr) {
+        return nullptr;
+    }
+    if (PC_IS_ARAM_ADDR(dst)) {
+        uint8_t* aram = aurora_aram_base();
+        if (aram == nullptr) {
+            return nullptr;
+        }
+        uintptr_t offset = reinterpret_cast<uintptr_t>(dst);
+        if (offset + size > 0x01000000u) {
+            return nullptr;
+        }
+        return aram + offset;
+    }
+    return static_cast<uint8_t*>(dst);
+}
+
+const uint8_t* resolve_host_src(const void* src, size_t size) {
+    if (src == nullptr) {
+        return nullptr;
+    }
+    if (PC_IS_ARAM_ADDR(src)) {
+        uint8_t* aram = aurora_aram_base();
+        if (aram == nullptr) {
+            return nullptr;
+        }
+        uintptr_t offset = reinterpret_cast<uintptr_t>(src);
+        if (offset + size > 0x01000000u) {
+            return nullptr;
+        }
+        return aram + offset;
+    }
+    return static_cast<const uint8_t*>(src);
+}
+
 } // namespace
 
 extern "C" {
@@ -244,8 +285,12 @@ bool pc_file_cache_get(const char* filename, void* dst, size_t* size) {
         auto it = s_fileCache.find(key);
         if (it != s_fileCache.end()) {
             auto& entry = it->second;
+            uint8_t* host_dst = resolve_host_dst(dst, entry.data.size());
+            if (host_dst == nullptr) {
+                return false;
+            }
             *size = entry.data.size();
-            std::memcpy(dst, entry.data.data(), entry.data.size());
+            std::memcpy(host_dst, entry.data.data(), entry.data.size());
 
             // Move to front of LRU queue if unpinned
             if (!entry.pinned && entry.lru_it != s_lruList.begin()) {
@@ -254,7 +299,9 @@ bool pc_file_cache_get(const char* filename, void* dst, size_t* size) {
                 entry.lru_it = s_lruList.begin();
             }
 
-            OSReport("[FileCache] HIT: %s (%zu bytes, 0ms)\n", key.c_str(), entry.data.size());
+            OSReport("[FileCache] HIT: %s (%zu bytes, 0ms)%s\n",
+                     key.c_str(), entry.data.size(),
+                     PC_IS_ARAM_ADDR(dst) ? " [ARAM]" : "");
             return true;
         }
     }
@@ -266,13 +313,18 @@ bool pc_file_cache_get(const char* filename, void* dst, size_t* size) {
         if (stat(loose_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) {
             std::ifstream in(loose_path, std::ios::binary);
             if (in.is_open()) {
+                uint8_t* host_dst = resolve_host_dst(dst, static_cast<size_t>(st.st_size));
+                if (host_dst == nullptr) {
+                    return false;
+                }
                 std::vector<uint8_t> buf(st.st_size);
                 in.read(reinterpret_cast<char*>(buf.data()), st.st_size);
                 *size = buf.size();
-                std::memcpy(dst, buf.data(), buf.size());
+                std::memcpy(host_dst, buf.data(), buf.size());
                 pc_file_cache_put(key.c_str(), buf.data(), buf.size());
-                OSReport("[FileCache] LOOSE HIT: %s from %s (%zu bytes, 0ms)\n",
-                         key.c_str(), loose_path.c_str(), buf.size());
+                OSReport("[FileCache] LOOSE HIT: %s from %s (%zu bytes, 0ms)%s\n",
+                         key.c_str(), loose_path.c_str(), buf.size(),
+                         PC_IS_ARAM_ADDR(dst) ? " [ARAM]" : "");
                 return true;
             }
         }
@@ -314,6 +366,11 @@ void pc_file_cache_put(const char* filename, const void* data, size_t size) {
         return;
     }
 
+    const uint8_t* host_src = resolve_host_src(data, size);
+    if (host_src == nullptr) {
+        return;
+    }
+
     std::string key = normalize_key(filename);
 
     std::lock_guard<std::mutex> lock(s_cacheMutex);
@@ -327,8 +384,7 @@ void pc_file_cache_put(const char* filename, const void* data, size_t size) {
     }
 
     auto& entry = s_fileCache[key];
-    const auto* src = static_cast<const uint8_t*>(data);
-    entry.data.assign(src, src + size);
+    entry.data.assign(host_src, host_src + size);
     entry.pinned = pinned;
 
     if (!pinned) {
@@ -337,8 +393,10 @@ void pc_file_cache_put(const char* filename, const void* data, size_t size) {
     }
     s_totalCacheBytes += size;
 
-    OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)\n",
-             key.c_str(), size, pinned ? ", pinned" : "", s_totalCacheBytes / (1024.0 * 1024.0));
+    OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)%s\n",
+             key.c_str(), size, pinned ? ", pinned" : "",
+             s_totalCacheBytes / (1024.0 * 1024.0),
+             PC_IS_ARAM_ADDR(data) ? " [from ARAM]" : "");
 }
 
 void pc_file_cache_clear(void) {
