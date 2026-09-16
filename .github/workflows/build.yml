@@ -119,12 +119,15 @@ jobs:
 
   macos:
     name: macOS (arm64)
-    runs-on: macos-15
+    # aurora uses std::jthread/std::stop_token, which Apple's libc++ only
+    # ships from the macOS 26 SDK (Xcode 26); macos-15's Xcode 16 lacks them.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
+          xcodebuild -version
           # Apple clang builds the C++; the decomp's C needs GCC for
           # scalar_storage_order, so tools/gcc_launcher.py routes melee_game
           # through Homebrew's gcc. SDL3 comes from Homebrew and is bundled
