@@ -1,5 +1,7 @@
 #include "devcom.h"
 
+#include <string.h>
+
 #include "debug.h"
 #include "devcom.static.h"
 #include "synth.h"
@@ -156,13 +158,7 @@ void HSD_DevComARAMWakeUp(void)
                     arq_callback = HSD_DevComARAMCallback;
                     xfer_size = aramDC->size;
                 }
-                {
-                    int* p = HSD_DevCom_804C6330_bufs[req_idx];
-                    int i;
-                    for (i = 0x1000; i > 0; i--) {
-                        *p++ = 0;
-                    }
-                }
+                memset(HSD_DevCom_804C6330_bufs[req_idx], 0, DEVCOM_BUF_SIZE);
                 DCStoreRange(HSD_DevCom_804C6330_bufs[req_idx],
                              DEVCOM_BUF_SIZE);
                 ARQPostRequest(devComARQR[req_idx], 0, 0, 1,
