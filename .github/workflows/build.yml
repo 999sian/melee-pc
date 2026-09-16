@@ -29,7 +29,7 @@ jobs:
           # (AURORA_SDL3_PROVIDER=vendor); these are its X11/Wayland/audio deps.
           sudo apt-get install -y --no-install-recommends \
             build-essential ninja-build cmake pkg-config \
-            libssl-dev zip file desktop-file-utils \
+            libssl-dev libcurl4-openssl-dev zip file desktop-file-utils \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
             libxfixes-dev libxss-dev libxkbcommon-dev libxtst-dev \
             libwayland-dev wayland-protocols libdecor-0-dev \

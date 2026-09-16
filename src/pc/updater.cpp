@@ -21,8 +21,11 @@
 #include <shellapi.h>
 #pragma comment(lib, "winhttp.lib")
 #pragma comment(lib, "shell32.lib")
-#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
+#elif defined(MELEE_USE_CURL)
 #include <curl/curl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -415,7 +418,7 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
 
 #endif
 
-#if (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
+#if defined(MELEE_USE_CURL)
 
 static size_t curl_write_string_cb(void* ptr, size_t size, size_t nmemb, void* userdata) {
     size_t total = size * nmemb;
@@ -537,6 +540,15 @@ bool http_download_file_curl(const std::string& url, const std::filesystem::path
     return true;
 }
 
+#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
+static bool http_get(const std::string&, std::string&, std::string& out_error) {
+    out_error = "curl not available";
+    return false;
+}
+static bool http_download_file(const std::string&, const std::string&, std::string& out_error, std::atomic_bool*) {
+    out_error = "curl not available";
+    return false;
+}
 #endif
 
 } // namespace
