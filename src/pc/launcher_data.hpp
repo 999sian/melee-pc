@@ -35,6 +35,7 @@ struct Preferences {
     bool unlock_all = false;
     int hud_mode = 0;
     bool frozen_stadium = false;
+    bool free_camera = false;
     float music_volume = 1.0f;
     float sfx_volume = 1.0f;
 };

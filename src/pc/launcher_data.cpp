@@ -344,7 +344,7 @@ Preferences load_preferences(const std::filesystem::path& path) {
             if (row >> value && std::isfinite(value) && value >= 0.75f && value <= 1.5f)
                 prefs.scale = value;
         } else if (key == "check_updates" || key == "custom_textures" || key == "unlock_all" ||
-                   key == "frozen_stadium")
+                   key == "frozen_stadium" || key == "free_camera")
         {
             int value;
             if (row >> value && (value == 0 || value == 1)) {
@@ -356,6 +356,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
                     prefs.unlock_all = value;
                 else if (key == "frozen_stadium")
                     prefs.frozen_stadium = value;
+                else if (key == "free_camera")
+                    prefs.free_camera = value;
             }
         } else if (key == "hud_mode") {
             int value;
@@ -388,7 +390,8 @@ bool save_preferences(
          << prefs.filter_mode << "\nbackend " << prefs.backend << "\ncheck_updates "
          << prefs.check_updates << "\ncustom_textures " << prefs.custom_textures << "\nunlock_all "
          << prefs.unlock_all << "\nhud_mode " << prefs.hud_mode << "\nfrozen_stadium "
-         << prefs.frozen_stadium << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume "
+         << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera
+         << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume "
          << prefs.sfx_volume << '\n';
     auto data = text.str();
     size_t done = 0;
