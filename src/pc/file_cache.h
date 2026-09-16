@@ -26,7 +26,16 @@ void pc_file_cache_clear(void);
 /* Set the directory path for loose file overrides (or reads MELEE_FILES_DIR). */
 void pc_file_cache_set_loose_dir(const char* dir);
 
-/* Launches a detached background pre-warming worker thread. */
+/* Sets the maximum cache memory budget in megabytes (0 = auto-detect). */
+void pc_file_cache_set_max_memory_mb(size_t max_mb);
+
+/* Returns current memory consumption of cached files in bytes. */
+size_t pc_file_cache_get_memory_usage(void);
+
+/* Preloads a specific archive on demand in the background. */
+void pc_file_cache_preload_file(const char* filename);
+
+/* Launches an adaptive background pre-warming worker thread. */
 void pc_file_cache_start_prewarm(void);
 
 #ifdef __cplusplus
