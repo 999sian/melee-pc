@@ -49,14 +49,16 @@ int main(int argc, char** argv) {
     assert(verify_disc(image.string(), cancel, progress).state == VerifyState::Mismatch);
     auto config = dir / "launcher.cfg";
     auto prefs = load_preferences(config);
-    assert(prefs.disc.empty() && prefs.vsync && !prefs.fullscreen && prefs.scale == 1.0f);
+    assert(prefs.disc.empty() && prefs.vsync && !prefs.fullscreen && prefs.scale == 1.0f &&
+           !prefs.free_camera);
     prefs.disc = (dir / "quoted \"disc\".iso").string();
     prefs.fullscreen = true;
     prefs.scale = 1.25f;
     std::string error;
     assert(save_preferences(config, prefs, error));
     auto loaded = load_preferences(config);
-    assert(loaded.disc == prefs.disc && loaded.fullscreen && loaded.scale == 1.25f);
+    assert(loaded.disc == prefs.disc && loaded.fullscreen && loaded.scale == 1.25f &&
+           !loaded.free_camera);
     {
         std::ofstream f(config);
         f << "scale nan\nvsync rubbish\n";
@@ -83,17 +85,19 @@ int main(int argc, char** argv) {
         assert(saved.find("unlock_all 0\n") != std::string::npos);
         assert(saved.find("hud_mode 0\n") != std::string::npos);
         assert(saved.find("frozen_stadium 0\n") != std::string::npos);
+        assert(saved.find("free_camera 0\n") != std::string::npos);
         assert(saved.find("music_volume 1\n") != std::string::npos);
         assert(saved.find("sfx_volume 1\n") != std::string::npos);
     }
     {
         std::ofstream f(config);
-        f << "custom_textures 0\nunlock_all 1\nhud_mode 1\nfrozen_stadium 1\nmusic_volume "
+        f << "custom_textures 0\nunlock_all 1\nhud_mode 1\nfrozen_stadium 1\nfree_camera "
+             "1\nmusic_volume "
              "0.75\nsfx_volume 0.5\n";
     }
     loaded = load_preferences(config);
     assert(!loaded.custom_textures && loaded.unlock_all && loaded.hud_mode == 1 &&
-           loaded.frozen_stadium);
+           loaded.frozen_stadium && loaded.free_camera);
     assert(std::abs(loaded.music_volume - 0.75f) < 0.001f);
     assert(std::abs(loaded.sfx_volume - 0.5f) < 0.001f);
     // msaa 8 is the dangerous one: Dawn aborts device creation on it.
@@ -122,6 +126,12 @@ int main(int argc, char** argv) {
     loaded.check_updates = true;
     assert(save_preferences(config, loaded, error));
     assert(load_preferences(config).check_updates);
+    loaded.free_camera = false;
+    assert(save_preferences(config, loaded, error));
+    assert(!load_preferences(config).free_camera);
+    loaded.free_camera = true;
+    assert(save_preferences(config, loaded, error));
+    assert(load_preferences(config).free_camera);
     assert(!save_preferences(dir / "missing" / "config", prefs, error));
     assert(!error.empty());
     std::filesystem::remove_all(dir);

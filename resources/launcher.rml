@@ -53,6 +53,7 @@
         <div id="tabstrip">
           <button id="tab-graphics" class="tab">Graphics</button>
           <button id="tab-audio" class="tab">Audio &amp; interface</button>
+          <button id="tab-cheats" class="tab">Cheats</button>
           <button id="tab-controls" class="tab">Controls</button>
         </div>
         <div id="settings-content">
@@ -77,6 +78,10 @@
               <button id="aspect">Original (73:60)</button>
             </div>
             <div class="setting">
+              <div class="description"><h3>HUD layout</h3><p>Classic keeps 4:3 safe margins; Wide anchors damage/stocks to 16:9 edges.</p></div>
+              <button id="hud-mode">Classic (4:3)</button>
+            </div>
+            <div class="setting">
               <div class="description"><h3>Anti-aliasing <span class="badge">RESTART</span></h3><p>Smooth polygon edges with multisampling.</p></div>
               <button id="aa">Anti-aliasing</button>
             </div>
@@ -93,16 +98,22 @@
               <button id="custom-textures">Enabled</button>
             </div>
             <div class="setting">
-              <div class="description"><h3>Hazardless stages</h3><p>Lock Pokémon Stadium in neutral mode without transformations.</p></div>
-              <button id="frozen-stadium">Off</button>
+              <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Choose Direct3D 12 or Vulkan.</p></div>
+              <button id="backend">Auto</button>
             </div>
+          </div>
+          <div id="page-cheats" class="page">
             <div class="setting">
               <div class="description"><h3>Unlock everything</h3><p>Unlock all 26 characters, 11 secret stages, and All-Star mode.</p></div>
               <button id="unlock-all">Off</button>
             </div>
             <div class="setting">
-              <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Choose Direct3D 12 or Vulkan.</p></div>
-              <button id="backend">Auto</button>
+              <div class="description"><h3>Hazardless stages</h3><p>Lock Pokémon Stadium in neutral mode without transformations.</p></div>
+              <button id="frozen-stadium">Off</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Free camera</h3><p>Unlock camera rotation and zoom distance in pause mode.</p></div>
+              <button id="free-camera">Normal</button>
             </div>
           </div>
           <div id="page-audio" class="page">

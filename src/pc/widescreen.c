@@ -87,6 +87,28 @@ float pc_widescreen_hud_offset(void) {
     return (scale - 1.0f) * 320.0f;
 }
 
+/* Melee's HUD projection uses a fixed perspective camera (FOV 41.539 deg, distance 64.0)
+ * where 1 logical pixel at z=0 corresponds to 0.1 * (73/80) = 0.09125 world units
+ * (GameCube NTSC PAR 73:80, matching ifmagnify.c). */
+#define PC_HUD_WORLD_SCALE 0.09125f
+
+float pc_widescreen_hud_timer_x(float original_x) {
+    float offset = pc_widescreen_hud_offset();
+    if (offset <= 0.0f) {
+        return original_x;
+    }
+    return original_x + offset * PC_HUD_WORLD_SCALE;
+}
+
+float pc_widescreen_hud_player_x(int player_idx, int total_players, float original_x) {
+    float offset = pc_widescreen_hud_offset();
+    if (offset <= 0.0f || total_players <= 1 || player_idx < 0 || player_idx >= total_players) {
+        return original_x;
+    }
+    float t = -1.0f + 2.0f * (float)player_idx / (float)(total_players - 1);
+    return original_x + t * (offset * PC_HUD_WORLD_SCALE);
+}
+
 void pc_widescreen_copy_efb(
     struct HSD_ImageDesc* idesc, int origx, int origy, float center_x, int clear) {
     float scale, left, right;

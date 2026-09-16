@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CHECK_DIRS = [ROOT / "src/pc"]
 TOOL_FILES = list((ROOT / "tools").glob("*.cpp")) + list((ROOT / "tools").glob("*.c"))
 SOURCE_EXTENSIONS = {".c", ".cpp", ".h", ".hpp"}
+EXCLUDE_FILES = {"stb_vorbis.c", "stb_vorbis.h"}
 
 # Regex to detect bare long/unsigned long, excluding 'long double', 'long long', and standard macros
 BANNED_LONG_REGEX = re.compile(
@@ -38,10 +39,10 @@ def get_target_files(custom_files=None):
     for d in CHECK_DIRS:
         if d.is_dir():
             for p in d.rglob("*"):
-                if p.suffix in SOURCE_EXTENSIONS and p.is_file():
+                if p.suffix in SOURCE_EXTENSIONS and p.is_file() and p.name not in EXCLUDE_FILES:
                     files.append(p)
     for p in TOOL_FILES:
-        if p.is_file():
+        if p.is_file() and p.name not in EXCLUDE_FILES:
             files.append(p)
     return sorted(files)
 

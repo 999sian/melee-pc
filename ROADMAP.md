@@ -55,10 +55,10 @@ Focus: Refine visual presentation, audio balance, and desktop integration.
 - [x] **Dolphin-Format Texture Replacements**: Full folder scanning (`.dds` / `.png`) with runtime reload.
 - [x] **Unlock All Toggle**: Bypass character/stage unlock grind; unlock All-Star mode.
 - [x] **Multi-Bus Audio Control**: Independent volume sliders for Music (BGM) vs. Sound Effects (SFX).
-- [ ] **Wide HUD Anchoring**: Anchor damage percentages, stock icons, and timer to the 16:9 viewport boundaries with configurable safe margins.
-- [ ] **Discord Rich Presence**: Real-time rich presence displaying current mode (VS, Classic, Training), stage name, fighter played, and stock/time score.
-- [ ] **Custom Soundtrack Streaming**: Allow user-provided `.ogg` / `.flac` files in a `music/` folder to override stage BGM.
-- [ ] **Free / Unlocked Pause Camera**: Remove rotation and boundary constraints on the pause camera for screenshots.
+- [x] **Wide HUD Anchoring**: Anchor damage percentages, stock icons, and timer to the 16:9 viewport boundaries with configurable safe margins.
+- [ ] **Discord Rich Presence**: Real-time rich presence displaying current mode, stage name, fighter played, and stock/time score (deferred until API credentials available).
+- [x] **Custom Soundtrack Streaming**: Allow user-provided `.ogg` / `.wav` files in a `music/` folder to override stage BGM.
+- [x] **Free / Unlocked Pause Camera**: Remove rotation and boundary constraints on the pause camera for screenshots.
 
 ---
 

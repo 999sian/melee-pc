@@ -34,6 +34,11 @@ float pc_widescreen_cobj_scale(struct HSD_CObj* cobj);
  * Returns 0 in Classic (4:3) mode or when widescreen is not active. */
 float pc_widescreen_hud_offset(void);
 
+/* Helper functions for anchoring HUD elements in widescreen (16:9).
+ * Return original_x untouched when Wide HUD is not active or scale <= 1.0. */
+float pc_widescreen_hud_player_x(int player_idx, int total_players, float original_x);
+float pc_widescreen_hud_timer_x(float original_x);
+
 /* Scale one projection edge pair about `center` -- the widening is a scale
  * about the camera's horizontal centre, not about the world origin. */
 static inline void pc_widescreen_widen(float scale, float center, float* lo, float* hi) {

@@ -1,6 +1,7 @@
 #include "camera.h"
 
 #include <Runtime/platform.h>
+#include <pc/pc.h>
 
 #include <melee/ft/forward.h>
 #include <sysdolphin/baselib/forward.h>
@@ -1755,21 +1756,38 @@ void Camera_8002BAA8(f32 zoom_amt)
 
     offset_len = vec_len(&offset);
 
-    if (offset_len < 1.0F) {
-        offset.y = 0.0F;
-        offset.x = 0.0F;
-        offset.z = 1.0F;
-        game_camera.pause_eye_distance = 10.0F;
+    if (pc_is_free_camera_enabled()) {
+        if (offset_len < 0.1f) {
+            offset.y = 0.0F;
+            offset.x = 0.0F;
+            offset.z = 1.0F;
+            game_camera.pause_eye_distance = 0.5f;
+        }
+    } else {
+        if (offset_len < 1.0F) {
+            offset.y = 0.0F;
+            offset.x = 0.0F;
+            offset.z = 1.0F;
+            game_camera.pause_eye_distance = 10.0F;
+        }
     }
 
     game_camera.pause_eye_distance =
         ((zoom_amt * ((offset_len * cm_803BCCA0.x9C) + cm_803BCCA0.xA0)) +
          game_camera.pause_eye_distance);
 
-    if (game_camera.pause_eye_distance < game_camera.x2D0.unk28) {
-        game_camera.pause_eye_distance = game_camera.x2D0.unk28;
-    } else if (game_camera.pause_eye_distance > game_camera.x2D0.unk2C) {
-        game_camera.pause_eye_distance = game_camera.x2D0.unk2C;
+    if (pc_is_free_camera_enabled()) {
+        if (game_camera.pause_eye_distance < 0.5f) {
+            game_camera.pause_eye_distance = 0.5f;
+        } else if (game_camera.pause_eye_distance > 5000.0f) {
+            game_camera.pause_eye_distance = 5000.0f;
+        }
+    } else {
+        if (game_camera.pause_eye_distance < game_camera.x2D0.unk28) {
+            game_camera.pause_eye_distance = game_camera.x2D0.unk28;
+        } else if (game_camera.pause_eye_distance > game_camera.x2D0.unk2C) {
+            game_camera.pause_eye_distance = game_camera.x2D0.unk2C;
+        }
     }
 
     dist = game_camera.pause_eye_distance;
@@ -1796,18 +1814,24 @@ s32 Camera_8002BC78(Vec3* forward, Vec3* up, Vec3* right)
 {
     s32 clamp_result = 0;
 
-    if (forward->y > 0.999f) {
-        clamp_result = 1;
-        forward->y = 1.0f;
-        forward->z = 0.0f;
-        forward->x = 0.0f;
-        *up = game_camera.pause_up;
-    } else if (forward->y < -0.999f) {
-        clamp_result = -1;
-        forward->y = -1.0f;
-        forward->z = 0.0f;
-        forward->x = 0.0f;
-        *up = game_camera.pause_up;
+    if (!pc_is_free_camera_enabled()) {
+        if (forward->y > 0.999f) {
+            clamp_result = 1;
+            forward->y = 1.0f;
+            forward->z = 0.0f;
+            forward->x = 0.0f;
+            *up = game_camera.pause_up;
+        } else if (forward->y < -0.999f) {
+            clamp_result = -1;
+            forward->y = -1.0f;
+            forward->z = 0.0f;
+            forward->x = 0.0f;
+            *up = game_camera.pause_up;
+        }
+    } else {
+        if (forward->y > 0.999f || forward->y < -0.999f) {
+            *up = game_camera.pause_up;
+        }
     }
     OrthonormalizeBasis(forward, up, right);
     // PSVECCrossProduct(up, forward, right);
@@ -1836,24 +1860,35 @@ void Camera_8002BD88(f32 x, f32 y)
     forward.z *= -1.0F;
     view_dir = lbVector_Normalize(&forward);
 
-    if (view_dir < 1.0F) {
-        forward.y = 0.0F;
-        forward.x = 0.0F;
-        forward.z = 1.0F;
-        game_camera.pause_eye_distance = 10.0F;
+    if (pc_is_free_camera_enabled()) {
+        if (view_dir < 0.1f) {
+            forward.y = 0.0F;
+            forward.x = 0.0F;
+            forward.z = 1.0F;
+            game_camera.pause_eye_distance = 0.5f;
+        }
+    } else {
+        if (view_dir < 1.0F) {
+            forward.y = 0.0F;
+            forward.x = 0.0F;
+            forward.z = 1.0F;
+            game_camera.pause_eye_distance = 10.0F;
+        }
     }
 
     clamp_result = Camera_8002BC78(&forward, &up, &right);
-    if (clamp_result == 1) {
-        if (y < 0.0F) {
-            y = 0.0F;
+    if (!pc_is_free_camera_enabled()) {
+        if (clamp_result == 1) {
+            if (y < 0.0F) {
+                y = 0.0F;
+            }
+            x = 0.0F;
+        } else if (clamp_result == -1) {
+            if (y > 0.0F) {
+                y = 0.0F;
+            }
+            x = 0.0F;
         }
-        x = 0.0F;
-    } else if (clamp_result == -1) {
-        if (y > 0.0F) {
-            y = 0.0F;
-        }
-        x = 0.0F;
     }
 
     OrthonormalizeBasis(&forward, &up, &right);
@@ -1899,12 +1934,22 @@ void Camera_8002C010(f32 farg0, f32 farg1)
     forward.z *= -1.0f;
     eye_dist = lbVector_Normalize(&forward);
 
-    if (eye_dist < 1.0f) {
-        eye_dist = 1.0f;
-        forward.y = 0.0f;
-        forward.x = 0.0f;
-        forward.z = 1.0f;
-        game_camera.pause_eye_distance = 1.0f;
+    if (pc_is_free_camera_enabled()) {
+        if (eye_dist < 0.1f) {
+            eye_dist = 0.5f;
+            forward.y = 0.0f;
+            forward.x = 0.0f;
+            forward.z = 1.0f;
+            game_camera.pause_eye_distance = 0.5f;
+        }
+    } else {
+        if (eye_dist < 1.0f) {
+            eye_dist = 1.0f;
+            forward.y = 0.0f;
+            forward.x = 0.0f;
+            forward.z = 1.0f;
+            game_camera.pause_eye_distance = 1.0f;
+        }
     }
 
     Camera_8002BC78(&forward, &up, &right);
@@ -1929,8 +1974,9 @@ void Camera_8002C010(f32 farg0, f32 farg1)
 
 static inline void Camera_8002C1A8_inline(void)
 {
-    if (lbVector_Len(&game_camera.pause_eye_offset) < 1.0f) {
-        game_camera.pause_eye_distance = 1.0f;
+    f32 min_len = pc_is_free_camera_enabled() ? 0.1f : 1.0f;
+    if (lbVector_Len(&game_camera.pause_eye_offset) < min_len) {
+        game_camera.pause_eye_distance = pc_is_free_camera_enabled() ? 0.5f : 1.0f;
     }
 }
 
@@ -2158,27 +2204,29 @@ void Camera_8002C5B4(Camera_x2D0* arg0)
     xz_dist =
         sqrtf(eye_offset->x * eye_offset->x + *eye_offset_z * *eye_offset_z);
 
-    PSVECCrossProduct(eye_offset, &cam->pause_up, &cross1);
-    lbVector_Normalize(&cross1);
-    PSVECCrossProduct(&cross1, eye_offset, &cross2);
-    lbVector_Normalize(&cross2);
+    if (!pc_is_free_camera_enabled()) {
+        PSVECCrossProduct(eye_offset, &cam->pause_up, &cross1);
+        lbVector_Normalize(&cross1);
+        PSVECCrossProduct(&cross1, eye_offset, &cross2);
+        lbVector_Normalize(&cross2);
 
-    pitch = atan2f(*eye_offset_y, xz_dist);
-    if (pitch > params->angle_down) {
-        lbVector_RotateAboutUnitAxis(eye_offset, &cross1,
-                                     params->angle_down - pitch);
-    } else if (pitch < -params->angle_up) {
-        lbVector_RotateAboutUnitAxis(eye_offset, &cross1,
-                                     -params->angle_up - pitch);
-    }
+        pitch = atan2f(*eye_offset_y, xz_dist);
+        if (pitch > params->angle_down) {
+            lbVector_RotateAboutUnitAxis(eye_offset, &cross1,
+                                         params->angle_down - pitch);
+        } else if (pitch < -params->angle_up) {
+            lbVector_RotateAboutUnitAxis(eye_offset, &cross1,
+                                         -params->angle_up - pitch);
+        }
 
-    yaw = atan2f(eye_offset->x, *eye_offset_z);
-    if (yaw > params->angle_right) {
-        lbVector_RotateAboutUnitAxis(eye_offset, &cross2,
-                                     params->angle_right - yaw);
-    } else if (yaw < -params->angle_left) {
-        lbVector_RotateAboutUnitAxis(eye_offset, &cross2,
-                                     -params->angle_left - yaw);
+        yaw = atan2f(eye_offset->x, *eye_offset_z);
+        if (yaw > params->angle_right) {
+            lbVector_RotateAboutUnitAxis(eye_offset, &cross2,
+                                         params->angle_right - yaw);
+        } else if (yaw < -params->angle_left) {
+            lbVector_RotateAboutUnitAxis(eye_offset, &cross2,
+                                         -params->angle_left - yaw);
+        }
     }
 }
 

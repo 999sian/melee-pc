@@ -3,7 +3,7 @@
 <div id="toolbar"><span class="wordmark">MELEE <span class="muted">/ PC</span></span><span class="toolbar-tab">SETTINGS</span><span class="toolbar-note">F1 TO CLOSE</span></div>
 <div id="window">
 <div id="heading"><h1>PC settings</h1><span class="version"><span id="menu-version">v0.1.5-beta</span> · NTSC-U 1.02</span></div>
-<div id="tabstrip"><button id="tab-graphics" class="tab">Graphics</button><button id="tab-audio" class="tab">Audio &amp; interface</button><button id="tab-controls" class="tab">Controls</button></div>
+<div id="tabstrip"><button id="tab-graphics" class="tab">Graphics</button><button id="tab-audio" class="tab">Audio &amp; interface</button><button id="tab-cheats" class="tab">Cheats</button><button id="tab-controls" class="tab">Controls</button></div>
 <div id="content">
 <div id="page-graphics" class="page">
 <div class="setting"><div class="description"><h3>Display mode</h3></div><button id="display">Display</button></div>
@@ -15,9 +15,12 @@
 <div class="setting"><div class="description"><h3>Anisotropic filtering <span class="badge">RESTART</span></h3></div><button id="filter">Filtering</button></div>
 <div class="setting"><div class="description"><h3>Post-processing filter</h3><p>Off presents the frame as rendered.</p></div><button id="filter-mode">Off</button></div>
 <div class="setting"><div class="description"><h3>Custom HD textures</h3><p>Load replacement textures from the textures directory.</p></div><button id="custom-textures">Enabled</button></div>
-<div class="setting"><div class="description"><h3>Hazardless stages</h3><p>Lock Pokémon Stadium in neutral mode without transformations.</p></div><button id="frozen-stadium">Off</button></div>
-<div class="setting"><div class="description"><h3>Unlock everything</h3><p>Unlock all 26 characters, 11 secret stages, and All-Star mode.</p></div><button id="unlock-all">Off</button></div>
 <div class="setting"><div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3></div><button id="backend">Auto</button></div>
+</div>
+<div id="page-cheats" class="page">
+<div class="setting"><div class="description"><h3>Unlock everything</h3><p>Unlock all 26 characters, 11 secret stages, and All-Star mode.</p></div><button id="unlock-all">Off</button></div>
+<div class="setting"><div class="description"><h3>Hazardless stages</h3><p>Lock Pokémon Stadium in neutral mode without transformations.</p></div><button id="frozen-stadium">Off</button></div>
+<div class="setting"><div class="description"><h3>Free camera</h3><p>Unlock 360° orbital rotation and zoom distance in pause mode.</p></div><button id="free-camera">Normal</button></div>
 </div>
 <div id="page-audio" class="page">
 <div class="setting"><div class="description"><h3>Master volume</h3><p>Left/right or drag to adjust.</p></div><div class="slider-control"><input type="range" id="volume" min="0" max="100" step="5" value="100" /><span id="volume-val" class="slider-value">100%</span></div></div>

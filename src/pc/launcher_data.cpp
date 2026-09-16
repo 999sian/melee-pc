@@ -390,9 +390,8 @@ bool save_preferences(
          << prefs.filter_mode << "\nbackend " << prefs.backend << "\ncheck_updates "
          << prefs.check_updates << "\ncustom_textures " << prefs.custom_textures << "\nunlock_all "
          << prefs.unlock_all << "\nhud_mode " << prefs.hud_mode << "\nfrozen_stadium "
-         << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera
-         << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume "
-         << prefs.sfx_volume << '\n';
+         << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera << "\nmusic_volume "
+         << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume << '\n';
     auto data = text.str();
     size_t done = 0;
     bool ok = true;

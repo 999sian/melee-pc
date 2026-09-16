@@ -8,6 +8,7 @@
 #include "lbarchive.h"
 #include "lbaudio_ax.static.h"
 #include "lblanguage.h"
+#include "pc/music_stream.h"
 #include <dolphin/ai.h>
 #include <dolphin/ar.h>
 #include <dolphin/ax.h>
@@ -204,6 +205,7 @@ int lbAudioAx_800236B8(int voice)
 
 int lbAudioAx_800236DC(void)
 {
+    pc_music_stream_stop();
     AXDriverStop();
     lbl_804D6418 = 0;
     cur_hps_stem[0] = '\0';
@@ -217,6 +219,9 @@ bool lbAudioAx_80023710(int arg0)
 
 bool lbAudioAx_80023730(void)
 {
+    if (pc_music_stream_is_playing()) {
+        return true;
+    }
     return AXDriver_8038EA18();
 }
 
@@ -416,8 +421,12 @@ static inline int lbAudioAx_80023F28_helper1(const char* filename)
     } else if (strcmp(cur_hps_stem, filename) != 0) {
         lbAudioAx_800236DC();
         strcpy(cur_hps_stem, filename);
-        fn_80023ED4(cur_hps_stem, VOL_MAX, 1);
-        result = 0;
+        if (pc_music_stream_open(filename)) {
+            result = 0;
+        } else {
+            fn_80023ED4(cur_hps_stem, VOL_MAX, 1);
+            result = 0;
+        }
     } else {
         result = 1;
     }
@@ -748,9 +757,11 @@ static void fn_80024654(int arg0)
     synth_volume = (lbl_804D387C / 127.0F) * lbl_804D38C0;
     if (arg0 == 1) {
         HSD_SynthStreamSetVolume(synth_volume);
+        pc_music_stream_set_volume(synth_volume);
         lbl_804D63F0 = synth_volume;
     } else if (lbl_804D63F0 != synth_volume) {
         HSD_SynthStreamSetVolume(synth_volume);
+        pc_music_stream_set_volume(synth_volume);
         lbl_804D63F0 = synth_volume;
     }
     temp_f31 = lbl_804D38CC / 127.0F;
@@ -949,6 +960,7 @@ void lbAudioAx_80024E50(bool pause)
     paused = pause;
     if (pause) {
         AXDriverPause();
+        pc_music_stream_stop();
     } else {
         AXDriverResume();
     }
@@ -964,6 +976,7 @@ void lbAudioAx_80024E84(bool arg0)
         AXDriver_8038E6C0(6);
         AXDriver_8038E6C0(8);
         AXDriver_8038E6C0(7);
+        pc_music_stream_set_volume(0.2F);
     } else {
         lbl_804D38E4 = 1.0F;
         lbl_804D38E8 = 1.0F;
@@ -971,12 +984,14 @@ void lbAudioAx_80024E84(bool arg0)
         AXDriver_8038E844(6);
         AXDriver_8038E844(8);
         AXDriver_8038E844(7);
+        pc_music_stream_set_volume(1.0F);
     }
 }
 
 void lbAudioAx_80024F08(void)
 {
     HSD_SynthStreamSetVolume(0.0F);
+    pc_music_stream_set_volume(0.0F);
     AXDriver_8038E6C0(2);
     AXDriver_8038E6C0(3);
     AXDriver_8038E6C0(4);
@@ -990,6 +1005,7 @@ void lbAudioAx_80024F08(void)
 void lbAudioAx_80024F6C(void)
 {
     HSD_SynthStreamSetVolume(synth_volume);
+    pc_music_stream_set_volume(synth_volume);
     AXDriver_8038E844(2);
     AXDriver_8038E844(3);
     AXDriver_8038E844(4);

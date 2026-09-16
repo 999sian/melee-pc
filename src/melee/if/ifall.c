@@ -22,6 +22,9 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/lobj.h>
 
+#include "pc/pc.h"
+#include "pc/widescreen.h"
+
 static struct ifAll_804A0FD8_t {
     /* 0x00 */ HSD_GObj* gobj;
     /* 0x04 */ HSD_GObj* gobj_2;
@@ -123,6 +126,25 @@ void ifAll_802F343C(int arg0)
         }
         break;
     }
+
+    if (pc_get_hud_mode() == 1) {
+        if (arg0 == 4) {
+            for (i = 0; i < 4; i++) {
+                ifAll_804A0FD8.x18[i].x =
+                    pc_widescreen_hud_player_x(i, 4, ifAll_804A0FD8.x18[i].x);
+            }
+        } else if (arg0 == 2) {
+            for (i = 0; i < 2; i++) {
+                ifAll_804A0FD8.x18[i].x =
+                    pc_widescreen_hud_player_x(i, 2, ifAll_804A0FD8.x18[i].x);
+            }
+        } else if (arg0 == 3) {
+            for (i = 0; i < 3; i++) {
+                ifAll_804A0FD8.x18[i].x =
+                    pc_widescreen_hud_player_x(i, 3, ifAll_804A0FD8.x18[i].x);
+            }
+        }
+    }
 }
 
 HSD_Archive** ifAll_GetArchive(void)
@@ -192,6 +214,14 @@ static void ifAll_802F370C(SceneDesc* arg0)
         lb_8000B1CC(spC, NULL, &ifAll_804A0FD8.x84[i]);
     }
     HSD_GObjFree(gobj);
+
+    if (pc_get_hud_mode() == 1) {
+        ifAll_804A0FD8.xC.x = pc_widescreen_hud_timer_x(ifAll_804A0FD8.xC.x);
+        for (i = 0; i < 4; i++) {
+            ifAll_804A0FD8.x18[i].x =
+                pc_widescreen_hud_player_x(i, 4, ifAll_804A0FD8.x18[i].x);
+        }
+    }
 }
 
 void ifAll_802F390C(void)

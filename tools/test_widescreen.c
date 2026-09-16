@@ -128,5 +128,27 @@ int main(void) {
     near(pc_widescreen_hud_offset(), 0.0f);
     test_pass = HSD_RP_SCREEN;
 
+    /* HUD anchoring helpers */
+    test_hud_mode = 0;
+    scene(1, true, 1920, 1080);
+    near(pc_widescreen_hud_timer_x(0.0f), 0.0f);
+    near(pc_widescreen_hud_player_x(0, 4, -21.0f), -21.0f);
+    near(pc_widescreen_hud_player_x(1, 4, -7.0f), -7.0f);
+    near(pc_widescreen_hud_player_x(2, 4, 7.0f), 7.0f);
+    near(pc_widescreen_hud_player_x(3, 4, 21.0f), 21.0f);
+    near(pc_widescreen_hud_player_x(0, 2, -10.0f), -10.0f);
+    near(pc_widescreen_hud_player_x(1, 2, 10.0f), 10.0f);
+
+    test_hud_mode = 1;
+    scene(1, true, 1920, 1080);
+    float hud_off = pc_widescreen_hud_offset() * 0.09125f;
+    near(pc_widescreen_hud_timer_x(0.0f), hud_off);
+    near(pc_widescreen_hud_player_x(0, 4, -21.0f), -21.0f - hud_off);
+    near(pc_widescreen_hud_player_x(1, 4, -7.0f), -7.0f - hud_off / 3.0f);
+    near(pc_widescreen_hud_player_x(2, 4, 7.0f), 7.0f + hud_off / 3.0f);
+    near(pc_widescreen_hud_player_x(3, 4, 21.0f), 21.0f + hud_off);
+    near(pc_widescreen_hud_player_x(0, 2, -10.0f), -10.0f - hud_off);
+    near(pc_widescreen_hud_player_x(1, 2, 10.0f), 10.0f + hud_off);
+
     puts("PASS: widescreen aspect selection, framebuffer fit and scale");
 }

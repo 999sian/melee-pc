@@ -18,6 +18,7 @@
  */
 #include <dolphin/ai.h>
 #include "pc/pc.h"
+#include "pc/music_stream.h"
 #include <dolphin/ar.h>
 #include <dolphin/ax.h>
 #include <dolphin/axfx.h>
@@ -101,6 +102,8 @@ __attribute__((weak)) float pc_get_music_volume(void) {
 __attribute__((weak)) float pc_get_sfx_volume(void) {
     return s_sfx_volume;
 }
+
+__attribute__((weak)) void pc_music_stream_mix(float* dst_left, float* dst_right, int num_samples);
 static u8* s_aram;
 static float s_master = 1.0f;
 
@@ -400,6 +403,9 @@ static void render_frame(float* out) {
     }
     run_aux(&s_auxA, out);
     run_aux(&s_auxB, out);
+    if (pc_music_stream_mix) {
+        pc_music_stream_mix(out, NULL, AX_FRAME);
+    }
     /* MELEE_AUDIO_STATS=1: voice census against the output clock, so a
      * silent stretch in MELEE_AUDIO_DUMP can be explained -- were there no
      * voices, were they all stopped, or were they running at zero volume?

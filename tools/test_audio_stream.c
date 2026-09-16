@@ -163,6 +163,29 @@ static void volume_scaling(void) {
     pc_audio_set_sfx_volume(1.0f);
 }
 
+static bool s_custom_stream_mixed = false;
+void pc_music_stream_mix(float* dst_left, float* dst_right, int num_samples) {
+    s_custom_stream_mixed = true;
+    for (int i = 0; i < num_samples; i++) {
+        if (dst_right) {
+            dst_left[i] += 0.123f;
+            dst_right[i] += 0.456f;
+        } else {
+            dst_left[i * 2] += 0.123f;
+            dst_left[i * 2 + 1] += 0.456f;
+        }
+    }
+}
+
+static void custom_stream_test(void) {
+    float output[AX_FRAME * 2] = {0};
+    s_custom_stream_mixed = false;
+    render_frame(output);
+    assert(s_custom_stream_mixed);
+    assert(fabsf(output[0] - 0.123f) < 0.001f);
+    assert(fabsf(output[1] - 0.456f) < 0.001f);
+}
+
 int main(void) {
     s_aram = memory;
     ring_transition(0x20000, 0x40000);
@@ -173,6 +196,7 @@ int main(void) {
     loop_history();
     negative_samples();
     volume_scaling();
-    puts("PASS: inclusive ends, HPS ring transitions, loop history, signed samples, and volume "
-         "scaling");
+    custom_stream_test();
+    puts("PASS: inclusive ends, HPS ring transitions, loop history, signed samples, volume "
+         "scaling, and custom soundtrack stream mixing");
 }

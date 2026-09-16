@@ -39,9 +39,9 @@ const char* backend_name(int mode) {
     return names[mode];
 }
 
-constexpr const char* tab_ids[] = {"tab-graphics", "tab-audio", "tab-controls"};
-constexpr const char* page_ids[] = {"page-graphics", "page-audio", "page-controls"};
-constexpr int tab_count = 3;
+constexpr const char* tab_ids[] = {"tab-graphics", "tab-audio", "tab-cheats", "tab-controls"};
+constexpr const char* page_ids[] = {"page-graphics", "page-audio", "page-cheats", "page-controls"};
+constexpr int tab_count = 4;
 int tab_index(const Rml::String& id) {
     for (int i = 0; i < tab_count; ++i)
         if (id == tab_ids[i])
@@ -152,11 +152,13 @@ class Launcher final : public Rml::EventListener {
     std::vector<std::string> page_focus() const {
         switch (tab) {
         case 0:
-            return {"display", "sync", "resolution", "aspect", "aa", "filter", "filter-mode",
-                "custom-textures", "frozen-stadium", "unlock-all", "backend"};
+            return {"display", "sync", "resolution", "aspect", "hud-mode", "aa", "filter",
+                "filter-mode", "custom-textures", "backend"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "fps", "scale", "check-updates",
                 "check-now"};
+        case 2:
+            return {"unlock-all", "frozen-stadium", "free-camera"};
         default:
             return {};
         }
@@ -259,6 +261,7 @@ class Launcher final : public Rml::EventListener {
         text("custom-textures", prefs.custom_textures ? "Enabled" : "Disabled");
         text("hud-mode", prefs.hud_mode == 0 ? "Classic (4:3)" : "Wide (16:9)");
         text("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
+        text("free-camera", prefs.free_camera ? "Free" : "Normal");
         text("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         text("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -460,6 +463,11 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("frozen-stadium")->Focus();
+        } else if (id == "free-camera") {
+            prefs.free_camera = !prefs.free_camera;
+            save();
+            refresh_settings();
+            element("free-camera")->Focus();
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
             save();
@@ -970,10 +978,12 @@ public:
         switch (tab) {
         case 0:
             return {"display", "sync", "resolution", "aspect", "hud-mode", "aa", "filter",
-                "filter-mode", "custom-textures", "frozen-stadium", "unlock-all", "backend"};
+                "filter-mode", "custom-textures", "backend"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "fps", "scale",
                 "port-check-update"};
+        case 2:
+            return {"unlock-all", "frozen-stadium", "free-camera"};
         default: {
             std::vector<std::string> ids{"pad-port"};
             for (int i = 0; i < PAD_BUTTON_COUNT; ++i)
@@ -1079,6 +1089,7 @@ public:
         label("custom-textures", prefs.custom_textures ? "Enabled" : "Disabled");
         label("hud-mode", prefs.hud_mode == 0 ? "Classic (4:3)" : "Wide (16:9)");
         label("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
+        label("free-camera", prefs.free_camera ? "Free" : "Normal");
         label("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         label("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -1258,6 +1269,8 @@ public:
             prefs.hud_mode = (prefs.hud_mode + 1) % 2;
         } else if (id == "frozen-stadium") {
             prefs.frozen_stadium = !prefs.frozen_stadium;
+        } else if (id == "free-camera") {
+            prefs.free_camera = !prefs.free_camera;
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
         } else if (id == "backend") {
@@ -1519,6 +1532,9 @@ extern "C" bool pc_is_unlock_all_enabled(void) {
 }
 extern "C" bool pc_is_frozen_stadium_enabled(void) {
     return prefs.frozen_stadium;
+}
+extern "C" bool pc_is_free_camera_enabled(void) {
+    return prefs.free_camera;
 }
 extern "C" int pc_get_hud_mode(void) {
     return prefs.hud_mode;
