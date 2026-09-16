@@ -50,6 +50,27 @@ struct _GXFogAdjTable;
 void GXInitFogAdjTable(struct _GXFogAdjTable* table, uint16_t width, float projmtx[4][4]);
 uint16_t VIPadFrameBufferWidth(uint16_t width);
 
+/* Feature queries */
+bool pc_is_custom_textures_enabled(void);
+bool pc_is_unlock_all_enabled(void);
+bool pc_is_frozen_stadium_enabled(void);
+int pc_get_hud_mode(void);
+float pc_get_music_volume(void);
+float pc_get_sfx_volume(void);
+
+/* Audio volume control */
+void pc_audio_set_volume(float volume);
+void pc_audio_set_music_volume(float volume);
+void pc_audio_set_sfx_volume(float volume);
+float pc_audio_get_music_volume(void);
+float pc_audio_get_sfx_volume(void);
+
+/* Texture replacements (src/pc/textures.cpp) */
+void pc_textures_init(void);
+void pc_textures_reload(void);
+void pc_textures_shutdown(void);
+const char* pc_textures_get_path(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -5,9 +5,15 @@
 #include <string>
 
 namespace launcher {
-struct DiscInfo { bool supported = false; std::string message; };
+struct DiscInfo {
+    bool supported = false;
+    std::string message;
+};
 enum class VerifyState { Verified, Mismatch, Canceled, Error };
-struct Verification { VerifyState state = VerifyState::Error; std::string message; };
+struct Verification {
+    VerifyState state = VerifyState::Error;
+    std::string message;
+};
 struct Preferences {
     std::string disc;
     bool vsync = true;
@@ -25,9 +31,17 @@ struct Preferences {
     int backend = 0;
     bool mute = false, fps = false;
     bool check_updates = true;
+    bool custom_textures = true;
+    bool unlock_all = false;
+    int hud_mode = 0;
+    bool frozen_stadium = false;
+    float music_volume = 1.0f;
+    float sfx_volume = 1.0f;
 };
 DiscInfo inspect_disc(const std::string& path);
-Verification verify_disc(const std::string& path, std::atomic_bool& cancel, std::atomic_uint& progress);
+Verification verify_disc(
+    const std::string& path, std::atomic_bool& cancel, std::atomic_uint& progress);
 Preferences load_preferences(const std::filesystem::path& path);
-bool save_preferences(const std::filesystem::path& path, const Preferences& prefs, std::string& error);
-}
+bool save_preferences(
+    const std::filesystem::path& path, const Preferences& prefs, std::string& error);
+}  // namespace launcher

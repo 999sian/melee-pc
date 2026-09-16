@@ -1606,6 +1606,10 @@ static void fn_800268B4(void)
         int flag1, flag2;
         int flags;
 
+        if (s32_arr_803BB5D0[i][1] == 5) {
+            continue;
+        }
+
         if (lbl_804338A4[i] == -1) {
             flag1 = 0;
         } else {

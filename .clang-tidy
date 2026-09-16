@@ -1,0 +1,35 @@
+---
+# Clang-Tidy configuration for melee-pc
+Checks: >
+  -*,
+  bugprone-argument-comment,
+  bugprone-assert-side-effect,
+  bugprone-dangling-handle,
+  bugprone-inaccurate-erase,
+  bugprone-narrowing-conversions,
+  bugprone-sizeof-expression,
+  bugprone-use-after-move,
+  misc-redundant-expression,
+  modernize-redundant-void-arg,
+  modernize-use-bool-literals,
+  modernize-use-nullptr,
+  modernize-use-override,
+  performance-for-range-copy,
+  performance-implicit-conversion-in-loop,
+  performance-move-const-arg,
+  performance-unnecessary-value-param,
+  portability-restrict-system-includes,
+  readability-duplicate-include,
+  readability-non-const-parameter,
+  readability-redundant-casting,
+  readability-redundant-control-flow,
+  readability-redundant-declaration
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: 'src/pc/.*'
+
+CheckOptions:
+  - key: readability-redundant-declaration.IgnoreMacros
+    value: 'true'
+...

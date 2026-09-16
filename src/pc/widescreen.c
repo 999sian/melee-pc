@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "compat.h"
 #include "widescreen.h"
+#include "pc.h"
 #include <math.h>
 #include <dolphin/gx/GXAurora.h>
 #include <sysdolphin/baselib/cobj.h>
@@ -29,56 +30,65 @@
 static int s_mode;
 static bool s_supported;
 
-static float pc_widescreen_target(void)
-{
+static float pc_widescreen_target(void) {
     u32 width, height;
-    if (!s_mode || !s_supported) return ORIGINAL_ASPECT;
-    if (s_mode == 1) return 16.0f / 9.0f;
+    if (!s_mode || !s_supported)
+        return ORIGINAL_ASPECT;
+    if (s_mode == 1)
+        return 16.0f / 9.0f;
     AuroraGetWindowSize(&width, &height);
-    if (!width || !height) return ORIGINAL_ASPECT;
-    return fmaxf(ORIGINAL_ASPECT, (float) width / height);
+    if (!width || !height)
+        return ORIGINAL_ASPECT;
+    return fmaxf(ORIGINAL_ASPECT, (float)width / height);
 }
 
-void pc_widescreen_set_mode(int mode)
-{
+void pc_widescreen_set_mode(int mode) {
     s_mode = mode >= 0 && mode <= 2 ? mode : 0;
     AuroraSetViewportPolicy(AURORA_VIEWPORT_STRETCH);
     pc_widescreen_update();
 }
 
-void pc_widescreen_set_scene(bool supported)
-{
+void pc_widescreen_set_scene(bool supported) {
     s_supported = supported;
     pc_widescreen_update();
 }
 
-void pc_widescreen_update(void)
-{
+void pc_widescreen_update(void) {
     AuroraSetPresentationAspect(pc_widescreen_target());
 }
 
 /* Derived from the framebuffer actually in use, so geometry stays consistent
  * while a requested aspect change is still working its way through. */
-float pc_widescreen_scale(void)
-{
+float pc_widescreen_scale(void) {
     u32 width, height;
-    if (HSD_GetCurrentRenderPass() != HSD_RP_SCREEN) return 1;
+    if (HSD_GetCurrentRenderPass() != HSD_RP_SCREEN)
+        return 1;
     AuroraGetRenderSize(&width, &height);
-    if (!width || !height) return 1;
-    return fmaxf(1.0f, ((float) width / height) / ORIGINAL_ASPECT);
+    if (!width || !height)
+        return 1;
+    return fmaxf(1.0f, ((float)width / height) / ORIGINAL_ASPECT);
 }
 
-float pc_widescreen_cobj_scale(struct HSD_CObj* cobj)
-{
+float pc_widescreen_cobj_scale(struct HSD_CObj* cobj) {
     if (cobj != NULL && (HSD_CObjGetFlags(cobj) & PC_COBJ_FILL_FRAME)) {
         return 1;
     }
     return pc_widescreen_scale();
 }
 
-void pc_widescreen_copy_efb(struct HSD_ImageDesc* idesc, int origx, int origy,
-                            float center_x, int clear)
-{
+float pc_widescreen_hud_offset(void) {
+    if (pc_get_hud_mode() != 1) {
+        return 0.0f;
+    }
+    float scale = pc_widescreen_scale();
+    if (scale <= 1.0f) {
+        return 0.0f;
+    }
+    return (scale - 1.0f) * 320.0f;
+}
+
+void pc_widescreen_copy_efb(
+    struct HSD_ImageDesc* idesc, int origx, int origy, float center_x, int clear) {
     float scale, left, right;
     u16 width;
 
@@ -102,8 +112,7 @@ void pc_widescreen_copy_efb(struct HSD_ImageDesc* idesc, int origx, int origy,
      * the model's UVs expect. The declared width is restored immediately;
      * nothing else reads it between these two lines. */
     width = idesc->width;
-    idesc->width = (u16) lroundf(right - left);
-    HSD_ImageDescCopyFromEFB(idesc, (u16) lroundf(left), (u16) origy, clear,
-                             true);
+    idesc->width = (u16)lroundf(right - left);
+    HSD_ImageDescCopyFromEFB(idesc, (u16)lroundf(left), (u16)origy, clear, true);
     idesc->width = width;
 }

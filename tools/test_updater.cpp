@@ -19,11 +19,11 @@ int main() {
     for (int i = 0; i < 50; ++i) {
         auto state = updater::get_state();
         if (state.status != updater::Status::Checking) {
-            std::cout << "Check finished with status " << static_cast<int>(state.status)
-                      << ": " << state.message << "\n";
+            std::cout << "Check finished with status " << static_cast<int>(state.status) << ": "
+                      << state.message << "\n";
             if (!state.latest_release.tag_name.empty()) {
-                std::cout << "Latest release found: " << state.latest_release.tag_name
-                          << " (" << state.latest_release.name << ")\n";
+                std::cout << "Latest release found: " << state.latest_release.tag_name << " ("
+                          << state.latest_release.name << ")\n";
                 std::cout << "Target asset: " << state.target_asset_name
                           << " (size: " << state.download_total_bytes << " bytes)\n";
             }

@@ -39,6 +39,7 @@
 #ifdef TARGET_PC
 #include "pc/widescreen.h"
 #endif
+#include "pc/pc.h"
 
 static struct DISC_STRUCT grPStadium_YakumonoParam {
     int x0;
@@ -2057,10 +2058,18 @@ void grStadium_801D4548(Ground_GObj* gobj)
 
     switch (temp_r31->u.stadium.xDC) {
     case 0:
+        if (pc_is_frozen_stadium_enabled() && temp_r31->u.stadium.xDE == 5) {
+            return;
+        }
         temp_r3_4 = temp_r31->u.stadium.xD8;
         temp_r31->u.stadium.xD8 = temp_r3_4 - 1;
         if (temp_r3_4 < 0) {
             if (temp_r31->u.stadium.xDE == 5) {
+                if (pc_is_frozen_stadium_enabled()) {
+                    temp_r31->u.stadium.xD8 =
+                        randi_between_2(yakumono_param->x0, yakumono_param->x4);
+                    return;
+                }
                 int sp60[] = { 3, 4, 6, 9 };
                 int idx;
                 do {

@@ -7,15 +7,7 @@
 
 namespace pc::updater {
 
-enum class Status {
-    Idle,
-    Checking,
-    UpdateAvailable,
-    UpToDate,
-    Downloading,
-    Downloaded,
-    Failed
-};
+enum class Status { Idle, Checking, UpdateAvailable, UpToDate, Downloading, Downloaded, Failed };
 
 struct Asset {
     std::string name;
@@ -41,7 +33,7 @@ struct UpdateState {
     std::string target_asset_url;
     size_t download_total_bytes = 0;
     size_t download_current_bytes = 0;
-    float download_progress = 0.0f; // 0.0 to 1.0
+    float download_progress = 0.0f;  // 0.0 to 1.0
     std::string downloaded_path;
     bool restart_supported = false;
 };
@@ -55,4 +47,4 @@ void open_release_in_browser();
 void open_downloaded_location();
 bool apply_update_and_restart(std::string& error);
 
-} // namespace pc::updater
+}  // namespace pc::updater

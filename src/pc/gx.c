@@ -4,34 +4,29 @@
 
 #include <string.h>
 
-void GXSetTevClampMode(GXTevStageID stage, GXTevClampMode mode)
-{
-    (void) stage;
-    (void) mode;
+void GXSetTevClampMode(GXTevStageID stage, GXTevClampMode mode) {
+    (void)stage;
+    (void)mode;
 }
 
-void GXSetMisc(GXMiscToken token, u32 val)
-{
-    (void) token;
-    (void) val;
+void GXSetMisc(GXMiscToken token, u32 val) {
+    (void)token;
+    (void)val;
 }
 
-void GXSetVerifyLevel(int level)
-{
-    (void) level;
+void GXSetVerifyLevel(int level) {
+    (void)level;
 }
 
 void GXAbortFrame(void) {}
 
 static u16 s_draw_sync_token;
 
-void GXSetDrawSync(u16 token)
-{
+void GXSetDrawSync(u16 token) {
     s_draw_sync_token = token;
 }
 
-u16 GXReadDrawSync(void)
-{
+u16 GXReadDrawSync(void) {
     return s_draw_sync_token;
 }
 
@@ -42,9 +37,8 @@ u16 GXReadDrawSync(void)
  * across the whole screen -- i.e. no adjustment, which is what this stub
  * means to express. Zeroes instead hit the k = max(k, 1e-6) clamp there and
  * scaled fog by up to 2e6, pinning every pixel to full fog colour. */
-void GXInitFogAdjTable(GXFogAdjTable* table, u16 width, f32 projmtx[4][4])
-{
-    (void) width;
-    (void) projmtx;
+void GXInitFogAdjTable(GXFogAdjTable* table, u16 width, f32 projmtx[4][4]) {
+    (void)width;
+    (void)projmtx;
     memset(table, 0xFF, sizeof(*table));
 }

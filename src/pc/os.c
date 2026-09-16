@@ -34,8 +34,7 @@ static __thread int s_is_game_thread;
 
 void pc_os_run_alarms(void);
 
-BOOL OSDisableInterrupts(void)
-{
+BOOL OSDisableInterrupts(void) {
     pthread_mutex_lock(&s_intr_mutex);
     return s_intr_depth++ == 0;
 }
@@ -44,8 +43,7 @@ BOOL OSDisableInterrupts(void)
  * delivered on the game thread whenever it re-enables interrupts (and once
  * per frame from pc_frame_boundary), which is where the original code
  * expected them to be able to run. */
-static void deliver_pending(void)
-{
+static void deliver_pending(void) {
     static __thread int in_delivery;
     if (s_is_game_thread && !in_delivery) {
         in_delivery = 1;
@@ -54,8 +52,7 @@ static void deliver_pending(void)
     }
 }
 
-BOOL OSEnableInterrupts(void)
-{
+BOOL OSEnableInterrupts(void) {
     BOOL was_enabled = s_intr_depth == 0;
     while (s_intr_depth > 0) {
         s_intr_depth--;
@@ -65,8 +62,7 @@ BOOL OSEnableInterrupts(void)
     return was_enabled;
 }
 
-BOOL OSRestoreInterrupts(BOOL level)
-{
+BOOL OSRestoreInterrupts(BOOL level) {
     BOOL was_enabled = s_intr_depth == 0;
     if (level) {
         OSEnableInterrupts();
@@ -85,15 +81,13 @@ static OSAlarm* s_alarms;
 
 void OSInitAlarm(void) {}
 
-void OSCreateAlarm(OSAlarm* alarm)
-{
+void OSCreateAlarm(OSAlarm* alarm) {
     alarm->handler = NULL;
     alarm->prev = alarm->next = NULL;
     alarm->period = 0;
 }
 
-static void insert_alarm(OSAlarm* alarm, OSTime fire, OSAlarmHandler handler)
-{
+static void insert_alarm(OSAlarm* alarm, OSTime fire, OSAlarmHandler handler) {
     BOOL intr = OSDisableInterrupts();
     if (alarm->handler) {
         OSCancelAlarm(alarm);
@@ -109,27 +103,23 @@ static void insert_alarm(OSAlarm* alarm, OSTime fire, OSAlarmHandler handler)
     OSRestoreInterrupts(intr);
 }
 
-void OSSetAlarm(OSAlarm* alarm, OSTime tick, OSAlarmHandler handler)
-{
+void OSSetAlarm(OSAlarm* alarm, OSTime tick, OSAlarmHandler handler) {
     alarm->period = 0;
     insert_alarm(alarm, OSGetTime() + tick, handler);
 }
 
-void OSSetAbsAlarm(OSAlarm* alarm, OSTime time, OSAlarmHandler handler)
-{
+void OSSetAbsAlarm(OSAlarm* alarm, OSTime time, OSAlarmHandler handler) {
     alarm->period = 0;
     insert_alarm(alarm, time, handler);
 }
 
-void OSSetPeriodicAlarm(OSAlarm* alarm, OSTime start, OSTime period, OSAlarmHandler handler)
-{
+void OSSetPeriodicAlarm(OSAlarm* alarm, OSTime start, OSTime period, OSAlarmHandler handler) {
     alarm->period = period;
     alarm->start = start;
     insert_alarm(alarm, OSGetTime() + start, handler);
 }
 
-void OSCancelAlarm(OSAlarm* alarm)
-{
+void OSCancelAlarm(OSAlarm* alarm) {
     BOOL intr = OSDisableInterrupts();
     if (alarm->handler) {
         if (alarm->prev) {
@@ -146,13 +136,11 @@ void OSCancelAlarm(OSAlarm* alarm)
     OSRestoreInterrupts(intr);
 }
 
-void OSSetAlarmTag(OSAlarm* alarm, u32 tag)
-{
+void OSSetAlarmTag(OSAlarm* alarm, u32 tag) {
     alarm->tag = tag;
 }
 
-void OSCancelAlarms(u32 tag)
-{
+void OSCancelAlarms(u32 tag) {
     BOOL intr = OSDisableInterrupts();
     for (OSAlarm* a = s_alarms; a;) {
         OSAlarm* next = a->next;
@@ -164,15 +152,13 @@ void OSCancelAlarms(u32 tag)
     OSRestoreInterrupts(intr);
 }
 
-BOOL OSCheckAlarmQueue(void)
-{
+BOOL OSCheckAlarmQueue(void) {
     return s_alarms != NULL;
 }
 
 static void card_deliver(void);
 
-void pc_os_run_alarms(void)
-{
+void pc_os_run_alarms(void) {
     OSTime now = OSGetTime();
     BOOL intr = OSDisableInterrupts();
     for (OSAlarm* a = s_alarms; a;) {
@@ -190,7 +176,8 @@ void pc_os_run_alarms(void)
                     handler(a, NULL);
                 } else {
                     /* Timekeeping periodic alarms (e.g. 60 Hz movie player):
-                     * Catch up all due periods so ticks match real elapsed time and video stays in sync. */
+                     * Catch up all due periods so ticks match real elapsed time and video stays in
+                     * sync. */
                     int max_catchup = 10;
                     while (a->fire <= now && max_catchup-- > 0 && a->handler == handler) {
                         a->fire += a->period;
@@ -227,8 +214,7 @@ static struct {
 } s_card_queue[PC_CARD_QUEUE];
 static int s_card_head, s_card_count;
 
-static void card_dispatch(CARDCallback callback, s32 chan, s32 result)
-{
+static void card_dispatch(CARDCallback callback, s32 chan, s32 result) {
     BOOL intr = OSDisableInterrupts();
     if (s_card_count == PC_CARD_QUEUE) {
         OSPanic(__FILE__, __LINE__, "card completion queue overflow");
@@ -240,8 +226,7 @@ static void card_dispatch(CARDCallback callback, s32 chan, s32 result)
     OSRestoreInterrupts(intr);
 }
 
-static void card_deliver(void)
-{
+static void card_deliver(void) {
     while (s_card_count > 0) {
         BOOL intr = OSDisableInterrupts();
         CARDCallback callback = s_card_queue[s_card_head].callback;
@@ -259,59 +244,49 @@ static void card_deliver(void)
 static BOOL s_progressive;
 static BOOL s_eurgb60;
 
-void OSResetSystem(int reset, u32 resetCode, BOOL forceMenu)
-{
-    (void) reset;
-    (void) resetCode;
-    (void) forceMenu;
+void OSResetSystem(int reset, u32 resetCode, BOOL forceMenu) {
+    (void)reset;
+    (void)resetCode;
+    (void)forceMenu;
     fprintf(stderr, "OSResetSystem: exiting\n");
     exit(0);
 }
 
-u32 OSGetResetCode(void)
-{
+u32 OSGetResetCode(void) {
     return 0;
 }
 
-u32 OSGetProgressiveMode(void)
-{
+u32 OSGetProgressiveMode(void) {
     return s_progressive;
 }
 
-void OSSetProgressiveMode(u32 on)
-{
+void OSSetProgressiveMode(u32 on) {
     s_progressive = on;
 }
 
-u32 OSGetEuRgb60Mode(void)
-{
+u32 OSGetEuRgb60Mode(void) {
     return s_eurgb60;
 }
 
-void OSSetEuRgb60Mode(u32 on)
-{
+void OSSetEuRgb60Mode(u32 on) {
     s_eurgb60 = on;
 }
 
-u32 OSGetConsoleSimulatedMemSize(void)
-{
+u32 OSGetConsoleSimulatedMemSize(void) {
     return PC_MEM1_SIZE;
 }
 
-BOOL OSCheckActiveThreads(void)
-{
+BOOL OSCheckActiveThreads(void) {
     return 1;
 }
 
-OSErrorHandler OSSetErrorHandler(OSError error, OSErrorHandler handler)
-{
-    (void) error;
-    (void) handler;
+OSErrorHandler OSSetErrorHandler(OSError error, OSErrorHandler handler) {
+    (void)error;
+    (void)handler;
     return NULL;
 }
 
-BOOL DBIsDebuggerPresent(void)
-{
+BOOL DBIsDebuggerPresent(void) {
     return 0;
 }
 
@@ -320,9 +295,9 @@ static void* s_ext_ptrs[PC_MAX_EXT_PTRS];
 static uint32_t s_ext_ptr_count = 0;
 static pthread_mutex_t s_ext_ptr_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-uint32_t pc_register_ext_ptr(const void* p)
-{
-    if (!p) return 0;
+uint32_t pc_register_ext_ptr(const void* p) {
+    if (!p)
+        return 0;
     pthread_mutex_lock(&s_ext_ptr_mutex);
     for (uint32_t i = 0; i < s_ext_ptr_count; i++) {
         if (s_ext_ptrs[i] == p) {
@@ -332,7 +307,7 @@ uint32_t pc_register_ext_ptr(const void* p)
     }
     if (s_ext_ptr_count < PC_MAX_EXT_PTRS) {
         uint32_t id = s_ext_ptr_count++;
-        s_ext_ptrs[id] = (void*) p;
+        s_ext_ptrs[id] = (void*)p;
         pthread_mutex_unlock(&s_ext_ptr_mutex);
         return id + 1;
     }
@@ -341,22 +316,21 @@ uint32_t pc_register_ext_ptr(const void* p)
     abort();
 }
 
-void* pc_resolve_ext_ptr(uint32_t id)
-{
-    if (id == 0 || id > s_ext_ptr_count) return NULL;
+void* pc_resolve_ext_ptr(uint32_t id) {
+    if (id == 0 || id > s_ext_ptr_count)
+        return NULL;
     return s_ext_ptrs[id - 1];
 }
 
-void pc_disc_ptr_overflow(const void* p, const char* file, int line)
-{
+void pc_disc_ptr_overflow(const void* p, const char* file, int line) {
     fprintf(stderr, "%s:%d: pointer %p does not fit a 32-bit disc slot\n", file, line, p);
     abort();
 }
 
-void pc_platform_init(void)
-{
+void pc_platform_init(void) {
     s_is_game_thread = 1;
     aurora_card_set_callback_dispatch(card_dispatch);
+    pc_textures_init();
 }
 
 /* ---- reporting -------------------------------------------------------- */
@@ -367,8 +341,7 @@ void pc_platform_init(void)
 #include <android/log.h>
 #endif
 
-void OSVReport(const char* msg, va_list list)
-{
+void OSVReport(const char* msg, va_list list) {
 #if defined(__ANDROID__)
     __android_log_vprint(ANDROID_LOG_INFO, "OSReport", msg, list);
 #else
@@ -377,16 +350,14 @@ void OSVReport(const char* msg, va_list list)
 #endif
 }
 
-void OSReport(const char* msg, ...)
-{
+void OSReport(const char* msg, ...) {
     va_list args;
     va_start(args, msg);
     OSVReport(msg, args);
     va_end(args);
 }
 
-void OSPanic(const char* file, int line, const char* msg, ...)
-{
+void OSPanic(const char* file, int line, const char* msg, ...) {
     va_list args;
     va_start(args, msg);
 #if defined(__ANDROID__)

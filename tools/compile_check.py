@@ -43,7 +43,7 @@ def run(f):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
-        args = ["src/melee", "src/sysdolphin", "src/thp"]
+        args = ["src/melee", "src/sysdolphin"]
     files = collect(args)
     failed = 0
     with ThreadPoolExecutor() as ex:

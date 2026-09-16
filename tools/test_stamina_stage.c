@@ -9,17 +9,29 @@
 static struct gmm_x0 save_data;
 struct gmm_x0* gmMainLib_804D3EE0 = &save_data;
 static int audio_stage, next_state, loads;
-void* gm_GetGameModeStateExitData(GameModeState* state) { return state->info.exit_data; }
-void gm_SetNextGameModeStateId(u8 state) { next_state = state; }
-u64 lbAudioAx_80026EBC(StKind stage) { audio_stage = stage; return 0x40; }
-void lbAudioAx_80026F2C(u32 flags) { assert(flags == 24); }
-void lbAudioAx_8002702C(u32 flags, u64 mask) { assert(flags == 8 && mask == 0x40); }
-void lbAudioAx_80027168(void) { ++loads; }
+void* gm_GetGameModeStateExitData(GameModeState* state) {
+    return state->info.exit_data;
+}
+void gm_SetNextGameModeStateId(u8 state) {
+    next_state = state;
+}
+u64 lbAudioAx_80026EBC(StKind stage) {
+    audio_stage = stage;
+    return 0x40;
+}
+void lbAudioAx_80026F2C(u32 flags) {
+    assert(flags == 24);
+}
+void lbAudioAx_8002702C(u32 flags, u64 mask) {
+    assert(flags == 8 && mask == 0x40);
+}
+void lbAudioAx_80027168(void) {
+    ++loads;
+}
 
-int main(void)
-{
+int main(void) {
     SSSData sss = {0};
-    GameModeState state = { .info.exit_data = &sss };
+    GameModeState state = {.info.exit_data = &sss};
     sss.start_game = 1;
     sss.force_stage_id = -1; /* normal manual stage selection */
     sss.vs.start.rules.stkind = 4;

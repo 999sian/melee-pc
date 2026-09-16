@@ -14,6 +14,8 @@
  */
 #include <nod.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,22 +31,20 @@
 #define DOL_MAX_SIZE (8u << 20)
 
 /* HSD_DebugFontAtlas is 128 glyphs of 56 bytes; the blob is contiguous. */
-#define DEBUG_FONT_BYTES (int) (sizeof(DebugFontGlyph) * 128)
-#define SIS_GLYPH_BYTES (int) sizeof(TextGlyphTexture)
+#define DEBUG_FONT_BYTES (int)(sizeof(DebugFontGlyph) * 128)
+#define SIS_GLYPH_BYTES (int)sizeof(TextGlyphTexture)
 #define SIS_GLYPH_COUNT 287
 
-static u32 be32(const u8* p)
-{
-    return ((u32) p[0] << 24) | ((u32) p[1] << 16) | ((u32) p[2] << 8) | p[3];
+static inline u32 be32(const u8* p) {
+    return (u32)p[0] << 24 | (u32)p[1] << 16 | (u32)p[2] << 8 | p[3];
 }
 
 /* Naive forward search; the DOL is a few MB and this runs once at boot. */
-static long find_bytes(const u8* hay, long hay_len, const u8* needle,
-                       long needle_len, long from)
-{
-    for (long i = from; i + needle_len <= hay_len; i++) {
-        if (memcmp(hay + i, needle, (size_t) needle_len) == 0) {
-            return i;
+static ptrdiff_t find_bytes(
+    const u8* hay, size_t hay_len, const u8* needle, size_t needle_len, size_t from) {
+    for (size_t i = from; i + needle_len <= hay_len; i++) {
+        if (memcmp(hay + i, needle, needle_len) == 0) {
+            return (ptrdiff_t)i;
         }
     }
     return -1;
@@ -52,36 +52,33 @@ static long find_bytes(const u8* hay, long hay_len, const u8* needle,
 
 /* The debug font follows a 4-entry { s32, fn } glyph-callback table whose
  * first words are these four constants. */
-static long find_debug_font(const u8* dol, long len)
-{
-    static const u32 marks[4] = { 0x10808000, 0x46808000, 0x7C808000,
-                                  0xB3808000 };
-    for (long i = 0; i + 0x20 + DEBUG_FONT_BYTES <= len; i += 4) {
+static ptrdiff_t find_debug_font(const u8* dol, size_t len) {
+    static const u32 marks[4] = {0x10808000, 0x46808000, 0x7C808000, 0xB3808000};
+    for (size_t i = 0; i + 0x20 + DEBUG_FONT_BYTES <= len; i += 4) {
         if (be32(dol + i) != marks[0]) {
             continue;
         }
         if (be32(dol + i + 8) == marks[1] && be32(dol + i + 16) == marks[2] &&
             be32(dol + i + 24) == marks[3])
         {
-            return i + 0x20;
+            return (ptrdiff_t)(i + 0x20);
         }
     }
     return -1;
 }
 
-static bool load_from_dol(const u8* dol, long len, const char* game_id)
-{
-    long debug_off = find_debug_font(dol, len);
+static bool load_from_dol(const u8* dol, size_t len, const char* game_id) {
+    ptrdiff_t debug_off = find_debug_font(dol, len);
     if (debug_off < 0) {
         fprintf(stderr, "discfont: debug font glyph table not found\n");
         return false;
     }
-    memcpy(HSD_DebugFontAtlas, dol + debug_off, (size_t) DEBUG_FONT_BYTES);
+    memcpy(HSD_DebugFontAtlas, dol + debug_off, (size_t)DEBUG_FONT_BYTES);
 
     /* The sislib atlas sits between the u8 kerning table and the 13 s32 xor
      * keys at lbl_80430BD0, minus two 0x8C-byte locals in between. The
      * kerning table's length is the only region-dependent part. */
-    long kerning_len;
+    size_t kerning_len;
     if (memcmp(game_id, "GALE01", 6) == 0) {
         kerning_len = 0x240;
     } else if (memcmp(game_id, "GALP01", 6) == 0) {
@@ -91,52 +88,94 @@ static bool load_from_dol(const u8* dol, long len, const char* game_id)
         return false;
     }
 
-    static const u8 kern_sig[] = { 0x09, 0x08, 0x09, 0x0C,
-                                   0x09, 0x08, 0x08, 0x08 };
+    static const u8 kern_sig[] = {0x09, 0x08, 0x09, 0x0C, 0x09, 0x08, 0x08, 0x08};
     static const u8 keys_sig[] = {
-        0, 0, 0, 0x26, 0, 0, 0, 0xFF, 0, 0, 0, 0xE8, 0, 0, 0, 0xEF,
-        0, 0, 0, 0x42, 0, 0, 0, 0xD6, 0, 0, 0, 0x01, 0, 0, 0, 0x54,
-        0, 0, 0, 0x14, 0, 0, 0, 0xA3, 0, 0, 0, 0x80, 0, 0, 0, 0xFD,
-        0, 0, 0, 0x6E,
+        0,
+        0,
+        0,
+        0x26,
+        0,
+        0,
+        0,
+        0xFF,
+        0,
+        0,
+        0,
+        0xE8,
+        0,
+        0,
+        0,
+        0xEF,
+        0,
+        0,
+        0,
+        0x42,
+        0,
+        0,
+        0,
+        0xD6,
+        0,
+        0,
+        0,
+        0x01,
+        0,
+        0,
+        0,
+        0x54,
+        0,
+        0,
+        0,
+        0x14,
+        0,
+        0,
+        0,
+        0xA3,
+        0,
+        0,
+        0,
+        0x80,
+        0,
+        0,
+        0,
+        0xFD,
+        0,
+        0,
+        0,
+        0x6E,
     };
-    long kern = find_bytes(dol, len, kern_sig, (long) sizeof kern_sig, 0);
-    long keys = find_bytes(dol, len, keys_sig, (long) sizeof keys_sig, 0);
+    ptrdiff_t kern = find_bytes(dol, len, kern_sig, sizeof kern_sig, 0);
+    ptrdiff_t keys = find_bytes(dol, len, keys_sig, sizeof keys_sig, 0);
     if (kern < 0 || keys < 0) {
         fprintf(stderr, "discfont: sislib font boundaries not found\n");
         return false;
     }
 
-    long start = (kern + kerning_len + 31) & ~31L;
-    long end = (keys - 0x8C) & ~31L;
-    long glyphs = (end - start) / SIS_GLYPH_BYTES;
-    if (glyphs <= 0 || glyphs > SIS_GLYPH_COUNT ||
-        start + glyphs * SIS_GLYPH_BYTES > len)
+    ptrdiff_t start = (kern + (ptrdiff_t)kerning_len + 31) & ~(ptrdiff_t)31;
+    ptrdiff_t end = (keys - 0x8C) & ~(ptrdiff_t)31;
+    ptrdiff_t glyphs = (end - start) / SIS_GLYPH_BYTES;
+    if (glyphs <= 0 || glyphs > SIS_GLYPH_COUNT || (size_t)(start + glyphs * SIS_GLYPH_BYTES) > len)
     {
-        fprintf(stderr, "discfont: implausible sislib glyph count %ld\n",
-                glyphs);
+        fprintf(stderr, "discfont: implausible sislib glyph count %td\n", glyphs);
         return false;
     }
     /* Fewer glyphs than the array holds (PAL) leaves the tail zeroed. */
-    memcpy(HSD_SisLib_FontAtlas, dol + start,
-           (size_t) (glyphs * SIS_GLYPH_BYTES));
+    memcpy(HSD_SisLib_FontAtlas, dol + start, (size_t)(glyphs * SIS_GLYPH_BYTES));
     return true;
 }
 
 /* nod returns short reads on compressed images, so loop until satisfied. */
-static bool read_exact(NodHandle* disc, u8* buf, long len)
-{
-    for (long done = 0; done < len;) {
-        int64_t n = nod_read(disc, buf + done, (size_t) (len - done));
+static bool read_exact(NodHandle* disc, u8* buf, size_t len) {
+    for (size_t done = 0; done < len;) {
+        int64_t n = nod_read(disc, buf + done, len - done);
         if (n <= 0) {
             return false;
         }
-        done += (long) n;
+        done += (size_t)n;
     }
     return true;
 }
 
-bool pc_load_disc_fonts(const char* disc_path)
-{
+bool pc_load_disc_fonts(const char* disc_path) {
     NodHandle* disc = NULL;
     if (pc_open_nod_disc(disc_path, &disc) != NOD_RESULT_OK || disc == NULL) {
         fprintf(stderr, "discfont: cannot open %s\n", disc_path);
@@ -146,9 +185,7 @@ bool pc_load_disc_fonts(const char* disc_path)
     bool ok = false;
     u8* dol = NULL;
     u8 header[0x440];
-    if (nod_seek(disc, 0, SEEK_SET) < 0 ||
-        !read_exact(disc, header, (long) sizeof header))
-    {
+    if (nod_seek(disc, 0, SEEK_SET) < 0 || !read_exact(disc, header, sizeof header)) {
         fprintf(stderr, "discfont: cannot read disc header\n");
         goto done;
     }
@@ -158,24 +195,21 @@ bool pc_load_disc_fonts(const char* disc_path)
     /* main.dol is not in the FST; it runs from its header offset up to the
      * FST, which on every retail GC disc follows it. */
     if (fst_off <= dol_off || fst_off - dol_off > DOL_MAX_SIZE) {
-        fprintf(stderr, "discfont: implausible DOL extent %u..%u\n", dol_off,
-                fst_off);
+        fprintf(stderr, "discfont: implausible DOL extent %u..%u\n", dol_off, fst_off);
         goto done;
     }
-    long dol_size = (long) (fst_off - dol_off);
+    size_t dol_size = (size_t)(fst_off - dol_off);
 
-    dol = malloc((size_t) dol_size);
+    dol = malloc(dol_size);
     if (dol == NULL) {
         goto done;
     }
-    if (nod_seek(disc, dol_off, SEEK_SET) < 0 ||
-        !read_exact(disc, dol, dol_size))
-    {
+    if (nod_seek(disc, dol_off, SEEK_SET) < 0 || !read_exact(disc, dol, dol_size)) {
         fprintf(stderr, "discfont: cannot read main.dol\n");
         goto done;
     }
 
-    ok = load_from_dol(dol, dol_size, (const char*) header);
+    ok = load_from_dol(dol, dol_size, (const char*)header);
 
 done:
     free(dol);

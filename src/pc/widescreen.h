@@ -30,11 +30,13 @@ float pc_widescreen_scale(void);
  * opt-out stays in one place. */
 float pc_widescreen_cobj_scale(struct HSD_CObj* cobj);
 
+/* Horizontal offset for anchoring HUD elements when Wide HUD mode is active.
+ * Returns 0 in Classic (4:3) mode or when widescreen is not active. */
+float pc_widescreen_hud_offset(void);
+
 /* Scale one projection edge pair about `center` -- the widening is a scale
  * about the camera's horizontal centre, not about the world origin. */
-static inline void pc_widescreen_widen(float scale, float center, float* lo,
-                                       float* hi)
-{
+static inline void pc_widescreen_widen(float scale, float center, float* lo, float* hi) {
     *lo = center + (*lo - center) * scale;
     *hi = center + (*hi - center) * scale;
 }
@@ -45,8 +47,8 @@ static inline void pc_widescreen_widen(float scale, float center, float* lo,
  * contracted about `center_x` by the same factor. `center_x` is in logical
  * framebuffer pixels: the horizontal centre of the viewport that drew the
  * content. Identical to HSD_ImageDescCopyFromEFB at scale 1. */
-void pc_widescreen_copy_efb(struct HSD_ImageDesc* idesc, int origx, int origy,
-                            float center_x, int clear);
+void pc_widescreen_copy_efb(
+    struct HSD_ImageDesc* idesc, int origx, int origy, float center_x, int clear);
 #ifdef __cplusplus
 }
 #endif

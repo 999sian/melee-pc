@@ -33,8 +33,7 @@ static bool s_in_frame;
 void pc_os_run_alarms(void);
 void aurora_heap_check(void);
 
-void pc_frame_boundary(void)
-{
+void pc_frame_boundary(void) {
     static int fps_log = -1;
     static u64 fps_t0;
     static u32 fps_n;
@@ -52,7 +51,7 @@ void pc_frame_boundary(void)
         aurora_end_frame();
         s_in_frame = false;
     }
-    aurora_heap_check(); /* no-op unless MELEE_HEAP_CHECK is set */
+    aurora_heap_check();    /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
     if (fps_log < 0) {
         fps_log = getenv("MELEE_FPS") != NULL;
@@ -78,18 +77,16 @@ void pc_frame_boundary(void)
              * cannot tell a shader compile from a disc read; a timestamped
              * marker beside the surrounding records can. */
             if (delta > 50000000ull) {
-                pc_log_line("STALL %.1fms at frame %u", delta / 1e6,
-                            s_retrace_count);
+                pc_log_line("STALL %.1fms at frame %u", delta / 1e6, s_retrace_count);
             }
         }
         frame_prev_ns = now_ns;
         if (now - fps_t0 >= 1000) {
             fprintf(stderr,
-                    "fps %.1f worst %.1fms late>20ms %u late>33ms %u "
-                    "sleep_overshoot %.1fms\n",
-                    fps_n * 1000.0 / (double) (now - fps_t0),
-                    frame_worst_ns / 1e6, frame_late_20, frame_late_33,
-                    sleep_worst_over_ns / 1e6);
+                "fps %.1f worst %.1fms late>20ms %u late>33ms %u "
+                "sleep_overshoot %.1fms\n",
+                fps_n * 1000.0 / (double)(now - fps_t0), frame_worst_ns / 1e6, frame_late_20,
+                frame_late_33, sleep_worst_over_ns / 1e6);
             fflush(stderr);
             fps_t0 = now;
             fps_n = 0;
@@ -172,8 +169,7 @@ void pc_frame_boundary(void)
     }
 }
 
-void VIWaitForRetrace(void)
-{
+void VIWaitForRetrace(void) {
     pc_frame_boundary();
     /* The overlay pauses the game. Melee's whole simulation hangs off this
      * call returning, so keep presenting frames and pumping input here and
@@ -183,56 +179,46 @@ void VIWaitForRetrace(void)
     }
 }
 
-u32 VIGetRetraceCount(void)
-{
+u32 VIGetRetraceCount(void) {
     return s_retrace_count;
 }
 
-u32 VIGetNextField(void)
-{
+u32 VIGetNextField(void) {
     return s_retrace_count & 1;
 }
 
-u32 VIGetDTVStatus(void)
-{
+u32 VIGetDTVStatus(void) {
     return 0;
 }
 
-void* VIGetCurrentFrameBuffer(void)
-{
+void* VIGetCurrentFrameBuffer(void) {
     return s_current_fb;
 }
 
-void* VIGetNextFrameBuffer(void)
-{
+void* VIGetNextFrameBuffer(void) {
     return s_next_fb;
 }
 
-void VISetNextFrameBuffer(void* fb)
-{
+void VISetNextFrameBuffer(void* fb) {
     s_next_fb = fb;
 }
 
-void VISetBlack(BOOL black)
-{
+void VISetBlack(BOOL black) {
     s_black = black;
 }
 
-VIRetraceCallback VISetPreRetraceCallback(VIRetraceCallback cb)
-{
+VIRetraceCallback VISetPreRetraceCallback(VIRetraceCallback cb) {
     VIRetraceCallback old = s_pre_cb;
     s_pre_cb = cb;
     return old;
 }
 
-VIRetraceCallback VISetPostRetraceCallback(VIRetraceCallback cb)
-{
+VIRetraceCallback VISetPostRetraceCallback(VIRetraceCallback cb) {
     VIRetraceCallback old = s_post_cb;
     s_post_cb = cb;
     return old;
 }
 
-u16 VIPadFrameBufferWidth(u16 width)
-{
-    return (u16) ((width + 15) & ~15);
+u16 VIPadFrameBufferWidth(u16 width) {
+    return (u16)((width + 15) & ~15);
 }

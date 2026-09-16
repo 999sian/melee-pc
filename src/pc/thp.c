@@ -14,8 +14,7 @@
 
 #include "pc/pc.h"
 
-void pc_thp_decode_frame(const void* jpeg, void* tile_y, void* tile_u, void* tile_v)
-{
+void pc_thp_decode_frame(const void* jpeg, void* tile_y, void* tile_u, void* tile_v) {
     s32 rc = THPVideoDecode(jpeg, tile_y, tile_u, tile_v, NULL);
     if (rc != 0) {
         fprintf(stderr, "THPVideoDecode failed: %d\n", rc);

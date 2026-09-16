@@ -22,8 +22,13 @@ You need your own disc image. No game data ships here.
 - Post-processing shaders: area sampling, CRT scanlines, vibrant.
 - 4x MSAA and anisotropic filtering up to 16x.
 - Gamepad remapping, including C-stick directions, saved per device.
-- Software AX audio mixer with the game's aux busses and reverb.
+- Software AX audio mixer with multi-bus volume controls (Master, Music, SFX).
 - Dolphin-compatible `.gci` memory cards.
+- Custom HD texture pack replacements (`~/.local/share/melee-pc/textures/`).
+- "Unlock Everything" toggle (instant 26 characters, 11 secret stages, and All-Star mode).
+- Hazardless stages (Frozen Pokémon Stadium in permanent neutral mode).
+
+See [ROADMAP.md](ROADMAP.md) for development milestones and upcoming features.
 
 ## Screenshots
 
@@ -228,6 +233,12 @@ intersections, not start offsets.
 the game presents normally, which looks like a freeze and is not one. `devctl.py
 shot` detects two identical captures and nudges the window; when a screenshot and
 a backtrace disagree, believe the backtrace.
+
+## Contributing & Coding Style
+
+Please refer to [CODING_STYLE.md](CODING_STYLE.md) for architectural guidelines,
+formatting standards, 64-bit portability rules, and verification procedures. Run
+`python3 tools/check_style.py` before opening pull requests.
 
 ## Layout
 

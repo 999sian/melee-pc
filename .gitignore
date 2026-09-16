@@ -7,6 +7,7 @@ __pycache__/
 # Internal working notes stay local; only the screenshots are published.
 docs/*
 !docs/screenshots/
+!docs/CODING_STYLE.md
 
 # Android build outputs (CI builds these from source).
 platforms/android/.gradle/

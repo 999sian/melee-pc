@@ -58,30 +58,35 @@ struct JsonValue {
     std::vector<std::pair<std::string, JsonValue>> obj_val;
 
     const JsonValue* find(std::string_view key) const {
-        if (type != Type::Object) return nullptr;
+        if (type != Type::Object)
+            return nullptr;
         for (const auto& [k, v] : obj_val) {
-            if (k == key) return &v;
+            if (k == key)
+                return &v;
         }
         return nullptr;
     }
 
     std::string get_string(std::string_view key, std::string default_val = "") const {
         if (const auto* v = find(key)) {
-            if (v->type == Type::String) return v->str_val;
+            if (v->type == Type::String)
+                return v->str_val;
         }
         return default_val;
     }
 
     bool get_bool(std::string_view key, bool default_val = false) const {
         if (const auto* v = find(key)) {
-            if (v->type == Type::Bool) return v->bool_val;
+            if (v->type == Type::Bool)
+                return v->bool_val;
         }
         return default_val;
     }
 
     size_t get_size(std::string_view key, size_t default_val = 0) const {
         if (const auto* v = find(key)) {
-            if (v->type == Type::Number) return static_cast<size_t>(v->num_val);
+            if (v->type == Type::Number)
+                return static_cast<size_t>(v->num_val);
         }
         return default_val;
     }
@@ -103,8 +108,9 @@ class SimpleJsonParser {
     }
 
     std::string parse_string() {
-        if (pos >= src.size() || src[pos] != '"') return "";
-        pos++; // skip "
+        if (pos >= src.size() || src[pos] != '"')
+            return "";
+        pos++;  // skip "
         std::string res;
         while (pos < src.size()) {
             char c = src[pos++];
@@ -113,21 +119,39 @@ class SimpleJsonParser {
             } else if (c == '\\' && pos < src.size()) {
                 char esc = src[pos++];
                 switch (esc) {
-                    case '"': res += '"'; break;
-                    case '\\': res += '\\'; break;
-                    case '/': res += '/'; break;
-                    case 'b': res += '\b'; break;
-                    case 'f': res += '\f'; break;
-                    case 'n': res += '\n'; break;
-                    case 'r': res += '\r'; break;
-                    case 't': res += '\t'; break;
-                    case 'u':
-                        if (pos + 4 <= src.size()) {
-                            pos += 4; // skip unicode escape digits for now
-                            res += '?';
-                        }
-                        break;
-                    default: res += esc; break;
+                case '"':
+                    res += '"';
+                    break;
+                case '\\':
+                    res += '\\';
+                    break;
+                case '/':
+                    res += '/';
+                    break;
+                case 'b':
+                    res += '\b';
+                    break;
+                case 'f':
+                    res += '\f';
+                    break;
+                case 'n':
+                    res += '\n';
+                    break;
+                case 'r':
+                    res += '\r';
+                    break;
+                case 't':
+                    res += '\t';
+                    break;
+                case 'u':
+                    if (pos + 4 <= src.size()) {
+                        pos += 4;  // skip unicode escape digits for now
+                        res += '?';
+                    }
+                    break;
+                default:
+                    res += esc;
+                    break;
                 }
             } else {
                 res += c;
@@ -138,14 +162,19 @@ class SimpleJsonParser {
 
     JsonValue parse_number() {
         size_t start = pos;
-        if (pos < src.size() && (src[pos] == '-' || src[pos] == '+')) pos++;
-        while (pos < src.size() && ((src[pos] >= '0' && src[pos] <= '9') || src[pos] == '.' || src[pos] == 'e' || src[pos] == 'E' || src[pos] == '+' || src[pos] == '-')) {
+        if (pos < src.size() && (src[pos] == '-' || src[pos] == '+'))
+            pos++;
+        while (pos < src.size() &&
+               ((src[pos] >= '0' && src[pos] <= '9') || src[pos] == '.' || src[pos] == 'e' ||
+                   src[pos] == 'E' || src[pos] == '+' || src[pos] == '-'))
+        {
             pos++;
         }
         double val = 0.0;
         try {
             val = std::stod(std::string(src.substr(start, pos - start)));
-        } catch (...) {}
+        } catch (...) {
+        }
         JsonValue j;
         j.type = JsonValue::Type::Number;
         j.num_val = val;
@@ -157,7 +186,8 @@ public:
 
     JsonValue parse_value() {
         skip_whitespace();
-        if (pos >= src.size()) return {};
+        if (pos >= src.size())
+            return {};
 
         char c = src[pos];
         if (c == '"') {
@@ -166,7 +196,7 @@ public:
             j.str_val = parse_string();
             return j;
         } else if (c == '{') {
-            pos++; // skip '{'
+            pos++;  // skip '{'
             JsonValue j;
             j.type = JsonValue::Type::Object;
             skip_whitespace();
@@ -176,11 +206,13 @@ public:
             }
             while (pos < src.size()) {
                 skip_whitespace();
-                if (pos >= src.size() || src[pos] != '"') break;
+                if (pos >= src.size() || src[pos] != '"')
+                    break;
                 std::string key = parse_string();
                 skip_whitespace();
-                if (pos >= src.size() || src[pos] != ':') break;
-                pos++; // skip ':'
+                if (pos >= src.size() || src[pos] != ':')
+                    break;
+                pos++;  // skip ':'
                 JsonValue val = parse_value();
                 j.obj_val.emplace_back(std::move(key), std::move(val));
                 skip_whitespace();
@@ -195,7 +227,7 @@ public:
             }
             return j;
         } else if (c == '[') {
-            pos++; // skip '['
+            pos++;  // skip '['
             JsonValue j;
             j.type = JsonValue::Type::Array;
             skip_whitespace();
@@ -254,7 +286,8 @@ std::vector<Release> parse_github_releases(std::string_view json) {
     }
 
     for (const auto* item : items) {
-        if (!item || item->type != JsonValue::Type::Object) continue;
+        if (!item || item->type != JsonValue::Type::Object)
+            continue;
         Release r;
         r.tag_name = item->get_string("tag_name");
         r.name = item->get_string("name");
@@ -266,7 +299,8 @@ std::vector<Release> parse_github_releases(std::string_view json) {
         if (const auto* assets_node = item->find("assets")) {
             if (assets_node->type == JsonValue::Type::Array) {
                 for (const auto& a_node : assets_node->arr_val) {
-                    if (a_node.type != JsonValue::Type::Object) continue;
+                    if (a_node.type != JsonValue::Type::Object)
+                        continue;
                     Asset a;
                     a.name = a_node.get_string("name");
                     a.download_url = a_node.get_string("browser_download_url");
@@ -285,44 +319,61 @@ std::vector<Release> parse_github_releases(std::string_view json) {
     return releases;
 }
 
-std::string select_best_asset(const std::vector<Asset>& assets, std::string& out_url, size_t& out_size) {
+std::string select_best_asset(
+    const std::vector<Asset>& assets, std::string& out_url, size_t& out_size) {
 #if defined(__ANDROID__)
     for (const auto& a : assets) {
         if (a.name.find(".apk") != std::string::npos) {
-            out_url = a.download_url; out_size = a.size; return a.name;
+            out_url = a.download_url;
+            out_size = a.size;
+            return a.name;
         }
     }
 #elif defined(_WIN32)
     for (const auto& a : assets) {
-        if (a.name.find("Windows") != std::string::npos && a.name.find(".zip") != std::string::npos) {
-            out_url = a.download_url; out_size = a.size; return a.name;
+        if (a.name.find("Windows") != std::string::npos && a.name.find(".zip") != std::string::npos)
+        {
+            out_url = a.download_url;
+            out_size = a.size;
+            return a.name;
         }
     }
     for (const auto& a : assets) {
         if (a.name.find(".zip") != std::string::npos) {
-            out_url = a.download_url; out_size = a.size; return a.name;
+            out_url = a.download_url;
+            out_size = a.size;
+            return a.name;
         }
     }
 #else
     // Linux
     for (const auto& a : assets) {
         if (a.name.find(".AppImage") != std::string::npos) {
-            out_url = a.download_url; out_size = a.size; return a.name;
+            out_url = a.download_url;
+            out_size = a.size;
+            return a.name;
         }
     }
     for (const auto& a : assets) {
-        if (a.name.find("linux") != std::string::npos && a.name.find(".tar.gz") != std::string::npos) {
-            out_url = a.download_url; out_size = a.size; return a.name;
+        if (a.name.find("linux") != std::string::npos &&
+            a.name.find(".tar.gz") != std::string::npos)
+        {
+            out_url = a.download_url;
+            out_size = a.size;
+            return a.name;
         }
     }
 #endif
     if (!assets.empty()) {
-        out_url = assets[0].download_url; out_size = assets[0].size; return assets[0].name;
+        out_url = assets[0].download_url;
+        out_size = assets[0].size;
+        return assets[0].name;
     }
     return "";
 }
 
-std::filesystem::path get_target_download_path(const std::string& asset_name, bool& out_restart_supported) {
+std::filesystem::path get_target_download_path(
+    const std::string& asset_name, bool& out_restart_supported) {
     out_restart_supported = false;
 #if defined(__linux__) && !defined(__ANDROID__)
     const char* appimage_env = std::getenv("APPIMAGE");
@@ -339,12 +390,14 @@ std::filesystem::path get_target_download_path(const std::string& asset_name, bo
     const char* userprofile = std::getenv("USERPROFILE");
     if (userprofile) {
         auto p = std::filesystem::path(userprofile) / "Downloads";
-        if (std::filesystem::exists(p)) return p / asset_name;
+        if (std::filesystem::exists(p))
+            return p / asset_name;
     }
 #else
     if (home) {
         auto p = std::filesystem::path(home) / "Downloads";
-        if (std::filesystem::exists(p)) return p / asset_name;
+        if (std::filesystem::exists(p))
+            return p / asset_name;
     }
 #endif
     return std::filesystem::current_path() / asset_name;
@@ -352,11 +405,10 @@ std::filesystem::path get_target_download_path(const std::string& asset_name, bo
 
 #if defined(_WIN32)
 
-bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path, std::string& out_body, std::string& out_error) {
-    HINTERNET hSession = WinHttpOpen(L"Melee-PC-Updater",
-                                     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-                                     WINHTTP_NO_PROXY_NAME,
-                                     WINHTTP_NO_PROXY_BYPASS, 0);
+bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
+    std::string& out_body, std::string& out_error) {
+    HINTERNET hSession = WinHttpOpen(L"Melee-PC-Updater", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+        WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession) {
         out_error = "WinHttpOpen failed: " + std::to_string(GetLastError());
         return false;
@@ -369,10 +421,8 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
         return false;
     }
 
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path.c_str(),
-                                           NULL, WINHTTP_NO_REFERER,
-                                           WINHTTP_DEFAULT_ACCEPT_TYPES,
-                                           WINHTTP_FLAG_SECURE);
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET", path.c_str(), NULL,
+        WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
     if (!hRequest) {
         out_error = "WinHttpOpenRequest failed: " + std::to_string(GetLastError());
         WinHttpCloseHandle(hConnect);
@@ -381,7 +431,8 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
     }
 
     LPCWSTR headers = L"User-Agent: Melee-PC-Updater\r\nAccept: application/vnd.github.v3+json\r\n";
-    BOOL bResults = WinHttpSendRequest(hRequest, headers, (DWORD)-1L, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    BOOL bResults =
+        WinHttpSendRequest(hRequest, headers, (DWORD)-1L, WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
     if (bResults) {
         bResults = WinHttpReceiveResponse(hRequest, NULL);
     }
@@ -399,8 +450,10 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
     std::string response;
     do {
         dwSize = 0;
-        if (!WinHttpQueryDataAvailable(hRequest, &dwSize)) break;
-        if (dwSize == 0) break;
+        if (!WinHttpQueryDataAvailable(hRequest, &dwSize))
+            break;
+        if (dwSize == 0)
+            break;
 
         std::vector<char> buffer(dwSize + 1, 0);
         if (WinHttpReadData(hRequest, buffer.data(), dwSize, &dwDownloaded)) {
@@ -436,7 +489,8 @@ struct DownloadContext {
 
 static size_t curl_write_file_cb(void* ptr, size_t size, size_t nmemb, void* userdata) {
     auto* ctx = static_cast<DownloadContext*>(userdata);
-    if (ctx->cancel && ctx->cancel->load()) return 0;
+    if (ctx->cancel && ctx->cancel->load())
+        return 0;
     size_t total = size * nmemb;
     ctx->file.write(static_cast<const char*>(ptr), total);
     ctx->current_bytes += total;
@@ -444,15 +498,19 @@ static size_t curl_write_file_cb(void* ptr, size_t size, size_t nmemb, void* use
         std::lock_guard lock(g_updater_mutex);
         g_updater_state.download_current_bytes = ctx->current_bytes;
         if (g_updater_state.download_total_bytes > 0) {
-            g_updater_state.download_progress = static_cast<float>(ctx->current_bytes) / static_cast<float>(g_updater_state.download_total_bytes);
+            g_updater_state.download_progress =
+                static_cast<float>(ctx->current_bytes) /
+                static_cast<float>(g_updater_state.download_total_bytes);
         }
     }
     return total;
 }
 
-static int curl_xferinfo_cb(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t, curl_off_t) {
+static int curl_xferinfo_cb(
+    void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t, curl_off_t) {
     auto* ctx = static_cast<DownloadContext*>(clientp);
-    if (ctx->cancel && ctx->cancel->load()) return 1;
+    if (ctx->cancel && ctx->cancel->load())
+        return 1;
     if (dltotal > 0) {
         std::lock_guard lock(g_updater_mutex);
         g_updater_state.download_total_bytes = static_cast<size_t>(dltotal);
@@ -477,7 +535,7 @@ bool http_get_string_curl(const std::string& url, std::string& out_body, std::st
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out_body);
 
     CURLcode res = curl_easy_perform(curl);
-    long http_code = 0;
+    long http_code = 0;  // NOLINT: libcurl requires pointer to long
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
 
     bool ok = (res == CURLE_OK && http_code >= 200 && http_code < 300);
@@ -492,7 +550,8 @@ bool http_get_string_curl(const std::string& url, std::string& out_body, std::st
     return ok;
 }
 
-bool http_download_file_curl(const std::string& url, const std::filesystem::path& dest_path, std::string& out_error) {
+bool http_download_file_curl(
+    const std::string& url, const std::filesystem::path& dest_path, std::string& out_error) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         out_error = "curl_easy_init failed";
@@ -519,8 +578,7 @@ bool http_download_file_curl(const std::string& url, const std::filesystem::path
 
     CURLcode res = curl_easy_perform(curl);
     ctx.file.close();
-
-    long http_code = 0;
+    long http_code = 0;  // NOLINT: libcurl requires pointer to long
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     curl_easy_cleanup(curl);
 
@@ -532,8 +590,10 @@ bool http_download_file_curl(const std::string& url, const std::filesystem::path
 
     if (res != CURLE_OK || http_code < 200 || http_code >= 300) {
         std::filesystem::remove(dest_path);
-        if (res != CURLE_OK) out_error = curl_easy_strerror(res);
-        else out_error = "HTTP " + std::to_string(http_code);
+        if (res != CURLE_OK)
+            out_error = curl_easy_strerror(res);
+        else
+            out_error = "HTTP " + std::to_string(http_code);
         return false;
     }
 
@@ -545,18 +605,21 @@ static bool http_get(const std::string&, std::string&, std::string& out_error) {
     out_error = "curl not available";
     return false;
 }
-static bool http_download_file(const std::string&, const std::string&, std::string& out_error, std::atomic_bool*) {
+static bool http_download_file(
+    const std::string&, const std::string&, std::string& out_error, std::atomic_bool*) {
     out_error = "curl not available";
     return false;
 }
 #endif
 
-} // namespace
+}  // namespace
 
 void check_for_updates_async(bool include_prereleases) {
     {
         std::lock_guard lock(g_updater_mutex);
-        if (g_updater_state.status == Status::Checking || g_updater_state.status == Status::Downloading) {
+        if (g_updater_state.status == Status::Checking ||
+            g_updater_state.status == Status::Downloading)
+        {
             return;
         }
         g_updater_state.status = Status::Checking;
@@ -574,9 +637,11 @@ void check_for_updates_async(bool include_prereleases) {
         bool ok = false;
 
 #if defined(_WIN32)
-        ok = http_get_string_winhttp(L"api.github.com", L"/repos/999sian/melee-pc/releases", body, error);
+        ok = http_get_string_winhttp(
+            L"api.github.com", L"/repos/999sian/melee-pc/releases", body, error);
 #elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
-        ok = http_get_string_curl("https://api.github.com/repos/999sian/melee-pc/releases", body, error);
+        ok = http_get_string_curl(
+            "https://api.github.com/repos/999sian/melee-pc/releases", body, error);
 #else
         error = "Networking unsupported on this platform";
 #endif
@@ -606,9 +671,11 @@ void check_for_updates_async(bool include_prereleases) {
         SemVer best_ver;
 
         for (const auto& rel : releases) {
-            if (!include_prereleases && rel.prerelease) continue;
+            if (!include_prereleases && rel.prerelease)
+                continue;
             auto parsed = SemVer::parse(rel.tag_name);
-            if (!parsed.valid) continue;
+            if (!parsed.valid)
+                continue;
             if (!best_release || parsed > best_ver) {
                 best_release = &rel;
                 best_ver = parsed;
@@ -623,11 +690,8 @@ void check_for_updates_async(bool include_prereleases) {
 
         std::string current_ver = get_app_version();
         g_updater_state.latest_release = *best_release;
-        g_updater_state.target_asset_name = select_best_asset(
-            best_release->assets,
-            g_updater_state.target_asset_url,
-            g_updater_state.download_total_bytes
-        );
+        g_updater_state.target_asset_name = select_best_asset(best_release->assets,
+            g_updater_state.target_asset_url, g_updater_state.download_total_bytes);
         if (is_update_available(current_ver, best_release->tag_name)) {
             g_updater_state.status = Status::UpdateAvailable;
             g_updater_state.message = "Update available: " + best_release->tag_name;
@@ -644,7 +708,9 @@ void start_download_async() {
     size_t total_bytes = 0;
     {
         std::lock_guard lock(g_updater_mutex);
-        if (g_updater_state.status != Status::UpdateAvailable && g_updater_state.status != Status::Failed) {
+        if (g_updater_state.status != Status::UpdateAvailable &&
+            g_updater_state.status != Status::Failed)
+        {
             return;
         }
         download_url = g_updater_state.target_asset_url;
@@ -737,7 +803,8 @@ void open_downloaded_location() {
         std::lock_guard lock(g_updater_mutex);
         path = g_updater_state.downloaded_path;
     }
-    if (path.empty()) return;
+    if (path.empty())
+        return;
 
     auto parent = std::filesystem::path(path).parent_path().string();
 #if defined(_WIN32)
@@ -777,4 +844,4 @@ bool apply_update_and_restart(std::string& error) {
     return true;
 }
 
-} // namespace pc::updater
+}  // namespace pc::updater

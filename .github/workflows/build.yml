@@ -16,6 +16,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    name: Lint & Style Verification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install verification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format python3
+
+      - name: Verify code style and formatting
+        run: python3 tools/check_style.py
+
+      - name: Verify game syntax
+        run: python3 tools/compile_check.py
+
   linux:
     name: Linux (${{ matrix.arch }})
     strategy:

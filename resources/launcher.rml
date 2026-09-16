@@ -89,6 +89,18 @@
               <button id="filter-mode">Off</button>
             </div>
             <div class="setting">
+              <div class="description"><h3>Custom HD textures</h3><p>Load replacement textures from textures folder.</p></div>
+              <button id="custom-textures">Enabled</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Hazardless stages</h3><p>Lock Pokémon Stadium in neutral mode without transformations.</p></div>
+              <button id="frozen-stadium">Off</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Unlock everything</h3><p>Unlock all 26 characters, 11 secret stages, and All-Star mode.</p></div>
+              <button id="unlock-all">Off</button>
+            </div>
+            <div class="setting">
               <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Choose Direct3D 12 or Vulkan.</p></div>
               <button id="backend">Auto</button>
             </div>
@@ -99,6 +111,20 @@
               <div class="slider-control">
                 <input type="range" class="range" id="volume" min="0" max="100" step="5" value="100" />
                 <span id="volume-val" class="slider-value">100%</span>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Music volume</h3><p>Background music volume.</p></div>
+              <div class="slider-control">
+                <input type="range" class="range" id="music-volume" min="0" max="100" step="5" value="100" />
+                <span id="music-volume-val" class="slider-value">100%</span>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>SFX volume</h3><p>Sound effects and combat audio volume.</p></div>
+              <div class="slider-control">
+                <input type="range" class="range" id="sfx-volume" min="0" max="100" step="5" value="100" />
+                <span id="sfx-volume-val" class="slider-value">100%</span>
               </div>
             </div>
             <div class="setting">

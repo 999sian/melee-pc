@@ -26,24 +26,28 @@ static const struct {
     SDL_Scancode key;
     u16 button;
 } s_button_map[] = {
-    { SDL_SCANCODE_X, PAD_BUTTON_A },     { SDL_SCANCODE_Z, PAD_BUTTON_B },
-    { SDL_SCANCODE_C, PAD_BUTTON_X },     { SDL_SCANCODE_V, PAD_BUTTON_Y },
-    { SDL_SCANCODE_Q, PAD_TRIGGER_L },    { SDL_SCANCODE_E, PAD_TRIGGER_R },
-    { SDL_SCANCODE_TAB, PAD_TRIGGER_Z },  { SDL_SCANCODE_RETURN, PAD_BUTTON_START },
-    { SDL_SCANCODE_T, PAD_BUTTON_UP },    { SDL_SCANCODE_G, PAD_BUTTON_DOWN },
-    { SDL_SCANCODE_F, PAD_BUTTON_LEFT },  { SDL_SCANCODE_H, PAD_BUTTON_RIGHT },
+    {SDL_SCANCODE_X, PAD_BUTTON_A},
+    {SDL_SCANCODE_Z, PAD_BUTTON_B},
+    {SDL_SCANCODE_C, PAD_BUTTON_X},
+    {SDL_SCANCODE_V, PAD_BUTTON_Y},
+    {SDL_SCANCODE_Q, PAD_TRIGGER_L},
+    {SDL_SCANCODE_E, PAD_TRIGGER_R},
+    {SDL_SCANCODE_TAB, PAD_TRIGGER_Z},
+    {SDL_SCANCODE_RETURN, PAD_BUTTON_START},
+    {SDL_SCANCODE_T, PAD_BUTTON_UP},
+    {SDL_SCANCODE_G, PAD_BUTTON_DOWN},
+    {SDL_SCANCODE_F, PAD_BUTTON_LEFT},
+    {SDL_SCANCODE_H, PAD_BUTTON_RIGHT},
 };
 
-static s8 axis(SDL_Scancode neg, SDL_Scancode pos)
-{
+static s8 axis(SDL_Scancode neg, SDL_Scancode pos) {
     /* A real GameCube stick reads about +-80 at full deflection. */
     const bool neg_on = s_key[neg] || s_key_latched[neg];
     const bool pos_on = s_key[pos] || s_key_latched[pos];
-    return (s8) ((pos_on ? 80 : 0) - (neg_on ? 80 : 0));
+    return (s8)((pos_on ? 80 : 0) - (neg_on ? 80 : 0));
 }
 
-void pc_keyboard_event(const SDL_Event* e)
-{
+void pc_keyboard_event(const SDL_Event* e) {
     if (e->type != SDL_EVENT_KEY_DOWN && e->type != SDL_EVENT_KEY_UP) {
         return;
     }
@@ -59,9 +63,8 @@ void pc_keyboard_event(const SDL_Event* e)
     s_active = true;
 }
 
-void pc_keyboard_apply(void)
-{
-    PADStatus st = { 0 };
+void pc_keyboard_apply(void) {
+    PADStatus st = {0};
     bool any_active = false;
     if (s_active) {
         size_t i;
@@ -70,11 +73,14 @@ void pc_keyboard_apply(void)
         if (n > SDL_SCANCODE_COUNT) {
             n = SDL_SCANCODE_COUNT;
         }
-        memcpy(s_key, keys, (size_t) n);
+        memcpy(s_key, keys, (size_t)n);
         for (i = 0; i < SDL_SCANCODE_COUNT; i++) {
-            if (pc_menu_is_open()) s_suppressed[i] = s_key[i];
-            else if (!s_key[i]) s_suppressed[i] = false;
-            if (s_suppressed[i]) s_key[i] = false;
+            if (pc_menu_is_open())
+                s_suppressed[i] = s_key[i];
+            else if (!s_key[i])
+                s_suppressed[i] = false;
+            if (s_suppressed[i])
+                s_key[i] = false;
         }
         for (i = 0; i < sizeof(s_button_map) / sizeof(s_button_map[0]); i++) {
             SDL_Scancode key = s_button_map[i].key;
@@ -98,7 +104,7 @@ void pc_keyboard_apply(void)
         any_active = true;
     }
 
-    PADStatus touch_st = { 0 };
+    PADStatus touch_st = {0};
     if (pc_touch_get_status(&touch_st)) {
         st.button |= touch_st.button;
         if (touch_st.stickX != 0 || touch_st.stickY != 0) {

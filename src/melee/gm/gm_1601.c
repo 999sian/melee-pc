@@ -1,6 +1,8 @@
 #include "gm_1601.h"
 #include <stdlib.h>
 
+#include "pc/pc.h"
+
 #include <Runtime/platform.h>
 
 #include <melee/ft/forward.h>
@@ -2267,6 +2269,9 @@ bool gm_80164330(s32 arg0)
 
 bool gm_80164430(u16 arg0)
 {
+    if (pc_is_unlock_all_enabled()) {
+        return true;
+    }
     u16* temp_r31;
     s32 i;
     u8 stage_idx;
@@ -2375,6 +2380,9 @@ int gm_801647F8(u8 arg0)
 /// Is a specific character unlocked?
 bool gm_IsCKindUnlocked(u8 ckind)
 {
+    if (pc_is_unlock_all_enabled()) {
+        return true;
+    }
     u16* unlocked_chars_bitmask = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     u8 selkind = ckind_to_selkind_map[ckind];
     u8 unlock_bit = gm_SelKindToUnlockIndex(selkind);
@@ -2430,6 +2438,9 @@ void gm_80164A0C(u8 ckind)
 /// Are all unlockable characters unlocked?
 bool gm_80164ABC(void)
 {
+    if (pc_is_unlock_all_enabled()) {
+        return true;
+    }
     u16* unlockable_character_bitfield =
         gmMainLib_GetUnlockedCharactersBitmaskPtr();
     int i;

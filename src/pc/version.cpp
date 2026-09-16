@@ -16,19 +16,24 @@ const std::string& get_app_version() {
 
 SemVer SemVer::parse(std::string_view s) {
     SemVer v;
-    while (!s.empty() && (s.front() == ' ' || s.front() == '\t')) s.remove_prefix(1);
-    while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.remove_suffix(1);
+    while (!s.empty() && (s.front() == ' ' || s.front() == '\t'))
+        s.remove_prefix(1);
+    while (!s.empty() && (s.back() == ' ' || s.back() == '\t'))
+        s.remove_suffix(1);
 
     if (!s.empty() && (s.front() == 'v' || s.front() == 'V')) {
         s.remove_prefix(1);
     }
 
-    if (s.empty()) return v;
+    if (s.empty())
+        return v;
 
     // Parse major
     size_t idx = 0;
-    while (idx < s.size() && s[idx] >= '0' && s[idx] <= '9') ++idx;
-    if (idx == 0) return v;
+    while (idx < s.size() && s[idx] >= '0' && s[idx] <= '9')
+        ++idx;
+    if (idx == 0)
+        return v;
     std::from_chars(s.data(), s.data() + idx, v.major);
     s.remove_prefix(idx);
 
@@ -36,7 +41,8 @@ SemVer SemVer::parse(std::string_view s) {
     if (!s.empty() && s.front() == '.') {
         s.remove_prefix(1);
         idx = 0;
-        while (idx < s.size() && s[idx] >= '0' && s[idx] <= '9') ++idx;
+        while (idx < s.size() && s[idx] >= '0' && s[idx] <= '9')
+            ++idx;
         if (idx > 0) {
             std::from_chars(s.data(), s.data() + idx, v.minor);
             s.remove_prefix(idx);
@@ -47,7 +53,8 @@ SemVer SemVer::parse(std::string_view s) {
     if (!s.empty() && s.front() == '.') {
         s.remove_prefix(1);
         idx = 0;
-        while (idx < s.size() && s[idx] >= '0' && s[idx] <= '9') ++idx;
+        while (idx < s.size() && s[idx] >= '0' && s[idx] <= '9')
+            ++idx;
         if (idx > 0) {
             std::from_chars(s.data(), s.data() + idx, v.patch);
             s.remove_prefix(idx);
@@ -82,7 +89,8 @@ SemVer SemVer::parse(std::string_view s) {
             if (num_pos < s.size()) {
                 std::from_chars(s.data() + num_pos, s.data() + s.size(), v.prerelease_num);
                 auto pre = s.substr(0, num_pos);
-                if (!pre.empty() && pre.back() == '.') pre.remove_suffix(1);
+                if (!pre.empty() && pre.back() == '.')
+                    pre.remove_suffix(1);
                 v.prerelease = std::string(pre);
             } else {
                 v.prerelease = std::string(s);
@@ -94,10 +102,12 @@ SemVer SemVer::parse(std::string_view s) {
 }
 
 std::string SemVer::to_string() const {
-    std::string res = std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+    std::string res =
+        std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
     if (!prerelease.empty()) {
         res += "-" + prerelease;
-        if (prerelease_num > 0) res += "." + std::to_string(prerelease_num);
+        if (prerelease_num > 0)
+            res += "." + std::to_string(prerelease_num);
     }
     if (build_commits > 0) {
         res += "+" + std::to_string(build_commits);
@@ -106,21 +116,26 @@ std::string SemVer::to_string() const {
 }
 
 bool SemVer::operator==(const SemVer& o) const {
-    if (!valid || !o.valid) return false;
+    if (!valid || !o.valid)
+        return false;
     return std::tie(major, minor, patch, prerelease, prerelease_num, build_commits) ==
            std::tie(o.major, o.minor, o.patch, o.prerelease, o.prerelease_num, o.build_commits);
 }
 
 bool SemVer::operator<(const SemVer& o) const {
-    if (!valid || !o.valid) return false;
-    if (major != o.major) return major < o.major;
-    if (minor != o.minor) return minor < o.minor;
-    if (patch != o.patch) return patch < o.patch;
+    if (!valid || !o.valid)
+        return false;
+    if (major != o.major)
+        return major < o.major;
+    if (minor != o.minor)
+        return minor < o.minor;
+    if (patch != o.patch)
+        return patch < o.patch;
 
     // Normal release > pre-release
     // (Empty prerelease is a stable release, which is greater than any prerelease)
     if (prerelease.empty() != o.prerelease.empty()) {
-        return !prerelease.empty(); // If this has prerelease and other does not, this < other
+        return !prerelease.empty();  // If this has prerelease and other does not, this < other
     }
 
     if (prerelease != o.prerelease) {
@@ -137,8 +152,9 @@ bool SemVer::operator<(const SemVer& o) const {
 bool is_update_available(std::string_view current_ver, std::string_view latest_ver) {
     auto cur = SemVer::parse(current_ver);
     auto lat = SemVer::parse(latest_ver);
-    if (!cur.valid || !lat.valid) return false;
+    if (!cur.valid || !lat.valid)
+        return false;
     return cur < lat;
 }
 
-} // namespace pc
+}  // namespace pc
