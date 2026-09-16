@@ -309,6 +309,12 @@ MELEE_EXPORT int main(int argc, char* argv[])
         .mem2Size = PC_ARAM_SIZE,
     };
     pc_launcher_configure(&config);
+
+    /* Pre-initialize GameCube OS memory immediately so that MEM1 (96 MB) is
+     * committed strictly below 4GB at process startup before SDL, graphics
+     * drivers, and fullscreen swapchains fragment low virtual memory. */
+    OSInit();
+
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
     /* Record which backend was actually selected. Without this the log cannot
      * say whether a run went through D3D12 or Vulkan, which is the first thing
