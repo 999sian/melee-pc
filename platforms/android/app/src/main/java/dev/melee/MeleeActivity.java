@@ -45,6 +45,9 @@ public class MeleeActivity extends SDLActivity {
             }
         }
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.preferredRefreshRate = 60.0f;
+            getWindow().setAttributes(lp);
             if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                     != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[] {
@@ -59,6 +62,11 @@ public class MeleeActivity extends SDLActivity {
     protected void onResume() {
         super.onResume();
         applyImmersiveMode();
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+            lp.preferredRefreshRate = 60.0f;
+            getWindow().setAttributes(lp);
+        }
         if (mTouchOverlay != null) {
             mTouchOverlay.updateControllerState();
         }

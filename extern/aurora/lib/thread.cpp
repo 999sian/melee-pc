@@ -104,12 +104,19 @@ std::vector<uint32_t> parse_cpu_list(const std::string& list) {
 }
 
 std::optional<CacheDomain> find_cache_domain() {
+#if defined(__ANDROID__)
+  // On Android, heterogeneous ARM cores (DynamIQ/big.LITTLE) are managed by EAS (Energy Aware Scheduling).
+  // Locking threads via sched_setaffinity starves governor frequency scaling, causes severe thermal
+  // throttling (e.g. downclocking prime/big cores to 600MHz), and prevents EAS from migrating threads.
+  // Returning nullopt lets the kernel scheduler dynamically schedule threads across all available cores.
+  return std::nullopt;
+#else
   int targetCpu = sched_getcpu();
   if (targetCpu < 0) {
     targetCpu = 0;
   }
 
-  // On heterogeneous architectures (e.g. ARM big.LITTLE / DynamIQ on Android),
+  // On heterogeneous architectures (e.g. ARM big.LITTLE),
   // select the highest-capacity or highest-frequency CPU core cluster rather than
   // arbitrarily using whichever low-power core the calling thread happened to start on.
   const long numProcessors = sysconf(_SC_NPROCESSORS_CONF);
@@ -193,6 +200,7 @@ std::optional<CacheDomain> find_cache_domain() {
     return std::nullopt;
   }
   return best;
+#endif
 }
 
 bool apply_cache_domain(const CacheDomain& domain) noexcept {
