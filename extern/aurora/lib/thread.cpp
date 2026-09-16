@@ -16,6 +16,7 @@
 #if defined(__linux__)
 #include <pthread.h>
 #include <sched.h>
+#include <unistd.h>
 #elif defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -103,13 +104,41 @@ std::vector<uint32_t> parse_cpu_list(const std::string& list) {
 }
 
 std::optional<CacheDomain> find_cache_domain() {
-  const int currentCpu = sched_getcpu();
-  if (currentCpu < 0) {
-    return std::nullopt;
+  int targetCpu = sched_getcpu();
+  if (targetCpu < 0) {
+    targetCpu = 0;
+  }
+
+  // On heterogeneous architectures (e.g. ARM big.LITTLE / DynamIQ on Android),
+  // select the highest-capacity or highest-frequency CPU core cluster rather than
+  // arbitrarily using whichever low-power core the calling thread happened to start on.
+  const long numProcessors = sysconf(_SC_NPROCESSORS_CONF);
+  if (numProcessors > 1) {
+    uint64_t bestMetric = 0;
+    int bestCpu = targetCpu;
+    for (long i = 0; i < numProcessors; ++i) {
+      uint64_t metric = 0;
+      auto capStr = read_line("/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpu_capacity");
+      if (capStr) {
+        try { metric = std::stoull(*capStr); } catch (...) {}
+      }
+      if (metric == 0) {
+        auto freqStr = read_line("/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/cpuinfo_max_freq");
+        if (!freqStr) freqStr = read_line("/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/scaling_max_freq");
+        if (freqStr) {
+          try { metric = std::stoull(*freqStr); } catch (...) {}
+        }
+      }
+      if (metric > bestMetric) {
+        bestMetric = metric;
+        bestCpu = static_cast<int>(i);
+      }
+    }
+    targetCpu = bestCpu;
   }
 
   CacheDomain best;
-  const std::string cacheRoot = "/sys/devices/system/cpu/cpu" + std::to_string(currentCpu) + "/cache";
+  const std::string cacheRoot = "/sys/devices/system/cpu/cpu" + std::to_string(targetCpu) + "/cache";
   for (uint32_t index = 0; index < 32; ++index) {
     const std::string indexRoot = cacheRoot + "/index" + std::to_string(index);
     const auto levelText = read_line(indexRoot + "/level");
@@ -126,7 +155,7 @@ std::optional<CacheDomain> find_cache_domain() {
     }
 
     const auto cpus = parse_cpu_list(*cpuList);
-    if (std::find(cpus.begin(), cpus.end(), static_cast<uint32_t>(currentCpu)) == cpus.end()) {
+    if (std::find(cpus.begin(), cpus.end(), static_cast<uint32_t>(targetCpu)) == cpus.end()) {
       continue;
     }
 
@@ -145,6 +174,18 @@ std::optional<CacheDomain> find_cache_domain() {
     }
     if (!candidate.processors.empty()) {
       best = std::move(candidate);
+    }
+  }
+
+  if (best.processors.empty() && numProcessors >= 4) {
+    // Fallback if cache sysfs was unreadable: pin to the upper half (big cores)
+    cpu_set_t allowed;
+    CPU_ZERO(&allowed);
+    const bool hasAllowed = get_current_thread_affinity(allowed);
+    for (long i = numProcessors / 2; i < numProcessors; ++i) {
+      if (!hasAllowed || CPU_ISSET(static_cast<int>(i), &allowed)) {
+        best.processors.push_back({.number = static_cast<uint32_t>(i)});
+      }
     }
   }
 

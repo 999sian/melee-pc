@@ -519,6 +519,14 @@ void fn_8001F2A4(OSAlarm* alarm, OSContext* context)
 
     frame = lbMthp_GetFrame(rate_table, streamPlayer->unk_80);
 
+#ifdef TARGET_PC
+    /* Catch up buffered frames immediately if video presentation fell behind,
+     * so unk_80 is not stalled and video stays locked in sync with audio. */
+    while (streamPlayer->unk_78 < frame && streamPlayer->unk_108 > 0) {
+        fn_8001F06C(lbMthp_GetDecoder(streamPlayer));
+    }
+#endif
+
     if (streamPlayer->unk_78 == frame) {
         streamPlayer->unk_80 += 1;
 

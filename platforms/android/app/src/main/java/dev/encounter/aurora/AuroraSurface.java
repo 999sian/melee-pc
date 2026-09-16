@@ -10,6 +10,7 @@ public class AuroraSurface extends SDLSurface {
 
     public AuroraSurface(Context context) {
         super(context);
+        getHolder().setKeepScreenOn(true);
     }
 
     @Override

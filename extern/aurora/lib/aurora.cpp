@@ -319,9 +319,17 @@ void end_frame() noexcept {
       wgpu::BindGroup presentBindGroup;
       if (rmlBindGroup && !rmlOverlay) {
         presentBindGroup = rmlBindGroup;
+      } else if (webgpu::get_resampler() == SAMPLER_BILINEAR) {
+        presentBindGroup = webgpu::g_CopyBindGroup;
       } else {
         const auto& resampledSource = webgpu::resample_present_source(encoder, viewport);
-        presentBindGroup = webgpu::create_copy_bind_group(resampledSource);
+        static wgpu::TextureView s_lastResampledView;
+        static wgpu::BindGroup s_resampledBindGroup;
+        if (!s_resampledBindGroup || s_lastResampledView.Get() != resampledSource.view.Get()) {
+          s_lastResampledView = resampledSource.view;
+          s_resampledBindGroup = webgpu::create_copy_bind_group(resampledSource);
+        }
+        presentBindGroup = s_resampledBindGroup;
       }
       {
         const std::array attachments{

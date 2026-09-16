@@ -101,7 +101,10 @@ else ()
     add_executable(melee ${PC_SOURCES})
 endif ()
 
-target_compile_options(melee PRIVATE $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>>:-fno-pie>)
+target_compile_options(melee PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>>:-fno-pie>
+        $<$<BOOL:${ANDROID}>:-march=armv8-a+crc+crypto>
+        $<$<BOOL:${ANDROID}>:-mtune=cortex-a73>)
 target_link_libraries(melee PRIVATE melee_game aurora::main ${MELEE_CRYPTO_LIBS} ${MELEE_NETWORK_LIBS})
 
 # Non-PIE: static data and code stay below 4GB (32-bit pointer slots in disc data).

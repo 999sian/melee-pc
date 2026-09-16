@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 
 namespace {
 // Error codes
@@ -507,6 +508,15 @@ std::array<u8, 64> inverse_dct(const std::array<s16, 64>& coefficients,
 
 void write_block(u8* output, u16 width, u16 height, u16 blockX, u16 blockY, const std::array<u8, 64>& pixels) noexcept {
   const size_t tilesPerRow = (width + 7) / 8;
+  if (blockX + 8 <= width && blockY + 8 <= height) {
+    const size_t tileX = blockX / 8;
+    const size_t tileY = blockY / 4;
+    u8* dst0 = output + (tileY * tilesPerRow + tileX) * 32;
+    u8* dst1 = output + ((tileY + 1) * tilesPerRow + tileX) * 32;
+    std::memcpy(dst0, pixels.data(), 32);
+    std::memcpy(dst1, pixels.data() + 32, 32);
+    return;
+  }
   for (u16 row = 0; row < 8 && blockY + row < height; ++row) {
     for (u16 column = 0; column < 8 && blockX + column < width; ++column) {
       const u16 x = blockX + column;

@@ -125,7 +125,7 @@ void OSSetPeriodicAlarm(OSAlarm* alarm, OSTime start, OSTime period, OSAlarmHand
 {
     alarm->period = period;
     alarm->start = start;
-    insert_alarm(alarm, start, handler);
+    insert_alarm(alarm, OSGetTime() + start, handler);
 }
 
 void OSCancelAlarm(OSAlarm* alarm)
@@ -180,17 +180,30 @@ void pc_os_run_alarms(void)
         if (a->fire <= now) {
             OSAlarmHandler handler = a->handler;
             if (a->period > 0) {
-                /* ponytail: periodic alarms fire at most once per frame; the
-                 * game's 3ms/pad-poll alarms only need "has fired since last
-                 * frame" semantics. */
-                a->fire += a->period;
-                if (a->fire <= now) {
-                    a->fire = now + a->period;
+                if (a->period <= OSMillisecondsToTicks(10)) {
+                    /* ponytail: periodic alarms like the 3ms pad-poll alarm only
+                     * need "has fired since last frame" semantics to avoid redundant polling. */
+                    a->fire += a->period;
+                    if (a->fire <= now) {
+                        a->fire = now + a->period;
+                    }
+                    handler(a, NULL);
+                } else {
+                    /* Timekeeping periodic alarms (e.g. 60 Hz movie player):
+                     * Catch up all due periods so ticks match real elapsed time and video stays in sync. */
+                    int max_catchup = 10;
+                    while (a->fire <= now && max_catchup-- > 0 && a->handler == handler) {
+                        a->fire += a->period;
+                        handler(a, NULL);
+                    }
+                    if (a->fire <= now) {
+                        a->fire = now + a->period;
+                    }
                 }
             } else {
                 OSCancelAlarm(a);
+                handler(a, NULL);
             }
-            handler(a, NULL);
         }
         a = next;
     }

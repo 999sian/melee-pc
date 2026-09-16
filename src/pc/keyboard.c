@@ -14,6 +14,7 @@
 #include <dolphin/pad.h>
 
 #include "pc/pc.h"
+#include "pc/touch.h"
 
 static bool s_key[SDL_SCANCODE_COUNT];
 static bool s_key_latched[SDL_SCANCODE_COUNT];
@@ -61,43 +62,63 @@ void pc_keyboard_event(const SDL_Event* e)
 void pc_keyboard_apply(void)
 {
     PADStatus st = { 0 };
-    size_t i;
-    if (!s_active) {
-        return;
-    }
-    /* Releases can be lost (focus changes, synthetic X events); SDL's own key
-     * state is authoritative, so resync from it every frame. */
-    {
+    bool any_active = false;
+    if (s_active) {
+        size_t i;
         int n = 0;
         const bool* keys = SDL_GetKeyboardState(&n);
         if (n > SDL_SCANCODE_COUNT) {
             n = SDL_SCANCODE_COUNT;
         }
         memcpy(s_key, keys, (size_t) n);
-    }
-    for (i = 0; i < SDL_SCANCODE_COUNT; i++) {
-        if (pc_menu_is_open()) s_suppressed[i] = s_key[i];
-        else if (!s_key[i]) s_suppressed[i] = false;
-        if (s_suppressed[i]) s_key[i] = false;
-    }
-    for (i = 0; i < sizeof(s_button_map) / sizeof(s_button_map[0]); i++) {
-        SDL_Scancode key = s_button_map[i].key;
-        if (s_key[key] || s_key_latched[key]) {
-            st.button |= s_button_map[i].button;
+        for (i = 0; i < SDL_SCANCODE_COUNT; i++) {
+            if (pc_menu_is_open()) s_suppressed[i] = s_key[i];
+            else if (!s_key[i]) s_suppressed[i] = false;
+            if (s_suppressed[i]) s_key[i] = false;
         }
+        for (i = 0; i < sizeof(s_button_map) / sizeof(s_button_map[0]); i++) {
+            SDL_Scancode key = s_button_map[i].key;
+            if (s_key[key] || s_key_latched[key]) {
+                st.button |= s_button_map[i].button;
+            }
+        }
+        st.stickX = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT);
+        if (st.stickX == 0) {
+            st.stickX = axis(SDL_SCANCODE_A, SDL_SCANCODE_D);
+        }
+        st.stickY = axis(SDL_SCANCODE_DOWN, SDL_SCANCODE_UP);
+        if (st.stickY == 0) {
+            st.stickY = axis(SDL_SCANCODE_S, SDL_SCANCODE_W);
+        }
+        st.substickX = axis(SDL_SCANCODE_J, SDL_SCANCODE_L);
+        st.substickY = axis(SDL_SCANCODE_K, SDL_SCANCODE_I);
+        st.triggerLeft = (s_key[SDL_SCANCODE_Q] || s_key_latched[SDL_SCANCODE_Q]) ? 255 : 0;
+        st.triggerRight = (s_key[SDL_SCANCODE_E] || s_key_latched[SDL_SCANCODE_E]) ? 255 : 0;
+        memset(s_key_latched, 0, sizeof(s_key_latched));
+        any_active = true;
     }
-    st.stickX = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT);
-    if (st.stickX == 0) {
-        st.stickX = axis(SDL_SCANCODE_A, SDL_SCANCODE_D);
+
+    PADStatus touch_st = { 0 };
+    if (pc_touch_get_status(&touch_st)) {
+        st.button |= touch_st.button;
+        if (touch_st.stickX != 0 || touch_st.stickY != 0) {
+            st.stickX = touch_st.stickX;
+            st.stickY = touch_st.stickY;
+        }
+        if (touch_st.substickX != 0 || touch_st.substickY != 0) {
+            st.substickX = touch_st.substickX;
+            st.substickY = touch_st.substickY;
+        }
+        if (touch_st.triggerLeft > st.triggerLeft) {
+            st.triggerLeft = touch_st.triggerLeft;
+        }
+        if (touch_st.triggerRight > st.triggerRight) {
+            st.triggerRight = touch_st.triggerRight;
+        }
+        any_active = true;
     }
-    st.stickY = axis(SDL_SCANCODE_DOWN, SDL_SCANCODE_UP);
-    if (st.stickY == 0) {
-        st.stickY = axis(SDL_SCANCODE_S, SDL_SCANCODE_W);
+
+    if (any_active) {
+        PADSetVirtualStatus(0, &st);
     }
-    st.substickX = axis(SDL_SCANCODE_J, SDL_SCANCODE_L);
-    st.substickY = axis(SDL_SCANCODE_K, SDL_SCANCODE_I);
-    st.triggerLeft = (s_key[SDL_SCANCODE_Q] || s_key_latched[SDL_SCANCODE_Q]) ? 255 : 0;
-    st.triggerRight = (s_key[SDL_SCANCODE_E] || s_key_latched[SDL_SCANCODE_E]) ? 255 : 0;
-    memset(s_key_latched, 0, sizeof(s_key_latched));
-    PADSetVirtualStatus(0, &st);
 }
