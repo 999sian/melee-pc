@@ -120,6 +120,7 @@ static bool load_from_dol(const u8* dol, long len, const char* game_id)
     /* Fewer glyphs than the array holds (PAL) leaves the tail zeroed. */
     memcpy(HSD_SisLib_FontAtlas, dol + start,
            (size_t) (glyphs * SIS_GLYPH_BYTES));
+    pc_region_set_sis_kerning(dol + kern, (unsigned) kerning_len);
     return true;
 }
 
@@ -176,9 +177,8 @@ bool pc_load_disc_fonts(const char* disc_path)
         goto done;
     }
 
-    ok = load_from_dol(dol, dol_size, (const char*) header);
-
     pc_region_set((const char*) header);
+    ok = load_from_dol(dol, dol_size, (const char*) header);
 
 done:
     free(dol);

@@ -23,6 +23,11 @@ bool pc_region_is_pal(void);
  * NULL when the symbol is genuinely required. */
 const void* pc_region_missing_symbol(const char* symbol_name);
 
+/* Called by discfont with the sislib kerning table read from the disc's DOL
+ * (2 bytes per glyph). On PAL this also rewrites the code's SJIS->glyph table
+ * to the PAL atlas layout. */
+void pc_region_set_sis_kerning(const unsigned char* kerning, unsigned len);
+
 #ifdef __cplusplus
 }
 #endif
