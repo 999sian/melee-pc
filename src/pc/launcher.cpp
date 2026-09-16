@@ -55,6 +55,11 @@ std::string identity(const std::string& path) {
     return std::to_string(s.st_dev) + ":" + std::to_string(s.st_ino) + ":" +
         std::to_string(s.st_size) + ":" + std::to_string(s.st_mtime) + ":" +
         std::to_string(s.st_ctime);
+#elif defined(__APPLE__)
+    return std::to_string(s.st_dev) + ":" + std::to_string(s.st_ino) + ":" +
+        std::to_string(s.st_size) + ":" + std::to_string(s.st_mtimespec.tv_sec) + ":" +
+        std::to_string(s.st_mtimespec.tv_nsec) + ":" + std::to_string(s.st_ctimespec.tv_sec) + ":" +
+        std::to_string(s.st_ctimespec.tv_nsec);
 #else
     return std::to_string(s.st_dev) + ":" + std::to_string(s.st_ino) + ":" +
         std::to_string(s.st_size) + ":" + std::to_string(s.st_mtim.tv_sec) + ":" +
