@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <melee/lb/lbarchive.h>
 #include <Runtime/platform.h>
+#ifdef TARGET_PC
+#include "pc/file_cache.h"
+#endif
 
 #include <sysdolphin/baselib/forward.h>
 
@@ -178,6 +181,9 @@ int main(void)
     lbMemory_8001564C();
     lbHeap_80015F3C();
     lbDvd_80018F68();
+#ifdef TARGET_PC
+    pc_file_cache_start_prewarm();
+#endif
     lbArq_80014D2C();
     lb_8001C5BC();
     lb_8001D21C();

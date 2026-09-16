@@ -112,8 +112,14 @@ size_t lbFile_8001634C(int fileno)
 
 size_t lbFileGetSize(const char* basename)
 {
-    int entry_num;
     char* filename = lbFileGetFullName(basename);
+#ifdef TARGET_PC
+    size_t cached_sz = 0;
+    if (pc_file_cache_get_size(filename, &cached_sz)) {
+        return cached_sz;
+    }
+#endif
+    int entry_num;
     entry_num = DVDConvertPathToEntrynum(filename);
     HSD_ASSERTREPORT(0xEE, entry_num != -1, "file isn't exist %s = %d\n",
                      filename, entry_num);

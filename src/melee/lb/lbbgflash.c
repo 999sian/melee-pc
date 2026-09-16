@@ -9,6 +9,10 @@
 #include "lbbgflash.h"
 
 #include <placeholder.h>
+#ifdef TARGET_PC
+#include <stdlib.h>
+#include <string.h>
+#endif
 
 #include <dolphin/gx/GXStruct.h>
 #include <sysdolphin/baselib/wobj.h>
@@ -416,6 +420,20 @@ void lbBgFlash_800206D4(GXColor* col1, GXColor* col2, int arg2)
 {
     BgFlashData* data = &lbl_80433658;
     int count = arg2;
+
+#ifdef TARGET_PC
+    static int fast_load = -1;
+    if (fast_load == -1) {
+        const char* env = getenv("MELEE_FAST_LOAD");
+        if (env == NULL) {
+            env = getenv("MELEE_FAST_FADES");
+        }
+        fast_load = (env != NULL && strcmp(env, "0") != 0) ? 1 : 0;
+    }
+    if (fast_load && count > 8) {
+        count = 6;
+    }
+#endif
 
     if (count < 1) {
         count = 1;
