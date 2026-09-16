@@ -324,13 +324,7 @@ void end_frame() noexcept {
         presentBindGroup = webgpu::g_CopyBindGroup;
       } else {
         const auto& resampledSource = webgpu::resample_present_source(encoder, viewport);
-        static wgpu::TextureView s_lastResampledView;
-        static wgpu::BindGroup s_resampledBindGroup;
-        if (!s_resampledBindGroup || s_lastResampledView.Get() != resampledSource.view.Get()) {
-          s_lastResampledView = resampledSource.view;
-          s_resampledBindGroup = webgpu::create_copy_bind_group(resampledSource);
-        }
-        presentBindGroup = s_resampledBindGroup;
+        presentBindGroup = webgpu::create_copy_bind_group(resampledSource);
       }
       {
         const std::array attachments{
