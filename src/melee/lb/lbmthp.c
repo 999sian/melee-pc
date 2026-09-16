@@ -101,7 +101,7 @@ struct lbl_803BAFE8_t {
 }; /* size = 0x18 */
 
 /* 01F294 */ static s32 fn_8001F294(void);
-/* 4333E0 */ static THPDecComp MoviePlayer;
+/* 4333E0 */ static THPDecComp MoviePlayer __attribute__((aligned(32)));
 
 static void fn_8001E910(int arg0, uintptr_t arg1, void* arg2, bool cancelflag)
 {

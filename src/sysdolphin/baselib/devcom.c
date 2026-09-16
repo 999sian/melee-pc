@@ -433,8 +433,13 @@ int HSD_DevComRequest(int file, uintptr_t src, uintptr_t dest, size_t size,
         !(HSD_DevComGetDestType(type) == DEVCOMDEST_SBUF
             && size > DEVCOM_BUF_SIZE));
 
+#ifndef TARGET_PC
+    /* GameCube DMA needs 32-byte aligned endpoints. On PC the DVD/ARAM
+     * copies are plain memcpys, and static destinations such as lbmthp's
+     * MoviePlayer only get 16-byte alignment from GCC on arm64. */
     HSD_ASSERT(0x1EF, src % 32 == 0);
     HSD_ASSERT(0x1F0, dest % 32 == 0);
+#endif
     HSD_ASSERT(0x1F1, size % 32 == 0);
     HSD_ASSERT(0x1F2, size != 0);
 
