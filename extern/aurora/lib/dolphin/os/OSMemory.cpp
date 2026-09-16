@@ -236,6 +236,27 @@ static void* AllocMEM1(u32 size) {
   }
   return p;
 }
+#elif defined(__APPLE__)
+#include <sys/mman.h>
+// arm64 macOS kills native processes whose __PAGEZERO is smaller than 4GB, so MEM1 can never
+// sit below 4GB here. Instead place it at an address whose low 32 bits are exactly 0x80000000:
+// truncating a MEM1 pointer to 32 bits then yields its GameCube address, which is what the
+// game's 32-bit disc slots hold (see src/pc/disc.h, PC_MEM1_ALIAS).
+static void* AllocMEM1(u32 size) {
+  for (uintptr_t hi = 0x1; hi < 0x100; hi++) {
+    const uintptr_t want = (hi << 32) | 0x80000000ULL;
+    void* res = mmap(reinterpret_cast<void*>(want), size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (res == MAP_FAILED) {
+      continue;
+    }
+    if (reinterpret_cast<uintptr_t>(res) == want) {
+      return res;
+    }
+    munmap(res, size);
+  }
+  Log.fatal("Failed to map MEM1 ({} bytes) at an address aliasing 0x80000000", size);
+  return nullptr;
+}
 #else
 static void* AllocMEM1(u32 size) {
   return calloc(1, size);

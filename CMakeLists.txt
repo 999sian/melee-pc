@@ -6,9 +6,10 @@ endif ()
 
 project(melee-pc LANGUAGES C CXX)
 
-if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID)
+if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE)
     # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
-    # on-disc structures, which only GCC implements (C only).
+    # on-disc structures, which only GCC implements (C only). Android and macOS
+    # keep Clang for C++ and route the game's C through GCC (tools/gcc_launcher.py).
     message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
 endif ()
 
@@ -79,7 +80,7 @@ target_link_libraries(melee_game PUBLIC
         aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx
         aurora::os aurora::dvd aurora::card aurora::thp)
 
-if (ANDROID)
+if (ANDROID OR APPLE)
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
 endif ()
 
@@ -92,7 +93,7 @@ else ()
     add_executable(melee ${PC_SOURCES})
 endif ()
 
-target_compile_options(melee PRIVATE $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>>:-fno-pie>)
+target_compile_options(melee PRIVATE $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>,$<NOT:$<BOOL:${APPLE}>>>:-fno-pie>)
 target_link_libraries(melee PRIVATE melee_game aurora::main ${MELEE_CRYPTO_LIBS})
 
 # Non-PIE: static data and code stay below 4GB (32-bit pointer slots in disc data).
@@ -112,6 +113,12 @@ if (WIN32)
     if (COMMAND aurora_copy_runtime_dlls)
         aurora_copy_runtime_dlls(melee)
     endif ()
+elseif (APPLE)
+    # arm64 macOS refuses to run native binaries with a __PAGEZERO under 4GB and
+    # requires PIE, so nothing below 4GB is ever addressable. MEM1 is instead
+    # mapped at an address whose low 32 bits are 0x80000000 and disc slots hold
+    # GameCube-style addresses (see src/pc/disc.h, PC_MEM1_ALIAS).
+    target_compile_definitions(melee_game PUBLIC PC_MEM1_ALIAS=1)
 elseif (NOT ANDROID)
     target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
 else ()

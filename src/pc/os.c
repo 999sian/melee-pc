@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 #include "pc/pc.h"
+#include "pc/disc.h"
 
 /* ---- interrupts ------------------------------------------------------- */
 
@@ -333,6 +334,10 @@ void* pc_resolve_ext_ptr(uint32_t id)
     if (id == 0 || id > s_ext_ptr_count) return NULL;
     return s_ext_ptrs[id - 1];
 }
+
+#ifdef PC_MEM1_ALIAS
+_Static_assert(PC_MEM1_ALIAS_SIZE == PC_MEM1_SIZE, "disc.h MEM1 size out of sync with pc.h");
+#endif
 
 void pc_disc_ptr_overflow(const void* p, const char* file, int line)
 {
