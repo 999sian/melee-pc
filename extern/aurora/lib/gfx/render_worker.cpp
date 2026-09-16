@@ -198,6 +198,7 @@ void initialize() {
   g_pendingItems.store(0, std::memory_order_release);
   g_thread = thread::Thread{{
                                 .name = "Aurora render worker",
+                                .priority = thread::Priority::High,
                                 .affinity = thread::Affinity::SharedCache,
                             },
                             worker_main};

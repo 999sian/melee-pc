@@ -109,6 +109,7 @@ void start_worker() {
   }
   sWorkerThread = thread::Thread{{
                                      .name = "Aurora FIFO processor",
+                                     .priority = thread::Priority::High,
                                      .affinity = thread::Affinity::SharedCache,
                                  },
                                  worker_main};
