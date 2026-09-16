@@ -1025,7 +1025,7 @@ void ifStock_802FAEC4(void)
     lbArchive_LoadSections(*ifAll_GetArchive(), (void**) &scene_models,
                            ifStock_SceneModels, 0);
     stock->x0 = scene_models;
-    stock->x4 = (DynamicModelDesc*) (uintptr_t) scene_models[1].v;
+    stock->x4 = DP(DynamicModelDesc, scene_models[1].v);
     ifStock_804A1ACC.x108 = NULL;
     ifStock_804A1ACC.x0 = 0;
     gobj = GObj_Create(14, 15, 0);

@@ -257,7 +257,7 @@ void lb_8001CF18(void)
         GObj_SetupGXLinkMax(gobj, fn_8001CEE4, 0xE);
         gobj->gxlink_prios = 0x80000;
 
-        DynamicModelDesc* model0 = (DynamicModelDesc*) (uintptr_t) DP(DiscU32, _p(x64)->models)[0].v;
+        DynamicModelDesc* model0 = DP(DynamicModelDesc, DP(DiscU32, _p(x64)->models)[0].v);
         gobj = GObj_Create(0x18, 0x3D, 0);
         jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model0->joint));
 

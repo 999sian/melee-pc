@@ -519,7 +519,7 @@ bool ftAnim_IsFramesRemaining(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
 
-    FighterPartsTable* parts = (FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v;
+    FighterPartsTable* parts = DP(FighterPartsTable, ftPartsTable[fp->kind].v);
     if (fp->x8A4_animBlendFrames == 0.0F) {
         for (i = 0; i < parts->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
@@ -558,7 +558,7 @@ float ftAnim_8006F3DC(Fighter_GObj* fighter_gobj)
 
     if (fp->x8A4_animBlendFrames == 0.0F) {
         int i;
-        for (i = 0; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
+        for (i = 0; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
                 !fp->parts[i].flags_b5)
             {
@@ -933,7 +933,7 @@ void ftAnim_8006FE48(Fighter_GObj* fighter_gobj)
 void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 {
     int i;
-    for (i = start; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
+    for (i = start; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {
@@ -950,7 +950,7 @@ void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 void ftAnim_8006FF74(Fighter* fp, Fighter_Part start)
 {
     int i;
-    for (i = start; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
+    for (i = start; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {
@@ -1141,7 +1141,7 @@ void ftAnim_800707B0(Fighter_GObj* arg0)
     for (i = 0; i < (signed) ARRAY_SIZE(fp->x8B0); i++) {
         temp_r4 = &fp->x8B0[i];
         if (temp_r4->x11 != -1) {
-            struct ftData_x1C* temp_r26 = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[i].v;
+            struct ftData_x1C* temp_r26 = DP(struct ftData_x1C, DP(DiscU32, fp->ft_data->x1C)[i].v);
             u8* var_r29 = DP(u8, temp_r26->x4);
 
             temp_r4->x8 += temp_r4->xC;
@@ -1271,16 +1271,16 @@ void ftAnim_ApplyPartAnim(Fighter_GObj* gobj, s32 arg1, s32 arg2, f32 arg3)
     struct ftData_x1C* temp_r29;
 
     temp_r30 = &fp->x8B0[arg1];
-    temp_r29 = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[arg1].v;
+    temp_r29 = DP(struct ftData_x1C, DP(DiscU32, fp->ft_data->x1C)[arg1].v);
     temp_r30->x11 = arg2;
     temp_r30->x4 = arg3;
     temp_r30->x8 = 0.0F;
     if (arg3) {
-        temp_r30->xC = lb_8000BFF0((HSD_AnimJoint*) (uintptr_t) DP(DiscU32, temp_r29->x8)[arg2].v) / arg3;
+        temp_r30->xC = lb_8000BFF0(DP(HSD_AnimJoint, DP(DiscU32, temp_r29->x8)[arg2].v)) / arg3;
     } else {
         temp_r30->xC = 0.0F;
     }
-    ftAnim_80070904(fp, temp_r29->x0, (HSD_AnimJoint*) (uintptr_t) DP(DiscU32, temp_r29->x8)[arg2].v);
+    ftAnim_80070904(fp, temp_r29->x0, DP(HSD_AnimJoint, DP(DiscU32, temp_r29->x8)[arg2].v));
 }
 
 void ftAnim_80070C48(Fighter_GObj* gobj, s32 arg1)
@@ -1321,8 +1321,8 @@ void ftAnim_80070CC4(Fighter_GObj* gobj, int arg1)
     if (r30->x11 == -1) {
         return;
     }
-    r28 = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[arg1].v;
-    some_inline(fp, r28->x0, (HSD_AnimJoint*) (uintptr_t) DP(DiscU32, r28->x8)[r30->x11].v);
+    r28 = DP(struct ftData_x1C, DP(DiscU32, fp->ft_data->x1C)[arg1].v);
+    some_inline(fp, r28->x0, DP(HSD_AnimJoint, DP(DiscU32, r28->x8)[r30->x11].v));
 
     r30->x11 = -1;
     if (fp->x590 != NULL) {
@@ -1355,7 +1355,7 @@ void ftAnim_80070F28(HSD_GObj* gobj)
     for (i = 0; i < ARRAY_SIZE(fp->x8B0); i++) {
         struct Fighter_x8B0_t* slot = &fp->x8B0[i];
         if (slot->x11 != -1) {
-            struct ftData_x1C* data = (struct ftData_x1C*) (uintptr_t) DP(DiscU32, fp->ft_data->x1C)[i].v;
+            struct ftData_x1C* data = DP(struct ftData_x1C, DP(DiscU32, fp->ft_data->x1C)[i].v);
             u8* parts_list = DP(u8, data->x4);
             int j;
 

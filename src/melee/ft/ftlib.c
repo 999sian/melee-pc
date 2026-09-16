@@ -393,8 +393,7 @@ void ftLib_800866DC(HSD_GObj* gobj, Vec3* v)
                      "out=(%g,%g,%g) cur_pos=(%g,%g,%g) box=%p dst=%p\n",
                      (int) fp->player_id, (int) fp->kind, (int) fp->motion_id,
                      fp->x34_scale.y, (int) i,
-                     ((struct FighterPartsTable*) (uintptr_t)
-                          ftPartsTable[fp->kind].v)->parts_num,
+                     (DP(struct FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num,
                      (void*) bone, bone_world.x,
                      bone_world.y, bone_world.z, offset.x, offset.y, offset.z,
                      v->x, v->y, v->z, fp->cur_pos.x, fp->cur_pos.y,

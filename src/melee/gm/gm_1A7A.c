@@ -67,9 +67,9 @@ static inline void setupCamera(void)
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 8);
     gobj->gxlink_prios = 0x801;
-    HSD_CObjAddAnim(cobj, (HSD_CameraAnim*) (uintptr_t) DP(
+    HSD_CObjAddAnim(cobj, DP(HSD_CameraAnim, DP(
                               DiscU32, GM_SCENE_CAMERA(gm_804D67A8)[0].anims)[0]
-                              .v);
+                              .v));
     HSD_CObjReqAnim(cobj, 0.0f);
     HSD_CObjAnim(cobj);
     HSD_GObj_SetupProc(gobj, fn_801A7A8C, 0);

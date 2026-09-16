@@ -94,7 +94,7 @@ void fn_80187910(HSD_GObj* arg0)
         }
         frame = data->x37.frame_counter * 0x12C;
         HSD_CObjRemoveAnim(cobj);
-        HSD_CObjAddAnim(cobj, (HSD_CameraAnim*) (uintptr_t) DP(DiscU32, data->x4->anims)[0].v);
+        HSD_CObjAddAnim(cobj, DP(HSD_CameraAnim, DP(DiscU32, data->x4->anims)[0].v));
         HSD_CObjReqAnim(cobj, (f32) frame);
     }
     HSD_CObjAnim(cobj);
@@ -314,7 +314,7 @@ static inline void gm_80187F48_OnEnter_inline(gm_80187F48_EnterData* arg0)
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, (GObj_RenderFunc) (Event) Camera_800304E0, 8);
     HSD_GObj_SetupProc(gobj, fn_80187910, 0);
-    HSD_CObjAddAnim(cobj, (HSD_CameraAnim*) (uintptr_t) DP(DiscU32, data->x4->anims)[0].v);
+    HSD_CObjAddAnim(cobj, DP(HSD_CameraAnim, DP(DiscU32, data->x4->anims)[0].v));
     HSD_CObjReqAnim(cobj, 0.0f);
 
     {

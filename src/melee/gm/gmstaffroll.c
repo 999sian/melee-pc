@@ -1222,9 +1222,9 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         GObj_SetupGXLinkMax(gobj, fn_801AA854, 5);
         gobj->gxlink_prios = 0x189;
         HSD_CObjAddAnim(
-            cobj, (HSD_CameraAnim*) (uintptr_t) DP(
+            cobj, DP(HSD_CameraAnim, DP(
                       DiscU32, DP(struct SceneCameraDesc, gm_804D6840->cameras)->anims)[0]
-                      .v);
+                      .v));
         HSD_CObjReqAnim(cobj, 0.0F);
         HSD_GObj_SetupProc(gobj, fn_801AA7F8, 0);
     }
@@ -1258,9 +1258,9 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 3, 0);
         HSD_Fog_8037DE7C(
             fog, DP(HSD_AObjDesc,
-                    ((HSD_CameraAnim*) (uintptr_t) DP(
+                    (DP(HSD_CameraAnim, DP(
                          DiscU32, DP(struct SceneFogDesc, gm_804D6840->fogs)->anims)[0]
-                         .v)
+                         .v))
                         ->aobjdesc));
         HSD_FogReqAnim(fog, 0.0F);
         HSD_GObj_SetupProc(gobj, fn_801AC67C, 0);
@@ -1268,7 +1268,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
     {
         HSD_GObj* gobj = GObj_Create(3, 5, 0);
         DynamicModelDesc* model =
-            (DynamicModelDesc*) (uintptr_t) DP(DiscU32, gm_804D6840->models)[1].v;
+            DP(DynamicModelDesc, DP(DiscU32, gm_804D6840->models)[1].v);
         HSD_JObj* jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         gm_804D682C = jobj;
         HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
@@ -1309,7 +1309,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
     {
         final_gobj = GObj_Create(14, 15, 0);
         DynamicModelDesc* model =
-            (DynamicModelDesc*) (uintptr_t) DP(DiscU32, gm_804D6840->models)[0].v;
+            DP(DynamicModelDesc, DP(DiscU32, gm_804D6840->models)[0].v);
         jobj = HSD_JObjLoadJoint(DP(HSD_Joint, model->joint));
         HSD_GObjObject_80390A70(final_gobj, HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(final_gobj, HSD_GObj_JObjCallback, gx_link, 0);

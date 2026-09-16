@@ -240,7 +240,7 @@ static inline void ifStatus_InitDamageDigits(IfDamageState* state,
 
     ones_jobj = state->jobjs[Ones];
     digit = state->damage_percent % 10;
-    HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_base[0])[0].v;
+    HSD_AnimJoint* aj = DP(HSD_AnimJoint, ((DiscU32*) anim_base[0])[0].v);
     HSD_TexAnim* digit_anim = get_digit_texanim(aj);
     HSD_TObjAddAnimAll(ones_jobj->u.dobj->mobj->tobj, digit_anim);
     HSD_TObjReqAnimAll(ones_jobj->u.dobj->mobj->tobj, 2.0F * digit);
@@ -422,7 +422,7 @@ void ifStatus_802F4EDC(HSD_GObj* gobj)
         digit_jobj = state->jobjs[Percent];
         if (digit_jobj != NULL) {
             tobj = digit_jobj->u.dobj->mobj->tobj;
-            HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_base[0])[0].v;
+            HSD_AnimJoint* aj = DP(HSD_AnimJoint, ((DiscU32*) anim_base[0])[0].v);
             HSD_TObjAddAnimAll(tobj, get_percent_texanim(aj));
             if (Player_GetMoreFlagsBit2((s8) state->player_slot)) {
                 HSD_TObjReqAnimAll(tobj, 1.0F);
@@ -445,7 +445,7 @@ void ifStatus_802F4EDC(HSD_GObj* gobj)
 
         post_digit_jobj = state->jobjs[Ones];
         digit = state->damage_percent % 10;
-        HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_joints[0])[0].v;
+        HSD_AnimJoint* aj = DP(HSD_AnimJoint, ((DiscU32*) anim_joints[0])[0].v);
         HSD_TexAnim* digit_anim = get_digit_texanim(aj);
         HSD_TObjAddAnimAll(post_digit_jobj->u.dobj->mobj->tobj, digit_anim);
         HSD_TObjReqAnimAll(post_digit_jobj->u.dobj->mobj->tobj, 2.0F * digit);
@@ -706,7 +706,7 @@ HSD_GObj* ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)
     }
     if (state->jobjs[3] != NULL) {
         tobj = state->jobjs[3]->u.dobj->mobj->tobj;
-        HSD_AnimJoint* aj = (HSD_AnimJoint*) (uintptr_t) ((DiscU32*) anim_base[0])[0].v;
+        HSD_AnimJoint* aj = DP(HSD_AnimJoint, ((DiscU32*) anim_base[0])[0].v);
         HSD_TObjAddAnimAll(tobj, get_percent_texanim(aj));
         if (Player_GetMoreFlagsBit2((s8) state->player_slot) != 0) {
             HSD_TObjReqAnimAll(tobj, 1.0f);
@@ -870,8 +870,8 @@ void ifStatus_802F66A4(void)
     arch = ifAll_GetArchive();
     lbArchive_LoadSections(*arch, (void**) &num_tbl, num_models_name,
                            (void**) &mrk_tbl, mrk_models_name, 0);
-    num = (DynamicModelDesc*) (uintptr_t) num_tbl[0].v;
-    mrk = (DynamicModelDesc*) (uintptr_t) mrk_tbl[0].v;
+    num = DP(DynamicModelDesc, num_tbl[0].v);
+    mrk = DP(DynamicModelDesc, mrk_tbl[0].v);
     hud->unk258 = DP(HSD_Joint, num->joint);
     hud->jobj_desc_parent = DP(DiscU32, num->anims);
     hud->janim_selection_joints = (HSD_AnimJoint*) DP(DiscU32, num->matanims);

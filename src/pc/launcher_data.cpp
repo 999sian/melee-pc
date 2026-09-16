@@ -60,9 +60,11 @@ DiscInfo inspect_handle(NodHandle* disc) {
     constexpr unsigned char magic[] = {0xc2, 0x33, 0x9f, 0x3d};
     if (std::memcmp(header.gcn_magic, magic, 4) != 0)
         return {false, "Choose a GameCube disc image."};
+    if (std::memcmp(header.game_id, "GALP01", 6) == 0 && header.disc_num == 0)
+        return {true, "Super Smash Bros. Melee / Europe (PAL) / experimental: runs the USA 1.02 game code on PAL data, English (UK) text"};
     if (std::memcmp(header.game_id, "GALE01", 6) != 0) {
         if (std::memcmp(header.game_id, "GAL", 3) == 0)
-            return {false, "This region is not supported. Choose Melee USA revision 2 (NTSC-U 1.02)."};
+            return {false, "This region is not supported. Choose Melee USA revision 2 (NTSC-U 1.02) or Europe (PAL)."};
         return {false, "Wrong game. Choose Super Smash Bros. Melee USA revision 2."};
     }
     if (header.disc_version != 2 || header.disc_num != 0)
@@ -241,6 +243,9 @@ Verification verify_disc(const std::string& path, std::atomic_bool& cancel, std:
     if (!disc) return {VerifyState::Error, nod_error()};
     auto info = inspect_handle(disc.get());
     if (!info.supported) return {VerifyState::Error, info.message};
+    NodDiscHeader header{};
+    if (nod_disc_header(disc.get(), &header) == NOD_RESULT_OK && std::memcmp(header.game_id, "GALP01", 6) == 0)
+        return {VerifyState::Mismatch, "No reference hash for the PAL disc; it will run unverified."};
     // Redump DAT: libretro/libretro-database, metadat/redump/Nintendo - GameCube.dat
     // Super Smash Bros. Melee (USA) (En,Ja) (Rev 2), decoded ISO size 1459978240.
     constexpr uint64_t expected_size = 1459978240;

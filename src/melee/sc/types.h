@@ -8,7 +8,7 @@
  * symbols, EfXxData). Runtime code that fills one from lbArchive_LoadSections
  * must load into void* locals and DP_SET the slots.
  * Pointer arrays: `DISC_PTR(DiscU32) anims` is `HSD_AnimJoint*[]` on disc,
- * read as `(HSD_AnimJoint*) (uintptr_t) DP(DiscU32, d->anims)[i].v`. */
+ * read as `DP(HSD_AnimJoint, DP(DiscU32, d->anims)[i].v)`. */
 
 /// Model with a single animation or no animation
 struct DISC_STRUCT StaticModelDesc {

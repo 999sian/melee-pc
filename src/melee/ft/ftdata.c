@@ -1764,7 +1764,7 @@ void ftData_80085CD8(Fighter* fp, Fighter* arg1, int msid)
                         lbArq_80014BD0(temp_r4_2, fp->x59C,
                                        OSRoundUp32B(temp_r3->x8), 0, 0);
                     } else {
-                        memcpy(fp->x59C, (void*) (uintptr_t) temp_r4_2, temp_r3->x8);
+                        memcpy(fp->x59C, DP(void, temp_r4_2), temp_r3->x8);
                     }
                     temp_ret_2 =
                         HSD_ArchiveParse(&sp14, fp->x59C->x0, temp_r3->x8);
@@ -1777,7 +1777,7 @@ void ftData_80085CD8(Fighter* fp, Fighter* arg1, int msid)
             } else {
                 fp->x590 = NULL;
             }
-            fp->x5A4 = (void*) (uintptr_t) temp_r3->x14;
+            fp->x5A4 = DP(void, temp_r3->x14);
         }
     }
 }
@@ -1817,7 +1817,7 @@ FigaTree* ftData_80085E50(Fighter* arg0, int msid)
                         lbArq_80014BD0(temp_r4_2, arg0->x5A0,
                                        OSRoundUp32B(temp_r3->x8), 0, 0);
                     } else {
-                        memcpy(arg0->x5A0, (void*) (uintptr_t) temp_r4_2, temp_r3->x8);
+                        memcpy(arg0->x5A0, DP(void, temp_r4_2), temp_r3->x8);
                     }
                     temp_ret_2 =
                         HSD_ArchiveParse(&sp10, arg0->x5A0->x0, temp_r3->x8);
@@ -1830,7 +1830,7 @@ FigaTree* ftData_80085E50(Fighter* arg0, int msid)
             } else {
                 arg0->x598 = 0;
             }
-            arg0->x5A8 = (void*) (uintptr_t) temp_r3->x14;
+            arg0->x5A8 = DP(void, temp_r3->x14);
         }
         return arg0->x598;
     }

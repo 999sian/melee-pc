@@ -21,6 +21,13 @@ bool aurora_dvd_open(const char* disc_path);
 void aurora_dvd_close(void);
 
 /**
+ * Locale fallback for DVDConvertPathToEntrynum: when a path ending in .usd or
+ * .dat is not on the disc, retry with this 3-letter extension (e.g. "ukd" on a
+ * PAL disc). NULL disables the fallback. Survives aurora_dvd_open/close.
+ */
+void aurora_dvd_set_locale_extension(const char* ext);
+
+/**
  * OVERLAY FILES!
  *
  * Overlay files allow you to replace and add ("overlay") files that are present in the loaded DVD.

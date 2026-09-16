@@ -26,7 +26,7 @@ static struct ifTime_data {
     DiscU32* countdown_timer_models; /* DynamicModelDesc*[] in the archive */
 } ifTime_data;
 static DynamicModelDesc ifTime_match_timer_models;
-#define IFTIME_COUNTDOWN_MODEL(x) ((DynamicModelDesc*) (uintptr_t) (x)->countdown_timer_models[0].v)
+#define IFTIME_COUNTDOWN_MODEL(x) (DP(DynamicModelDesc, (x)->countdown_timer_models[0].v))
 
 static bool ifTime_LoadModels(void)
 {
@@ -35,7 +35,7 @@ static bool ifTime_LoadModels(void)
     lbArchive_LoadSections(*ifAll_GetArchive(), (void*) &ScInfTim_scene_models,
                            "ScInfTim_scene_models",
                            &ifTime_data.countdown_timer_models, "tdsce", 0);
-    model = (DynamicModelDesc*) (uintptr_t) ScInfTim_scene_models[0].v;
+    model = DP(DynamicModelDesc, ScInfTim_scene_models[0].v);
     if (model != NULL) {
         ifTime_match_timer_models.joint = model->joint;
         ifTime_match_timer_models.anims = model->anims;

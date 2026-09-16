@@ -68,6 +68,16 @@ static inline int pc_is_mem1_ptr(const void* p)
 }
 #endif
 
+/* True when truncating p to 32 bits round-trips through pc_resolve_dp:
+ * below 4GB, or inside the aliased MEM1. */
+static inline int pc_ptr_fits_slot(const void* p)
+{
+#ifdef PC_MEM1_ALIAS
+    if (pc_is_mem1_ptr(p)) return 1;
+#endif
+    return !((uintptr_t) p >> 32);
+}
+
 static inline uint32_t pc_encode_dp(const void* p)
 {
     if (!p) return 0;

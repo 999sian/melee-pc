@@ -161,7 +161,7 @@ void ft_800C80A4(Fighter* fp)
 {
     size_t i;
     int idx;
-    FighterPartsTable* parts = (FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v;
+    FighterPartsTable* parts = DP(FighterPartsTable, ftPartsTable[fp->kind].v);
     for (i = idx = 0; i < parts->parts_num; idx++, i++) {
         FighterBone* bone = &fp->parts[idx];
         if (bone->flags_b1) {

@@ -21,7 +21,7 @@ void ft_800C8170(Fighter* fp)
 
     PAD_STACK(8);
 
-    for (i = 0; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
+    for (i = 0; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
         if (fp->parts[i].flags_b1) {
             FighterBone* bone = &fp->parts[i];
             jobj = bone->joint;
@@ -81,7 +81,7 @@ static inline void enableMetal(Fighter* fp)
     int i;
     HSD_JObj* jobj;
 
-    for (i = 0; i < ((FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v)->parts_num; i++) {
+    for (i = 0; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
         if (fp->parts[i].flags_b1) {
             jobj = fp->parts[i].joint;
             dobj = HSD_JObjGetDObj(jobj);

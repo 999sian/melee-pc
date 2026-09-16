@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "pc/region.h"
 #include <sysdolphin/baselib/hsd_3915.h>
 #include <sysdolphin/baselib/sislib_font.h>
 
@@ -176,6 +177,8 @@ bool pc_load_disc_fonts(const char* disc_path)
     }
 
     ok = load_from_dol(dol, dol_size, (const char*) header);
+
+    pc_region_set((const char*) header);
 
 done:
     free(dol);
