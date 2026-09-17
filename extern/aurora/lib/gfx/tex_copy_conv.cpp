@@ -326,6 +326,7 @@ static constexpr std::array ConvPipelines{
     ConvPipeline{GX_TF_IA4, FragIA4, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv IA4"},
     ConvPipeline{GX_TF_IA8, FragIA8, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv IA8"},
     ConvPipeline{GX_TF_RGB565, FragRGB565, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv RGB565"},
+    ConvPipeline{GX_TF_RGB5A3, FragRGB565, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv RGB5A3"},
     ConvPipeline{GX_CTF_R4, FragR4, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv R4"},
     ConvPipeline{GX_CTF_RA4, FragRA4, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv RA4"},
     ConvPipeline{GX_CTF_RA8, FragRA8, wgpu::TextureFormat::RGBA8Unorm, "TexCopyConv RA8"},
@@ -547,18 +548,18 @@ void initialize() {
       Log.fatal("Output format mismatch for {}", conv.fmt);
     }
   }
-  // Skip depth copies in compatibility mode
-  if (webgpu::g_hasCoreFeatures) {
-    for (const auto& conv : DepthConvPipelines) {
-      g_pipelines[conv.fmt] = create_pipeline(conv, depth_shader_preamble(false), g_depthBindGroupLayout);
-      /* The EFB depth buffer is never resolved -- WebGPU has no depth resolve
-       * target -- so a depth copy taken while MSAA is on has to read sample 0
-       * of the multisampled texture through its own pipeline. */
-      g_depthPipelinesMS[conv.fmt] = create_pipeline(conv, depth_shader_preamble(true), g_depthBindGroupLayoutMS);
-      if (conv.outputFormat != to_wgpu(conv.fmt)) {
-        Log.fatal("Output format mismatch for {}", conv.fmt);
-      }
+  for (const auto& conv : DepthConvPipelines) {
+    g_pipelines[conv.fmt] = create_pipeline(conv, depth_shader_preamble(false), g_depthBindGroupLayout);
+    /* The EFB depth buffer is never resolved -- WebGPU has no depth resolve
+     * target -- so a depth copy taken while MSAA is on has to read sample 0
+     * of the multisampled texture through its own pipeline. */
+    g_depthPipelinesMS[conv.fmt] = create_pipeline(conv, depth_shader_preamble(true), g_depthBindGroupLayoutMS);
+    if (conv.outputFormat != to_wgpu(conv.fmt)) {
+      Log.fatal("Output format mismatch for {}", conv.fmt);
     }
+  }
+  // Depth snapshots for depth peeking
+  if (webgpu::g_hasCoreFeatures) {
     g_depthSnapshotBindGroupLayout = create_depth_snapshot_layout(false, "Depth Snapshot Bind Group Layout");
     g_depthSnapshotBindGroupLayoutMS = create_depth_snapshot_layout(true, "Depth Snapshot MS Bind Group Layout");
     g_depthSnapshotPipeline =
@@ -603,10 +604,6 @@ static void execute(const wgpu::CommandEncoder& cmd, const ConvRequest& req, con
   }
   wgpu::BindGroup bindGroup;
   if (gx::is_depth_format(req.fmt)) {
-    // Skip depth copies in compatibility mode
-    if (!webgpu::g_hasCoreFeatures) {
-      return;
-    }
     const std::array bindGroupEntries{
         wgpu::BindGroupEntry{
             .binding = 0,
