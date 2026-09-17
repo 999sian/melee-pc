@@ -99,7 +99,7 @@ Works end to end:
 - Cheats menu: "Unlock Everything", Frozen Pokémon Stadium, Free pause camera.
 - Wide 16:9 combat camera and Wide HUD anchoring.
 
-In development: online play with rollback netcode & BitTorrent DHT peer matchmaking, 1000 Hz GameCube controller polling, UCF, practice mode hitboxes/savestates, and Intel macOS (Apple Silicon works, see below).
+In development: online play with rollback netcode & BitTorrent DHT peer matchmaking, 1000 Hz GameCube controller polling, UCF, practice mode hitboxes/savestates. macOS (Apple Silicon tested, Intel CI-built) is below.
 
 ## Building
 
@@ -123,13 +123,13 @@ NDK (`ANDROID_NDK_HOME`) and a JDK 17.
 ```sh
 tools/package_linux.sh      # dist/Melee-x86_64.AppImage + tarball
 tools/package_windows.sh    # dist/Melee-Windows-x86_64.zip
-tools/package_macos.sh      # dist/Melee-macOS-arm64.zip (Melee.app)
+tools/package_macos.sh      # dist/Melee-macOS-<arch>.zip (Melee.app)
 tools/build_android.sh      # dist/Melee-Android-arm64.apk (signed release)
 ```
 
 ### macOS
 
-Apple Silicon only. Apple's clang builds the C++; the decomp's C still needs
+Apple Silicon (tested) and Intel (CI-built, untested). Apple's clang builds the C++; the decomp's C still needs
 GCC, so `tools/gcc_launcher.py` routes `melee_game` through Homebrew's `gcc`
 (the same split the Android build uses). Dawn comes as a prebuilt with a Metal
 backend.

@@ -21,6 +21,7 @@ English (UK) text.
 | Android arm64 | `Melee-Android-arm64.apk` | Release build, signed. Allow install from unknown sources. |
 | iOS arm64 | `Melee-iOS-arm64.ipa` | Sideloadable IPA (AltStore, Sideloadly, TrollStore) with Metal backend. |
 | macOS arm64 | `Melee-macOS-arm64.zip` | Apple Silicon. Ad-hoc signed: right-click > Open on first launch. |
+| macOS x86_64 | `Melee-macOS-x86_64.zip` | Intel. Same notes; built but not yet tested on Intel hardware. |
 
 Launch with no arguments to open the launcher and pick a disc, or pass the
 image path directly:
@@ -264,7 +265,7 @@ Contest, 10-Man Melee), Trophy gallery, Event Match list, music and sound.
 
 Online play with rollback netcode is **not implemented**. All-Star is
 unreachable until the roster is unlocked. Widescreen camera and HUD are
-incomplete. The macOS build is Apple Silicon only and experimental: the
+incomplete. The macOS builds are experimental (the Intel one is untested on hardware): the
 game's C is compiled with Homebrew GCC (`scalar_storage_order`), the C++
 with Apple clang.
 

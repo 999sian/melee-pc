@@ -164,10 +164,16 @@ jobs:
           if-no-files-found: error
 
   macos:
-    name: macOS (arm64)
-    # aurora uses std::jthread/std::stop_token, which Apple's libc++ only
-    # ships from the macOS 26 SDK (Xcode 26); macos-15's Xcode 16 lacks them.
-    runs-on: macos-26
+    name: macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -187,8 +193,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-arm64
-          path: dist/Melee-macOS-arm64.zip
+          name: macos-${{ matrix.arch }}
+          path: dist/Melee-macOS-${{ matrix.arch }}.zip
           if-no-files-found: error
 
   ios:
