@@ -562,7 +562,7 @@ float ftAnim_8006F3DC(Fighter_GObj* fighter_gobj)
 
     if (fp->x8A4_animBlendFrames == 0.0F) {
         int i;
-        for (i = 0; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
+        for (i = 0; i < DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
                 !fp->parts[i].flags_b5)
             {
@@ -937,7 +937,7 @@ void ftAnim_8006FE48(Fighter_GObj* fighter_gobj)
 void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 {
     int i;
-    for (i = start; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
+    for (i = start; i < DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {
@@ -954,7 +954,7 @@ void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 void ftAnim_8006FF74(Fighter* fp, Fighter_Part start)
 {
     int i;
-    for (i = start; i < (DP(FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num; i++) {
+    for (i = start; i < DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {

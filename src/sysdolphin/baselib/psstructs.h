@@ -92,9 +92,9 @@ DISC_ASSERT_SIZE(HSD_PSCmdList, 0x40);
 
 /* Per-bank lookup tables point into the banks: arrays of 32-bit slots holding
  * host addresses (or 0) after relocation. */
-#define PS_TEXGROUP(bank, idx) (DP(HSD_PSTexGroup, psTexGroupArray[bank][idx].v))
-#define PS_FORMGROUP(bank, idx) (DP(HSD_PSFormGroup, psNumCmdList[bank][idx].v))
-#define PS_CMDLIST(bank, idx) (DP(HSD_PSCmdList, ptclref_804D0E5C[bank][idx].v))
+#define PS_TEXGROUP(bank, idx) DP(HSD_PSTexGroup, psTexGroupArray[bank][idx].v)
+#define PS_FORMGROUP(bank, idx) DP(HSD_PSFormGroup, psNumCmdList[bank][idx].v)
+#define PS_CMDLIST(bank, idx) DP(HSD_PSCmdList, ptclref_804D0E5C[bank][idx].v)
 
 enum PS_AppStatus {
     PS_APPSTATUS_ONCE = 1,

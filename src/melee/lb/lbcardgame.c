@@ -61,7 +61,7 @@ typedef enum {
 #define _p(x) (state.x)
 
 #ifdef TARGET_PC
-#define GET_ICON_DATA(idx) (DP(void, _p(icon_data)[idx].v))
+#define GET_ICON_DATA(idx) DP(void, _p(icon_data)[idx].v)
 #else
 #define GET_ICON_DATA(idx) (_p(icon_data)[idx])
 #endif
@@ -141,6 +141,9 @@ u32 lb_8001C87C(void)
 
 int lb_8001C8BC(void)
 {
+    if (!_p(enable)) {
+        lbCardGame_LoadArchive(0);
+    }
     HSD_ASSERT(320, _p(enable));
 
     return lb_8001BC18(0, filename, (void**) manifest, &lb_803BAB60,
@@ -270,6 +273,9 @@ void lb_8001CDB4(void)
 
 void lbCardGame_SaveChanges(void)
 {
+    if (!_p(enable)) {
+        lbCardGame_LoadArchive(0);
+    }
     HSD_ASSERT(675, _p(enable));
     *gm_GetPowerTime() += gmMainLib_8015FC74();
     _p(dirty) = true;
@@ -348,8 +354,8 @@ void lbCardGame_LoadArchive(int jobj_translate_idx)
         lbArchive_80016DBC("NtMemAc", (void**) &_p(scene_data),
                            "ScNtcCommon_scene_data", 0);
         _p(jobj_translate_idx) = jobj_translate_idx;
-        _p(enable) = true;
     }
+    _p(enable) = true;
 }
 
 void lbCardGame_Reset(void)

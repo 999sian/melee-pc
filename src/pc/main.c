@@ -62,6 +62,10 @@ static double log_now_ms(void) {
     return (double)(now - t0) / 1e6;
 }
 
+#if defined(__APPLE__)
+#include <os/log.h>
+#endif
+
 void pc_log_line(const char* fmt, ...) {
     char msg[512];
     va_list ap;
@@ -69,6 +73,9 @@ void pc_log_line(const char* fmt, ...) {
     vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
     const double t = log_now_ms();
+#if defined(__APPLE__)
+    os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, "[Melee] %{public}s", msg);
+#endif
     fprintf(stderr, "[%9.3f] %s\n", t, msg);
     fflush(stderr);
     FILE* lf = log_file();
@@ -80,6 +87,10 @@ void pc_log_line(const char* fmt, ...) {
 
 static void log_callback(
     AuroraLogLevel level, const char* module, const char* message, unsigned int len) {
+#if defined(__APPLE__)
+    os_log_with_type(OS_LOG_DEFAULT, level >= LOG_ERROR ? OS_LOG_TYPE_ERROR : OS_LOG_TYPE_DEFAULT,
+        "[Aurora:%{public}s] %{public}.*s", module, (int)len, message);
+#endif
 #if defined(__ANDROID__)
     int prio = ANDROID_LOG_INFO;
     switch (level) {
@@ -167,8 +178,15 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info) {
          * was touched; 0 vs garbage distinguishes a null deref from a wild
          * pointer, which is the first thing worth knowing. */
         if (rec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && rec->NumberParameters >= 2) {
-            fprintf(s, "[FATAL] crash: %s address 0x%llX\n",
-                rec->ExceptionInformation[0] ? "write to" : "read from",
+            const char* op = "access to";
+            if (rec->ExceptionInformation[0] == 0) {
+                op = "read from";
+            } else if (rec->ExceptionInformation[0] == 1) {
+                op = "write to";
+            } else if (rec->ExceptionInformation[0] == 8) {
+                op = "execute at";
+            }
+            fprintf(s, "[FATAL] crash: %s address 0x%llX\n", op,
                 (unsigned long long)rec->ExceptionInformation[1]);
         }
         for (USHORT f = 0; f < count; f++) {
@@ -260,7 +278,11 @@ static const char* backend_name(AuroraBackend b) {
 static AuroraBackend backend_from_env(void) {
     const char* want = getenv("MELEE_BACKEND");
     if (want == NULL || want[0] == '\0') {
+#if defined(__APPLE__)
+        return BACKEND_METAL;
+#else
         return BACKEND_AUTO;
+#endif
     }
     for (size_t i = 0; i < sizeof(k_backends) / sizeof(*k_backends); i++) {
         if (ieq(want, k_backends[i].name)) {
@@ -298,6 +320,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
             usage(argv[0]);
         }
     }
+
     AuroraConfig config = {
         /* appName doubles as the window title; the save/cache dirs stay
          * pinned so a renamed test window still uses the same memory card. */

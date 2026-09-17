@@ -1266,9 +1266,9 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         GObj_SetupGXLink(gobj, HSD_GObj_FogCallback, 3, 0);
         HSD_Fog_8037DE7C(
             fog, DP(HSD_AObjDesc,
-                    (DP(HSD_CameraAnim, DP(
+                    DP(HSD_CameraAnim, DP(
                          DiscU32, DP(struct SceneFogDesc, gm_804D6840->fogs)->anims)[0]
-                         .v))
+                         .v)
                         ->aobjdesc));
         HSD_FogReqAnim(fog, 0.0F);
         HSD_GObj_SetupProc(gobj, fn_801AC67C, 0);

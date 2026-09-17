@@ -59,6 +59,9 @@ HSD_JObj* it_8029CD78(Item_GObj* item_gobj)
         while (1) {
         }
     }
+    if (item->xDD4_itemVar.foxillusion.xDD4 == NULL) {
+        return NULL;
+    }
     temp_r29 = HSD_JObjLoadJoint(item->xDD4_itemVar.foxillusion.xDD4);
     HSD_JObjGetRotation(temp_r30, &quat);
     HSD_JObjSetRotation(temp_r29, &quat);
@@ -108,11 +111,20 @@ void it_8029CFF0(Item_GObj* item_gobj)
     Item* item = GET_ITEM(item_gobj);
     u8 _[4];
 
-    item->xD44_lifeTimer =
-        DP(DiscF32, item->xC4_article_data->x4_specialAttributes)->v;
+    if (item->xC4_article_data != NULL) {
+        item->xD44_lifeTimer =
+            DP(DiscF32, item->xC4_article_data->x4_specialAttributes)->v;
+        if (item->xC4_article_data->x10_modelDesc != 0) {
+            item->xDD4_itemVar.foxillusion.xDD4 =
+                DP(HSD_Joint, DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x0_joint);
+        } else {
+            item->xDD4_itemVar.foxillusion.xDD4 = NULL;
+        }
+    } else {
+        item->xD44_lifeTimer = 0.0f;
+        item->xDD4_itemVar.foxillusion.xDD4 = NULL;
+    }
     item->xD5C = 0;
-    item->xDD4_itemVar.foxillusion.xDD4 =
-        DP(HSD_Joint, DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x0_joint);
     it_8026B3A8(item_gobj);
     if (ftLib_800865CC(item->owner) == 1) {
         Item_80268E5C(item_gobj, 1, ITEM_ANIM_UPDATE);

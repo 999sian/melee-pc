@@ -701,7 +701,7 @@ struct un_803FA258_t {
 
 /// .sbss
 /* 4D6DA8 */ static DiscS32* un_804D6DA8; ///< [0..4],[7]: ints; [5],[6]: int* to int[]
-#define SOUNDTEST_SYM_ARR(i) ((DiscS32*) (uintptr_t) (u32) un_804D6DA8[i].v)
+#define SOUNDTEST_SYM_ARR(i) DP(DiscS32, un_804D6DA8[i].v)
 /* 4D6DAC */ static int un_804D6DAC;
 /* 4D6DB0 */ static int un_804D6DB0;
 /* 4D6DB4 */ static int un_804D6DB4;

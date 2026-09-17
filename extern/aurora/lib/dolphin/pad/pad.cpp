@@ -1429,7 +1429,7 @@ void PADSerializeMappings() {
   }
   const auto basePath = aurora::io::fs_path_from_string(aurora::g_config.userPath);
 
-  for (auto& controller : aurora::input::g_GameControllers | std::views::values) {
+  for (auto& [_, controller] : aurora::input::g_GameControllers) {
     EnsureMappingLoaded(&controller);
     const auto filePath =
         basePath / fmt::format("{}_{:04X}_{:04X}.controller", aurora::input::controller_name(controller.m_index),

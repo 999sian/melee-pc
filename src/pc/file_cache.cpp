@@ -38,7 +38,6 @@ std::list<std::string> s_lruList;  // Front = most recently accessed, Back = lea
 size_t s_totalCacheBytes = 0;
 size_t s_maxCacheBytes = 0;  // 0 = uninitialized, will be auto-detected
 std::mutex s_cacheMutex;
-std::string s_looseDir;
 
 std::string normalize_key(const char* filename) {
     if (filename == nullptr)
@@ -152,18 +151,16 @@ void evict_lru_locked(size_t required_bytes) {
 std::string resolve_loose_path(const char* filename) {
     if (filename == nullptr)
         return "";
-    std::string dir = s_looseDir;
-    if (dir.empty()) {
-        const char* env = getenv("MELEE_FILES_DIR");
-        if (env != nullptr && env[0] != '\0') {
-            dir = env;
-        } else {
-            struct stat st;
-            if (stat("./files", &st) == 0 && S_ISDIR(st.st_mode)) {
-                dir = "./files";
-            } else if (stat("../iso/extracted_usa/files", &st) == 0 && S_ISDIR(st.st_mode)) {
-                dir = "../iso/extracted_usa/files";
-            }
+    std::string dir;
+    const char* env = getenv("MELEE_FILES_DIR");
+    if (env != nullptr && env[0] != '\0') {
+        dir = env;
+    } else {
+        struct stat st;
+        if (stat("./files", &st) == 0 && S_ISDIR(st.st_mode)) {
+            dir = "./files";
+        } else if (stat("../iso/extracted_usa/files", &st) == 0 && S_ISDIR(st.st_mode)) {
+            dir = "../iso/extracted_usa/files";
         }
     }
     if (dir.empty())
@@ -398,47 +395,6 @@ void pc_file_cache_put(const char* filename, const void* data, size_t size) {
     OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)%s\n", key.c_str(), size,
         pinned ? ", pinned" : "", s_totalCacheBytes / (1024.0 * 1024.0),
         PC_IS_ARAM_ADDR(data) ? " [from ARAM]" : "");
-}
-
-void pc_file_cache_clear(void) {
-    std::lock_guard<std::mutex> lock(s_cacheMutex);
-    s_fileCache.clear();
-    s_lruList.clear();
-    s_totalCacheBytes = 0;
-}
-
-void pc_file_cache_set_loose_dir(const char* dir) {
-    if (dir != nullptr) {
-        s_looseDir = dir;
-    } else {
-        s_looseDir.clear();
-    }
-}
-
-void pc_file_cache_set_max_memory_mb(size_t max_mb) {
-    std::lock_guard<std::mutex> lock(s_cacheMutex);
-    s_maxCacheBytes = max_mb * 1024 * 1024;
-    evict_lru_locked(0);
-}
-
-size_t pc_file_cache_get_memory_usage(void) {
-    std::lock_guard<std::mutex> lock(s_cacheMutex);
-    return s_totalCacheBytes;
-}
-
-void pc_file_cache_preload_file(const char* filename) {
-    if (filename == nullptr)
-        return;
-    std::string key = normalize_key(filename);
-
-    {
-        std::lock_guard<std::mutex> lock(s_cacheMutex);
-        if (s_fileCache.find(key) != s_fileCache.end()) {
-            return;
-        }
-    }
-
-    std::thread([key] { preload_single_file(key.c_str(), -1); }).detach();
 }
 
 void pc_file_cache_start_prewarm(void) {

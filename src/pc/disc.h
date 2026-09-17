@@ -21,14 +21,6 @@
  *     executable is linked non-PIE, and HSD_ArchiveParse relocates file
  *     offsets to absolute host addresses.
  *
- *     PC_MEM1_ALIAS (macOS): nothing below 4GB is mappable, so MEM1 is placed
- *     at a host address whose low 32 bits are exactly 0x80000000. Truncating a
- *     MEM1 pointer then yields its GameCube address (0x80000000 + offset), so
- *     every `slot += (u32) (uintptr_t) base` relocation stays valid, and
- *     pc_resolve_dp() maps 0x8xxxxxxx back by adding the high half of the
- *     MEM1 base. Pointers outside MEM1 (statics, aurora buffers) go through
- *     the external pointer table as before.
- *
  *  3. Scalars reached through a pointer slot (arrays of floats/ints in the
  *     file) are typed with the Disc* wrappers below (`DiscF32*` etc.) and read
  *     via `.v`, so the compiler swaps them too.
@@ -53,51 +45,39 @@
 extern "C" {
 #endif
 
+extern uintptr_t OSBaseAddress;
 uint32_t pc_register_ext_ptr(const void* p);
 void* pc_resolve_ext_ptr(uint32_t id);
 void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute__((noreturn));
 
-/* Host address of MEM1 (aurora); under PC_MEM1_ALIAS its low 32 bits are
- * 0x80000000. */
-extern uintptr_t OSBaseAddress;
-#define PC_MEM1_ALIAS_SIZE (96u * 1024 * 1024) /* == PC_MEM1_SIZE */
-
-static inline int pc_is_mem1_ptr(const void* p) {
-    return (uintptr_t)p - OSBaseAddress < PC_MEM1_ALIAS_SIZE;
-}
-
-/* True when truncating p to 32 bits round-trips through pc_resolve_dp:
- * below 4GB, or inside the aliased MEM1. */
-static inline int pc_ptr_fits_slot(const void* p) {
-#ifdef PC_MEM1_ALIAS
-    if (pc_is_mem1_ptr(p))
-        return 1;
-#endif
-    return !((uintptr_t)p >> 32);
-}
-
 static inline uint32_t pc_encode_dp(const void* p) {
     if (!p)
         return 0;
-#ifdef PC_MEM1_ALIAS
-    if (pc_is_mem1_ptr(p)) {
+    if (!((uintptr_t)p >> 32)) {
         return (uint32_t)(uintptr_t)p;
     }
-#endif
-    if (!((uintptr_t)p >> 32)) {
+    if (OSBaseAddress && (uintptr_t)p >= OSBaseAddress &&
+        (uintptr_t)p < OSBaseAddress + 0x06000000ULL)
+    {
         return (uint32_t)(uintptr_t)p;
     }
     return 0x02000000u | pc_register_ext_ptr(p);
 }
 
 static inline void* pc_resolve_dp(uint32_t slot) {
-#ifdef PC_MEM1_ALIAS
-    if (slot & 0x80000000u) {
-        return (void*)((OSBaseAddress & ~(uintptr_t)0xFFFFFFFFu) | slot);
-    }
-#endif
+    if (!slot)
+        return (void*)0;
     if ((slot & 0xFF000000u) == 0x02000000u) {
-        return pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
+        void* ext = pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
+        if (ext)
+            return ext;
+    }
+    /* Slots that double as ARAM offsets (see PC_IS_ARAM_ADDR) stay raw:
+     * MEM1's low half never lands in that range (OSMemory.cpp). */
+    if (slot < 0x01000000u)
+        return (void*)(uintptr_t)slot;
+    if (OSBaseAddress >> 32) {
+        return (void*)((uintptr_t)slot | (OSBaseAddress & ~0xFFFFFFFFULL));
     }
     return (void*)(uintptr_t)slot;
 }
@@ -111,6 +91,7 @@ static inline void* pc_resolve_dp(uint32_t slot) {
 #define DISC_STRUCT
 #define DISC_PTR(T) uint32_t
 #define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(uintptr_t)(slot)))
+#define DP_ARR(T, slot, i) DP(T, DP(DiscU32, slot)[i].v)
 #define DP_SET(slot, p)                                                                            \
     do {                                                                                           \
         (slot) = pc_encode_dp((const void*)(p));                                                   \
@@ -175,6 +156,7 @@ struct DiscMtx {
 #endif
 #define DISC_PTR(T) uint32_t
 #define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(uintptr_t)(slot)))
+#define DP_ARR(T, slot, i) DP(T, DP(DiscU32, slot)[i].v)
 #define DP_SET(slot, p)                                                                            \
     do {                                                                                           \
         (slot) = pc_encode_dp((const void*)(p));                                                   \

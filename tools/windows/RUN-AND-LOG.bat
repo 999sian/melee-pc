@@ -9,6 +9,9 @@ set MELEE_DEBUG=1
 set MELEE_LOG_FILE=melee-pc.log
 set MELEE_FPS=1
 
+REM Workaround for audio thread startup race: use DirectSound instead of WASAPI
+set SDL_AUDIO_DRIVER=directsound
+
 echo === system ===> melee-pc-env.log
 ver >> melee-pc-env.log 2>&1
 REM wmic is gone from current Windows 11, so ask PowerShell instead.

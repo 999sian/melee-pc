@@ -18,6 +18,7 @@
 
 #include "pc/pc.h"
 #include "pc/launcher.h"
+#include "pc/touch.h"
 #include "pc/widescreen.h"
 
 bool pc_exit_requested;
@@ -107,6 +108,7 @@ void pc_frame_boundary(void) {
                 pc_menu_toggle();
             pc_menu_event(&event->sdl);
             pc_keyboard_event(&event->sdl);
+            pc_touch_event(&event->sdl);
         }
         ++event;
     }

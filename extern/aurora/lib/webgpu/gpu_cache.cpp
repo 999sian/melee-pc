@@ -392,7 +392,7 @@ void cache_prune() {
       Log.error("Failed to prune dawn cache rows: {}", sqlite3_errmsg(db));
       return;
     }
-    deletedRows = sqlite3_changes64(db);
+    deletedRows = sqlite3_changes(db);
 
     tx.commit();
   }

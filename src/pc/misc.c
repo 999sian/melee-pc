@@ -8,6 +8,16 @@
 #include <stdint.h>
 #include <string.h>
 
+#if defined(__APPLE__)
+#include <math.h>
+void sincosf(float x, float* s, float* c) {
+    __sincosf(x, s, c);
+}
+void sincos(double x, double* s, double* c) {
+    __sincos(x, s, c);
+}
+#endif
+
 /* Stack bounds, used only by the debug stack-usage report. */
 unsigned char _stack_end[1];
 unsigned char _stack_addr[1];

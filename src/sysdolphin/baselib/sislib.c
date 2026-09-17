@@ -3,6 +3,9 @@
 #include <printf.h> // IWYU pragma: keep
 #include <stdio.h>
 #include <string.h>
+#ifdef TARGET_PC
+#include "pc/pc.h"
+#endif
 
 #include "cobj.h"
 #include "gobj.h"
@@ -610,9 +613,9 @@ void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
             /* 0x02xxxxxx slots name registered host pointers (statics the
              * game linked in with DP_SET) and are valid by construction. */
             bool ext = (slot & 0xFF000000u) == 0x02000000u;
-            if (text->sis_buffer != NULL && !ext &&
-                !pc_is_mem1_ptr(text->sis_buffer))
-            {
+            uintptr_t addr = (uintptr_t) text->sis_buffer;
+            bool in_mem1 = addr - OSBaseAddress < PC_MEM1_SIZE;
+            if (text->sis_buffer != NULL && !ext && !in_mem1) {
                 static const u8 empty_sis[1] = { 0 };
                 static s32 last_font = -1, last_idx = -1;
                 if (text->font_idx != last_font || sis_idx != last_idx) {

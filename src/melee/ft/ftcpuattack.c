@@ -1817,7 +1817,7 @@ bool ftCo_800B8A9C(Fighter* fp)
     if (fp->ground_or_air == GA_Air) {
         if (ftCo_800B89CC(fp)) {
             result =
-                ftCo_800B4AB0(fp, target, (DP(void, DP(DiscU32, Fighter_804D64FC->x8)[fp->kind].v)));
+                ftCo_800B4AB0(fp, target, DP(void, DP(DiscU32, Fighter_804D64FC->x8)[fp->kind].v));
             if (result != 0) {
                 cpu->xA4 = result;
                 return true;
@@ -1839,7 +1839,7 @@ bool ftCo_800B8A9C(Fighter* fp)
                 tmp->xC8++;
             }
         }
-        result = ftCo_800B4AB0(fp, target, (DP(void, DP(DiscU32, Fighter_804D64FC->x4)[fp->kind].v)));
+        result = ftCo_800B4AB0(fp, target, DP(void, DP(DiscU32, Fighter_804D64FC->x4)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             return true;
@@ -1877,7 +1877,7 @@ bool ftCo_800B8A9C(Fighter* fp)
                 break;
             }
         }
-        result = ftCo_800B52AC(fp, target, (DP(void, DP(DiscU32, Fighter_804D64FC->x18)[fp->kind].v)),
+        result = ftCo_800B52AC(fp, target, DP(void, DP(DiscU32, Fighter_804D64FC->x18)[fp->kind].v),
                                weapon_reach);
         if (result != 0) {
             cpu->xA4 = result;
@@ -1885,7 +1885,7 @@ bool ftCo_800B8A9C(Fighter* fp)
         }
     }
     if (cpu->level > 5 && ftCo_800B9F6C(target)) {
-        result = ftCo_800B4AB0(fp, target, (DP(void, DP(DiscU32, Fighter_804D64FC->x10)[fp->kind].v)));
+        result = ftCo_800B4AB0(fp, target, DP(void, DP(DiscU32, Fighter_804D64FC->x10)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             return true;
@@ -1910,21 +1910,21 @@ bool ftCo_800B8A9C(Fighter* fp)
         }
     }
     if (var_r0 != 0) {
-        result = ftCo_800B4AB0(fp, target, (DP(void, DP(DiscU32, Fighter_804D64FC->x1C)[fp->kind].v)));
+        result = ftCo_800B4AB0(fp, target, DP(void, DP(DiscU32, Fighter_804D64FC->x1C)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             cpu->xF8_b7 = 1;
             return true;
         }
     }
-    result = ftCo_800B4AB0(fp, target, (DP(void, DP(DiscU32, Fighter_804D64FC->x4)[fp->kind].v)));
+    result = ftCo_800B4AB0(fp, target, DP(void, DP(DiscU32, Fighter_804D64FC->x4)[fp->kind].v));
     if (result != 0) {
         cpu->xA4 = result;
         return true;
     }
     if (cpu->x50 != NULL) {
         result = ftCo_800B5AB0(fp, cpu->x50,
-                               (DP(void, DP(DiscU32, Fighter_804D64FC->x14)[fp->kind].v)));
+                               DP(void, DP(DiscU32, Fighter_804D64FC->x14)[fp->kind].v));
         if (result != 0) {
             cpu->xA4 = result;
             return true;
@@ -2342,7 +2342,7 @@ bool ftCo_800B9CBC(Fighter* fp)
         return false;
     }
     if (temp_f31 < 0.08726646192371845 && temp_f31 > -0.08726646192371845) {
-        temp_r31->xA4 = ftCo_800B6208((DP(void, DP(DiscU32, Fighter_804D64FC->xC)[fp->kind].v)));
+        temp_r31->xA4 = ftCo_800B6208(DP(void, DP(DiscU32, Fighter_804D64FC->xC)[fp->kind].v));
         if (temp_r31->xA4 != 0) {
             return true;
         }

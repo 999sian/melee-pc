@@ -323,10 +323,6 @@ void* pc_resolve_ext_ptr(uint32_t id) {
     return s_ext_ptrs[id - 1];
 }
 
-#ifdef PC_MEM1_ALIAS
-_Static_assert(PC_MEM1_ALIAS_SIZE == PC_MEM1_SIZE, "disc.h MEM1 size out of sync with pc.h");
-#endif
-
 void pc_disc_ptr_overflow(const void* p, const char* file, int line) {
     fprintf(stderr, "%s:%d: pointer %p does not fit a 32-bit disc slot\n", file, line, p);
     abort();
@@ -347,11 +343,22 @@ void pc_platform_init(void) {
 #include <stdarg.h>
 #if defined(__ANDROID__)
 #include <android/log.h>
+#elif defined(__APPLE__)
+#include <os/log.h>
 #endif
 
 void OSVReport(const char* msg, va_list list) {
 #if defined(__ANDROID__)
     __android_log_vprint(ANDROID_LOG_INFO, "OSReport", msg, list);
+#elif defined(__APPLE__)
+    char buf[1024];
+    va_list copy;
+    va_copy(copy, list);
+    vsnprintf(buf, sizeof(buf), msg, copy);
+    va_end(copy);
+    os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, "[Melee] %{public}s", buf);
+    vfprintf(stdout, msg, list);
+    fflush(stdout);
 #else
     vfprintf(stdout, msg, list);
     fflush(stdout);
@@ -372,6 +379,13 @@ void OSPanic(const char* file, int line, const char* msg, ...) {
     char buf[1024];
     vsnprintf(buf, sizeof(buf), msg, args);
     __android_log_print(ANDROID_LOG_FATAL, "OSPanic", "PANIC %s:%d: %s", file, line, buf);
+#elif defined(__APPLE__)
+    char buf[1024];
+    vsnprintf(buf, sizeof(buf), msg, args);
+    os_log_with_type(
+        OS_LOG_DEFAULT, OS_LOG_TYPE_FAULT, "[Melee PANIC] %s:%d: %{public}s", file, line, buf);
+    fprintf(stderr, "PANIC %s:%d: %s\n", file, line, buf);
+    fflush(stderr);
 #else
     fprintf(stderr, "PANIC %s:%d: ", file, line);
     vfprintf(stderr, msg, args);

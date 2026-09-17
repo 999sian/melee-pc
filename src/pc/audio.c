@@ -33,17 +33,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
-#ifdef PTHREAD_RECURSIVE_MUTEX_INITIALIZER
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP PTHREAD_RECURSIVE_MUTEX_INITIALIZER
-#else
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP PTHREAD_MUTEX_INITIALIZER
-#endif
-#endif
+static pthread_mutex_t s_audio_mutex;
+static pthread_once_t s_audio_mutex_once = PTHREAD_ONCE_INIT;
 
-static pthread_mutex_t s_audio_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+static void init_audio_mutex(void) {
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&s_audio_mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+}
 
 static inline void audio_lock(void) {
+    pthread_once(&s_audio_mutex_once, init_audio_mutex);
     pthread_mutex_lock(&s_audio_mutex);
 }
 
@@ -556,14 +558,16 @@ static void mix_voice(Voice* v, float* out) {
 
 static void run_aux(AuxBus* bus, float* out) {
     struct AXFX_BUFFERUPDATE bu;
+    void (*cb)(void*, void*) = bus->cb;
+    void* ctx = bus->ctx;
 
-    if (bus->cb == NULL) {
+    if (cb == NULL || ctx == NULL) {
         return;
     }
     bu.left = bus->ch[0];
     bu.right = bus->ch[1];
     bu.surround = bus->ch[2];
-    bus->cb(&bu, bus->ctx);
+    cb(&bu, ctx);
     for (int i = 0; i < AX_FRAME; i++) {
         float sur = (float)bus->ch[2][i] * (0.5f / 32767.0f);
         out[i * 2] += (float)bus->ch[0][i] * (1.0f / 32767.0f) + sur;
@@ -590,7 +594,7 @@ static void render_frame(float* out) {
      * from stalling on audio processing. */
     OSRestoreInterrupts(intr);
 
-    /* 2. Process voice mixing under audio_lock only. */
+    /* 2. Process voice mixing and aux effect routing under audio_lock. */
     int n_used = 0, n_running = 0, n_stopped = 0, n_zero_mix = 0;
     int n_zero_ratio = 0, n_loop = 0, n_old = 0;
     for (int i = 0; i < AX_VOICES; i++) {
@@ -636,12 +640,15 @@ static void render_frame(float* out) {
         }
         mix_voice(v, out);
     }
-    audio_unlock();
 
-    /* 3. Schroeder reverb aux effects, music streaming, and SIMD clamping run
-     * completely lock-free and contention-free outside of any mutex. */
+    /* 3. Schroeder reverb aux effects execute under audio_lock so
+     * AXRegisterAux*Callback and effect lifecycle functions cannot race
+     * with active processing. */
     run_aux(&s_auxA, out);
     run_aux(&s_auxB, out);
+    audio_unlock();
+
+    /* 4. Music streaming and SIMD clamping run completely lock-free. */
     if (pc_music_stream_mix) {
         pc_music_stream_mix(out, NULL, AX_FRAME);
     }
@@ -726,15 +733,7 @@ static void SDLCALL audio_pull(void* userdata, SDL_AudioStream* stream, int addi
 /* ---- AX API ------------------------------------------------------------ */
 
 void AXInit(void) {
-    static bool mutex_inited = false;
-    if (!mutex_inited) {
-        pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-        pthread_mutex_init(&s_audio_mutex, &attr);
-        pthread_mutexattr_destroy(&attr);
-        mutex_inited = true;
-    }
+    pthread_once(&s_audio_mutex_once, init_audio_mutex);
     memset(s_voices, 0, sizeof(s_voices));
     for (int i = 0; i < AX_VOICES; i++) {
         s_voices[i].vpb.index = i;
@@ -1151,6 +1150,9 @@ static void axfx_line_free(struct AXFX_REVHI_DELAYLINE* d) {
 }
 
 static float axfx_line_step(struct AXFX_REVHI_DELAYLINE* d, float in) {
+    if (d == NULL || d->inputs == NULL || d->length == 0) {
+        return 0.0f;
+    }
     float out = d->inputs[d->outPoint];
     d->inputs[d->inPoint] = in;
     if (++d->inPoint >= d->length) {
@@ -1258,12 +1260,23 @@ static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv, struct AXFX_BUFFERUPDATE
 }
 
 int AXFXReverbHiInit(struct AXFX_REVERBHI* rev) {
-    return axfx_reverb_init(
+    if (rev == NULL) {
+        return 0;
+    }
+    audio_lock();
+    int res = axfx_reverb_init(
         &rev->rv, rev->coloration, rev->mix, rev->time, rev->damping, rev->crosstalk);
+    audio_unlock();
+    return res;
 }
 
 int AXFXReverbHiShutdown(struct AXFX_REVERBHI* rev) {
+    if (rev == NULL) {
+        return 1;
+    }
+    audio_lock();
     axfx_reverb_shutdown(&rev->rv);
+    audio_unlock();
     return 1;
 }
 
@@ -1273,6 +1286,9 @@ int AXFXReverbHiSettings(struct AXFX_REVERBHI* rev) {
 }
 
 void AXFXReverbHiCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_REVERBHI* r) {
+    if (b == NULL || r == NULL) {
+        return;
+    }
     if (!r->tempDisableFX) {
         axfx_reverb_run(&r->rv, b);
     }
@@ -1284,6 +1300,9 @@ static struct AXFX_REVHI_WORK s_revstd_work[2];
 static struct AXFX_REVERBSTD* s_revstd_owner[2];
 
 static struct AXFX_REVHI_WORK* revstd_work(struct AXFX_REVERBSTD* rev, bool claim) {
+    if (rev == NULL) {
+        return NULL;
+    }
     int i;
     for (i = 0; i < 2; i++) {
         if (s_revstd_owner[i] == rev) {
@@ -1303,14 +1322,25 @@ static struct AXFX_REVHI_WORK* revstd_work(struct AXFX_REVERBSTD* rev, bool clai
 }
 
 int AXFXReverbStdInit(struct AXFX_REVERBSTD* rev) {
-    struct AXFX_REVHI_WORK* w = revstd_work(rev, true);
-    if (w == NULL) {
+    if (rev == NULL) {
         return 0;
     }
-    return axfx_reverb_init(w, rev->coloration, rev->mix, rev->time, rev->damping, 0.0f);
+    audio_lock();
+    struct AXFX_REVHI_WORK* w = revstd_work(rev, true);
+    if (w == NULL) {
+        audio_unlock();
+        return 0;
+    }
+    int res = axfx_reverb_init(w, rev->coloration, rev->mix, rev->time, rev->damping, 0.0f);
+    audio_unlock();
+    return res;
 }
 
 int AXFXReverbStdShutdown(struct AXFX_REVERBSTD* rev) {
+    if (rev == NULL) {
+        return 1;
+    }
+    audio_lock();
     struct AXFX_REVHI_WORK* w = revstd_work(rev, false);
     int i;
     if (w != NULL) {
@@ -1321,6 +1351,7 @@ int AXFXReverbStdShutdown(struct AXFX_REVERBSTD* rev) {
             }
         }
     }
+    audio_unlock();
     return 1;
 }
 
@@ -1330,6 +1361,9 @@ int AXFXReverbStdSettings(struct AXFX_REVERBSTD* rev) {
 }
 
 void AXFXReverbStdCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_REVERBSTD* r) {
+    if (b == NULL || r == NULL) {
+        return;
+    }
     struct AXFX_REVHI_WORK* w = revstd_work(r, false);
     if (w != NULL && !r->tempDisableFX) {
         axfx_reverb_run(w, b);
@@ -1362,6 +1396,10 @@ void AXFXChorusCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_CHORUS* c) {
  * the SDK structure's own currentSize/currentPos/left/right/sur fields; the
  * lines come from the host heap for the same reason the reverb's do. */
 int AXFXDelayShutdown(struct AXFX_DELAY* d) {
+    if (d == NULL) {
+        return 1;
+    }
+    audio_lock();
     long** lines[3] = {&d->left, &d->right, &d->sur};
     int i;
     for (i = 0; i < 3; i++) {
@@ -1370,10 +1408,15 @@ int AXFXDelayShutdown(struct AXFX_DELAY* d) {
         d->currentSize[i] = 0;
         d->currentPos[i] = 0;
     }
+    audio_unlock();
     return 1;
 }
 
 int AXFXDelayInit(struct AXFX_DELAY* d) {
+    if (d == NULL) {
+        return 0;
+    }
+    audio_lock();
     long** lines[3] = {&d->left, &d->right, &d->sur};
     int i;
 
@@ -1387,6 +1430,7 @@ int AXFXDelayInit(struct AXFX_DELAY* d) {
         }
         *lines[i] = calloc(n, sizeof(long));
         if (*lines[i] == NULL) {
+            audio_unlock();
             AXFXDelayShutdown(d);
             return 0;
         }
@@ -1395,6 +1439,7 @@ int AXFXDelayInit(struct AXFX_DELAY* d) {
         d->currentFeedback[i] = d->feedback[i];
         d->currentOutput[i] = d->output[i];
     }
+    audio_unlock();
     return 1;
 }
 
@@ -1404,6 +1449,9 @@ int AXFXDelaySettings(struct AXFX_DELAY* d) {
 }
 
 void AXFXDelayCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_DELAY* d) {
+    if (b == NULL || d == NULL) {
+        return;
+    }
     long* chan[3] = {b->left, b->right, b->surround};
     long* line[3] = {d->left, d->right, d->sur};
     int c, i;

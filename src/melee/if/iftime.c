@@ -26,7 +26,7 @@ static struct ifTime_data {
     DiscU32* countdown_timer_models; /* DynamicModelDesc*[] in the archive */
 } ifTime_data;
 static DynamicModelDesc ifTime_match_timer_models;
-#define IFTIME_COUNTDOWN_MODEL(x) (DP(DynamicModelDesc, (x)->countdown_timer_models[0].v))
+#define IFTIME_COUNTDOWN_MODEL(x) DP(DynamicModelDesc, (x)->countdown_timer_models[0].v)
 
 static bool ifTime_LoadModels(void)
 {

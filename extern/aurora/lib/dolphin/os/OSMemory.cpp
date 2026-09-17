@@ -210,15 +210,19 @@ static void* AllocMEM1(u32 size) {
   }
   return p;
 }
-#elif defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
+#elif (defined(__linux__) || defined(__APPLE__)) && (defined(__x86_64__) || defined(__aarch64__) || defined(__arm64__))
 #include <sys/mman.h>
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#include <mach/vm_map.h>
+#endif
 #ifndef MAP_FIXED_NOREPLACE
 #define MAP_FIXED_NOREPLACE 0x100000
 #endif
-// Map MEM1 strictly below 4GB (preferably at 0x80000000) so that 32-bit pointer slots
-// inside big-endian disc structures can hold real host addresses (see src/pc/disc.h).
-// On Android 11+, 0x80000000 is frequently mapped by ART/dalvik heap, so probe candidate
-// addresses and scan 32-bit address space if 0x80000000 is occupied.
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 static void* AllocMEM1(u32 size) {
   static const uintptr_t candidates[] = {
     0x80000000ULL,
@@ -234,6 +238,20 @@ static void* AllocMEM1(u32 size) {
   };
 
   void* p = nullptr;
+
+#if defined(__APPLE__)
+  // On Darwin/macOS, try vm_allocate with VM_FLAGS_FIXED to see if candidate addresses < 4GB are free.
+  for (uintptr_t addr : candidates) {
+    if (addr + size <= 0x100000000ULL) {
+      vm_address_t target = static_cast<vm_address_t>(addr);
+      kern_return_t kr = vm_allocate(mach_task_self(), &target, size, VM_FLAGS_FIXED);
+      if (kr == KERN_SUCCESS) {
+        p = reinterpret_cast<void*>(target);
+        break;
+      }
+    }
+  }
+#else
   for (uintptr_t addr : candidates) {
     if (addr + size <= 0x100000000ULL) {
       void* want = reinterpret_cast<void*>(addr);
@@ -262,6 +280,7 @@ static void* AllocMEM1(u32 size) {
       }
     }
   }
+#endif
 
 #if defined(MAP_32BIT)
   if (!p) {
@@ -276,37 +295,46 @@ static void* AllocMEM1(u32 size) {
   }
 #endif
 
-  if (p && reinterpret_cast<uintptr_t>(p) + size > 0x100000000ULL) {
-    Log.error("Allocated MEM1 at {:p}, which exceeds 4GB boundary (required for 32-bit disc slots)", p);
-    munmap(p, size);
-    p = nullptr;
+  // Fallback for 64-bit platforms where the lower 4GB is reserved (macOS and iOS arm64 have a
+  // 4GB __PAGEZERO). First try addresses whose low 32 bits are exactly 0x80000000: a MEM1
+  // pointer truncated to 32 bits is then its GameCube address, which keeps the game's own
+  // `addr < 0x80000000` ARAM tests and hard-coded 0x8xxxxxxx comparisons meaningful.
+  if (!p) {
+    for (uintptr_t hi = 1; hi < 0x100 && !p; hi++) {
+      const uintptr_t want = (hi << 32) | 0x80000000ULL;
+      void* res = mmap(reinterpret_cast<void*>(want), size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      if (res == MAP_FAILED) {
+        continue;
+      }
+      if (reinterpret_cast<uintptr_t>(res) == want) {
+        p = res;
+      } else {
+        munmap(res, size);
+      }
+    }
+  }
+  if (!p) {
+    void* res = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (res != MAP_FAILED) {
+      const uintptr_t lo = reinterpret_cast<uintptr_t>(res) & 0xFFFFFFFFULL;
+      // All MEM1 pointers must share the same upper 32 bits, and their low halves must not
+      // look like NULL, an ARAM offset (< 16MB) or the 0x02000000 external pointer tag.
+      if ((reinterpret_cast<uintptr_t>(res) >> 32) ==
+              ((reinterpret_cast<uintptr_t>(res) + size - 1) >> 32) &&
+          lo >= 0x01000000u && (lo & 0xFF000000u) != 0x02000000u) {
+        p = res;
+      } else {
+        munmap(res, size);
+      }
+    }
   }
 
   if (!p) {
-    Log.fatal("Failed to map MEM1 ({} bytes) strictly under 4GB", size);
+    Log.fatal("Failed to allocate MEM1 ({} bytes)", size);
+  } else {
+    Log.info("Allocated MEM1 ({} MB) at {:p}", size / (1024 * 1024), p);
   }
   return p;
-}
-#elif defined(__APPLE__)
-#include <sys/mman.h>
-// arm64 macOS kills native processes whose __PAGEZERO is smaller than 4GB, so MEM1 can never
-// sit below 4GB here. Instead place it at an address whose low 32 bits are exactly 0x80000000:
-// truncating a MEM1 pointer to 32 bits then yields its GameCube address, which is what the
-// game's 32-bit disc slots hold (see src/pc/disc.h, PC_MEM1_ALIAS).
-static void* AllocMEM1(u32 size) {
-  for (uintptr_t hi = 0x1; hi < 0x100; hi++) {
-    const uintptr_t want = (hi << 32) | 0x80000000ULL;
-    void* res = mmap(reinterpret_cast<void*>(want), size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (res == MAP_FAILED) {
-      continue;
-    }
-    if (reinterpret_cast<uintptr_t>(res) == want) {
-      return res;
-    }
-    munmap(res, size);
-  }
-  Log.fatal("Failed to map MEM1 ({} bytes) at an address aliasing 0x80000000", size);
-  return nullptr;
 }
 #else
 static void* AllocMEM1(u32 size) {

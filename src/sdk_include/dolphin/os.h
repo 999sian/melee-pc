@@ -57,8 +57,14 @@ u32 OSGetConsoleSimulatedMemSize(void);
 #define OS_UNCACHED_REGION_PREFIX 0xC000
 #define OS_PHYSICAL_MASK 0x3FFF
 
+#ifdef TARGET_PC
+extern uintptr_t OSBaseAddress;
+#define OS_BASE_CACHED (OSBaseAddress)
+#define OS_BASE_UNCACHED (OSBaseAddress)
+#else
 #define OS_BASE_CACHED (OS_CACHED_REGION_PREFIX << 16)
 #define OS_BASE_UNCACHED (OS_UNCACHED_REGION_PREFIX << 16)
+#endif
 
 #if defined(__MWERKS__) && !defined(M2CTX)
 u32 __OSPhysicalMemSize : (OS_BASE_CACHED | 0x0028);
@@ -192,7 +198,7 @@ u32 OSCachedToPhysical(void* caddr);
 u32 OSUncachedToPhysical(void* ucaddr);
 void* OSCachedToUncached(void* caddr);
 void* OSUncachedToCached(void* ucaddr);
-#if !DEBUG
+#if !DEBUG && !defined(TARGET_PC)
 #define OSPhysicalToCached(paddr)                                             \
     ((void*) ((u32) (OS_BASE_CACHED + (u32) (paddr))))
 #define OSPhysicalToUncached(paddr)                                           \
