@@ -61,7 +61,7 @@ void pc_input_poll_shutdown(void) {
     SDL_WaitThread(s_poll_thread, NULL);
     s_poll_thread = NULL;
     pc_log_line("1000 Hz input polling thread stopped (total polls: %llu)",
-                (unsigned long long)atomic_load_explicit(&s_poll_count, memory_order_relaxed));
+        (unsigned long long)atomic_load_explicit(&s_poll_count, memory_order_relaxed));
 }
 
 bool pc_input_poll_is_running(void) {
