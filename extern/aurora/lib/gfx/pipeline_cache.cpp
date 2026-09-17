@@ -625,6 +625,14 @@ static void seed_pipeline_cache() {
     return;
   }
 
+  // If the target database is already populated, skip re-seeding to accelerate startup
+  bool alreadySeeded = false;
+  sqlite::exec(g_pipelineCacheDb, "SELECT 1 FROM pipeline_cache LIMIT 1;",
+               [&alreadySeeded](int, char**, char**) { alreadySeeded = true; });
+  if (alreadySeeded) {
+    return;
+  }
+
   const auto seedPath = pipeline_cache_seed_path();
   sqlite3* seedDb = open_pipeline_cache_seed_db(seedPath);
   if (seedDb == nullptr) {
@@ -979,13 +987,20 @@ static void pipeline_worker() {
             return !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty() || g_pipelineThreadEnd;
           });
         }
+      } else if (!g_hasPipelineThread) {
+        // On platforms without a background compilation thread (e.g. mobile/Android),
+        // only process pipelines actively queued by the current frame (g_pipelineQueue).
+        // Never stall the presentation loop compiling unneeded background pipelines.
+        if (g_pipelineQueue.empty()) {
+          return;
+        }
       } else if (g_pipelineQueue.empty() && g_backgroundPipelineQueue.empty()) {
         return;
       }
       if (g_pipelineThreadEnd) {
         break;
       }
-      auto& source = !g_pipelineQueue.empty() ? g_pipelineQueue : g_backgroundPipelineQueue;
+      auto& source = (!g_hasPipelineThread || !g_pipelineQueue.empty()) ? g_pipelineQueue : g_backgroundPipelineQueue;
       pending = std::move(source.front());
       source.pop_front();
     }
