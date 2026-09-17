@@ -57,8 +57,8 @@ uint32_t pc_register_ext_ptr(const void* p);
 void* pc_resolve_ext_ptr(uint32_t id);
 void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute__((noreturn));
 
-#ifdef PC_MEM1_ALIAS
-/* Host address of MEM1 (aurora); its low 32 bits are 0x80000000. */
+/* Host address of MEM1 (aurora); under PC_MEM1_ALIAS its low 32 bits are
+ * 0x80000000. */
 extern uintptr_t OSBaseAddress;
 #define PC_MEM1_ALIAS_SIZE (96u * 1024 * 1024) /* == PC_MEM1_SIZE */
 
@@ -66,7 +66,6 @@ static inline int pc_is_mem1_ptr(const void* p)
 {
     return (uintptr_t) p - OSBaseAddress < PC_MEM1_ALIAS_SIZE;
 }
-#endif
 
 /* True when truncating p to 32 bits round-trips through pc_resolve_dp:
  * below 4GB, or inside the aliased MEM1. */

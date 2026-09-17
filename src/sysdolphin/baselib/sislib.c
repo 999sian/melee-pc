@@ -2,6 +2,7 @@
 
 #include <printf.h> // IWYU pragma: keep
 #include <stdio.h>
+#include <string.h>
 
 #include "cobj.h"
 #include "gobj.h"
@@ -566,6 +567,22 @@ void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
     {
         SIS* sis = HSD_ArchiveGetPublicAddress(HSD_SisLib_804D1110[font_idx],
                                                symbol_name);
+#ifdef TARGET_PC
+        /* The NTSC-U disc suffixes its English trophy tables "_E" next to
+         * the Japanese ones; a PAL archive carries the single table under
+         * the plain name. */
+        if (sis == NULL) {
+            size_t len = strlen(symbol_name);
+            if (len > 2 && strcmp(symbol_name + len - 2, "_E") == 0) {
+                char plain[64];
+                if (len - 2 < sizeof plain) {
+                    memcpy(plain, symbol_name, len - 2);
+                    plain[len - 2] = '\0';
+                    sis = HSD_ArchiveGetPublicAddress(HSD_SisLib_804D1110[font_idx], plain);
+                }
+            }
+        }
+#endif
         HSD_SisLib_804D1124[font_idx] = sis;
         if (sis == NULL) {
             OSReport("Cannot find symbol %s.\n", symbol_name);
@@ -583,6 +600,19 @@ void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
     sis_table = (DiscU32*) HSD_SisLib_804D1124[text->font_idx];
     if (sis_table != NULL) {
         text->sis_buffer = DP(SIS, sis_table[sis_idx].v);
+#ifdef TARGET_PC
+        /* String indices are the NTSC-U build's; a table from another
+         * region may be shorter or ordered differently, and an index past
+         * its end yields whatever follows it in the archive. Loaded
+         * archives live in MEM1, so anything else is not a string. */
+        if (text->sis_buffer != NULL && !pc_is_mem1_ptr(text->sis_buffer)) {
+            static const u8 empty_sis[1] = { 0 };
+            OSReport("sislib: font %d string %d resolves outside MEM1"
+                     " (slot 0x%08x); showing nothing\n",
+                     text->font_idx, sis_idx, sis_table[sis_idx].v);
+            text->sis_buffer = (SIS*) empty_sis;
+        }
+#endif
     }
     text->x60 = NULL;
     text->current_height = 0.0F;
