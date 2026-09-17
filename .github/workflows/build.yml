@@ -208,7 +208,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential ninja-build cmake gcc-aarch64-linux-gnu \
+            clang-19 lld-19 llvm-19 zip python3 || \
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ninja-build cmake gcc-aarch64-linux-gnu \
             clang lld llvm zip python3
+          for tool in clang clang++ ld.lld llvm-ar llvm-ranlib llvm-strip llvm-otool llvm-install-name-tool; do
+            if command -v "${tool}-19" >/dev/null 2>&1; then
+              sudo ln -sf "$(command -v "${tool}-19")" "/usr/local/bin/${tool}"
+            fi
+          done
           sudo ln -sf "$(command -v llvm-install-name-tool || which llvm-install-name-tool)" /usr/local/bin/install_name_tool || true
           sudo ln -sf "$(command -v llvm-otool || which llvm-otool)" /usr/local/bin/otool || true
 
