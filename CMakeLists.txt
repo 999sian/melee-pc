@@ -106,10 +106,11 @@ target_link_libraries(melee_game PUBLIC
         aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx
         aurora::os aurora::dvd aurora::card aurora::thp)
 
-if (ANDROID OR APPLE)
-    set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
-elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+# iOS is APPLE too, so it must be matched before the macOS launcher.
+if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_ios_launcher.py")
+elseif (ANDROID OR APPLE)
+    set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
 elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_windows_arm64_launcher.py")
 endif ()
