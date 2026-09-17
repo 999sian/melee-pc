@@ -39,6 +39,14 @@ button.primary { background-color: #eeb75e; border-color: #eeb75e; color: #13192
 button.primary:hover, button.primary:focus { background-color: #ffda91; border-color: #ffffff; }
 button:disabled, button.primary:disabled { background-color: #151d2c; color: #69758b; border-color: #222d40; cursor: default; }
 button.quiet { background-color: #0b101c; }
+button.discord-btn { display: flex; align-items: center; }
+button.discord-btn .discord-icon { width: 22dp; height: 22dp; margin-right: 12dp; flex-shrink: 0; }
+button.discord-btn:hover { background-color: #202b45; border-color: #5865f2; }
+button.discord-btn:focus { background-color: #202b45; border-color: #5865f2; }
+.setting button.discord-btn { display: flex; align-items: center; justify-content: center; }
+.setting button.discord-btn .discord-icon { width: 18dp; height: 18dp; margin-right: 8dp; }
+.setting button.discord-btn:hover { background-color: #5865f233; border-color: #5865f2; }
+.setting button.discord-btn:focus { background-color: #5865f233; border-color: #5865f2; }
 .disc-card { box-sizing: border-box; flex: 1; min-width: 0; background-color: #141d2d; border: 1dp #2a364d; border-top: 3dp #eeb75e; border-radius: 8dp; padding: 26dp; }
 #disc-name { word-break: break-all; }
 #disc-info { color: #c5d0e1; }
