@@ -22,6 +22,13 @@ bool pc_region_is_pal(void)
 /* All big-endian, read in place by the game. */
 static const unsigned char k_trophy_row_end[0x24] = { 0xFF, 0xFF, 0xFF, 0xFF }; /* TrophyData.id == -1 */
 static const unsigned char k_s16_end[2] = { 0xFF, 0xFF };                       /* DiscS16 -1 */
+/* tyModelFileUsTbl: the game probes five 0x54-byte rows by their leading s32
+ * id with no terminator, so give it six rows whose id is -1. */
+static const unsigned char k_model_rows_none[0x54 * 6] = {
+    [0 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF, [1 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF,
+    [2 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF, [3 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF,
+    [4 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF, [5 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF,
+};
 
 static const struct {
     const char* name;
@@ -32,6 +39,8 @@ static const struct {
     { "tyExpDifferentTbl", k_s16_end },
     { "tyNoGetUsTbl", k_s16_end },
     { "tyDisplayModelUsTbl", k_trophy_row_end }, /* loaded, never read */
+    /* TyDataf.dat on the USA disc only. */
+    { "tyModelFileUsTbl", k_model_rows_none },
 };
 
 const void* pc_region_missing_symbol(const char* symbol_name)
