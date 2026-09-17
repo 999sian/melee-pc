@@ -2,6 +2,22 @@
 
 #include <melee/gm/gmmain_lib.h>
 #include <melee/gm/types.h>
+#ifdef TARGET_PC
+#include "pc/region.h"
+#endif
+
+/* A PAL disc has no Japanese assets, so the language the save file carries
+ * (a USA-only option, and JP on cards written before PAL was handled) must
+ * read as US there. */
+static inline enum_t saved_language(void)
+{
+#ifdef TARGET_PC
+    if (pc_region_is_pal()) {
+        return LANG_US;
+    }
+#endif
+    return gmMainLib_GetGamePrefs()->saved_language;
+}
 
 enum_t lbLang_GetLanguageSetting(void)
 {
@@ -29,7 +45,7 @@ bool lbLang_IsSettingUS(void)
 
 enum_t lbLang_GetSavedLanguage(void)
 {
-    return gmMainLib_GetGamePrefs()->saved_language;
+    return saved_language();
 }
 
 void lbLang_SetSavedLanguage(enum_t language)
@@ -41,10 +57,10 @@ void lbLang_SetSavedLanguage(enum_t language)
 
 bool lbLang_IsSavedLanguageJP(void)
 {
-    return gmMainLib_GetGamePrefs()->saved_language == LANG_JP ? true : false;
+    return saved_language() == LANG_JP ? true : false;
 }
 
 bool lbLang_IsSavedLanguageUS(void)
 {
-    return gmMainLib_GetGamePrefs()->saved_language == LANG_US ? true : false;
+    return saved_language() == LANG_US ? true : false;
 }
