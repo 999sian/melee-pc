@@ -288,13 +288,76 @@ void pc_net_init(void) {
                 s_local + 1, s_delay);
 }
 
-void pc_net_sync(void) {
-    if (!s_active) {
-        return;
-    }
-    PadLibData* p = &HSD_PadLibData;
-    PADStatus* head = &p->queue->stat[p->qread * 4];
+/* ---- record / replay --------------------------------------------------
+ * MELEE_NET_RECORD=file  writes the seed, then per frame the four PADStatus
+ *                        actually simulated plus the frame checksum.
+ * MELEE_NET_REPLAY=file  feeds those pads back in and reports the first
+ *                        frame whose checksum differs: the determinism test
+ *                        for M0 (docs/netcode-plan.md §5). Works solo or
+ *                        together with netplay (record only). */
+static FILE* s_rec;
+static FILE* s_rep;
+static bool s_rep_reported;
 
+typedef struct FrameRecord {
+    PADStatus pads[4];
+    uint32_t ck;
+} FrameRecord;
+
+static void record_open(void) {
+    const char* rec = getenv("MELEE_NET_RECORD");
+    const char* rep = getenv("MELEE_NET_REPLAY");
+    if (rec != NULL && rec[0] != '\0') {
+        s_rec = fopen(rec, "wb");
+        pc_log_line("net: %s %s", s_rec ? "recording to" : "cannot open", rec);
+    }
+    if (rep != NULL && rep[0] != '\0' && !s_active) {
+        s_rep = fopen(rep, "rb");
+        char magic[4];
+        uint32_t seed;
+        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC1", 4) != 0 ||
+                      fread(&seed, 4, 1, s_rep) != 1)) {
+            fclose(s_rep);
+            s_rep = NULL;
+        }
+        if (s_rep) {
+            *HSD_RandSeedPtr = seed;
+        }
+        pc_log_line("net: %s %s", s_rep ? "replaying" : "cannot open", rep);
+    }
+}
+
+static FrameRecord s_rep_cur;
+
+/* Load the next record's pads for this frame; false at end of file. */
+static bool replay_load(PADStatus* head) {
+    if (fread(&s_rep_cur, sizeof s_rep_cur, 1, s_rep) != 1) {
+        return false;
+    }
+    memcpy(head, s_rep_cur.pads, sizeof s_rep_cur.pads);
+    return true;
+}
+
+static void replay_compare(uint32_t ck) {
+    if (!s_rep_reported && s_rep_cur.ck != ck) {
+        s_rep_reported = true;
+        pc_log_line("net: REPLAY DIVERGED at frame %d (recorded %08x now %08x)", s_frame,
+                    s_rep_cur.ck, ck);
+    }
+}
+
+static uint32_t frame_checksum(const PADStatus* head) {
+    /* Inputs as simulated plus the RNG seed entering the frame. The seed is
+     * consumed by hits, AI and effects, so a physics divergence reaches it
+     * within a few frames. ponytail: add fighter positions when a mismatch
+     * needs localising to a frame rather than a neighbourhood. */
+    uint32_t ck = fnv1a(2166136261u, head, 4 * sizeof(PADStatus));
+    return fnv1a(ck, HSD_RandSeedPtr, sizeof(u32));
+}
+
+/* ---- per-tick entry --------------------------------------------------- */
+
+static bool sync_netplay(PADStatus* head) {
     /* Our physical input (port 0, where keyboard/gamepad 1 land) becomes the
      * local player's input `delay` frames from now. */
     to_wire(&s_local_ring[(s_frame + s_delay) & (RING - 1)], &head[0]);
@@ -305,7 +368,7 @@ void pc_net_sync(void) {
         pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay", STALL_TIMEOUT_MS,
                     s_frame);
         s_active = false;
-        return;
+        return false;
     }
 
     /* Frames before `delay` have no local input yet; both sides use neutral. */
@@ -324,16 +387,51 @@ void pc_net_sync(void) {
         memset(&head[i], 0, sizeof head[i]);
         head[i].err = PAD_ERR_NO_CONTROLLER;
     }
+    return true;
+}
 
-    /* Checksum for this frame: the inputs both sides agreed on plus the RNG
-     * seed as it stood entering the frame. Any divergence in the simulation
-     * shows up in the seed within a few frames. */
-    uint32_t ck = fnv1a(2166136261u, head, 2 * sizeof(PADStatus));
-    ck = fnv1a(ck, HSD_RandSeedPtr, sizeof(u32));
+void pc_net_sync(void) {
+    static bool opened;
+    if (!opened) {
+        opened = true;
+        record_open();
+    }
+    if (!s_active && s_rec == NULL && s_rep == NULL) {
+        return;
+    }
+    PadLibData* p = &HSD_PadLibData;
+    PADStatus* head = &p->queue->stat[p->qread * 4];
+
+    if (s_active && !sync_netplay(head)) {
+        return;
+    }
+    if (s_rep != NULL && !replay_load(head)) {
+        pc_log_line("net: replay finished at frame %d%s", s_frame,
+                    s_rep_reported ? "" : ", no divergence");
+        fclose(s_rep);
+        s_rep = NULL;
+    }
+
+    uint32_t ck = frame_checksum(head);
     s_ck_ring[s_frame & (RING - 1)] = ck;
-    check_desync();
+    if (s_active) {
+        check_desync();
+    }
+    if (s_rec != NULL) {
+        if (s_frame == 0) {
+            fwrite("MRC1", 4, 1, s_rec);
+            fwrite(HSD_RandSeedPtr, 4, 1, s_rec);
+        }
+        FrameRecord r;
+        memcpy(r.pads, head, sizeof r.pads);
+        r.ck = ck;
+        fwrite(&r, sizeof r, 1, s_rec);
+    }
+    if (s_rep != NULL) {
+        replay_compare(ck);
+    }
 
-    if ((s_frame % 600) == 0 && s_frame > 0) {
+    if ((s_frame % 600) == 0 && s_frame > 0 && s_active) {
         pc_log_line("net: frame %d, stalls %u, worst stall %.1f ms", s_frame, s_stalls,
                     s_stall_ns_max / 1e6);
         s_stall_ns_max = 0;
