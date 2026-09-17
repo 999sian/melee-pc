@@ -7,9 +7,11 @@
 #include <string.h>
 
 static bool s_is_pal;
+bool pc_region_pal;
 
 void pc_region_set(const char* game_id) {
     s_is_pal = memcmp(game_id, "GALP01", 6) == 0;
+    pc_region_pal = s_is_pal;
     aurora_dvd_set_locale_extension(s_is_pal ? "ukd" : NULL);
 }
 

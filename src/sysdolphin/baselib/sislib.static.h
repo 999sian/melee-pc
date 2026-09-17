@@ -14,7 +14,7 @@ static inline u8* HSD_SisLib_BytePtr(void* ptr)
  * here) and any other byte b >= 0x21 is atlas glyph b - 0x21. */
 #ifdef TARGET_PC
 #include "pc/region.h"
-static inline bool sis_pal(void) { return pc_region_is_pal(); }
+static inline bool sis_pal(void) { return pc_region_pal; }
 #else
 static inline bool sis_pal(void) { return false; }
 #endif

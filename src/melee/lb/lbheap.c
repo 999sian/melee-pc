@@ -5,6 +5,9 @@
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/initialize.h>
 #include <sysdolphin/baselib/memory.h>
+#ifdef TARGET_PC
+#include "pc/region.h"
+#endif
 
 struct lbHeap_HeapDesc {
     u32 idx;
@@ -18,17 +21,8 @@ struct lbHeap_HeapOffsetView {
     struct Heap heap;
 };
 
-/* The RAM heaps (3 at arena_lo, 4 down from arena_hi) are sized for the
- * NTSC-U files; a PAL disc's IfAll.ukd alone outgrows heap 3 by 832 bytes.
- * The PC arena is 95MB instead of 24MB, so give both twice the room. The
- * ARAM heap (5) keeps its size: ARAM offsets must stay below 16MB. */
-#ifdef TARGET_PC
-#define LB_HEAP_RAM_SCALE 2
-#else
-#define LB_HEAP_RAM_SCALE 1
-#endif
 struct lbHeap_HeapDesc lbHeap_803BA380[5] = {
-    { 2, 1, 6, 0x800 },    { 3, 1, 2, 0x4F8800 * LB_HEAP_RAM_SCALE }, { 4, 2, 6, 0x64B400 * LB_HEAP_RAM_SCALE },
+    { 2, 1, 6, 0x800 },    { 3, 1, 2, 0x4F8800 }, { 4, 2, 6, 0x64B400 },
     { 5, 4, 6, 0x96C800 }, { 6, 0, 0, 0 },
 };
 
@@ -322,6 +316,16 @@ void lbHeap_80015F3C(void)
 
         curr_heap->type = desc->type;
         curr_heap->size = desc->size;
+#ifdef TARGET_PC
+        /* The RAM heaps (3 at arena_lo, 4 down from arena_hi) are sized for
+         * the NTSC-U files; a PAL disc's IfAll.ukd alone outgrows heap 3 by
+         * 832 bytes. The PC arena is 95MB instead of 24MB, so on PAL give
+         * both twice the room. USA discs keep their layout; the ARAM heap
+         * (type 4) keeps its size since ARAM offsets must stay below 16MB. */
+        if (pc_region_is_pal() && (curr_idx == 3 || curr_idx == 4)) {
+            curr_heap->size *= 2;
+        }
+#endif
         prev_idx = desc->prev_idx;
         if (prev_idx == 6) {
             switch (curr_heap->type) {

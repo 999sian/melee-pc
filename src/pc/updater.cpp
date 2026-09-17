@@ -614,17 +614,6 @@ bool http_download_file_curl(
     return true;
 }
 
-#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
-// Built without libcurl: the call sites below still compile, updates just fail.
-bool http_get_string_curl(const std::string&, std::string&, std::string& out_error) {
-    out_error = "curl not available";
-    return false;
-}
-bool http_download_file_curl(
-    const std::string&, const std::filesystem::path&, std::string& out_error) {
-    out_error = "curl not available";
-    return false;
-}
 #endif
 
 }  // namespace
