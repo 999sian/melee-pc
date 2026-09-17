@@ -24,6 +24,10 @@ int main() {
     assert(v1 < v3);
     assert(is_update_available("v0.1.4-beta", "v0.1.5-beta"));
 
+    auto v4 = SemVer::parse("v0.1.6-beta");
+    assert(v3 < v4);
+    assert(is_update_available("v0.1.5-beta", "v0.1.6-beta"));
+
     // Older release
     assert(!is_update_available("v0.1.4-beta", "v0.1.3"));
     assert(!is_update_available("v0.1.4-beta", "v0.1.0-beta"));

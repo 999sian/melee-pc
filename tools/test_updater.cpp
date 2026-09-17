@@ -44,8 +44,9 @@ int main() {
     assert(canceled_state.status != updater::Status::Checking);
 
     // Test version comparisons
-    assert(is_update_available(get_app_version(), "v0.1.6-beta"));
+    assert(is_update_available(get_app_version(), "v0.1.7-beta"));
     assert(is_update_available(get_app_version(), "v0.2.0"));
+    assert(!is_update_available(get_app_version(), "v0.1.6-beta"));
     assert(!is_update_available(get_app_version(), "v0.1.5-beta"));
     assert(!is_update_available(get_app_version(), "v0.1.4-beta"));
     assert(!is_update_available(get_app_version(), "v0.1.0-beta"));

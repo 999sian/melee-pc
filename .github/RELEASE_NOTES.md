@@ -12,6 +12,8 @@ Only **USA revision 2 (NTSC-U 1.02, GALE01)** is supported.
 |---|---|---|
 | Linux x86-64 | `Melee-x86_64.AppImage` | Needs a Vulkan driver. `chmod +x`, then run. |
 | Linux x86-64 | `melee-linux-x86_64.tar.gz` | Portable directory; run `run.sh`. |
+| Linux aarch64 (ARM64) | `Melee-aarch64.AppImage` | For 64-bit ARM Linux (Raspberry Pi 5, Asahi Linux, Orange Pi). |
+| Linux aarch64 (ARM64) | `melee-linux-aarch64.tar.gz` | Portable directory for 64-bit ARM Linux; run `run.sh`. |
 | Windows x86-64 | `Melee-Windows-x86_64.zip` | Extract and run `melee.exe`. Keep the DLLs and `resources/` beside it. |
 | Android arm64 | `Melee-Android-arm64.apk` | Release build, signed. Allow install from unknown sources. |
 
@@ -21,6 +23,39 @@ image path directly:
 ```sh
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
+
+## Changes since v0.1.5-beta
+
+- **Linux aarch64 (ARM64) Support:**
+  - Added native Linux ARM64 AppImage (`Melee-aarch64.AppImage`) and portable tarball (`melee-linux-aarch64.tar.gz`) builds via GitHub Actions on Ubuntu ARM runners.
+  - Supports 64-bit ARM Linux platforms including Raspberry Pi 5, Asahi Linux on Apple Silicon, Rockchip RK3588, and ARM64 handhelds.
+
+- **Android 60 FPS First-Play Intro Optimization:**
+  - **Eliminated main-thread background shader compilation stalls:** Fixed the low frame rate (~10 FPS) stutter that occurred during the first play of `MvOpen.mth` on Android devices. When `!g_hasPipelineThread`, Aurora now only processes active draw pipelines in `pipeline_worker()`, never stalling presentation to compile unneeded background pipelines.
+  - **Accelerated boot times:** Added a fast-path check in `seed_pipeline_cache()` that skips re-querying and re-upserting 11,905 seed rows into SQLite if the cache database is already populated, cutting 1.5 to 3.0 seconds off warm launches across all Android devices.
+
+- **Decoupled Audio Pipeline & Concurrency:**
+  - **Decoupled audio frame rendering:** Removed the global `OSDisableInterrupts()` lock from `render_frame()`, restricting interrupt disabling strictly to the 5 ms game synth tick.
+  - **Dedicated audio mutex:** Protected voice parameter modifications under a dedicated recursive `s_audio_mutex`, ensuring audio mixing and reverb never contend with controller polling (`HSD_PadRead`), alarms, or GX rendering.
+
+- **Pre-Seeded Vulkan Pipeline Cache:**
+  - Automated extraction of `tools/initial_pipeline_cache.db.gz` via CMake during build and packaging across Linux, Windows, and Android, pre-seeding pipeline configurations to minimize shader pop-in.
+
+- **C++20 Endian Helpers & Clang Portability:**
+  - Expanded endian conversion helpers in `endian.hpp` (`BE<Mtx>`, `BE<Mtx44>`, `BE<Mtx23>`, array swaps) and provided Clang C++20 `BE<T>` wrappers in `disc.h` to establish the foundation for pure Clang builds on ARM architectures.
+
+- **Upstream Decomp Sync & Bugfixes:**
+  - Synced codebase with upstream Melee decomp up to `194350655ef3c2c301359fc06487227098732f71`.
+  - Fixed #54: Fixed flickering reflection texture on Great Bay hook model.
+  - Fixed intro movie boot failure caused by memory card struct mismatch.
+  - Fixed #55: Fixed stage clear screenshot opacity.
+  - Fixed #53: Fixed trophy fall depth copy crash.
+  - Fixed #51: Fixed fanfare silence on achievement popups.
+  - Fixed #52: Fixed fullscreen crash with overlays.
+  - Fixed #50: Fixed Adventure Mode character loading crash by translating ARAM addresses in file cache.
+  - Fixed #48: Fixed crash when Kirby swallows and spits Sandbag in Home Run Contest.
+  - Fixed #45: Fixed Event 23 / Venom stage crash.
+  - Added Discord community link and icon to launcher.
 
 ## Changes since v0.1.4-beta
 
