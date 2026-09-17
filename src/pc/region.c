@@ -8,26 +8,46 @@
 
 static bool s_is_pal;
 
-void pc_region_set(const char* game_id)
-{
+void pc_region_set(const char* game_id) {
     s_is_pal = memcmp(game_id, "GALP01", 6) == 0;
     aurora_dvd_set_locale_extension(s_is_pal ? "ukd" : NULL);
 }
 
-bool pc_region_is_pal(void)
-{
+bool pc_region_is_pal(void) {
     return s_is_pal;
 }
 
 /* All big-endian, read in place by the game. */
-static const unsigned char k_trophy_row_end[0x24] = { 0xFF, 0xFF, 0xFF, 0xFF }; /* TrophyData.id == -1 */
-static const unsigned char k_s16_end[2] = { 0xFF, 0xFF };                       /* DiscS16 -1 */
+static const unsigned char k_trophy_row_end[0x24] = {
+    0xFF, 0xFF, 0xFF, 0xFF};                            /* TrophyData.id == -1 */
+static const unsigned char k_s16_end[2] = {0xFF, 0xFF}; /* DiscS16 -1 */
 /* tyModelFileUsTbl: the game probes five 0x54-byte rows by their leading s32
  * id with no terminator, so give it six rows whose id is -1. */
 static const unsigned char k_model_rows_none[0x54 * 6] = {
-    [0 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF, [1 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF,
-    [2 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF, [3 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF,
-    [4 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF, [5 * 0x54] = 0xFF, 0xFF, 0xFF, 0xFF,
+    [0 * 0x54] = 0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    [1 * 0x54] = 0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    [2 * 0x54] = 0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    [3 * 0x54] = 0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    [4 * 0x54] = 0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
+    [5 * 0x54] = 0xFF,
+    0xFF,
+    0xFF,
+    0xFF,
 };
 
 static const struct {
@@ -35,16 +55,15 @@ static const struct {
     const void* data;
 } k_pal_stand_ins[] = {
     /* TyDatai.usd only; PAL's TyDatai.ukd has the plain three tables. */
-    { "tyInitModelDTbl", k_trophy_row_end },
-    { "tyExpDifferentTbl", k_s16_end },
-    { "tyNoGetUsTbl", k_s16_end },
-    { "tyDisplayModelUsTbl", k_trophy_row_end }, /* loaded, never read */
+    {"tyInitModelDTbl", k_trophy_row_end},
+    {"tyExpDifferentTbl", k_s16_end},
+    {"tyNoGetUsTbl", k_s16_end},
+    {"tyDisplayModelUsTbl", k_trophy_row_end}, /* loaded, never read */
     /* TyDataf.dat on the USA disc only. */
-    { "tyModelFileUsTbl", k_model_rows_none },
+    {"tyModelFileUsTbl", k_model_rows_none},
 };
 
-const void* pc_region_missing_symbol(const char* symbol_name)
-{
+const void* pc_region_missing_symbol(const char* symbol_name) {
     if (!s_is_pal) {
         return NULL;
     }
@@ -68,6 +87,7 @@ const void* pc_region_missing_symbol(const char* symbol_name)
 /* sysdolphin/baselib/sislib.h; not included since it drags the game's headers. */
 extern unsigned char HSD_SisLib_8040C680[0x240]; /* SJIS -> glyph code */
 extern unsigned char HSD_SisLib_8040CB00[0x240]; /* default kerning, 2 bytes per glyph */
+// clang-format off
 static const unsigned char k_pal_sis_codes[0x240] = {
     0x21, 0x00, 0x20, 0x00, 0x20, 0x01, 0x20, 0x02, 0x20, 0x03, 0x20, 0x04, 0x20, 0x05, 0x20, 0x06,
     0x20, 0x07, 0x20, 0x08, 0x20, 0x09, 0x20, 0x0A, 0x20, 0x0B, 0x20, 0x0C, 0x20, 0x0D, 0x20, 0x0E,
@@ -106,9 +126,9 @@ static const unsigned char k_pal_sis_codes[0x240] = {
     0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E,
     0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E, 0x20, 0x1E,
 };
+// clang-format on
 
-void pc_region_set_sis_kerning(const unsigned char* kerning, unsigned len)
-{
+void pc_region_set_sis_kerning(const unsigned char* kerning, unsigned len) {
     if (!s_is_pal) {
         return;
     }
@@ -116,7 +136,7 @@ void pc_region_set_sis_kerning(const unsigned char* kerning, unsigned len)
         len = sizeof HSD_SisLib_8040CB00;
     }
     /* Keep the USA space width for the blank slot, then overlay PAL's table. */
-    unsigned char space_kern[2] = { HSD_SisLib_8040CB00[227 * 2], HSD_SisLib_8040CB00[227 * 2 + 1] };
+    unsigned char space_kern[2] = {HSD_SisLib_8040CB00[227 * 2], HSD_SisLib_8040CB00[227 * 2 + 1]};
     memset(HSD_SisLib_8040CB00, 0, sizeof HSD_SisLib_8040CB00);
     memcpy(HSD_SisLib_8040CB00, kerning, len);
     memcpy(&HSD_SisLib_8040CB00[PAL_BLANK_GLYPH * 2], space_kern, 2);
