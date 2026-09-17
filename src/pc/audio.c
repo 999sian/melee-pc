@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#define _GNU_SOURCE
 /*
  * Software AX: the GameCube audio voice mixer, on an SDL3 audio stream.
  *
@@ -27,9 +28,28 @@
 #include <SDL3/SDL.h>
 
 #include <math.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#ifdef PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+#else
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP PTHREAD_MUTEX_INITIALIZER
+#endif
+#endif
+
+static pthread_mutex_t s_audio_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+
+static inline void audio_lock(void) {
+    pthread_mutex_lock(&s_audio_mutex);
+}
+
+static inline void audio_unlock(void) {
+    pthread_mutex_unlock(&s_audio_mutex);
+}
 
 #if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
 #include <emmintrin.h>
@@ -358,7 +378,8 @@ static void mix_voice(Voice* v, float* out) {
                     if (!next_sample(v, &s)) {
                         pb->state = 0;
                         pb->ve.currentVolume = (u16)(vol < 0 ? 0 : vol > 32767 ? 32767 : vol);
-                        set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+                        set_addr(
+                            &pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
                         return;
                     }
                     v->prev = v->cur;
@@ -396,7 +417,7 @@ static void mix_voice(Voice* v, float* out) {
                 v->prev = v->cur;
                 v->cur = s;
                 float smp = (float)v->prev;
-                out[i * 2]     += smp * scale_l;
+                out[i * 2] += smp * scale_l;
                 out[i * 2 + 1] += smp * scale_r;
             }
             pb->ve.currentVolume = (u16)vol;
@@ -554,10 +575,22 @@ static void render_frame(float* out) {
     memset(out, 0, sizeof(float) * AX_FRAME * 2);
     memset(s_auxA.ch, 0, sizeof(s_auxA.ch));
     memset(s_auxB.ch, 0, sizeof(s_auxB.ch));
+
+    /* 1. Run the GameCube 5ms synth callback under OS interrupts disabled,
+     * maintaining strict GC timer interrupt semantics. Audio mutex is also
+     * acquired so any AX setters invoked from inside s_frame_callback are safe. */
     BOOL intr = OSDisableInterrupts();
+    audio_lock();
     if (s_frame_callback) {
         s_frame_callback();
     }
+    /* Release global OS interrupt lock IMMEDIATELY after the synth callback.
+     * This decouples the audio DSP rendering from the game thread, preventing
+     * controller polling (HSD_PadRead), vblank, alarms, and GX operations
+     * from stalling on audio processing. */
+    OSRestoreInterrupts(intr);
+
+    /* 2. Process voice mixing under audio_lock only. */
     int n_used = 0, n_running = 0, n_stopped = 0, n_zero_mix = 0;
     int n_zero_ratio = 0, n_loop = 0, n_old = 0;
     for (int i = 0; i < AX_VOICES; i++) {
@@ -603,6 +636,10 @@ static void render_frame(float* out) {
         }
         mix_voice(v, out);
     }
+    audio_unlock();
+
+    /* 3. Schroeder reverb aux effects, music streaming, and SIMD clamping run
+     * completely lock-free and contention-free outside of any mutex. */
     run_aux(&s_auxA, out);
     run_aux(&s_auxB, out);
     if (pc_music_stream_mix) {
@@ -627,7 +664,6 @@ static void render_frame(float* out) {
                 n_zero_ratio, n_loop, n_old);
         }
     }
-    OSRestoreInterrupts(intr);
     /* AX sums into a 16-bit accumulator and saturates; do the same so a busy
      * scene distorts the way the hardware does instead of wrapping. */
 #if defined(PC_AUDIO_SIMD_SSE2)
@@ -690,6 +726,15 @@ static void SDLCALL audio_pull(void* userdata, SDL_AudioStream* stream, int addi
 /* ---- AX API ------------------------------------------------------------ */
 
 void AXInit(void) {
+    static bool mutex_inited = false;
+    if (!mutex_inited) {
+        pthread_mutexattr_t attr;
+        pthread_mutexattr_init(&attr);
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&s_audio_mutex, &attr);
+        pthread_mutexattr_destroy(&attr);
+        mutex_inited = true;
+    }
     memset(s_voices, 0, sizeof(s_voices));
     for (int i = 0; i < AX_VOICES; i++) {
         s_voices[i].vpb.index = i;
@@ -728,7 +773,7 @@ void AXRegisterCallback(void (*callback)()) {
 }
 
 AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), u32 userContext) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* pick = NULL;
     for (int i = 0; i < AX_VOICES; i++) {
         if (!s_voices[i].used) {
@@ -762,89 +807,78 @@ AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), u32 userContext) {
             pick->is_stream = true;
         }
     }
-    OSRestoreInterrupts(intr);
+    audio_unlock();
     return pick ? &pick->vpb : NULL;
 }
 
 void AXFreeVoice(AXVPB* p) {
     if (p) {
-        BOOL intr = OSDisableInterrupts();
+        audio_lock();
         Voice* v = (Voice*)p;
         v->used = false;
         v->is_stream = false;
         v->vpb.pb.state = 0;
         v->vpb.priority = 0;
-        OSRestoreInterrupts(intr);
+        audio_unlock();
     }
 }
 
-/* Every setter below brackets its body with OSDisableInterrupts, because
- * every one of the 21 AXSetVoice* functions in the real SDK does
- * (dolphin/src/dolphin/ax/AXVPB.c, vendored by melee-native: checked, all 21
- * take it) -- on hardware to keep the DSP update from reading a half-written
- * parameter block, and here for the same reason with render_frame() in the
- * DSP's place. src/pc/os.c:24-34 maps OSDisableInterrupts onto a recursive
- * PTHREAD_MUTEX, render_frame holds it for the whole frame on SDL's audio
- * thread, and the game calls these from its own thread and from aurora's DVD
- * worker threads. A multi-word AXSetVoiceAddr/Adpcm, or either half of a
- * set_addr() pair, torn against a concurrent mix_voice hands the voice a
- * cur/end/loop/ratio combination it can never satisfy -- and a voice that
- * never reaches its end address is never AXFreeVoice'd, so 64 of those and
- * no sound can start at all. The mutex is recursive, so the callers that are
- * already inside a bracket (the game's own, and devcom's around every
- * completion callback) just re-enter it. Single-field setters are bracketed
- * too: concurrent plain accesses are a data race whatever their width, and
- * pb.state is the field render_frame gates mixing on. */
+/* Every setter below brackets its body with audio_lock, protecting
+ * parameter blocks against concurrent access with render_frame() on SDL's audio
+ * thread and between game/DVD worker threads. Using a dedicated audio mutex
+ * decouples audio processing from the global OS interrupt mutex (s_intr_mutex),
+ * ensuring controller reads, alarms, and GX draw commands never stall on audio.
+ * The mutex is recursive, so callers inside s_frame_callback safely re-enter it. */
 void AXSetVoicePriority(AXVPB* p, u32 priority) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* v = (Voice*)p;
     p->priority = (int)priority;
     if (priority == 0x1D) {
         v->is_stream = true;
     }
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceState(AXVPB* p, u16 state) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.state = state;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceMix(AXVPB* p, AXPBMIX* mix) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.mix = *mix;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceItdOn(AXVPB* p) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.itd.flag = 1;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceItdTarget(AXVPB* p, u16 l, u16 r) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.itd.targetShiftL = l;
     p->pb.itd.targetShiftR = r;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceVe(AXVPB* p, AXPBVE* ve) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.ve = *ve;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceVeDelta(AXVPB* p, s16 delta) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.ve.currentDelta = delta;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 /* Big-endian block from disc. */
 void AXSetVoiceAddr(AXVPB* p, AXPBADDR* addr) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* v = (Voice*)p;
     AXPBADDR* dst = &p->pb.addr;
     dst->loopFlag = be16(addr->loopFlag);
@@ -886,45 +920,45 @@ void AXSetVoiceAddr(AXVPB* p, AXPBADDR* addr) {
     set_addr(&dst->currentAddressHi, &dst->currentAddressLo, v->cur_addr);
     v->frac = 0;
     v->prev = v->cur = 0;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceLoop(AXVPB* p, u16 loop) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.addr.loopFlag = loop;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceLoopAddr(AXVPB* p, u32 addr) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* v = (Voice*)p;
     v->loop_addr = addr;
     v->is_stream = true;
     set_addr(&p->pb.addr.loopAddressHi, &p->pb.addr.loopAddressLo, addr);
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceEndAddr(AXVPB* p, u32 addr) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* v = (Voice*)p;
     v->end_addr = addr;
     v->is_stream = true;
     set_addr(&p->pb.addr.endAddressHi, &p->pb.addr.endAddressLo, addr);
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceCurrentAddr(AXVPB* p, u32 addr) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* v = (Voice*)p;
     v->cur_addr = addr;
     v->is_stream = true;
     set_addr(&p->pb.addr.currentAddressHi, &p->pb.addr.currentAddressLo, addr);
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 /* Big-endian block from disc. */
 void AXSetVoiceAdpcm(AXVPB* p, AXPBADPCM* a) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* v = (Voice*)p;
     AXPBADPCM* dst = &p->pb.adpcm;
     for (int i = 0; i < 8; i++) {
@@ -938,16 +972,16 @@ void AXSetVoiceAdpcm(AXVPB* p, AXPBADPCM* a) {
     v->pred_scale = dst->pred_scale;
     v->yn1 = (s16)dst->yn1;
     v->yn2 = (s16)dst->yn2;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 /* Big-endian block from disc. */
 void AXSetVoiceAdpcmLoop(AXVPB* p, AXPBADPCMLOOP* l) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     p->pb.adpcmLoop.loop_pred_scale = be16(l->loop_pred_scale);
     p->pb.adpcmLoop.loop_yn1 = be16(l->loop_yn1);
     p->pb.adpcmLoop.loop_yn2 = be16(l->loop_yn2);
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 /* AX_MAX_RATIO is not a guess: retail AXSetVoiceSrcRatio does exactly this,
@@ -992,7 +1026,7 @@ static u32 clamp_ratio(u32 ratio) {
  * never reaches its end address, and the voice pool fills with stuck voices
  * until no sound effect can be started at all. */
 void AXSetVoiceSrc(AXVPB* p, AXPBSRC* s) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     Voice* v = (Voice*)p;
     int i;
 
@@ -1016,11 +1050,11 @@ void AXSetVoiceSrc(AXVPB* p, AXPBSRC* s) {
         p->pb.src.last_samples[i] = s->last_samples[i];
     }
     v->frac = s->currentAddressFrac;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXSetVoiceSrcRatio(AXVPB* p, float ratio) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     /* Both ends have to be handled in float, before the cast: converting a
      * NaN, a negative, or anything >= 65536.0 to u32 is undefined behaviour
      * (x86-64 cvttss2si yields 0x80000000, i.e. a 32768x ratio). Melee's
@@ -1033,21 +1067,21 @@ void AXSetVoiceSrcRatio(AXVPB* p, float ratio) {
     }
     u32 fixed = clamp_ratio((u32)(ratio * 65536.0f));
     set_addr(&p->pb.src.ratioHi, &p->pb.src.ratioLo, fixed);
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXRegisterAuxACallback(void (*callback)(void*, void*), void* context) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     s_auxA.cb = callback;
     s_auxA.ctx = context;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 void AXRegisterAuxBCallback(void (*callback)(void*, void*), void* context) {
-    BOOL intr = OSDisableInterrupts();
+    audio_lock();
     s_auxB.cb = callback;
     s_auxB.ctx = context;
-    OSRestoreInterrupts(intr);
+    audio_unlock();
 }
 
 /* ---- AXFX -------------------------------------------------------------- */

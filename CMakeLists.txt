@@ -136,6 +136,32 @@ add_custom_target(launcher_resources ALL
         "${CMAKE_CURRENT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:melee>/resources")
 add_dependencies(melee launcher_resources)
 
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if (Python3_Interpreter_FOUND)
+    set(MELEE_PYTHON "${Python3_EXECUTABLE}")
+else ()
+    find_program(MELEE_PYTHON NAMES python3 python)
+endif ()
+
+if (MELEE_PYTHON AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/initial_pipeline_cache.db.gz")
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/initial_pipeline_cache.db"
+               "${CMAKE_CURRENT_BINARY_DIR}/resources/initial_pipeline_cache.db"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/resources"
+        COMMAND "${MELEE_PYTHON}" -c "import gzip, sys; data = gzip.open(sys.argv[1], 'rb').read(); open(sys.argv[2], 'wb').write(data); open(sys.argv[3], 'wb').write(data)"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/initial_pipeline_cache.db.gz"
+            "${CMAKE_CURRENT_BINARY_DIR}/initial_pipeline_cache.db"
+            "${CMAKE_CURRENT_BINARY_DIR}/resources/initial_pipeline_cache.db"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/initial_pipeline_cache.db.gz"
+        COMMENT "Unpacking pre-seeded Vulkan pipeline cache"
+        VERBATIM
+    )
+    add_custom_target(pipeline_cache ALL DEPENDS
+        "${CMAKE_CURRENT_BINARY_DIR}/initial_pipeline_cache.db"
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/initial_pipeline_cache.db")
+    add_dependencies(melee pipeline_cache)
+endif ()
+
 option(MELEE_ENABLE_LTO "Enable Link-Time Optimization (LTO)" OFF)
 if (MELEE_ENABLE_LTO)
     include(CheckIPOSupported)
