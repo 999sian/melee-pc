@@ -32,20 +32,6 @@ static inline u32 sis_rd_u32(const void* p)
 }
 static inline s32 sis_rd_s32(const void* p) { return (s32) sis_rd_u32(p); }
 
-#ifdef TARGET_PC
-#include "pc/region.h"
-/* PAL discs encode glyphs as one byte: 0x20 is a space (opcode 26 here) and
- * any other byte b >= 0x21 is atlas glyph b - 0x21. NTSC-U uses two bytes,
- * 0x20xx for the atlas and 0x40xx for a font's own textures. */
-static inline bool sis_pal(void) { return pc_region_is_pal(); }
-static inline u8 sis_opcode(const u8* p) { return (sis_pal() && *p == 0x20) ? 26 : *p; }
-static inline u16 sis_glyph(const u8* p) { return sis_pal() ? (u16) (0x2000 + *p - 0x21) : sis_rd_u16(p); }
-static inline int sis_glyph_len(void) { return sis_pal() ? 1 : 2; }
-#else
-static inline u8 sis_opcode(const u8* p) { return *p; }
-static inline u16 sis_glyph(const u8* p) { return sis_rd_u16(p); }
-static inline int sis_glyph_len(void) { return 2; }
-#endif
 
 static inline f32 HSD_SisLib_GlyphWidth(HSD_Text* text, f32 scale_x)
 {

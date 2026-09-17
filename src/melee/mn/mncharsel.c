@@ -315,11 +315,73 @@ static struct CSSDoorsData2 data2 = {
     },
 };
 
+#ifdef TARGET_PC
+#include "pc/region.h"
+/* The character-select header and token counters are composed by index out
+ * of SdSlChr, and the USA build's layout does not exist on PAL: there the
+ * digits are string 73 (one byte per glyph, see sislib.static.h), 72 is the
+ * scratch line, 74 "-minute", 77/80/83/86 the "... fest!" tails per mode with
+ * 78/81/84/87 their "An endless ..." forms, 88/89 the camera/stamina lines
+ * and 90 the token-counter prefix. */
+enum {
+    CSS_PAL_SCRATCH = 72,
+    CSS_PAL_DIGITS = 73,
+    CSS_PAL_MINUTE = 74,
+    CSS_PAL_TIME = 77,
+    CSS_PAL_STOCK = 80,
+    CSS_PAL_STOCKS = 81,
+    CSS_PAL_COIN = 83,
+    CSS_PAL_BONUS = 86,
+    CSS_PAL_CAMERA = 88,
+    CSS_PAL_STAMINA = 89,
+    CSS_PAL_TOKEN = 90,
+};
+
+static u8* css_pal_string(s32 idx)
+{
+    return DP(u8, ((DiscU32*) HSD_SisLib_804D1124[0])[idx].v);
+}
+
+/* Write n as PAL single-byte digit glyphs at dst; returns the byte after. */
+static u8* css_pal_write_digits(u8* dst, u32 n)
+{
+    const u8* digits = css_pal_string(CSS_PAL_DIGITS);
+    char buf[8];
+    int i;
+    if (n > 9999) {
+        n = 9999;
+    }
+    sprintf(buf, "%u", n);
+    for (i = 0; buf[i] != '\0'; i++) {
+        *dst++ = digits[buf[i] - '0'];
+    }
+    *dst = 0;
+    return dst;
+}
+
+/* "<n>-minute <tail>" with a time limit, or the endless form without one. */
+static void css_pal_header(u32 time_limit, s32 tail, s32 endless)
+{
+    if (time_limit != 0) {
+        css_pal_write_digits(css_pal_string(CSS_PAL_SCRATCH), time_limit);
+        HSD_SisLib_803A660C(0, CSS_PAL_SCRATCH, CSS_PAL_MINUTE);
+        HSD_SisLib_803A660C(0, CSS_PAL_SCRATCH, tail);
+    } else {
+        HSD_SisLib_803A6530(0, CSS_PAL_SCRATCH, endless);
+    }
+}
+#endif
+
 TextKerning* mnCharSel_8025BC20(TextKerning* arg0, u32 arg1)
 {
     TextKerning* kerning;
     u32 render_zeroes;
     render_zeroes = 0;
+#ifdef TARGET_PC
+    if (pc_region_is_pal()) {
+        return (TextKerning*) css_pal_write_digits((u8*) arg0, arg1);
+    }
+#endif
     kerning = DP(TextKerning, HSD_SisLib_804D1124[0][41].kerning);
     if (arg1 >= 10000) {
         arg1 = 9999;
@@ -359,6 +421,37 @@ void mnCharSel_8025BD30(void)
 
     match_type = mnCharSel_804D6CB0->match_type;
 
+#ifdef TARGET_PC
+    if (pc_region_is_pal()) {
+        u32 limit = gmMainLib_GetGameRules()->time_limit;
+        if (match_type == VS_CAMERA) {
+            HSD_SisLib_803A6530(0, CSS_PAL_SCRATCH, CSS_PAL_CAMERA);
+        } else if (match_type == VS_STAMINA) {
+            HSD_SisLib_803A6530(0, CSS_PAL_SCRATCH, CSS_PAL_STAMINA);
+        } else {
+            switch (gmMainLib_GetGameRules()->mode) {
+            case Mode_Stock:
+                css_pal_write_digits(css_pal_string(CSS_PAL_SCRATCH),
+                                     gmMainLib_GetGameRules()->stock_count);
+                HSD_SisLib_803A660C(0, CSS_PAL_SCRATCH,
+                                    gmMainLib_GetGameRules()->stock_count < 2U
+                                        ? CSS_PAL_STOCK
+                                        : CSS_PAL_STOCKS);
+                break;
+            case Mode_Coin:
+                css_pal_header(limit, CSS_PAL_COIN, CSS_PAL_COIN + 1);
+                break;
+            case Mode_Bonus:
+                css_pal_header(limit, CSS_PAL_BONUS, CSS_PAL_BONUS + 1);
+                break;
+            default:
+                css_pal_header(limit, CSS_PAL_TIME, CSS_PAL_TIME + 1);
+                break;
+            }
+        }
+        return;
+    }
+#endif
     if (match_type == VS_CAMERA) {
         HSD_SisLib_803A6530(0, 0x4A, 0x4F);
         return;
@@ -874,11 +967,23 @@ void mnCharSel_8025D1C4(int port, int mode)
                 text->text_color.a = 0xA0;
             }
             {
-                TextKerning* tmp = (TextKerning*) HSD_SisLib_803A6478(
+                TextKerning* tmp;
+#ifdef TARGET_PC
+                if (pc_region_is_pal()) {
+                    tmp = (TextKerning*) HSD_SisLib_803A6478(sis_buf, css_pal_string(CSS_PAL_TOKEN));
+                } else
+#endif
+                tmp = (TextKerning*) HSD_SisLib_803A6478(
                     sis_buf, &DP(TextKerning, HSD_SisLib_804D1124[0][43].kerning)->left);
                 mnCharSel_8025BC20(tmp, star_count);
             }
+#ifdef TARGET_PC
+            /* On PAL the token line lives in the scratch built at line ~890
+             * (CSS_PAL_TOKEN + digits); its table slot 0x56 is unrelated. */
+            HSD_SisLib_803A6368(text, pc_region_is_pal() ? CSS_PAL_TOKEN : 0x56);
+#else
             HSD_SisLib_803A6368(text, 0x56);
+#endif
             text->sis_buffer = (SIS*) sis_buf;
             HSD_JObjSetFlags(sp10 = HSD_JObjGetChild(sp10), JOBJ_HIDDEN);
             HSD_JObjSetFlags(sp10 = HSD_JObjGetNext(sp10), JOBJ_HIDDEN);
@@ -5176,7 +5281,11 @@ s32 mnCharSel_802640A0(void)
         text->default_fitting = 1;
         text->font_size.x = 0.07f;
         text->font_size.y = 0.07f;
+#ifdef TARGET_PC
+        HSD_SisLib_803A6368(text, pc_region_is_pal() ? CSS_PAL_SCRATCH : 0x4A);
+#else
         HSD_SisLib_803A6368(text, 0x4A);
+#endif
         mnCharSel_8025BD30();
         mt = mnCharSel_804D6CB0->match_type;
         if ((s32) mt < 3) {

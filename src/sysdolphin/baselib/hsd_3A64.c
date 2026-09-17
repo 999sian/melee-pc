@@ -20,7 +20,9 @@ u8* HSD_SisLib_803A6478(u8* dst, u8* src)
     while (*src != 0) {
         if (*src >= 0x20) {
             *dst++ = *src++;
-            *dst++ = *src++;
+            if (sis_glyph_len() == 2) {
+                *dst++ = *src++;
+            }
         } else {
             switch (*dst++ = *src++) {
             case 6:
@@ -56,7 +58,7 @@ void HSD_SisLib_803A660C(s32 font_idx, s32 dst_idx, s32 src_idx)
 
     while (*dst != 0) {
         if (*dst >= 0x20) {
-            dst += 2;
+            dst += sis_glyph_len();
         } else {
             switch (*dst) {
             case 6:
@@ -354,7 +356,7 @@ end:
         do {
             char_size = 0;
             if (*scan_ptr >= 32) {
-                char_size = 2;
+                char_size = sis_glyph_len();
             } else if (*scan_ptr == 10) {
                 char_size = 5;
             } else if (*scan_ptr == 11) {
