@@ -189,6 +189,8 @@ static void usage(const char* argv0) {
     exit(2);
 }
 
+#include "pc/input_poll.h"
+
 static void pc_shutdown_once(void) {
     static bool done;
     if (done) {
@@ -197,6 +199,7 @@ static void pc_shutdown_once(void) {
     done = true;
     /* Stop producers before joining DMA and destroying platform resources.
      * An unjoined ARQ worker aborts in std::thread's static destructor. */
+    pc_input_poll_shutdown();
     AXQuit();
     aurora_dvd_close();
     pc_textures_shutdown();

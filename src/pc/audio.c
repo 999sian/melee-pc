@@ -31,6 +31,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#include <emmintrin.h>
+#define PC_AUDIO_SIMD_SSE2 1
+#elif defined(__ARM_NEON) || defined(__aarch64__)
+#include <arm_neon.h>
+#define PC_AUDIO_SIMD_NEON 1
+#endif
+
 /* Cached once: getenv() scans the whole environment, and these guards sit
  * on per-draw / per-voice paths where that cost is not acceptable even
  * when the diagnostic is switched off. */
@@ -258,6 +266,10 @@ static bool is_music_stream(Voice* v) {
 
 static void mix_voice(Voice* v, float* out) {
     AXPB* pb = &v->vpb.pb;
+    if (!pb->state) {
+        return;
+    }
+
     u32 ratio = addr32(pb->src.ratioHi, pb->src.ratioLo);
     s32 vol = pb->ve.currentVolume;
     s32 delta = pb->ve.currentDelta;
@@ -276,6 +288,196 @@ static void mix_voice(Voice* v, float* out) {
     bool send_a = (s_auxA.cb != NULL) && (al != 0.0f || ar != 0.0f);
     bool send_b = (s_auxB.cb != NULL) && (bl != 0.0f || br != 0.0f);
 
+    if (vol < 0) {
+        vol = 0;
+    } else if (vol > 32767) {
+        vol = 32767;
+    }
+
+    bool is_silent = ((vol == 0 && delta == 0) || (vl == 0.0f && vr == 0.0f)) && !send_a && !send_b;
+
+    /* If ratio is 0, no source samples can ever be consumed (v->frac += 0).
+     * If the voice is silent, nothing is mixed and no samples advance. Early exit! */
+    if (ratio == 0) {
+        if (is_silent) {
+            return;
+        }
+        float t = (float)v->frac * (1.0f / 65536.0f);
+        float s = ((float)v->prev + t * (float)(v->cur - v->prev)) * (1.0f / 32768.0f);
+        for (int i = 0; i < AX_FRAME; i++) {
+            float g = (float)vol * (1.0f / 32767.0f);
+            float sv = s * g;
+            out[i * 2] += sv * vl;
+            out[i * 2 + 1] += sv * vr;
+            if (send_a) {
+                s_auxA.ch[0][i] += (long)(sv * al * 32767.0f);
+                s_auxA.ch[1][i] += (long)(sv * ar * 32767.0f);
+            }
+            if (send_b) {
+                s_auxB.ch[0][i] += (long)(sv * bl * 32767.0f);
+                s_auxB.ch[1][i] += (long)(sv * br * 32767.0f);
+            }
+            vol += delta;
+            if (vol < 0) {
+                vol = 0;
+            } else if (vol > 32767) {
+                vol = 32767;
+            }
+        }
+        pb->ve.currentVolume = (u16)vol;
+        set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+        return;
+    }
+
+    /* Fast path for silent voices: advance sample decoding, stream ring buffers,
+     * and end-of-voice checks without any floating-point arithmetic or buffer writes. */
+    if (is_silent) {
+        if (ratio == 0x10000) {
+            for (int i = 0; i < AX_FRAME; i++) {
+                s16 s;
+                if (!next_sample(v, &s)) {
+                    pb->state = 0;
+                    pb->ve.currentVolume = (u16)(vol < 0 ? 0 : vol > 32767 ? 32767 : vol);
+                    set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+                    return;
+                }
+                v->prev = v->cur;
+                v->cur = s;
+                vol += delta;
+                if (vol < 0) {
+                    vol = 0;
+                } else if (vol > 32767) {
+                    vol = 32767;
+                }
+            }
+        } else {
+            for (int i = 0; i < AX_FRAME; i++) {
+                v->frac += ratio;
+                while (v->frac >= 0x10000) {
+                    s16 s;
+                    if (!next_sample(v, &s)) {
+                        pb->state = 0;
+                        pb->ve.currentVolume = (u16)(vol < 0 ? 0 : vol > 32767 ? 32767 : vol);
+                        set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+                        return;
+                    }
+                    v->prev = v->cur;
+                    v->cur = s;
+                    v->frac -= 0x10000;
+                }
+                vol += delta;
+                if (vol < 0) {
+                    vol = 0;
+                } else if (vol > 32767) {
+                    vol = 32767;
+                }
+            }
+        }
+        pb->ve.currentVolume = (u16)vol;
+        set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+        return;
+    }
+
+    /* Fast path for 1:1 playback (ratio == 0x10000, 32kHz native GameCube rate).
+     * Consumes exactly 1 sample per frame step.
+     * When v->frac == 0, no fractional interpolation is performed: s = v->prev. */
+    if (ratio == 0x10000 && v->frac == 0) {
+        if (delta == 0 && !send_a && !send_b) {
+            float scale_l = ((float)vol * (1.0f / 32767.0f)) * vl * (1.0f / 32768.0f);
+            float scale_r = ((float)vol * (1.0f / 32767.0f)) * vr * (1.0f / 32768.0f);
+            for (int i = 0; i < AX_FRAME; i++) {
+                s16 s;
+                if (!next_sample(v, &s)) {
+                    pb->state = 0;
+                    pb->ve.currentVolume = (u16)vol;
+                    set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+                    return;
+                }
+                v->prev = v->cur;
+                v->cur = s;
+                float smp = (float)v->prev;
+                out[i * 2]     += smp * scale_l;
+                out[i * 2 + 1] += smp * scale_r;
+            }
+            pb->ve.currentVolume = (u16)vol;
+            set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+            return;
+        }
+
+        for (int i = 0; i < AX_FRAME; i++) {
+            s16 s;
+            if (!next_sample(v, &s)) {
+                pb->state = 0;
+                pb->ve.currentVolume = (u16)(vol < 0 ? 0 : vol > 32767 ? 32767 : vol);
+                set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+                return;
+            }
+            v->prev = v->cur;
+            v->cur = s;
+            float smp = (float)v->prev * (1.0f / 32768.0f);
+            float g = (float)vol * (1.0f / 32767.0f);
+            float sv = smp * g;
+            out[i * 2] += sv * vl;
+            out[i * 2 + 1] += sv * vr;
+            if (send_a) {
+                s_auxA.ch[0][i] += (long)(sv * al * 32767.0f);
+                s_auxA.ch[1][i] += (long)(sv * ar * 32767.0f);
+            }
+            if (send_b) {
+                s_auxB.ch[0][i] += (long)(sv * bl * 32767.0f);
+                s_auxB.ch[1][i] += (long)(sv * br * 32767.0f);
+            }
+            vol += delta;
+            if (vol < 0) {
+                vol = 0;
+            } else if (vol > 32767) {
+                vol = 32767;
+            }
+        }
+        pb->ve.currentVolume = (u16)vol;
+        set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+        return;
+    }
+
+    /* Fast path for ratio == 0x10000 with non-zero phase: phase remains constant throughout. */
+    if (ratio == 0x10000) {
+        float t = (float)v->frac * (1.0f / 65536.0f);
+        for (int i = 0; i < AX_FRAME; i++) {
+            s16 s;
+            if (!next_sample(v, &s)) {
+                pb->state = 0;
+                pb->ve.currentVolume = (u16)(vol < 0 ? 0 : vol > 32767 ? 32767 : vol);
+                set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+                return;
+            }
+            v->prev = v->cur;
+            v->cur = s;
+            float smp = ((float)v->prev + t * (float)(v->cur - v->prev)) * (1.0f / 32768.0f);
+            float g = (float)vol * (1.0f / 32767.0f);
+            float sv = smp * g;
+            out[i * 2] += sv * vl;
+            out[i * 2 + 1] += sv * vr;
+            if (send_a) {
+                s_auxA.ch[0][i] += (long)(sv * al * 32767.0f);
+                s_auxA.ch[1][i] += (long)(sv * ar * 32767.0f);
+            }
+            if (send_b) {
+                s_auxB.ch[0][i] += (long)(sv * bl * 32767.0f);
+                s_auxB.ch[1][i] += (long)(sv * br * 32767.0f);
+            }
+            vol += delta;
+            if (vol < 0) {
+                vol = 0;
+            } else if (vol > 32767) {
+                vol = 32767;
+            }
+        }
+        pb->ve.currentVolume = (u16)vol;
+        set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
+        return;
+    }
+
+    /* General sample-rate conversion path (ratio != 0x10000) */
     for (int i = 0; i < AX_FRAME; i++) {
         v->frac += ratio;
         while (v->frac >= 0x10000) {
@@ -428,10 +630,44 @@ static void render_frame(float* out) {
     OSRestoreInterrupts(intr);
     /* AX sums into a 16-bit accumulator and saturates; do the same so a busy
      * scene distorts the way the hardware does instead of wrapping. */
+#if defined(PC_AUDIO_SIMD_SSE2)
+    const __m128 vmaster = _mm_set1_ps(s_master);
+    const __m128 vone = _mm_set1_ps(1.0f);
+    const __m128 vneg_one = _mm_set1_ps(-1.0f);
+    for (int i = 0; i < AX_FRAME * 2; i += 8) {
+        __m128 v0 = _mm_loadu_ps(&out[i]);
+        __m128 v1 = _mm_loadu_ps(&out[i + 4]);
+        v0 = _mm_mul_ps(v0, vmaster);
+        v1 = _mm_mul_ps(v1, vmaster);
+        v0 = _mm_min_ps(v0, vone);
+        v1 = _mm_min_ps(v1, vone);
+        v0 = _mm_max_ps(v0, vneg_one);
+        v1 = _mm_max_ps(v1, vneg_one);
+        _mm_storeu_ps(&out[i], v0);
+        _mm_storeu_ps(&out[i + 4], v1);
+    }
+#elif defined(PC_AUDIO_SIMD_NEON)
+    const float32x4_t vmaster = vdupq_n_f32(s_master);
+    const float32x4_t vone = vdupq_n_f32(1.0f);
+    const float32x4_t vneg_one = vdupq_n_f32(-1.0f);
+    for (int i = 0; i < AX_FRAME * 2; i += 8) {
+        float32x4_t v0 = vld1q_f32(&out[i]);
+        float32x4_t v1 = vld1q_f32(&out[i + 4]);
+        v0 = vmulq_f32(v0, vmaster);
+        v1 = vmulq_f32(v1, vmaster);
+        v0 = vminq_f32(v0, vone);
+        v1 = vminq_f32(v1, vone);
+        v0 = vmaxq_f32(v0, vneg_one);
+        v1 = vmaxq_f32(v1, vneg_one);
+        vst1q_f32(&out[i], v0);
+        vst1q_f32(&out[i + 4], v1);
+    }
+#else
     for (int i = 0; i < AX_FRAME * 2; i++) {
         float s = out[i] * s_master;
         out[i] = s > 1.0f ? 1.0f : (s < -1.0f ? -1.0f : s);
     }
+#endif
 }
 
 /* MELEE_AUDIO_DUMP=<file>: also write the mix as raw f32 stereo 32kHz. */
