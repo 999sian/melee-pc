@@ -72,30 +72,52 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Windows (x86-64, MinGW cross)
+    name: Windows (${{ matrix.arch }})
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            toolchain: mingw-w64
+          - arch: arm64
+            toolchain: llvm-mingw
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install MinGW-w64 toolchain
+      - name: Install build tools
         run: |
           sudo apt-get update
-          # cabextract unpacks the VC++ redistributable that package_windows.sh
-          # ships app-local; curl fetches it.
           sudo apt-get install -y --no-install-recommends \
-            mingw-w64 ninja-build cmake zip cabextract curl
+            ninja-build cmake zip cabextract curl
+
+      - name: Install MinGW-w64 toolchain (x86_64)
+        if: matrix.arch == 'x86_64'
+        run: |
+          sudo apt-get install -y --no-install-recommends mingw-w64
           # aurora's C++20 code needs std::thread, which only the POSIX
           # threading model provides; Ubuntu defaults some links to win32.
           sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
           sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
 
+      - name: Install LLVM-MinGW and GCC AArch64 (ARM64)
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu
+          LLVM_MINGW_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/llvm-mingw-20260908-ucrt-ubuntu-22.04-x86_64.tar.xz"
+          sudo mkdir -p /opt/llvm-mingw
+          curl -sSL "${LLVM_MINGW_URL}" | sudo tar -xJ -C /opt/llvm-mingw --strip-components=1
+          echo "/opt/llvm-mingw/bin" >> $GITHUB_PATH
+
       - name: Build and package
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
         run: tools/package_windows.sh
 
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-x86_64
-          path: dist/Melee-Windows-x86_64.zip
+          name: windows-${{ matrix.arch }}
+          path: dist/Melee-Windows-${{ matrix.arch }}.zip
           if-no-files-found: error
 
   android:
@@ -126,7 +148,7 @@ jobs:
 
       - name: Build APK
         env:
-          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.5' }}
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.7' }}
           MELEE_KEYSTORE_BASE64: ${{ secrets.MELEE_KEYSTORE_BASE64 }}
           MELEE_KEYSTORE_PASSWORD: ${{ secrets.MELEE_KEYSTORE_PASSWORD }}
           MELEE_KEY_ALIAS: ${{ secrets.MELEE_KEY_ALIAS }}
@@ -160,7 +182,7 @@ jobs:
 
       - name: Build and package
         env:
-          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.4' }}
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.7' }}
         run: tools/package_macos.sh
 
       - uses: actions/upload-artifact@v4
@@ -169,9 +191,44 @@ jobs:
           path: dist/Melee-macOS-arm64.zip
           if-no-files-found: error
 
+  ios:
+    name: iOS (arm64, IPA)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ninja-build cmake gcc-aarch64-linux-gnu \
+            clang lld zip python3
+
+      - name: Checkout iOS SDK
+        run: |
+          mkdir -p /tmp/sdks
+          git clone --depth=1 --filter=blob:none --sparse https://github.com/theos/sdks.git /tmp/sdks
+          cd /tmp/sdks
+          git sparse-checkout set iPhoneOS16.5.sdk
+
+      - name: Setup Rust for iOS
+        run: |
+          rustup target add aarch64-apple-ios
+
+      - name: Build and package iOS IPA
+        env:
+          IOS_SDK_PATH: /tmp/sdks/iPhoneOS16.5.sdk
+        run: tools/build_ios.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-arm64
+          path: dist/Melee-iOS-arm64.ipa
+          if-no-files-found: error
+
   release:
     name: Publish release
-    needs: [linux, windows, android, macos]
+    needs: [linux, windows, android, ios, macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:

@@ -17,7 +17,9 @@ English (UK) text.
 | Linux aarch64 (ARM64) | `Melee-aarch64.AppImage` | For 64-bit ARM Linux (Raspberry Pi 5, Asahi Linux, Orange Pi). |
 | Linux aarch64 (ARM64) | `melee-linux-aarch64.tar.gz` | Portable directory for 64-bit ARM Linux; run `run.sh`. |
 | Windows x86-64 | `Melee-Windows-x86_64.zip` | Extract and run `melee.exe`. Keep the DLLs and `resources/` beside it. |
+| Windows ARM64 | `Melee-Windows-arm64.zip` | Native 64-bit ARM build for Windows on ARM (Snapdragon X Elite, Surface Pro). |
 | Android arm64 | `Melee-Android-arm64.apk` | Release build, signed. Allow install from unknown sources. |
+| iOS arm64 | `Melee-iOS-arm64.ipa` | Sideloadable IPA (AltStore, Sideloadly, TrollStore) with Metal backend. |
 | macOS arm64 | `Melee-macOS-arm64.zip` | Apple Silicon. Ad-hoc signed: right-click > Open on first launch. |
 
 Launch with no arguments to open the launcher and pick a disc, or pass the
@@ -26,6 +28,28 @@ image path directly:
 ```sh
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
+
+## Changes in v0.1.7-beta
+
+- **Native Windows ARM64 Support:**
+  - Added pure native ARM64 PE executable (`Melee-Windows-arm64.zip`) compiled with `llvm-mingw` and GCC-powered big-endian scalar storage order translation.
+  - Bundles native ARM64 WebGPU/Dawn (`dxcompiler.dll`, `dxil.dll`, `webgpu_dawn.dll`), Nod (`nod.dll`), and app-local Visual C++ ARM64 runtime DLLs.
+  - Tested on Windows 11 on ARM devices including Qualcomm Snapdragon X Elite, Snapdragon 8cx Gen 3, and Microsoft Surface Pro Copilot+ PCs.
+
+- **Native iOS Support (arm64):**
+  - Added native iOS app bundle and sideloadable package (`Melee-iOS-arm64.ipa`) targeting iOS 14.0+ arm64.
+  - Metal graphics backend powered by WebGPU/Dawn with seamless resolution scaling and retina display support.
+  - On-screen GameCube touch controls with touch-to-fade, sensitivity calibration, and automatic hiding when physical Bluetooth controllers (MFi / Xbox / PlayStation / Switch Pro) are connected.
+  - RmlUi settings launcher with auto-detection of game images in the app sandbox and Apple `os_log` system logging.
+
+- **Memory Safety & Fighter Stability Fixes:**
+  - **Falco & Fox Illusion Afterimage Crash Fix:** Fixed memory corruption and access violations in `ftafterimage.c` and `itfoxillusion.c` during Event 23 and fast multi-afterimage rendering.
+  - **64-bit Disc Pointer Reconstruction (DP macro):** Reconstructed 64-bit host pointers across fighter, item, stage, and particle systems, ensuring safe referencing on 64-bit architectures.
+  - **Windows/MinGW DECL_WEAK Symbol Resolution (fixes #61):** Resolved weak symbol linking behavior in MinGW to prevent null function pointer dereferencing on `OSReport` calls.
+  - **Audio Thread Concurrency & Mutex Safety:** Resolved audio thread startup race condition and mutex re-entrancy in `audio.c`.
+
+- **UI & Layout Synchronizations:**
+  - Synchronized Cheats menu layout and resources between pre-game launcher and in-game F1 settings overlay.
 
 ## Changes in v0.1.6-beta
 

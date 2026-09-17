@@ -150,17 +150,17 @@ void pc_touch_event(const SDL_Event* e) {
 }
 
 #if defined(__ANDROID__)
-__attribute__((visibility("default"))) JNIEXPORT void
-    JNICALL Java_dev_melee_TouchControls_nativeSetTouchPad(JNIEnv* env, jclass clazz, jint buttons,
-        jint stickX, jint stickY, jint cstickX, jint cstickY, jint triggerL, jint triggerR) {
+JNIEXPORT void JNICALL Java_dev_melee_TouchControls_nativeSetTouchPad(JNIEnv* env, jclass clazz,
+    jint buttons, jint stickX, jint stickY, jint cstickX, jint cstickY, jint triggerL,
+    jint triggerR) {
     (void)env;
     (void)clazz;
     pc_touch_set_pad((uint16_t)buttons, (int8_t)stickX, (int8_t)stickY, (int8_t)cstickX,
         (int8_t)cstickY, (uint8_t)triggerL, (uint8_t)triggerR);
 }
 
-__attribute__((visibility("default"))) JNIEXPORT void JNICALL
-Java_dev_melee_TouchControls_nativeSetTouchActive(JNIEnv* env, jclass clazz, jboolean active) {
+JNIEXPORT void JNICALL Java_dev_melee_TouchControls_nativeSetTouchActive(
+    JNIEnv* env, jclass clazz, jboolean active) {
     (void)env;
     (void)clazz;
     pc_touch_set_active(active == JNI_TRUE);
