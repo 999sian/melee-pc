@@ -253,14 +253,6 @@ the update, and publishes `{mu, sigma, n, head_hash, name}` as a BEP 44
 mutable item (`seq` = n, `salt` = "meleepc-rank-v1", re-announce hourly).
 
 **Verification** when two ranked players meet: `HELLO` carries the claimed
-
-**Prototype (branch `netcode-prototype`)**: `src/pc/net.c` — delay-based
-lockstep over raw UDP, hooked at `gmscene.c` before `lb_800198E0`. Env:
-`MELEE_NET=host:port`, `MELEE_NET_PORT`, `MELEE_NET_PLAYER=0|1`,
-`MELEE_NET_DELAY` (default 2); run both peers with the same `MELEE_SEED` and
-`--no-card`. Verified on localhost: 2400 lockstep frames at 60 fps, inputs
-cross both ways, mismatched seeds are flagged as `DESYNC` at frame 0. This is
-M2's transport + input sync; M0 and M1 build on it.
 head; each side does a BEP 44 `get` of the other's item, checks the signature
 and that the claimed `(mu, sigma, n, head_hash)` matches. Mismatch → play
 unranked or refuse. Loss suppression is detectable, not preventable: the
@@ -341,6 +333,14 @@ Ordered by expected gain per line of code:
 | M4 Internet | DHT (jech/dht + BEP 42/44), topics, simultaneous open, Direct + Unranked queues, connect codes | Two home NATs (different ISPs) connect via Direct code with no port forwarding; unranked queue pairs two clients within 60 s; symmetric-NAT failure re-queues with a message |
 | M5 Ranked | identity, Weng-Lin, signed records, BEP 44 publish/verify, ranked set flow, tiers UI | After a Bo3 both clients hold identical rating bits; opponent's published item verifies; a tampered local history is rejected by the peer |
 | M6 Latency polish | §11 items 2–4, 7; SFX log dedupe; quick chat; label textures | Measured button→photon latency (LED + high-speed camera or photodiode) at delay 1 ≤ Slippi at delay 2 on the same hardware |
+
+**Prototype (branch `netcode-prototype`)**: `src/pc/net.c` — delay-based
+lockstep over raw UDP, hooked at `gmscene.c` before `lb_800198E0`. Env:
+`MELEE_NET=host:port`, `MELEE_NET_PORT`, `MELEE_NET_PLAYER=0|1`,
+`MELEE_NET_DELAY` (default 2); run both peers with the same `MELEE_SEED` and
+`--no-card`. Verified on localhost: 2400 lockstep frames at 60 fps, inputs
+cross both ways, mismatched seeds are flagged as `DESYNC` at frame 0. This is
+M2's transport + input sync; M0 and M1 build on it.
 
 New third-party code, all vendored as source, all static: jech/dht (MIT),
 mjansson/mdns (PD), Monocypher (BSD-2/CC0), sha1.c (PD), musl trig (MIT).
