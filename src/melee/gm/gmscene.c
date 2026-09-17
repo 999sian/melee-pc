@@ -1,5 +1,6 @@
 #include "gmscene.h"
 #ifdef TARGET_PC
+#include "pc/net.h"
 #include "pc/widescreen.h"
 #endif
 
@@ -311,6 +312,9 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
 
         for (i = 0; i < pad_queue_count; i++) {
             HSD_PerfSetStartTime();
+#ifdef TARGET_PC
+            pc_net_sync();
+#endif
             lb_800198E0();
             if (DbLevel >= DbLKind_DebugRom) {
                 gm_801A4970(&temp_r25->unk_10.db_input);
