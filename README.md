@@ -78,11 +78,14 @@ flowchart LR
 - [ ] **Replay Recording & Playback**: Export inputs and seeds to Slippi `.slp` files with native replay player.
 
 ### Phase 4: Serverless Online Netcode (BitTorrent-Style P2P Matchmaking & Rollback)
+Design: [docs/netcode-plan.md](docs/netcode-plan.md).
+- [ ] **Native Rollback Netcode**: Slippi-model rollback (delay 0–4, 7-frame window) on native memory snapshots.
 - [ ] **BitTorrent-Style Decentralized Matchmaking (Serverless P2P)**:
   * **DHT / Kademlia Peer Discovery**: Mainline DHT peer discovery eliminating central matchmaking servers and hosting costs.
-  * **Decentralized Connect Codes**: Topic/infohash-based room matchmaking.
+  * **Decentralized Connect Codes**: `NAME#XXXX` codes derived from a per-install keypair.
   * **NAT Traversal & UDP Hole-Punching**: Direct P2P connectivity behind home routers.
-- [ ] **Native Rollback Netcode**: Sub-millisecond state snapshotting and restoration on native MEM1 memory blocks.
+- [ ] **Unranked, Ranked, Direct and LAN modes**: Slippi ranked ruleset; on-device Weng-Lin rating from doubly-signed match records published to the DHT; LAN via mDNS.
+- [ ] **Native menu integration**: `Online` under VS Mode, lobby, quick chat, HUD ping/delay.
 - [ ] **macOS Support** (Apple Silicon / Metal).
 - [ ] **RetroAchievements Integration**: Native achievement tracking.
 

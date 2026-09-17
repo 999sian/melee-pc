@@ -105,17 +105,23 @@ Focus: Cutting-edge display performance and competitive practice tools (UnclePun
 
 ### Phase 4: Serverless Online Netcode (BitTorrent-Style P2P Matchmaking & Rollback)
 
-Focus: Zero-delay online play with completely decentralized, serverless peer matchmaking.
+Focus: Zero-delay online play with completely decentralized, serverless peer matchmaking. Design document: [docs/netcode-plan.md](docs/netcode-plan.md).
 
+- [ ] **Native Rollback Netcode** (Slippi model, re-implemented on native memory):
+  * Input delay 0–4 (auto from RTT), 7-frame rollback window, repeat-last-input prediction, snapshots only on predicted frames.
+  * Whole-region snapshot of game statics + live heaps (audio heap excluded); SFX/music/rumble gated during re-simulation.
+  * Slippi-style time sync (trimmed-mean clock offset, stall/advance) applied to native frame pacing; per-frame desync checksums.
+  * Determinism groundwork first: `-ffp-contract=off` on every TU game logic reaches, one vendored trig implementation instead of platform libm, shared RNG seed, deterministic (prewarmed) in-match disc loads, record/replay harness.
 - [ ] **BitTorrent-Style Decentralized Matchmaking (Serverless P2P)**:
-  * **DHT / Kademlia Peer Discovery**: Utilize a Distributed Hash Table (DHT, similar to BitTorrent's Mainline DHT or libp2p) for matchmaking and peer discovery—eliminating the need for central matchmaking servers, ongoing hosting costs, or single points of failure.
-  * **Decentralized Connect Codes & Matchmaking Topics**: Direct connect codes (e.g. `ABC#123`) or unranked matchmaking pools hash into 160-bit DHT infohashes; players seeking opponents announce themselves under the topic and discover peers directly.
-  * **NAT Traversal & UDP Hole-Punching**: Direct peer-to-peer UDP hole-punching to connect players behind home routers and NATs without relay servers.
+  * **DHT / Kademlia Peer Discovery**: Mainline DHT (BEP 5) via jech/dht; time-bucketed topic infohashes for queues; `announce_peer(implied_port)` + `get_peers` is the rendezvous, BEP 42 `ip` reveals the NAT mapping — no matchmaking server, no STUN.
+  * **Decentralized Connect Codes**: `NAME#XXXX` (suffix derived from the player's ed25519 public key); Direct topics hash the code.
+  * **NAT Traversal & UDP Hole-Punching**: Simultaneous open from the DHT socket (Slippi's approach); symmetric NAT re-queues, no relay.
   * **Community Resilience & Longevity**: Zero backend infrastructure means the online mode can never be shut down or abandoned.
-- [ ] **Native Rollback Netcode**:
-  * Implementation of GGPO / Slippi rollback protocol running directly on native C11/C++20 game memory.
-  * Instantaneous state snapshotting and restoration using native MEM1 memory blocks (sub-millisecond rollbacks with no emulator translation overhead).
-  * Low-jitter adaptive input delay and frame sync.
+- [ ] **Unranked, Ranked and Direct modes** with Slippi's ranked ruleset (4 stock / 8:00 / items off / 6 legal stages / Bo3, loser picks with bans).
+- [ ] **On-Device Rating (no server)**: ed25519 identity per install; Weng-Lin (OpenSkill) rating updated identically on both peers from a doubly-signed match record; hash-chained history published as BEP 44 DHT items and verified by opponents. Verifiable, explicitly not cheat-proof.
+- [ ] **LAN Play**: mDNS discovery, Double Dash-style lobby (player counter, host owns rules, load barriers, halt-together), direct IP fallback, same engine at delay 0.
+- [ ] **Native Menu Integration**: `Online` entry in the VS Mode submenu → Ranked / Unranked / Direct / LAN / Profile; lobby scene, then vanilla CSS/SSS/match/results driven by synced inputs; quick chat; name/delay/ping on the HUD.
+- [ ] **Ultra-Low-Latency Presentation**: late local input sampling, just-in-time tick scheduling against vblank, early + redundant input sends, DSCP marking; target button-to-photon at delay 1 below Slippi at delay 2.
 - [ ] **macOS Support**:
   * Exploration of macOS Apple Silicon (Metal) builds using GCC toolchains supporting `scalar_storage_order`.
 - [ ] **RetroAchievements Integration**:

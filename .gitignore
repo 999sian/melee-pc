@@ -11,6 +11,7 @@ __pycache__/
 docs/*
 !docs/screenshots/
 !docs/CODING_STYLE.md
+!docs/netcode-plan.md
 
 # Android build outputs (CI builds these from source).
 platforms/android/.gradle/
