@@ -33,10 +33,14 @@ const char* filter_name(int mode) {
 }
 
 const char* backend_name(int mode) {
+#if defined(__APPLE__)
+    return "Metal";
+#else
     static const char* const names[] = {"Auto", "Direct3D 12", "Vulkan"};
     if (mode < 0 || mode > 2)
         return "Auto";
     return names[mode];
+#endif
 }
 
 constexpr const char* tab_ids[] = {"tab-graphics", "tab-audio", "tab-cheats", "tab-controls"};
@@ -449,6 +453,9 @@ class Launcher final : public Rml::EventListener {
             refresh_settings();
             element("filter-mode")->Focus();
         } else if (id == "backend") {
+#if defined(__APPLE__)
+            status("Graphics backend is Metal (hardware accelerated).");
+#else
             if (std::getenv("MELEE_BACKEND")) {
                 status("Backend is controlled by the MELEE_BACKEND environment setting.");
             } else {
@@ -458,6 +465,7 @@ class Launcher final : public Rml::EventListener {
                 status("Graphics backend set to " + std::string(backend_name(prefs.backend)) +
                        " (takes effect on restart).");
             }
+#endif
             element("backend")->Focus();
         } else if (id == "custom-textures") {
             prefs.custom_textures = !prefs.custom_textures;
@@ -866,18 +874,60 @@ public:
 extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config_path = std::filesystem::path(config->userPath ? config->userPath : ".") / "launcher.cfg";
     prefs = launcher::load_preferences(config_path);
+#if defined(__APPLE__) || defined(TARGET_OS_IPHONE)
+    auto file_accessible = [](const std::filesystem::path& path) -> bool {
+        std::error_code ec;
+        if (std::filesystem::exists(path, ec) && !ec)
+            return true;
+        FILE* f = fopen(path.string().c_str(), "rb");
+        if (f) {
+            fclose(f);
+            return true;
+        }
+        return false;
+    };
+    if (prefs.disc.empty() || !file_accessible(prefs.disc)) {
+        const char* home = std::getenv("HOME");
+        const char* candidates[] = {
+            "Documents/melee.ciso",
+            "Documents/melee.iso",
+            "Documents/game.ciso",
+            "Documents/game.iso",
+            "melee.ciso",
+            "melee.iso",
+            nullptr
+        };
+        for (int p = 0; candidates[p] != nullptr; p++) {
+            if (home && home[0] != '\0') {
+                std::filesystem::path full = std::filesystem::path(home) / candidates[p];
+                if (file_accessible(full)) {
+                    prefs.disc = full.string();
+                    break;
+                }
+            }
+            if (file_accessible(candidates[p])) {
+                prefs.disc = std::filesystem::absolute(candidates[p]).string();
+                break;
+            }
+        }
+    }
+#endif
     config->startFullscreen = prefs.fullscreen;
     config->msaa = prefs.msaa;
     config->maxTextureAnisotropy = prefs.anisotropy;
     if (!std::getenv("MELEE_VSYNC"))
         config->vsync = prefs.vsync;
     if (!std::getenv("MELEE_BACKEND")) {
+#if defined(__APPLE__)
+        config->desiredBackend = BACKEND_METAL;
+#else
         if (prefs.backend == 1)
             config->desiredBackend = BACKEND_D3D12;
         else if (prefs.backend == 2)
             config->desiredBackend = BACKEND_VULKAN;
         else
             config->desiredBackend = BACKEND_AUTO;
+#endif
     }
 }
 
@@ -887,7 +937,8 @@ static std::filesystem::path pc_resources_path() {
 #elif defined(__APPLE__)
     const char* base = SDL_GetBasePath();
     std::filesystem::path p = std::filesystem::path(base ? base : ".");
-    if (std::filesystem::exists(p / "resources"))
+    std::error_code ec;
+    if (std::filesystem::exists(p / "resources", ec) && !ec)
         return p / "resources";
     return p;
 #else
@@ -1291,6 +1342,9 @@ public:
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
         } else if (id == "backend") {
+#if defined(__APPLE__)
+            label("menu-status", "Graphics backend is Metal (hardware accelerated).");
+#else
             if (std::getenv("MELEE_BACKEND")) {
                 label("menu-status", "Backend set by MELEE_BACKEND environment.");
             } else {
@@ -1298,6 +1352,7 @@ public:
                 label("menu-status", "Backend set to " + std::string(backend_name(prefs.backend)) +
                                          " (restart required).");
             }
+#endif
         } else if (id == "volume") {
             int step = int(prefs.volume * 10 + 0.5f);
             prefs.volume = (step >= 10 ? 0 : step + 1) / 10.0f;

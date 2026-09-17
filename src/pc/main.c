@@ -62,6 +62,10 @@ static double log_now_ms(void) {
     return (double)(now - t0) / 1e6;
 }
 
+#if defined(__APPLE__)
+#include <os/log.h>
+#endif
+
 void pc_log_line(const char* fmt, ...) {
     char msg[512];
     va_list ap;
@@ -69,6 +73,9 @@ void pc_log_line(const char* fmt, ...) {
     vsnprintf(msg, sizeof(msg), fmt, ap);
     va_end(ap);
     const double t = log_now_ms();
+#if defined(__APPLE__)
+    os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, "[Melee] %{public}s", msg);
+#endif
     fprintf(stderr, "[%9.3f] %s\n", t, msg);
     fflush(stderr);
     FILE* lf = log_file();
@@ -80,6 +87,9 @@ void pc_log_line(const char* fmt, ...) {
 
 static void log_callback(
     AuroraLogLevel level, const char* module, const char* message, unsigned int len) {
+#if defined(__APPLE__)
+    os_log_with_type(OS_LOG_DEFAULT, level >= LOG_ERROR ? OS_LOG_TYPE_ERROR : OS_LOG_TYPE_DEFAULT, "[Aurora:%{public}s] %{public}.*s", module, (int)len, message);
+#endif
 #if defined(__ANDROID__)
     int prio = ANDROID_LOG_INFO;
     switch (level) {
@@ -310,34 +320,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         }
     }
 
-#if defined(TARGET_OS_IPHONE) || defined(__APPLE__)
-    static char resolved_disc_path[1024];
-    if (disc == NULL) {
-        const char* home = getenv("HOME");
-        const char* candidates[] = {"Documents/melee.ciso", "Documents/melee.iso",
-            "Documents/game.ciso", "Documents/game.iso", "melee.ciso", "melee.iso", NULL};
-        for (int p = 0; candidates[p] != NULL; p++) {
-            if (home != NULL && home[0] != '\0') {
-                snprintf(
-                    resolved_disc_path, sizeof(resolved_disc_path), "%s/%s", home, candidates[p]);
-                FILE* f = fopen(resolved_disc_path, "rb");
-                if (f != NULL) {
-                    fclose(f);
-                    disc = resolved_disc_path;
-                    pc_log_line("Auto-detected disc in container: %s", disc);
-                    break;
-                }
-            }
-            FILE* f = fopen(candidates[p], "rb");
-            if (f != NULL) {
-                fclose(f);
-                disc = candidates[p];
-                pc_log_line("Auto-detected disc in cwd: %s", disc);
-                break;
-            }
-        }
-    }
-#endif
+
     AuroraConfig config = {
         /* appName doubles as the window title; the save/cache dirs stay
          * pinned so a renamed test window still uses the same memory card. */
