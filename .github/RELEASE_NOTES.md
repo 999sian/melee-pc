@@ -81,6 +81,38 @@ image path directly:
   - Expanded C++20 endian helpers in `endian.hpp` and `disc.h`.
   - Established coding standards (`CODING_STYLE.md`, `.editorconfig`, `.clang-format`, `.clang-tidy`) with automated CI style checking (`tools/check_style.py`).
 
+## Contributors
+
+### Project Contributors
+- **@999sian** — Project Lead, Phase 1 features, multi-core optimizations, file cache, Android & Windows porting, and stability fixes.
+- **@theofficialgman** — Linux aarch64 (ARM64) support, Nod aarch64 prebuilts, 4-core & ARM scheduling optimizations (#44, #47).
+- **@alexscott2718-gif** — Graphics backend selection, command line overrides, and engine logging.
+- **@r-burns** — Melee decompilation and 64-bit portability foundations.
+- **@MarkMcCaskey** — Decompilation and core engine maintenance.
+- **@ribbanya** (Robin Avery) — Decompilation and memory card subsystem.
+- **@PsiLupan** (Will Carter) — Decompilation and subsystem typing.
+- **@itsgrimetime** (Mike Grimes) — Decompilation foundations.
+
+### Community Testers & Issue Reporters
+Special thanks to our community members whose detailed bug reports and reproduction steps directly helped diagnose and resolve issues in this release:
+- **@jennywakeman-xj9** (#30, #31, #32, #33, #34, #35, #36, #38, #39, #51, #53, #54, #55, #56, #57, #58)
+- **@omega-tuna** (#48)
+- **@VTuberSkye** (#45)
+- **@4zy1** (#49, #50)
+- **@stevenstallone** (#52)
+- **@mmedeiro1-a11y** (#43)
+- **@Keithmccloud** (#59)
+- **@Smashhacker** (#41, #60)
+- **@whirlwindpedro** (#40)
+- **@zamiba** (#42)
+- **@nitrostemp** (#37)
+
+### Upstream Projects & Foundations
+- **[doldecomp/melee](https://github.com/doldecomp/melee)** — The Super Smash Bros. Melee decompilation team and contributors.
+- **[encounter/aurora](https://github.com/encounter/aurora)** — Luke Street (@encounter) and contributors for the GameCube hardware emulation layer and WebGPU backend.
+- **[TwilitRealm/dusklight](https://github.com/TwilitRealm/dusklight)** — Architectural inspiration for GameCube PC ports.
+- **SDL3, RmlUi, stb_vorbis, and Dawn teams** for the runtime engine libraries.
+
 ## Changes since v0.1.4-beta
 
 - **Android Performance & Frame Pacing Overhaul (Full 60 FPS):**
