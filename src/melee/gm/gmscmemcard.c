@@ -11,7 +11,7 @@
 #include <sysdolphin/baselib/controller.h>
 
 typedef struct {
-    bool unk0;
+    u32 unk0;
     u8 mode_id;
 } exitData;
 
@@ -50,7 +50,7 @@ typedef struct {
     exitData unk8;
     int unk10;
     tickDecision decision;
-    bool unk18;
+    int unk18;
     u8 unk1C;
 } enterData;
 
