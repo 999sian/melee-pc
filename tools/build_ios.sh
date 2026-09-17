@@ -10,8 +10,10 @@ IOS_DIR="${ROOT_DIR}/platforms/ios"
 export IOS_SDK_PATH="${IOS_SDK_PATH:-/home/sian/toolchains/sdks/sdks/iPhoneOS16.5.sdk}"
 export SDKROOT="${IOS_SDK_PATH}"
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-14.0}"
-export PATH="/home/sian/.local/bin:${PATH}"
-export GCC_AARCH64_BIN="${GCC_AARCH64_BIN:-/home/sian/toolchains/gcc-aarch64/usr/bin/aarch64-linux-gnu-gcc}"
+if [[ -d "/home/sian/.local/bin" ]]; then
+    export PATH="/home/sian/.local/bin:${PATH}"
+fi
+export GCC_AARCH64_BIN="${GCC_AARCH64_BIN:-$(command -v aarch64-linux-gnu-gcc 2>/dev/null || echo /home/sian/toolchains/gcc-aarch64/usr/bin/aarch64-linux-gnu-gcc)}"
 
 if [[ ! -d "${IOS_SDK_PATH}" ]]; then
     echo "error: iOS SDK not found at ${IOS_SDK_PATH}" >&2

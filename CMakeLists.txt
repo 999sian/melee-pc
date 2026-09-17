@@ -6,7 +6,7 @@ endif ()
 
 project(melee-pc LANGUAGES C CXX)
 
-if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
     # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
     # on-disc structures, which only GCC implements (C only).
     message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
@@ -97,6 +97,8 @@ if (ANDROID)
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
 elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_ios_launcher.py")
+elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+    set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_windows_arm64_launcher.py")
 endif ()
 
 # ---- PC platform layer -----------------------------------------------------
@@ -136,7 +138,11 @@ if (WIN32)
     # out of the auto-imported std::basic_ifstream<char> vtable to compute `this`, and on native
     # Windows that yields a bad pointer: std::basic_ios<char>::init() then writes to address 0.
     # Linking the runtime statically removes the auto-imported vtables entirely.
-    target_link_options(melee PRIVATE -static-libstdc++ -static-libgcc -Wl,--image-base,0x10000000 -Wl,--disable-dynamicbase -Wl,--disable-high-entropy-va -Wl,-u,WinMain)
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+        target_link_options(melee PRIVATE -Wl,--image-base,0x10000000 -Wl,--disable-dynamicbase -Wl,--disable-high-entropy-va -Wl,-u,WinMain)
+    else ()
+        target_link_options(melee PRIVATE -static-libstdc++ -static-libgcc -Wl,--image-base,0x10000000 -Wl,--disable-dynamicbase -Wl,--disable-high-entropy-va -Wl,-u,WinMain)
+    endif ()
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/platforms/windows/melee.rc")
         target_sources(melee PRIVATE platforms/windows/melee.rc)
     endif ()

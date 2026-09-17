@@ -88,7 +88,8 @@ void pc_log_line(const char* fmt, ...) {
 static void log_callback(
     AuroraLogLevel level, const char* module, const char* message, unsigned int len) {
 #if defined(__APPLE__)
-    os_log_with_type(OS_LOG_DEFAULT, level >= LOG_ERROR ? OS_LOG_TYPE_ERROR : OS_LOG_TYPE_DEFAULT, "[Aurora:%{public}s] %{public}.*s", module, (int)len, message);
+    os_log_with_type(OS_LOG_DEFAULT, level >= LOG_ERROR ? OS_LOG_TYPE_ERROR : OS_LOG_TYPE_DEFAULT,
+        "[Aurora:%{public}s] %{public}.*s", module, (int)len, message);
 #endif
 #if defined(__ANDROID__)
     int prio = ANDROID_LOG_INFO;
@@ -319,7 +320,6 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
             usage(argv[0]);
         }
     }
-
 
     AuroraConfig config = {
         /* appName doubles as the window title; the save/cache dirs stay

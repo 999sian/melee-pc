@@ -888,15 +888,8 @@ extern "C" void pc_launcher_configure(AuroraConfig* config) {
     };
     if (prefs.disc.empty() || !file_accessible(prefs.disc)) {
         const char* home = std::getenv("HOME");
-        const char* candidates[] = {
-            "Documents/melee.ciso",
-            "Documents/melee.iso",
-            "Documents/game.ciso",
-            "Documents/game.iso",
-            "melee.ciso",
-            "melee.iso",
-            nullptr
-        };
+        const char* candidates[] = {"Documents/melee.ciso", "Documents/melee.iso",
+            "Documents/game.ciso", "Documents/game.iso", "melee.ciso", "melee.iso", nullptr};
         for (int p = 0; candidates[p] != nullptr; p++) {
             if (home && home[0] != '\0') {
                 std::filesystem::path full = std::filesystem::path(home) / candidates[p];

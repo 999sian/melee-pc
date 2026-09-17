@@ -3,17 +3,58 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build-win}"
 DIST_DIR="${ROOT_DIR}/dist"
-STAGE_DIR="${DIST_DIR}/melee-windows-x86_64"
+TARGET_ARCH="${TARGET_ARCH:-x86_64}"
 
-echo "=== Building Windows release ==="
+case "${TARGET_ARCH}" in
+    x86_64|amd64)
+        TARGET_ARCH="x86_64"
+        BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build-win}"
+        STAGE_DIR="${DIST_DIR}/melee-windows-x86_64"
+        ZIP_NAME="Melee-Windows-x86_64.zip"
+        TOOLCHAIN_FILE="${ROOT_DIR}/cmake/x86_64-w64-mingw32.cmake"
+        SDL3_PROVIDER="package"
+        DAWN_PROVIDER="package"
+        NOD_PROVIDER="package"
+        CXX_BIN="${CXX:-x86_64-w64-mingw32-g++}"
+        VCREDIST_URL="${VCREDIST_URL:-https://aka.ms/vs/17/release/vc_redist.x64.exe}"
+        VCREDIST_EXE="vc_redist.x64.exe"
+        CAB_ARCH="amd64"
+        OBJDUMP_BIN="${OBJDUMP:-x86_64-w64-mingw32-objdump}"
+        MINGW_DLLS=("libwinpthread-1.dll")
+        ;;
+    arm64|aarch64)
+        TARGET_ARCH="arm64"
+        BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build-win-arm64}"
+        STAGE_DIR="${DIST_DIR}/melee-windows-arm64"
+        ZIP_NAME="Melee-Windows-arm64.zip"
+        TOOLCHAIN_FILE="${ROOT_DIR}/cmake/aarch64-w64-mingw32.cmake"
+        SDL3_PROVIDER="vendor"
+        DAWN_PROVIDER="package"
+        NOD_PROVIDER="package"
+        CXX_BIN="${CXX:-aarch64-w64-mingw32-clang++}"
+        VCREDIST_URL="${VCREDIST_URL:-https://aka.ms/vs/17/release/vc_redist.arm64.exe}"
+        VCREDIST_EXE="vc_redist.arm64.exe"
+        CAB_ARCH="arm64"
+        OBJDUMP_BIN="${OBJDUMP:-llvm-objdump}"
+        if ! command -v "${OBJDUMP_BIN}" >/dev/null && command -v aarch64-w64-mingw32-objdump >/dev/null; then
+            OBJDUMP_BIN="aarch64-w64-mingw32-objdump"
+        fi
+        MINGW_DLLS=("libwinpthread-1.dll" "libc++.dll" "libunwind.dll")
+        ;;
+    *)
+        echo "error: unsupported TARGET_ARCH: ${TARGET_ARCH}" >&2
+        exit 1
+        ;;
+esac
+
+echo "=== Building Windows release (${TARGET_ARCH}) ==="
 cmake -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/cmake/x86_64-w64-mingw32.cmake" \
-    -DAURORA_SDL3_PROVIDER=package \
-    -DAURORA_DAWN_PROVIDER=package \
-    -DAURORA_NOD_PROVIDER=package
+    -DCMAKE_TOOLCHAIN_FILE="${TOOLCHAIN_FILE}" \
+    -DAURORA_SDL3_PROVIDER="${SDL3_PROVIDER}" \
+    -DAURORA_DAWN_PROVIDER="${DAWN_PROVIDER}" \
+    -DAURORA_NOD_PROVIDER="${NOD_PROVIDER}"
 ninja -C "${BUILD_DIR}" melee
 
 echo "=== Staging Windows package ==="
@@ -36,28 +77,47 @@ gzip -dc "${ROOT_DIR}/tools/initial_pipeline_cache.db.gz" \
 
 # Dawn, SDL3, zlib/png DLLs land in the build root via AuroraCopyRuntimeDLLs.
 for dll in dxcompiler.dll dxil.dll webgpu_dawn.dll SDL3.dll libpng16.dll libzlib1.dll; do
-    cp "${BUILD_DIR}/${dll}" "${STAGE_DIR}/"
+    if [[ -f "${BUILD_DIR}/${dll}" ]]; then
+        cp "${BUILD_DIR}/${dll}" "${STAGE_DIR}/"
+    fi
 done
-cp "${BUILD_DIR}/_deps/nod_prebuilt-src/bin/nod.dll" "${STAGE_DIR}/"
-cp "${BUILD_DIR}/_deps/nod_prebuilt-src/bin/nod.dll" "${STAGE_DIR}/libnod.dll"
 
-# MinGW runtime DLLs. libstdc++ and libgcc are linked statically (see
-# CMakeLists.txt), so only libwinpthread is still imported.
-#
-# Shipping libstdc++-6.dll used to pick it with `find -print -quit`, which is
-# not safe on Debian/Ubuntu: those carry both a win32-threads and a
-# posix-threads build of the same filename, and the first hit won. CI selects
-# the posix compiler because aurora's C++20 needs std::thread, so the win32
-# copy landed beside an exe built against the posix one and the first
-# std::ifstream died in basic_ios::init. Derive the path from the compiler
-# actually used instead of searching for a name.
+if [[ -f "${BUILD_DIR}/_deps/nod_prebuilt-src/bin/nod.dll" ]]; then
+    cp "${BUILD_DIR}/_deps/nod_prebuilt-src/bin/nod.dll" "${STAGE_DIR}/"
+    cp "${BUILD_DIR}/_deps/nod_prebuilt-src/bin/nod.dll" "${STAGE_DIR}/libnod.dll"
+elif [[ -f "${BUILD_DIR}/libnod.dll" ]]; then
+    cp "${BUILD_DIR}/libnod.dll" "${STAGE_DIR}/"
+    cp "${BUILD_DIR}/libnod.dll" "${STAGE_DIR}/nod.dll"
+elif [[ -f "${BUILD_DIR}/nod.dll" ]]; then
+    cp "${BUILD_DIR}/nod.dll" "${STAGE_DIR}/"
+    cp "${BUILD_DIR}/nod.dll" "${STAGE_DIR}/libnod.dll"
+fi
+
 echo "=== Locating MinGW runtime DLLs ==="
-CXX_BIN="${CXX:-x86_64-w64-mingw32-g++}"
-for dll in libwinpthread-1.dll; do
-    src="$("${CXX_BIN}" -print-file-name="${dll}" 2>/dev/null || true)"
-    if [[ ! -f "${src}" ]]; then
-        # Arch keeps them in the sysroot bin rather than beside the compiler.
-        src="$(find /usr/x86_64-w64-mingw32/bin -name "${dll}" -print -quit 2>/dev/null || true)"
+for dll in "${MINGW_DLLS[@]}"; do
+    src=""
+    if command -v "${CXX_BIN}" >/dev/null; then
+        cand="$("${CXX_BIN}" -print-file-name="${dll}" 2>/dev/null || true)"
+        if [[ -f "${cand}" ]]; then
+            src="${cand}"
+        fi
+    fi
+    if [[ -z "${src}" ]]; then
+        cxx_path="$(command -v "${CXX_BIN}" 2>/dev/null || true)"
+        if [[ -n "${cxx_path}" ]]; then
+            bin_dir="$(dirname "${cxx_path}")"
+            parent_dir="$(dirname "${bin_dir}")"
+            for search_dir in "${parent_dir}/aarch64-w64-mingw32/bin" "${parent_dir}/x86_64-w64-mingw32/bin" "${bin_dir}"; do
+                if [[ -f "${search_dir}/${dll}" ]]; then
+                    src="${search_dir}/${dll}"
+                    break
+                fi
+            done
+        fi
+    fi
+    if [[ -z "${src}" ]]; then
+        # Check system / toolchains dirs
+        src="$(find /usr/x86_64-w64-mingw32/bin /usr/aarch64-w64-mingw32/bin /home/sian/toolchains -name "${dll}" -print -quit 2>/dev/null || true)"
     fi
     if [[ ! -f "${src}" ]]; then
         echo "error: ${dll} not found for ${CXX_BIN}" >&2
@@ -67,26 +127,19 @@ for dll in libwinpthread-1.dll; do
     cp "${src}" "${STAGE_DIR}/"
 done
 
-# The MSVC-built prebuilts (Dawn, dxcompiler, SDL3, nod) import the Visual C++
-# runtime, which is NOT part of Windows -- it comes from the VC++ 2015-2022
-# redistributable. Wine and Proton provide it, so the omission only shows up on
-# a real Windows box, as "VCRUNTIME140.dll was not found". Microsoft permits
-# app-local deployment of these DLLs, so ship them beside melee.exe.
 echo "=== Fetching Visual C++ runtime DLLs ==="
 VCREDIST_DIR="${VCREDIST_DIR:-${BUILD_DIR}/vcredist}"
-VCREDIST_URL="${VCREDIST_URL:-https://aka.ms/vs/17/release/vc_redist.x64.exe}"
 mkdir -p "${VCREDIST_DIR}"
 if [[ ! -f "${VCREDIST_DIR}/VCRUNTIME140.dll" ]]; then
-    [[ -f "${VCREDIST_DIR}/vc_redist.x64.exe" ]] ||
-        curl -sSLf -o "${VCREDIST_DIR}/vc_redist.x64.exe" "${VCREDIST_URL}"
-    python3 - "${VCREDIST_DIR}" <<'PY'
+    [[ -f "${VCREDIST_DIR}/${VCREDIST_EXE}" ]] ||
+        curl -sSLf -o "${VCREDIST_DIR}/${VCREDIST_EXE}" "${VCREDIST_URL}"
+    python3 - "${VCREDIST_DIR}" "${VCREDIST_EXE}" "${CAB_ARCH}" <<'PY'
 import pathlib, shutil, subprocess, sys
 
-# vc_redist.x64.exe is a Burn bundle: a UX cabinet, then an attached cabinet
-# holding per-architecture cabinets of <name>.dll_<arch> payloads. Slice at
-# each cabinet header, newest first, until the x64 runtime turns up.
 out = pathlib.Path(sys.argv[1])
-data = (out / 'vc_redist.x64.exe').read_bytes()
+exe_name = sys.argv[2]
+cab_arch = sys.argv[3]
+data = (out / exe_name).read_bytes()
 want = {
     'vcruntime140.dll': 'VCRUNTIME140.dll',
     'vcruntime140_1.dll': 'VCRUNTIME140_1.dll',
@@ -102,21 +155,20 @@ work = out / 'extract'
 shutil.rmtree(work, ignore_errors=True)
 work.mkdir(parents=True)
 found = {}
+filter_pattern = f'*_{cab_arch}'
 for off in reversed(offsets):
     cab = work / 'container.cab'
     cab.write_bytes(data[off:])
     inner = work / 'inner'
     shutil.rmtree(inner, ignore_errors=True)
     inner.mkdir()
-    # Most members are not cabinets (the bundle also carries MSIs), so a
-    # "no valid cabinets found" miss is expected and not worth printing.
     quiet = {'check': False, 'capture_output': True}
     subprocess.run(['cabextract', '-q', '-d', str(inner), str(cab)], **quiet)
     for nested in sorted(p for p in inner.iterdir() if p.is_file()):
-        subprocess.run(['cabextract', '-q', '-d', str(work), '-F', '*_amd64',
+        subprocess.run(['cabextract', '-q', '-d', str(work), '-F', filter_pattern,
                         str(nested)], **quiet)
-    for payload in work.glob('*_amd64'):
-        dest = want.get(payload.name[:-len('_amd64')].lower())
+    for payload in work.glob(filter_pattern):
+        dest = want.get(payload.name[:-len(f'_{cab_arch}')].lower())
         if dest:
             found[dest] = payload
     if len(found) == len(want):
@@ -124,7 +176,7 @@ for off in reversed(offsets):
 
 missing = sorted(set(want.values()) - set(found))
 if missing:
-    sys.exit(f'error: {", ".join(missing)} not found in vc_redist.x64.exe')
+    sys.exit(f'error: {", ".join(missing)} not found in {exe_name}')
 for dest, payload in found.items():
     shutil.copy(payload, out / dest)
 shutil.rmtree(work, ignore_errors=True)
@@ -135,16 +187,13 @@ for dll in VCRUNTIME140.dll VCRUNTIME140_1.dll MSVCP140.dll MSVCP140_ATOMIC_WAIT
     cp "${VCREDIST_DIR}/${dll}" "${STAGE_DIR}/"
 done
 
-# Every import must resolve to something we ship or something Windows itself
-# provides. Wine and Proton quietly supply extras (this is how a package
-# missing the VC++ runtime passed local testing), so gate the package here
-# rather than discovering it on a user's machine.
 echo "=== Verifying the package resolves on a clean Windows ==="
-python3 - "${STAGE_DIR}" <<'PY'
+python3 - "${STAGE_DIR}" "${OBJDUMP_BIN}" <<'PY'
 import pathlib, re, subprocess, sys
 
 stage = pathlib.Path(sys.argv[1])
-# Present on a clean Windows 10/11 x64 install.
+objdump_bin = sys.argv[2]
+# Present on a clean Windows 10/11 install (x64 and ARM64).
 OS_DLLS = {
     'kernel32.dll', 'user32.dll', 'gdi32.dll', 'advapi32.dll', 'shell32.dll',
     'ole32.dll', 'oleaut32.dll', 'ntdll.dll', 'winmm.dll', 'version.dll',
@@ -164,7 +213,7 @@ binaries = [p for p in sorted(stage.iterdir())
 shipped = {p.name.lower() for p in binaries}
 gaps = {}
 for binary in binaries:
-    dump = subprocess.run(['x86_64-w64-mingw32-objdump', '-p', str(binary)],
+    dump = subprocess.run([objdump_bin, '-p', str(binary)],
                           capture_output=True, text=True, check=True).stdout
     for dep in sorted(set(re.findall(r'DLL Name:\s*(\S+)', dump))):
         if dep.lower() not in shipped and not is_os(dep):
@@ -179,12 +228,13 @@ PY
 
 echo "=== Creating Windows ZIP package ==="
 cd "${DIST_DIR}"
-rm -f "Melee-Windows-x86_64.zip"
+rm -f "${ZIP_NAME}"
+stage_basename="$(basename "${STAGE_DIR}")"
 if command -v 7z >/dev/null; then
-    7z a -tzip "Melee-Windows-x86_64.zip" "melee-windows-x86_64"
+    7z a -tzip "${ZIP_NAME}" "${stage_basename}"
 else
-    zip -qr "Melee-Windows-x86_64.zip" "melee-windows-x86_64"
+    zip -qr "${ZIP_NAME}" "${stage_basename}"
 fi
 
-echo "=== Windows package successfully created at ${DIST_DIR}/Melee-Windows-x86_64.zip ==="
-ls -lh "${DIST_DIR}/Melee-Windows-x86_64.zip"
+echo "=== Windows package successfully created at ${DIST_DIR}/${ZIP_NAME} ==="
+ls -lh "${DIST_DIR}/${ZIP_NAME}"

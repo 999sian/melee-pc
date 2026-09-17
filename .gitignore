@@ -1,5 +1,6 @@
 build/
 build-win/
+build-win-arm64/
 build-ios/
 dist/
 *.inc
