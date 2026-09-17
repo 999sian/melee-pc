@@ -18,7 +18,7 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
 static inline FighterPartsTable* get_parts_tbl(int kind) {
-    return (FighterPartsTable*) (uintptr_t) ftPartsTable[kind].v;
+    return DP(FighterPartsTable, ftPartsTable[kind].v);
 }
 #include <sysdolphin/baselib/mtx.h>
 #include <sysdolphin/baselib/perf.h>
@@ -756,7 +756,7 @@ u32 ftParts_8007506C(enum FighterKind ftkind, int part)
     int i;
     struct Fighter_804D6540_t* temp_r3;
 
-    temp_r3 = (struct Fighter_804D6540_t*) (uintptr_t) Fighter_804D6540[ftkind].v;
+    temp_r3 = DP(struct Fighter_804D6540_t, Fighter_804D6540[ftkind].v);
     if (temp_r3 != NULL && temp_r3->x4 != 0) {
         var_r3 = DP(struct Fighter_804D6540_x0_t, temp_r3->x0);
         for (i = 0; i < temp_r3->x4; i++, var_r3++) {

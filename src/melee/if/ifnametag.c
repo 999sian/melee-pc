@@ -194,15 +194,15 @@ void un_802FCBA0(void)
     DP_SET(un_804A1ED0.joint, DP(HSD_Joint, d->joint));
     if (d->anims) {
         DP_SET(un_804A1ED0.animjoint,
-               (HSD_AnimJoint*) (uintptr_t) DP(DiscU32, d->anims)[0].v);
+               DP(HSD_AnimJoint, DP(DiscU32, d->anims)[0].v));
     }
     if (d->matanims) {
         DP_SET(un_804A1ED0.matanim_joint,
-               (HSD_MatAnimJoint*) (uintptr_t) DP(DiscU32, d->matanims)[0].v);
+               DP(HSD_MatAnimJoint, DP(DiscU32, d->matanims)[0].v));
     }
     if (d->shapeanims) {
         DP_SET(un_804A1ED0.shapeanim_joint,
-               (HSD_ShapeAnimJoint*) (uintptr_t) DP(DiscU32, d->shapeanims)[0].v);
+               DP(HSD_ShapeAnimJoint, DP(DiscU32, d->shapeanims)[0].v));
     }
 }
 #ifdef MUST_MATCH

@@ -45,6 +45,7 @@
 extern "C" {
 #endif
 
+extern uintptr_t OSBaseAddress;
 uint32_t pc_register_ext_ptr(const void* p);
 void* pc_resolve_ext_ptr(uint32_t id);
 void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute__((noreturn));
@@ -55,12 +56,24 @@ static inline uint32_t pc_encode_dp(const void* p) {
     if (!((uintptr_t)p >> 32)) {
         return (uint32_t)(uintptr_t)p;
     }
+    if (OSBaseAddress && (uintptr_t)p >= OSBaseAddress &&
+        (uintptr_t)p < OSBaseAddress + 0x06000000ULL)
+    {
+        return (uint32_t)(uintptr_t)p;
+    }
     return 0x02000000u | pc_register_ext_ptr(p);
 }
 
 static inline void* pc_resolve_dp(uint32_t slot) {
+    if (!slot)
+        return (void*)0;
     if ((slot & 0xFF000000u) == 0x02000000u) {
-        return pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
+        void* ext = pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
+        if (ext)
+            return ext;
+    }
+    if (OSBaseAddress >> 32) {
+        return (void*)((uintptr_t)slot | (OSBaseAddress & ~0xFFFFFFFFULL));
     }
     return (void*)(uintptr_t)slot;
 }
@@ -74,6 +87,7 @@ static inline void* pc_resolve_dp(uint32_t slot) {
 #define DISC_STRUCT
 #define DISC_PTR(T) uint32_t
 #define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(uintptr_t)(slot)))
+#define DP_ARR(T, slot, i) DP(T, DP(DiscU32, slot)[i].v)
 #define DP_SET(slot, p)                                                                            \
     do {                                                                                           \
         (slot) = pc_encode_dp((const void*)(p));                                                   \
@@ -138,6 +152,7 @@ struct DiscMtx {
 #endif
 #define DISC_PTR(T) uint32_t
 #define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(uintptr_t)(slot)))
+#define DP_ARR(T, slot, i) DP(T, DP(DiscU32, slot)[i].v)
 #define DP_SET(slot, p)                                                                            \
     do {                                                                                           \
         (slot) = pc_encode_dp((const void*)(p));                                                   \

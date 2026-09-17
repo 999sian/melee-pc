@@ -135,7 +135,7 @@ DISC_ASSERT_SIZE(struct gm_evbonus, 0x18);
 DISC_ASSERT_SIZE(struct gm_804D6900_t, 0x28);
 
 /* gm_804D6900[0] is the in-archive `gm_804D6900_t*[]` level table. */
-#define LV(tbl, i) ((struct gm_804D6900_t*) (uintptr_t) (tbl)[i].v)
+#define LV(tbl, i) DP(struct gm_804D6900_t, (tbl)[i].v)
 #define EV_X4(l) DP(struct gm_804D6900_x4_t, (l)->x4)
 #define EV_INIT(l) DP(struct gm_evinit, (l)->evinit)
 #define EV_BONUS(l) DP(struct gm_evbonus, (l)->evbonus)

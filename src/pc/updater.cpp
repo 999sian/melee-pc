@@ -653,7 +653,7 @@ void check_for_updates_async(bool include_prereleases) {
 #if defined(_WIN32)
         ok = http_get_string_winhttp(
             L"api.github.com", L"/repos/999sian/melee-pc/releases", body, error);
-#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
+#elif defined(MELEE_USE_CURL)
         ok = http_get_string_curl(
             "https://api.github.com/repos/999sian/melee-pc/releases", body, error);
 #else
@@ -758,7 +758,7 @@ void start_download_async() {
         // Or open in browser if download URL is direct
         open_release_in_browser();
         ok = true;
-#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
+#elif defined(MELEE_USE_CURL)
         ok = http_download_file_curl(download_url, dest_path, error);
         if (ok) {
             chmod(dest_path.c_str(), 0755);

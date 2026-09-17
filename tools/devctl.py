@@ -116,6 +116,16 @@ def main():
         send_key(dpy, win, args[0], False)
         time.sleep(0.05)
         send_key(dpy, win, args[0], False)  # releases get dropped now and then
+    elif cmd == "combo":
+        for spec in args:
+            keys_part, _, hold = spec.partition(":")
+            keys = keys_part.split("+")
+            for k in keys:
+                send_key(dpy, win, k, True)
+            time.sleep(int(hold or 200) / 1000)
+            for k in reversed(keys):
+                send_key(dpy, win, k, False)
+            time.sleep(0.12)
     else:
         sys.exit(__doc__)
 

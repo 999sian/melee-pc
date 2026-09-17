@@ -86,10 +86,10 @@ typedef int BOOL;
 #ifndef DECL_WEAK
 #if defined(__MWERKS__)
 #define DECL_WEAK __declspec(weak)
+#elif defined(_MSC_VER) || defined(_WIN32) || TARGET_PC
+#define DECL_WEAK
 #elif defined(__GNUC__)
 #define DECL_WEAK __attribute__((weak))
-#elif defined(_MSC_VER)
-#define DECL_WEAK
 #else
 #error unknown compiler
 #endif

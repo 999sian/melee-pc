@@ -205,7 +205,7 @@ void psInitDataBankLocate(HSD_Archive* cmdBank, HSD_Archive* texBank,
 
     /* Phase 2: Fix cmdList kind bits */
     for (i = num; i < num2; i++) {
-        HSD_PSCmdList* cmd = (HSD_PSCmdList*) (uintptr_t) base[i].v;
+        HSD_PSCmdList* cmd = DP(HSD_PSCmdList, base[i].v);
         if (cmd != NULL) {
             cmd->kind = (cmd->kind & 0xF1FFFFFF) | 0x08000000;
         }
@@ -222,7 +222,7 @@ void psInitDataBankLocate(HSD_Archive* cmdBank, HSD_Archive* texBank,
         }
 
         for (k = 0; k < num_groups; k++) {
-            HSD_PSTexGroup* tg = (HSD_PSTexGroup*) (uintptr_t) groups[k].v;
+            HSD_PSTexGroup* tg = DP(HSD_PSTexGroup, groups[k].v);
             u32 fmt;
             u32 end;
             if (tg == NULL) {
@@ -257,7 +257,7 @@ void psInitDataBankLocate(HSD_Archive* cmdBank, HSD_Archive* texBank,
             HSD_PSFormGroup* fg;
             s32 fi;
             relocate_slot(&groups[i], formBank);
-            fg = (HSD_PSFormGroup*) (uintptr_t) groups[i].v;
+            fg = DP(HSD_PSFormGroup, groups[i].v);
             if (fg == NULL) {
                 continue;
             }

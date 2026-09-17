@@ -6,7 +6,7 @@ endif ()
 
 project(melee-pc LANGUAGES C CXX)
 
-if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID)
+if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
     # on-disc structures, which only GCC implements (C only).
     message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
@@ -22,12 +22,17 @@ set(AURORA_ENABLE_DVD ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_CARD ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_THP ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_RMLUI ON CACHE BOOL "" FORCE)
+if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(PNG_SHARED OFF CACHE BOOL "" FORCE)
+    set(PNG_STATIC ON CACHE BOOL "" FORCE)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+endif ()
 add_subdirectory(extern/aurora EXCLUDE_FROM_ALL)
 if (WIN32)
     set(MELEE_CRYPTO_LIBS bcrypt)
     set(MELEE_NETWORK_LIBS winhttp)
     add_compile_definitions(MELEE_USE_BCRYPT)
-elseif (ANDROID)
+elseif (ANDROID OR IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(MELEE_CRYPTO_LIBS)
     set(MELEE_NETWORK_LIBS)
     add_compile_definitions(MELEE_USE_BUILTIN_SHA1)
@@ -90,6 +95,8 @@ target_link_libraries(melee_game PUBLIC
 
 if (ANDROID)
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
+elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_ios_launcher.py")
 endif ()
 
 # ---- PC platform layer -----------------------------------------------------
@@ -102,10 +109,23 @@ else ()
 endif ()
 
 target_compile_options(melee PRIVATE
-        $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>>:-fno-pie>
+        $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>,$<NOT:$<BOOL:${IOS}>>,$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},iOS>>>:-fno-pie>
         $<$<BOOL:${ANDROID}>:-march=armv8-a+crc+crypto>
         $<$<BOOL:${ANDROID}>:-mtune=cortex-a73>)
 target_link_libraries(melee PRIVATE melee_game aurora::main ${MELEE_CRYPTO_LIBS} ${MELEE_NETWORK_LIBS})
+
+if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    target_link_libraries(melee PRIVATE
+        "-framework UIKit"
+        "-framework Metal"
+        "-framework QuartzCore"
+        "-framework AudioToolbox"
+        "-framework CoreHaptics"
+        "-framework GameController"
+        "-framework Foundation"
+        "-framework CoreGraphics"
+    )
+endif ()
 
 # Non-PIE: static data and code stay below 4GB (32-bit pointer slots in disc data).
 if (WIN32)
@@ -124,6 +144,8 @@ if (WIN32)
     if (COMMAND aurora_copy_runtime_dlls)
         aurora_copy_runtime_dlls(melee)
     endif ()
+elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    target_link_options(melee PRIVATE -Wl,-dead_strip)
 elseif (NOT ANDROID)
     target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
 else ()
@@ -131,6 +153,12 @@ else ()
 endif ()
 
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)
+if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set_target_properties(melee PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/platforms/ios/Info.plist"
+    )
+endif ()
 add_custom_target(launcher_resources ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:melee>/resources")
@@ -175,7 +203,7 @@ if (MELEE_ENABLE_LTO)
     endif ()
 endif ()
 
-if (NOT ANDROID)
+if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     add_executable(launcher_data_test EXCLUDE_FROM_ALL tools/test_launcher_data.cpp src/pc/launcher_data.cpp src/pc/disc_open.c)
     target_include_directories(launcher_data_test PRIVATE src)
     target_link_libraries(launcher_data_test PRIVATE aurora::dvd ${MELEE_CRYPTO_LIBS})

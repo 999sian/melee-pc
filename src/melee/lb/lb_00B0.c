@@ -369,17 +369,17 @@ void lb_8000C07C(HSD_JObj* jobj, s32 i, DiscU32* arg3, DiscU32* arg4,
     HSD_ShapeAnimJoint* phi_r6;
 
     if (arg3 != NULL) {
-        phi_r4 = (HSD_AnimJoint*) (uintptr_t) arg3[i].v;
+        phi_r4 = DP(HSD_AnimJoint, arg3[i].v);
     } else {
         phi_r4 = NULL;
     }
     if (arg4 != NULL) {
-        phi_r5 = (HSD_MatAnimJoint*) (uintptr_t) arg4[i].v;
+        phi_r5 = DP(HSD_MatAnimJoint, arg4[i].v);
     } else {
         phi_r5 = NULL;
     }
     if (arg5 != NULL) {
-        phi_r6 = (HSD_ShapeAnimJoint*) (uintptr_t) arg5[i].v;
+        phi_r6 = DP(HSD_ShapeAnimJoint, arg5[i].v);
     } else {
         phi_r6 = NULL;
     }

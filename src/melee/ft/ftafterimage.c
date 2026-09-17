@@ -27,7 +27,7 @@ typedef struct AfterimageVtx {
 
 static inline itSword_UnkBytes* ftCo_800C2600_get_params(Fighter* fp)
 {
-    itSword_UnkBytes* params;
+    itSword_UnkBytes* params = NULL;
 
     if (fp->x2101_bits_8) {
         switch (itGetKind(fp->item_gobj)) {
@@ -113,6 +113,9 @@ void ftCo_800C2600(Fighter_GObj* gobj, u32 arg1)
     GXSetCullMode(GX_CULL_NONE);
 
     params = ftCo_800C2600_get_params(fp);
+    if (params == NULL) {
+        return;
+    }
 
     {
         s32 remaining;
@@ -381,7 +384,7 @@ void ftCo_800C2FD8(Fighter_GObj* gobj)
     HSD_JObj* jobj;
     struct Fighter_x20B0_t* entry;
     int axis;
-    struct SwordAttrs* attrs;
+    struct SwordAttrs* attrs = NULL;
     int nextIndex;
     PAD_STACK(0x8);
 
@@ -441,6 +444,10 @@ void ftCo_800C2FD8(Fighter_GObj* gobj)
         }
         default:
             break;
+        }
+        if (attrs == NULL) {
+            fp->x2100 = -1;
+            return;
         }
         axis = 0;
         fp->x20F8 = attrs->x18;

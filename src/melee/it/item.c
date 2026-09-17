@@ -576,11 +576,20 @@ static void Item_80267AA8(HSD_GObj* gobj, SpawnItem* spawnItem)
     item_data->entity = gobj;
     Item_80267978(gobj);
     item_data->msid = -1;
-    item_data->xC8_joint = DP(
-        HSD_Joint,
-        DP(ItemModelDesc, item_data->xC4_article_data->x10_modelDesc)->x0_joint);
-    item_data->xCC_item_attr =
-        DP(ItemAttr, item_data->xC4_article_data->x0_common_attr);
+    if (item_data->xC4_article_data != NULL) {
+        if (item_data->xC4_article_data->x10_modelDesc != 0) {
+            item_data->xC8_joint = DP(
+                HSD_Joint,
+                DP(ItemModelDesc, item_data->xC4_article_data->x10_modelDesc)->x0_joint);
+        } else {
+            item_data->xC8_joint = NULL;
+        }
+        item_data->xCC_item_attr =
+            DP(ItemAttr, item_data->xC4_article_data->x0_common_attr);
+    } else {
+        item_data->xC8_joint = NULL;
+        item_data->xCC_item_attr = NULL;
+    }
     item_data->owner = NULL;
     item_data->xDC8_word.flags.x0 = 0;
     item_data->ecb_lock = -1;

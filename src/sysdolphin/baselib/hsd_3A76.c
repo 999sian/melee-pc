@@ -15,6 +15,7 @@
 #include <dolphin/mtx.h>
 #include <dolphin/types.h>
 #include <melee/lb/lbarchive.h> ///< @todo Circular include
+#include "pc/disc.h"
 
 /* The SIS bytecode (from disc) and the text state stack (byte-serialized
  * big-endian by HSD_SisLib_803A7684) are both big-endian byte streams. */
@@ -336,7 +337,7 @@ loop_3:
         HSD_SisLib_803A7684(text, (u8*) cursor, 0x85U);
         /* fallthrough */
     case 8:
-        cursor = (u8*) (uintptr_t) sis_rd_u32(((u8*) cursor + 1)) - 1;
+        cursor = DP(u8, sis_rd_u32(((u8*) cursor + 1))) - 1;
         goto block_33;
     case 14:
         HSD_SisLib_803A7684(text, (u8*) cursor, 0x83U);
@@ -742,7 +743,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                             HSD_SisLib_803A7684(text, sis_cursor, 5U);
                             /* fallthrough */
                         case 8:
-                            sis_cursor = (u8*) (uintptr_t) sis_rd_u32((sis_cursor + 1)) - 1;
+                            sis_cursor = DP(u8, sis_rd_u32((sis_cursor + 1))) - 1;
                             break;
                         case 10:
                             if ((text->alloc_data == NULL) || (saved_kerning == 0)) {

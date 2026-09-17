@@ -1,8 +1,10 @@
 build/
 build-win/
+build-ios/
 dist/
 *.inc
 __pycache__/
+.zsign_cache/
 
 # Internal working notes stay local; only the screenshots are published.
 docs/*

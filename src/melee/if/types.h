@@ -274,7 +274,7 @@ struct ifStock_804A1378 {
     HSD_JObj* jobj_d;
     struct ifStock_804A1378_x204 x204[6];
 };
-#define IFSTOCK_MODEL0(stock) ((DynamicModelDesc*) (uintptr_t) (stock)->x0[0].v)
+#define IFSTOCK_MODEL0(stock) DP(DynamicModelDesc, (stock)->x0[0].v)
 
 struct ifStock_804A1774 {
     char x0;

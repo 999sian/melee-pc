@@ -1304,7 +1304,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
                 ftAnim_8006E9B4(gobj);
                 {
                     FighterPartsTable* parts =
-                        (FighterPartsTable*) (uintptr_t) ftPartsTable[fp->kind].v;
+                        DP(FighterPartsTable, ftPartsTable[fp->kind].v);
                     if ((bone_index != 0) &&
                         (u32) bone_index < parts->parts_num &&
                         (*unk_byte_ptr)[0] != 0U)

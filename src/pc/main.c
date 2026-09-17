@@ -167,8 +167,15 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info) {
          * was touched; 0 vs garbage distinguishes a null deref from a wild
          * pointer, which is the first thing worth knowing. */
         if (rec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && rec->NumberParameters >= 2) {
-            fprintf(s, "[FATAL] crash: %s address 0x%llX\n",
-                rec->ExceptionInformation[0] ? "write to" : "read from",
+            const char* op = "access to";
+            if (rec->ExceptionInformation[0] == 0) {
+                op = "read from";
+            } else if (rec->ExceptionInformation[0] == 1) {
+                op = "write to";
+            } else if (rec->ExceptionInformation[0] == 8) {
+                op = "execute at";
+            }
+            fprintf(s, "[FATAL] crash: %s address 0x%llX\n", op,
                 (unsigned long long)rec->ExceptionInformation[1]);
         }
         for (USHORT f = 0; f < count; f++) {
@@ -260,7 +267,11 @@ static const char* backend_name(AuroraBackend b) {
 static AuroraBackend backend_from_env(void) {
     const char* want = getenv("MELEE_BACKEND");
     if (want == NULL || want[0] == '\0') {
+#if defined(__APPLE__)
+        return BACKEND_METAL;
+#else
         return BACKEND_AUTO;
+#endif
     }
     for (size_t i = 0; i < sizeof(k_backends) / sizeof(*k_backends); i++) {
         if (ieq(want, k_backends[i].name)) {
@@ -298,6 +309,35 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
             usage(argv[0]);
         }
     }
+
+#if defined(TARGET_OS_IPHONE) || defined(__APPLE__)
+    static char resolved_disc_path[1024];
+    if (disc == NULL) {
+        const char* home = getenv("HOME");
+        const char* candidates[] = {"Documents/melee.ciso", "Documents/melee.iso",
+            "Documents/game.ciso", "Documents/game.iso", "melee.ciso", "melee.iso", NULL};
+        for (int p = 0; candidates[p] != NULL; p++) {
+            if (home != NULL && home[0] != '\0') {
+                snprintf(
+                    resolved_disc_path, sizeof(resolved_disc_path), "%s/%s", home, candidates[p]);
+                FILE* f = fopen(resolved_disc_path, "rb");
+                if (f != NULL) {
+                    fclose(f);
+                    disc = resolved_disc_path;
+                    pc_log_line("Auto-detected disc in container: %s", disc);
+                    break;
+                }
+            }
+            FILE* f = fopen(candidates[p], "rb");
+            if (f != NULL) {
+                fclose(f);
+                disc = candidates[p];
+                pc_log_line("Auto-detected disc in cwd: %s", disc);
+                break;
+            }
+        }
+    }
+#endif
     AuroraConfig config = {
         /* appName doubles as the window title; the save/cache dirs stay
          * pinned so a renamed test window still uses the same memory card. */
