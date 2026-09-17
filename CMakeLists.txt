@@ -164,7 +164,7 @@ if (WIN32)
         aurora_copy_runtime_dlls(melee)
     endif ()
 elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    target_link_options(melee PRIVATE -Wl,-dead_strip -Wl,-no_compact_unwind)
+    target_link_options(melee PRIVATE -Wl,-dead_strip)
 elseif (APPLE)
     # arm64 macOS requires PIE and refuses binaries with a __PAGEZERO under 4GB;
     # MEM1 lives above 4GB and pc_resolve_dp restores its high half (disc.h).
