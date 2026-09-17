@@ -34,9 +34,11 @@ if not is_decomp:
 
 gcc_bin = os.environ.get('GCC_AARCH64_BIN') or '/home/sian/toolchains/gcc-aarch64/usr/bin/aarch64-linux-gnu-gcc'
 if not os.path.exists(gcc_bin):
-    gcc_which = shutil.which('aarch64-linux-gnu-gcc')
-    if gcc_which:
-        gcc_bin = gcc_which
+    for candidate in ('aarch64-linux-gnu-gcc-14', 'aarch64-linux-gnu-gcc-13', 'aarch64-linux-gnu-gcc'):
+        gcc_which = shutil.which(candidate)
+        if gcc_which:
+            gcc_bin = gcc_which
+            break
     else:
         sys.exit(f'gcc_ios_launcher: no aarch64 GCC found at {gcc_bin}')
 
@@ -102,6 +104,7 @@ try:
         '-mno-outline-atomics',
         '-fleading-underscore',
         '-fno-section-anchors',
+        '-fno-ivopts',
         '-fPIC',
         '-ffixed-x18',
         '-fno-asynchronous-unwind-tables',
@@ -190,13 +193,30 @@ try:
         if ':got:' in line:
             line = re.sub(r'adrp\s+([wx]\d+),\s*:got:([a-zA-Z0-9_.]+)', r'adrp \1, \2@GOTPAGE', line)
         elif 'adrp' in line:
-            line = re.sub(r'adrp\s+([wx]\d+),\s*([a-zA-Z0-9_.]+)', r'adrp \1, \2@PAGE', line)
+            m_adrp = re.match(r'(\s*adrp\s+[wx]\d+,\s*)([a-zA-Z0-9_.]+)\s*([+-]\s*(?:\d+|0x[0-9a-fA-F]+))?', line)
+            if m_adrp:
+                prefix, sym, addend = m_adrp.group(1), m_adrp.group(2), m_adrp.group(3)
+                if addend:
+                    addend = addend.replace(' ', '')
+                    if addend.startswith('+'):
+                        line = f'{prefix}({sym}{addend})@PAGE\n'
+                    else:
+                        line = f'{prefix}{sym}@PAGE\n'
+                else:
+                    line = f'{prefix}{sym}@PAGE\n'
 
         if ':got_lo12:' in line:
             line = re.sub(r'\[\s*([wx]\d+),\s*:got_lo12:([a-zA-Z0-9_.]+)\s*\]', r'[\1, \2@GOTPAGEOFF]', line)
         elif ':lo12:' in line:
-            line = re.sub(r'\[\s*([wx]\d+),\s*#?:lo12:([a-zA-Z0-9_.]+)\s*\]', r'[\1, \2@PAGEOFF]', line)
-            line = re.sub(r'#?:lo12:([a-zA-Z0-9_.]+)', r'\1@PAGEOFF', line)
+            m_neg = re.search(r'add\s+([wx]\d+),\s*([wx]\d+),\s*#?:lo12:([a-zA-Z0-9_.]+)\s*-\s*(\d+|0x[0-9a-fA-F]+)', line)
+            if m_neg:
+                dst, src, sym, off = m_neg.group(1), m_neg.group(2), m_neg.group(3), m_neg.group(4)
+                line = f'\tadd\t{dst}, {src}, {sym}@PAGEOFF\n\tsub\t{dst}, {dst}, #{off}\n'
+            else:
+                line = re.sub(r'\[\s*([wx]\d+),\s*#?:lo12:([a-zA-Z0-9_.]+)\s*\+\s*(\d+|0x[0-9a-fA-F]+)\s*\]', r'[\1, (\2+\3)@PAGEOFF]', line)
+                line = re.sub(r'#?:lo12:([a-zA-Z0-9_.]+)\s*\+\s*(\d+|0x[0-9a-fA-F]+)', r'(\1+\2)@PAGEOFF', line)
+                line = re.sub(r'\[\s*([wx]\d+),\s*#?:lo12:([a-zA-Z0-9_.]+)\s*\]', r'[\1, \2@PAGEOFF]', line)
+                line = re.sub(r'#?:lo12:([a-zA-Z0-9_.]+)', r'\1@PAGEOFF', line)
 
         if 'movi' in line:
             line = re.sub(

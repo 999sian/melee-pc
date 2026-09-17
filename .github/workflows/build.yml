@@ -178,6 +178,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential ninja-build cmake gcc-aarch64-linux-gnu \
             clang lld llvm zip python3
+          sudo apt-get install -y --no-install-recommends gcc-14-aarch64-linux-gnu || true
           for tool in clang clang++ ld.lld ld64.lld llvm-ar llvm-ranlib llvm-strip llvm-otool llvm-install-name-tool; do
             if command -v "${tool}-19" >/dev/null 2>&1; then
               sudo ln -sf "$(command -v "${tool}-19")" "/usr/local/bin/${tool}"
