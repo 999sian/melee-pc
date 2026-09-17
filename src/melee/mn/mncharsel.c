@@ -980,7 +980,11 @@ void mnCharSel_8025D1C4(int port, int mode)
 #ifdef TARGET_PC
             /* On PAL the token line lives in the scratch built at line ~890
              * (CSS_PAL_TOKEN + digits); its table slot 0x56 is unrelated. */
-            HSD_SisLib_803A6368(text, pc_region_is_pal() ? CSS_PAL_TOKEN : 0x56);
+            if (pc_region_is_pal()) {
+                HSD_SisLib_803A6368Raw(text, CSS_PAL_TOKEN);
+            } else {
+                HSD_SisLib_803A6368(text, 0x56);
+            }
 #else
             HSD_SisLib_803A6368(text, 0x56);
 #endif
@@ -5282,7 +5286,11 @@ s32 mnCharSel_802640A0(void)
         text->font_size.x = 0.07f;
         text->font_size.y = 0.07f;
 #ifdef TARGET_PC
-        HSD_SisLib_803A6368(text, pc_region_is_pal() ? CSS_PAL_SCRATCH : 0x4A);
+        if (pc_region_is_pal()) {
+            HSD_SisLib_803A6368Raw(text, CSS_PAL_SCRATCH);
+        } else {
+            HSD_SisLib_803A6368(text, 0x4A);
+        }
 #else
         HSD_SisLib_803A6368(text, 0x4A);
 #endif

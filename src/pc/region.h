@@ -23,6 +23,11 @@ bool pc_region_is_pal(void);
  * NULL when the symbol is genuinely required. */
 const void* pc_region_missing_symbol(const char* symbol_name);
 
+/* Map a SIS string index the NTSC-U code hardcodes to the entry holding the
+ * same text in the PAL archive whose SIS table symbol is `symbol`. Returns
+ * idx unchanged for USA discs and for tables with no known difference. */
+int pc_region_sis_index(const char* symbol, int idx);
+
 /* Called by discfont with the sislib kerning table read from the disc's DOL
  * (2 bytes per glyph). On PAL this also rewrites the code's SJIS->glyph table
  * to the PAL atlas layout. */

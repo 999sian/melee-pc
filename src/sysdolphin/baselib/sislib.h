@@ -138,6 +138,10 @@ void HSD_SisLib_803A660C(s32, s32, s32);
 u8* HSD_SisLib_803A6530(s32, s32, s32);
 u8* HSD_SisLib_803A6478(u8*, u8*);
 void HSD_SisLib_803A6368(HSD_Text*, s32);
+#ifdef TARGET_PC
+void HSD_SisLib_803A6368Raw(HSD_Text*, s32);
+const char* HSD_SisLib_FontSymbol(s32 font_idx);
+#endif
 void HSD_SisLib_803A62A0(s32, char*, char*);
 int HSD_SisLib_803A611C(int, HSD_GObj*, u16, u8, u8, u8, u8, u32);
 void lbl_803A60EC(void);
