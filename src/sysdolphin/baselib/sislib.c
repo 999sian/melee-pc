@@ -605,12 +605,25 @@ void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
          * region may be shorter or ordered differently, and an index past
          * its end yields whatever follows it in the archive. Loaded
          * archives live in MEM1, so anything else is not a string. */
-        if (text->sis_buffer != NULL && !pc_is_mem1_ptr(text->sis_buffer)) {
-            static const u8 empty_sis[1] = { 0 };
-            OSReport("sislib: font %d string %d resolves outside MEM1"
-                     " (slot 0x%08x); showing nothing\n",
-                     text->font_idx, sis_idx, sis_table[sis_idx].v);
-            text->sis_buffer = (SIS*) empty_sis;
+        {
+            u32 slot = sis_table[sis_idx].v;
+            /* 0x02xxxxxx slots name registered host pointers (statics the
+             * game linked in with DP_SET) and are valid by construction. */
+            bool ext = (slot & 0xFF000000u) == 0x02000000u;
+            if (text->sis_buffer != NULL && !ext &&
+                !pc_is_mem1_ptr(text->sis_buffer))
+            {
+                static const u8 empty_sis[1] = { 0 };
+                static s32 last_font = -1, last_idx = -1;
+                if (text->font_idx != last_font || sis_idx != last_idx) {
+                    OSReport("sislib: font %d string %d resolves outside"
+                             " MEM1 (slot 0x%08x); showing nothing\n",
+                             text->font_idx, sis_idx, slot);
+                    last_font = text->font_idx;
+                    last_idx = sis_idx;
+                }
+                text->sis_buffer = (SIS*) empty_sis;
+            }
         }
 #endif
     }
