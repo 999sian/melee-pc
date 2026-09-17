@@ -71,8 +71,8 @@ void gm_Mode_ChallengerApproach_OnLoad(void)
 
 void fn_80173834(u8 ckind, u8 major, bool arg2)
 {
-    bool temp_r31;
-    bool temp_r30 = gm_80160474(ckind, major);
+    s32 temp_r31;
+    s32 temp_r30 = gm_80160474(ckind, major);
 
     if (arg2) {
         gmMainLib_8015DA68(temp_r30);
@@ -308,7 +308,7 @@ void gm_80173DE4(MatchEnd* arg0)
     }
 }
 
-static inline bool gm_80173EEC_inline(u8 arg0, int arg1)
+static inline s32 gm_80173EEC_inline(u8 arg0, int arg1)
 {
     return gm_80160474(arg0, arg1);
 }

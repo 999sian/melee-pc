@@ -1,4 +1,5 @@
 #include "thread.hpp"
+#include "logging.hpp"
 
 #include <SDL3/SDL_thread.h>
 #include <tracy/Tracy.hpp>
@@ -6,6 +7,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <mutex>
 #include <optional>
@@ -16,6 +18,7 @@
 #if defined(__linux__)
 #include <pthread.h>
 #include <sched.h>
+#include <unistd.h>
 #elif defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -27,6 +30,29 @@
 
 namespace aurora::thread {
 namespace {
+constexpr Module Log{"aurora::thread"};
+
+bool is_pinning_disabled() noexcept {
+  if (const char* env = std::getenv("AURORA_NO_PIN"); env && *env && *env != '0') {
+    return true;
+  }
+  if (const char* env = std::getenv("AURORA_PIN_THREADS"); env && *env) {
+    if (*env == '0' || *env == 'n' || *env == 'N' || *env == 'f' || *env == 'F') {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool is_pinning_forced() noexcept {
+  if (const char* env = std::getenv("AURORA_PIN_THREADS"); env && *env) {
+    if (*env == '1' || *env == 'y' || *env == 'Y' || *env == 't' || *env == 'T') {
+      return true;
+    }
+  }
+  return false;
+}
+
 struct Processor {
   uint16_t group = 0;
   uint32_t number = 0;
@@ -103,13 +129,65 @@ std::vector<uint32_t> parse_cpu_list(const std::string& list) {
 }
 
 std::optional<CacheDomain> find_cache_domain() {
-  const int currentCpu = sched_getcpu();
-  if (currentCpu < 0) {
+  if (is_pinning_disabled()) {
+    Log.info("Thread pinning disabled by environment");
+    return std::nullopt;
+  }
+  const bool forcePin = is_pinning_forced();
+
+#if defined(__ANDROID__) || defined(__arm__) || defined(__aarch64__)
+  if (!forcePin) {
+    // On ARM platforms (Android, Nintendo Switch L4T Linux, Raspberry Pi, etc.),
+    // cores are dynamically managed by kernel Energy Aware Scheduling (EAS) and cpufreq.
+    // Pinning threads restricts execution to a subset of cores, starves governor frequency scaling,
+    // causes thermal throttling, and on quad-core SoCs (like Tegra X1) starves cores 0 and 1
+    // while overloading cores 2 and 3 with all 3 engine threads.
+    return std::nullopt;
+  }
+#endif
+
+  const long numProcessors = sysconf(_SC_NPROCESSORS_CONF);
+  if (!forcePin && numProcessors <= 4) {
+    // On systems with 4 or fewer cores, Aurora's 3 primary threads (Main, FIFO processor,
+    // and Render worker) need all available cores. Pinning to a cache domain or subset of
+    // cores artificially starves threads.
     return std::nullopt;
   }
 
+  int targetCpu = sched_getcpu();
+  if (targetCpu < 0) {
+    targetCpu = 0;
+  }
+
+  // On heterogeneous architectures (e.g. ARM big.LITTLE),
+  // select the highest-capacity or highest-frequency CPU core cluster rather than
+  // arbitrarily using whichever low-power core the calling thread happened to start on.
+  if (numProcessors > 1) {
+    uint64_t bestMetric = 0;
+    int bestCpu = targetCpu;
+    for (long i = 0; i < numProcessors; ++i) {
+      uint64_t metric = 0;
+      auto capStr = read_line("/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpu_capacity");
+      if (capStr) {
+        try { metric = std::stoull(*capStr); } catch (...) {}
+      }
+      if (metric == 0) {
+        auto freqStr = read_line("/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/cpuinfo_max_freq");
+        if (!freqStr) freqStr = read_line("/sys/devices/system/cpu/cpu" + std::to_string(i) + "/cpufreq/scaling_max_freq");
+        if (freqStr) {
+          try { metric = std::stoull(*freqStr); } catch (...) {}
+        }
+      }
+      if (metric > bestMetric) {
+        bestMetric = metric;
+        bestCpu = static_cast<int>(i);
+      }
+    }
+    targetCpu = bestCpu;
+  }
+
   CacheDomain best;
-  const std::string cacheRoot = "/sys/devices/system/cpu/cpu" + std::to_string(currentCpu) + "/cache";
+  const std::string cacheRoot = "/sys/devices/system/cpu/cpu" + std::to_string(targetCpu) + "/cache";
   for (uint32_t index = 0; index < 32; ++index) {
     const std::string indexRoot = cacheRoot + "/index" + std::to_string(index);
     const auto levelText = read_line(indexRoot + "/level");
@@ -126,7 +204,7 @@ std::optional<CacheDomain> find_cache_domain() {
     }
 
     const auto cpus = parse_cpu_list(*cpuList);
-    if (std::find(cpus.begin(), cpus.end(), static_cast<uint32_t>(currentCpu)) == cpus.end()) {
+    if (std::find(cpus.begin(), cpus.end(), static_cast<uint32_t>(targetCpu)) == cpus.end()) {
       continue;
     }
 
@@ -148,9 +226,14 @@ std::optional<CacheDomain> find_cache_domain() {
     }
   }
 
-  if (best.processors.empty()) {
+  // Aurora requires at least 3 heavy threads (Main, FIFO processor, Render worker).
+  // If the cache domain contains fewer than 3 processors, pinning all 3 threads to it
+  // will cause severe contention.
+  // Furthermore, if the domain covers all available processors, explicit affinity is redundant.
+  if (best.processors.size() < 3 || (!forcePin && best.processors.size() >= static_cast<size_t>(numProcessors))) {
     return std::nullopt;
   }
+
   return best;
 }
 
@@ -166,6 +249,17 @@ bool apply_cache_domain(const CacheDomain& domain) noexcept {
 }
 #elif defined(_WIN32)
 std::optional<CacheDomain> find_cache_domain() {
+  if (is_pinning_disabled()) {
+    return std::nullopt;
+  }
+  const bool forcePin = is_pinning_forced();
+
+  SYSTEM_INFO sysInfo{};
+  GetSystemInfo(&sysInfo);
+  if (!forcePin && sysInfo.dwNumberOfProcessors <= 4) {
+    return std::nullopt;
+  }
+
   PROCESSOR_NUMBER currentProcessor{};
   GetCurrentProcessorNumberEx(&currentProcessor);
 
@@ -213,7 +307,7 @@ std::optional<CacheDomain> find_cache_domain() {
     offset += info->Size;
   }
 
-  if (best.processors.empty()) {
+  if (best.processors.size() < 3 || (!forcePin && best.processors.size() >= sysInfo.dwNumberOfProcessors)) {
     return std::nullopt;
   }
   return best;
@@ -239,6 +333,7 @@ void pin_shared_cache() noexcept {
   if (!sDomainConfigured) {
     auto domain = find_cache_domain();
     if (domain && apply_cache_domain(*domain)) {
+      Log.info("Pinned threads to shared cache domain with {} cores", domain->processors.size());
       sDomain = std::move(domain);
     }
     sDomainConfigured = true;

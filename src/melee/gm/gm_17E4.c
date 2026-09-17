@@ -302,7 +302,11 @@ void gm_8017E7FC(u8 matchResult)
 }
 
 typedef struct {
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    u8 b0 : 1, b1 : 1, b2 : 1, b3 : 1, b4 : 1, b5 : 1, b6 : 1, b7 : 1;
+#else
     u8 b7 : 1, b6 : 1, b5 : 1, b4 : 1, b3 : 1, b2 : 1, b1 : 1, b0 : 1;
+#endif
 } u8_bits;
 
 #ifdef MUST_MATCH

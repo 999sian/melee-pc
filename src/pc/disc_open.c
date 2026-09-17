@@ -5,17 +5,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-static int64_t nod_sdl_read_at(void* userData, uint64_t offset, void* out, size_t len)
-{
-    SDL_IOStream* io = (SDL_IOStream*) userData;
-    if (io == NULL || out == NULL || offset > (uint64_t) INT64_MAX) {
+static int64_t nod_sdl_read_at(void* userData, uint64_t offset, void* out, size_t len) {
+    SDL_IOStream* io = (SDL_IOStream*)userData;
+    if (io == NULL || out == NULL || offset > (uint64_t)INT64_MAX) {
         return -1;
     }
-    if (SDL_SeekIO(io, (Sint64) offset, SDL_IO_SEEK_SET) < 0) {
+    if (SDL_SeekIO(io, (Sint64)offset, SDL_IO_SEEK_SET) < 0) {
         return -1;
     }
     size_t total = 0;
-    uint8_t* dst = (uint8_t*) out;
+    uint8_t* dst = (uint8_t*)out;
     while (total < len) {
         size_t n = SDL_ReadIO(io, dst + total, len - total);
         if (n == 0) {
@@ -23,28 +22,25 @@ static int64_t nod_sdl_read_at(void* userData, uint64_t offset, void* out, size_
         }
         total += n;
     }
-    return (int64_t) total;
+    return (int64_t)total;
 }
 
-static int64_t nod_sdl_stream_len(void* userData)
-{
-    SDL_IOStream* io = (SDL_IOStream*) userData;
+static int64_t nod_sdl_stream_len(void* userData) {
+    SDL_IOStream* io = (SDL_IOStream*)userData;
     if (io == NULL) {
         return -1;
     }
-    return (int64_t) SDL_GetIOSize(io);
+    return (int64_t)SDL_GetIOSize(io);
 }
 
-static void nod_sdl_stream_close(void* userData)
-{
-    SDL_IOStream* io = (SDL_IOStream*) userData;
+static void nod_sdl_stream_close(void* userData) {
+    SDL_IOStream* io = (SDL_IOStream*)userData;
     if (io != NULL) {
         SDL_CloseIO(io);
     }
 }
 
-NodResult pc_open_nod_disc(const char* path, NodHandle** out)
-{
+NodResult pc_open_nod_disc(const char* path, NodHandle** out) {
     if (path == NULL || out == NULL) {
         return NOD_RESULT_ERR_OTHER;
     }

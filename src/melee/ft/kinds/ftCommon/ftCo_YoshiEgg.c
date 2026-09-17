@@ -41,6 +41,10 @@ void ftCo_800BBCC0(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj1 = gobj->hsd_obj;
+    if (fp->x20A0_accessory == NULL) {
+        fp->accessory4_cb = NULL;
+        return;
+    }
     if (fp->mv.co.yoshiegg.x14 <= 0) {
         Fighter_UpdateModelScale(gobj);
         fp->accessory4_cb = NULL;
@@ -120,7 +124,7 @@ void ftCo_800BBED4(Fighter_GObj* gobj, Fighter_GObj* arg1)
         fp->take_dmg_2_cb = ftCo_800BC3D0;
         ftCommon_8007EFC0(fp, 1);
         fp->mv.co.yoshiegg.x10 = ftYs_SpecialN_GetDatAttr20(arg1);
-        fp->mv.co.yoshiegg.x14 = fp->mv.co.walk.fast_anim_frame;
+        fp->mv.co.yoshiegg.x14 = fp->mv.co.yoshiegg.x10;
         fp->mv.co.yoshiegg.xC = ftYs_SpecialN_GetDatAttr1C(arg1);
         ftCommon_InitGrab(fp, 0, ftYs_SpecialN_GetDatAttr24(arg1));
         HSD_JObjGetScale(jobj, &fp->mv.co.yoshiegg.x18);
@@ -141,11 +145,13 @@ void ftCo_YoshiEgg_Anim(Fighter_GObj* gobj)
             HSD_JObj* jobj = fp->parts[FtPart_TopN].joint;
             ftCo_DatAttrs* ca = &fp->co_attrs;
             ftCo_DatAttrs_xBC_t* ca_xBC = &ca->xBC;
+            f32 size = ca_xBC->size;
             efAsync_Spawn(gobj, &GET_FIGHTER(gobj)->x60C, 4, 1231, jobj,
-                          ca_xBC);
+                          &size);
             ftYs_SpecialN_8012CD88(&fp->self_vel);
         }
         ftCommon_8007D5D4(fp);
+        fp->accessory4_cb = NULL;
         Fighter_UpdateModelScale(gobj);
         ftColl_8007B760(gobj, ftYs_SpecialN_GetExtAttr38());
         ftCo_Fall_Enter_YoshiEgg(gobj);

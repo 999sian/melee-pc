@@ -20,7 +20,11 @@ typedef struct AllstarStageEntry {
 ASSERT_SIZE(AllstarStageEntry, 0x1A);
 
 typedef struct {
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    u8 b0 : 1, b1 : 1, b2 : 1, b3 : 1, b4 : 1, b5 : 1, b6 : 1, b7 : 1;
+#else
     u8 b7 : 1, b6 : 1, b5 : 1, b4 : 1, b3 : 1, b2 : 1, b1 : 1, b0 : 1;
+#endif
 } u8_bits;
 
 /* Retail reserves only 0x78 bytes here and lets the tail of the struct spill
@@ -161,10 +165,6 @@ bool fn_8017EDDC(void)
     return false;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void fn_8017EE40(void* arg0_int)
 {
     MatchEnd* arg0 = arg0_int;
@@ -227,6 +227,3 @@ void fn_8017EE40(void* arg0_int)
         }
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif

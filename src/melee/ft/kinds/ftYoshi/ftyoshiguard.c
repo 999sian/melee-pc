@@ -53,7 +53,8 @@ void ftYs_Init_8012BE3C(HSD_GObj* gobj)
         Fighter_Part part = ftParts_GetBoneIndex(fp, 4);
         HSD_JObj* jobj = fp->parts[part].joint;
         Fighter* fp1 = GET_FIGHTER(gobj);
-        efAsync_Spawn(gobj, &fp1->x60C, 4, 1231, jobj, xBC);
+        f32 size = xBC->size;
+        efAsync_Spawn(gobj, &fp1->x60C, 4, 1231, jobj, &size);
     }
 }
 
@@ -114,7 +115,10 @@ static inline void spawnEffect(HSD_GObj* gobj)
     fp2 = GET_FIGHTER(gobj);
     jobj = fp->parts[part].joint;
 
-    efAsync_Spawn(gobj, &fp2->x60C, FtPart_HipN, 1231, jobj, co_xBC);
+    {
+        f32 size = co_xBC->size;
+        efAsync_Spawn(gobj, &fp2->x60C, FtPart_HipN, 1231, jobj, &size);
+    }
 }
 
 void ftYs_GuardOn_0_Anim(HSD_GObj* gobj)

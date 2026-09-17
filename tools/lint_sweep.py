@@ -23,6 +23,10 @@ EXPECTED = {
     # outlive the damage view and no position inside the motion-var union
     # survives on LP64. See src/melee/ft/kinds/ftCommon/types.h.
     "sizeof(struct Fighter) == 0x23EC",
+    # Upstream decomp reconstruction gap: gmm_x0_vsmodes is missing 4 bytes of pad
+    # between nametags and vs_melee (0x588 + 4 vs 0x590).
+    "sizeof(struct gmm_x0_vsmodes) == 0x1850 - 0x588",
+    "sizeof(struct gmm_x0) == 0x8518",
 }
 
 

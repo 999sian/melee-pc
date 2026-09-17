@@ -425,12 +425,12 @@ void it_8026E0F4(Item_GObj* gobj)
     }
 }
 
-static inline bool it_8026E_inline(Item_GObj* gobj)
+static inline u32 it_8026E_inline(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    bool cond;
+    u32 cond;
     CollData* coll;
-    bool cond2;
+    u32 cond2;
     PAD_STACK(24);
 
     coll = &ip->x378_itemColl;
@@ -459,7 +459,7 @@ bool it_8026E15C_inline2(Item_GObj* gobj)
 void it_8026E15C(Item_GObj* gobj, HSD_GObjEvent arg1)
 {
     bool res2;
-    bool res = it_8026E_inline(gobj);
+    u32 res = it_8026E_inline(gobj);
     u8 _[22];
 
     if (res & 0xF) {
@@ -507,7 +507,7 @@ static bool it_8026DE98_outline4(Item_GObj* gobj)
 void it_8026E248(Item_GObj* gobj, HSD_GObjEvent arg1)
 {
     bool res2;
-    bool res = it_8026E_inline(gobj);
+    u32 res = it_8026E_inline(gobj);
     PAD_STACK(18);
 
     if (res & 0xF) {
@@ -537,7 +537,7 @@ bool it_8026E32C_inline(Item_GObj* gobj)
 
 s32 it_8026E32C(Item_GObj* item_gobj, HSD_GObjEvent arg1)
 {
-    bool res = it_8026E_inline(item_gobj);
+    u32 res = it_8026E_inline(item_gobj);
     PAD_STACK(32);
 
     if (res & 0xF) {
@@ -555,8 +555,8 @@ void it_8026E414(Item_GObj* item_gobj, HSD_GObjEvent arg1)
 {
     CollData* coll;
     Item* item;
-    bool chk;
-    bool new_var;
+    u32 chk;
+    u32 new_var;
     PAD_STACK(28);
 
     item = item_gobj->user_data;
@@ -585,8 +585,8 @@ void it_8026E4D0(Item_GObj* item_gobj, HSD_GObjEvent arg1)
     CollData* coll;
     HSD_JObj* item_jobj;
     Item* item;
-    bool chk;
-    bool new_var;
+    u32 chk;
+    u32 new_var;
     PAD_STACK(34);
 
     item = item_gobj->user_data;
@@ -616,8 +616,8 @@ void it_8026E5A0(Item_GObj* item_gobj, HSD_GObjEvent arg1)
 {
     CollData* coll;
     Item* item;
-    bool chk;
-    bool new_val;
+    u32 chk;
+    u32 new_val;
     PAD_STACK(28);
 
     item = item_gobj->user_data;
@@ -647,8 +647,8 @@ void it_8026E664(Item_GObj* item_gobj, HSD_GObjEvent arg1)
 {
     CollData* coll;
     Item* item;
-    bool chk;
-    bool new_var;
+    u32 chk;
+    u32 new_var;
 
     PAD_STACK(28);
 
@@ -678,8 +678,8 @@ void it_8026E71C(Item_GObj* item_gobj, HSD_GObjEvent arg1)
 {
     CollData* coll;
     Item* item;
-    bool chk;
-    bool new_var;
+    u32 chk;
+    u32 new_var;
     PAD_STACK(28);
 
     item = item_gobj->user_data;
@@ -713,9 +713,9 @@ void it_8026E7E0(Item_GObj* item_gobj, HSD_GObjEvent arg1)
 {
     CollData* coll;
     Item* item;
-    bool chk;
+    u32 chk;
     bool chk2;
-    bool new_var;
+    u32 new_var;
     PAD_STACK(30);
 
     item = item_gobj->user_data;

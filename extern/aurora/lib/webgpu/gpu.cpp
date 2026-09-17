@@ -220,9 +220,17 @@ wgpu::TextureFormat best_surface_format() {
   if (g_surfaceCapabilities.formatCount == 0) {
     return wgpu::TextureFormat::Undefined;
   }
+  // Prefer RGBA8Unorm if supported to match decoded texture formats (critical on Android/Adreno
+  // where drivers advertise BGRA8Unorm first but texture decoders output RGBA8, causing red/blue swap)
   for (size_t i = 0; i < g_surfaceCapabilities.formatCount; ++i) {
     const auto format = to_linear(g_surfaceCapabilities.formats[i]);
-    if (format == wgpu::TextureFormat::RGBA8Unorm || format == wgpu::TextureFormat::BGRA8Unorm) {
+    if (format == wgpu::TextureFormat::RGBA8Unorm) {
+      return format;
+    }
+  }
+  for (size_t i = 0; i < g_surfaceCapabilities.formatCount; ++i) {
+    const auto format = to_linear(g_surfaceCapabilities.formats[i]);
+    if (format == wgpu::TextureFormat::BGRA8Unorm) {
       return format;
     }
   }

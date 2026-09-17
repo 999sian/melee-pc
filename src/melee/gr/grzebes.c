@@ -33,7 +33,7 @@
 /* 1D90FC */ static void grZebes_801D90FC(Ground_GObj* arg);
 /* 1D9254 */ static bool grZebes_801D9254(Ground_GObj* arg);
 /* 1D93D8 */ static void grZebes_801D93D8(Ground_GObj* arg);
-/* 1D93DC */ void grZebes_801D93DC(Ground_GObj* gobj);
+/* 1D93DC */ static void stageGObj5_OnInit(Ground_GObj* gobj);
 /* 1D9408 */ static bool grZebes_801D9408(Ground_GObj* arg);
 /* 1D9410 */ static void grZebes_801D9410(Ground_GObj* arg);
 /* 1D94EC */ static void grZebes_801D94EC(Ground_GObj* arg);
@@ -188,7 +188,7 @@ StageCallbacks grZe_callbacks[] = {
         0,
     },
     {
-        grZebes_801D93DC,
+        stageGObj5_OnInit,
         grZebes_801D9408,
         grZebes_801D9410,
         grZebes_801D94EC,
@@ -321,7 +321,7 @@ void grZebes_801D8644(HSD_GObj* gobj)
     UNUSED u8 _[4];
 
     gp->u.zebes5.xF0 = grZebes_801D8558(7);
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     child_jobj = Ground_801C3FA4(gobj, 0x1E);
     mat_gobj =
@@ -354,7 +354,7 @@ void grZebes_801D8644(HSD_GObj* gobj)
     gp->u.zebes5.xFC = (grZakoGenerator_Config*) grZakoGenerator_801CA394(
         (UNK_T) &grZe_803E1B90, 0xA, (UNK_T) grZebes_801DCB64, 1.0f);
     mpJointSetB10(0);
-    Ground_801C2FE0((Ground_GObj*) gobj);
+    Ground_UpdateMapColl((Ground_GObj*) gobj);
 }
 
 bool grZebes_801D8814(Ground_GObj* arg)
@@ -627,7 +627,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
         grZakoGenerator_801CA43C(gp->u.zebes5.xFC,
                                  Ground_801C3FA4(gobj, 0xE), slope);
     }
-    Ground_801C2FE0((Ground_GObj*) gobj);
+    Ground_UpdateMapColl((Ground_GObj*) gobj);
     lb_800115F4();
 }
 
@@ -646,7 +646,7 @@ void grZebes_801D9100(HSD_GObj* gobj)
     Ground_GObj* new_var2;
 
     grAnime_801C8138(gobj, gp->map_id, 0);
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     mat_gobj = gobj;
     new_var3 = mat_gobj;
     child_jobj = Ground_801C3FA4(new_var3, 0xF);
@@ -671,7 +671,7 @@ void grZebes_801D9100(HSD_GObj* gobj)
     gp->u.zebes4.xE8 = 0;
     gp->u.zebes4.xEC = grZakoGenerator_801CA394(
         (void*) &grZe_803E1C80, 4, (void*) grZebes_801DCBB0, 1.0f);
-    Ground_801C2FE0(new_var2);
+    Ground_UpdateMapColl(new_var2);
 }
 
 bool grZebes_801D9254(Ground_GObj* arg)
@@ -712,15 +712,15 @@ void grZebes_801D925C(HSD_GObj* gobj)
         Ground_801C4368(&slope, &intercept);
         grZakoGenerator_801CA43C(gp->u.zebes4.xEC,
                                  Ground_801C3FA4(gobj, 1), slope);
-        Ground_801C2FE0((Ground_GObj*) gobj);
+        Ground_UpdateMapColl((Ground_GObj*) gobj);
     }
 }
 
 void grZebes_801D93D8(Ground_GObj* arg) {}
 
-void grZebes_801D93DC(Ground_GObj* gobj)
+static void stageGObj5_OnInit(Ground_GObj* gobj)
 {
-    Ground_AnimateMap(gobj);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grZebes_801D9408(Ground_GObj* arg)
@@ -2403,7 +2403,7 @@ bool grZebes_801DCBFC(Ground_GObj* gobj, HSD_GObj* fobj, void* arg)
 
 DynamicsDesc* grZebes_801DCCB8(enum_t arg)
 {
-    return false;
+    return NULL;
 }
 
 bool grZebes_801DCCC0(Vec3* arg, int arg0, HSD_JObj* jobj)

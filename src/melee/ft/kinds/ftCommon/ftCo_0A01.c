@@ -131,13 +131,13 @@
 /* 0A8EB0 */ static void ftCo_800A8EB0(Fighter*);
 /* 0A92CC */ static void ftCo_800A92CC(Fighter* fp);
 /* 0A96B8 */ static void ftCo_800A96B8(Fighter*);
-/* 0A9904 */ static UNK_RET ftCo_800A9904(Fighter*);
+/* 0A9904 */ static void ftCo_800A9904(Fighter*);
 /* 0A9CB4 */ static void ftCo_800A9CB4(Fighter* fp);
 /* 0AA320 */ static void ftCo_800AA320(Fighter* fp, int*, int*);
-/* 0AA42C */ static UNK_RET ftCo_800AA42C(Fighter* fp);
-/* 0AA844 */ static UNK_RET ftCo_800AA844(Fighter* fp);
+/* 0AA42C */ static void ftCo_800AA42C(Fighter* fp);
+/* 0AA844 */ static void ftCo_800AA844(Fighter* fp);
 /* 0AABC8 */ static void ftCo_800AABC8(Fighter* fp);
-/* 0AACD0 */ static UNK_RET ftCo_800AACD0(Fighter* fp);
+/* 0AACD0 */ static void ftCo_800AACD0(Fighter* fp);
 /* 0AAF48 */ static bool ftCo_800AAF48(Fighter* fp);
 /* 0AB224 */ static void ftCo_800AB224(Fighter* fp);
 /* 0ABA34 */ static void ftCo_800ABA34(Fighter* fp);
@@ -1978,9 +1978,9 @@ static inline bool ftCo_800A3908_inline0(Fighter* fp, struct CpuFighter* data,
     return false;
 }
 
-inline s32 ftCo_800A3908_inline1(float x, float y, Vec3* out_pos,
-                                 Vec3* out_normal, int* out_line,
-                                 u32* out_flags)
+static inline s32 ftCo_800A3908_inline1(float x, float y, Vec3* out_pos,
+                                        Vec3* out_normal, int* out_line,
+                                        u32* out_flags)
 {
     s32 result;
     s32 valid;

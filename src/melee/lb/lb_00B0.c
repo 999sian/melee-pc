@@ -99,8 +99,15 @@ void lb_8000B1CC(HSD_JObj* arg0, Vec3* pos0, Vec3* pos1)
     Quaternion r;
     Vec3 s;
 
+    if (pos1 == NULL) {
+        return;
+    }
     if (arg0 == NULL) {
-        *pos1 = *pos0;
+        if (pos0 != NULL) {
+            *pos1 = *pos0;
+        } else {
+            pos1->x = pos1->y = pos1->z = 0.0f;
+        }
         return;
     }
     if (HSD_JObjGetParent(arg0) != NULL) {

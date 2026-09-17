@@ -300,6 +300,9 @@ void handle_touch_down(const SDL_TouchFingerEvent& finger) noexcept {
   };
   dispatch_touch_event(*tracked, TouchStartEvent, mapped.position, true);
   g_context->ProcessTouchStart(touch_list(finger.fingerID, mapped.position), RmlSDL::GetKeyModifierState());
+  g_context->ProcessMouseMove(rounded_content_coord(mapped.position.x), rounded_content_coord(mapped.position.y),
+                              RmlSDL::GetKeyModifierState());
+  g_context->ProcessMouseButtonDown(RmlSDL::ConvertMouseButton(SDL_BUTTON_LEFT), RmlSDL::GetKeyModifierState());
 }
 
 void handle_touch_motion(const SDL_TouchFingerEvent& finger) noexcept {
@@ -317,6 +320,8 @@ void handle_touch_motion(const SDL_TouchFingerEvent& finger) noexcept {
   if (mapped.inside) {
     tracked->rmlPosition = mapped.position;
     g_context->ProcessTouchMove(touch_list(finger.fingerID, mapped.position), RmlSDL::GetKeyModifierState());
+    g_context->ProcessMouseMove(rounded_content_coord(mapped.position.x), rounded_content_coord(mapped.position.y),
+                                RmlSDL::GetKeyModifierState());
   }
 }
 
@@ -332,6 +337,7 @@ void handle_touch_up(const SDL_TouchFingerEvent& finger) noexcept {
   const auto rmlPosition = tracked->rmlPosition;
   *tracked = {};
   g_context->ProcessTouchEnd(touch_list(finger.fingerID, rmlPosition), RmlSDL::GetKeyModifierState());
+  g_context->ProcessMouseButtonUp(RmlSDL::ConvertMouseButton(SDL_BUTTON_LEFT), RmlSDL::GetKeyModifierState());
 }
 
 void handle_touch_cancel(const SDL_TouchFingerEvent& finger) noexcept {
@@ -343,6 +349,7 @@ void handle_touch_cancel(const SDL_TouchFingerEvent& finger) noexcept {
   const auto rmlPosition = tracked->rmlPosition;
   *tracked = {};
   g_context->ProcessTouchCancel(touch_list(finger.fingerID, rmlPosition));
+  g_context->ProcessMouseButtonUp(RmlSDL::ConvertMouseButton(SDL_BUTTON_LEFT), RmlSDL::GetKeyModifierState());
 }
 } // namespace
 

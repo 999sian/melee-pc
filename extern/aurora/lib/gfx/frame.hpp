@@ -8,7 +8,11 @@
 namespace aurora::gfx::detail {
 
 inline constexpr size_t FrameSlotCount = 2;
-inline constexpr size_t StagingBufferCount = FrameSlotCount + 3;
+#if defined(__ANDROID__)
+inline constexpr size_t StagingBufferCount = FrameSlotCount + 1; // 3 staging buffers on mobile
+#else
+inline constexpr size_t StagingBufferCount = FrameSlotCount + 3; // 5 staging buffers on desktop
+#endif
 inline constexpr uint64_t StagingBufferSize = UniformBufferSize + VertexBufferSize + IndexBufferSize +
                                               StorageBufferSize + (UseTextureBuffer ? TextureUploadSize : 0);
 

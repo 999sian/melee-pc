@@ -62,46 +62,44 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute
 extern uintptr_t OSBaseAddress;
 #define PC_MEM1_ALIAS_SIZE (96u * 1024 * 1024) /* == PC_MEM1_SIZE */
 
-static inline int pc_is_mem1_ptr(const void* p)
-{
-    return (uintptr_t) p - OSBaseAddress < PC_MEM1_ALIAS_SIZE;
+static inline int pc_is_mem1_ptr(const void* p) {
+    return (uintptr_t)p - OSBaseAddress < PC_MEM1_ALIAS_SIZE;
 }
 
 /* True when truncating p to 32 bits round-trips through pc_resolve_dp:
  * below 4GB, or inside the aliased MEM1. */
-static inline int pc_ptr_fits_slot(const void* p)
-{
+static inline int pc_ptr_fits_slot(const void* p) {
 #ifdef PC_MEM1_ALIAS
-    if (pc_is_mem1_ptr(p)) return 1;
+    if (pc_is_mem1_ptr(p))
+        return 1;
 #endif
-    return !((uintptr_t) p >> 32);
+    return !((uintptr_t)p >> 32);
 }
 
-static inline uint32_t pc_encode_dp(const void* p)
-{
-    if (!p) return 0;
+static inline uint32_t pc_encode_dp(const void* p) {
+    if (!p)
+        return 0;
 #ifdef PC_MEM1_ALIAS
     if (pc_is_mem1_ptr(p)) {
-        return (uint32_t) (uintptr_t) p;
+        return (uint32_t)(uintptr_t)p;
     }
 #endif
-    if (!((uintptr_t) p >> 32)) {
-        return (uint32_t) (uintptr_t) p;
+    if (!((uintptr_t)p >> 32)) {
+        return (uint32_t)(uintptr_t)p;
     }
     return 0x02000000u | pc_register_ext_ptr(p);
 }
 
-static inline void* pc_resolve_dp(uint32_t slot)
-{
+static inline void* pc_resolve_dp(uint32_t slot) {
 #ifdef PC_MEM1_ALIAS
     if (slot & 0x80000000u) {
-        return (void*) ((OSBaseAddress & ~(uintptr_t) 0xFFFFFFFFu) | slot);
+        return (void*)((OSBaseAddress & ~(uintptr_t)0xFFFFFFFFu) | slot);
     }
 #endif
     if ((slot & 0xFF000000u) == 0x02000000u) {
         return pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
     }
-    return (void*) (uintptr_t) slot;
+    return (void*)(uintptr_t)slot;
 }
 
 #ifdef __cplusplus
@@ -110,26 +108,49 @@ static inline void* pc_resolve_dp(uint32_t slot)
 
 #define DISC_STRUCT __attribute__((scalar_storage_order("big-endian")))
 #define DISC_PTR(T) uint32_t
-#define DP(T, slot) ((T*) pc_resolve_dp((uint32_t) (slot)))
-#define DP_SET(slot, p) do { (slot) = pc_encode_dp((const void*) (p)); } while (0)
+#define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(slot)))
+#define DP_SET(slot, p)                                                                            \
+    do {                                                                                           \
+        (slot) = pc_encode_dp((const void*)(p));                                                   \
+    } while (0)
 
 #define DISC_ASSERT_SIZE(T, size) _Static_assert(sizeof(T) == (size), #T " disc size")
 
 /* The game tells ARAM offsets from main-RAM pointers with `addr < 0x80000000`.
  * On PC, MEM1 is mapped at 0x80000000 and the executable is linked at
  * 0x10000000, so anything below the 16MB ARAM size is an ARAM offset. */
-#define PC_IS_ARAM_ADDR(a) ((uintptr_t) (a) < 0x01000000u)
+#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < 0x01000000u)
 
-typedef struct DISC_STRUCT { float v; } DiscF32;
-typedef struct DISC_STRUCT { uint32_t v; } DiscU32;
-typedef struct DISC_STRUCT { int32_t v; } DiscS32;
-typedef struct DISC_STRUCT { uint16_t v; } DiscU16;
-typedef struct DISC_STRUCT { int16_t v; } DiscS16;
-typedef struct DISC_STRUCT { float x, y; } DiscVec2;
-typedef struct DISC_STRUCT { float x, y, z; } DiscVec3;
-typedef struct DISC_STRUCT { float x, y, z, w; } DiscVec4;
-typedef struct DISC_STRUCT { int16_t x, y, z; } DiscS16Vec3;
-typedef struct DISC_STRUCT { float m[3][4]; } DiscMtx;
+typedef struct DISC_STRUCT {
+    float v;
+} DiscF32;
+typedef struct DISC_STRUCT {
+    uint32_t v;
+} DiscU32;
+typedef struct DISC_STRUCT {
+    int32_t v;
+} DiscS32;
+typedef struct DISC_STRUCT {
+    uint16_t v;
+} DiscU16;
+typedef struct DISC_STRUCT {
+    int16_t v;
+} DiscS16;
+typedef struct DISC_STRUCT {
+    float x, y;
+} DiscVec2;
+typedef struct DISC_STRUCT {
+    float x, y, z;
+} DiscVec3;
+typedef struct DISC_STRUCT {
+    float x, y, z, w;
+} DiscVec4;
+typedef struct DISC_STRUCT {
+    int16_t x, y, z;
+} DiscS16Vec3;
+typedef struct DISC_STRUCT {
+    float m[3][4];
+} DiscMtx;
 
 #else /* GameCube build: identity */
 
@@ -138,18 +159,38 @@ typedef struct DISC_STRUCT { float m[3][4]; } DiscMtx;
 #define DP(T, slot) (slot)
 #define DP_SET(slot, p) ((slot) = (p))
 #define DISC_ASSERT_SIZE(T, size)
-#define PC_IS_ARAM_ADDR(a) ((u32) (a) < 0x80000000u)
+#define PC_IS_ARAM_ADDR(a) ((u32)(a) < 0x80000000u)
 
-typedef struct { float v; } DiscF32;
-typedef struct { uint32_t v; } DiscU32;
-typedef struct { int32_t v; } DiscS32;
-typedef struct { uint16_t v; } DiscU16;
-typedef struct { int16_t v; } DiscS16;
-typedef struct { float x, y; } DiscVec2;
-typedef struct { float x, y, z; } DiscVec3;
-typedef struct { float x, y, z, w; } DiscVec4;
-typedef struct { int16_t x, y, z; } DiscS16Vec3;
-typedef struct { float m[3][4]; } DiscMtx;
+typedef struct {
+    float v;
+} DiscF32;
+typedef struct {
+    uint32_t v;
+} DiscU32;
+typedef struct {
+    int32_t v;
+} DiscS32;
+typedef struct {
+    uint16_t v;
+} DiscU16;
+typedef struct {
+    int16_t v;
+} DiscS16;
+typedef struct {
+    float x, y;
+} DiscVec2;
+typedef struct {
+    float x, y, z;
+} DiscVec3;
+typedef struct {
+    float x, y, z, w;
+} DiscVec4;
+typedef struct {
+    int16_t x, y, z;
+} DiscS16Vec3;
+typedef struct {
+    float m[3][4];
+} DiscMtx;
 
 #endif
 

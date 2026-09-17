@@ -25,7 +25,7 @@ uint32_t sDlWritePos = 0;
 namespace {
 constexpr Module Log{"aurora::gx::fifo"};
 constexpr auto kProcessingMode = ProcessingMode::Thread;
-constexpr uint32_t kDrawBatchSize = 1;
+constexpr uint32_t kDrawBatchSize = 16;
 
 bool sFrameActive = false;
 uint32_t sPendingDraws = 0;
@@ -34,6 +34,8 @@ std::atomic<uint64_t> sProcessed{0};
 uint64_t sStreamBase = 0;
 std::mutex sBufferMutex;
 std::atomic<uint32_t> sWorkerWake{0};
+std::atomic_bool sWorkerWaiting{false};
+std::atomic_bool sMainThreadWaitingForProcessed{false};
 thread::Thread sWorkerThread;
 std::atomic<DrawDoneCallback> sDrawDoneCallback{nullptr};
 
@@ -45,7 +47,9 @@ void dispatch_draw_done() noexcept {
 
 void wake_worker() noexcept {
   sWorkerWake.fetch_add(1, std::memory_order_release);
-  sWorkerWake.notify_all();
+  if (sWorkerWaiting.load(std::memory_order_relaxed)) {
+    sWorkerWake.notify_all();
+  }
 }
 
 void process_to(uint64_t target, std::memory_order order) noexcept {
@@ -69,7 +73,9 @@ void process_to(uint64_t target, std::memory_order order) noexcept {
     }
     processed += result.bytesProcessed;
     sProcessed.store(processed, order);
-    sProcessed.notify_all();
+    if (sMainThreadWaitingForProcessed.load(std::memory_order_relaxed)) {
+      sProcessed.notify_all();
+    }
   }
 }
 
@@ -87,7 +93,13 @@ void worker_main(std::stop_token token) noexcept {
     if (token.stop_requested()) {
       break;
     }
+    sWorkerWaiting.store(true, std::memory_order_release);
+    if (sPublished.load(std::memory_order_acquire) != sProcessed.load(std::memory_order_relaxed)) {
+      sWorkerWaiting.store(false, std::memory_order_relaxed);
+      continue;
+    }
     sWorkerWake.wait(event, std::memory_order_acquire);
+    sWorkerWaiting.store(false, std::memory_order_relaxed);
   }
 }
 
@@ -97,6 +109,7 @@ void start_worker() {
   }
   sWorkerThread = thread::Thread{{
                                      .name = "Aurora FIFO processor",
+                                     .priority = thread::Priority::High,
                                      .affinity = thread::Affinity::SharedCache,
                                  },
                                  worker_main};
@@ -251,10 +264,12 @@ void drain() {
 
     uint64_t processed = sProcessed.load(std::memory_order_acquire);
     if (processed < target) {
+      sMainThreadWaitingForProcessed.store(true, std::memory_order_release);
       do {
         sProcessed.wait(processed, std::memory_order_acquire);
         processed = sProcessed.load(std::memory_order_acquire);
       } while (processed < target);
+      sMainThreadWaitingForProcessed.store(false, std::memory_order_relaxed);
     }
     break;
   }

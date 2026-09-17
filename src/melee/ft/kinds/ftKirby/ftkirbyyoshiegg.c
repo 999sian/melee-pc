@@ -26,6 +26,10 @@ static void fn_8010AA64(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj = gobj->hsd_obj;
+    if (fp->x20A0_accessory == NULL) {
+        fp->accessory4_cb = NULL;
+        return;
+    }
     if (fp->mv.co.yoshiegg.x14 <= 0.0f) {
         Fighter_UpdateModelScale(gobj);
         fp->accessory4_cb = NULL;
@@ -107,10 +111,6 @@ void ftKb_SpecialNYs_8010AC78(Fighter_GObj* victim, Fighter_GObj* gobj)
     fp->accessory4_cb = fn_8010AA64;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void ftCo_KirbyYoshiEgg_Anim(Fighter_GObj* gobj)
 {
     f32 temp_ret;
@@ -122,10 +122,13 @@ void ftCo_KirbyYoshiEgg_Anim(Fighter_GObj* gobj)
     if (fp->grab_timer <= 0.0f) {
         Fighter* fp2;
         ftCo_DatAttrs_xBC_t* xBCp;
+        f32 size;
         ft_PlaySFX(fp, 0x44618, 0x7F, 0x40);
         fp2 = gobj->user_data;
+        xBCp = &fp->co_attrs.xBC;
+        size = xBCp->size;
         efAsync_Spawn(gobj, &fp2->x60C, 4, 0x4CF, fp->parts[0].joint,
-                      (xBCp = &fp->co_attrs.xBC));
+                      &size);
         ftKb_SpecialNYs_80109354(&fp->self_vel);
         ftCommon_8007D5D4(fp);
         ftColl_8007B760(gobj, ftKb_SpecialNYs_8010933C());
@@ -144,9 +147,6 @@ void ftCo_KirbyYoshiEgg_Anim(Fighter_GObj* gobj)
         ftAnim_SetAnimRate(gobj, ftKb_SpecialNYs_80109324());
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void ftCo_KirbyYoshiEgg_IASA(Fighter_GObj* gobj) {}
 

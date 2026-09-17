@@ -1,5 +1,7 @@
 #include "devcom.h"
 
+#include <string.h>
+
 #include "debug.h"
 #include "devcom.static.h"
 #include "synth.h"
@@ -156,13 +158,7 @@ void HSD_DevComARAMWakeUp(void)
                     arq_callback = HSD_DevComARAMCallback;
                     xfer_size = aramDC->size;
                 }
-                {
-                    int* p = HSD_DevCom_804C6330_bufs[req_idx];
-                    int i;
-                    for (i = 0x1000; i > 0; i--) {
-                        *p++ = 0;
-                    }
-                }
+                memset(HSD_DevCom_804C6330_bufs[req_idx], 0, DEVCOM_BUF_SIZE);
                 DCStoreRange(HSD_DevCom_804C6330_bufs[req_idx],
                              DEVCOM_BUF_SIZE);
                 ARQPostRequest(devComARQR[req_idx], 0, 0, 1,
@@ -434,13 +430,10 @@ int HSD_DevComRequest(int file, uintptr_t src, uintptr_t dest, size_t size,
             && size > DEVCOM_BUF_SIZE));
 
 #ifndef TARGET_PC
-    /* GameCube DMA needs 32-byte aligned endpoints. On PC the DVD/ARAM
-     * copies are plain memcpys, and static destinations such as lbmthp's
-     * MoviePlayer only get 16-byte alignment from GCC on arm64. */
     HSD_ASSERT(0x1EF, src % 32 == 0);
     HSD_ASSERT(0x1F0, dest % 32 == 0);
-#endif
     HSD_ASSERT(0x1F1, size % 32 == 0);
+#endif
     HSD_ASSERT(0x1F2, size != 0);
 
     pri = (type & 0x38) == 0x20 ? pri : 3;

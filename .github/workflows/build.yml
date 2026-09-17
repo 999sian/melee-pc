@@ -16,9 +16,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
-    name: Linux (x86-64)
+  lint:
+    name: Lint & Style Verification
     runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install verification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format python3
+
+      - name: Verify code style and formatting
+        run: python3 tools/check_style.py
+
+      - name: Verify game syntax
+        run: python3 tools/compile_check.py
+
+  linux:
+    name: Linux (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +53,7 @@ jobs:
           # (AURORA_SDL3_PROVIDER=vendor); these are its X11/Wayland/audio deps.
           sudo apt-get install -y --no-install-recommends \
             build-essential ninja-build cmake pkg-config \
-            libssl-dev zip file desktop-file-utils \
+            libssl-dev libcurl4-openssl-dev zip file desktop-file-utils \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
             libxfixes-dev libxss-dev libxkbcommon-dev libxtst-dev \
             libwayland-dev wayland-protocols libdecor-0-dev \
@@ -41,10 +65,10 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-x86_64
+          name: linux-${{ matrix.arch }}
           path: |
-            dist/Melee-x86_64.AppImage
-            dist/melee-linux-x86_64.tar.gz
+            dist/Melee-${{ matrix.arch }}.AppImage
+            dist/melee-linux-${{ matrix.arch }}.tar.gz
           if-no-files-found: error
 
   windows:
@@ -102,7 +126,7 @@ jobs:
 
       - name: Build APK
         env:
-          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.4' }}
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.5' }}
           MELEE_KEYSTORE_BASE64: ${{ secrets.MELEE_KEYSTORE_BASE64 }}
           MELEE_KEYSTORE_PASSWORD: ${{ secrets.MELEE_KEYSTORE_PASSWORD }}
           MELEE_KEY_ALIAS: ${{ secrets.MELEE_KEY_ALIAS }}

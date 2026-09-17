@@ -3,10 +3,9 @@
 #undef __assert
 #include <stdio.h>
 #include "../src/melee/gr/grhomerun.c"
-int main(void)
-{
+int main(void) {
     /* Home-Run's map object 10 must update collision joint 0 each frame. */
-    GrJoint* joints = (GrJoint*) grHr_804D4998;
+    GrJoint* joints = (GrJoint*)grHr_804D4998;
     assert(joints[0].x == 0);
     assert(joints[0].y == 10);
     assert(joints[0].z == 0);

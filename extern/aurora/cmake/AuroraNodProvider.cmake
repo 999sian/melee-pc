@@ -63,7 +63,7 @@ if (_aurora_nod_provider STREQUAL "vendor")
 
     include(FetchContent)
     FetchContent_Declare(aurora_nod
-      GIT_REPOSITORY "https://github.com/encounter/nod.git"
+      GIT_REPOSITORY "https://github.com/theofficialgman/nod.git"
       GIT_TAG "${AURORA_NOD_VERSION}"
       GIT_SHALLOW TRUE
       EXCLUDE_FROM_ALL
@@ -105,20 +105,30 @@ elseif (_aurora_nod_provider STREQUAL "package")
   if (NOT AURORA_NOD_PACKAGE_URL)
     aurora_get_target_arch(_target_arch)
     set(_nod_platform "")
-    if (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND _target_arch STREQUAL "AMD64")
-      set(_nod_platform "windows-x86_64")
-    elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND _target_arch STREQUAL "x86_64")
-      set(_nod_platform "linux-x86_64")
-    elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND _target_arch STREQUAL "arm64")
-      set(_nod_platform "macos-arm64")
+    if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+      if (_target_arch STREQUAL "AMD64")
+        set(_nod_platform "windows-x86_64")
+      elseif (_target_arch STREQUAL "ARM64")
+        set(_nod_platform "windows-arm64")
+      endif ()
+    elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      if (_target_arch MATCHES "^(x86_64|aarch64)$")
+        set(_nod_platform "linux-${_target_arch}")
+      endif ()
+    elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+      if (_target_arch STREQUAL "arm64")
+        set(_nod_platform "macos-arm64")
+      elseif (_target_arch STREQUAL "x86_64")
+        set(_nod_platform "macos-x86_64")
+      endif ()
     endif ()
     if (NOT _nod_platform)
       message(FATAL_ERROR
         "AURORA_NOD_PROVIDER=package requires AURORA_NOD_PACKAGE_URL on this platform.\n"
-        "Prebuilt packages: https://github.com/encounter/nod/releases")
+        "Prebuilt packages: https://github.com/theofficialgman/nod/releases")
     endif ()
     set(AURORA_NOD_PACKAGE_URL
-      "https://github.com/encounter/nod/releases/download/${AURORA_NOD_VERSION}/libnod-${_nod_platform}.tar.gz")
+      "https://github.com/theofficialgman/nod/releases/download/${AURORA_NOD_VERSION}/libnod-${_nod_platform}.tar.gz")
   endif ()
   message(STATUS "aurora: Fetching prebuilt nod package (provider=package, linkage=${AURORA_NOD_LINKAGE})")
 

@@ -476,7 +476,7 @@ void grCastle_801CD8A8(Ground_GObj* gobj)
 
     grCastle_801CF868(gobj);
     grCastle_801CE19C(gobj);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     lb_800115F4();
     grCastle_801D0BBC();
     for (i = 0; i < 12; i++) {
@@ -516,7 +516,7 @@ void grCastle_801CDA0C(Ground_GObj* gobj)
     HSD_JObj* jobj = GET_JOBJ(gobj);
     f32 val;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->x10_flags.b5 = 1;
 
     gp->u.castle8.plat[0].jobj = Ground_801C3FA4(gobj, 1);
@@ -554,7 +554,7 @@ void grCastle_801CDA0C(Ground_GObj* gobj)
     gp->u.castle8.plat[1].wind = 0.0f;
 
     Ground_801C10B8(gobj, grCastle_801CD9B4);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 bool grCastle_801CDC3C(Ground_GObj* gobj)
@@ -647,7 +647,7 @@ void grCastle_801CDC44(Ground_GObj* gobj)
         gp->u.castle8.plat[0].wind = 0.0f;
         gp = (Ground*) ((struct grCastle_Platform*) gp + 1);
     } while (i < 2);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grCastle_801CDF50(Ground_GObj* gobj) {}
@@ -788,7 +788,7 @@ void grCastle_801CE260(Ground_GObj* gobj)
     CmSubject* subject;
     PAD_STACK(8);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
 
     gp->u.castle11.xC4.b0 = 0;
@@ -964,7 +964,7 @@ void grCastle_801CE7E8(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     PAD_STACK(8);
-    Ground_801C2ED0(GET_JOBJ(gobj), gp->map_id);
+    Ground_InitMapColl(GET_JOBJ(gobj), gp->map_id);
     gp->u.castle.xC4 = 0;
     gp->u.castle.xC8 = yakumono_param->x12C[gp->u.castle.xC4];
     grAnime_801C8138(gobj, gp->map_id, gp->u.castle.xC4);
@@ -1000,7 +1000,7 @@ void grCastle_801CE8E8(Ground_GObj* gobj)
     CmSubject* subject;
     PAD_STACK(8);
 
-    Ground_801C2ED0(gobj->hsd_obj, gp->map_id);
+    Ground_InitMapColl(gobj->hsd_obj, gp->map_id);
     grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
 
     gp2 = GET_GROUND(gobj);
@@ -1077,7 +1077,7 @@ void grCastle_801CEACC(Ground_GObj* gobj)
     s32 i;
     PAD_STACK(0x8);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->x10_flags.b5 = 1;
     gp->u.castle10.xC4 = 0;
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -1169,7 +1169,7 @@ void grCastle_801CEACC(Ground_GObj* gobj)
     }
 
     grCastle_801D0298(gobj, 0);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     ((HSD_GObj*) gobj)->render_cb = (GObj_RenderFunc) grCastle_801D0520;
 }
 
@@ -1257,7 +1257,7 @@ void grCastle_801CEF04(Ground_GObj* gobj)
         break;
     }
     }
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grCastle_801CF0F0(Ground_GObj* gobj) {}
@@ -1268,7 +1268,7 @@ void grCastle_801CF0F4(Ground_GObj* gobj)
     HSD_JObj* jobj = GET_JOBJ(gobj);
     f32 scale;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->u.castle7.xC4 = 0;
     gp->u.castle7.xD8 = 0;
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -1315,7 +1315,7 @@ void grCastle_801CF308(Ground_GObj* gobj)
         gp->u.castle.xC8 = -1;
         gp->u.castle11.xCA = 0;
         HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
-        grAnime_801C86D4(gp->map_id, (HSD_GObj*) gobj, 0);
+        grAnime_801C86D4(gp->map_id, gobj, 0);
         gp->u.castle5.xC4 = 2;
         /* fallthrough */
     case 2: {

@@ -5,8 +5,6 @@
 #include <melee/lb/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
-#include <placeholder.h>
-
 #include <dolphin/mtx.h>
 
 /* 1D1018 */ void grStadium_OnDemoInit(s32);
@@ -27,25 +25,20 @@
 /* 1D156C */ void grStadium_801D156C(Ground_GObj*);
 /* 1D1570 */ void grStadium_801D1570(Ground_GObj*);
 /* 1D15FC */ bool grStadium_801D15FC(Ground_GObj*);
-/* 1D1604 */ void grStadium_801D1604(Ground_GObj*);
 /* 1D1624 */ void grStadium_801D1624(Ground_GObj*);
 /* 1D1648 */ void grStadium_801D1648(Ground_GObj*);
 /* 1D16D4 */ bool grStadium_801D16D4(Ground_GObj*);
-/* 1D16DC */ void grStadium_801D16DC(Ground_GObj*);
 /* 1D16FC */ void grStadium_801D16FC(Ground_GObj*);
 /* 1D1720 */ void grStadium_801D1720(Ground_GObj*);
 /* 1D17E0 */ bool grStadium_801D17E0(Ground_GObj*);
-/* 1D17E8 */ void grStadium_801D17E8(Ground_GObj*);
 /* 1D1808 */ void grStadium_801D1808(Ground_GObj*);
 /* 1D1840 */ void grStadium_801D1840(Ground_GObj*);
 /* 1D19D0 */ bool grStadium_801D19D0(Ground_GObj*);
-/* 1D19D8 */ void grStadium_801D19D8(Ground_GObj*);
 /* 1D19F8 */ void grStadium_801D19F8(Ground_GObj*);
 /* 1D1A38 */ void grStadium_801D1A38(Ground_GObj*);
 /* 1D1B40 */ bool grStadium_801D1B40(Ground_GObj*);
 /* 1D1B48 */ void grStadium_801D1B48(Ground_GObj*);
 /* 1D1D84 */ void grStadium_801D1D84(Ground_GObj*);
-/* 1D1DE4 */ void grStadium_801D1DE4(Ground_GObj*);
 /* 1D1E10 */ bool grStadium_801D1E10(Ground_GObj*);
 /* 1D1E18 */ void grStadium_801D1E18(Ground_GObj*);
 /* 1D1E1C */ void grStadium_801D1E1C(Ground_GObj*);
@@ -72,11 +65,11 @@
 /* 1D3B4C */ void grStadium_801D3B4C(int, int);
 /* 1D3BBC */ void grStadium_801D3BBC(Ground_GObj*);
 /* 1D3F40 */ void grStadium_801D3F40(Ground_GObj*, int);
-/* 1D4040 */ UNK_RET grStadium_801D4040(UNK_PARAMS);
-/* 1D4084 */ UNK_RET grStadium_801D4084(UNK_PARAMS);
-/* 1D40C8 */ UNK_RET grStadium_801D40C8(UNK_PARAMS);
-/* 1D410C */ UNK_RET grStadium_801D410C(UNK_PARAMS);
-/* 1D4150 */ UNK_RET grStadium_801D4150(UNK_PARAMS);
+/* 1D4040 */ void grStadium_801D4040(void);
+/* 1D4084 */ void grStadium_801D4084(void);
+/* 1D40C8 */ void grStadium_801D40C8(void);
+/* 1D410C */ void grStadium_801D410C(void);
+/* 1D4150 */ void grStadium_801D4150(void);
 /* 1D4194 */ void grStadium_801D4194(Ground_GObj*);
 /* 1D42B8 */ bool grStadium_801D42B8(void);
 /* 1D4354 */ Ground* grStadium_801D4354(Ground_GObj*);

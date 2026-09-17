@@ -3,8 +3,6 @@
 
 #include <Runtime/platform.h>
 
-#include <placeholder.h>
-
 #include <dolphin/card.h>
 
 #ifdef TARGET_PC
@@ -59,18 +57,18 @@ STATIC_ASSERT(sizeof(CardState) == 0x464);
 /* 3AA790 */ s32 fn_803AA790(void);
 /* 3AAA48 */ void hsd_803AAA48(void);
 /* 3AC168 */ s32 fn_803AC168(s32* cmd_buf);
-/* 3AC258 */ s32 fn_803AC258(CardState* card_state, s32 block_idx);
-/* 3AC2A4 */ s32 fn_803AC2A4(CardState* card_state);
-/* 3AC2D4 */ UNK_RET fn_803AC2D4(UNK_PARAMS);
+/* 3AC258 */ s32 fn_803AC258(CardState* state, s32 block_idx);
+/* 3AC2A4 */ s32 fn_803AC2A4(CardState* state);
+/* 3AC2D4 */ void fn_803AC2D4(void);
 /* 3AC2E0 */ void fn_803AC2E0(void);
-/* 3AC334 */ UNK_RET fn_803AC334(UNK_PARAMS);
-/* 3AC340 */ int hsd_803AC340(void* header);
-/* 3AC3E0 */ void hsd_803AC3E0(struct CardState* file_desc, int file_idx,
-                               int file_size, int file_flags, u8* data);
-/* 3AC3F8 */ void fn_803AC3F8(void*, u8*, s32);
-/* 3AC558 */ void hsd_803AC558(struct CardState*, u8*);
-/* 3AC634 */ u32 fn_803AC634(struct CardState* file_desc, s32 file_idx);
-/* 3AC6B8 */ s32 fn_803AC6B8(struct CardState* file_desc, s32 file_count);
+/* 3AC334 */ void fn_803AC334(void);
+/* 3AC340 */ int hsd_803AC340(void* icon_info);
+/* 3AC3E0 */ void hsd_803AC3E0(CardState* state, int file_idx, int file_size,
+                               int file_flags, u8* data);
+/* 3AC3F8 */ void fn_803AC3F8(void* card_state, u8* data, s32 file_idx);
+/* 3AC558 */ void hsd_803AC558(CardState* state, u8* data);
+/* 3AC634 */ u32 fn_803AC634(CardState* state, s32 file_idx);
+/* 3AC6B8 */ s32 fn_803AC6B8(CardState* state, s32 file_idx);
 /* 3AC7DC */ s32 fn_803AC7DC(CardState*);
 /* 3ACBE8 */ s32 fn_803ACBE8(CardState* state, s32 block_idx);
 /* 3ACC0C */ s32 fn_803ACC0C(CardState* state, s32 block_idx, s32 file_id,
@@ -108,7 +106,6 @@ STATIC_ASSERT(sizeof(CardState) == 0x464);
 /* 4D1138 */ extern u8 hsd_804D1138[0x1510];
 /* 4D1148 */ #define hsd_804D1148 ((u32(*)[9]) (hsd_804D1138 + 0x10))
 /* 4D2348 */ #define hsd_804D2348 (*(u8(*)[0x300]) (hsd_804D1138 + 0x1210))
-/* 4D2E70 */ extern u8 hsd_804D2E70[2084];
 /* 4D7990 */ extern s32 hsd_804D7990;
 /* 4D7994 */ extern s32 hsd_804D7994;
 /* 4D79A0 */ extern u8* hsd_804D79A0;

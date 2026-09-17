@@ -188,7 +188,7 @@ Ground_GObj* setupStageCallbacks(int gobj_id)
 
 void stageGObj0_OnInit(Ground_GObj* gobj)
 {
-    Ground_AnimateMap(gobj);
+    Ground_StartMapAnim(gobj);
 }
 
 bool stageGObj0_Callback1(Ground_GObj* gobj)
@@ -204,7 +204,7 @@ void stageGObj3_OnInit(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
 
-    Ground_JObjInline1(gobj);
+    Ground_InitMapCollAndAnim(gobj);
     gp->x10_flags.b5 = 1;
 }
 
@@ -215,7 +215,7 @@ bool stageGObj3_Callback1(Ground_GObj* gobj)
 
 void stageGObj3_GObjProc(Ground_GObj* gobj)
 {
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     lb_800115F4();
 }
 
@@ -629,7 +629,7 @@ f32 grOldKongo_80210650(void)
 
 DynamicsDesc* grOldKongo_80210780(enum_t gobj)
 {
-    return false;
+    return NULL;
 }
 
 bool grOldKongo_80210788(Vec3* a, int arg, HSD_JObj* joint)

@@ -101,9 +101,15 @@ void it_802CD4FC(Item_GObj* gobj)
         HSD_JObjSetRotationZ(ip->xBBC_dynamicBoneTable->bones[4],
                              0.017453292f * ip->xDD4_itemVar.sonans.x64);
     }
+    if (ip->xDD4_itemVar.sonans.x68 < 0.0f) {
+        ip->xDD4_itemVar.sonans.x68 = 0.0f;
+    }
     it_80272460(&ip->x5D4_hitboxes[0].hit, (u32) ip->xDD4_itemVar.sonans.x68,
                 gobj);
     ip->xDD4_itemVar.sonans.x68 -= attrs->x20;
+    if (ip->xDD4_itemVar.sonans.x68 < 0.0f) {
+        ip->xDD4_itemVar.sonans.x68 = 0.0f;
+    }
 }
 
 bool itSonans_Logic9_DmgDealt(Item_GObj* gobj)

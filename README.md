@@ -22,8 +22,13 @@ You need your own disc image. No game data ships here.
 - Post-processing shaders: area sampling, CRT scanlines, vibrant.
 - 4x MSAA and anisotropic filtering up to 16x.
 - Gamepad remapping, including C-stick directions, saved per device.
-- Software AX audio mixer with the game's aux busses and reverb.
+- Software AX audio mixer with multi-bus volume controls (Master, Music, SFX).
+- Custom soundtrack streaming (`.ogg` and `.wav` in `~/.local/share/melee-pc/music/`).
 - Dolphin-compatible `.gci` memory cards.
+- Custom HD texture pack replacements (`~/.local/share/melee-pc/textures/`).
+- "Unlock Everything" toggle (instant 26 characters, 11 secret stages, and All-Star mode).
+- Hazardless stages (Frozen Pokémon Stadium in permanent neutral mode).
+- Free / Unlocked pause camera (360° rotation and unlimited zoom) and Wide HUD anchoring.
 
 ## Screenshots
 
@@ -40,19 +45,61 @@ You need your own disc image. No game data ships here.
 
 ![Launcher](docs/screenshots/launcher.png)
 
+## Development Roadmap
+
+See the complete architectural design document at [ROADMAP.md](ROADMAP.md).
+
+```mermaid
+flowchart LR
+    Phase1["Phase 1: Polish & Presentation"] --> Phase2["Phase 2: Competitive Parity"]
+    Phase2 --> Phase3["Phase 3: High-Refresh & Practice"]
+    Phase3 --> Phase4["Phase 4: Serverless Online Netcode"]
+```
+
+### Phase 1: Presentation Polish & System Integrations (Delivered)
+- [x] **Dolphin-Format Texture Replacements**: Full folder scanning (`.dds` / `.png`) with runtime reload.
+- [x] **Unlock All Toggle**: Bypass character/stage unlock grind; instant All-Star mode access.
+- [x] **Multi-Bus Audio Control**: Independent volume sliders for Music (BGM) vs. Sound Effects (SFX).
+- [x] **Wide HUD Anchoring**: Anchor damage percentages, stock icons, and timer to the 16:9 viewport boundaries.
+- [x] **Custom Soundtrack Streaming**: User-provided `.ogg` / `.wav` files in `music/` override stage BGM.
+- [x] **Free / Unlocked Pause Camera**: 360-degree rotation and unconstrained zoom for pause camera screenshots.
+- [ ] **Discord Rich Presence**: Real-time rich presence displaying mode, stage, fighter, and score (deferred until API credentials available).
+
+### Phase 2: Tournament & Competitive Parity (Upcoming)
+- [ ] **Direct 1000 Hz GameCube Controller Adapter Support**: Overclocked 1 ms polling via `libusb` / `WinUSB` for official Wii U and Mayflash adapters.
+- [ ] **UCF (Universal Controller Fix)**: Native 1.0 Dashback and Shield Drop angle standardization.
+- [ ] **Extended Hazardless Stages**: Whispy wind toggle, Randall cloud toggle, static FoD platforms.
+- [ ] **Controller Rumble & RGB Port Indicators**: Native haptics and player color LED matching.
+- [ ] **2-Player Keyboard Remapping**: Split-keyboard competitive support.
+
+### Phase 3: High-Refresh-Rate & Practice Suite
+- [ ] **High-Refresh-Rate Frame Interpolation (120 Hz / 144 Hz / 240 Hz)**: Smooth motion presentation with locked 60 Hz simulation and physics.
+- [ ] **Training & Practice Tools**: Hitbox/hurtbox visualizer, L-cancel flash indicators, frame advance / slow motion, training savestates.
+- [ ] **Replay Recording & Playback**: Export inputs and seeds to Slippi `.slp` files with native replay player.
+
+### Phase 4: Serverless Online Netcode (BitTorrent-Style P2P Matchmaking & Rollback)
+- [ ] **BitTorrent-Style Decentralized Matchmaking (Serverless P2P)**:
+  * **DHT / Kademlia Peer Discovery**: Mainline DHT peer discovery eliminating central matchmaking servers and hosting costs.
+  * **Decentralized Connect Codes**: Topic/infohash-based room matchmaking.
+  * **NAT Traversal & UDP Hole-Punching**: Direct P2P connectivity behind home routers.
+- [ ] **Native Rollback Netcode**: Sub-millisecond state snapshotting and restoration on native MEM1 memory blocks.
+- [ ] **macOS Support** (Apple Silicon / Metal).
+- [ ] **RetroAchievements Integration**: Native achievement tracking.
+
 ## Status
 
 Works end to end:
 
 - Boot, opening movie, memory card create/load, title, attract demos.
 - Main menu, VS Mode, character and stage select; human vs CPU matches play.
-- 1-P Classic and Adventure run to completion, with results and score saved.
+- 1-P Classic, Adventure, and All-Star run to completion, with results and score saved.
 - Training, Stadium (Target Test, Home-Run Contest, 10-Man Melee).
 - Trophy gallery, Event Match list, Icicle Mountain scrolling.
-- Music and sound effects, saves.
+- Music, sound effects, custom soundtrack overrides, saves.
+- Cheats menu: "Unlock Everything", Frozen Pokémon Stadium, Free pause camera.
+- Wide 16:9 combat camera and Wide HUD anchoring.
 
-Not done: online play with rollback netcode, All-Star (unreachable until the
-roster is unlocked), widescreen camera and HUD, Intel macOS.
+In development: online play with rollback netcode & BitTorrent DHT peer matchmaking, 1000 Hz GameCube controller polling, UCF, practice mode hitboxes/savestates, and Intel macOS (Apple Silicon works, see below).
 
 ## Building
 
@@ -257,6 +304,12 @@ intersections, not start offsets.
 the game presents normally, which looks like a freeze and is not one. `devctl.py
 shot` detects two identical captures and nudges the window; when a screenshot and
 a backtrace disagree, believe the backtrace.
+
+## Contributing & Coding Style
+
+Please refer to [CODING_STYLE.md](CODING_STYLE.md) for architectural guidelines,
+formatting standards, 64-bit portability rules, and verification procedures. Run
+`python3 tools/check_style.py` before opening pull requests.
 
 ## Layout
 

@@ -29,6 +29,7 @@ void pc_log_line(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 typedef union SDL_Event SDL_Event;
 void pc_keyboard_event(const SDL_Event* e);
 void pc_keyboard_apply(void);
+void pc_touch_apply(void);
 
 /* Set once the window is closed; the game loop is expected to exit. */
 extern bool pc_exit_requested;
@@ -48,6 +49,28 @@ void pc_thp_decode_frame(const void* jpeg, void* tile_y, void* tile_u, void* til
 struct _GXFogAdjTable;
 void GXInitFogAdjTable(struct _GXFogAdjTable* table, uint16_t width, float projmtx[4][4]);
 uint16_t VIPadFrameBufferWidth(uint16_t width);
+
+/* Feature queries */
+bool pc_is_custom_textures_enabled(void);
+bool pc_is_unlock_all_enabled(void);
+bool pc_is_frozen_stadium_enabled(void);
+bool pc_is_free_camera_enabled(void);
+int pc_get_hud_mode(void);
+float pc_get_music_volume(void);
+float pc_get_sfx_volume(void);
+
+/* Audio volume control */
+void pc_audio_set_volume(float volume);
+void pc_audio_set_music_volume(float volume);
+void pc_audio_set_sfx_volume(float volume);
+float pc_audio_get_music_volume(void);
+float pc_audio_get_sfx_volume(void);
+
+/* Texture replacements (src/pc/textures.cpp) */
+void pc_textures_init(void);
+void pc_textures_reload(void);
+void pc_textures_shutdown(void);
+const char* pc_textures_get_path(void);
 
 #ifdef __cplusplus
 }

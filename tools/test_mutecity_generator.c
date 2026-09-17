@@ -19,11 +19,10 @@ static bool mock_gen_fail = false;
 static bool mock_appsrt_fail = false;
 static int free_calls = 0;
 
-HSD_Generator* grLib_801C9808(s32 arg0, s32 arg1, HSD_JObj* arg2)
-{
-    (void) arg0;
-    (void) arg1;
-    (void) arg2;
+HSD_Generator* grLib_801C9808(s32 arg0, s32 arg1, HSD_JObj* arg2) {
+    (void)arg0;
+    (void)arg1;
+    (void)arg2;
     if (mock_gen_fail) {
         return NULL;
     }
@@ -32,9 +31,8 @@ HSD_Generator* grLib_801C9808(s32 arg0, s32 arg1, HSD_JObj* arg2)
     return &mock_gen;
 }
 
-HSD_psAppSRT* psAddGeneratorAppSRT_begin(HSD_Generator* gp, s32 status)
-{
-    (void) status;
+HSD_psAppSRT* psAddGeneratorAppSRT_begin(HSD_Generator* gp, s32 status) {
+    (void)status;
     if (mock_appsrt_fail) {
         return NULL;
     }
@@ -42,22 +40,19 @@ HSD_psAppSRT* psAddGeneratorAppSRT_begin(HSD_Generator* gp, s32 status)
     return &mock_appsrt;
 }
 
-f32 Ground_801C0498(void)
-{
+f32 Ground_801C0498(void) {
     return 1.5f;
 }
 
-void grLib_801C98A0(HSD_JObj* jobj)
-{
-    (void) jobj;
+void grLib_801C98A0(HSD_JObj* jobj) {
+    (void)jobj;
     free_calls++;
 }
 
 /* Include implementation directly */
 #include "../src/melee/gr/grmutecity.c"
 
-int main(void)
-{
+int main(void) {
     HSD_JObj dummy_jobj = {0};
 
     /* Case 1: Generator allocation failure */

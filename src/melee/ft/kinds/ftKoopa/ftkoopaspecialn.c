@@ -175,7 +175,7 @@ void ftKp_SpecialNStart_Anim(Fighter_GObj* gobj)
 static void ftKp_SpecialN_Anim_inline_1(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (fp->cur_anim_frame == 0.0f) {
+    if (fp->cur_anim_frame <= 0.0f || fp->cur_anim_frame < fp->frame_speed_mul) {
         fp->mv.kp.specialn.x10 -= 1;
         if (fp->mv.kp.specialn.x10 <= 0) {
             fp->mv.kp.specialn.x10 = 0;

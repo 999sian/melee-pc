@@ -107,6 +107,8 @@ gcc_cmd = [
     '-D__ANDROID_API__=26',
     '-fexec-charset=CP932',
     '-Wno-scalar-storage-order',
+    '-march=armv8-a+crc+crypto',
+    '-mtune=cortex-a73',
 ] + filtered_args
 
 os.execv(gcc_bin, gcc_cmd)

@@ -25,7 +25,39 @@ image path directly:
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
 
-## Changes since v0.1.3-beta
+## Changes since v0.1.4-beta
+
+- **Android Performance & Frame Pacing Overhaul (Full 60 FPS):**
+  - **Eliminated GX FIFO futex wake storm:** Slashed kernel context-switching overhead by over 95% by increasing `kDrawBatchSize` from 1 to 16 and gating thread wakeups on active waiter state (`sWorkerWaiting` / `sMainThreadWaitingForProcessed`), completely removing the 155% sys CPU time lockup on mobile GPUs.
+  - **Unpinned CPU threads for mobile schedulers (EAS):** Disabled strict core cache domain affinity on Android so the Linux kernel Energy Aware Scheduler (EAS) can dynamically migrate audio, video, and render threads across prime and performance cores without triggering Qualcomm CPU frequency throttling down to 600 MHz.
+  - **Locked 60.0 Hz display refresh mode:** Configured Android window attributes to explicitly request a 60 Hz display refresh rate, eliminating frame cadence judder and swapchain pacing mismatches on 120 Hz and 144 Hz mobile displays.
+  - **Native Android logging:** Integrated Aurora engine diagnostics directly into Android logcat (`__android_log_print` under tag `Aurora`).
+
+- **On-Screen Touch Controls & Controller Auto-Detection (Android):**
+  - **Complete GameCube touch layout:** Added an ergonomic, responsive on-screen overlay featuring the analog Control Stick, C-Stick, A, B, X, Y, Z, L, R, D-Pad, and Start buttons.
+  - **Quick Settings modal:** Added a dedicated overlay gear button to dynamically toggle touch controls, invert C-Stick Y axis, toggle haptic vibration, adjust stick deadzones, and calibrate overlay opacity.
+  - **Automatic physical controller detection:** Touch controls automatically hide when a physical Bluetooth or USB gamepad is connected and actively used, and seamlessly reappear as soon as the touchscreen is tapped.
+  - **Persistent settings:** Touch settings and calibration are saved to `launcher.cfg` across app launches.
+
+- **Zero-Copy Disc Streaming & Loading Speed:**
+  - Implemented zero-copy memory-mapped (`mmap`) streaming in Aurora's DVD reader for uncompressed raw ISO images.
+  - Enlarged DevCom I/O buffers and optimized background disc streaming threads, drastically cutting synchronous read hitches and audio desyncs during match transitions and movies.
+
+- **Fighter, Stage & Engine Fixes:**
+  - Synced with upstream Melee decomp (`662250b9`).
+  - Fixed #18: Corrected Melee display aspect ratio (73:60) and 16:9 widescreen projection scaling.
+  - Fixed #19: Fixed Mute City particle generator leak and subsequent FPS drop.
+  - Fixed #27: Fixed Classic mode Mario trophy reward crash caused by incorrect return type in `gm_1736`.
+  - Fixed #29: Corrected Giga Bowser KO bonus endian bitfield layout.
+  - Fixed #12, #30, #38: Corrected collision bitmask types in item ground collision (`itgroundcoll`).
+  - Fixed #39: Corrected Corneria Star Fox dialogue cutscene argument types.
+  - Fixed #32: Clamped Wobbuffet damage underflow when frozen.
+  - Fixed #25, #35: Added null-safety checks in `grzakogenerator` and `itoldottosea`.
+  - Fixed #16: Corrected Bowser fire breath animation loop condition.
+  - Fixed #31: Fixed Yoshi egg breakout particle effect scalar storage order.
+  - Fixed disc pointer camera/light animations and memory free safety in trophy scene.
+
+## Changes in v0.1.4-beta
 
 - **Fighter & Gameplay Fixes:**
   - Fixed #16: Fixed Bowser's Neutral Special (Fire Breath) getting stuck permanently. Frame counter `xC` in `ftKoopa_SpecialNVars` was previously declared as `bool`, preventing the timer from reaching the 40-frame threshold required to detect B-button release and transition into `SpecialNEnd`.
@@ -117,8 +149,9 @@ Contest, 10-Man Melee), Trophy gallery, Event Match list, music and sound.
 
 Online play with rollback netcode is **not implemented**. All-Star is
 unreachable until the roster is unlocked. Widescreen camera and HUD are
-incomplete. There is no macOS build: the game code depends on GCC's
-`scalar_storage_order`, which Clang does not implement.
+incomplete. The macOS build is Apple Silicon only and experimental: the
+game's C is compiled with Homebrew GCC (`scalar_storage_order`), the C++
+with Apple clang.
 
 ## Controls
 

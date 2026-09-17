@@ -25,13 +25,20 @@ static void GuardGCMemory();
 static void* AllocMEM1(u32 size);
 
 void AuroraOSInitMemory() {
+  if (MEM1Start != nullptr) {
+    return;
+  }
   GuardGCMemory();
 
-  if (aurora::g_config.mem1Size > 0) {
-    MEM1Start = AllocMEM1(aurora::g_config.mem1Size);
-    MEM1End = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(MEM1Start) + aurora::g_config.mem1Size);
-    OSBaseAddress = reinterpret_cast<uintptr_t>(MEM1Start);
+  u32 size = aurora::g_config.mem1Size;
+  if (size == 0) {
+    size = 96u * 1024 * 1024;
+    aurora::g_config.mem1Size = size;
   }
+
+  MEM1Start = AllocMEM1(size);
+  MEM1End = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(MEM1Start) + size);
+  OSBaseAddress = reinterpret_cast<uintptr_t>(MEM1Start);
 }
 
 #if GUARD_MEMORY
@@ -117,28 +124,58 @@ static void* AllocMEM1(u32 size) {
     }
   }
 
-  // If fixed candidate probing failed, scan 32-bit user space below 4GB
-  if (!p) {
-    for (uintptr_t addr = 0x10000000ULL; addr <= 0xE0000000ULL - size; addr += 0x01000000ULL) {
-      p = VirtualAlloc(reinterpret_cast<void*>(addr), size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-      if (p) break;
-    }
-  }
-
-  // If fixed address probing failed, try VirtualAlloc2 with 4GB limit if available
+  // Try VirtualAlloc2 with 4GB limit if available (Windows 10 1803+)
+  // HighestEndingAddress is inclusive and must be aligned to system allocation granularity (64KB).
   if (!p) {
     typedef PVOID (WINAPI *VirtualAlloc2_t)(HANDLE, PVOID, SIZE_T, ULONG, ULONG, MEM_EXTENDED_PARAMETER*, ULONG);
     HMODULE kernelBase = GetModuleHandleA("kernelbase.dll");
+    if (!kernelBase) kernelBase = GetModuleHandleA("kernel32.dll");
     if (kernelBase) {
       auto pVirtualAlloc2 = reinterpret_cast<VirtualAlloc2_t>(GetProcAddress(kernelBase, "VirtualAlloc2"));
       if (pVirtualAlloc2) {
         MEM_ADDRESS_REQUIREMENTS reqs = {};
-        reqs.HighestEndingAddress = reinterpret_cast<PVOID>(0xFFFFFFFFULL);
+        reqs.HighestEndingAddress = reinterpret_cast<PVOID>(0xFFFF0000ULL);
         MEM_EXTENDED_PARAMETER param = {};
         param.Type = MemExtendedParameterAddressRequirements;
         param.Pointer = &reqs;
         p = pVirtualAlloc2(GetCurrentProcess(), nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE, &param, 1);
       }
+    }
+  }
+
+  // If VirtualAlloc2 failed or unavailable, scan 32-bit user space below 4GB using VirtualQuery
+  if (!p) {
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    const uintptr_t gran = si.dwAllocationGranularity ? si.dwAllocationGranularity : 0x10000ULL;
+    uintptr_t current = gran;
+    while (current + size <= 0x100000000ULL) {
+      MEMORY_BASIC_INFORMATION mbi{};
+      if (VirtualQuery(reinterpret_cast<void*>(current), &mbi, sizeof(mbi)) == 0) {
+        break;
+      }
+      if (mbi.State == MEM_FREE) {
+        uintptr_t freeStart = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
+        if (freeStart < gran) freeStart = gran;
+        freeStart = (freeStart + gran - 1) & ~(gran - 1);
+        uintptr_t freeEnd = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize;
+        if (freeEnd > 0x100000000ULL) freeEnd = 0x100000000ULL;
+        if (freeStart + size <= freeEnd) {
+          p = VirtualAlloc(reinterpret_cast<void*>(freeStart), size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+          if (p) break;
+        }
+      }
+      uintptr_t next = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize;
+      if (next <= current) next = current + gran;
+      current = (next + gran - 1) & ~(gran - 1);
+    }
+  }
+
+  // Legacy fallback: fixed-step probe
+  if (!p) {
+    for (uintptr_t addr = 0x10000000ULL; addr <= 0xE0000000ULL - size; addr += 0x01000000ULL) {
+      p = VirtualAlloc(reinterpret_cast<void*>(addr), size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+      if (p) break;
     }
   }
 
@@ -150,12 +187,16 @@ static void* AllocMEM1(u32 size) {
 
   if (!p) {
     DWORD err = GetLastError();
-    fmt::memory_buffer msg;
-    fmt::format_system_error(
-      msg,
-      static_cast<int>(err),
-      "Failed to commit memory for MEM1 strictly under 4GB");
-    Log.fatal("{}", fmt::to_string(msg));
+    char errBuf[256] = {};
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                   NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   errBuf, sizeof(errBuf), NULL);
+    size_t len = strlen(errBuf);
+    while (len > 0 && (errBuf[len - 1] == '\r' || errBuf[len - 1] == '\n')) {
+      errBuf[--len] = '\0';
+    }
+    Log.fatal("Failed to commit memory for MEM1 ({} bytes) strictly under 4GB: {} (Win32 error {})",
+              size, errBuf[0] ? errBuf : "Unknown error", err);
   }
   return p;
 }

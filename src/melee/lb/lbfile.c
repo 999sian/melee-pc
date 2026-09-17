@@ -11,6 +11,10 @@
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/devcom.h>
 
+#ifdef TARGET_PC
+#include "pc/file_cache.h"
+#endif
+
 static bool cancel;
 
 static void lbFile_8001615C(int dcreq, uintptr_t args, void* buf, bool cancelflag)
@@ -108,8 +112,14 @@ size_t lbFile_8001634C(int fileno)
 
 size_t lbFileGetSize(const char* basename)
 {
-    int entry_num;
     char* filename = lbFileGetFullName(basename);
+#ifdef TARGET_PC
+    size_t cached_sz = 0;
+    if (pc_file_cache_get_size(filename, &cached_sz)) {
+        return cached_sz;
+    }
+#endif
+    int entry_num;
     entry_num = DVDConvertPathToEntrynum(filename);
     HSD_ASSERTREPORT(0xEE, entry_num != -1, "file isn't exist %s = %d\n",
                      filename, entry_num);
@@ -132,6 +142,14 @@ void lbFile_80016580(const char* basename, void* dst, size_t* size,
                      HSD_DevComCallback callback, void* args)
 {
     char* filename = lbFileGetFullName(basename);
+#ifdef TARGET_PC
+    if (pc_file_cache_get(filename, dst, size)) {
+        if (callback != NULL) {
+            callback(0, (uintptr_t) args, NULL, false);
+        }
+        return;
+    }
+#endif
     int entry_num = DVDConvertPathToEntrynum(filename);
     PAD_STACK(4);
 
@@ -143,9 +161,18 @@ void lbFile_80016580(const char* basename, void* dst, size_t* size,
 
 void lbFile_8001668C(const char* basename, void* dst, size_t* size)
 {
+#ifdef TARGET_PC
+    char* filename = lbFileGetFullName(basename);
+    if (pc_file_cache_get(filename, dst, size)) {
+        return;
+    }
+#endif
     cancel = false;
     lbFile_80016580(basename, dst, size, lbFile_8001615C, NULL);
     waitForDisc();
+#ifdef TARGET_PC
+    pc_file_cache_put(filename, dst, *size);
+#endif
 }
 
 static void lbFile_80016760_inline(int heap_id, const char* basename,
@@ -155,6 +182,9 @@ static void lbFile_80016760_inline(int heap_id, const char* basename,
     *dst = lbHeap_80015BD0(heap_id, ROUND_UP_32(*size));
     lbFile_80016580(basename, *dst, size, lbFile_8001615C, NULL);
     waitForDisc();
+#ifdef TARGET_PC
+    pc_file_cache_put(lbFileGetFullName(basename), *dst, *size);
+#endif
 }
 
 void lbFile_80016760(const char* basename, void** dst, size_t* size)

@@ -26,17 +26,15 @@ static VtxArrayEntry* s_table;
 static u32 s_cap; /* power of two */
 static u32 s_count;
 
-static u32 hash_ptr(const void* p)
-{
-    uintptr_t h = (uintptr_t) p;
+static u32 hash_ptr(const void* p) {
+    uintptr_t h = (uintptr_t)p;
     h ^= h >> 17;
     h *= 0x9E3779B1u;
     h ^= h >> 15;
-    return (u32) h;
+    return (u32)h;
 }
 
-static VtxArrayEntry* find_slot(VtxArrayEntry* table, u32 cap, const void* key)
-{
+static VtxArrayEntry* find_slot(VtxArrayEntry* table, u32 cap, const void* key) {
     u32 i = hash_ptr(key) & (cap - 1);
     while (table[i].key != NULL && table[i].key != key) {
         i = (i + 1) & (cap - 1);
@@ -44,8 +42,7 @@ static VtxArrayEntry* find_slot(VtxArrayEntry* table, u32 cap, const void* key)
     return &table[i];
 }
 
-static void grow(void)
-{
+static void grow(void) {
     u32 new_cap = s_cap ? s_cap * 2 : 1024;
     VtxArrayEntry* new_table = calloc(new_cap, sizeof(VtxArrayEntry));
     u32 i;
@@ -59,8 +56,7 @@ static void grow(void)
     s_cap = new_cap;
 }
 
-static void record(const void* data, u32 size)
-{
+static void record(const void* data, u32 size) {
     VtxArrayEntry* e;
     if (s_count * 2 >= s_cap) {
         grow();
@@ -75,8 +71,7 @@ static void record(const void* data, u32 size)
     }
 }
 
-u32 pc_vtx_array_size(const void* data)
-{
+u32 pc_vtx_array_size(const void* data) {
     if (s_cap == 0) {
         return 0;
     }
@@ -84,8 +79,7 @@ u32 pc_vtx_array_size(const void* data)
 }
 
 /* Byte size of one GX_DIRECT attribute in the display list. */
-static u32 direct_attr_size(const HSD_VtxDescList* d)
-{
+static u32 direct_attr_size(const HSD_VtxDescList* d) {
     u32 n, elem;
     switch (d->attr) {
     case GX_VA_PNMTXIDX:
@@ -143,21 +137,16 @@ static u32 direct_attr_size(const HSD_VtxDescList* d)
     return n * elem;
 }
 
-static u32 attr_index_count(const HSD_VtxDescList* d)
-{
-    return (d->attr == GX_VA_NRM || d->attr == GX_VA_NBT) &&
-                   d->comp_cnt == GX_NRM_NBT3 ? 3 : 1;
+static u32 attr_index_count(const HSD_VtxDescList* d) {
+    return (d->attr == GX_VA_NRM || d->attr == GX_VA_NBT) && d->comp_cnt == GX_NRM_NBT3 ? 3 : 1;
 }
 
-static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
-                              u32 length)
-{
+static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl, u32 length) {
     u32 max_idx[GX_VA_MAX_ATTR];
     u32 n_attr = 0, vtx_size = 0, l = 0, i;
     const HSD_VtxDescList* d;
 
-    for (d = verts; d->attr != GX_VA_NULL && n_attr < GX_VA_MAX_ATTR;
-         d++, n_attr++) {
+    for (d = verts; d->attr != GX_VA_NULL && n_attr < GX_VA_MAX_ATTR; d++, n_attr++) {
         max_idx[n_attr] = 0;
         switch (d->attr_type) {
         case GX_NONE:
@@ -183,7 +172,7 @@ static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
         if (op < GX_DRAW_QUADS || op > GX_DRAW_POINTS) {
             break;
         }
-        n = (u32) dl[l + 1] << 8 | dl[l + 2];
+        n = (u32)dl[l + 1] << 8 | dl[l + 2];
         l += 3;
         if (l + n * vtx_size > length) {
             break;
@@ -205,7 +194,7 @@ static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
                     if (d->attr_type == GX_INDEX8) {
                         idx = dl[l++];
                     } else {
-                        idx = (u32) dl[l] << 8 | dl[l + 1];
+                        idx = (u32)dl[l] << 8 | dl[l + 1];
                         l += 2;
                     }
                     if (idx > max_idx[i]) {
@@ -217,16 +206,13 @@ static void scan_display_list(const HSD_VtxDescList* verts, const u8* dl,
     }
 
     for (d = verts, i = 0; i < n_attr; d++, i++) {
-        if ((d->attr_type == GX_INDEX8 || d->attr_type == GX_INDEX16) &&
-            d->vertex != 0)
-        {
+        if ((d->attr_type == GX_INDEX8 || d->attr_type == GX_INDEX16) && d->vertex != 0) {
             record(DP(void, d->vertex), (max_idx[i] + 1) * d->stride);
         }
     }
 }
 
-void pc_vtx_array_scan(const HSD_PObjDesc* desc)
-{
+void pc_vtx_array_scan(const HSD_PObjDesc* desc) {
     const HSD_VtxDescList* verts = DP(HSD_VtxDescList, desc->verts);
     const u8* dl = DP(u8, desc->display);
     if (verts == NULL) {
@@ -239,5 +225,5 @@ void pc_vtx_array_scan(const HSD_PObjDesc* desc)
      * on every draw with a degenerate offset. Scanning with length 0 skips
      * the walk (no index is read, no byte of `dl` is touched) but still
      * records every indexed array at the floor. */
-    scan_display_list(verts, dl, dl != NULL ? (u32) desc->n_display << 5 : 0);
+    scan_display_list(verts, dl, dl != NULL ? (u32)desc->n_display << 5 : 0);
 }

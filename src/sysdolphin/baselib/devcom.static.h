@@ -20,7 +20,11 @@ struct HSD_DevCom {
 };
 
 #define DEVCOMDEST_SBUF 2
+#ifdef TARGET_PC
+#define DEVCOM_BUF_SIZE 0x80000
+#else
 #define DEVCOM_BUF_SIZE 0x4000
+#endif
 
 static ARQRequest devComARQR[2][2];
 static struct HSD_DevCom* devComStatus[4];

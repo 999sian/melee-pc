@@ -3,16 +3,13 @@
 
 #include <melee/gr/forward.h>
 
-#include <placeholder.h>
-
-/* 20362C */ UNK_RET grVenom_8020362C(UNK_PARAMS);
+/* 20362C */ void grVenom_8020362C(void);
 /* 203B14 */ void grVenom_80203B14(s32);
 /* 203B18 */ void grVenom_80203B18(void);
 /* 203DD0 */ void grVenom_80203DD0(void);
 /* 203E80 */ void grVenom_80203E80(void);
 /* 203EA4 */ bool grVenom_80203EA4(void);
 /* 203EAC */ Ground_GObj* grVenom_80203EAC(int);
-/* 203F98 */ void grVenom_80203F98(Ground_GObj*);
 /* 203FC4 */ bool grVenom_80203FC4(Ground_GObj*);
 /* 203FCC */ void grVenom_80203FCC(Ground_GObj*);
 /* 203FD0 */ void grVenom_80203FD0(Ground_GObj*);
@@ -36,7 +33,6 @@
 /* 204DB0 */ void grVenom_80204DB0(Ground_GObj*);
 /* 204DD4 */ void grVenom_80204DD4(Ground_GObj*);
 /* 204EF4 */ bool grVenom_80204EF4(Ground_GObj*);
-/* 204EFC */ void grVenom_80204EFC(Ground_GObj*);
 /* 204F1C */ void grVenom_80204F1C(Ground_GObj*);
 /* 204F20 */ void grVenom_80204F20(Ground_GObj*);
 /* 2052D8 */ bool grVenom_802052D8(Ground_GObj*);

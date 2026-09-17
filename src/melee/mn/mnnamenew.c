@@ -546,7 +546,7 @@ s32 mnNameNew_8023BAA8(NameNewEntry* arg0, s32 arg1, u8 arg2)
     return (s32) arg2;
 }
 
-inline u8 GetAutoNameCharacter(const u8* name, s32 char_idx)
+static inline u8 GetAutoNameCharacter(const u8* name, s32 char_idx)
 {
     return name[char_idx];
 }
@@ -1605,10 +1605,6 @@ void fn_8023DAEC(HSD_GObj* arg0)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void fn_8023DBE8(HSD_GObj* arg0)
 {
     MenuFlow* flow;
@@ -1720,9 +1716,6 @@ void fn_8023DBE8(HSD_GObj* arg0)
         HSD_JObjAnimAll(jobj);
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void mnNameNew_8023E0D8(NameNewEntry* arg0)
 {

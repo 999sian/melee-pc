@@ -18,6 +18,7 @@
  */
 #include <dolphin/ai.h>
 #include "pc/pc.h"
+#include "pc/music_stream.h"
 #include <dolphin/ar.h>
 #include <dolphin/ax.h>
 #include <dolphin/axfx.h>
@@ -33,15 +34,13 @@
 /* Cached once: getenv() scans the whole environment, and these guards sit
  * on per-draw / per-voice paths where that cost is not acceptable even
  * when the diagnostic is switched off. */
-static int pc_dbg_audio_stats(void)
-{
+static int pc_dbg_audio_stats(void) {
     static int cached = -1;
     if (cached < 0) {
         cached = getenv("MELEE_AUDIO_STATS") != NULL;
     }
     return cached;
 }
-
 
 #define AX_VOICES 64
 #define AX_RATE 32000
@@ -54,10 +53,11 @@ static int pc_dbg_audio_stats(void)
 typedef struct Voice {
     AXVPB vpb; /* handed to the game; vpb.pb is our native mirror */
     bool used;
-    s16 prev, cur;   /* last two decoded samples, for interpolation */
-    u32 frac;        /* 16.16 position between prev and cur */
-    u16 pred_scale;  /* ADPCM header of the current frame */
-    s32 yn1, yn2;    /* ADPCM history */
+    bool is_stream; /* true for HPS music stream voices */
+    s16 prev, cur;  /* last two decoded samples, for interpolation */
+    u32 frac;       /* 16.16 position between prev and cur */
+    u16 pred_scale; /* ADPCM header of the current frame */
+    s32 yn1, yn2;   /* ADPCM history */
     u32 loop_addr, end_addr, cur_addr;
     u32 age; /* AX frames this voice has been running; MELEE_AUDIO_STATS */
 } Voice;
@@ -66,40 +66,68 @@ static Voice s_voices[AX_VOICES];
 static void (*s_frame_callback)(void);
 static SDL_AudioStream* s_stream;
 static float s_master_volume = 1.0f;
-void pc_audio_set_volume(float volume)
-{
+static float s_music_volume = 1.0f;
+static float s_sfx_volume = 1.0f;
+
+void pc_audio_set_volume(float volume) {
     s_master_volume = volume;
-    if (s_stream) SDL_SetAudioStreamGain(s_stream, volume);
+    if (s_stream)
+        SDL_SetAudioStreamGain(s_stream, volume);
 }
+
+void pc_audio_set_music_volume(float volume) {
+    s_music_volume = volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume);
+}
+
+void pc_audio_set_sfx_volume(float volume) {
+    s_sfx_volume = volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume);
+}
+
+float pc_audio_get_music_volume(void) {
+    return s_music_volume;
+}
+
+float pc_audio_get_sfx_volume(void) {
+    return s_sfx_volume;
+}
+
+/* Weak fallbacks for pc_get_music_volume and pc_get_sfx_volume when running in
+ * standalone test binaries (e.g. tools/test_audio_stream) where launcher.cpp
+ * is not linked. When linked into the game executable, launcher.cpp provides
+ * the strong definitions returning prefs.music_volume and prefs.sfx_volume. */
+__attribute__((weak)) float pc_get_music_volume(void) {
+    return s_music_volume;
+}
+
+__attribute__((weak)) float pc_get_sfx_volume(void) {
+    return s_sfx_volume;
+}
+
+__attribute__((weak)) void pc_music_stream_mix(float* dst_left, float* dst_right, int num_samples);
 static u8* s_aram;
 static float s_master = 1.0f;
 
-static inline u16 be16(u16 v)
-{
+static inline u16 be16(u16 v) {
     return __builtin_bswap16(v);
 }
 
-static inline u32 addr32(u16 hi, u16 lo)
-{
-    return ((u32) hi << 16) | lo;
+static inline u32 addr32(u16 hi, u16 lo) {
+    return ((u32)hi << 16) | lo;
 }
 
-static inline void set_addr(u16* hi, u16* lo, u32 addr)
-{
-    *hi = (u16) (addr >> 16);
-    *lo = (u16) addr;
+static inline void set_addr(u16* hi, u16* lo, u32 addr) {
+    *hi = (u16)(addr >> 16);
+    *lo = (u16)addr;
 }
 
-static inline s16 clamp16(s64 v)
-{
-    return v > 32767 ? 32767 : v < -32768 ? -32768 : (s16) v;
+static inline s16 clamp16(s64 v) {
+    return v > 32767 ? 32767 : v < -32768 ? -32768 : (s16)v;
 }
 
 /* ---- sample fetch ------------------------------------------------------ */
 
 /* Reads the next source sample; returns false once the voice has ended. */
-static bool next_sample(Voice* v, s16* out)
-{
+static bool next_sample(Voice* v, s16* out) {
     AXPB* pb = &v->vpb.pb;
     u16 format = pb->addr.format;
 
@@ -131,18 +159,17 @@ static bool next_sample(Voice* v, s16* out)
         nibble = nibble >= 8 ? nibble - 16 : nibble;
         s32 scale = 1 << (v->pred_scale & 0xF);
         u32 coef = (v->pred_scale >> 4) & 7;
-        s32 c0 = (s16) pb->adpcm.a[coef][0];
-        s32 c1 = (s16) pb->adpcm.a[coef][1];
+        s32 c0 = (s16)pb->adpcm.a[coef][0];
+        s32 c1 = (s16)pb->adpcm.a[coef][1];
         /* s64 accumulator: a bank read with the wrong relocation yields
          * coefficients and a scale whose four terms overshoot s32, and
          * signed overflow is undefined behaviour that -O2 may fold the
          * clamp away against. */
-        s64 acc = (s64) nibble * scale * 2048 + 1024 +
-                  (s64) c0 * v->yn1 + (s64) c1 * v->yn2;
+        s64 acc = (s64)nibble * scale * 2048 + 1024 + (s64)c0 * v->yn1 + (s64)c1 * v->yn2;
         s32 sample = clamp16(acc >> 11);
         v->yn2 = v->yn1;
         v->yn1 = sample;
-        *out = (s16) sample;
+        *out = (s16)sample;
         break;
     }
     case AX_FORMAT_PCM16: {
@@ -151,14 +178,14 @@ static bool next_sample(Voice* v, s16* out)
             return false;
         }
         p = &s_aram[v->cur_addr * 2];
-        *out = (s16) ((p[0] << 8) | p[1]);
+        *out = (s16)((p[0] << 8) | p[1]);
         break;
     }
     case AX_FORMAT_PCM8:
         if (v->cur_addr >= PC_ARAM_SIZE) {
             return false;
         }
-        *out = (s16) ((s8) s_aram[v->cur_addr] * 256);
+        *out = (s16)((s8)s_aram[v->cur_addr] * 256);
         break;
     default:
         return false;
@@ -173,8 +200,8 @@ static bool next_sample(Voice* v, s16* out)
             v->cur_addr = v->loop_addr;
             if (format == AX_FORMAT_ADPCM) {
                 v->pred_scale = pb->adpcmLoop.loop_pred_scale;
-                v->yn1 = (s16) pb->adpcmLoop.loop_yn1;
-                v->yn2 = (s16) pb->adpcmLoop.loop_yn2;
+                v->yn1 = (s16)pb->adpcmLoop.loop_yn1;
+                v->yn2 = (s16)pb->adpcmLoop.loop_yn2;
             }
         } else {
             pb->state = 0;
@@ -196,23 +223,56 @@ typedef struct AuxBus {
     void* ctx;
     /* `long`, not s32: AXFX_BUFFERUPDATE types its channels `long*`, which is
      * 64-bit on LP64. A 32-bit buffer here is overrun by the effect. */
-    long ch[3][AX_FRAME];
+    long ch[3][AX_FRAME];  // NOLINT: Dolphin SDK AXFX_BUFFERUPDATE expects long*
 } AuxBus;
 
 static AuxBus s_auxA, s_auxB;
 
-static void mix_voice(Voice* v, float* out)
-{
+/* Helper to identify whether a voice belongs to an HPS music stream or SFX.
+ * In Melee, music is streamed in 64 KiB ring buffer blocks (DSP-ADPCM), acquired
+ * at priority 0x1D (29), and updated via AXSetVoiceLoopAddr / CurrentAddr / EndAddr. */
+static bool is_music_stream(Voice* v) {
+    if (v->vpb.pb.addr.format != AX_FORMAT_ADPCM) {
+        return false;
+    }
+    if (v->is_stream) {
+        return true;
+    }
+    if ((u32)v->vpb.priority == 0x1D) {
+        v->is_stream = true;
+        return true;
+    }
+    /* HPS music stream ring buffer detection: HPS blocks have 64 KiB spacing
+     * (0x10000 bytes = 0x20000 in nibble-addressed ADPCM).
+     * When looping across 64 KiB boundaries between ring buffer blocks: */
+    if (v->vpb.pb.addr.loopFlag) {
+        u32 diff = v->loop_addr > v->cur_addr ? (v->loop_addr - v->cur_addr) :
+                                                (v->cur_addr - v->loop_addr);
+        if (diff >= 0x10000) {
+            v->is_stream = true;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void mix_voice(Voice* v, float* out) {
     AXPB* pb = &v->vpb.pb;
     u32 ratio = addr32(pb->src.ratioHi, pb->src.ratioLo);
     s32 vol = pb->ve.currentVolume;
     s32 delta = pb->ve.currentDelta;
-    float vl = pb->mix.vL / 32767.0f;
-    float vr = pb->mix.vR / 32767.0f;
-    float al = pb->mix.vAuxAL / 32767.0f;
-    float ar = pb->mix.vAuxAR / 32767.0f;
-    float bl = pb->mix.vAuxBL / 32767.0f;
-    float br = pb->mix.vAuxBR / 32767.0f;
+
+    float voice_gain = is_music_stream(v) ? pc_get_music_volume() : pc_get_sfx_volume();
+    if (voice_gain < 0.0f) {
+        voice_gain = 0.0f;
+    }
+
+    float vl = (pb->mix.vL / 32767.0f) * voice_gain;
+    float vr = (pb->mix.vR / 32767.0f) * voice_gain;
+    float al = (pb->mix.vAuxAL / 32767.0f) * voice_gain;
+    float ar = (pb->mix.vAuxAR / 32767.0f) * voice_gain;
+    float bl = (pb->mix.vAuxBL / 32767.0f) * voice_gain;
+    float br = (pb->mix.vAuxBR / 32767.0f) * voice_gain;
     bool send_a = (s_auxA.cb != NULL) && (al != 0.0f || ar != 0.0f);
     bool send_b = (s_auxB.cb != NULL) && (bl != 0.0f || br != 0.0f);
 
@@ -222,15 +282,14 @@ static void mix_voice(Voice* v, float* out)
             s16 s;
             if (!next_sample(v, &s)) {
                 pb->state = 0;
-                pb->ve.currentVolume = (u16) (vol < 0 ? 0 : vol > 32767 ? 32767 : vol);
+                pb->ve.currentVolume = (u16)(vol < 0 ? 0 : vol > 32767 ? 32767 : vol);
                 /* The mirror the game reads back has to follow on this path
                  * too: stopRange() matches a voice against the bank being
                  * unloaded by pb.addr.currentAddress, and the HPS block swap
                  * derives the stream position from it. Without this the
                  * field stayed at the previous frame's value, reporting the
                  * voice up to one frame short of where it really stopped. */
-                set_addr(&pb->addr.currentAddressHi,
-                         &pb->addr.currentAddressLo, v->cur_addr);
+                set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
                 /* frac is deliberately left alone. It holds one whole
                  * unsatisfied sample step plus the sub-sample phase, and
                  * nothing at end-of-voice should discard that: on hardware
@@ -247,19 +306,19 @@ static void mix_voice(Voice* v, float* out)
             v->cur = s;
             v->frac -= 0x10000;
         }
-        float t = (float) v->frac * (1.0f / 65536.0f);
-        float s = ((float) v->prev + t * (float) (v->cur - v->prev)) * (1.0f / 32768.0f);
-        float g = (float) vol * (1.0f / 32767.0f);
+        float t = (float)v->frac * (1.0f / 65536.0f);
+        float s = ((float)v->prev + t * (float)(v->cur - v->prev)) * (1.0f / 32768.0f);
+        float g = (float)vol * (1.0f / 32767.0f);
         float sv = s * g;
         out[i * 2] += sv * vl;
         out[i * 2 + 1] += sv * vr;
         if (send_a) {
-            s_auxA.ch[0][i] += (long) (sv * al * 32767.0f);
-            s_auxA.ch[1][i] += (long) (sv * ar * 32767.0f);
+            s_auxA.ch[0][i] += (long)(sv * al * 32767.0f);
+            s_auxA.ch[1][i] += (long)(sv * ar * 32767.0f);
         }
         if (send_b) {
-            s_auxB.ch[0][i] += (long) (sv * bl * 32767.0f);
-            s_auxB.ch[1][i] += (long) (sv * br * 32767.0f);
+            s_auxB.ch[0][i] += (long)(sv * bl * 32767.0f);
+            s_auxB.ch[1][i] += (long)(sv * br * 32767.0f);
         }
         vol += delta;
         if (vol < 0) {
@@ -268,12 +327,11 @@ static void mix_voice(Voice* v, float* out)
             vol = 32767;
         }
     }
-    pb->ve.currentVolume = (u16) vol;
+    pb->ve.currentVolume = (u16)vol;
     set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
 }
 
-static void run_aux(AuxBus* bus, float* out)
-{
+static void run_aux(AuxBus* bus, float* out) {
     struct AXFX_BUFFERUPDATE bu;
 
     if (bus->cb == NULL) {
@@ -284,14 +342,13 @@ static void run_aux(AuxBus* bus, float* out)
     bu.surround = bus->ch[2];
     bus->cb(&bu, bus->ctx);
     for (int i = 0; i < AX_FRAME; i++) {
-        float sur = (float) bus->ch[2][i] * (0.5f / 32767.0f);
-        out[i * 2] += (float) bus->ch[0][i] * (1.0f / 32767.0f) + sur;
-        out[i * 2 + 1] += (float) bus->ch[1][i] * (1.0f / 32767.0f) + sur;
+        float sur = (float)bus->ch[2][i] * (0.5f / 32767.0f);
+        out[i * 2] += (float)bus->ch[0][i] * (1.0f / 32767.0f) + sur;
+        out[i * 2 + 1] += (float)bus->ch[1][i] * (1.0f / 32767.0f) + sur;
     }
 }
 
-static void render_frame(float* out)
-{
+static void render_frame(float* out) {
     memset(out, 0, sizeof(float) * AX_FRAME * 2);
     memset(s_auxA.ch, 0, sizeof(s_auxA.ch));
     memset(s_auxB.ch, 0, sizeof(s_auxB.ch));
@@ -318,13 +375,11 @@ static void render_frame(float* out)
         if (++v->age == 2001) { /* 10s of AX frames */
             if (pc_dbg_audio_stats()) {
                 fprintf(stderr,
-                        "stuck voice %u: state=%u fmt=%u loop=%u ratio=%u"
-                        " cur=%u end=%u loopaddr=%u vol=%u prio=%d\n",
-                        v->vpb.index, v->vpb.pb.state, v->vpb.pb.addr.format,
-                        v->vpb.pb.addr.loopFlag,
-                        addr32(v->vpb.pb.src.ratioHi, v->vpb.pb.src.ratioLo),
-                        v->cur_addr, v->end_addr, v->loop_addr,
-                        v->vpb.pb.ve.currentVolume, v->vpb.priority);
+                    "stuck voice %u: state=%u fmt=%u loop=%u ratio=%u"
+                    " cur=%u end=%u loopaddr=%u vol=%u prio=%d\n",
+                    v->vpb.index, v->vpb.pb.state, v->vpb.pb.addr.format, v->vpb.pb.addr.loopFlag,
+                    addr32(v->vpb.pb.src.ratioHi, v->vpb.pb.src.ratioLo), v->cur_addr, v->end_addr,
+                    v->loop_addr, v->vpb.pb.ve.currentVolume, v->vpb.priority);
             }
         }
         if (v->age > 2000) {
@@ -348,6 +403,9 @@ static void render_frame(float* out)
     }
     run_aux(&s_auxA, out);
     run_aux(&s_auxB, out);
+    if (pc_music_stream_mix) {
+        pc_music_stream_mix(out, NULL, AX_FRAME);
+    }
     /* MELEE_AUDIO_STATS=1: voice census against the output clock, so a
      * silent stretch in MELEE_AUDIO_DUMP can be explained -- were there no
      * voices, were they all stopped, or were they running at zero volume?
@@ -357,14 +415,14 @@ static void render_frame(float* out)
      * `old` counts voices held for over ten seconds, which for a one-shot
      * sound effect means it was never reaped. */
     if (pc_dbg_audio_stats()) {
-        static unsigned long frames;
+        static uint64_t frames;
         frames++;
         if ((frames % 100) == 0) { /* every 100 * 5ms = 0.5s of output */
             fprintf(stderr,
-                    "voices t=%.1fs used=%d running=%d stopped=%d"
-                    " zero_mix=%d zero_ratio=%d loop=%d old=%d\n",
-                    frames * (double) AX_FRAME / AX_RATE, n_used, n_running,
-                    n_stopped, n_zero_mix, n_zero_ratio, n_loop, n_old);
+                "voices t=%.1fs used=%d running=%d stopped=%d"
+                " zero_mix=%d zero_ratio=%d loop=%d old=%d\n",
+                frames * (double)AX_FRAME / AX_RATE, n_used, n_running, n_stopped, n_zero_mix,
+                n_zero_ratio, n_loop, n_old);
         }
     }
     OSRestoreInterrupts(intr);
@@ -379,25 +437,23 @@ static void render_frame(float* out)
 /* MELEE_AUDIO_DUMP=<file>: also write the mix as raw f32 stereo 32kHz. */
 static FILE* s_dump;
 
-static void SDLCALL audio_pull(void* userdata, SDL_AudioStream* stream, int additional, int total)
-{
+static void SDLCALL audio_pull(void* userdata, SDL_AudioStream* stream, int additional, int total) {
     static float frame[AX_FRAME * 2];
-    (void) userdata;
-    (void) total;
+    (void)userdata;
+    (void)total;
     while (additional > 0) {
         render_frame(frame);
         SDL_PutAudioStreamData(stream, frame, sizeof(frame));
         if (s_dump) {
             fwrite(frame, sizeof(frame), 1, s_dump);
         }
-        additional -= (int) sizeof(frame);
+        additional -= (int)sizeof(frame);
     }
 }
 
 /* ---- AX API ------------------------------------------------------------ */
 
-void AXInit(void)
-{
+void AXInit(void) {
     memset(s_voices, 0, sizeof(s_voices));
     for (int i = 0; i < AX_VOICES; i++) {
         s_voices[i].vpb.index = i;
@@ -407,13 +463,15 @@ void AXInit(void)
         s_dump = fopen(getenv("MELEE_AUDIO_DUMP"), "wb");
     }
     if (s_stream == NULL) {
-        const SDL_AudioSpec spec = { SDL_AUDIO_F32, 2, AX_RATE };
+        const SDL_AudioSpec spec = {SDL_AUDIO_F32, 2, AX_RATE};
         if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
             fprintf(stderr, "audio: SDL_InitSubSystem failed: %s\n", SDL_GetError());
             return;
         }
-        s_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_pull, NULL);
-        if (s_stream) SDL_SetAudioStreamGain(s_stream, s_master_volume);
+        s_stream =
+            SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_pull, NULL);
+        if (s_stream)
+            SDL_SetAudioStreamGain(s_stream, s_master_volume);
         if (s_stream == NULL) {
             fprintf(stderr, "audio: SDL_OpenAudioDeviceStream failed: %s\n", SDL_GetError());
             return;
@@ -422,21 +480,18 @@ void AXInit(void)
     }
 }
 
-void AXQuit(void)
-{
+void AXQuit(void) {
     if (s_stream) {
         SDL_DestroyAudioStream(s_stream);
         s_stream = NULL;
     }
 }
 
-void AXRegisterCallback(void (*callback)())
-{
-    s_frame_callback = (void (*)(void)) callback;
+void AXRegisterCallback(void (*callback)()) {
+    s_frame_callback = (void (*)(void))callback;
 }
 
-AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), u32 userContext)
-{
+AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), u32 userContext) {
     BOOL intr = OSDisableInterrupts();
     Voice* pick = NULL;
     for (int i = 0; i < AX_VOICES; i++) {
@@ -449,7 +504,9 @@ AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), u32 userContext)
         /* Steal the lowest-priority voice below the request, like AX. */
         for (int i = 0; i < AX_VOICES; i++) {
             Voice* v = &s_voices[i];
-            if ((u32) v->vpb.priority < priority && (pick == NULL || v->vpb.priority < pick->vpb.priority)) {
+            if ((u32)v->vpb.priority < priority &&
+                (pick == NULL || v->vpb.priority < pick->vpb.priority))
+            {
                 pick = v;
             }
         }
@@ -462,20 +519,23 @@ AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), u32 userContext)
         memset(pick, 0, sizeof(*pick));
         pick->used = true;
         pick->vpb.index = index;
-        pick->vpb.priority = (int) priority;
+        pick->vpb.priority = (int)priority;
         pick->vpb.callback = callback;
         pick->vpb.userContext = userContext;
+        if (priority == 0x1D) {
+            pick->is_stream = true;
+        }
     }
     OSRestoreInterrupts(intr);
     return pick ? &pick->vpb : NULL;
 }
 
-void AXFreeVoice(AXVPB* p)
-{
+void AXFreeVoice(AXVPB* p) {
     if (p) {
         BOOL intr = OSDisableInterrupts();
-        Voice* v = (Voice*) p;
+        Voice* v = (Voice*)p;
         v->used = false;
+        v->is_stream = false;
         v->vpb.pb.state = 0;
         v->vpb.priority = 0;
         OSRestoreInterrupts(intr);
@@ -499,61 +559,57 @@ void AXFreeVoice(AXVPB* p)
  * completion callback) just re-enter it. Single-field setters are bracketed
  * too: concurrent plain accesses are a data race whatever their width, and
  * pb.state is the field render_frame gates mixing on. */
-void AXSetVoicePriority(AXVPB* p, u32 priority)
-{
+void AXSetVoicePriority(AXVPB* p, u32 priority) {
     BOOL intr = OSDisableInterrupts();
-    p->priority = (int) priority;
+    Voice* v = (Voice*)p;
+    p->priority = (int)priority;
+    if (priority == 0x1D) {
+        v->is_stream = true;
+    }
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceState(AXVPB* p, u16 state)
-{
+void AXSetVoiceState(AXVPB* p, u16 state) {
     BOOL intr = OSDisableInterrupts();
     p->pb.state = state;
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceMix(AXVPB* p, AXPBMIX* mix)
-{
+void AXSetVoiceMix(AXVPB* p, AXPBMIX* mix) {
     BOOL intr = OSDisableInterrupts();
     p->pb.mix = *mix;
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceItdOn(AXVPB* p)
-{
+void AXSetVoiceItdOn(AXVPB* p) {
     BOOL intr = OSDisableInterrupts();
     p->pb.itd.flag = 1;
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceItdTarget(AXVPB* p, u16 l, u16 r)
-{
+void AXSetVoiceItdTarget(AXVPB* p, u16 l, u16 r) {
     BOOL intr = OSDisableInterrupts();
     p->pb.itd.targetShiftL = l;
     p->pb.itd.targetShiftR = r;
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceVe(AXVPB* p, AXPBVE* ve)
-{
+void AXSetVoiceVe(AXVPB* p, AXPBVE* ve) {
     BOOL intr = OSDisableInterrupts();
     p->pb.ve = *ve;
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceVeDelta(AXVPB* p, s16 delta)
-{
+void AXSetVoiceVeDelta(AXVPB* p, s16 delta) {
     BOOL intr = OSDisableInterrupts();
     p->pb.ve.currentDelta = delta;
     OSRestoreInterrupts(intr);
 }
 
 /* Big-endian block from disc. */
-void AXSetVoiceAddr(AXVPB* p, AXPBADDR* addr)
-{
+void AXSetVoiceAddr(AXVPB* p, AXPBADDR* addr) {
     BOOL intr = OSDisableInterrupts();
-    Voice* v = (Voice*) p;
+    Voice* v = (Voice*)p;
     AXPBADDR* dst = &p->pb.addr;
     dst->loopFlag = be16(addr->loopFlag);
     dst->format = be16(addr->format);
@@ -568,24 +624,24 @@ void AXSetVoiceAddr(AXVPB* p, AXPBADDR* addr)
      * ARAM (nibble-addressed, so the limit is 2x the byte size). */
     {
         static int log_cached = -1;
-        const u32 limit = (u32) (PC_ARAM_SIZE * 2u);
+        const u32 limit = (u32)(PC_ARAM_SIZE * 2u);
 
         if (log_cached < 0) {
             log_cached = getenv("MELEE_AUDIO_ADDR") != NULL;
         }
         if (v->end_addr > limit || v->cur_addr > limit) {
-            static unsigned long bad;
+            static uint32_t bad;
             if (log_cached || ++bad <= 4) {
                 fprintf(stderr,
-                        "audio: voice addr outside ARAM: cur=%u end=%u"
-                        " limit=%u\n",
-                        v->cur_addr, v->end_addr, limit);
+                    "audio: voice addr outside ARAM: cur=%u end=%u"
+                    " limit=%u\n",
+                    v->cur_addr, v->end_addr, limit);
             }
         } else if (log_cached) {
-            static unsigned long ok;
+            static uint32_t ok;
             if (++ok <= 4 || ok % 200 == 0) {
-                fprintf(stderr, "audio: voice addr ok: cur=%u end=%u (%lu)\n",
-                        v->cur_addr, v->end_addr, ok);
+                fprintf(stderr, "audio: voice addr ok: cur=%u end=%u (%u)\n", v->cur_addr,
+                    v->end_addr, ok);
             }
         }
     }
@@ -597,45 +653,43 @@ void AXSetVoiceAddr(AXVPB* p, AXPBADDR* addr)
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceLoop(AXVPB* p, u16 loop)
-{
+void AXSetVoiceLoop(AXVPB* p, u16 loop) {
     BOOL intr = OSDisableInterrupts();
     p->pb.addr.loopFlag = loop;
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceLoopAddr(AXVPB* p, u32 addr)
-{
+void AXSetVoiceLoopAddr(AXVPB* p, u32 addr) {
     BOOL intr = OSDisableInterrupts();
-    Voice* v = (Voice*) p;
+    Voice* v = (Voice*)p;
     v->loop_addr = addr;
+    v->is_stream = true;
     set_addr(&p->pb.addr.loopAddressHi, &p->pb.addr.loopAddressLo, addr);
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceEndAddr(AXVPB* p, u32 addr)
-{
+void AXSetVoiceEndAddr(AXVPB* p, u32 addr) {
     BOOL intr = OSDisableInterrupts();
-    Voice* v = (Voice*) p;
+    Voice* v = (Voice*)p;
     v->end_addr = addr;
+    v->is_stream = true;
     set_addr(&p->pb.addr.endAddressHi, &p->pb.addr.endAddressLo, addr);
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceCurrentAddr(AXVPB* p, u32 addr)
-{
+void AXSetVoiceCurrentAddr(AXVPB* p, u32 addr) {
     BOOL intr = OSDisableInterrupts();
-    Voice* v = (Voice*) p;
+    Voice* v = (Voice*)p;
     v->cur_addr = addr;
+    v->is_stream = true;
     set_addr(&p->pb.addr.currentAddressHi, &p->pb.addr.currentAddressLo, addr);
     OSRestoreInterrupts(intr);
 }
 
 /* Big-endian block from disc. */
-void AXSetVoiceAdpcm(AXVPB* p, AXPBADPCM* a)
-{
+void AXSetVoiceAdpcm(AXVPB* p, AXPBADPCM* a) {
     BOOL intr = OSDisableInterrupts();
-    Voice* v = (Voice*) p;
+    Voice* v = (Voice*)p;
     AXPBADPCM* dst = &p->pb.adpcm;
     for (int i = 0; i < 8; i++) {
         dst->a[i][0] = be16(a->a[i][0]);
@@ -646,14 +700,13 @@ void AXSetVoiceAdpcm(AXVPB* p, AXPBADPCM* a)
     dst->yn1 = be16(a->yn1);
     dst->yn2 = be16(a->yn2);
     v->pred_scale = dst->pred_scale;
-    v->yn1 = (s16) dst->yn1;
-    v->yn2 = (s16) dst->yn2;
+    v->yn1 = (s16)dst->yn1;
+    v->yn2 = (s16)dst->yn2;
     OSRestoreInterrupts(intr);
 }
 
 /* Big-endian block from disc. */
-void AXSetVoiceAdpcmLoop(AXVPB* p, AXPBADPCMLOOP* l)
-{
+void AXSetVoiceAdpcmLoop(AXVPB* p, AXPBADPCMLOOP* l) {
     BOOL intr = OSDisableInterrupts();
     p->pb.adpcmLoop.loop_pred_scale = be16(l->loop_pred_scale);
     p->pb.adpcmLoop.loop_yn1 = be16(l->loop_yn1);
@@ -684,14 +737,12 @@ void AXSetVoiceAdpcmLoop(AXVPB* p, AXPBADPCMLOOP* l)
  * reported so the difference is never silent. */
 #define AX_MAX_RATIO 0x40000u /* 4.0 in 16.16 */
 
-static u32 clamp_ratio(u32 ratio)
-{
+static u32 clamp_ratio(u32 ratio) {
     if (ratio > AX_MAX_RATIO) {
-        static unsigned long capped;
+        static uint32_t capped;
         if (++capped <= 8 || pc_dbg_audio_stats()) {
-            fprintf(stderr,
-                    "audio: SRC ratio %u (%.2fx) capped to AX's 4.0 (#%lu)\n",
-                    ratio, ratio / 65536.0, capped);
+            fprintf(stderr, "audio: SRC ratio %u (%.2fx) capped to AX's 4.0 (#%u)\n", ratio,
+                ratio / 65536.0, capped);
         }
         return AX_MAX_RATIO;
     }
@@ -704,14 +755,12 @@ static u32 clamp_ratio(u32 ratio)
  * one source sample every 65536 output samples, so the voice is inaudible and
  * never reaches its end address, and the voice pool fills with stuck voices
  * until no sound effect can be started at all. */
-void AXSetVoiceSrc(AXVPB* p, AXPBSRC* s)
-{
+void AXSetVoiceSrc(AXVPB* p, AXPBSRC* s) {
     BOOL intr = OSDisableInterrupts();
-    Voice* v = (Voice*) p;
+    Voice* v = (Voice*)p;
     int i;
 
-    set_addr(&p->pb.src.ratioHi, &p->pb.src.ratioLo,
-             clamp_ratio(addr32(s->ratioHi, s->ratioLo)));
+    set_addr(&p->pb.src.ratioHi, &p->pb.src.ratioLo, clamp_ratio(addr32(s->ratioHi, s->ratioLo)));
     /* Retail copies all seven u16s of the block and raises
      * AX_SYNC_FLAG_COPYSRC, so the DSP adopts the supplied SRC phase and FIR
      * history as well as the ratio (AXVPB.c:1197-1232). currentAddressFrac
@@ -734,8 +783,7 @@ void AXSetVoiceSrc(AXVPB* p, AXPBSRC* s)
     OSRestoreInterrupts(intr);
 }
 
-void AXSetVoiceSrcRatio(AXVPB* p, float ratio)
-{
+void AXSetVoiceSrcRatio(AXVPB* p, float ratio) {
     BOOL intr = OSDisableInterrupts();
     /* Both ends have to be handled in float, before the cast: converting a
      * NaN, a negative, or anything >= 65536.0 to u32 is undefined behaviour
@@ -747,21 +795,19 @@ void AXSetVoiceSrcRatio(AXVPB* p, float ratio)
     } else if (ratio > 4.0f) {
         ratio = 4.0f;
     }
-    u32 fixed = clamp_ratio((u32) (ratio * 65536.0f));
+    u32 fixed = clamp_ratio((u32)(ratio * 65536.0f));
     set_addr(&p->pb.src.ratioHi, &p->pb.src.ratioLo, fixed);
     OSRestoreInterrupts(intr);
 }
 
-void AXRegisterAuxACallback(void (*callback)(void*, void*), void* context)
-{
+void AXRegisterAuxACallback(void (*callback)(void*, void*), void* context) {
     BOOL intr = OSDisableInterrupts();
     s_auxA.cb = callback;
     s_auxA.ctx = context;
     OSRestoreInterrupts(intr);
 }
 
-void AXRegisterAuxBCallback(void (*callback)(void*, void*), void* context)
-{
+void AXRegisterAuxBCallback(void (*callback)(void*, void*), void* context) {
     BOOL intr = OSDisableInterrupts();
     s_auxB.cb = callback;
     s_auxB.ctx = context;
@@ -773,13 +819,11 @@ void AXRegisterAuxBCallback(void (*callback)(void*, void*), void* context)
 void* (*__AXFXAlloc)(size_t) = NULL;
 void (*__AXFXFree)(void*) = NULL;
 
-void* AXFXAllocFunction(size_t size)
-{
+void* AXFXAllocFunction(size_t size) {
     return __AXFXAlloc != NULL ? __AXFXAlloc(size) : calloc(1, size);
 }
 
-void AXFXFreeFunction(void* ptr)
-{
+void AXFXFreeFunction(void* ptr) {
     if (__AXFXFree != NULL) {
         __AXFXFree(ptr);
     } else {
@@ -787,8 +831,7 @@ void AXFXFreeFunction(void* ptr)
     }
 }
 
-void AXFXSetHooks(void* (*alloc_hook)(size_t), void (*free_hook)(void*))
-{
+void AXFXSetHooks(void* (*alloc_hook)(size_t), void (*free_hook)(void*)) {
     __AXFXAlloc = alloc_hook;
     __AXFXFree = free_hook;
 }
@@ -804,22 +847,21 @@ void AXFXSetHooks(void* (*alloc_hook)(size_t), void (*free_hook)(void*))
 #define AXFX_CHANNELS 3
 
 static const long kCombLen[AXFX_CHANNELS][3] = {
-    { 1789, 1999, 2333 },
-    { 1847, 2063, 2399 },
-    { 1693, 1931, 2267 },
+    {1789, 1999, 2333},
+    {1847, 2063, 2399},
+    {1693, 1931, 2267},
 };
 static const long kAllPassLen[AXFX_CHANNELS][3] = {
-    { 433, 149, 53 },
-    { 449, 157, 59 },
-    { 419, 139, 47 },
+    {433, 149, 53},
+    {449, 157, 59},
+    {419, 139, 47},
 };
 
 /* The delay lines come from the host heap, not AXFXAllocFunction: the game's
  * AXFX heap is a fixed ~GameCube-sized scratch block (AXDriverAlloc asserts
  * against axfxmaxsize) and these lines are far larger than it. */
-static bool axfx_line_alloc(struct AXFX_REVHI_DELAYLINE* d, long length)
-{
-    d->inputs = calloc((size_t) length, sizeof(float));
+static bool axfx_line_alloc(struct AXFX_REVHI_DELAYLINE* d, long length) {
+    d->inputs = calloc((size_t)length, sizeof(float));
     if (d->inputs == NULL) {
         return false;
     }
@@ -830,8 +872,7 @@ static bool axfx_line_alloc(struct AXFX_REVHI_DELAYLINE* d, long length)
     return true;
 }
 
-static void axfx_line_free(struct AXFX_REVHI_DELAYLINE* d)
-{
+static void axfx_line_free(struct AXFX_REVHI_DELAYLINE* d) {
     if (d->inputs != NULL) {
         free(d->inputs);
         d->inputs = NULL;
@@ -839,8 +880,7 @@ static void axfx_line_free(struct AXFX_REVHI_DELAYLINE* d)
     d->length = 0;
 }
 
-static float axfx_line_step(struct AXFX_REVHI_DELAYLINE* d, float in)
-{
+static float axfx_line_step(struct AXFX_REVHI_DELAYLINE* d, float in) {
     float out = d->inputs[d->outPoint];
     d->inputs[d->inPoint] = in;
     if (++d->inPoint >= d->length) {
@@ -853,10 +893,8 @@ static float axfx_line_step(struct AXFX_REVHI_DELAYLINE* d, float in)
     return out;
 }
 
-static int axfx_reverb_init(struct AXFX_REVHI_WORK* rv, float coloration,
-                            float mix, float time, float damping,
-                            float crosstalk)
-{
+static int axfx_reverb_init(struct AXFX_REVHI_WORK* rv, float coloration, float mix, float time,
+    float damping, float crosstalk) {
     int ch, k;
 
     memset(rv, 0, sizeof(*rv));
@@ -875,8 +913,8 @@ static int axfx_reverb_init(struct AXFX_REVHI_WORK* rv, float coloration,
     for (ch = 0; ch < AXFX_CHANNELS; ch++) {
         for (k = 0; k < 3; k++) {
             /* -60 dB after `time` seconds for a line of this length. */
-            rv->combCoef[ch * 3 + k] = powf(
-                10.0f, -3.0f * (float) kCombLen[ch][k] / (time * AX_RATE));
+            rv->combCoef[ch * 3 + k] =
+                powf(10.0f, -3.0f * (float)kCombLen[ch][k] / (time * AX_RATE));
         }
     }
     rv->allPassCoeff = coloration;
@@ -886,8 +924,7 @@ static int axfx_reverb_init(struct AXFX_REVHI_WORK* rv, float coloration,
     return 1;
 }
 
-static void axfx_reverb_shutdown(struct AXFX_REVHI_WORK* rv)
-{
+static void axfx_reverb_shutdown(struct AXFX_REVHI_WORK* rv) {
     int i;
     for (i = 0; i < 9; i++) {
         axfx_line_free(&rv->C[i]);
@@ -895,9 +932,7 @@ static void axfx_reverb_shutdown(struct AXFX_REVHI_WORK* rv)
     }
 }
 
-static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv,
-                            struct AXFX_BUFFERUPDATE* b)
-{
+static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv, struct AXFX_BUFFERUPDATE* b) {
     long* chan[AXFX_CHANNELS];
     int ch, k, i;
     float damp = rv->damping;
@@ -918,7 +953,7 @@ static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv,
         float in[AXFX_CHANNELS];
 
         for (ch = 0; ch < AXFX_CHANNELS; ch++) {
-            in[ch] = (float) chan[ch][i];
+            in[ch] = (float)chan[ch][i];
         }
         /* Crosstalk bleeds each side into the other before the network. */
         if (rv->crosstalk > 0.0f) {
@@ -935,8 +970,7 @@ static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv,
             for (k = 0; k < 3; k++) {
                 struct AXFX_REVHI_DELAYLINE* c = &rv->C[ch * 3 + k];
                 float out = c->inputs[c->outPoint];
-                float lp = rv->lpLastout[ch] =
-                    out * (1.0f - damp) + rv->lpLastout[ch] * damp;
+                float lp = rv->lpLastout[ch] = out * (1.0f - damp) + rv->lpLastout[ch] * damp;
                 axfx_line_step(c, in[ch] + lp * rv->combCoef[ch * 3 + k]);
                 acc += out;
             }
@@ -948,32 +982,27 @@ static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv,
                 axfx_line_step(a, v);
                 y = out - ap * v;
             }
-            chan[ch][i] = (long) (y * wet);
+            chan[ch][i] = (long)(y * wet);
         }
     }
 }
 
-int AXFXReverbHiInit(struct AXFX_REVERBHI* rev)
-{
-    return axfx_reverb_init(&rev->rv, rev->coloration, rev->mix, rev->time,
-                            rev->damping, rev->crosstalk);
+int AXFXReverbHiInit(struct AXFX_REVERBHI* rev) {
+    return axfx_reverb_init(
+        &rev->rv, rev->coloration, rev->mix, rev->time, rev->damping, rev->crosstalk);
 }
 
-int AXFXReverbHiShutdown(struct AXFX_REVERBHI* rev)
-{
+int AXFXReverbHiShutdown(struct AXFX_REVERBHI* rev) {
     axfx_reverb_shutdown(&rev->rv);
     return 1;
 }
 
-int AXFXReverbHiSettings(struct AXFX_REVERBHI* rev)
-{
+int AXFXReverbHiSettings(struct AXFX_REVERBHI* rev) {
     AXFXReverbHiShutdown(rev);
     return AXFXReverbHiInit(rev);
 }
 
-void AXFXReverbHiCallback(struct AXFX_BUFFERUPDATE* b,
-                          struct AXFX_REVERBHI* r)
-{
+void AXFXReverbHiCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_REVERBHI* r) {
     if (!r->tempDisableFX) {
         axfx_reverb_run(&r->rv, b);
     }
@@ -984,9 +1013,7 @@ void AXFXReverbHiCallback(struct AXFX_BUFFERUPDATE* b,
 static struct AXFX_REVHI_WORK s_revstd_work[2];
 static struct AXFX_REVERBSTD* s_revstd_owner[2];
 
-static struct AXFX_REVHI_WORK* revstd_work(struct AXFX_REVERBSTD* rev,
-                                           bool claim)
-{
+static struct AXFX_REVHI_WORK* revstd_work(struct AXFX_REVERBSTD* rev, bool claim) {
     int i;
     for (i = 0; i < 2; i++) {
         if (s_revstd_owner[i] == rev) {
@@ -1005,18 +1032,15 @@ static struct AXFX_REVHI_WORK* revstd_work(struct AXFX_REVERBSTD* rev,
     return NULL;
 }
 
-int AXFXReverbStdInit(struct AXFX_REVERBSTD* rev)
-{
+int AXFXReverbStdInit(struct AXFX_REVERBSTD* rev) {
     struct AXFX_REVHI_WORK* w = revstd_work(rev, true);
     if (w == NULL) {
         return 0;
     }
-    return axfx_reverb_init(w, rev->coloration, rev->mix, rev->time,
-                            rev->damping, 0.0f);
+    return axfx_reverb_init(w, rev->coloration, rev->mix, rev->time, rev->damping, 0.0f);
 }
 
-int AXFXReverbStdShutdown(struct AXFX_REVERBSTD* rev)
-{
+int AXFXReverbStdShutdown(struct AXFX_REVERBSTD* rev) {
     struct AXFX_REVHI_WORK* w = revstd_work(rev, false);
     int i;
     if (w != NULL) {
@@ -1030,15 +1054,12 @@ int AXFXReverbStdShutdown(struct AXFX_REVERBSTD* rev)
     return 1;
 }
 
-int AXFXReverbStdSettings(struct AXFX_REVERBSTD* rev)
-{
+int AXFXReverbStdSettings(struct AXFX_REVERBSTD* rev) {
     AXFXReverbStdShutdown(rev);
     return AXFXReverbStdInit(rev);
 }
 
-void AXFXReverbStdCallback(struct AXFX_BUFFERUPDATE* b,
-                           struct AXFX_REVERBSTD* r)
-{
+void AXFXReverbStdCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_REVERBSTD* r) {
     struct AXFX_REVHI_WORK* w = revstd_work(r, false);
     if (w != NULL && !r->tempDisableFX) {
         axfx_reverb_run(w, b);
@@ -1048,19 +1069,30 @@ void AXFXReverbStdCallback(struct AXFX_BUFFERUPDATE* b,
 /* Chorus is not selected by Melee (lbaudio_ax.c puts REVERB_STD on aux A and
  * DELAY on aux B); leaving the bus untouched passes the send through dry.
  * ponytail: implement if a stage turns out to select it. */
-int AXFXChorusInit(struct AXFX_CHORUS* c) { (void) c; return 1; }
-int AXFXChorusShutdown(struct AXFX_CHORUS* c) { (void) c; return 1; }
-int AXFXChorusSettings(struct AXFX_CHORUS* c) { (void) c; return 1; }
-void AXFXChorusCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_CHORUS* c) { (void) b; (void) c; }
+int AXFXChorusInit(struct AXFX_CHORUS* c) {
+    (void)c;
+    return 1;
+}
+int AXFXChorusShutdown(struct AXFX_CHORUS* c) {
+    (void)c;
+    return 1;
+}
+int AXFXChorusSettings(struct AXFX_CHORUS* c) {
+    (void)c;
+    return 1;
+}
+void AXFXChorusCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_CHORUS* c) {
+    (void)b;
+    (void)c;
+}
 
 /* Delay: one circular line per channel. `delay[i]` is milliseconds,
  * `feedback[i]` and `output[i]` are percentages -- the values the driver
  * defaults to are 260/310/6 ms at 24% feedback and 35% output. State lives in
  * the SDK structure's own currentSize/currentPos/left/right/sur fields; the
  * lines come from the host heap for the same reason the reverb's do. */
-int AXFXDelayShutdown(struct AXFX_DELAY* d)
-{
-    long** lines[3] = { &d->left, &d->right, &d->sur };
+int AXFXDelayShutdown(struct AXFX_DELAY* d) {
+    long** lines[3] = {&d->left, &d->right, &d->sur};
     int i;
     for (i = 0; i < 3; i++) {
         free(*lines[i]);
@@ -1071,9 +1103,8 @@ int AXFXDelayShutdown(struct AXFX_DELAY* d)
     return 1;
 }
 
-int AXFXDelayInit(struct AXFX_DELAY* d)
-{
-    long** lines[3] = { &d->left, &d->right, &d->sur };
+int AXFXDelayInit(struct AXFX_DELAY* d) {
+    long** lines[3] = {&d->left, &d->right, &d->sur};
     int i;
 
     for (i = 0; i < 3; i++) {
@@ -1097,23 +1128,21 @@ int AXFXDelayInit(struct AXFX_DELAY* d)
     return 1;
 }
 
-int AXFXDelaySettings(struct AXFX_DELAY* d)
-{
+int AXFXDelaySettings(struct AXFX_DELAY* d) {
     AXFXDelayShutdown(d);
     return AXFXDelayInit(d);
 }
 
-void AXFXDelayCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_DELAY* d)
-{
-    long* chan[3] = { b->left, b->right, b->surround };
-    long* line[3] = { d->left, d->right, d->sur };
+void AXFXDelayCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_DELAY* d) {
+    long* chan[3] = {b->left, b->right, b->surround};
+    long* line[3] = {d->left, d->right, d->sur};
     int c, i;
 
     for (c = 0; c < 3; c++) {
         u32 size = d->currentSize[c];
         u32 pos = d->currentPos[c];
-        long fb = (long) d->currentFeedback[c];
-        long og = (long) d->currentOutput[c];
+        long fb = (long)d->currentFeedback[c];  // NOLINT
+        long og = (long)d->currentOutput[c];    // NOLINT
 
         if (line[c] == NULL || size == 0) {
             continue;
@@ -1134,7 +1163,15 @@ void AXFXDelayCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_DELAY* d)
  * voices, and HSD_SynthStreamSetVolume() scales those voices itself via
  * updateAllVolume(). Routing this onto the master gain faded every sound
  * effect out with the music. */
-void AIInit(u8* stack) { (void) stack; }
-void AISetDSPSampleRate(u32 rate) { (void) rate; }
-void AISetStreamVolLeft(u8 vol) { (void) vol; }
-void AISetStreamVolRight(u8 vol) { (void) vol; }
+void AIInit(u8* stack) {
+    (void)stack;
+}
+void AISetDSPSampleRate(u32 rate) {
+    (void)rate;
+}
+void AISetStreamVolLeft(u8 vol) {
+    (void)vol;
+}
+void AISetStreamVolRight(u8 vol) {
+    (void)vol;
+}

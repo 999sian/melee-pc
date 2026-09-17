@@ -2,9 +2,30 @@
 <head><title>Melee-PC</title><link type="text/rcss" href="launcher.rcss" /></head>
 <body>
   <div id="shell">
-    <div class="topline"><span class="brand">MELEE / PC</span><span class="edition">NTSC-U 1.02</span></div>
+    <div class="topline"><span class="brand">MELEE / PC</span><span class="edition"><span id="app-version">v0.1.5-beta</span> · NTSC-U 1.02</span></div>
     <div class="hero"><div class="eyebrow">SUPER SMASH BROS.</div><h1>MELEE</h1></div>
     <div id="home">
+      <div id="update-card" class="update-card" style="display: none;">
+        <div class="update-content">
+          <div class="update-badge-row">
+            <span class="update-badge">UPDATE AVAILABLE</span>
+            <span id="update-tag" class="update-tag">v0.1.6-beta</span>
+          </div>
+          <div id="update-title" class="update-title">Melee PC Update</div>
+          <p id="update-desc" class="update-desc">A newer version is available.</p>
+          <div id="update-progress-row" class="update-progress-row" style="display: none;">
+            <div class="progress-bar-bg">
+              <div id="update-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            <span id="update-progress-text" class="progress-text">0%</span>
+          </div>
+        </div>
+        <div class="update-actions">
+          <button id="update-action" class="primary">Update Now</button>
+          <button id="update-browser">View Release</button>
+          <button id="update-later" class="quiet">Later</button>
+        </div>
+      </div>
       <div class="columns">
         <div class="menu">
           <button id="play" class="primary">Play Melee</button>
@@ -32,6 +53,7 @@
         <div id="tabstrip">
           <button id="tab-graphics" class="tab">Graphics</button>
           <button id="tab-audio" class="tab">Audio &amp; interface</button>
+          <button id="tab-cheats" class="tab">Cheats</button>
           <button id="tab-controls" class="tab">Controls</button>
         </div>
         <div id="settings-content">
@@ -56,6 +78,10 @@
               <button id="aspect">Original (73:60)</button>
             </div>
             <div class="setting">
+              <div class="description"><h3>HUD layout</h3><p>Classic keeps 4:3 safe margins; Wide anchors damage/stocks to 16:9 edges.</p></div>
+              <button id="hud-mode">Classic (4:3)</button>
+            </div>
+            <div class="setting">
               <div class="description"><h3>Anti-aliasing <span class="badge">RESTART</span></h3><p>Smooth polygon edges with multisampling.</p></div>
               <button id="aa">Anti-aliasing</button>
             </div>
@@ -68,8 +94,26 @@
               <button id="filter-mode">Off</button>
             </div>
             <div class="setting">
+              <div class="description"><h3>Custom HD textures</h3><p>Load replacement textures from textures folder.</p></div>
+              <button id="custom-textures">Enabled</button>
+            </div>
+            <div class="setting">
               <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Choose Direct3D 12 or Vulkan.</p></div>
               <button id="backend">Auto</button>
+            </div>
+          </div>
+          <div id="page-cheats" class="page">
+            <div class="setting">
+              <div class="description"><h3>Unlock everything</h3><p>Unlock all 26 characters, 11 secret stages, and All-Star mode.</p></div>
+              <button id="unlock-all">Off</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Hazardless stages</h3><p>Lock Pokémon Stadium in neutral mode without transformations.</p></div>
+              <button id="frozen-stadium">Off</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Free camera</h3><p>Unlock camera rotation and zoom distance in pause mode.</p></div>
+              <button id="free-camera">Normal</button>
             </div>
           </div>
           <div id="page-audio" class="page">
@@ -78,6 +122,20 @@
               <div class="slider-control">
                 <input type="range" class="range" id="volume" min="0" max="100" step="5" value="100" />
                 <span id="volume-val" class="slider-value">100%</span>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Music volume</h3><p>Background music volume.</p></div>
+              <div class="slider-control">
+                <input type="range" class="range" id="music-volume" min="0" max="100" step="5" value="100" />
+                <span id="music-volume-val" class="slider-value">100%</span>
+              </div>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>SFX volume</h3><p>Sound effects and combat audio volume.</p></div>
+              <div class="slider-control">
+                <input type="range" class="range" id="sfx-volume" min="0" max="100" step="5" value="100" />
+                <span id="sfx-volume-val" class="slider-value">100%</span>
               </div>
             </div>
             <div class="setting">
@@ -94,6 +152,14 @@
                 <input type="range" class="range" id="scale" min="75" max="150" step="25" value="100" />
                 <span id="scale-val" class="slider-value">100%</span>
               </div>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Check for updates on launch</h3><p>Automatically query GitHub for new releases on startup.</p></div>
+              <button id="check-updates">On</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Check for updates now</h3><p id="check-status">Melee-PC is up to date.</p></div>
+              <button id="check-now">Check now</button>
             </div>
           </div>
           <div id="page-controls" class="page">

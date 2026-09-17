@@ -327,7 +327,7 @@ static inline bool PointInsideColl(CollData* cd, Vec3* point, float offset)
     return true;
 }
 
-int grLib_801C9EE8(Vec3* point, float offset)
+bool grLib_801C9EE8(Vec3* point, float offset)
 {
     Fighter* fp;
     Item* ip;
