@@ -38,6 +38,18 @@ set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 set(CMAKE_OBJC_COMPILER "/usr/bin/clang")
 set(CMAKE_OBJCXX_COMPILER "/usr/bin/clang++")
 
+find_program(CMAKE_AR NAMES llvm-ar-18 llvm-ar ar)
+find_program(CMAKE_RANLIB NAMES llvm-ranlib-18 llvm-ranlib ranlib)
+find_program(CMAKE_STRIP NAMES llvm-strip-18 llvm-strip strip)
+find_program(CMAKE_OTOOL NAMES llvm-otool-18 llvm-otool otool)
+if (NOT CMAKE_OTOOL)
+    set(CMAKE_OTOOL /bin/true CACHE FILEPATH "otool")
+endif ()
+find_program(CMAKE_INSTALL_NAME_TOOL NAMES llvm-install-name-tool-18 llvm-install-name-tool install_name_tool)
+if (NOT CMAKE_INSTALL_NAME_TOOL)
+    set(CMAKE_INSTALL_NAME_TOOL /bin/true CACHE FILEPATH "install_name_tool")
+endif ()
+
 set(IOS_COMMON_FLAGS "--target=${IOS_TARGET_TRIPLE} -isysroot ${IOS_SDK_PATH} -D__APPLE__=1 -DTARGET_OS_IPHONE=1 -DTARGET_OS_IOS=1")
 
 set(CMAKE_C_FLAGS_INIT "${IOS_COMMON_FLAGS}")

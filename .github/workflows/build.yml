@@ -174,7 +174,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential ninja-build cmake gcc-aarch64-linux-gnu \
-            clang lld zip python3
+            clang lld llvm zip python3
+          sudo ln -sf "$(command -v llvm-install-name-tool || which llvm-install-name-tool)" /usr/local/bin/install_name_tool || true
+          sudo ln -sf "$(command -v llvm-otool || which llvm-otool)" /usr/local/bin/otool || true
 
       - name: Checkout iOS SDK
         run: |
