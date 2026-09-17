@@ -71,7 +71,7 @@ static inline void* pc_resolve_dp(uint32_t slot) {
 
 #define DISC_STRUCT __attribute__((scalar_storage_order("big-endian")))
 #define DISC_PTR(T) uint32_t
-#define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(slot)))
+#define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(uintptr_t)(slot)))
 #define DP_SET(slot, p)                                                                            \
     do {                                                                                           \
         (slot) = pc_encode_dp((const void*)(p));                                                   \

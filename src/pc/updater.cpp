@@ -414,6 +414,8 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
         return false;
     }
 
+    WinHttpSetTimeouts(hSession, 5000, 5000, 5000, 5000);
+
     HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, 0);
     if (!hConnect) {
         out_error = "WinHttpConnect failed: " + std::to_string(GetLastError());
@@ -449,6 +451,13 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
     DWORD dwDownloaded = 0;
     std::string response;
     do {
+        if (g_cancel.load()) {
+            out_error = "Request canceled";
+            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(hConnect);
+            WinHttpCloseHandle(hSession);
+            return false;
+        }
         dwSize = 0;
         if (!WinHttpQueryDataAvailable(hRequest, &dwSize))
             break;
@@ -464,6 +473,11 @@ bool http_get_string_winhttp(const std::wstring& host, const std::wstring& path,
     WinHttpCloseHandle(hRequest);
     WinHttpCloseHandle(hConnect);
     WinHttpCloseHandle(hSession);
+
+    if (g_cancel.load()) {
+        out_error = "Request canceled";
+        return false;
+    }
 
     out_body = std::move(response);
     return true;

@@ -673,7 +673,11 @@ void fn_801AAB74(HSD_GObj* gobj)
     { 13.5F, -4.5F, 0.0F },
 };
 
+#ifdef TARGET_PC
+/* 4DAAEC */ static const GXColor gm_804DAAEC = { 0xFF, 0xB4, 0x00, 0xFF };
+#else
 /* 4DAAEC */ volatile const s32 gm_804DAAEC = 0xFFB40000;
+#endif
 
 static inline f32 gm_801AB200_GetXPos(s32 idx)
 {
@@ -1077,7 +1081,11 @@ void fn_801AB200(HSD_GObj* gobj)
 
         if (gm_804D6814 >= 0x1285 && gm_804D680C == NULL) {
             tally_count = 0;
+#ifdef TARGET_PC
+            tally_color2 = gm_804DAAEC;
+#else
             tally_color2 = *(GXColor*) &gm_804DAAEC;
+#endif
             for (j = 0; j < 6; j++) {
                 HSD_SisLib_803A5CC4(gm_80480D58[j]);
                 gm_80480D58[j] = NULL;

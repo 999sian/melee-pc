@@ -1266,17 +1266,28 @@ s32 it_8027A780(Item* item, void* arg1)
     y = Item_804A0E24.y;
     for (i = 0; i < 30; i++) {
         ItemKind kind = ((ItemKind*) arg1)[i];
+#ifdef TARGET_PC
+        if ((uint32_t) kind > 0xFFFF) {
+            kind = (ItemKind) __builtin_bswap32((uint32_t) kind);
+        }
+#endif
         if (kind == It_PKind_Terminate) {
             break;
         }
-        if (x != kind && y != kind) {
+        if (kind >= It_PKind_Start && kind < It_PKind_Terminate &&
+            x != kind && y != kind)
+        {
             buf->x = kind;
             cnt++;
-            buf->y = attr->pokemon_spawn_weights[((ItemKind*) arg1)[i] -
-                                                 It_PKind_Start];
+            buf->y = attr->pokemon_spawn_weights[kind - It_PKind_Start];
             total += buf->y;
             buf++;
         }
+    }
+    if (total <= 0) {
+        Item_804A0E24.y = Item_804A0E24.x;
+        Item_804A0E24.x = It_PKind_Sonans;
+        return It_PKind_Sonans - It_PKind_Start;
     }
     rand_int = HSD_Randi(total);
     accum = 0;
