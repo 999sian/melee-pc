@@ -270,7 +270,7 @@ void render(wgpu::CommandEncoder& cmd, FramePacket& frame, RenderPass& passInfo,
          * shader reads sample 0 of the multisampled texture instead. */
         .msaaSamples = isDepth ? passInfo.msaaSamples : 1,
     };
-    if (needsConversion) {
+    if (isDepth || needsConversion) {
       tex_copy_conv::run(cmd, convReq);
     } else if (needsScaling) {
       tex_copy_conv::blit(cmd, convReq);

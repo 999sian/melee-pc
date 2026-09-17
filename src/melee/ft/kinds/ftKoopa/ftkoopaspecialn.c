@@ -146,7 +146,7 @@ static void ftKp_SpecialN_Enter_inline(Fighter_GObj* gobj)
     fp->mv.kp.specialn.x10 = 1;
     fp->mv.kp.specialn.x14 = 0;
     fp->mv.kp.specialn.x18 = 0;
-    fp->mv.kp.specialn.xC = 0;
+    fp->mv.kp.specialn.flame_timer = 0;
 }
 
 void ftKp_SpecialN_Enter(Fighter_GObj* gobj)
@@ -240,7 +240,7 @@ void ftKp_SpecialN_IASA(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     ftKoopaAttributes* da = fp->dat_attrs;
     PAD_STACK(16);
-    if (fp->mv.kp.specialn.xC >= da->x4) {
+    if (fp->mv.kp.specialn.flame_timer >= da->flame_limit) {
         if (fp->input.held_buttons[0] & HSD_PAD_B) {
             if (!fp->mv.kp.specialn.x0) {
                 ftKp_SpecialLw_80134ACC(gobj);
@@ -267,9 +267,9 @@ void ftKp_SpecialN_IASA(Fighter_GObj* gobj)
     if (fp->u.kp.x2230 < da->x1C) {
         fp->u.kp.x2230 = da->x1C;
     }
-    fp->mv.kp.specialn.xC += 1;
-    if (fp->mv.kp.specialn.xC > da->x4) {
-        fp->mv.kp.specialn.xC = da->x4;
+    fp->mv.kp.specialn.flame_timer += 1;
+    if (fp->mv.kp.specialn.flame_timer > da->flame_limit) {
+        fp->mv.kp.specialn.flame_timer = da->flame_limit;
     }
 }
 
@@ -282,7 +282,7 @@ void ftKp_SpecialAirN_IASA(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     ftKoopaAttributes* da = fp->dat_attrs;
     PAD_STACK(16);
-    if (fp->mv.kp.specialn.xC >= da->x4) {
+    if (fp->mv.kp.specialn.flame_timer >= da->flame_limit) {
         if (fp->input.held_buttons[0] & HSD_PAD_B) {
             if (!fp->mv.kp.specialn.x0) {
                 ftKp_SpecialLw_80134ACC(gobj);
@@ -309,9 +309,9 @@ void ftKp_SpecialAirN_IASA(Fighter_GObj* gobj)
     if (fp->u.kp.x2230 < da->x1C) {
         fp->u.kp.x2230 = da->x1C;
     }
-    fp->mv.kp.specialn.xC += 1;
-    if (fp->mv.kp.specialn.xC > da->x4) {
-        fp->mv.kp.specialn.xC = da->x4;
+    fp->mv.kp.specialn.flame_timer += 1;
+    if (fp->mv.kp.specialn.flame_timer > da->flame_limit) {
+        fp->mv.kp.specialn.flame_timer = da->flame_limit;
     }
 }
 

@@ -706,6 +706,9 @@ void onExitVs(GameModeState* arg0)
         return;
     }
     lbAudioAx_80026F2C(0x1C);
+#ifdef TARGET_PC
+    lbAudioAx_80028B90();
+#endif
     if (ev->xB_1) {
         u32 cur = ev->xC;
         u32 best = gmMainLib_8015CF5C(stage);

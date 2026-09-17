@@ -78,7 +78,11 @@ export MELEE_KEYSTORE_PASSWORD MELEE_KEY_ALIAS MELEE_KEY_PASSWORD
 
 echo "=== Building Melee Android APK ==="
 cd "${ANDROID_DIR}"
-./gradlew --no-daemon :app:assembleRelease
+./gradlew --no-daemon :app:assembleRelease || {
+    echo "Gradle assembleRelease failed, retrying once after 5s..."
+    sleep 5
+    ./gradlew --no-daemon :app:assembleRelease --stacktrace
+}
 
 APK="${ROOT_DIR}/dist/Melee-Android-arm64.apk"
 mkdir -p "${ROOT_DIR}/dist"

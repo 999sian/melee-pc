@@ -314,8 +314,14 @@ struct CameraBlurData {
 };
 
 struct lb_80432A68_38_t {
-    /* 0x0 */ s32 unk_0;
-    /* 0x4 */ s32 unk_4;
+    union {
+        /* 0x0 */ s32 lb_error;
+        /* 0x0 */ s32 unk_0;
+    };
+    union {
+        /* 0x4 */ s32 hsd_result;
+        /* 0x4 */ s32 unk_4;
+    };
 };
 ASSERT_SIZE(struct lb_80432A68_38_t, 0x8);
 
@@ -1039,5 +1045,9 @@ struct LbShadow {
 typedef struct {
     s8 x, y;
 } S8Vec2, *S8Vec2Ptr;
+
+typedef struct {
+    u8 x, y;
+} U8Vec2;
 
 #endif

@@ -1163,13 +1163,16 @@ bool refresh_surface(bool recreate) {
     nativeWidth = size.native_fb_width;
     nativeHeight = size.native_fb_height;
   }
-  if (width != 0 && height != 0) {
+  if (width != 0 && height != 0 && nativeWidth != 0 && nativeHeight != 0) {
     resize_swapchain_internal(width, height, nativeWidth, nativeHeight, true);
   }
   return true;
 }
 
 void resize_swapchain(uint32_t width, uint32_t height, uint32_t nativeWidth, uint32_t nativeHeight, bool force) {
+  if (width == 0 || height == 0 || nativeWidth == 0 || nativeHeight == 0) {
+    return;
+  }
   gfx::gpu_synchronize();
   resize_swapchain_internal(width, height, nativeWidth, nativeHeight, force);
 }

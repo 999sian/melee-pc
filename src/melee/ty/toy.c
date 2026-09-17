@@ -258,8 +258,8 @@ typedef struct TySortRow {
 /* 4D6EB4 */ DiscS16* _Toy_sbss_804D6EB4;
 /* 4D6EB0 */ TyDspEntry* Toy_sbss_804D6EB0;
 /* 4D6EAC */ TyDspEntry* Toy_sbss_804D6EAC;
-/* 4D6EA8 */ void* _Toy_sbss_804D6EA8;
-/* 4D6EA4 */ void* _Toy_sbss_804D6EA4;
+/* 4D6EA8 */ ToyModelFile* _Toy_sbss_804D6EA8;
+/* 4D6EA4 */ ToyModelFile* _Toy_sbss_804D6EA4;
 /* 4D6EA2 */ s8 _Toy_sbss_804D6EA2;
 /* 4D6EA1 */ u8 _Toy_sbss_804D6EA1;
 /* 4D6EA0 */ u8 _Toy_sbss_804D6EA0;
@@ -2641,9 +2641,9 @@ void _Toy_80307F64(s32 arg0, s32 arg1)
     }
 }
 
-char* Toy_8030813C(int trophy_id)
+ToyModelFile* Toy_8030813C(int trophy_id)
 {
-    char* ptr;
+    ToyModelFile* ptr;
     s32 i;
     s32 found;
     s32 cur;
@@ -2655,30 +2655,29 @@ char* Toy_8030813C(int trophy_id)
      * of TyDataf.dat, so the leading id is in disc byte order. Read natively
      * it never matched and every lookup fell through to the assert below. */
     if (lbLang_IsSettingUS()) {
-        cur = ((DiscS32*) (ptr = _Toy_sbss_804D6EA4))->v;
+        cur = (ptr = _Toy_sbss_804D6EA4)->trophy_id.v;
         if (cur == id) {
             found = 1;
-        } else if (((DiscS32*) (ptr += 0x54))->v == id) {
+        } else if ((++ptr)->trophy_id.v == id) {
             found = 1;
-        } else if (((DiscS32*) (ptr += 0x54))->v == id) {
+        } else if ((++ptr)->trophy_id.v == id) {
             found = 1;
-        } else if (((DiscS32*) (ptr += 0x54))->v == id) {
+        } else if ((++ptr)->trophy_id.v == id) {
             found = 1;
-        } else if (((DiscS32*) (ptr += 0x54))->v == id) {
+        } else if ((++ptr)->trophy_id.v == id) {
             found = 1;
         } else {
-            ptr += 0x54;
+            ptr++;
         }
     }
 
     if (found == 0) {
         ptr = _Toy_sbss_804D6EA8;
-        for (i = TY_TROPHY_COUNT; i != 0; i--) {
-            if (((DiscS32*) ptr)->v == id) {
+        for (i = TY_TROPHY_COUNT; i != 0; i--, ptr++) {
+            if (ptr->trophy_id.v == id) {
                 found = 1;
                 break;
             }
-            ptr += 0x54;
         }
     }
 
@@ -2690,20 +2689,23 @@ char* Toy_8030813C(int trophy_id)
     return ptr;
 }
 
-void Toy_80308250(ToyListEntry* entry, s16 arg1, s32 arg2)
+static inline void setupTrophyEntry(ToyListEntry* entry, s16 trophy_idx)
 {
-    void* sym;
-    char* ptr;
-    ptr = Toy_8030813C(arg1);
+    ToyModelFile* result = Toy_8030813C(trophy_idx);
 
     if (entry->archive != NULL) {
         lbArchive_80016EFC(entry->archive);
         entry->archive = NULL;
     }
+    entry->archive_name = result->archive_name;
+    entry->symbol_name = result->symbol_name;
+    entry->trophy_id = trophy_idx;
+}
 
-    entry->archive_name = ptr + 4;
-    entry->symbol_name = ptr + 0x24;
-    entry->trophy_id = arg1;
+void Toy_80308250(ToyListEntry* entry, s16 arg1, s32 arg2)
+{
+    void* sym;
+    setupTrophyEntry(entry, arg1);
 
     if (arg2 == 0) {
         entry->archive = lbArchive_LoadSymbols(entry->archive_name, &sym,
@@ -2904,7 +2906,7 @@ HSD_GObj* Toy_803087F4(void* arg0)
     HSD_JObj* trophy_jobj;
     HSD_Joint* joint;
     s16 trophy_id;
-    char* model_name;
+    ToyModelFile* model_name;
     f32 scale, rot;
     UNUSED u8 pad[0x10];
     char buf[0x48];
@@ -2916,8 +2918,8 @@ HSD_GObj* Toy_803087F4(void* arg0)
     if (entry->archive == NULL) {
         trophy_id = entry->trophy_id;
         model_name = Toy_8030813C(trophy_id);
-        entry->archive_name = model_name + 4;
-        entry->symbol_name = model_name + 0x24;
+        entry->archive_name = model_name->archive_name;
+        entry->symbol_name = model_name->symbol_name;
         entry->trophy_id = trophy_id;
         entry->archive =
             lbArchive_LoadSymbols(entry->archive_name, &spC,
@@ -3754,14 +3756,7 @@ void _Toy_80309404(HSD_GObj* gobj)
                                     s32 idx = list_idx - 1;
                                     s16 tid = ((s16*) keys)[idx];
                                     (void) keys;
-                                    md = Toy_8030813C(tid);
-                                    if ((oa = entry->archive) != NULL) {
-                                        lbArchive_80016EFC(oa);
-                                        entry->archive = NULL;
-                                    }
-                                    entry->archive_name = md + 4;
-                                    entry->symbol_name = md + 0x24;
-                                    entry->trophy_id = tid;
+                                    setupTrophyEntry(entry, tid);
                                     entry->archive = lbArchive_LoadSymbols(
                                         entry->archive_name,
                                         &archive_symbols.prev_wrap,
@@ -3769,21 +3764,12 @@ void _Toy_80309404(HSD_GObj* gobj)
                                 }
                             } else {
                                 ToyListEntry* entry;
-                                HSD_Archive* oa;
-                                char* md;
                                 s16 tid;
 
                                 tid = Toy_sbss_804D6EDC[display->selectedIdx -
                                                         1];
                                 entry = display->first_entry->prev;
-                                md = Toy_8030813C(tid);
-                                if ((oa = entry->archive) != NULL) {
-                                    lbArchive_80016EFC(oa);
-                                    entry->archive = NULL;
-                                }
-                                entry->archive_name = md + 4;
-                                entry->symbol_name = md + 0x24;
-                                entry->trophy_id = tid;
+                                setupTrophyEntry(entry, tid);
                                 entry->archive = lbArchive_LoadSymbols(
                                     entry->archive_name, &archive_symbols.prev,
                                     entry->symbol_name, NULL);
@@ -3859,35 +3845,19 @@ void _Toy_80309404(HSD_GObj* gobj)
                                 lk = display->selectedIdx - cnt2;
                                 tid = Toy_sbss_804D6EDC[lk + 1];
                                 entry = display->last_entry->next;
-                                md = Toy_8030813C(tid);
-                                if ((oa = entry->archive) != NULL) {
-                                    lbArchive_80016EFC(oa);
-                                    entry->archive = NULL;
-                                }
-                                entry->archive_name = md + 4;
-                                entry->symbol_name = md + 0x24;
-                                entry->trophy_id = tid;
+                                setupTrophyEntry(entry, tid);
                                 entry->archive = lbArchive_LoadSymbols(
                                     entry->archive_name,
                                     &archive_symbols.next_wrap,
                                     entry->symbol_name, NULL);
                             } else {
                                 ToyListEntry* entry;
-                                HSD_Archive* oa;
-                                char* md;
                                 s16 tid;
 
                                 tid = Toy_sbss_804D6EDC[display->selectedIdx +
                                                         1];
                                 entry = display->last_entry->next;
-                                md = Toy_8030813C(tid);
-                                if ((oa = entry->archive) != NULL) {
-                                    lbArchive_80016EFC(oa);
-                                    entry->archive = NULL;
-                                }
-                                entry->archive_name = md + 4;
-                                entry->symbol_name = md + 0x24;
-                                entry->trophy_id = tid;
+                                setupTrophyEntry(entry, tid);
                                 entry->archive = lbArchive_LoadSymbols(
                                     entry->archive_name, &archive_symbols.next,
                                     entry->symbol_name, NULL);
@@ -4498,14 +4468,7 @@ void _Toy_8030B530(HSD_GObj* arg0)
                                 s32 idx = lk - 1;
                                 s16 tid = ((s16*) keys)[idx];
                                 (void) keys;
-                                md = Toy_8030813C(tid);
-                                if ((oa = entry->archive) != NULL) {
-                                    lbArchive_80016EFC(oa);
-                                    entry->archive = NULL;
-                                }
-                                entry->archive_name = md + 4;
-                                entry->symbol_name = md + 0x24;
-                                entry->trophy_id = tid;
+                                setupTrophyEntry(entry, tid);
                                 entry->archive = lbArchive_LoadSymbols(
                                     entry->archive_name,
                                     &archive_symbols.prev_wrap,
@@ -4513,19 +4476,10 @@ void _Toy_8030B530(HSD_GObj* arg0)
                             }
                         } else {
                             ToyListEntry* entry;
-                            HSD_Archive* oa;
-                            char* md;
                             s16 tid;
                             tid = Toy_sbss_804D6EDC[display->selectedIdx - 1];
                             entry = display->first_entry->prev;
-                            md = Toy_8030813C(tid);
-                            if ((oa = entry->archive) != NULL) {
-                                lbArchive_80016EFC(oa);
-                                entry->archive = NULL;
-                            }
-                            entry->archive_name = md + 4;
-                            entry->symbol_name = md + 0x24;
-                            entry->trophy_id = tid;
+                            setupTrophyEntry(entry, tid);
                             entry->archive = lbArchive_LoadSymbols(
                                 entry->archive_name, &archive_symbols.prev,
                                 entry->symbol_name, NULL);
@@ -4583,33 +4537,17 @@ void _Toy_8030B530(HSD_GObj* arg0)
                             lk = display->selectedIdx - cnt2;
                             tid = Toy_sbss_804D6EDC[lk + 1];
                             entry = display->last_entry->next;
-                            md = Toy_8030813C(tid);
-                            if ((oa = entry->archive) != NULL) {
-                                lbArchive_80016EFC(oa);
-                                entry->archive = NULL;
-                            }
-                            entry->archive_name = md + 4;
-                            entry->symbol_name = md + 0x24;
-                            entry->trophy_id = tid;
+                            setupTrophyEntry(entry, tid);
                             entry->archive = lbArchive_LoadSymbols(
                                 entry->archive_name,
                                 &archive_symbols.next_wrap, entry->symbol_name,
                                 NULL);
                         } else {
                             ToyListEntry* entry;
-                            HSD_Archive* oa;
-                            char* md;
                             s16 tid;
                             tid = Toy_sbss_804D6EDC[display->selectedIdx + 1];
                             entry = display->last_entry->next;
-                            md = Toy_8030813C(tid);
-                            if ((oa = entry->archive) != NULL) {
-                                lbArchive_80016EFC(oa);
-                                entry->archive = NULL;
-                            }
-                            entry->archive_name = md + 4;
-                            entry->symbol_name = md + 0x24;
-                            entry->trophy_id = tid;
+                            setupTrophyEntry(entry, tid);
                             entry->archive = lbArchive_LoadSymbols(
                                 entry->archive_name, &archive_symbols.next,
                                 entry->symbol_name, NULL);
@@ -5056,18 +4994,7 @@ void _Toy_8030E110(HSD_GObj* arg0)
                                         s32 idx = list_idx - 1;
                                         s16 trophy_id = ((s16*) keys)[idx];
                                         (void) keys;
-                                        model_data = Toy_8030813C(trophy_id);
-                                        if ((old_archive =
-                                                 list_entry->archive) != NULL)
-                                        {
-                                            lbArchive_80016EFC(old_archive);
-                                            list_entry->archive = NULL;
-                                        }
-                                        list_entry->archive_name =
-                                            model_data + 4;
-                                        list_entry->symbol_name =
-                                            model_data + 0x24;
-                                        list_entry->trophy_id = trophy_id;
+                                        setupTrophyEntry(list_entry, trophy_id);
                                         list_entry->archive =
                                             lbArchive_LoadSymbols(
                                                 list_entry->archive_name,
@@ -5076,24 +5003,12 @@ void _Toy_8030E110(HSD_GObj* arg0)
                                     }
                                 } else {
                                     ToyListEntry* list_entry;
-                                    HSD_Archive* old_archive;
-                                    char* model_data;
                                     s16 trophy_id;
 
                                     trophy_id = Toy_sbss_804D6EDC
                                         [display->selectedIdx - 1];
                                     list_entry = display->first_entry->prev;
-                                    model_data = Toy_8030813C(trophy_id);
-                                    if ((old_archive = list_entry->archive) !=
-                                        NULL)
-                                    {
-                                        lbArchive_80016EFC(old_archive);
-                                        list_entry->archive = NULL;
-                                    }
-                                    list_entry->archive_name = model_data + 4;
-                                    list_entry->symbol_name =
-                                        model_data + 0x24;
-                                    list_entry->trophy_id = trophy_id;
+                                    setupTrophyEntry(list_entry, trophy_id);
                                     list_entry->archive =
                                         lbArchive_LoadSymbols(
                                             list_entry->archive_name,
@@ -5168,17 +5083,7 @@ void _Toy_8030E110(HSD_GObj* arg0)
                                     trophy_id =
                                         Toy_sbss_804D6EDC[list_idx + 1];
                                     list_entry = display->last_entry->next;
-                                    model_data = Toy_8030813C(trophy_id);
-                                    if ((old_archive = list_entry->archive) !=
-                                        NULL)
-                                    {
-                                        lbArchive_80016EFC(old_archive);
-                                        list_entry->archive = NULL;
-                                    }
-                                    list_entry->archive_name = model_data + 4;
-                                    list_entry->symbol_name =
-                                        model_data + 0x24;
-                                    list_entry->trophy_id = trophy_id;
+                                    setupTrophyEntry(list_entry, trophy_id);
                                     list_entry->archive =
                                         lbArchive_LoadSymbols(
                                             list_entry->archive_name,
@@ -5186,24 +5091,12 @@ void _Toy_8030E110(HSD_GObj* arg0)
                                             list_entry->symbol_name, NULL);
                                 } else {
                                     ToyListEntry* list_entry;
-                                    HSD_Archive* old_archive;
-                                    char* model_data;
                                     s16 trophy_id;
 
                                     trophy_id = Toy_sbss_804D6EDC
                                         [display->selectedIdx + 1];
                                     list_entry = display->last_entry->next;
-                                    model_data = Toy_8030813C(trophy_id);
-                                    if ((old_archive = list_entry->archive) !=
-                                        NULL)
-                                    {
-                                        lbArchive_80016EFC(old_archive);
-                                        list_entry->archive = NULL;
-                                    }
-                                    list_entry->archive_name = model_data + 4;
-                                    list_entry->symbol_name =
-                                        model_data + 0x24;
-                                    list_entry->trophy_id = trophy_id;
+                                    setupTrophyEntry(list_entry, trophy_id);
                                     list_entry->archive =
                                         lbArchive_LoadSymbols(
                                             list_entry->archive_name,
@@ -5497,14 +5390,14 @@ static inline void _Toy_8030FE48_init_sort_key(s16** ptr)
 static inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry,
                                              s16 trophy_idx)
 {
-    char* result = Toy_8030813C(trophy_idx);
+    ToyModelFile* result = Toy_8030813C(trophy_idx);
 
     if (entry->archive != NULL) {
         lbArchive_80016EFC(entry->archive);
         entry->archive = NULL;
     }
-    entry->archive_name = result + 4;
-    entry->symbol_name = result + 0x24;
+    entry->archive_name = result->archive_name;
+    entry->symbol_name = result->symbol_name;
     entry->trophy_id = trophy_idx;
 }
 

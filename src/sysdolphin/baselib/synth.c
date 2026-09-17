@@ -1187,6 +1187,12 @@ void HSD_SynthSFXUpdateAllVolume(int vol, u16 fade_frames, int channel)
         HSD_Synth_804C28E0_1784[channel].x1788)
     {
         HSD_Synth_804C28E0_1784[channel].x178C = fade_frames;
+#ifdef TARGET_PC
+        if (fade_frames == 0) {
+            HSD_Synth_804C28E0_1784[channel].x1784 =
+                HSD_Synth_804C28E0_1784[channel].x1788;
+        }
+#endif
         updateAllVolume(1 << channel);
     }
 }

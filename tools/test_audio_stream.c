@@ -1,5 +1,6 @@
 /* Unit regression for the real mixer; no SDL device or game window.
  * Run with python3 tools/test_audio_stream.py. */
+#define _GNU_SOURCE
 #include <assert.h>
 #include "../src/pc/audio.c"
 

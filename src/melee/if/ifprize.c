@@ -28,6 +28,8 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/random.h>
 #include <sysdolphin/baselib/sislib.h>
+#include <sysdolphin/baselib/synth.h>
+#include "pc/music_stream.h"
 
 /// .data
 /* 3F9A00 */ static int un_803F9A00[] = {
@@ -220,13 +222,9 @@ void un_802FE6A8(void)
 
 void un_802FE8CC(void)
 {
-    if (un_803F9D48.x0a) {
-        if (un_803F9D48.x0b) {
-            goto execute;
-        }
+    if (!un_803F9D48.x0a || !un_803F9D48.x0b) {
+        return;
     }
-    return;
-execute:
     un_803F9D48.x1 = 2;
     HSD_SisLib_803A5F50(2);
 }
@@ -271,6 +269,12 @@ void un_802FE918(int a, int b, int c)
     HSD_Text** text;
     datetime sp14;
 
+#ifdef TARGET_PC
+    lbAudioAx_80028B90();
+    HSD_SynthSFXUpdateAllVolume(0xFF, 0, 1);
+    HSD_SynthStreamSetVolume(1.0F);
+    pc_music_stream_set_volume(1.0F);
+#endif
     lbAudioAx_800236DC();
     x3_ptr = &un_803F9D48.x3;
     lbAudioAx_80023F28(un_803F9D48.x30[*x3_ptr]);

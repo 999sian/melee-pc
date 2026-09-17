@@ -64,7 +64,7 @@ ASSERT_SIZE(struct Unk80433380, 0x60);
 // snapshot save descriptor
 struct Unk803BACC8 {
     /* 0x00 */ u8 icon[0x14];
-    /* 0x14 */ struct CardEntry entries[2];
+    /* 0x14 */ LbCardEntry entries[2];
 };
 
 static struct Unk80433380 lbSnap_80433380;
@@ -194,7 +194,7 @@ int lbSnap_8001D5FC(int chan, int index)
     if (ret == 0) {
         lbSnap_FormatTime(chan, index, text);
         _p(slot)[chan].card_result = 8;
-        ret = lb_8001B99C(chan, text, 0);
+        ret = lbCardNew_DeleteSnap(chan, text, 0);
     }
     return ret;
 }
@@ -276,9 +276,7 @@ void lbSnap_8001DA5C(const u8* src)
     PAD_STACK(24);
 
     banner = lbSnap_GetMemSnapIconData();
-    row = 0;
-    src_row_accum = 0;
-    do {
+    for (row = 0, src_row_accum = 0; row < 32; row++, src_row_accum += 204) {
         src_row_base = src_row_accum / 32;
         dst_row = banner + ((row % 4) * 8);
         dst_tile_row = (row / 4);
@@ -331,10 +329,7 @@ void lbSnap_8001DA5C(const u8* src)
             src_column_accum += 448;
             column += 2;
         }
-
-        row++;
-        src_row_accum += 204;
-    } while (row < 32);
+    }
 }
 #ifdef MUST_MATCH
 #pragma pop
@@ -403,7 +398,7 @@ int lbSnap_8001DF20(void)
     struct Unk803BACC8* tmp;
     lbSnap_803BACC8.entries[0].file_size = lbSnap_GetSaveDataOffset(snap);
     tmp = &lbSnap_803BACC8;
-    lbSnap_803BACC8.entries[0].data = (u8*) snap;
+    lbSnap_803BACC8.entries[0].data = snap;
     return lb_8001C4A8(tmp->entries, &lbSnap_803BACC8);
 }
 
@@ -423,9 +418,10 @@ int lbSnap_8001DF6C(int chan)
         _p(slot)[chan].card_result = 8;
         lbSnap_8001D4A4(chan_arg, text);
         desc->entries[0].file_size = lbSnap_GetSaveDataOffset(_p(snap));
-        desc->entries[0].data = (u8*) _p(snap);
+        desc->entries[0].data = _p(snap);
         ret = lb_8001BB48(chan, text, desc->entries, desc, _p(filename),
-                          _p(icon_data)[0].offset, _p(icon_data)[1].size, 0);
+                          DP(u8, _p(icon_data)[0].ptr),
+                          DP(u8, _p(icon_data)[1].ptr), 0);
     }
     return ret;
 }
@@ -443,9 +439,10 @@ int lbSnap_8001E058(int chan, int index)
     ret = ptr->card_result;
     if (ret == 0) {
         lbSnap_FormatTime(chan, index, text);
-        lbSnap_803BACC8.entries[0].data = (u8*) _p(snap);
+        lbSnap_803BACC8.entries[0].data = _p(snap);
         ret = lb_8001BF04(chan, text, lbSnap_803BACC8.entries, _p(filename),
-                          _p(icon_data)[0].offset, _p(icon_data)[1].size, 0);
+                          DP(u8, _p(icon_data)[0].ptr),
+                          DP(u8, _p(icon_data)[1].ptr), 0);
     }
     return ret;
 }

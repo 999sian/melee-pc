@@ -1260,7 +1260,8 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
       vtxXfrAttrs += fmt::format("\n    var tc{0}_tmp = vec3f(tc{0}.xy, 1.0f);", i);
     }
     if (tcg.normalize) {
-      vtxXfrAttrs += fmt::format("\n    tc{0}_tmp = normalize(tc{0}_tmp);", i);
+      vtxXfrAttrs += fmt::format(
+          "\n    tc{0}_tmp = select(tc{0}_tmp, normalize(tc{0}_tmp), dot(tc{0}_tmp, tc{0}_tmp) > 1e-10);", i);
     }
     if (tcg.postMtx == GX_PTIDENTITY) {
       vtxXfrAttrs += fmt::format("\n    var tc{0}_proj = tc{0}_tmp;", i);
@@ -1268,6 +1269,13 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
       u32 postMtxIdx = (tcg.postMtx - GX_PTTEXMTX0) / 3;
       vtxXfrAttrs +=
           fmt::format("\n    var tc{0}_proj = vec4f(tc{0}_tmp.xyz, 1.0) * ubuf.postmtx[{1}];", i, postMtxIdx);
+    }
+    if (tcg.type == GX_TG_MTX3x4) {
+      vtxXfrAttrs += fmt::format(
+          "\n    if (tc{0}_proj.z == 0.0f) {{"
+          "\n        tc{0}_proj = vec3f(clamp(tc{0}_proj.xy * 0.5f, vec2f(-1.0f), vec2f(1.0f)), 0.0f);"
+          "\n    }}",
+          i);
     }
     // Apply line/point tex offset
     if (config.lineMode == 3) {
@@ -1288,7 +1296,10 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
     }
     if (tcg.type == GX_TG_MTX3x4) {
       vtxXfrAttrs += fmt::format("\n    out.tex{0}_uvw = tc{0}_proj.xyz;", i);
-      fragmentFnPre += fmt::format("\n    var tex{0}_uv = in.tex{0}_uvw.xy / in.tex{0}_uvw.z;", i);
+      fragmentFnPre += fmt::format(
+          "\n    let tex{0}_q = select(in.tex{0}_uvw.z, 1.0f, abs(in.tex{0}_uvw.z) < 1e-6f);"
+          "\n    var tex{0}_uv = select(in.tex{0}_uvw.xy / tex{0}_q, in.tex{0}_uvw.xy, abs(in.tex{0}_uvw.z) < 1e-6f);",
+          i);
     } else {
       vtxXfrAttrs += fmt::format("\n    out.tex{0}_uv = tc{0}_proj.xy;", i);
       fragmentFnPre += fmt::format("\n    var tex{0}_uv = in.tex{0}_uv.xy;", i);

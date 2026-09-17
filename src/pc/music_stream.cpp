@@ -154,6 +154,29 @@ static std::vector<std::string> generate_candidate_stems(const char* track_stem)
         add_candidate("pstadium");
     }
 
+    // Notice fanfare variations: s_info1..3 <-> notice / fanfare / achievement / info
+    if (lower_stem == "s_info1" || lower_stem == "s_info2" || lower_stem == "s_info3") {
+        add_candidate("notice");
+        add_candidate("fanfare");
+        add_candidate("achievement");
+        add_candidate("unlock");
+        add_candidate("info");
+        add_candidate("s_info");
+        if (lower_stem == "s_info1") {
+            add_candidate("notice1");
+            add_candidate("fanfare1");
+            add_candidate("info1");
+        } else if (lower_stem == "s_info2") {
+            add_candidate("notice2");
+            add_candidate("fanfare2");
+            add_candidate("info2");
+        } else if (lower_stem == "s_info3") {
+            add_candidate("notice3");
+            add_candidate("fanfare3");
+            add_candidate("info3");
+        }
+    }
+
     return candidates;
 }
 

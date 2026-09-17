@@ -310,12 +310,16 @@ void end_frame() noexcept {
         if (surfaceStatus == wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal ||
             surfaceStatus == wgpu::SurfaceGetCurrentTextureStatus::SuccessSuboptimal) {
           currentTexture = std::move(surfaceTexture.texture);
-          currentView = currentTexture.CreateView();
+          if (currentTexture) {
+            currentView = currentTexture.CreateView();
+          }
         }
       }
     }
 
-    const bool canPresent = currentTexture && currentView;
+    const bool canPresent = currentTexture && currentView &&
+                            webgpu::g_graphicsConfig.surfaceConfiguration.width > 0 &&
+                            webgpu::g_graphicsConfig.surfaceConfiguration.height > 0;
     if (canPresent) {
       wgpu::BindGroup presentBindGroup;
       if (rmlBindGroup && !rmlOverlay) {
@@ -425,8 +429,8 @@ void end_frame() noexcept {
         webgpu::release_surface();
         break;
       case wgpu::SurfaceGetCurrentTextureStatus::Error:
-        Log.warn("Surface texture is {}, dropping surface", magic_enum::enum_name(surfaceStatus));
-        g_surface = {};
+        Log.warn("Surface texture is {}, releasing surface", magic_enum::enum_name(surfaceStatus));
+        webgpu::release_surface();
         break;
       default:
         if (!window::is_presentable()) {

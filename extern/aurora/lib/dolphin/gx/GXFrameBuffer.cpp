@@ -87,18 +87,16 @@ void copy_tex(const void* dest, GXBool clear) noexcept {
       .height = dstHeight,
       .format = texCopyFmt,
   };
+  const bool efbHasNoAlpha = g_gxState.pixelFmt == GX_PF_RGB8_Z24 || g_gxState.pixelFmt == GX_PF_RGB565_Z16;
   auto it = g_gxState.copyTextureCache.find(key);
   if (it == g_gxState.copyTextureCache.end()) {
     gfx::TextureHandle handle;
     if (gfx::tex_copy_conv::needs_conversion(texCopyFmt)) {
       handle = gfx::new_conv_texture(dstWidth, dstHeight, texCopyFmt, "Copy Conv Texture");
+    } else if (efbHasNoAlpha && texCopyFmt == GX_TF_RGBA8) {
+      handle = gfx::new_conv_texture(dstWidth, dstHeight, GX_TF_RGB565, "Copy Conv Texture");
     } else {
-      // Configure the texture swizzle to use alpha 1.0 if targeting RGB565 or EFB doesn't have alpha
-      const auto fmt =
-          texCopyFmt == GX_TF_RGB565 || g_gxState.pixelFmt == GX_PF_RGB8_Z24 || g_gxState.pixelFmt == GX_PF_RGB565_Z16
-              ? GX_TF_RGB565
-              : GX_TF_RGBA8;
-      handle = gfx::new_render_texture(dstWidth, dstHeight, fmt, "Resolved Texture");
+      handle = gfx::new_render_texture(dstWidth, dstHeight, GX_TF_RGBA8, "Resolved Texture");
     }
     it = g_gxState.copyTextureCache.emplace(key, GXState::CopyTextureRef{.handle = handle, .revision = 0}).first;
   }
@@ -119,8 +117,9 @@ void copy_tex(const void* dest, GXBool clear) noexcept {
   const auto clearColor = clear && g_gxState.colorUpdate;
   const auto clearAlpha = clear && g_gxState.alphaUpdate;
   const auto clearDepth = clear && g_gxState.depthUpdate;
+  const auto resolveFmt = (efbHasNoAlpha && texCopyFmt == GX_TF_RGBA8) ? GX_TF_RGB565 : texCopyFmt;
   gfx::resolve_pass_into(handle.handle, rect, clearColor, clearAlpha, clearDepth, g_gxState.clearColor,
-                         clear_depth_value(), texCopyFmt);
+                         clear_depth_value(), resolveFmt);
   ++handle.revision;
   g_gxState.copyTextures[dest] = handle;
   texture::invalidate_bindings();

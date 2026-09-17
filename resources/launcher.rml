@@ -2,14 +2,14 @@
 <head><title>Melee-PC</title><link type="text/rcss" href="launcher.rcss" /></head>
 <body>
   <div id="shell">
-    <div class="topline"><span class="brand">MELEE / PC</span><span class="edition"><span id="app-version">v0.1.5-beta</span> · NTSC-U 1.02</span></div>
+    <div class="topline"><span class="brand">MELEE / PC</span><span class="edition"><span id="app-version">v0.1.6-beta</span> · NTSC-U 1.02</span></div>
     <div class="hero"><div class="eyebrow">SUPER SMASH BROS.</div><h1>MELEE</h1></div>
     <div id="home">
       <div id="update-card" class="update-card" style="display: none;">
         <div class="update-content">
           <div class="update-badge-row">
             <span class="update-badge">UPDATE AVAILABLE</span>
-            <span id="update-tag" class="update-tag">v0.1.6-beta</span>
+            <span id="update-tag" class="update-tag">v0.1.7-beta</span>
           </div>
           <div id="update-title" class="update-title">Melee PC Update</div>
           <p id="update-desc" class="update-desc">A newer version is available.</p>
@@ -32,6 +32,7 @@
           <button id="choose">Choose disc</button>
           <button id="verify">Verify disc</button>
           <button id="settings">Settings</button>
+          <button id="discord" class="discord-btn"><img class="discord-icon" src="discord.png" /> Discord</button>
           <button id="quit" class="quiet">Quit</button>
         </div>
         <div class="disc-card">
@@ -160,6 +161,10 @@
             <div class="setting">
               <div class="description"><h3>Check for updates now</h3><p id="check-status">Melee-PC is up to date.</p></div>
               <button id="check-now">Check now</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Discord community</h3><p>Join the community Discord server.</p></div>
+              <button id="settings-discord" class="discord-btn"><img class="discord-icon" src="discord.png" /> Join Discord</button>
             </div>
           </div>
           <div id="page-controls" class="page">

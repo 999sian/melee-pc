@@ -16,6 +16,7 @@ typedef struct ToyCameraControl ToyCameraControl;
 typedef struct ToyED8Data ToyED8Data;
 typedef struct ToyEntry ToyEntry;
 typedef struct ToyListEntry ToyListEntry;
+typedef struct ToyModelFile ToyModelFile;
 typedef struct ToyNameData ToyNameData;
 typedef struct ToyParamEditor ToyParamEditor;
 typedef struct ToyTable ToyTable;

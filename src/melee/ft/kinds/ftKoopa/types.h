@@ -32,7 +32,7 @@ union ftKoopa_MotionVars {
         /* fp+2340 */ int x0;
         /* fp+2344 */ u32 x4;
         /* fp+2348 */ int facing_dir;
-        /* fp+234C */ s32 xC;
+        /* fp+234C */ s32 flame_timer;
         /* fp+2350 */ s32 x10;
         /* fp+2354 */ s32 x14;
         /* fp+2358 */ s32 x18;
@@ -41,7 +41,7 @@ union ftKoopa_MotionVars {
 
 typedef struct DISC_STRUCT _ftKoopaAttributes {
     float x0;
-    s32 x4;
+    s32 flame_limit;
     float x8;
     float xC;
     float x10;

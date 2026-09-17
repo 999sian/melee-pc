@@ -2846,7 +2846,8 @@ HSD_JObj* ftKb_Init_UnkMotionStates6(Fighter_GObj* gobj)
         return fp->u.kb.hat.jobj;
     }
 
-    /// @todo What???
+    /// @remark This is actually a correctness hack. If no return was here,
+    /// MWCC emits the same code.
     return (HSD_JObj*) gobj;
 }
 
@@ -3472,7 +3473,7 @@ void ftKb_SpecialN_800F07C0(Fighter_GObj* gobj)
 
 void ftKb_SpecialN_800F081C(Fighter_GObj* gobj)
 {
-    if (((Fighter*) HSD_GObjGetUserData(gobj))->u.kb.hat.jobj == NULL) {
+    if ((GET_FIGHTER(gobj))->u.kb.hat.jobj == NULL) {
         Fighter* fp = HSD_GObjGetUserData(gobj);
         KirbyHatStruct** hats = ft_80459B88.hats;
         KirbyHatStruct* hat = hats[Ft_Kind_Luigi];

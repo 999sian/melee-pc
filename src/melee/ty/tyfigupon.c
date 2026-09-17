@@ -844,7 +844,7 @@ void _tyFigupon_80316420(s32 arg0)
     }
     Toy_SetUnlockState(arg0, 1);
     Toy_8031234C(1);
-    lbCardGame_UpdatePowerTime();
+    lbCardGame_SaveChanges();
     HSD_SisLib_803A6368(data->x14, Toy_80308328(arg0));
     Toy_803083D8(ef4->jobjs[0xC], id);
     if (((TyModeState*) Toy_804A284C)->x0 == 2) {
@@ -1229,13 +1229,11 @@ static inline void tyFigupon_CountAvailable(s32* result)
     s32 i;
     s32 count = 0;
 
-    i = count;
-    do {
+    for (i = count; i < 9; i++) {
         if (i != 8 && (u32) i > 1U && Toy_80304B0C(i) != 0) {
             count += Toy_80304B94(i);
         }
-        i += 1;
-    } while (i < 9);
+    }
     *result = count;
 }
 
@@ -1525,13 +1523,11 @@ static inline void tyFigupon_UpdateRemainingCount(struct un_804D6EF4_t* ef4)
 
     total_b54 = _tyFigupon_80314B54();
     count = 0;
-    i = 0;
-    do {
+    for (i = 0; i < 9; i++) {
         if (i != 8 && (u32) i > 1U && Toy_80304B0C(i) != 0) {
             count += Toy_80304B94(i);
         }
-        i += 1;
-    } while (i < 9);
+    }
     ef4->x54 = count - total_b54;
 }
 

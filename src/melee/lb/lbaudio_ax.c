@@ -34,6 +34,7 @@
 #define PAN_MID 0x40
 
 static bool fn_80026E58(int);
+static void fn_80024654(int);
 
 int lbAudioAx_8002305C(int arg0, int arg1)
 {
@@ -421,6 +422,13 @@ static inline int lbAudioAx_80023F28_helper1(const char* filename)
     } else if (strcmp(cur_hps_stem, filename) != 0) {
         lbAudioAx_800236DC();
         strcpy(cur_hps_stem, filename);
+#ifdef TARGET_PC
+        lbAudioAx_80028B90();
+        fn_80024654(1);
+        HSD_SynthSFXUpdateAllVolume(0xFF, 0, 1);
+        HSD_SynthStreamSetVolume(1.0F);
+        pc_music_stream_set_volume(1.0F);
+#endif
         if (pc_music_stream_open(filename)) {
             result = 0;
         } else {

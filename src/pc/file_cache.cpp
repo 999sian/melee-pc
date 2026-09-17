@@ -34,14 +34,15 @@ struct CachedEntry {
 };
 
 std::unordered_map<std::string, CachedEntry> s_fileCache;
-std::list<std::string> s_lruList; // Front = most recently accessed, Back = least recently accessed
+std::list<std::string> s_lruList;  // Front = most recently accessed, Back = least recently accessed
 size_t s_totalCacheBytes = 0;
-size_t s_maxCacheBytes = 0; // 0 = uninitialized, will be auto-detected
+size_t s_maxCacheBytes = 0;  // 0 = uninitialized, will be auto-detected
 std::mutex s_cacheMutex;
 std::string s_looseDir;
 
 std::string normalize_key(const char* filename) {
-    if (filename == nullptr) return "";
+    if (filename == nullptr)
+        return "";
     std::string key = filename;
     while (!key.empty() && key[0] == '/') {
         key.erase(key.begin());
@@ -50,7 +51,8 @@ std::string normalize_key(const char* filename) {
 }
 
 bool is_archive_name(const std::string& name) {
-    if (name.size() < 4) return false;
+    if (name.size() < 4)
+        return false;
     std::string ext = name.substr(name.size() - 4);
     for (char& c : ext) {
         c = static_cast<char>(std::tolower(c));
@@ -60,33 +62,27 @@ bool is_archive_name(const std::string& name) {
 
 bool is_pinned_file(const std::string& key) {
     // Core system, UI, menu, and common tables that must never be evicted by LRU
-    static const char* const s_pinned[] = {
-        "PlCo.dat", "EfCoData.dat", "EfMnData.dat",
-        "MnMaAll.usd", "MnMaAll.dat",
-        "MnSlChr.usd", "MnSlChr.dat",
-        "MnSlMap.usd", "MnSlMap.dat",
-        "MnExtAll.usd", "MnExtAll.dat",
-        "SdSlChr.usd", "SdSlChr.dat",
-        "IfAll.usd", "IfAll.dat",
-        "ItCo.dat", "LbRb.dat",
-        "LbMcGame.usd", "NtMemAc.usd", "SdMenu.usd",
-        "SdIntro.dat", "GmPause.usd", "IfCoGet.dat", "LbBf.dat"
-    };
+    static const char* const s_pinned[] = {"PlCo.dat", "EfCoData.dat", "EfMnData.dat",
+        "MnMaAll.usd", "MnMaAll.dat", "MnSlChr.usd", "MnSlChr.dat", "MnSlMap.usd", "MnSlMap.dat",
+        "MnExtAll.usd", "MnExtAll.dat", "SdSlChr.usd", "SdSlChr.dat", "IfAll.usd", "IfAll.dat",
+        "ItCo.dat", "LbRb.dat", "LbMcGame.usd", "NtMemAc.usd", "SdMenu.usd", "SdIntro.dat",
+        "GmPause.usd", "IfCoGet.dat", "LbBf.dat"};
     for (const char* p : s_pinned) {
-        if (key == p) return true;
+        if (key == p)
+            return true;
     }
     return false;
 }
 
 size_t detect_system_ram_mb() {
 #if defined(_SC_PHYS_PAGES) && defined(_SC_PAGE_SIZE)
-    long pages = sysconf(_SC_PHYS_PAGES);
-    long page_size = sysconf(_SC_PAGE_SIZE);
+    int64_t pages = sysconf(_SC_PHYS_PAGES);
+    int64_t page_size = sysconf(_SC_PAGE_SIZE);
     if (pages > 0 && page_size > 0) {
         return static_cast<size_t>((pages * page_size) / (1024 * 1024));
     }
 #endif
-    return 8192; // default fallback assumption
+    return 8192;  // default fallback assumption
 }
 
 enum CacheProfile {
@@ -99,8 +95,10 @@ CacheProfile get_effective_profile() {
     const char* env_mb = getenv("MELEE_CACHE_MAX_MB");
     if (env_mb != nullptr && env_mb[0] != '\0') {
         size_t mb = static_cast<size_t>(strtoul(env_mb, nullptr, 10));
-        if (mb <= 24) return PROFILE_LOW_RAM;
-        if (mb <= 96) return PROFILE_HANDHELD;
+        if (mb <= 24)
+            return PROFILE_LOW_RAM;
+        if (mb <= 96)
+            return PROFILE_HANDHELD;
         return PROFILE_DESKTOP;
     }
 
@@ -121,12 +119,12 @@ size_t get_default_budget_bytes() {
 
     switch (get_effective_profile()) {
     case PROFILE_LOW_RAM:
-        return 24 * 1024 * 1024; // 24 MB
+        return 24 * 1024 * 1024;  // 24 MB
     case PROFILE_HANDHELD:
-        return 64 * 1024 * 1024; // 64 MB
+        return 64 * 1024 * 1024;  // 64 MB
     case PROFILE_DESKTOP:
     default:
-        return 512 * 1024 * 1024; // 512 MB
+        return 512 * 1024 * 1024;  // 512 MB
     }
 }
 
@@ -142,16 +140,18 @@ void evict_lru_locked(size_t required_bytes) {
         auto it = s_fileCache.find(evict_key);
         if (it != s_fileCache.end()) {
             size_t entry_size = it->second.data.size();
-            s_totalCacheBytes = (s_totalCacheBytes >= entry_size) ? (s_totalCacheBytes - entry_size) : 0;
+            s_totalCacheBytes =
+                (s_totalCacheBytes >= entry_size) ? (s_totalCacheBytes - entry_size) : 0;
             s_fileCache.erase(it);
             OSReport("[FileCache] LRU EVICTED: %s (freed %zu bytes, current total: %.2f MB)\n",
-                     evict_key.c_str(), entry_size, s_totalCacheBytes / (1024.0 * 1024.0));
+                evict_key.c_str(), entry_size, s_totalCacheBytes / (1024.0 * 1024.0));
         }
     }
 }
 
 std::string resolve_loose_path(const char* filename) {
-    if (filename == nullptr) return "";
+    if (filename == nullptr)
+        return "";
     std::string dir = s_looseDir;
     if (dir.empty()) {
         const char* env = getenv("MELEE_FILES_DIR");
@@ -166,10 +166,12 @@ std::string resolve_loose_path(const char* filename) {
             }
         }
     }
-    if (dir.empty()) return "";
+    if (dir.empty())
+        return "";
 
     const char* rel = filename;
-    while (*rel == '/') rel++;
+    while (*rel == '/')
+        rel++;
     return dir + "/" + rel;
 }
 
@@ -215,14 +217,16 @@ bool preload_single_file(const char* name, int entryNum) {
     bool success = false;
     if (file_len > 0) {
         size_t aligned_sz = (file_len + 31) & ~31;
-        void* raw_buf = nullptr;
-        if (posix_memalign(&raw_buf, 32, aligned_sz) == 0 && raw_buf != nullptr) {
+        uint8_t* raw_mem = static_cast<uint8_t*>(malloc(aligned_sz + 32));
+        if (raw_mem != nullptr) {
+            void* raw_buf = reinterpret_cast<void*>(
+                (reinterpret_cast<uintptr_t>(raw_mem) + 31) & ~uintptr_t(31));
             s32 bytesRead = DVDReadPrio(&fi, raw_buf, static_cast<s32>(aligned_sz), 0, 1);
             if (bytesRead >= 0) {
                 pc_file_cache_put(key.c_str(), raw_buf, file_len);
                 success = true;
             }
-            free(raw_buf);
+            free(raw_mem);
         }
     }
     DVDClose(&fi);
@@ -269,7 +273,7 @@ const uint8_t* resolve_host_src(const void* src, size_t size) {
     return static_cast<const uint8_t*>(src);
 }
 
-} // namespace
+}  // namespace
 
 extern "C" {
 
@@ -299,9 +303,8 @@ bool pc_file_cache_get(const char* filename, void* dst, size_t* size) {
                 entry.lru_it = s_lruList.begin();
             }
 
-            OSReport("[FileCache] HIT: %s (%zu bytes, 0ms)%s\n",
-                     key.c_str(), entry.data.size(),
-                     PC_IS_ARAM_ADDR(dst) ? " [ARAM]" : "");
+            OSReport("[FileCache] HIT: %s (%zu bytes, 0ms)%s\n", key.c_str(), entry.data.size(),
+                PC_IS_ARAM_ADDR(dst) ? " [ARAM]" : "");
             return true;
         }
     }
@@ -322,9 +325,8 @@ bool pc_file_cache_get(const char* filename, void* dst, size_t* size) {
                 *size = buf.size();
                 std::memcpy(host_dst, buf.data(), buf.size());
                 pc_file_cache_put(key.c_str(), buf.data(), buf.size());
-                OSReport("[FileCache] LOOSE HIT: %s from %s (%zu bytes, 0ms)%s\n",
-                         key.c_str(), loose_path.c_str(), buf.size(),
-                         PC_IS_ARAM_ADDR(dst) ? " [ARAM]" : "");
+                OSReport("[FileCache] LOOSE HIT: %s from %s (%zu bytes, 0ms)%s\n", key.c_str(),
+                    loose_path.c_str(), buf.size(), PC_IS_ARAM_ADDR(dst) ? " [ARAM]" : "");
                 return true;
             }
         }
@@ -393,10 +395,9 @@ void pc_file_cache_put(const char* filename, const void* data, size_t size) {
     }
     s_totalCacheBytes += size;
 
-    OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)%s\n",
-             key.c_str(), size, pinned ? ", pinned" : "",
-             s_totalCacheBytes / (1024.0 * 1024.0),
-             PC_IS_ARAM_ADDR(data) ? " [from ARAM]" : "");
+    OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)%s\n", key.c_str(), size,
+        pinned ? ", pinned" : "", s_totalCacheBytes / (1024.0 * 1024.0),
+        PC_IS_ARAM_ADDR(data) ? " [from ARAM]" : "");
 }
 
 void pc_file_cache_clear(void) {
@@ -426,7 +427,8 @@ size_t pc_file_cache_get_memory_usage(void) {
 }
 
 void pc_file_cache_preload_file(const char* filename) {
-    if (filename == nullptr) return;
+    if (filename == nullptr)
+        return;
     std::string key = normalize_key(filename);
 
     {
@@ -436,9 +438,7 @@ void pc_file_cache_preload_file(const char* filename) {
         }
     }
 
-    std::thread([key] {
-        preload_single_file(key.c_str(), -1);
-    }).detach();
+    std::thread([key] { preload_single_file(key.c_str(), -1); }).detach();
 }
 
 void pc_file_cache_start_prewarm(void) {
@@ -448,7 +448,9 @@ void pc_file_cache_start_prewarm(void) {
     }
 
     const char* env_prewarm = getenv("MELEE_PREWARM");
-    if (env_prewarm != nullptr && (strcmp(env_prewarm, "0") == 0 || strcmp(env_prewarm, "false") == 0)) {
+    if (env_prewarm != nullptr &&
+        (strcmp(env_prewarm, "0") == 0 || strcmp(env_prewarm, "false") == 0))
+    {
         OSReport("[FileCache] Background prewarm disabled by MELEE_PREWARM=0\n");
         return;
     }
@@ -457,7 +459,8 @@ void pc_file_cache_start_prewarm(void) {
         // Yield to allow main game loop and window initialization to proceed without contention
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-        // Demote worker priority on Linux / 4-core / handheld devices to avoid stealing gameplay cycles
+        // Demote worker priority on Linux / 4-core / handheld devices to avoid stealing gameplay
+        // cycles
 #if defined(__linux__)
         setpriority(PRIO_PROCESS, 0, 10);
 #endif
@@ -467,36 +470,27 @@ void pc_file_cache_start_prewarm(void) {
             s_maxCacheBytes = get_default_budget_bytes();
         }
 
-        const char* profile_name = (profile == PROFILE_LOW_RAM) ? "Low-RAM (<=2GB)" :
-                                   (profile == PROFILE_HANDHELD) ? "Handheld/Switch (2-4GB)" : "Desktop (>4GB)";
-        OSReport("[FileCache] Starting prewarm [Profile: %s, Budget: %zu MB]...\n",
-                 profile_name, s_maxCacheBytes / (1024 * 1024));
+        const char* profile_name = (profile == PROFILE_LOW_RAM)  ? "Low-RAM (<=2GB)" :
+                                   (profile == PROFILE_HANDHELD) ? "Handheld/Switch (2-4GB)" :
+                                                                   "Desktop (>4GB)";
+        OSReport("[FileCache] Starting prewarm [Profile: %s, Budget: %zu MB]...\n", profile_name,
+            s_maxCacheBytes / (1024 * 1024));
 
         auto t_start = std::chrono::steady_clock::now();
 
         // High-priority core tournament and UI archives (Tier 1)
-        static const char* const s_priorityList[] = {
-            "PlCo.dat", "EfCoData.dat", "EfMnData.dat",
-            "MnMaAll.usd", "MnMaAll.dat",
-            "MnSlChr.usd", "MnSlChr.dat",
-            "MnSlMap.usd", "MnSlMap.dat",
-            "MnExtAll.usd", "MnExtAll.dat",
-            "SdSlChr.usd", "SdSlChr.dat",
-            "IfAll.usd", "IfAll.dat",
-            "ItCo.dat", "LbRb.dat",
-            "PlFx.dat", "PlFxNr.dat", "EfFxData.dat",
-            "PlMs.dat", "PlMsNr.dat", "EfMsData.dat",
-            "PlFc.dat", "PlFcNr.dat", "EfFcData.dat",
-            "PlSh.dat", "PlShNr.dat", "EfShData.dat",
-            "PlCa.dat", "PlCaNr.dat", "EfCaData.dat",
-            "PlPr.dat", "PlPrNr.dat", "EfPrData.dat",
-            "PlPc.dat", "PlPcNr.dat", "EfPcData.dat",
-            "GrNLa.dat", "GrSt.dat", "GrPs.dat", "GrOp.dat", "GrYs.dat"
-        };
+        static const char* const s_priorityList[] = {"PlCo.dat", "EfCoData.dat", "EfMnData.dat",
+            "MnMaAll.usd", "MnMaAll.dat", "MnSlChr.usd", "MnSlChr.dat", "MnSlMap.usd",
+            "MnSlMap.dat", "MnExtAll.usd", "MnExtAll.dat", "SdSlChr.usd", "SdSlChr.dat",
+            "IfAll.usd", "IfAll.dat", "ItCo.dat", "LbRb.dat", "PlFx.dat", "PlFxNr.dat",
+            "EfFxData.dat", "PlMs.dat", "PlMsNr.dat", "EfMsData.dat", "PlFc.dat", "PlFcNr.dat",
+            "EfFcData.dat", "PlSh.dat", "PlShNr.dat", "EfShData.dat", "PlCa.dat", "PlCaNr.dat",
+            "EfCaData.dat", "PlPr.dat", "PlPrNr.dat", "EfPrData.dat", "PlPc.dat", "PlPcNr.dat",
+            "EfPcData.dat", "GrNLa.dat", "GrSt.dat", "GrPs.dat", "GrOp.dat", "GrYs.dat"};
 
-        auto sleep_duration = (profile == PROFILE_DESKTOP) ? std::chrono::microseconds(200) :
+        auto sleep_duration = (profile == PROFILE_DESKTOP)  ? std::chrono::microseconds(200) :
                               (profile == PROFILE_HANDHELD) ? std::chrono::milliseconds(5) :
-                                                             std::chrono::milliseconds(15);
+                                                              std::chrono::milliseconds(15);
 
         for (const char* priority_file : s_priorityList) {
             preload_single_file(priority_file, -1);
@@ -505,7 +499,8 @@ void pc_file_cache_start_prewarm(void) {
 
         // On desktop profile (or if MELEE_PREWARM_MODE=full), continue with full directory scan
         const char* mode_env = getenv("MELEE_PREWARM_MODE");
-        bool full_scan = (profile == PROFILE_DESKTOP) || (mode_env != nullptr && strcmp(mode_env, "full") == 0);
+        bool full_scan =
+            (profile == PROFILE_DESKTOP) || (mode_env != nullptr && strcmp(mode_env, "full") == 0);
 
         if (full_scan) {
             DVDDir dir;
@@ -532,11 +527,11 @@ void pc_file_cache_start_prewarm(void) {
             total_mb = s_totalCacheBytes / (1024 * 1024);
             total_files = s_fileCache.size();
         }
-        OSReport("[FileCache] Prewarm finished: %zu archives (%zu MB) cached in %ld ms\n",
-                 total_files, total_mb, static_cast<long>(ms));
+        OSReport("[FileCache] Prewarm finished: %zu archives (%zu MB) cached in %u ms\n",
+            total_files, total_mb, static_cast<uint32_t>(ms));
     });
 
     worker.detach();
 }
 
-} // extern "C"
+}  // extern "C"

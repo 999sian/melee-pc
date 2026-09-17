@@ -189,6 +189,8 @@ static void usage(const char* argv0) {
     exit(2);
 }
 
+#include "pc/input_poll.h"
+
 static void pc_shutdown_once(void) {
     static bool done;
     if (done) {
@@ -197,6 +199,7 @@ static void pc_shutdown_once(void) {
     done = true;
     /* Stop producers before joining DMA and destroying platform resources.
      * An unjoined ARQ worker aborts in std::thread's static destructor. */
+    pc_input_poll_shutdown();
     AXQuit();
     aurora_dvd_close();
     pc_textures_shutdown();
@@ -276,6 +279,12 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
 #if defined(_WIN32)
     SetUnhandledExceptionFilter(crash_handler);
 #endif
+
+    /* Pre-initialize GameCube OS memory immediately so that MEM1 (96 MB) is
+     * committed strictly below 4GB at process startup before SDL, graphics
+     * drivers, and fullscreen swapchains fragment low virtual memory. */
+    OSInit();
+
     const char* disc = NULL;
     bool card = true;
     for (int i = 1; i < argc; i++) {
@@ -314,11 +323,6 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         .mem2Size = PC_ARAM_SIZE,
     };
     pc_launcher_configure(&config);
-
-    /* Pre-initialize GameCube OS memory immediately so that MEM1 (96 MB) is
-     * committed strictly below 4GB at process startup before SDL, graphics
-     * drivers, and fullscreen swapchains fragment low virtual memory. */
-    OSInit();
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
     /* Record which backend was actually selected. Without this the log cannot

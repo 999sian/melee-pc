@@ -119,19 +119,21 @@ void pc_frame_boundary(void) {
         exit(0);
     }
 
-    /* The game is a fixed 60 Hz simulation. When Vsync is active, aurora's
-     * presentation pass is paced by the hardware display's VBlank. Only pace
-     * via SDL_DelayPrecise when Vsync is disabled or unavailable; running
-     * software sleep while hardware Vsync is active causes timing drift and
-     * missed VBlank deadlines (tripping sudden drops to 30 FPS). */
-    if (!aurora_vsync_enabled()) {
-        static u64 next_ns;
-        const u64 period = 1000000000ull / 60;
-        u64 now = SDL_GetTicksNS();
-        if (next_ns == 0 || now > next_ns + period) {
-            next_ns = now; /* first frame, or we fell behind: resync */
-        } else if (now < next_ns) {
-            const u64 want = next_ns - now;
+    /* Enforce deterministic 60 Hz simulation pacing regardless of display refresh rate
+     * (e.g. 120 Hz, 144 Hz, 240 Hz high-refresh monitors). When VSync is enabled on high-refresh
+     * displays, aurora_begin_frame() unblocks at monitor refresh rate. Without this check,
+     * the simulation would run at 2x-4x speed. Pacing strictly to 60.000 Hz ensures physics,
+     * hitboxes, and timers remain bit-identical. */
+    static u64 next_sim_ns;
+    const u64 sim_period = 1000000000ull / 60;
+    u64 now = SDL_GetTicksNS();
+    if (next_sim_ns == 0 || now > next_sim_ns + sim_period * 2) {
+        next_sim_ns = now; /* first frame, or large hitch: resync */
+    } else if (now < next_sim_ns) {
+        const u64 want = next_sim_ns - now;
+        /* On standard 60 Hz VSync, aurora_begin_frame already waited for VBlank. On high-refresh
+         * (120/144/240 Hz) or VSync-off, this throttles simulation to exact 60 Hz. */
+        if (!aurora_vsync_enabled() || want > 2000000ull) {
             SDL_DelayPrecise(want);
             if (fps_log > 0) {
                 const u64 slept = SDL_GetTicksNS() - now;
@@ -140,8 +142,8 @@ void pc_frame_boundary(void) {
                 }
             }
         }
-        next_ns += period;
     }
+    next_sim_ns += sim_period;
 
     /* aurora_begin_frame returns false while minimized/paused; keep pumping.
      * Sleep a frame between attempts: without it a minimized window spins a

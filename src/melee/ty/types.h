@@ -123,6 +123,13 @@ struct TyFiguponED4 {
     /* 0x0C */ HSD_GObj* xC;
 };
 
+struct DISC_STRUCT ToyModelFile {
+    /* 0x00 */ DiscS32 trophy_id;
+    /* 0x04 */ char archive_name[0x20];
+    /* 0x24 */ char symbol_name[0x30];
+};
+DISC_ASSERT_SIZE(struct ToyModelFile, 0x54);
+
 struct ToyListEntry {
     /* 0x00 */ struct ToyListEntry* prev;
     /* 0x04 */ struct ToyListEntry* next;

@@ -14,6 +14,8 @@ English (UK) text.
 |---|---|---|
 | Linux x86-64 | `Melee-x86_64.AppImage` | Needs a Vulkan driver. `chmod +x`, then run. |
 | Linux x86-64 | `melee-linux-x86_64.tar.gz` | Portable directory; run `run.sh`. |
+| Linux aarch64 (ARM64) | `Melee-aarch64.AppImage` | For 64-bit ARM Linux (Raspberry Pi 5, Asahi Linux, Orange Pi). |
+| Linux aarch64 (ARM64) | `melee-linux-aarch64.tar.gz` | Portable directory for 64-bit ARM Linux; run `run.sh`. |
 | Windows x86-64 | `Melee-Windows-x86_64.zip` | Extract and run `melee.exe`. Keep the DLLs and `resources/` beside it. |
 | Android arm64 | `Melee-Android-arm64.apk` | Release build, signed. Allow install from unknown sources. |
 | macOS arm64 | `Melee-macOS-arm64.zip` | Apple Silicon. Ad-hoc signed: right-click > Open on first launch. |
@@ -24,6 +26,95 @@ image path directly:
 ```sh
 ./Melee-x86_64.AppImage /path/to/melee.iso
 ```
+
+## Changes in v0.1.6-beta
+
+- **Linux aarch64 (ARM64) Support:**
+  - Added native Linux ARM64 AppImage (`Melee-aarch64.AppImage`) and portable tarball (`melee-linux-aarch64.tar.gz`) builds via GitHub Actions on Ubuntu ARM runners.
+  - Integrated Nod prebuilts for aarch64 Linux and configured automated cross-compilation pipeline.
+  - Tested and verified on 64-bit ARM Linux platforms including Raspberry Pi 5, Asahi Linux on Apple Silicon, Orange Pi, Rockchip RK3588, and Linux ARM handhelds.
+
+- **Phase 1 Feature Pack & Cheats Restructuring:**
+  - **Custom Soundtrack Streaming:** Embedded `stb_vorbis` audio stream decoder supporting runtime `.ogg` and `.wav` file overrides for BGM. Automatically loads stage soundtrack replacements placed in `music/` or loose folders and blends them with in-game music volume controls.
+  - **Free / Unlocked Pause Camera:** Added a Free Camera cheat toggle in settings and in-game F1 overlay, permitting full 360-degree pitch/yaw rotation and 0.5f–5000.0f zoom distance while paused.
+  - **Wide HUD Anchoring (16:9):** Match timer, stock icons, damage percentages, and player tags are dynamically anchored outwards for native 16:9 widescreen viewports (toggleable between Classic 4:3 and Wide 16:9 in Graphics settings).
+  - **Dedicated Cheats Tab:** Restructured launcher and in-game F1 menu with a dedicated "Cheats" tab housing *Unlock All*, *Frozen Stadium* (hazardless Pokémon Stadium), and *Free Camera*.
+
+- **Multi-Core & Responsiveness Architecture:**
+  - **1000 Hz Input Polling Thread:** Decoupled controller polling (`HSD_PadRead`) from the 60 Hz game loop into a dedicated 1000 Hz OS worker thread (`src/pc/input_poll.c`), minimizing input latency and polling jitter across all controllers.
+  - **SIMD AX Voice Mixer:** Vectorized voice processing and mixing loops using ARM NEON and x86 AVX, significantly reducing CPU usage during heavy multi-player sound effect spam.
+  - **Decoupled Audio Pipeline & Concurrency:** Removed global `OSDisableInterrupts()` lock from `render_frame()`, restricting interrupt disables strictly to the 5 ms synth tick, and protected voice parameter updates under a dedicated recursive `s_audio_mutex`.
+  - **4-Core & Handheld / Switch Scheduling Fixes (fixes #47):** Removed restrictive 2-core thread pinning on Nintendo Switch (Tegra X1) and 4-core Linux/ARM SBCs, elevating FIFO and render worker thread priorities so all cores are utilized evenly without core thrashing.
+
+- **In-Memory Persistent Asset Cache & Fast Loading:**
+  - **In-Memory Persistent Asset Cache (`file_cache.cpp`):** Pristine raw disc archives (`.dat`, `.usd`) are cached in host RAM on first read, providing instant 0 ms loads on recurring character, stage, and menu transitions.
+  - **Background Asset Pre-Warming:** Background worker preloads Tier 1 tournament files (core fighter files, tournament stages, common UI) on boot without hitching gameplay.
+  - **Adaptive Low-End RAM Budgeting & LRU Eviction:** Dynamic cache budgeting (`PROFILE_LOW_RAM` <= 2GB, `PROFILE_HANDHELD` 2-4GB, `PROFILE_DESKTOP` > 4GB) with LRU eviction and I/O throttling for low-memory systems (Raspberry Pi 4, low-RAM SBCs).
+  - **Loose Directory VFS Overlays:** Seamlessly load replacement game files from local loose folders (`MELEE_FILES_DIR`, `./files/`) without rebuilding ISOs.
+  - **Snappy Transitions:** Fast fade delay clamping (optional `MELEE_FAST_FADES`).
+
+- **Android & Mobile Optimizations:**
+  - **Android 60 FPS First-Play Intro Optimization:** Eliminated main-thread pipeline compilation stalls during `MvOpen.mth` by stopping unrequested background shader queue drainage when `!g_hasPipelineThread`.
+  - **Faster Android Boot Times:** Instant check in `seed_pipeline_cache()` skips SQLite re-seeding if already populated, cutting 1.5–3.0s off warm launches.
+  - **Adreno GPU Color Correction (fixes #20):** Prefer RGBA8Unorm swapchain format to fix inverted red/blue colors on Qualcomm Adreno GPUs.
+
+- **Memory Management & OS Startup Stability:**
+  - **Early MEM1 Pre-Allocation (fixes #43):** Pre-allocates GameCube MEM1 at process startup via `OSInit()` before SDL and GPU drivers fragment low 32-bit virtual memory.
+  - **Windows VirtualAlloc2 64KB Alignment (fixes #43):** Fixed 64KB alignment (`0xFFFF0000`) and added VirtualQuery scanning fallback to guarantee MEM1 sits strictly under 4GB on Windows 10/11.
+  - **ARAM Address Translation in File Cache (fixes #50):** Fixed fatal access violations in Adventure Mode and character loading by translating ARAM addresses (`< 0x01000000`) via `aurora_aram_base()`.
+
+- **Extensive Bug Fixes & Game Corrections:**
+  - **fixes #48:** Fixed crash when Kirby swallows and spits Sandbag in Home Run Contest (joint validity and null checks).
+  - **fixes #45:** Fixed Event 23 / Venom stage crash (`lb_8000B1CC` null guard, 64-bit joint pointer loop in `grVenom_8020454C`, Arwing slot bounds checks).
+  - **fixes #24:** Fixed Falco crash caused by out-of-bounds `items[3].v` access and cleared `blasterGObj` on load.
+  - **fixes #33, #34:** Fixed GX lighting bugs by preserving RGB when writing Alpha in `GXSetChanAmbColor` / `GXSetChanMatColor`.
+  - **fixes #21, #36, #41:** Fixed soundbank eviction and SFX header load overflow checks.
+  - **fixes #26:** Fixed Yoshi Egg breakout particle scalar storage order and Kirby accessory null checks.
+  - **fixes #51:** Fixed fanfare silence on achievement popups by resetting audio stream fade counter and restoring stream gain.
+  - **fixes #52:** Fixed fullscreen crash with active overlays (NVIDIA ShadowPlay / Discord overlay) by guarding 0x0 swapchain reconfiguration.
+  - **fixes #53:** Fixed trophy fall depth copy crash.
+  - **fixes #55:** Fixed stage clear screenshot opacity.
+  - **fixes #54:** Fixed flickering reflection texture on Great Bay hook model.
+  - Fixed intro movie boot failure caused by memory card struct mismatch between 32-bit and 64-bit definitions.
+
+- **Upstream Decomp Sync & Tooling:**
+  - Synchronized codebase with upstream Melee decomp up to commit `194350655ef3c2c301359fc06487227098732f71`.
+  - Added Discord community link and icon to launcher and settings.
+  - Pre-seeded Vulkan pipeline cache extracted across Linux, Windows, and Android builds.
+  - Expanded C++20 endian helpers in `endian.hpp` and `disc.h`.
+  - Established coding standards (`CODING_STYLE.md`, `.editorconfig`, `.clang-format`, `.clang-tidy`) with automated CI style checking (`tools/check_style.py`).
+
+## Contributors
+
+### Project Contributors
+- **@999sian** — Project Lead, Phase 1 features, multi-core optimizations, file cache, Android & Windows porting, and stability fixes.
+- **@theofficialgman** — Linux aarch64 (ARM64) support, Nod aarch64 prebuilts, 4-core & ARM scheduling optimizations (#44, #47).
+- **@alexscott2718-gif** — Graphics backend selection, command line overrides, and engine logging.
+- **@r-burns** — Melee decompilation and 64-bit portability foundations.
+- **@MarkMcCaskey** — Decompilation and core engine maintenance.
+- **@ribbanya** (Robin Avery) — Decompilation and memory card subsystem.
+- **@PsiLupan** (Will Carter) — Decompilation and subsystem typing.
+- **@itsgrimetime** (Mike Grimes) — Decompilation foundations.
+
+### Community Testers & Issue Reporters
+Special thanks to our community members whose detailed bug reports and reproduction steps directly helped diagnose and resolve issues in this release:
+- **@jennywakeman-xj9** (#30, #31, #32, #33, #34, #35, #36, #38, #39, #51, #53, #54, #55, #56, #57, #58)
+- **@omega-tuna** (#48)
+- **@VTuberSkye** (#45)
+- **@4zy1** (#49, #50)
+- **@stevenstallone** (#52)
+- **@mmedeiro1-a11y** (#43)
+- **@Keithmccloud** (#59)
+- **@Smashhacker** (#41, #60)
+- **@whirlwindpedro** (#40)
+- **@zamiba** (#42)
+- **@nitrostemp** (#37)
+
+### Upstream Projects & Foundations
+- **[doldecomp/melee](https://github.com/doldecomp/melee)** — The Super Smash Bros. Melee decompilation team and contributors.
+- **[encounter/aurora](https://github.com/encounter/aurora)** — Luke Street (@encounter) and contributors for the GameCube hardware emulation layer and WebGPU backend.
+- **[TwilitRealm/dusklight](https://github.com/TwilitRealm/dusklight)** — Architectural inspiration for GameCube PC ports.
+- **SDL3, RmlUi, stb_vorbis, and Dawn teams** for the runtime engine libraries.
 
 ## Changes since v0.1.4-beta
 

@@ -132,8 +132,8 @@ def settings(win, proc, config):
     key(win, "Return")
     time.sleep(0.5)
     key(win, "Right")  # tab strip: Graphics -> Audio & interface
-    for _ in range(4):
-        key(win, "Down")  # volume -> mute -> fps -> scale
+    for _ in range(6):
+        key(win, "Down")  # volume -> music -> sfx -> mute -> fps -> scale
     time.sleep(0.5)
     screenshot(win, "settings")
     key(win, "Return")
@@ -144,7 +144,7 @@ def settings(win, proc, config):
     time.sleep(0.5)
     screenshot(win, "settings-small")
     key(win, "Escape")
-    key(win, "Down")  # Quit
+    key(win, "Down", 2)  # discord -> Quit
     key(win, "Return")
     assert proc.wait(timeout=20) == 0, "keyboard Quit failed"
 

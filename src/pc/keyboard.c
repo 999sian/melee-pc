@@ -47,12 +47,20 @@ static s8 axis(SDL_Scancode neg, SDL_Scancode pos) {
     return (s8)((pos_on ? 80 : 0) - (neg_on ? 80 : 0));
 }
 
+static SDL_Mutex* s_key_mutex;
+
 void pc_keyboard_event(const SDL_Event* e) {
     if (e->type != SDL_EVENT_KEY_DOWN && e->type != SDL_EVENT_KEY_UP) {
         return;
     }
     if (e->key.scancode >= SDL_SCANCODE_COUNT || e->key.repeat) {
         return;
+    }
+    if (s_key_mutex == NULL) {
+        s_key_mutex = SDL_CreateMutex();
+    }
+    if (s_key_mutex != NULL) {
+        SDL_LockMutex(s_key_mutex);
     }
     if (e->type == SDL_EVENT_KEY_DOWN) {
         s_key[e->key.scancode] = true;
@@ -61,9 +69,18 @@ void pc_keyboard_event(const SDL_Event* e) {
         s_key[e->key.scancode] = false;
     }
     s_active = true;
+    if (s_key_mutex != NULL) {
+        SDL_UnlockMutex(s_key_mutex);
+    }
 }
 
 void pc_keyboard_apply(void) {
+    if (s_key_mutex == NULL) {
+        s_key_mutex = SDL_CreateMutex();
+    }
+    if (s_key_mutex != NULL) {
+        SDL_LockMutex(s_key_mutex);
+    }
     PADStatus st = {0};
     bool any_active = false;
     if (s_active) {
@@ -126,5 +143,8 @@ void pc_keyboard_apply(void) {
 
     if (any_active) {
         PADSetVirtualStatus(0, &st);
+    }
+    if (s_key_mutex != NULL) {
+        SDL_UnlockMutex(s_key_mutex);
     }
 }

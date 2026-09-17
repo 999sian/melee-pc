@@ -332,10 +332,13 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line) {
     abort();
 }
 
+#include "pc/input_poll.h"
+
 void pc_platform_init(void) {
     s_is_game_thread = 1;
     aurora_card_set_callback_dispatch(card_dispatch);
     pc_textures_init();
+    pc_input_poll_init();
 }
 
 /* ---- reporting -------------------------------------------------------- */

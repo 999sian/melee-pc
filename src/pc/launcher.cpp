@@ -55,7 +55,7 @@ std::string resolution_name(float scale) {
 std::string identity(const std::string& path) {
     if (path.rfind("content://", 0) == 0)
         return path;
-    struct stat s{};
+    struct stat s = {};
     if (stat(path.c_str(), &s) != 0)
         return {};
 #ifdef _WIN32
@@ -161,7 +161,7 @@ class Launcher final : public Rml::EventListener {
                 "filter-mode", "custom-textures", "backend"};
         case 1:
             return {"volume", "music-volume", "sfx-volume", "mute", "fps", "scale", "check-updates",
-                "check-now"};
+                "check-now", "settings-discord"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera"};
         default:
@@ -173,9 +173,10 @@ class Launcher final : public Rml::EventListener {
         enabled("choose", !busy());
         enabled("verify", verification.valid() || (supported && !busy()));
         enabled("settings", !busy());
+        enabled("discord", !busy());
         text("verify", verification.valid() ? "Cancel verification" : "Verify disc");
         if (!settings) {
-            focus_ids = {"play", "choose", "verify", "settings", "quit"};
+            focus_ids = {"play", "choose", "verify", "settings", "discord", "quit"};
             auto ustate = pc::updater::get_state();
             if ((ustate.status == pc::updater::Status::UpdateAvailable ||
                     ustate.status == pc::updater::Status::Downloaded) &&
@@ -350,6 +351,11 @@ class Launcher final : public Rml::EventListener {
         if (id == "quit") {
             result = 0;
             cancel = true;
+            return;
+        }
+        if (id == "discord" || id == "settings-discord") {
+            status("Opening Discord in browser...");
+            SDL_OpenURL("https://discord.gg/aurt34svq");
             return;
         }
         if (tab_index(id) >= 0) {
