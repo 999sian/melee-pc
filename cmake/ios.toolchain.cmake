@@ -10,8 +10,22 @@ set(Rust_CARGO_TARGET "aarch64-apple-ios" CACHE STRING "Rust target triple" FORC
 set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "" CACHE INTERNAL "Rust target native libraries for iOS" FORCE)
 
 if (NOT IOS_SDK_PATH)
-    set(IOS_SDK_PATH "/home/sian/toolchains/sdks/sdks/iPhoneOS16.5.sdk" CACHE PATH "Path to iPhoneOS SDK")
+    if (DEFINED ENV{IOS_SDK_PATH} AND EXISTS "$ENV{IOS_SDK_PATH}")
+        set(IOS_SDK_PATH "$ENV{IOS_SDK_PATH}" CACHE PATH "Path to iPhoneOS SDK")
+    elseif (DEFINED ENV{SDKROOT} AND EXISTS "$ENV{SDKROOT}")
+        set(IOS_SDK_PATH "$ENV{SDKROOT}" CACHE PATH "Path to iPhoneOS SDK")
+    elseif (EXISTS "/home/sian/toolchains/sdks/sdks/iPhoneOS16.5.sdk")
+        set(IOS_SDK_PATH "/home/sian/toolchains/sdks/sdks/iPhoneOS16.5.sdk" CACHE PATH "Path to iPhoneOS SDK")
+    elseif (DEFINED ENV{IOS_SDK_PATH})
+        set(IOS_SDK_PATH "$ENV{IOS_SDK_PATH}" CACHE PATH "Path to iPhoneOS SDK")
+    elseif (DEFINED ENV{SDKROOT})
+        set(IOS_SDK_PATH "$ENV{SDKROOT}" CACHE PATH "Path to iPhoneOS SDK")
+    else ()
+        set(IOS_SDK_PATH "/home/sian/toolchains/sdks/sdks/iPhoneOS16.5.sdk" CACHE PATH "Path to iPhoneOS SDK")
+    endif ()
 endif ()
+
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES IOS_SDK_PATH)
 
 set(CMAKE_SYSROOT "${IOS_SDK_PATH}")
 set(CMAKE_OSX_SYSROOT "${IOS_SDK_PATH}")

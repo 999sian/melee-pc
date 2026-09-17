@@ -30,6 +30,7 @@ cmake -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/cmake/ios.toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=Release \
     -DIOS_SDK_PATH="${IOS_SDK_PATH}" \
+    -DCMAKE_OSX_SYSROOT="${IOS_SDK_PATH}" \
     -DAURORA_ENABLE_GX=ON \
     -DAURORA_ENABLE_DVD=ON \
     -DAURORA_ENABLE_CARD=ON \
