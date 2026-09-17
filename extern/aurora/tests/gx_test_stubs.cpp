@@ -56,6 +56,7 @@ GraphicsConfig g_graphicsConfig{};
 namespace aurora::gx {
 GXState g_gxState{};
 void set_viewport_policy(AuroraViewportPolicy policy) noexcept {}
+void set_presentation_aspect(float) noexcept {}
 } // namespace aurora::gx
 
 namespace aurora::vi {
