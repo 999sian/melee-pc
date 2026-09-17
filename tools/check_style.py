@@ -154,7 +154,11 @@ def check_clang_format(path: Path, fix: bool = False):
     cmd = ["clang-format", "--dry-run", "--Werror", str(path)]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
-        return [f"{path.name}: Formatting does not match .clang-format. Run with --fix to reformat."]
+        err = (r.stderr or r.stdout or "").strip()
+        msg = f"{path.name}: Formatting does not match .clang-format. Run with --fix to reformat."
+        if err:
+            msg += f"\n  {err}"
+        return [msg]
     return []
 
 

@@ -55,7 +55,7 @@ std::string resolution_name(float scale) {
 std::string identity(const std::string& path) {
     if (path.rfind("content://", 0) == 0)
         return path;
-    struct stat s{};
+    struct stat s = {};
     if (stat(path.c_str(), &s) != 0)
         return {};
 #ifdef _WIN32
