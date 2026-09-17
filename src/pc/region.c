@@ -154,17 +154,19 @@ struct sis_shift {
     int lo, hi; /* USA index range [lo, hi) */
     int delta;
 };
+// clang-format off
 static const struct sis_shift k_pal_sis_shifts[] = {
     {"SIS_MenuData", 2, 0x7FFF, -2},
     {"SIS_ClearData", 2, 0x7FFF, -2},
-    {"SIS_SelCharData", 28, 74,
-        -2},                     /* rule/name-entry text; the header above is composed in code */
-    {"SIS_ToyData", 3, 298, -2}, /* trophy names, id + 3 */
-    {"SIS_ToyData", 302, 0x7FFF, -9},    /* list counters, digits, messages */
-    {"SIS_ToyDataExp", 3, 297, -2},      /* descriptions, id + 3 */
-    {"SIS_ToyDataExp", 297, 591, -3},    /* game of origin, id + 297 */
-    {"SIS_ToyDataExp", 591, 0x7FFF, -4}, /* platform / Smash move, id + 591 */
+    /* Rule and name-entry text; the header above 74 is composed in code. */
+    {"SIS_SelCharData", 28, 74, -2},
+    {"SIS_ToyData", 3, 298, -2},          /* trophy names, id + 3 */
+    {"SIS_ToyData", 302, 0x7FFF, -9},     /* list counters, digits, messages */
+    {"SIS_ToyDataExp", 3, 297, -2},       /* descriptions, id + 3 */
+    {"SIS_ToyDataExp", 297, 591, -3},     /* game of origin, id + 297 */
+    {"SIS_ToyDataExp", 591, 0x7FFF, -4},  /* platform / Smash move, id + 591 */
 };
+// clang-format on
 
 int pc_region_sis_index(const char* symbol, int idx) {
     if (!s_is_pal || symbol == NULL) {
