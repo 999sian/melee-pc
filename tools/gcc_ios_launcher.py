@@ -97,6 +97,9 @@ try:
     gcc_cmd = [
         gcc_bin,
         '-S',
+        '-march=armv8-a',
+        '-mbranch-protection=none',
+        '-mno-outline-atomics',
         '-fleading-underscore',
         '-fno-section-anchors',
         '-fPIC',
@@ -211,6 +214,11 @@ try:
     clang_cmd = [
         compiler,
         '--target=arm64-apple-ios14.0',
+        '-march=armv8-a',
+        '-mbranch-protection=none',
+        '-fno-asynchronous-unwind-tables',
+        '-fno-unwind-tables',
+        '-mno-outline-atomics',
         '-isysroot', ios_sdk,
         '-c', temp_darwin_s,
         '-o', output_obj
