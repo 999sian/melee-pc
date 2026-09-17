@@ -32,9 +32,10 @@
 
 /// --- Externs ---
 
+#include <melee/lb/lbcardgame.h>
+
 char* GetNameText(u8 slot);
 int GetNameCount(void);
-void lbCardGame_UpdatePowerTime(void);
 
 // Local inline JObj functions using the weak HSD_JObjSetMtxDirty pattern
 static inline f32 mnVibration_JObjGetTranslationX(HSD_JObj* jobj)

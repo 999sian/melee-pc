@@ -1,7 +1,6 @@
 #include <placeholder.h>
 #include <setjmp.h>
 
-#include "hsd_3A94.h"
 #include "hsd_3B34.h"
 
 typedef struct JpegWorkData {

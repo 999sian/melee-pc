@@ -30,7 +30,7 @@ void mnDeflicker_8024A6C4(HSD_GObj* arg0);
 void gmMainLib_8015F4F4(u8);
 void gmMainLib_8015F588(u8);
 u8 gmMainLib_8015F4E8(void);
-void lbCardGame_UpdatePowerTime(void);
+#include <melee/lb/lbcardgame.h>
 
 unsigned char mnDeflicker_804D6C3C;
 HSD_GObj* mnDeflicker_804D6C38;

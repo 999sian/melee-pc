@@ -1522,7 +1522,7 @@ void JObjRelease(HSD_Class* o)
     HSD_JOBJ_METHOD(jobj)->release_child(jobj);
 
     if (HSD_IDGetDataFromTable(NULL, jobj->id, NULL) == jobj) {
-        uintptr_t id = jobj->id;
+        HSD_IDKey id = jobj->id;
         HSD_IDRemoveByIDFromTable(NULL, id);
     }
     if (jobj->scl != NULL) {

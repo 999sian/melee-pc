@@ -19,6 +19,8 @@
 #include <melee/mn/types.h>
 #include <melee/sc/types.h>
 
+#define GM_NAMETAG_BANK_COUNT 7
+
 /* Disc pointer-array helpers: `slot` is a DISC_PTR(DiscU32) to T*[] on disc. */
 #define GM_DISC_ARR(T, slot, i) DP(T, DP(DiscU32, slot)[i].v)
 #define GM_SCENE_MODEL(sce, i) GM_DISC_ARR(DynamicModelDesc, (sce)->models, i)
@@ -299,9 +301,11 @@ struct gmm_x1868_1A8_t {
     /* 0x01AE +6 */ u8 x6;
 };
 
-struct gmm_x1868 {
-    /* 0x0000 */ u16
-        unlocked_characers_bitmask; ///< unlocked characters bitmask
+typedef struct {
+    union {
+        /* 0x0000 */ u16 unlocked_characters; ///< unlocked characters bitmask
+        /* 0x0000 */ u16 unlocked_characers_bitmask;
+    };
     /* 0x0002 */ u16 x186A;         ///< unlocked stages bitmask
     /* 0x0004 */ u8 x186C;          ///< unlocked features bitmask - score
                                     ///< display/random stage etc...
@@ -353,8 +357,15 @@ struct gmm_x1868 {
     /* 0x046C */ u16 trophy_flags[TY_TROPHY_COUNT];
     /* 0x06B6 */ u8 padding_trophy_flags[0xE];
     /* 0x06C4 */ struct FighterData x1F2C[SELKIND_COUNT];
-    /* 0x1760 */ struct NameTagDataBank x2FF8[2];
-}; /* size = 0x55E8 */
+} GmSaveData;
+ASSERT_SIZE(GmSaveData, 0x1790);
+
+typedef GmSaveData gmm_x1868;
+
+struct GmCardData {
+    /*    +0 */ GmSaveData save_data;
+    /* +1760 */ struct NameTagDataBank nametag_banks[GM_NAMETAG_BANK_COUNT];
+};
 
 struct gmm_x0_528_t {
     /* 0x051C */ s8 c_kind;
@@ -457,18 +468,13 @@ struct gmm_x0 {
     /** @remarks Directly follows #gmm_x0_vsdata; `gmMainLib_8015DBF4` and
      * `gmMainLib_8015EA80` walk the table from a pointer to that block. */
     struct gmm_x0_vsmodes modes;
-    /* 0x1850 */ GameRules x1850; /* really 0x18, not 0x48 */
-    /* 0x1868 */ struct gmm_x1868 thing; /* really 0x55E0, not 0x55B8 */
-    /* The two comments above are upstream's, and both are wrong about size;
-     * the members are only ever reached by name, so the internal layout is
-     * self-consistent, but the trailer has to start where `thing` actually
-     * ends or the whole object is 8 bytes short of the disc-documented size. */
-    /* 0x6E48 */ u8 pad_6E48[0x8518 - 0x6E48];
+    /* 0x1850 */ GameRules x1850;
+    /* 0x1898 */ struct GmCardData thing;
 };
 ASSERT_SIZE(struct EventData, 0x588 - 0x530);
 ASSERT_SIZE(struct gmm_x0_vsdata, 0x588 - 0x51C);
 ASSERT_SIZE(struct gmm_x0_vsmodes, 0x1850 - 0x588);
-ASSERT_SIZE(struct gmm_x0, 0x8518);
+ASSERT_SIZE(struct gmm_x0, 0x10A30);
 
 struct Placeholder_8016AE38_flags_2 {
     /* +0:0 */ u8 x0_b0_b2 : 3;

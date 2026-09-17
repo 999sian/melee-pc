@@ -331,10 +331,11 @@ void ftCo_8009DC54(Fighter* fp)
     HSD_ASSERTREPORT(490, fp->dynamics_num < Ft_Dynamics_NumMax,
                      "fighter dynamics num over!\n");
     {
-        ssize_t bone_idx = idx * 2 + 1;
-        ssize_t dyn_idx = 0;
-        i = 0;
-        do {
+        ssize_t bone_idx;
+        ssize_t dyn_idx;
+        for (bone_idx = idx * 2 + 1, dyn_idx = 0, i = 0; i < 2;
+             i++, bone_idx++, dyn_idx++)
+        {
             /* This is Jigglypuff's hat, and ftpurin.c stores it in
              * u.pr.x223C. Reading it through u.kb.hat worked on GameCube
              * because both views put it on fp+223C; with 8-byte pointers the
@@ -366,10 +367,7 @@ void ftCo_8009DC54(Fighter* fp)
                     &get_adb(get_ft_dyn(data))->array[bone_idx].dyn_desc,
                     desc);
             }
-            i++;
-            bone_idx++;
-            dyn_idx++;
-        } while (i < 2);
+        }
     }
 }
 

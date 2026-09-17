@@ -28,10 +28,10 @@
 
 void ftPp_SpecialN_Enter(HSD_GObj* gobj)
 {
-    Fighter* fp = (Fighter*) HSD_GObjGetUserData(gobj);
+    Fighter* fp = GET_FIGHTER(gobj);
     fp->throw_flags = 0;
     fp->cmd_vars[0] = 0;
-    fp->u.nn.x222C = 0;
+    fp->u.nn.x222C = NULL;
 
     Fighter_ChangeMotionState(gobj, 341, 0, 0.0f, 1.0f, 0.0f, NULL);
 
@@ -43,12 +43,12 @@ void ftPp_SpecialAirN_Enter(HSD_GObj* gobj)
 {
     u8 _[4];
 
-    Fighter* fp = (Fighter*) HSD_GObjGetUserData(gobj);
+    Fighter* fp = GET_FIGHTER(gobj);
     ftIceClimberAttributes* icattr = fp->dat_attrs;
 
     fp->throw_flags = 0;
     fp->cmd_vars[0] = 0;
-    fp->u.nn.x222C = 0;
+    fp->u.nn.x222C = NULL;
 
     if ((s32) fp->u.nn.x224C == false) {
         fp->self_vel.y = icattr->x4;
@@ -121,11 +121,11 @@ void ftPp_SpecialAirN_Coll(Fighter_GObj* gobj)
     da = fp->dat_attrs;
     if (ft_80081D0C(gobj) != GA_Ground) {
         fp1 = gobj->user_data;
-        if (fp1->u.pp.x222C != 0) {
+        if (fp1->u.pp.x222C != NULL) {
             it_802C17DC(fp1->u.pp.x222C);
             fp2 = gobj->user_data;
             if (fp1->u.pp.x222C == fp2->u.pp.x222C) {
-                fp2->u.pp.x222C = 0U;
+                fp2->u.pp.x222C = NULL;
                 fp2->death2_cb = NULL;
                 fp2->take_dmg_cb = NULL;
             }

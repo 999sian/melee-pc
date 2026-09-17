@@ -8,8 +8,18 @@
 #include <melee/gm/types.h>
 
 /* 15CC34 */ GameRules* gmMainLib_GetGameRules(void);
-/* 15CC40 */ struct gmm_x1868* gmMainLib_GetSaveData(void);
-/* 15CC4C */ void* gmMainLib_8015CC4C(void);
+/* 15CC40 */ struct GmCardData* gmMainLib_GetCardData(void);
+/* 15CC4C */ struct NameTagDataBank* gmMainLib_GetNameTagDataBanks(void);
+
+static inline GmSaveData* gmMainLib_GetSaveData(void)
+{
+    return &gmMainLib_GetCardData()->save_data;
+}
+
+static inline struct NameTagDataBank* gmMainLib_8015CC4C(void)
+{
+    return gmMainLib_GetNameTagDataBanks();
+}
 /* 15CC58 */ struct GamePrefs* gmMainLib_GetGamePrefs(void);
 /* 15CC64 */ struct FighterData*
     GetPersistentFighterData(SelectableCharacterKind);

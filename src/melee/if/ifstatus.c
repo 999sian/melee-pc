@@ -914,8 +914,7 @@ void ifStatus_802F6804(void)
     s32 i;
     IfDamageState* v;
 
-    i = 0;
-    do {
+    for (i = 0; i < 6; i++) {
         v = &ifStatus_GetHUDInfo()->players[i & 0xFF];
         if (v->HUD_parent_entity != NULL) {
             HSD_GObjFree(v->HUD_parent_entity);
@@ -926,8 +925,7 @@ void ifStatus_802F6804(void)
             v->next = NULL;
         }
         ifStock_802FB650((s8) i & 0xFF);
-        i++;
-    } while (i < 6);
+    }
 }
 
 /// Hide Percentage Digits
