@@ -42,7 +42,8 @@ cmake -B "${BUILD_DIR}" -G Ninja \
     -DAURORA_NOD_PROVIDER=vendor \
     -DBUILD_SHARED_LIBS=OFF \
     -DPNG_SHARED=OFF \
-    -DPNG_STATIC=ON
+    -DPNG_STATIC=ON \
+    -DCOMPILER_SUPPORTS_FOBJC_ARC=ON
 
 ninja -C "${BUILD_DIR}" melee
 
