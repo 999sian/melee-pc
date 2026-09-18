@@ -291,6 +291,16 @@ void pc_net_init(void) {
                 s_local + 1, s_delay);
 }
 
+bool pc_net_stats(int* ping_ms, int* delay_frames, unsigned* rollbacks) {
+    if (!s_active) {
+        return false;
+    }
+    *ping_ms = 0; /* lockstep prototype has no ack/ping yet */
+    *delay_frames = s_delay;
+    *rollbacks = 0;
+    return true;
+}
+
 /* ---- record / replay --------------------------------------------------
  * MELEE_NET_RECORD=file  writes the seed, then per frame the four PADStatus
  *                        actually simulated plus the frame checksum.

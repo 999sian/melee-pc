@@ -31,6 +31,9 @@ bool pc_net_resim(void);
  * never be re-simulated (completions land on worker threads). */
 void pc_net_note_io(void);
 
+/* Live netplay numbers for the HUD. False when netplay is not active. */
+bool pc_net_stats(int* ping_ms, int* delay_frames, unsigned* rollbacks);
+
 #ifdef __cplusplus
 }
 #endif
