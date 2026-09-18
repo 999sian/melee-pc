@@ -371,14 +371,31 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         .mem1Size = PC_MEM1_SIZE,
         .mem2Size = PC_ARAM_SIZE,
     };
+    /* Before aurora_initialize -> SDL_Init(JOYSTICK): claims the GC adapter's
+     * hidapi hint so SDL's rescaling driver leaves it for our raw path. */
+    pc_gcadapter_init();
     pc_launcher_configure(&config);
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
-    /* Record which backend was actually selected. Without this the log cannot
-     * say whether a run went through D3D12 or Vulkan, which is the first thing
-     * worth knowing about a fault that only reproduces on one platform. */
-    pc_log_line("graphics backend: %s%s", backend_name(info.backend),
-        config.desiredBackend == BACKEND_AUTO ? " (auto)" : " (MELEE_BACKEND)");
+    /* Record which backend was actually selected and the adapter it landed on.
+     * Without this the log cannot say whether a run went through D3D12 or
+     * Vulkan, or on which GPU/driver, which is the first thing worth knowing
+     * about a fault that only reproduces on one machine. The origin has to be
+     * derived from info.backend, not from the request alone: a run pinned to
+     * d3d11 that aurora quietly fell back to d3d12 would otherwise log
+     * "d3d12 (pinned)", which is the opposite of the truth. */
+    char origin[64];
+    if (config.desiredBackend == BACKEND_AUTO) {
+        snprintf(origin, sizeof(origin), " (auto)");
+    } else if (info.backend == config.desiredBackend) {
+        snprintf(origin, sizeof(origin), " (pinned)");
+    } else {
+        snprintf(
+            origin, sizeof(origin), " (fallback from %s)", backend_name(config.desiredBackend));
+    }
+    pc_log_line("graphics backend: %s%s, adapter: %s [%04x:%04x], driver: %s",
+        backend_name(info.backend), origin, info.adapterName, info.adapterVendorId,
+        info.adapterDeviceId, info.adapterDriver);
     /* Closing the window exits from inside the frame loop (pc/vi.c), which
      * would otherwise skip aurora_shutdown() entirely: Dawn's static
      * destructors then tear the device down while aurora still thinks it is

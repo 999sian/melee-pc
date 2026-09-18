@@ -21,19 +21,19 @@ int main(void) {
     uint32_t val_19c = 0x40400000;
     uint32_t val_1a0 = 0x3f2aaaab;
 
-    #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     val_194 = __builtin_bswap32(val_194);
     val_198 = __builtin_bswap32(val_198);
     val_19c = __builtin_bswap32(val_19c);
     val_1a0 = __builtin_bswap32(val_1a0);
-    #endif
+#endif
 
     memcpy(&mock_plco[0x194], &val_194, 4);
     memcpy(&mock_plco[0x198], &val_198, 4);
     memcpy(&mock_plco[0x19c], &val_19c, 4);
     memcpy(&mock_plco[0x1a0], &val_1a0, 4);
 
-    p_ftCommonData = (struct ftCommonData*) mock_plco;
+    p_ftCommonData = (struct ftCommonData*)mock_plco;
 
     // Vanilla formula: floor(dmg * 0.33333334 + 3.0) * mul
     // 1% damage: floor(1 * 0.33333334 + 3.0) = 3

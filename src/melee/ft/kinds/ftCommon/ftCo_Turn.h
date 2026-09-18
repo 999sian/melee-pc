@@ -16,4 +16,8 @@
 /* 0C9C2C */ bool fn_800C9C2C(Fighter_GObj* gobj);
 /* 0C9C74 */ void ftCo_Turn_Enter_Smash(Fighter_GObj* gobj);
 
+/// UCF: octagon-clamped raw stick X per port, [0] this frame .. [2] two ago.
+extern s8 ftCo_ucf_raw_x[4][3];
+bool ftCo_UcfDashback(Fighter* fp);
+
 #endif

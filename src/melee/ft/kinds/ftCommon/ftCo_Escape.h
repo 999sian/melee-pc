@@ -14,5 +14,6 @@
 /* 099A14 */ void ftCo_EscapeN_IASA(Fighter_GObj* gobj);
 /* 099A18 */ void ftCo_EscapeN_Phys(Fighter_GObj* gobj);
 /* 099A38 */ void ftCo_EscapeN_Coll(Fighter_GObj* gobj);
+bool ftCo_UcfBlocksSpotDodge(Fighter* fp);
 
 #endif

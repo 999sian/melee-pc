@@ -21,6 +21,8 @@
 #include <melee/ft/kinds/ftYoshi/ftyoshi.h>
 #include <melee/ft/kinds/ftYoshi/ftyoshiguard.h>
 #include <melee/ft/types.h>
+#include <melee/mp/forward.h>
+#include <pc/pc.h>
 
 /* 0992A8 */ static void ftCo_800992A8(Fighter_GObj* gobj, FtMotionId msid,
                                        bool);
@@ -207,10 +209,40 @@ static inline bool inlineB0(Fighter* fp)
     return false;
 }
 
+/// UCF 0.8x shield drop (AltimorTASDK/ucf src/shielddrop/shielddrop.S, injected
+/// at the shared spot-dodge entry so both callers below return false). While
+/// standing on a platform with the stick held sideways for at least the roll
+/// window (x320 frames, so a roll is no longer possible) and pressed against
+/// the rim, the spot-dodge stick threshold drops from x314 (-0.7) to -0.8, so
+/// rolling the stick down the rim to the corner (Axe/Sung method) reaches the
+/// shield-drop zone without spot dodging. A C-stick spot dodge still wins.
+/// Rim test in raw units: (|x|*80+2)^2 + (|y|*80+2)^2 > 80^2.
+bool ftCo_UcfBlocksSpotDodge(Fighter* fp)
+{
+    int x, y;
+    if (fp->input.cstick[0].y <= p_ftCommonData->x314 ||
+        fp->active_timer.lstick.x < p_ftCommonData->x320 ||
+        fp->input.lstick[0].y <= -0.8f || fp->coll_data.floor.index == -1 ||
+        !(fp->coll_data.floor.flags & LINE_FLAG_PLATFORM))
+    {
+        return false;
+    }
+    x = (int) (ABS(fp->input.lstick[0].x) * 80.0f - 0.0001f) + 2;
+    y = (int) (ABS(fp->input.lstick[0].y) * 80.0f - 0.0001f) + 2;
+    return x * x + y * y > 80 * 80;
+}
+
+static inline bool ucfBlocksSpotDodge(Fighter* fp)
+{
+    return pc_is_ucf_enabled() && ftCo_UcfBlocksSpotDodge(fp);
+}
+
 bool ftCo_80099794(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    if (fp->input.held_buttons[0] & HSD_PAD_LR && inlineB0(fp)) {
+    if (fp->input.held_buttons[0] & HSD_PAD_LR && inlineB0(fp) &&
+        !ucfBlocksSpotDodge(fp))
+    {
         ftCo_80099894(gobj);
         return true;
     }
@@ -220,7 +252,7 @@ bool ftCo_80099794(Fighter_GObj* gobj)
 bool ftCo_8009980C(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    if (inlineB0(fp) || ftCo_800DF8E8(fp)) {
+    if ((inlineB0(fp) || ftCo_800DF8E8(fp)) && !ucfBlocksSpotDodge(fp)) {
         ftCo_80099894(gobj);
         return true;
     }

@@ -23,6 +23,9 @@ bool pc_input_poll_is_running(void);
 /* Query total count of 1000 Hz poll iterations completed. */
 uint64_t pc_input_poll_get_count(void);
 
+/* Smoothed poll-thread rate (Hz) for the diagnostic HUD. */
+float pc_input_poll_hz(void);
+
 #ifdef __cplusplus
 }
 #endif
