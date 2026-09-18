@@ -20,7 +20,7 @@ SECTIONS
     .melee_data :
     {
         __melee_data_start = .;
-        *libmelee_game.a:(EXCLUDE_FILE(*axdriver.c.o *synth.c.o *lbaudio_ax.c.o *perf.c.o *video.c.o *vtxarray.c.o *lbmthp.c.o *card.c.o *lb_0195.c.o *devcom.c.o) .data
+        *libmelee_game.a:*(EXCLUDE_FILE(*axdriver.c.o *synth.c.o *lbaudio_ax.c.o *perf.c.o *video.c.o *vtxarray.c.o *lbmthp.c.o *card.c.o *lb_0195.c.o *devcom.c.o) .data
                           EXCLUDE_FILE(*axdriver.c.o *synth.c.o *lbaudio_ax.c.o *perf.c.o *video.c.o *vtxarray.c.o *lbmthp.c.o *card.c.o *lb_0195.c.o *devcom.c.o) .data.*)
         __melee_data_end = .;
     }
@@ -32,7 +32,7 @@ SECTIONS
     .melee_bss (NOLOAD) :
     {
         __melee_bss_start = .;
-        *libmelee_game.a:(EXCLUDE_FILE(*axdriver.c.o *synth.c.o *lbaudio_ax.c.o *perf.c.o *video.c.o *vtxarray.c.o *lbmthp.c.o *card.c.o *lb_0195.c.o *devcom.c.o) .bss
+        *libmelee_game.a:*(EXCLUDE_FILE(*axdriver.c.o *synth.c.o *lbaudio_ax.c.o *perf.c.o *video.c.o *vtxarray.c.o *lbmthp.c.o *card.c.o *lb_0195.c.o *devcom.c.o) .bss
                           EXCLUDE_FILE(*axdriver.c.o *synth.c.o *lbaudio_ax.c.o *perf.c.o *video.c.o *vtxarray.c.o *lbmthp.c.o *card.c.o *lb_0195.c.o *devcom.c.o) .bss.*
                           EXCLUDE_FILE(*axdriver.c.o *synth.c.o *lbaudio_ax.c.o *perf.c.o *video.c.o *vtxarray.c.o *lbmthp.c.o *card.c.o *lb_0195.c.o *devcom.c.o) COMMON)
         __melee_bss_end = .;

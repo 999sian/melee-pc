@@ -23,12 +23,24 @@ public class MeleeActivity extends SDLActivity {
     }
 
     private TouchOverlayView mTouchOverlay;
+    /* LAN lobby: the Wi-Fi stack filters mDNS multicast unless an app holds
+     * a MulticastLock. ponytail: held for the activity's lifetime rather than
+     * only while the LAN menu is open. */
+    private android.net.wifi.WifiManager.MulticastLock mMulticastLock;
 
     @Override
     protected void onCreate(android.os.Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         applyImmersiveMode();
+
+        android.net.wifi.WifiManager wifi = (android.net.wifi.WifiManager)
+            getApplicationContext().getSystemService(android.content.Context.WIFI_SERVICE);
+        if (wifi != null) {
+            mMulticastLock = wifi.createMulticastLock("melee-lan");
+            mMulticastLock.setReferenceCounted(false);
+            mMulticastLock.acquire();
+        }
 
         mTouchOverlay = new TouchOverlayView(this);
         if (mLayout != null) {

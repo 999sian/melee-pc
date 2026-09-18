@@ -198,7 +198,10 @@ elseif (NOT ANDROID)
             -Wl,-T,${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
     set_property(TARGET melee APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
 else ()
-    target_link_options(melee PRIVATE -Wl,-z,max-page-size=16384)
+    # lld (NDK 26+) supports INSERT AFTER as well.
+    target_link_options(melee PRIVATE -Wl,-z,max-page-size=16384
+            -Wl,-T,${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
+    set_property(TARGET melee APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
 endif ()
 
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)
