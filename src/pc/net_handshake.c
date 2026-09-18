@@ -61,12 +61,21 @@ static bool csprng(void* out, size_t n) {
 }
 #else
 #include <errno.h>
-#if defined(__linux__) || defined(__ANDROID__)
+/* Bionic declares getrandom() only from API 28 and this ships against 26, so
+ * on older Android the /dev/urandom path below is the one that runs. */
+#if defined(__ANDROID__)
+#if __ANDROID_API__ >= 28
+#define MELEE_HAVE_GETRANDOM 1
+#endif
+#elif defined(__linux__)
+#define MELEE_HAVE_GETRANDOM 1
+#endif
+#if defined(MELEE_HAVE_GETRANDOM)
 #include <sys/random.h>
 #endif
 static bool csprng(void* out, size_t n) {
     size_t got = 0;
-#if defined(__linux__) || defined(__ANDROID__)
+#if defined(MELEE_HAVE_GETRANDOM)
     while (got < n) {
         ssize_t r = getrandom((uint8_t*)out + got, n - got, 0);
         if (r <= 0) {
