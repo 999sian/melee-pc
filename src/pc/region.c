@@ -6,17 +6,11 @@
 #include <stdio.h>
 #include <string.h>
 
-static bool s_is_pal;
 bool pc_region_pal;
 
 void pc_region_set(const char* game_id) {
-    s_is_pal = memcmp(game_id, "GALP01", 6) == 0;
-    pc_region_pal = s_is_pal;
-    aurora_dvd_set_locale_extension(s_is_pal ? "ukd" : NULL);
-}
-
-bool pc_region_is_pal(void) {
-    return s_is_pal;
+    pc_region_pal = memcmp(game_id, "GALP01", 6) == 0;
+    aurora_dvd_set_locale_extension(pc_region_pal ? "ukd" : NULL);
 }
 
 /* All big-endian, read in place by the game. */
@@ -66,7 +60,7 @@ static const struct {
 };
 
 const void* pc_region_missing_symbol(const char* symbol_name) {
-    if (!s_is_pal) {
+    if (!pc_region_pal) {
         return NULL;
     }
     for (size_t i = 0; i < sizeof k_pal_stand_ins / sizeof k_pal_stand_ins[0]; i++) {
@@ -131,7 +125,7 @@ static const unsigned char k_pal_sis_codes[0x240] = {
 // clang-format on
 
 void pc_region_set_sis_kerning(const unsigned char* kerning, unsigned len) {
-    if (!s_is_pal) {
+    if (!pc_region_pal) {
         return;
     }
     if (len > sizeof HSD_SisLib_8040CB00) {
@@ -169,7 +163,7 @@ static const struct sis_shift k_pal_sis_shifts[] = {
 // clang-format on
 
 int pc_region_sis_index(const char* symbol, int idx) {
-    if (!s_is_pal || symbol == NULL) {
+    if (!pc_region_pal || symbol == NULL) {
         return idx;
     }
     for (size_t i = 0; i < sizeof k_pal_sis_shifts / sizeof k_pal_sis_shifts[0]; i++) {

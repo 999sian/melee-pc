@@ -378,7 +378,7 @@ TextKerning* mnCharSel_8025BC20(TextKerning* arg0, u32 arg1)
     u32 render_zeroes;
     render_zeroes = 0;
 #ifdef TARGET_PC
-    if (pc_region_is_pal()) {
+    if (pc_region_pal) {
         return (TextKerning*) css_pal_write_digits((u8*) arg0, arg1);
     }
 #endif
@@ -422,7 +422,7 @@ void mnCharSel_8025BD30(void)
     match_type = mnCharSel_804D6CB0->match_type;
 
 #ifdef TARGET_PC
-    if (pc_region_is_pal()) {
+    if (pc_region_pal) {
         u32 limit = gmMainLib_GetGameRules()->time_limit;
         if (match_type == VS_CAMERA) {
             HSD_SisLib_803A6530(0, CSS_PAL_SCRATCH, CSS_PAL_CAMERA);
@@ -969,7 +969,7 @@ void mnCharSel_8025D1C4(int port, int mode)
             {
                 TextKerning* tmp;
 #ifdef TARGET_PC
-                if (pc_region_is_pal()) {
+                if (pc_region_pal) {
                     tmp = (TextKerning*) HSD_SisLib_803A6478(sis_buf, css_pal_string(CSS_PAL_TOKEN));
                 } else
 #endif
@@ -980,7 +980,7 @@ void mnCharSel_8025D1C4(int port, int mode)
 #ifdef TARGET_PC
             /* On PAL the token line lives in the scratch built at line ~890
              * (CSS_PAL_TOKEN + digits); its table slot 0x56 is unrelated. */
-            if (pc_region_is_pal()) {
+            if (pc_region_pal) {
                 HSD_SisLib_803A6368Raw(text, CSS_PAL_TOKEN);
             } else {
                 HSD_SisLib_803A6368(text, 0x56);
@@ -5286,7 +5286,7 @@ s32 mnCharSel_802640A0(void)
         text->font_size.x = 0.07f;
         text->font_size.y = 0.07f;
 #ifdef TARGET_PC
-        if (pc_region_is_pal()) {
+        if (pc_region_pal) {
             HSD_SisLib_803A6368Raw(text, CSS_PAL_SCRATCH);
         } else {
             HSD_SisLib_803A6368(text, 0x4A);

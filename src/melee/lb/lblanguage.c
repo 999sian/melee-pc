@@ -12,7 +12,7 @@
 static inline enum_t saved_language(void)
 {
 #ifdef TARGET_PC
-    if (pc_region_is_pal()) {
+    if (pc_region_pal) {
         return LANG_US;
     }
 #endif

@@ -17,8 +17,6 @@ extern "C" {
 
 /* Call once with the disc header's game id, before the game boots. */
 void pc_region_set(const char* game_id);
-bool pc_region_is_pal(void);
-/* Same as pc_region_is_pal(), for per-glyph hot paths. */
 extern bool pc_region_pal;
 
 /* Stand-in data for an archive symbol the current region's disc lacks, or

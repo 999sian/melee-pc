@@ -317,12 +317,8 @@ void lbHeap_80015F3C(void)
         curr_heap->type = desc->type;
         curr_heap->size = desc->size;
 #ifdef TARGET_PC
-        /* The RAM heaps (3 at arena_lo, 4 down from arena_hi) are sized for
-         * the NTSC-U files; a PAL disc's IfAll.ukd alone outgrows heap 3 by
-         * 832 bytes. The PC arena is 95MB instead of 24MB, so on PAL give
-         * both twice the room. USA discs keep their layout; the ARAM heap
-         * (type 4) keeps its size since ARAM offsets must stay below 16MB. */
-        if (pc_region_is_pal() && (curr_idx == 3 || curr_idx == 4)) {
+        /* PAL files outgrow the NTSC-U RAM heaps; the PC arena has the room. */
+        if (pc_region_pal && (curr_idx == 3 || curr_idx == 4)) {
             curr_heap->size *= 2;
         }
 #endif

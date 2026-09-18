@@ -216,7 +216,7 @@ s32 HSD_SisLib_803A67EC(u8* data, u8* string)
                 (sjis_lo == lbl_8040C8C0[lut_idx * 2 + 1]))
             {
 #ifdef TARGET_PC
-                if (pc_region_is_pal()) {
+                if (pc_region_pal) {
                     /* One byte per glyph on PAL: 0x21 + atlas index, or 0x20
                      * for the blank slot region.c maps fullwidth space to. */
                     u32 code = ((u32) HSD_SisLib_8040C680[lut_idx * 2] << 8) |

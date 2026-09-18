@@ -1333,7 +1333,7 @@ void gmMainLib_8015FBA4(void)
 #ifdef TARGET_PC
     /* /usa.ini is how the NTSC-U build tells itself apart from the Japanese
      * one; a PAL disc has neither and must not fall into Japanese mode. */
-    if (pc_region_is_pal() || DVDConvertPathToEntrynum("/usa.ini") != -1) {
+    if (pc_region_pal || DVDConvertPathToEntrynum("/usa.ini") != -1) {
 #else
     if (DVDConvertPathToEntrynum("/usa.ini") != -1) {
 #endif

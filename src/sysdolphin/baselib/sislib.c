@@ -563,18 +563,17 @@ int HSD_SisLib_803A611C(int font_idx, HSD_GObj* parent_gobj, u16 class_id,
 #ifdef TARGET_PC
 /* Symbol each font slot was loaded from, for pc_region_sis_index(). Stored
  * without the USA "_E" suffix when the PAL alias resolved it. */
-#define SIS_FONT_SLOTS (sizeof HSD_SisLib_804D1124 / sizeof HSD_SisLib_804D1124[0])
-static char s_font_symbol[SIS_FONT_SLOTS][64];
+static char s_font_symbol[ARRAY_SIZE(HSD_SisLib_804D1124)][64];
 const char* HSD_SisLib_FontSymbol(s32 font_idx)
 {
-    return (font_idx >= 0 && font_idx < (s32) SIS_FONT_SLOTS) ? s_font_symbol[font_idx] : NULL;
+    return (font_idx >= 0 && font_idx < (s32) ARRAY_SIZE(s_font_symbol)) ? s_font_symbol[font_idx] : NULL;
 }
 #endif
 
 void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
 {
 #ifdef TARGET_PC
-    if (font_idx >= 0 && font_idx < (s32) SIS_FONT_SLOTS) {
+    if (font_idx >= 0 && font_idx < (s32) ARRAY_SIZE(s_font_symbol)) {
         size_t len = strlen(symbol_name);
         if (len > 2 && strcmp(symbol_name + len - 2, "_E") == 0) {
             len -= 2;
