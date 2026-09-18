@@ -34,7 +34,9 @@ const char* mnOnline_Label(MenuKind kind, int selection)
     if (kind == MENU_KIND_VS && selection == SEL_VS_ONLINE) {
         return "ONLINE";
     }
-    if (kind == MENU_KIND_ONLINE) {
+    if (kind == MENU_KIND_ONLINE && selection >= 0 &&
+        selection < (int) ARRAY_SIZE(online_labels))
+    {
         return online_labels[selection];
     }
     return NULL;
@@ -45,7 +47,9 @@ const char* mnOnline_Description(MenuKind kind, int selection)
     if (kind == MENU_KIND_VS && selection == SEL_VS_ONLINE) {
         return "Play against other players over the network.";
     }
-    if (kind == MENU_KIND_ONLINE) {
+    if (kind == MENU_KIND_ONLINE && selection >= 0 &&
+        selection < (int) ARRAY_SIZE(online_descriptions))
+    {
         return online_descriptions[selection];
     }
     return NULL;
