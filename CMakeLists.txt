@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.25)
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Build type" FORCE)
 endif ()
+
 project(melee-pc LANGUAGES C CXX)
 
 if (APPLE)
