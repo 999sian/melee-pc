@@ -914,6 +914,7 @@ src/sysdolphin/baselib/card.c
 src/sysdolphin/baselib/class.c
 src/sysdolphin/baselib/cobj.c
 src/sysdolphin/baselib/controller.c
+src/sysdolphin/baselib/crypt.c
 src/sysdolphin/baselib/debug.c
 src/sysdolphin/baselib/debugconsole_main.c
 src/sysdolphin/baselib/devcom.c

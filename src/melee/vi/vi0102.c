@@ -126,7 +126,7 @@ void vi0102_Scene_OnEnter(void* arg)
     HSD_LObj* lobj;
     HSD_GObj* light_gobj;
 
-    ViCharaDesc* desc = (ViCharaDesc*) arg;
+    ViCharaDesc* desc = arg;
 
     lbAudioAx_800236DC();
     efLib_Init();

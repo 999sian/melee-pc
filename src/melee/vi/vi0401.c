@@ -125,7 +125,7 @@ void vi0401_Scene_OnEnter(void* data)
     HSD_GObj* cam_gobj2;
     ViCharaDesc* desc;
 
-    desc = (ViCharaDesc*) data;
+    desc = data;
     PAD_STACK(8);
 
     lbAudioAx_800236DC();
