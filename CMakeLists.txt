@@ -138,7 +138,9 @@ set(PC_SOURCES
         src/pc/textures.cpp
         src/pc/updater.cpp
         src/pc/version.cpp)
-if (APPLE)
+# iOS, not APPLE: ios_dialog.m imports UIKit, which the macOS SDK has no
+# headers for. The glob this replaced matched src/pc/*.m on macOS too.
+if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     list(APPEND PC_SOURCES src/pc/ios_dialog.m)
 endif ()
 if (ANDROID)
