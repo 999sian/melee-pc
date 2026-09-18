@@ -37,7 +37,7 @@
 
 typedef struct Line {
     int entry;
-    char str[48];
+    char str[ONLINE_LOBBY_MSG_LEN];
 } Line;
 
 enum {
@@ -99,13 +99,17 @@ static void sanitizeName(char* dst, size_t cap, const char* src)
 
 /* Same 2D immediate-mode setup as lbbgflash.c / the debug console, under the
  * SIS canvas camera; that camera's ortho space has y growing downward as
- * negative, hence the sign flips. */
-static void drawPanel(UNUSED HSD_GObj* gobj, UNUSED int pass)
+ * negative, hence the sign flips. Once per frame: the camera runs three
+ * passes and SIS text draws on the last, so we do too. */
+static void drawPanel(UNUSED HSD_GObj* gobj, int pass)
 {
     static GXColor panel = { 0, 0, 0, 0xA8 };
     static GXColor rule = { 0xFF, 0xFF, 0xFF, 0x80 };
     static GXColor rule_dim = { 0xFF, 0xFF, 0xFF, 0x50 };
 
+    if (pass != 2) {
+        return;
+    }
     hsd_80391A04(1.0f, 1.0f, 1);
     DrawRectangle(32.0f, -456.0f, 576.0f, 432.0f, &panel);
     DrawRectangle(48.0f, -98.0f, 544.0f, 2.0f, &rule);
@@ -161,7 +165,8 @@ void mnOnlineLobby_Create(void)
         addLine(&row[2], COL_HOST, y, 0.5f, &col_host);
         addLine(&row[3], COL_PING, y, 0.5f, &col_dim);
     }
-    addLine(&lines[line_countdown], 48.0f, 344.0f, 0.7f, &col_you);
+    /* Top right, beside the title: eight rows fill the list area. */
+    addLine(&lines[line_countdown], 360.0f, 56.0f, 0.7f, &col_you);
     addLine(&lines[line_status], 48.0f, 400.0f, 0.55f, &col_white);
     addLine(&lines[line_hint], 48.0f, 436.0f, 0.45f, &col_dim);
 }
