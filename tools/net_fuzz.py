@@ -26,6 +26,14 @@ bodies one byte short. No BYE and no foreign version in this mode (either
 ends the session and the rest would be inert). We also play peer: the
 instance's own input packets tell us its newest frame and we feed neutral
 pads up to it, so it keeps ticking instead of stalling out.
+
+--attack ack-overshoot is not fuzzing but the deterministic regression for the
+ack sanity check in on_ack(): play peer for a window, measure the pads the
+instance sends, send ONE ack for its newest frame + --ack-offset (default
+1000, a frame it never sent), measure again. An instance that accepts it keeps
+counting frames and keeps sending packets, with no pads in them, for the rest
+of the session. The mixed stream only catches that by luck, so this mode is
+its own pass/fail line.
 """
 import argparse
 import os
@@ -38,7 +46,11 @@ import time
 
 BAD = ("net: DESYNC", "peer silent", "peer left", "cannot roll back", "Segmentation",
        "FATAL", "abort", "Assertion")
-REJECT = ("net: dropped", "net: peer speaks protocol")
+# Refusals worth counting: the header/frame gates, plus the handshake's
+# per-class lines ("net: RULES rejected: ...", "net: READY ignored (...)",
+# net_handshake.c) and the resume lane's length check.
+REJECT = ("net: dropped", "net: peer speaks protocol", "net: RULES rejected",
+          "net: READY ignored", "net: RESUME of")
 
 
 def datagram(rng):
@@ -165,9 +177,17 @@ def datagram_session(rng, session, player, version, base, extremes=True):
         if rng.randrange(4) == 0:
             body = body[:-1]
     elif kind < 9:  # reliable: handshake types, user types, len vs body
+        # ponytail: 0x12 (REL_RESUME) is left out. on_rel dispatches it into
+        # net_resume_rel (net_reliable.c:134-135), where a 20-byte payload with
+        # a session or seed that is not ours ends the session with
+        # PC_NET_PEER_RESUME by design (net.c:706-730) -- a legitimate teardown,
+        # which is the opposite of what this mode asserts. Fuzzing that lane
+        # needs its own mode with "the session ends cleanly" as the pass line;
+        # tools/test_net_resume.c covers the arithmetic today.
         ln = rng.choice([0, 1, 255, 256, 257, 1024, 65535])
         body = hdr(ord("R")) + struct.pack(">BBH", rng.randrange(256),
-                                           rng.choice([0, 1, 2, 3, 0x10, 0x11, 0x12, 0xFF]), ln)
+                                           rng.choice([0, 1, 2, 3, 0x10, 0x11, 0x13, 0x14, 0xFF]),
+                                           ln)
         body += rng.randbytes(rng.choice([0, min(ln, 256), min(ln, 256) - 1, 256, 257, 1400]) % 1401)
     else:  # reliable ack, any seq, sometimes short/long
         body = hdr(ord("K")) + struct.pack(">B", rng.randrange(256)) + bytes(rng.choice([0, 0, 1]))
@@ -203,6 +223,107 @@ def peer_newest(sock, our_player):
             pads += d[25]  # count: Hdr(7) seq(2) newest/first/ck_frame(12) ck(4)
 
 
+def udp(bind_port):
+    """Our peer socket. The instance only reads datagrams from the address in
+    its MELEE_NET, so the source port is not optional in session mode."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    if bind_port:
+        s.bind(("127.0.0.1", bind_port))
+    s.setblocking(False)
+    return s
+
+
+class Peer:
+    """Play peer: drain the instance's packets, feed neutral pads up to the
+    newest frame it claims. `pads` is what it has sent us, `fed` the frame we
+    have fed it up to, `base` its newest frame."""
+
+    def __init__(self, s, port, session, player, version):
+        self.s, self.port = s, port
+        self.session, self.player, self.version = session, player, version
+        self.base = self.fed = self.pads = 0
+
+    def pump(self):
+        newest, got = peer_newest(self.s, self.player)
+        self.base = max(self.base, newest)
+        self.pads += got
+        if self.base > self.fed:
+            feed(self.s, self.port, self.session, self.player, self.version, self.base)
+            self.fed = self.base
+
+    def ack(self, frame):
+        """One Ack datagram for `frame` (src/pc/net_internal.h: Hdr 'A', seq, frame)."""
+        self.s.sendto(struct.pack(">BBIB", ord("A"), self.version, self.session, self.player) +
+                      struct.pack(ACK_BODY, self.base & 0xFFFF, frame), ("127.0.0.1", self.port))
+
+    def window(self, seconds):
+        """Play peer for `seconds`; returns the pads that arrived in that time."""
+        t0, first = time.time(), self.pads
+        while time.time() - t0 < seconds:
+            try:
+                self.pump()
+            except OSError:
+                pass  # ICMP unreachable if the target died; alive() decides
+            time.sleep(0.001)
+        return self.pads - first
+
+
+def ack_overshoot(port, pid, log_path, session, player=1, version=None, bind_port=None,
+                  window=5.0, offset=1000, expect="hold"):
+    """Deterministic regression for the ack sanity check in on_ack()
+    (src/pc/net.c:435-441). send_inputs() ships frames s_last_acked + 1 ..
+    s_wrote, so an ack for a frame the instance never sent leaves it with
+    first > newest: it keeps counting frames and keeps sending packets, but
+    with count 0 for the rest of the session. The peer is starved as dead as
+    by silence, and nothing in the log says so.
+
+    Play peer normally, measure the pads it sends over `window`, send exactly
+    ONE ack for base + `offset`, measure again. Guard present: the rate holds.
+    Guard removed: it collapses to whatever was already in flight.
+
+    The pad-flow floor in run() catches the same wedge only probabilistically:
+    it needs the mixed stream to land that ack and not a later INT32_MAX one,
+    which overflows s_last_acked + 1 into the negative clamp and heals it.
+
+    `offset`/`expect` exist to injection-validate the check itself: an ack for
+    an old frame (offset well below -RING) is harmless and must NOT collapse
+    the rate, so --ack-offset -600 --expect collapse has to report FAIL."""
+    version = VERSION if version is None else version
+    s = udp(bind_port)
+    start = os.path.getsize(log_path)
+    peer = Peer(s, port, session, player, version)
+    t0 = time.time()
+    while time.time() - t0 < 20 and peer.base < 60:
+        peer.window(0.05)  # warm up: the frames must be moving to measure anything
+    before = peer.window(window)
+    base = peer.base
+    peer.ack(base + offset)
+    after = peer.window(window)
+    ok = alive(pid)
+    with open(log_path, "rb") as f:
+        f.seek(start)
+        bad = [l for l in f.read().decode("utf-8", "replace").splitlines()
+               if any(b in l for b in BAD)]
+    held = before > 0 and after >= before / 2
+    print(f"net_fuzz ack-overshoot: session {session:08x} player {player} v{version}, "
+          f"its frame {base} (now {peer.base}), one ack for {base + offset} (base{offset:+d})")
+    print(f"  pads in {window} s before: {before}, after: {after}"
+          f" ({100 * after // before if before else 0}%), rate "
+          f"{'held' if held else 'COLLAPSED'}, expected {expect}, pid {pid} "
+          f"{'alive' if ok else 'DEAD'}")
+    for l in bad[:6]:
+        print("  " + l.strip())
+    if before < 300:
+        print(f"  FAIL: only {before} pads before the ack; nothing was measured")
+        return False
+    if held != (expect == "hold"):
+        print("  FAIL: " + ("one bogus ack starved the peer (on_ack() lost its "
+                            "frame <= s_wrote check)" if expect == "hold" else
+                            "the rate held, so this ack proves nothing about the guard"))
+        return False
+    return ok and not bad
+
+
 def alive(pid):
     try:
         with open(f"/proc/{pid}/status") as f:
@@ -215,29 +336,22 @@ def run(port, pid, log_path, seconds=30, bind_port=None, seed=1, session=None, p
         version=None):
     version = VERSION if version is None else version
     rng = random.Random(seed)
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    if bind_port:
-        s.bind(("127.0.0.1", bind_port))
-    s.setblocking(False)
+    s = udp(bind_port)
     start = os.path.getsize(log_path)
     t0 = time.time()
     n = 0
-    base = fed = 0  # session mode: the instance's newest frame; what we fed it
-    pads, mid = 0, None  # pads it sent back; (pads, fed) when the extremes start
+    peer = Peer(s, port, session, player, version)
+    mid = None  # (pads it sent back, frames fed) when the extremes start
     while time.time() - t0 < seconds:
         extremes = session is not None and time.time() - t0 > seconds / 2
         if extremes and mid is None:
-            mid = (pads, fed)
+            mid = (peer.pads, peer.fed)
         try:
             if session is None:
                 s.sendto(datagram(rng), ("127.0.0.1", port))
             else:
-                newest, got = peer_newest(s, player)
-                base, pads = max(base, newest), pads + got
-                if base > fed:
-                    feed(s, port, session, player, version, base)
-                    fed = base
-                s.sendto(datagram_session(rng, session, player, version, base, extremes),
+                peer.pump()
+                s.sendto(datagram_session(rng, session, player, version, peer.base, extremes),
                          ("127.0.0.1", port))
         except OSError:
             pass  # ICMP port unreachable surfaces here if the target died; alive() decides
@@ -252,7 +366,7 @@ def run(port, pid, log_path, seconds=30, bind_port=None, seed=1, session=None, p
     rejects = [l for l in new if any(r in l for r in REJECT)]
     bad = [l for l in new if any(b in l for b in BAD)]
     print(f"net_fuzz: {n} datagrams in {seconds} s to :{port}"
-          f"{f' session {session:08x} player {player} v{version}, fed to frame {fed}, {pads} pads back' if session is not None else ''}"
+          f"{f' session {session:08x} player {player} v{version}, fed to frame {peer.fed}, {peer.pads} pads back' if session is not None else ''}"
           f", pid {pid} {'alive' if ok else 'DEAD'}, {len(rejects)} reject lines, {len(bad)} bad lines")
     for l in rejects[:6] + bad[:6]:
         print("  " + l.strip())
@@ -281,19 +395,40 @@ def main():
     ap.add_argument("--session", help="hex session id: valid headers, fuzz the bodies; "
                                       "'auto' with --launch reads it from the log")
     ap.add_argument("--player", type=int, default=1, help="player byte to claim (the remote's)")
-    ap.add_argument("--version", type=int, default=VERSION, help="protocol version byte")
+    ap.add_argument("--version", type=int, default=None,
+                    help="protocol version byte (default: the proto the instance reports with "
+                         "--launch, else PC_NET_PROTO_VERSION from src/pc/net.h). A build older "
+                         "than the header speaks the older version, and every datagram at the "
+                         "header's version dies at the version gate.")
+    ap.add_argument("--attack", choices=["mixed", "ack-overshoot"], default="mixed",
+                    help="mixed: the random stream. ack-overshoot: the deterministic "
+                         "on_ack() regression (needs a session; --seconds is the window)")
+    ap.add_argument("--ack-offset", type=int, default=1000,
+                    help="ack-overshoot: frames past the instance's newest to ack")
+    ap.add_argument("--expect", choices=["hold", "collapse"], default="hold",
+                    help="ack-overshoot: what the pad rate must do (see --help of the mode)")
     args = ap.parse_args()
     session = None
     if args.session not in (None, "auto"):
         session = int(args.session, 16)
+    window = min(args.seconds / 2.0, 5.0) if args.attack == "ack-overshoot" else 0
+
+    def go(pid, log_path):
+        if args.attack == "mixed":
+            return run(args.port, pid, log_path, args.seconds,
+                       args.bind if session is not None else None, session=session,
+                       player=args.player, version=args.version)
+        if session is None:
+            sys.exit("--attack ack-overshoot needs --session (a valid header, or 'auto')")
+        return ack_overshoot(args.port, pid, log_path, session, args.player, args.version,
+                             args.bind, window, args.ack_offset, args.expect)
+
     if not args.launch:
         if args.pid is None or args.log is None:
             sys.exit("--pid and --log are required without --launch")
         if args.session == "auto":
             sys.exit("--session auto needs --launch")
-        sys.exit(0 if run(args.port, args.pid, args.log, args.seconds,
-                          args.bind if session is not None else None, session=session,
-                          player=args.player, version=args.version) else 1)
+        sys.exit(0 if go(args.pid, args.log) else 1)
 
     import shutil
     sys.path.insert(0, here)
@@ -305,14 +440,19 @@ def main():
         if not inst.wait_log(r"net: rollback with", 60):
             print("net_fuzz: instance never opened its socket")
             sys.exit(1)
+        # "net: rollback with ... session f2a239b5, proto 3": a build older than
+        # the header still speaks its own version, and the session id is on the
+        # same line.
+        banner = re.search(r"session ([0-9a-f]{8}), proto (\d+)", inst.text())
         if args.session == "auto":
-            session = int(re.search(r"session ([0-9a-f]{8})", inst.text()).group(1), 16)
-        if session is None:
+            session = int(banner.group(1), 16)
+        if args.version is None and banner is not None:
+            args.version = int(banner.group(2))
+        if session is None and args.attack == "mixed":
             time.sleep(15)  # past the movie; the title screen then idles at frame 0
         # else: feed at once. The instance blocks in its frame-0 wait right after
         # connecting, and our first valid datagram starts its 7 s silence clock.
-        ok = run(args.port, inst.proc.pid, inst.log_path, args.seconds, args.bind, session=session,
-                 player=args.player, version=args.version)
+        ok = go(inst.proc.pid, inst.log_path)
     finally:
         inst.kill()
     print("net_fuzz: " + ("PASS" if ok else "FAIL"))

@@ -144,10 +144,11 @@ typedef struct Ack {
 
 /* Reliable lobby message (stop-and-wait, net_reliable.c). */
 #define REL_MAX 256
+#define REL_RESUME 0x12    /* net.c's resume exchange, dispatched by on_rel */
 typedef struct Rel {
     Hdr h;                 /* 'R' */
     uint8_t seq;
-    uint8_t type;          /* < 0x10 handled by the handshake, else for the caller */
+    uint8_t type;          /* < 0x10 the handshake, REL_RESUME net.c, else the caller */
     uint16_t len;
     uint8_t payload[REL_MAX];
 } __attribute__((packed)) Rel;
@@ -166,13 +167,34 @@ typedef struct Bye {
 typedef struct Rules {
     uint32_t seed;
     int32_t start_frame;
+    uint64_t nonce;        /* the host's per-session nonce, from the platform CSPRNG */
     GameRules game;
     uint8_t item_freq;
     uint64_t item_mask;
     uint32_t stage_mask;
     uint8_t frozen_stadium;
-    uint32_t hash;         /* FNV of the wire image above; the guest recomputes it after applying */
+    uint32_t hash;         /* rules_hash() of the wire image above; the guest recomputes it */
 } __attribute__((packed)) Rules;
+
+/* Payload of the READY reply (net_handshake.c): the guest's own nonce and
+ * the host's echoed back, so the host can tell its live peer from a replay
+ * of an older session's READY. */
+typedef struct Ready {
+    uint64_t nonce;        /* the guest's */
+    uint64_t echo;         /* Rules.nonce as the guest received it */
+    uint32_t hash;         /* ready_hash() of the wire image above */
+} __attribute__((packed)) Ready;
+
+/* Payload of the RESUME message (reliable REL_RESUME, net.c): what the
+ * sender still holds after an interruption. Every field is 32-bit, so the
+ * big-endian conversion is one loop over the image. */
+typedef struct Resume {
+    uint32_t session;      /* the sender's session id: a restarted peer's differs */
+    uint32_t seed;         /* the agreed seed: another match cannot be resumed into */
+    int32_t newest;        /* newest frame of its own input it still holds */
+    int32_t have;          /* newest contiguous frame it holds of OURS */
+    int32_t frame;         /* the frame its game thread is parked on (diagnostics) */
+} __attribute__((packed)) Resume;
 
 _Static_assert(sizeof(WirePad) == 8, "wire layout");
 _Static_assert(sizeof(Hdr) == 7, "wire layout");
@@ -180,7 +202,9 @@ _Static_assert(sizeof(Packet) == 26 + REDUNDANCY * 8, "wire layout");
 _Static_assert(sizeof(Ack) == 13, "wire layout");
 _Static_assert(sizeof(Rel) == 11 + REL_MAX, "wire layout");
 _Static_assert(sizeof(RelAck) == 8 && sizeof(Bye) == 8, "wire layout");
-_Static_assert(sizeof(Rules) == 8 + sizeof(GameRules) + 18, "wire layout");
+_Static_assert(sizeof(Rules) == 16 + sizeof(GameRules) + 18, "wire layout");
+_Static_assert(sizeof(Ready) == 20, "wire layout");
+_Static_assert(sizeof(Resume) == 20 && sizeof(Resume) % 4 == 0, "wire layout");
 
 /* Datagrams parked by the simulator; release_ns 0 marks a free slot. Sent in
  * release order, so plain delay stays FIFO and jitter reorders. */
@@ -269,6 +293,10 @@ void recv_inputs(void);
 int scene_kind(void);
 bool in_fight(void);
 
+/* A REL_RESUME payload from the peer (on_rel dispatches it here instead of
+ * queueing it for the caller); game thread, like the whole receive side. */
+void net_resume_rel(const void* payload, int len);
+
 /* One sendto with errno/WSA translation and the sock_err counter; used by
  * the senders here and the link simulator's flush (net_sim.c). Caller holds
  * tx_lock. Returns bytes sent, or -1 on any error (transient or logged). */
@@ -284,7 +312,14 @@ void wire_packet(Packet* pk);
 void wire_ack(Ack* a);
 void wire_rel(Rel* r);
 void wire_rules(Rules* ru);
-uint32_t rules_hash(Rules ru);
+void wire_ready(Ready* rd);
+/* Handshake hashes: FNV over the payload's wire image with the session id
+ * folded in, so a payload captured from one session cannot validate in
+ * another. Rules' image carries the host nonce and Ready's carries both, so
+ * between them the session id and both nonces are bound; RULES cannot bind
+ * the guest's nonce because it does not exist yet when RULES is sent. */
+uint32_t rules_hash(Rules ru, uint32_t session);
+uint32_t ready_hash(Ready rd, uint32_t session);
 Hdr hdr(uint8_t magic);
 bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b);
 
@@ -323,6 +358,9 @@ void sync_reset(void);
 bool snapshot_take(Snapshot* s, int32_t frame);
 const char* snapshot_unusable(const Snapshot* s);
 void snapshot_restore(const Snapshot* s);
+/* Non-NULL when this platform's linker cannot bracket the decomp's statics
+ * (Windows, Apple): snapshot_take refuses and the session runs lockstep. */
+const char* snapshot_state_region_missing(void);
 Snapshot* snap_slot(int32_t f);           /* rollback ring entry for frame f */
 void snaps_free(void);
 void snap_stats_report(void);

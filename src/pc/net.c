@@ -13,6 +13,7 @@
  *   MELEE_NET_PORT=n             local UDP port (default 41000)
  *   MELEE_NET_PLAYER=0|1         which controller port the local player drives
  *   MELEE_NET_DELAY=n|auto       input delay in frames (default auto: from ping and jitter)
+ *   MELEE_NET_RECONNECT_MS=ms    resume an interrupted session for this long (default 15000, 0 off)
  *   MELEE_NET_SIM_LOSS=percent   drop that share of outgoing packets
  *   MELEE_NET_SIM_DELAY_MS=ms    hold every outgoing packet that long
  *   MELEE_NET_SIM_DELAY_RX_MS=ms hold every incoming packet that long (asymmetric links)
@@ -73,6 +74,16 @@ static int s_loss_pct;                   /* round-trip loss of the last window *
 static int s_rb_depth_cur, s_rb_depth_recent; /* deepest rollback this second / the last */
 static int32_t s_stall_frame = -1000;    /* frame that ended a stall > 500 ms */
 
+/* Reconnect phase; the machine and the numbers are down in "resume after an
+ * interruption", these live here because send_inputs and fresh_tick read
+ * them. MELEE_NET_RECONNECT_MS overrides the window at connect. */
+#define RECONNECT_MS 15000
+enum { RC_NONE, RC_ACTIVE, RC_FAILED };
+static int s_rc;                         /* reconnect phase */
+static uint64_t s_rc_ns;                 /* when the phase opened */
+static bool s_rc_sent;                   /* our RESUME is out for this phase */
+static long s_rc_window_ms = RECONNECT_MS;
+
 static int32_t s_wrote = -1;             /* newest local frame written to s_local_ring */
 static uint64_t s_send_ns;               /* when the newest local frame first went out */
 static int32_t s_send_frame = -1;
@@ -106,8 +117,12 @@ static unsigned s_sock_err;
 static bool s_warn_sock;
 
 /* Adaptive redundancy: unacked frames repeated per input packet, clamped to
- * loss and rollback depth; the value in force is reported as `red`. */
+ * loss and rollback depth; the value in force is reported as `red`. The
+ * floor is normally REDUNDANCY_FLOOR and rises to the full window while a
+ * reconnect refills a gap, so send_inputs pays a load rather than a test. */
+#define REDUNDANCY_FLOOR 4
 static int s_red_target = REDUNDANCY;
+static int s_red_floor = REDUNDANCY_FLOOR;
 
 /* Rollback re-run budget: at most RESIM_BUDGET re-run ticks per present, the
  * rest spill to the next present (snapshot's s_resim_splits). A full pad
@@ -292,10 +307,12 @@ static void send_inputs(void) {
     }
     /* Repeat only as many unacked frames as loss and rollback depth warrant,
      * clamped to REDUNDANCY: a clean link ships the floor, a lossy or bursty
-     * one widens toward the full window. */
-    int target = 4 + 2 * s_loss_pct + s_rb_depth_recent;
-    if (target < 4) {
-        target = 4;
+     * one widens toward the full window. A reconnect refills a gap of up to
+     * a whole ring, and every packet of it costs a round trip, so it raises
+     * the floor to the top of the window for the duration. */
+    int target = s_red_floor + 2 * s_loss_pct + s_rb_depth_recent;
+    if (target < s_red_floor) {
+        target = s_red_floor;
     }
     if (target > REDUNDANCY) {
         target = REDUNDANCY;
@@ -524,7 +541,7 @@ static void rx_dispatch(void* buf, int n) {
             return;
         }
         s_peer_left = true;
-        s_status = u->bye.reason <= PC_NET_PEER_INCOMPATIBLE ? u->bye.reason : PC_NET_PEER_LEFT;
+        s_status = u->bye.reason <= PC_NET_PEER_RESUME ? u->bye.reason : PC_NET_PEER_LEFT;
         pc_log_line("net: peer left (reason %d) at frame %d", s_status, net.frame);
         break;
     default:
@@ -619,8 +636,208 @@ static void check_desync(void) {
     }
 }
 
-/* Block until the remote input for `need` is here. False on timeout or
- * when the peer announced it is gone (s_status says which). */
+/* ---- resume after an interruption --------------------------------------
+ * A silence longer than STALL_TIMEOUT_MS used to end the session outright,
+ * so a two-second Wi-Fi hiccup killed a match both peers could have
+ * finished: the game thread is merely parked in wait_remote(), every byte
+ * of game state is intact and both input rings still hold their last RING
+ * frames. The stall timeout now opens a reconnect phase instead. The
+ * socket, the 4 ms transmit timer and the 16 ms resends of the wait loop
+ * stay exactly as they are, so the peer keeps being probed; on top of that
+ * each side that opens a phase states what it holds in exactly one reliable
+ * REL_RESUME (a statement, never answered: see net_resume_rel). Both sides
+ * refill the gap through the ordinary input path (send_inputs' unacked
+ * window, widened to REDUNDANCY while the phase is open) and the wait ends
+ * at the frame it was waiting for, the frames that were predicted before
+ * the interruption being rolled back as usual.
+ *
+ * The rings bound what can be resumed and both sides' rings are frozen
+ * during the phase: whoever is not parked can only run WINDOW + delay
+ * frames past the other before it parks too, so one check at exchange time
+ * cannot go stale.
+ *
+ * None of this runs in the common case and the frame loop grows no branch
+ * for it: the phase is entered from the stall path, the refill rides on the
+ * redundancy floor send_inputs already loads, and a refused exchange is
+ * noticed by the very next wait (which is at most WINDOW frames away, since
+ * a parked peer stops producing input).
+ *
+ * MELEE_NET_RECONNECT_MS bounds the phase. The default is RECONNECT_MS: a
+ * Wi-Fi roam, a DHCP renew or a hotspot handover completes well inside
+ * 10 s, and 15 s keeps the whole outage (7 s stall timeout + window) near
+ * 22 s, about as long as a player waits before quitting anyway. 0 disables
+ * resume, i.e. the hard disconnect this file did before. */
+
+/* Resume payload in wire order (big-endian, like every wire field). The
+ * codec's be32() is private to net_wire.c and every field here is 32 bits,
+ * so the image swaps as one array; that is its own inverse, so this serves
+ * both send and receive. */
+static void wire_resume(Resume* r) {
+    uint8_t* p = (uint8_t*) r;
+    for (size_t i = 0; i < sizeof *r; i += 4) {
+        uint8_t b0 = p[i], b1 = p[i + 1];
+        p[i] = p[i + 3];
+        p[i + 1] = p[i + 2];
+        p[i + 2] = b1;
+        p[i + 3] = b0;
+    }
+}
+
+/* What we hold, so the peer can decide whether the gap is coverable. Queued
+ * once per phase: the reliable channel resends it every 250 ms until its ack
+ * arrives, so a lossy link needs no help here. */
+static void resume_send(void) {
+    Resume r = { net.session, net.seed, s_wrote, s_remote_have, net.frame };
+    wire_resume(&r);
+    s_rc_sent = pc_net_send_reliable(REL_RESUME, &r, sizeof r);
+}
+
+/* Refuse to resume: end the session with a status of its own rather than
+ * run on with a gap neither ring can fill. The BYE pc_net_disconnect()
+ * sends carries the same status, so the other side reports it too. */
+static void resume_fail(void) {
+    s_rc = RC_FAILED;
+    s_status = PC_NET_PEER_RESUME;
+}
+
+/* Only an established session can be resumed, and waiting on one that is not
+ * actively harms the caller: the lobby reports a failure from pc_lan_poll(),
+ * which runs on the very thread parked in wait_remote(), so holding the
+ * phase open through a handshake that will never finish turns a 7 s "connect
+ * failed" into a 22 s hang (tools/net_lan_test.py host_dies, where the host
+ * is killed while the guest is still connecting at frame 3). Before the
+ * handshake there is also nothing to resume: no agreed seed, no agreed start
+ * frame, and rings holding a couple of menu frames.
+ *
+ * HS_DONE is the lobby's own "established" (net_handshake.c's hs_done()
+ * pins seed, start_frame and ck_from); HS_PENDING and HS_FAILED mean the
+ * parameters are still unagreed, whether or not the guest has adopted the
+ * host's session id. The MELEE_NET path runs no handshake at all and stays
+ * HS_IDLE for the whole session, so there idleness cannot mean "not yet" --
+ * except in a lobby session's first frames, before pc_lan_poll() has
+ * claimed the handshake. The lobby claims it on its first poll, so a
+ * session still idle RESUME_LOBBY_GRACE frames in has no lobby behind it.
+ * session_reset() starts every session at frame 0, so net.frame is its age. */
+#define RESUME_LOBBY_GRACE 8 /* ~130 ms: the lobby polls every frame */
+
+static bool session_established(void) {
+    if (net.hs != HS_IDLE) {
+        return net.hs == HS_DONE;
+    }
+    return net.frame > RESUME_LOBBY_GRACE;
+}
+
+/* The peer's RESUME (net_reliable.c dispatches it here; game thread).
+ *
+ * One-way by design: a RESUME is a statement, never a request, and this
+ * never sends anything. The receiver has both sides' numbers in front of it
+ * -- s_wrote - r.have is what the peer needs from us, r.newest -
+ * s_remote_have what we need from it -- so one message clears or refuses the
+ * whole exchange, and when both peers stall (the usual case) each opens its
+ * own phase and states its own numbers anyway. An earlier version answered
+ * a RESUME whenever no phase was open on this side; both sides then answered
+ * each other's answers for the rest of the match, ~60 logged lines a second
+ * inside the frame loop (Main's integration run: 2686 copies of the last
+ * line below from a handful of interruptions). */
+void net_resume_rel(const void* payload, int len) {
+    Resume r;
+    if (len != (int) sizeof r) {
+        pc_log_line("net: RESUME of %d bytes ignored (expected %d)", len, (int) sizeof r);
+        return;
+    }
+    /* Not established yet: there is nothing to resume, and the seed we would
+     * compare below is not the agreed one, so a mismatch here would fail the
+     * session for the wrong reason. Our own wait ends it fast anyway. */
+    if (!session_established()) {
+        pc_log_line("net: RESUME at frame %d ignored, the session is not established (hs %d)",
+                    net.frame, net.hs);
+        return;
+    }
+    memcpy(&r, payload, sizeof r);
+    wire_resume(&r);
+    /* A restarted peer or a different match cannot be resumed into: every
+     * frame we would refill was simulated from another seed. */
+    if (r.session != net.session || r.seed != net.seed) {
+        pc_log_line("net: cannot resume, the peer answers for session %08x seed %u (ours %08x "
+                    "seed %u)", r.session, r.seed, net.session, net.seed);
+        resume_fail();
+        return;
+    }
+    /* Each side can only serve frames still in its RING-frame ring. In
+     * int64 so a corrupt payload at the int32 extremes cannot overflow the
+     * comparison. */
+    if ((int64_t) s_wrote - r.have > RING || (int64_t) r.newest - s_remote_have > RING) {
+        pc_log_line("net: cannot resume at frame %d, the gap outruns the %d-frame ring (peer "
+                    "holds our %d of %d, we hold its %d of %d)",
+                    net.frame, RING, r.have, s_wrote, s_remote_have, r.newest);
+        resume_fail();
+        return;
+    }
+    /* The peer may hold frames whose acks died with the link: starting the
+     * refill above them saves a round trip. Same guard as on_ack, it cannot
+     * hold a frame we never sent. */
+    if (r.have > s_last_acked && r.have <= s_wrote) {
+        s_last_acked = r.have;
+    }
+    if (r.newest > s_remote_newest) {
+        s_remote_newest = r.newest;
+    }
+    pc_log_line("net: peer resumes from frame %d, holds our %d, newest %d (we are at %d, hold "
+                "its %d, newest %d)", r.frame, r.have, r.newest, net.frame, s_remote_have,
+                s_wrote);
+}
+
+/* The stall timeout fired: open the phase instead of dropping the session.
+ * False when resume is off or the session was never established, and the
+ * caller then times out exactly as it did before this file grew a phase --
+ * same line, same status, same 7 s. */
+static bool resume_begin(uint64_t now) {
+    if (s_rc_window_ms <= 0 || !session_established()) {
+        return false;
+    }
+    s_rc = RC_ACTIVE;
+    s_rc_ns = now;
+    s_rc_sent = false;
+    s_red_floor = REDUNDANCY; /* every refill packet costs a round trip */
+    pc_log_line("net: interrupted at frame %d (peer silent %d ms), reconnecting for up to %ld ms",
+                net.frame, STALL_TIMEOUT_MS, s_rc_window_ms);
+    resume_send();
+    return true;
+}
+
+/* Once per wait-loop turn while the phase is open. False ends the session:
+ * the window expired, or the exchange was refused. */
+static bool resume_poll(uint64_t now) {
+    if (s_rc == RC_FAILED) {
+        return false;
+    }
+    if (!s_rc_sent) {
+        resume_send(); /* the reliable queue was full when the phase opened */
+    }
+    if (now - s_rc_ns > (uint64_t) s_rc_window_ms * 1000000ull) {
+        pc_log_line("net: resume window of %ld ms expired at frame %d", s_rc_window_ms, net.frame);
+        s_status = PC_NET_PEER_TIMEOUT; /* the session ends as it always did */
+        return false;
+    }
+    return true;
+}
+
+/* The peer's inputs are flowing again. */
+static void resume_end(uint64_t now) {
+    pc_log_line("net: resumed at frame %d after %.1f s (hold remote %d, its newest %d)",
+                net.frame, (now - s_rc_ns) / 1e9, s_remote_have, s_remote_newest);
+    s_rc = RC_NONE;
+    s_rc_sent = false;
+    s_red_floor = REDUNDANCY_FLOOR;
+}
+
+/* Block until the remote input for `need` is here. False when the session is
+ * over: the peer announced it is gone, the reconnect window expired or the
+ * interruption could not be resumed (s_status says which).
+ *
+ * An established session that falls silent past the stall timeout enters the
+ * reconnect phase above rather than ending; before the peer's first packet
+ * there is nothing to resume, so that wait keeps its own timeout. */
 static bool wait_remote(int32_t need) {
     if (s_remote_have >= need) {
         return true;
@@ -637,16 +854,24 @@ static bool wait_remote(int32_t need) {
             return false;
         }
         uint64_t now = SDL_GetTicksNS();
-        uint64_t limit = (s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS) * 1000000ull;
-        if (now - t0 > limit) {
-            s_status = PC_NET_PEER_TIMEOUT;
-            return false;
+        if (s_rc != RC_NONE) {
+            if (!resume_poll(now)) {
+                return false;
+            }
+        } else if (now - t0 > (s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS) * 1000000ull) {
+            if (!s_heard || !resume_begin(now)) {
+                s_status = PC_NET_PEER_TIMEOUT;
+                return false;
+            }
         }
         if (now - last_send > 16000000ull) {
             send_inputs(); /* peer may be waiting on us, or lost our packets */
             last_send = now;
         }
         SDL_DelayNS(500000);
+    }
+    if (s_rc != RC_NONE) {
+        resume_end(SDL_GetTicksNS());
     }
     uint64_t dt = SDL_GetTicksNS() - t0;
     if (dt > s_stall_ns_max) {
@@ -687,6 +912,8 @@ static void session_reset(void) {
     net.desync_reported = s_heard = s_peer_left = false;
     s_warn_src = s_warn_sess = s_warn_bad = false;
     s_status = PC_NET_PEER_OK;
+    s_rc = RC_NONE;
+    s_rc_sent = false;
     s_stalls = net.skips = s_advances = s_rollbacks = s_rb_lost = 0;
     s_rb_depth_max = s_rb_depth_cur = s_rb_depth_recent = 0;
     s_stall_ns_max = 0;
@@ -705,6 +932,7 @@ static void session_reset(void) {
     s_sock_err = 0;
     s_warn_sock = false;
     s_red_target = REDUNDANCY;
+    s_red_floor = REDUNDANCY_FLOOR;
     s_resim_run = 0;
     s_resim_eat = 0;
     s_resim_eat_logged = false;
@@ -779,6 +1007,9 @@ int pc_net_peer_status(void) {
 int pc_net_quality(void) {
     if (!net.active) {
         return 0;
+    }
+    if (s_rc == RC_ACTIVE) {
+        return 3; /* reconnecting; RC_FAILED is one tick from the disconnect */
     }
     if (s_peer_left || net.frame - s_stall_frame < 120) {
         return 2;
@@ -874,6 +1105,15 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
     }
     net.delay_next = net.delay;
     s_wrote = net.delay - 1; /* frames 0..delay-1 stay neutral on both sides */
+    /* 0 means "no resume phase at all", so it must survive the parse; a
+     * negative or unparseable value falls back to the default rather than
+     * silently disabling the feature. */
+    const char* rc_ms = getenv("MELEE_NET_RECONNECT_MS");
+    char* rc_end = NULL;
+    long rc_want = rc_ms != NULL ? strtol(rc_ms, &rc_end, 10) : RECONNECT_MS;
+    s_rc_window_ms = rc_ms != NULL && (rc_end == rc_ms || *rc_end != '\0' || rc_want < 0)
+                         ? RECONNECT_MS
+                         : rc_want;
     sim_env(bind_port);
     /* The host names the session; the guest takes it from the first packet. */
     net.session = net.local == 0 ? (uint32_t) (SDL_GetPerformanceCounter() ^ (uint64_t) getpid() << 20) | 1u : 0;
@@ -959,8 +1199,12 @@ static void snap_predicted(int32_t f) {
         return;
     }
     if (!snapshot_take(s, f)) {
+        /* Out of memory, or a platform whose linker cannot bracket the
+         * decomp's statics at all (net_snapshot.c). */
+        const char* why = snapshot_state_region_missing();
         barrier_raise(INT32_MAX);
-        pc_log_line("net: out of memory for snapshots at frame %d, lockstep from here", f);
+        pc_log_line("net: %s at frame %d, lockstep from here",
+                    why != NULL ? why : "out of memory for snapshots", f);
     }
 }
 
@@ -1101,7 +1345,9 @@ static void fresh_tick(PADStatus* head, bool raw) {
         bool lockstep = !in_fight() || net.frame <= net.rb_barrier;
         int32_t need = lockstep ? net.frame : net.frame - WINDOW;
         if (!wait_remote(need)) {
-            if (!s_peer_left) {
+            /* A refused resume logged its own reason, and the peer was not
+             * silent at all: its answer was simply unusable. */
+            if (!s_peer_left && s_rc != RC_FAILED) {
                 pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
                             s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
             }

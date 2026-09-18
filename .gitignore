@@ -29,3 +29,4 @@ platforms/android/release-signing.env
 # Proton/wine leavings from tools/run_proton.sh.
 vkd3d-proton.cache*
 steam_appid.txt
+local/

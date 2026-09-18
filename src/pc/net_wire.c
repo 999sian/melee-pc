@@ -97,16 +97,38 @@ void wire_rel(Rel* r) {
 void wire_rules(Rules* ru) {
     be32(&ru->seed);
     be32(&ru->start_frame);
+    be64(&ru->nonce);
     be32(&ru->game.unk_14);
     be64(&ru->item_mask);
     be32(&ru->stage_mask);
     be32(&ru->hash);
 }
 
-/* Hash of a Rules' wire image (everything before .hash). */
-uint32_t rules_hash(Rules ru) {
+void wire_ready(Ready* rd) {
+    be64(&rd->nonce);
+    be64(&rd->echo);
+    be32(&rd->hash);
+}
+
+/* Hash of a handshake payload's wire image (everything before .hash) with
+ * the session id folded in after it, big-endian like every wire field. The
+ * session binding is what stops a captured RULES/READY from validating in a
+ * later session; the nonces ride in the images themselves (Rules.nonce,
+ * Ready.nonce/.echo) and are checked by net_handshake.c. */
+static uint32_t hs_hash(const void* image, size_t n, uint32_t session) {
+    uint8_t be[4] = { (uint8_t) (session >> 24), (uint8_t) (session >> 16),
+                      (uint8_t) (session >> 8), (uint8_t) session };
+    return fnv1a(fnv1a(2166136261u, image, n), be, sizeof be);
+}
+
+uint32_t rules_hash(Rules ru, uint32_t session) {
     wire_rules(&ru);
-    return fnv1a(2166136261u, &ru, offsetof(Rules, hash));
+    return hs_hash(&ru, offsetof(Rules, hash), session);
+}
+
+uint32_t ready_hash(Ready rd, uint32_t session) {
+    wire_ready(&rd);
+    return hs_hash(&rd, offsetof(Ready, hash), session);
 }
 
 /* A header in wire order, ready to send. */

@@ -24,7 +24,11 @@ typedef struct PcLanPeer {
     char ip[46];                /* dotted IPv4 or IPv6 text */
     uint16_t port;              /* game UDP port */
     bool host;                  /* elected host */
-    bool compatible;            /* same protocol version and build (rev) */
+    /* Same protocol version, build (rev) and game image (disc): a peer that
+     * differs in any of the three is listed with the reason and never
+     * elected, so a region/revision/modified-ISO mismatch is caught in the
+     * lobby instead of desyncing in the match (src/pc/net_lan.c:156-193). */
+    bool compatible;
 } PcLanPeer;
 
 /* Start/stop announcing + browsing. Idempotent. */

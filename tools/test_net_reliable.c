@@ -27,6 +27,12 @@ Hdr hdr(uint8_t magic) { Hdr h = { magic, WIRE_VERSION, 0, 0 }; return h; }
 void wire_rel(Rel* r) { (void) r; }
 void tx(const void* buf, size_t len) { memcpy(s_out, buf, len); s_out_len = len; }
 void handshake_msg(uint8_t type, const uint8_t* p, int len) { (void) type; (void) p; (void) len; s_hs_msgs++; }
+static int s_resume_msgs, s_resume_len;
+void net_resume_rel(const void* payload, int len) {
+    s_resume_msgs++;
+    s_resume_len = len;
+    (void) payload;
+}
 void pc_log_line(const char* fmt, ...) {
     s_unexpected += strstr(fmt, "unexpected") != NULL;
     s_resend_logs += strstr(fmt, "resend #") != NULL;
@@ -142,6 +148,18 @@ int main(void) {
         rel_service();
     }
     assert(s_rel_tx[1].resends == 70 && s_resend_logs == 1 + 4);
+
+    /* REL_RESUME is net.c's own lane-1 type: dispatched inline and acked,
+     * never queued for the caller, and the lane's sequence keeps running so
+     * the caller's next message still arrives. */
+    rel_reset();
+    assert(pc_net_send_reliable(REL_RESUME, "resume", 6) && deliver());
+    assert(s_resume_msgs == 1 && s_resume_len == 6);
+    assert(recv_user() < 0);
+    ack();
+    assert(pc_net_send_reliable(0x10, "ping", 4) && out_seq() == 0x81 && deliver());
+    assert(recv_user() == 4 && s_resume_msgs == 1);
+    ack();
     puts("test_net_reliable: ok");
     return 0;
 }

@@ -17,7 +17,7 @@ extern "C" {
 /* Wire protocol version; a peer with another one is refused (both sides
  * report PEER_INCOMPATIBLE). Bump on any change to the packet layouts,
  * Rules or the handshake. */
-#define PC_NET_PROTO_VERSION 3
+#define PC_NET_PROTO_VERSION 4
 void pc_net_init(void);
 bool pc_net_active(void);
 /* Controller port the local player drives (0 = P1/host, 1 = P2/guest). */
@@ -65,14 +65,18 @@ bool pc_net_stats(int* ping_ms, int* delay_frames, unsigned* rollbacks);
 
 /* Link quality for the HUD/lobby: 0 stable, 1 warning (loss, jitter or
  * deep rollbacks in the last second), 2 stalling (a stall over 500 ms in the
- * last two seconds, or the peer announced it is leaving). */
+ * last two seconds, or the peer announced it is leaving), 3 reconnecting
+ * (the peer has been silent past the stall timeout and the session is being
+ * resumed, net.c's MELEE_NET_RECONNECT_MS). A reader that only knows 0-2
+ * must treat anything above 2 as at least as bad as 2. */
 int pc_net_quality(void);
 
 /* Why the last session ended (kept until the next connect): 0 still up /
  * never broke, 1 the peer left (BYE), 2 timeout, 3 desync, 4 incompatible
- * protocol version. */
+ * protocol version, 5 an interruption could not be resumed (the input gap
+ * outran the rings, or the peer answered for another session or seed). */
 enum { PC_NET_PEER_OK, PC_NET_PEER_LEFT, PC_NET_PEER_TIMEOUT, PC_NET_PEER_DESYNC,
-       PC_NET_PEER_INCOMPATIBLE };
+       PC_NET_PEER_INCOMPATIBLE, PC_NET_PEER_RESUME };
 int pc_net_peer_status(void);
 
 #ifdef __cplusplus

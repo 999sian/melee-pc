@@ -184,8 +184,39 @@ void dump_states_around(int32_t frame) {
  *   3. the RNG seed pointer (aurora-side static the game redirects).
  * ponytail: plain memcpy each time; dirty tracking only if the measured cost
  * breaks the rollback budget. */
+/* src/pc/melee_state.ld brackets the decomp's statics, but only the ELF links
+ * take it (CMakeLists.txt: Linux and Android). GNU ld for PE/COFF and ld64
+ * have no INSERT AFTER, so on Windows and Apple the four symbols have no
+ * definition: without them the link fails outright, and defining them as an
+ * empty span would be worse — snapshot_take would happily copy the heaps and
+ * silently omit every static, i.e. rollback into a desync. So they are
+ * defined here as an empty span on those platforms and snapshot_take refuses,
+ * which drops the session to lockstep for good (net.c snap_predicted raises
+ * the barrier to INT32_MAX). Netplay works there, at lockstep latency.
+ * ponytail: no rollback on Windows/Apple until the region is named another
+ * way; the upgrade path is per-object section renaming with objcopy at
+ * archive level, or a PE linker script if GNU ld accepts SECTIONS/INSERT for
+ * that target. */
+#ifdef MELEE_STATE_SECTIONS
 extern char __melee_data_start[], __melee_data_end[];
 extern char __melee_bss_start[], __melee_bss_end[];
+#else
+static char s_no_state_region;
+#define __melee_data_start (&s_no_state_region)
+#define __melee_data_end (&s_no_state_region)
+#define __melee_bss_start (&s_no_state_region)
+#define __melee_bss_end (&s_no_state_region)
+#endif
+
+/* Non-NULL when the platform cannot bracket the decomp's statics; the text is
+ * what net.c logs when it drops the session to lockstep. */
+const char* snapshot_state_region_missing(void) {
+#ifdef MELEE_STATE_SECTIONS
+    return __melee_data_end > __melee_data_start ? NULL : "empty .melee_data section";
+#else
+    return "this platform's linker cannot bracket the decomp's statics";
+#endif
+}
 
 /* Everything a snapshot covers, as it stands right now. */
 static int regions_now(Region* r) {
@@ -221,8 +252,13 @@ static unsigned s_resim_splits;          /* rollbacks that spilled into the next
 static int32_t s_oom_frame = -1;
 static bool s_oom_fired;
 
-/* False when the buffer could not be grown; the snapshot is then invalid. */
+/* False when the state region is unavailable or the buffer could not be
+ * grown; the snapshot is then invalid. */
 bool snapshot_take(Snapshot* s, int32_t frame) {
+    if (snapshot_state_region_missing() != NULL) {
+        s->frame = -1;
+        return false;
+    }
     static bool env_read;
     if (!env_read) {
         env_read = true;

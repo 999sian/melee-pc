@@ -201,11 +201,20 @@ elseif (NOT ANDROID)
     target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000
             -Wl,-T,${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
     set_property(TARGET melee APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
+    set(MELEE_STATE_SECTIONS ON)
 else ()
     # lld (NDK 26+) supports INSERT AFTER as well.
     target_link_options(melee PRIVATE -Wl,-z,max-page-size=16384
             -Wl,-T,${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
     set_property(TARGET melee APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
+    set(MELEE_STATE_SECTIONS ON)
+endif ()
+# Only those links bracket the decomp's statics with melee_state.ld, so only
+# they can snapshot them; elsewhere net_snapshot.c refuses to snapshot and the
+# session runs lockstep (see the comment there). PE/COFF and ld64 have no
+# INSERT AFTER, which is why this is a platform split and not an oversight.
+if (MELEE_STATE_SECTIONS)
+    target_compile_definitions(melee PRIVATE MELEE_STATE_SECTIONS=1)
 endif ()
 
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)

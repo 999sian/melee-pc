@@ -267,12 +267,14 @@ static int lobbyCompatible(const PcLanPeer* peers, int n)
 static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
                           const PcLanPeer* peers, int n)
 {
-    /* Indexed by pc_net_quality() 0/1/2 and pc_net_peer_status() 0..4;
+    /* Indexed by pc_net_quality() 0..3 and pc_net_peer_status() 0..5;
      * anything outside stays blank. */
-    static const char* const link_word[] = { "stable", "warning", "stalling" };
+    static const char* const link_word[] = { "stable", "warning", "stalling",
+                                             "reconnecting" };
     static const char* const peer_word[] = { "", "Peer left",
                                              "Connection timed out", "Desync",
-                                             "Incompatible version" };
+                                             "Incompatible version",
+                                             "Could not resume" };
     static char last_status[ONLINE_LOBBY_MSG_LEN];
     char status[ONLINE_LOBBY_MSG_LEN];
     bool connected = state == 1 || state == 2;

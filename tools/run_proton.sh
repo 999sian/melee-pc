@@ -20,4 +20,29 @@ export STEAM_COMPAT_DATA_PATH="${STEAM_COMPAT_DATA_PATH:-/tmp/proton_melee_test}
 export WINEDEBUG="-all"
 mkdir -p "${STEAM_COMPAT_DATA_PATH}"
 
-exec "${PROTON}" run "${ROOT_DIR}/build-win/melee.exe" "$@"
+# `exec` hands our PID to the proton wrapper, but the wine child is a separate
+# process: `timeout`, Ctrl-C or a harness kill reaps only the wrapper and
+# melee.exe survives. A leaked instance keeps announcing itself over mDNS and
+# will contaminate anyone else's LAN discovery runs (it did exactly that during
+# the M0 determinism work). So run it in the background and tear the prefix
+# down on every exit path.
+child=
+cleanup() {
+    local rc=$?
+    trap - EXIT INT TERM
+    if [[ -n "${child}" ]]; then
+        kill "${child}" 2>/dev/null || true
+    fi
+    local wineserver="$(dirname "${PROTON}")/files/bin/wineserver"
+    if [[ -x "${wineserver}" ]]; then
+        WINEPREFIX="${STEAM_COMPAT_DATA_PATH}/pfx" "${wineserver}" -k 2>/dev/null || true
+    fi
+    # Belt and braces: anything still holding this exact image path.
+    pkill -f "${ROOT_DIR}/build-win/melee.exe" 2>/dev/null || true
+    exit "${rc}"
+}
+trap cleanup EXIT INT TERM
+
+"${PROTON}" run "${ROOT_DIR}/build-win/melee.exe" "$@" &
+child=$!
+wait "${child}"

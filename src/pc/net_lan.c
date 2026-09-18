@@ -7,15 +7,18 @@
  * `<name>.local.`) on IPv4 and IPv6 (whichever sockets opened) and answers
  * PTR queries for the service, so a fresh instance sees everyone at once.
  * TXT:
- *   v=<protocol> rev=<build> id=<install id, 64-bit hex> name=<hostname>
- *   port=<game udp port> state=lobby|ready|starting gen=<start attempt>
+ *   v=<protocol> rev=<build> disc=<game image id, 32-bit hex>
+ *   id=<install id, 64-bit hex> name=<hostname> port=<game udp port>
+ *   state=lobby|ready|starting gen=<start attempt>
  *   host=<our ip:port> peer=<guest id>                  (last two when starting)
+ * Every value is validated into a scratch record first (parse_txt), so a
+ * malformed or crafted announce is dropped whole rather than applied in part.
  * Peers are keyed by install id and connected to at the datagram's source
  * address (IPv4 preferred when a peer is seen on both families; link-local
  * IPv6 carries its %scope). Our own looped-back record is skipped; a peer
- * silent for 5 s, or one that sent a goodbye (ttl 0), is dropped. A peer
- * with another protocol version or build is listed as incompatible and
- * never picked. The address in our A/AAAA/host= is the interface on the
+ * silent for 5 s, or one that sent a goodbye (ttl 0), is dropped. A peer on
+ * another protocol version, build (rev=) or game image (disc=) is listed as
+ * incompatible and never picked. The address in our A/AAAA/host= is the
  * route to the mDNS group (connected UDP probe + getsockname), unless that
  * is a container/VPN one and a plain one exists.
  *
@@ -48,8 +51,13 @@
  * list us and see our addresses but get no unicast replies); one address
  * per family. */
 #include "pc/net_lan.h"
+#include "pc/android_hooks.h"
 #include "pc/net.h"
 #include "pc/pc.h"
+
+#include <aurora/dvd.h>
+#include <dolphin/dvd.h>
+#include <xxhash.h>
 
 #include <SDL3/SDL_timer.h>
 #include <stdio.h>
@@ -145,6 +153,49 @@ static const char* state_txt(void) {
     return s_hosting && (s_state == 1 || s_state == 2) ? "starting" : "lobby";
 }
 
+/* Identity of the game image, so two peers on different discs (region,
+ * revision, or a modified ISO) are incompatible in the lobby instead of
+ * desyncing in the match. XXH3 over the boot info the DVD layer read out of
+ * the image (game id, disc number, disc version, streaming flags), the base
+ * FST entry count and the disc's main.dol, folded to 32 bits because the
+ * announce already carries eight TXT keys and an mDNS answer is size
+ * constrained. Both blobs are already in memory (aurora keeps the partition
+ * metadata for the life of the disc), so nothing is read off the image here;
+ * computed once and cached.
+ *
+ * ponytail: pins the code and the file-table shape, not every file's bytes,
+ * so a data-only mod that leaves the FST shape alone (a swapped Pl*.dat of
+ * the same size) still matches. Fold in every base FST entry's name and
+ * size when that shows up. */
+static const char* disc_id(void) {
+    static char id[9];
+    if (id[0] != '\0') {
+        return id;
+    }
+    const DVDDiskID* disk = DVDGetCurrentDiskID();
+    s32 dol_size = 0;
+    const u8* dol = DVDGetDOLLocation(&dol_size);
+    if (disk == NULL || dol == NULL || dol_size <= 0) {
+        return "0"; /* no disc open: only before the launcher hands one over */
+    }
+    uint32_t entries = (uint32_t) aurora_dvd_base_entry_count();
+    uint32_t bytes = (uint32_t) dol_size;
+    uint8_t meta[18];
+    memcpy(meta, disk->gameName, sizeof disk->gameName);
+    memcpy(meta + 4, disk->company, sizeof disk->company);
+    meta[6] = disk->diskNumber;
+    meta[7] = disk->gameVersion;
+    meta[8] = disk->streaming;
+    meta[9] = disk->streamingBufSize;
+    for (int i = 0; i < 4; i++) { /* spelled out: the peers can be x86 and ARM */
+        meta[10 + i] = (uint8_t) (entries >> (24 - 8 * i));
+        meta[14 + i] = (uint8_t) (bytes >> (24 - 8 * i));
+    }
+    uint64_t h = XXH3_64bits_withSeed(dol, (size_t) dol_size, XXH3_64bits(meta, sizeof meta));
+    snprintf(id, sizeof id, "%08x", (uint32_t) (h ^ h >> 32));
+    return id;
+}
+
 static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
     char port[8], id[20], peer[20], host[64], gen[12];
     snprintf(port, sizeof port, "%u", s_port);
@@ -157,19 +208,20 @@ static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
                           .type = MDNS_RECORDTYPE_PTR,
                           .data.ptr.name = MSTR(s_instance) };
 #define TXT(k, v) { .name = MSTR(s_instance), .type = MDNS_RECORDTYPE_TXT, .data.txt = { MSTR(k), MSTR(v) } }
-    mdns_record_t extra[12] = {
+    mdns_record_t extra[13] = { /* SRV + 8 TXT + host/peer + A + AAAA */
         { .name = MSTR(s_instance),
           .type = MDNS_RECORDTYPE_SRV,
           .data.srv = { 0, 0, s_port, MSTR(s_hostname) } },
         TXT("v", s_proto),
         TXT("rev", pc_app_rev()),
+        TXT("disc", disc_id()),
         TXT("id", id),
         TXT("name", s_name),
         TXT("port", port),
         TXT("state", state),
         TXT("gen", gen),
     };
-    size_t n = 8;
+    size_t n = 9;
     if (strcmp(state, "starting") == 0) {
         extra[n++] = (mdns_record_t) TXT("host", host);
         extra[n++] = (mdns_record_t) TXT("peer", peer);
@@ -241,10 +293,226 @@ static void drop(int i) {
     s_peers[i] = s_peers[--s_n];
 }
 
-static void txt_copy(char* dst, size_t cap, mdns_string_t v) {
-    size_t n = v.length < cap - 1 ? v.length : cap - 1;
-    memcpy(dst, v.str, n);
-    dst[n] = '\0';
+/* ---- TXT record -------------------------------------------------------
+ * Announces arrive once a second from anything on the link, so this is the
+ * module's whole attack surface. Every value is bounded and validated into a
+ * scratch Txt before one field of it reaches the peer table, and a record
+ * that breaks any rule is dropped whole: an existing entry is never left
+ * half-overwritten by a crafted follow-up.
+ *
+ * A peer that claims another protocol version is held to the identity keys
+ * only (v/id/name/port) and listed as incompatible on v= alone, so a future
+ * build that adds a key still shows up in the lobby with a reason instead of
+ * vanishing from it (RFC 6763 §6.6). A peer claiming our version must send
+ * exactly our key set: the TXT layout is part of PC_NET_PROTO_VERSION. */
+enum { K_V, K_REV, K_DISC, K_ID, K_NAME, K_PORT, K_STATE, K_GEN, K_HOST, K_PEER, K_N };
+#define KEY(s) { s, sizeof s - 1 }
+static const struct { const char* k; size_t len; } k_txt[K_N] = {
+    KEY("v"),    KEY("rev"),   KEY("disc"), KEY("id"),   KEY("name"),
+    KEY("port"), KEY("state"), KEY("gen"),  KEY("host"), KEY("peer"),
+};
+#undef KEY
+#define KBIT(k) (1u << (k))
+#define TXT_MAX_PAIRS 12 /* our own record is 8 keys, 10 while starting */
+
+/* Rejection classes, one per reason: a bad announcer repeats once a second,
+ * so each is logged once per session (pc_lan_start clears them) and each is
+ * separately observable by tools/net_lan_txt_test.py. */
+enum {
+    RJ_PAIRS, RJ_UNKNOWN, RJ_DUP, RJ_VALUE, RJ_NO_ID, RJ_V, RJ_ID, RJ_NAME, RJ_PORT,
+    RJ_NO_OURS, RJ_REV, RJ_DISC, RJ_STATE, RJ_GEN, RJ_NO_START, RJ_STRAY, RJ_PEER, RJ_N
+};
+static const char* const k_rj[RJ_N] = {
+    "too many TXT keys",
+    "unknown key on our own protocol version",
+    "duplicate key",
+    "empty, over-long or unprintable value",
+    "no v/id/name/port",
+    "bad protocol version",
+    "bad install id",
+    "over-long name",
+    "bad game port",
+    "no rev/disc/state/gen",
+    "over-long rev",
+    "bad disc id",
+    "unknown state",
+    "bad gen",
+    "starting without host/peer",
+    "host/peer outside a starting record",
+    "bad peer id",
+};
+_Static_assert(RJ_N <= 32, "s_rj_logged is a 32-bit mask");
+static uint32_t s_rj_logged;
+
+/* Always false, so a rule reads `return reject(RJ_...)`. */
+static bool reject(int cls) {
+    if (!(s_rj_logged & KBIT(cls))) {
+        s_rj_logged |= KBIT(cls);
+        pc_log_line("lan: dropped a malformed record: %s", k_rj[cls]);
+    }
+    return false;
+}
+
+/* value -> NUL-terminated copy. False when it is absent (a bare key with no
+ * '='), empty, too long for dst to hold with its NUL, or not printable
+ * US-ASCII (mdns.h already drops such a string, but the parser is also
+ * driven directly by tools/test_net_lan_txt.c). */
+static bool txt_val(char* dst, size_t cap, mdns_string_t v) {
+    if (v.str == NULL || v.length == 0 || v.length >= cap) {
+        return false;
+    }
+    for (size_t i = 0; i < v.length; i++) {
+        if ((unsigned char) v.str[i] < 0x20 || (unsigned char) v.str[i] > 0x7E) {
+            return false;
+        }
+    }
+    memcpy(dst, v.str, v.length);
+    dst[v.length] = '\0';
+    return true;
+}
+
+/* Whole-string decimal, no sign, no space, no trailing junk, no overflow. */
+static bool dec_u32(const char* s, uint32_t* out) {
+    uint64_t v = 0;
+    size_t n = 0;
+    for (; s[n] != '\0'; n++) {
+        if (n >= 10 || s[n] < '0' || s[n] > '9') {
+            return false;
+        }
+        v = v * 10 + (uint64_t) (s[n] - '0');
+    }
+    if (n == 0 || v > UINT32_MAX) {
+        return false;
+    }
+    *out = (uint32_t) v;
+    return true;
+}
+
+/* Whole-string hex, either case, at most 16 digits (no 0x, no sign). */
+static bool hex_u64(const char* s, uint64_t* out) {
+    static const char digits[] = "0123456789abcdef";
+    uint64_t v = 0;
+    size_t n = 0;
+    for (; s[n] != '\0'; n++) {
+        const char* d = memchr(digits, s[n] | 0x20, sizeof digits - 1);
+        if (n >= 16 || d == NULL) {
+            return false;
+        }
+        v = v << 4 | (uint64_t) (d - digits);
+    }
+    if (n == 0) {
+        return false;
+    }
+    *out = v;
+    return true;
+}
+
+/* A validated announce: the entry it yields plus the three identity strings
+ * the incompatible-peer log line names ("?" when the peer sent none). */
+typedef struct Txt {
+    char v[12], rev[32], disc[12];
+    Entry e;
+} Txt;
+
+static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
+    char val[K_N][64];
+    unsigned seen = 0;
+    bool unknown = false;
+    uint32_t u;
+    uint64_t h;
+    memset(out, 0, sizeof *out);
+    strcpy(out->rev, "?");
+    strcpy(out->disc, "?");
+    if (n >= TXT_MAX_PAIRS) {
+        return reject(RJ_PAIRS);
+    }
+    for (size_t i = 0; i < n; i++) {
+        int k = 0;
+        while (k < K_N && (txt[i].key.length != k_txt[k].len ||
+                           memcmp(txt[i].key.str, k_txt[k].k, k_txt[k].len) != 0)) {
+            k++;
+        }
+        if (k == K_N) {
+            unknown = true;
+            continue;
+        }
+        if (seen & KBIT(k)) {
+            return reject(RJ_DUP);
+        }
+        seen |= KBIT(k);
+        if (!txt_val(val[k], sizeof val[k], txt[i].value)) {
+            return reject(RJ_VALUE);
+        }
+    }
+    const unsigned id_keys = KBIT(K_V) | KBIT(K_ID) | KBIT(K_NAME) | KBIT(K_PORT);
+    if ((seen & id_keys) != id_keys) {
+        return reject(RJ_NO_ID);
+    }
+    if (!dec_u32(val[K_V], &u) || strlen(val[K_V]) >= sizeof out->v) {
+        return reject(RJ_V);
+    }
+    if (!hex_u64(val[K_ID], &out->e.id) || out->e.id == 0) {
+        return reject(RJ_ID);
+    }
+    if (strlen(val[K_NAME]) >= sizeof out->e.p.name) {
+        return reject(RJ_NAME);
+    }
+    if (!dec_u32(val[K_PORT], &u) || u == 0 || u > 65535) {
+        return reject(RJ_PORT);
+    }
+    out->e.p.port = (uint16_t) u;
+    strcpy(out->e.p.name, val[K_NAME]);
+    strcpy(out->v, val[K_V]);
+    /* Truncated to fit rather than rejected while the version differs: only
+     * the incompatible-peer log line reads them then. */
+    if (seen & KBIT(K_REV)) {
+        snprintf(out->rev, sizeof out->rev, "%.*s", (int) sizeof out->rev - 1, val[K_REV]);
+    }
+    if (seen & KBIT(K_DISC)) {
+        snprintf(out->disc, sizeof out->disc, "%.*s", (int) sizeof out->disc - 1, val[K_DISC]);
+    }
+    if (strcmp(out->v, s_proto) != 0) {
+        return true; /* incompatible; e.state stays lobby, nothing else read */
+    }
+    if (unknown) {
+        return reject(RJ_UNKNOWN);
+    }
+    const unsigned our_keys = KBIT(K_REV) | KBIT(K_DISC) | KBIT(K_STATE) | KBIT(K_GEN);
+    if ((seen & our_keys) != our_keys) {
+        return reject(RJ_NO_OURS);
+    }
+    if (strlen(val[K_REV]) >= sizeof out->rev) {
+        return reject(RJ_REV);
+    }
+    if (!hex_u64(val[K_DISC], &h) || strlen(val[K_DISC]) >= sizeof out->disc) {
+        return reject(RJ_DISC);
+    }
+    out->e.state = strcmp(val[K_STATE], "lobby") == 0      ? ST_LOBBY
+                   : strcmp(val[K_STATE], "ready") == 0    ? ST_READY
+                   : strcmp(val[K_STATE], "starting") == 0 ? ST_STARTING
+                                                           : -1;
+    if (out->e.state < 0) {
+        return reject(RJ_STATE);
+    }
+    if (!dec_u32(val[K_GEN], &out->e.gen)) {
+        return reject(RJ_GEN);
+    }
+    /* announce_on builds host= and peer= from the one state string, so they
+     * are present exactly while the record says starting. */
+    const unsigned start_keys = KBIT(K_HOST) | KBIT(K_PEER);
+    if (out->e.state == ST_STARTING) {
+        if ((seen & start_keys) != start_keys) {
+            return reject(RJ_NO_START);
+        }
+        if (!hex_u64(val[K_PEER], &out->e.peer_id)) { /* 0 is legal: nobody */
+            return reject(RJ_PEER);
+        }
+    } else if (seen & start_keys) {
+        return reject(RJ_STRAY);
+    }
+    out->e.p.compatible =
+        strcmp(out->rev, pc_app_rev()) == 0 && strcmp(out->disc, disc_id()) == 0;
+    return true;
 }
 
 /* Datagram source as text net.c can getaddrinfo(): IPv4, a v4-mapped v6 as
@@ -294,45 +562,17 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
         s_no_mcast = false;
         pc_log_line("lan: multicast works after all");
     }
-    mdns_record_txt_t txt[12];
-    size_t n = mdns_record_parse_txt(data, size, record_offset, record_length, txt, 12);
-    Entry e;
-    memset(&e, 0, sizeof e);
-    char proto[8] = "", rev[32] = "";
-    for (size_t i = 0; i < n; i++) {
-        char val[64];
-        txt_copy(val, sizeof val, txt[i].value);
-        const char* k = txt[i].key.str;
-        size_t kl = txt[i].key.length;
-        if (kl == 1 && k[0] == 'v') {
-            txt_copy(proto, sizeof proto, txt[i].value);
-        } else if (kl == 3 && memcmp(k, "rev", 3) == 0) {
-            txt_copy(rev, sizeof rev, txt[i].value);
-        } else if (kl == 2 && memcmp(k, "id", 2) == 0) {
-            e.id = strtoull(val, NULL, 16);
-        } else if (kl == 4 && memcmp(k, "name", 4) == 0) {
-            txt_copy(e.p.name, sizeof e.p.name, txt[i].value);
-        } else if (kl == 4 && memcmp(k, "port", 4) == 0) {
-            int port = atoi(val);
-            e.p.port = port > 0 && port < 65536 ? (uint16_t) port : 0;
-        } else if (kl == 5 && memcmp(k, "state", 5) == 0) {
-            e.state = strcmp(val, "starting") == 0 ? ST_STARTING
-                      : strcmp(val, "ready") == 0  ? ST_READY
-                                                   : ST_LOBBY;
-        } else if (kl == 3 && memcmp(k, "gen", 3) == 0) {
-            e.gen = (uint32_t) strtoul(val, NULL, 10);
-        } else if (kl == 4 && memcmp(k, "peer", 4) == 0) {
-            e.peer_id = strtoull(val, NULL, 16);
-        }
+    mdns_record_txt_t txt[TXT_MAX_PAIRS];
+    Txt t;
+    size_t n = mdns_record_parse_txt(data, size, record_offset, record_length, txt, TXT_MAX_PAIRS);
+    if (!parse_txt(txt, n, &t)) {
+        return 0;
     }
+    Entry e = t.e;
     if (e.id == s_id) {
         return 0; /* our own announce, looped back */
     }
-    if (e.id == 0 || e.p.port == 0 || e.p.name[0] == '\0') {
-        return 0; /* malformed record */
-    }
     addr_text(from, e.p.ip, sizeof e.p.ip);
-    e.p.compatible = strcmp(proto, s_proto) == 0 && strcmp(rev, pc_app_rev()) == 0;
     int i = 0;
     while (i < s_n && s_peers[i].id != e.id) {
         i++;
@@ -358,8 +598,8 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
         pc_log_line("lan: found %s %s:%u%s", e.p.name, e.p.ip, e.p.port,
                     e.p.compatible ? "" : " (incompatible build, not eligible)");
         if (!e.p.compatible) {
-            pc_log_line("lan:   theirs: proto %s rev %s, ours: proto %s rev %s", proto, rev, s_proto,
-                        pc_app_rev());
+            pc_log_line("lan:   theirs: proto %s rev %s disc %s, ours: proto %s rev %s disc %s",
+                        t.v, t.rev, t.disc, s_proto, pc_app_rev(), disc_id());
         }
     } else {
         e.last_gen = s_peers[i].last_gen;
@@ -559,6 +799,7 @@ void pc_lan_start(void) {
         return;
     }
     s_started = true;
+    pc_android_multicast_lock_acquire(); /* Android: mDNS answers are filtered without it */
 #if defined(_WIN32)
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
@@ -598,6 +839,7 @@ void pc_lan_start(void) {
     s_n = 0;
     s_full = false;
     s_heard = false;
+    s_rj_logged = 0;
     s_state = 0;
     s_why = NULL;
     s_hosting = false;
@@ -612,8 +854,9 @@ void pc_lan_start(void) {
     }
     announce(s_tx, sizeof s_tx, false);
     s_start_ns = s_announce_ns = SDL_GetTicksNS();
-    pc_log_line("lan: %s %s id %016llx proto %s rev %s game port %u", s_no_mcast ? "lobby without mDNS:" : "announcing",
-                s_name, (unsigned long long) s_id, s_proto, pc_app_rev(), s_port);
+    pc_log_line("lan: %s %s id %016llx proto %s rev %s disc %s game port %u",
+                s_no_mcast ? "lobby without mDNS:" : "announcing", s_name,
+                (unsigned long long) s_id, s_proto, pc_app_rev(), disc_id(), s_port);
 }
 
 void pc_lan_stop(void) {
@@ -634,6 +877,7 @@ void pc_lan_stop(void) {
         mdns_socket_close(s_sock6);
     }
     s_sock4 = s_sock6 = -1;
+    pc_android_multicast_lock_release();
     s_started = false;
     s_no_mcast = false;
     s_n = 0;
@@ -729,9 +973,11 @@ static void poll_connecting(uint64_t now) {
         }
     }
     if (!pc_net_active()) {
-        fail(pc_net_peer_status() == PC_NET_PEER_INCOMPATIBLE ? "incompatible version"
-             : pc_net_peer_status() == PC_NET_PEER_LEFT      ? "peer left"
-                                                               : "connection lost");
+        int why = pc_net_peer_status();
+        fail(why == PC_NET_PEER_INCOMPATIBLE ? "incompatible version"
+             : why == PC_NET_PEER_RESUME     ? "could not resume"
+             : why == PC_NET_PEER_LEFT       ? "peer left"
+                                             : "connection lost");
     } else if (pc_net_handshake_state() == 3) {
         fail("handshake failed");
     } else if (s_barrier_ns != 0 && now - s_barrier_ns > TIMEOUT_NS) {
@@ -814,12 +1060,16 @@ bool pc_lan_discovery_unavailable(void) {
 const char* pc_lan_local_name(void) {
     if (s_name[0] == '\0') {
         char host[64];
-        if (gethostname(host, sizeof host) != 0) {
+        const char* dev = pc_android_device_name(); /* NULL off Android */
+        if (dev != NULL) {
+            snprintf(host, sizeof host, "%s", dev);
+        } else if (gethostname(host, sizeof host) != 0) {
             strcpy(host, "melee");
         }
         host[sizeof host - 1] = '\0';
         host[strcspn(host, ".")] = '\0';
-        snprintf(s_name, sizeof s_name, "%s", host);
+        /* Truncated to the label the announce and parse_txt both bound. */
+        snprintf(s_name, sizeof s_name, "%.*s", (int) sizeof s_name - 1, host);
     }
     return s_name;
 }
