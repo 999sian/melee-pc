@@ -98,6 +98,32 @@ constexpr std::array PreferredBackendOrder{
 constexpr std::array<AuroraBackend, 0> PreferredBackendOrder{};
 #endif
 
+// Not magic_enum: AuroraBackend is a plain C enum with no fixed underlying
+// type, and instantiating enum_name on one fails to compile under Apple clang.
+constexpr const char* backend_name(AuroraBackend backend) noexcept {
+  switch (backend) {
+  case BACKEND_AUTO:
+    return "auto";
+  case BACKEND_D3D11:
+    return "D3D11";
+  case BACKEND_D3D12:
+    return "D3D12";
+  case BACKEND_METAL:
+    return "Metal";
+  case BACKEND_VULKAN:
+    return "Vulkan";
+  case BACKEND_OPENGL:
+    return "OpenGL";
+  case BACKEND_OPENGLES:
+    return "OpenGL ES";
+  case BACKEND_WEBGPU:
+    return "WebGPU";
+  case BACKEND_NULL:
+    return "null";
+  }
+  return "?";
+}
+
 bool g_initialFrame = false;
 
 AuroraInfo initialize(int argc, char* argv[], const AuroraConfig& config) noexcept {
@@ -170,7 +196,7 @@ AuroraInfo initialize(int argc, char* argv[], const AuroraConfig& config) noexce
   // shows the pin was not honoured.
   if (windowCreated && config.desiredBackend != BACKEND_AUTO && selectedBackend != config.desiredBackend) {
     Log.warn("Requested backend {} could not be initialized; running on {} instead",
-             magic_enum::enum_name(config.desiredBackend), magic_enum::enum_name(selectedBackend));
+             backend_name(config.desiredBackend), backend_name(selectedBackend));
   }
 
   AURORA_ASSERT(windowCreated, "Error creating window: {}", SDL_GetError());
