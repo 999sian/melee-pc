@@ -14,6 +14,10 @@ const std::string& get_app_version() {
     return version;
 }
 
+extern "C" const char* pc_app_version() {
+    return get_app_version().c_str();
+}
+
 SemVer SemVer::parse(std::string_view s) {
     SemVer v;
     while (!s.empty() && (s.front() == ' ' || s.front() == '\t'))

@@ -180,7 +180,7 @@ void vi0501_Scene_OnEnter(void* arg)
     HSD_JObj* jobj;
     ViCharaDesc* desc;
 
-    desc = (ViCharaDesc*) arg;
+    desc = arg;
     lbAudioAx_800236DC();
     efLib_Init();
     efAsync_LoadSync(0);

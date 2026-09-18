@@ -4,6 +4,7 @@
 #include <atomic>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -61,12 +62,18 @@ static TextureWithSampler g_resampledFrameBuffer;
 static wgpu::Adapter g_adapter;
 wgpu::Instance g_instance;
 wgpu::AdapterInfo g_adapterInfo;
+std::string g_adapterName;
+std::string g_adapterDriver;
 static wgpu::SurfaceCapabilities g_surfaceCapabilities;
 bool g_hasCoreFeatures = false;
 bool g_bcTexturesSupported = false;
 bool g_astcTexturesSupported = false;
 bool g_textureComponentSwizzleSupported = false;
 static std::atomic_bool g_initialized = false;
+// Set by the device-lost callback for any reason but Destroyed. Checked at the end of initialize()
+// so a device that dies while its first pipelines compile fails over to the next backend instead
+// of reaching the frame loop and aborting there.
+static std::atomic_bool g_deviceLost = false;
 static std::atomic_bool g_vsyncEnabled = true;
 
 namespace {
@@ -794,6 +801,31 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
     dawnInstanceDescriptor.platform = tracy_dawn_platform();
 #endif
     instanceDescriptor.nextInChain = &dawnInstanceDescriptor;
+#elif defined(WEBGPU_DAWN)
+    // dawn::native::DawnInstanceDescriptor is unusable from MinGW against the MSVC-built prebuilt
+    // DLL: its constructor is an MSVC-mangled export, and GCC lays the struct out differently
+    // (Itanium reuses ChainedStruct's tail padding, MSVC does not: 72 vs 80 bytes). Mirror the
+    // MSVC layout as a plain struct and chain that. Without it Dawn drops every instance-level
+    // message -- "D3D12 backend is not allowed on Intel gen-7 GPUs", a missing vulkan-1.dll --
+    // and a skipped backend leaves no reason in the log. Validated under Proton against the
+    // v20260807 prebuilt; the asserts pin the MSVC offsets so a header change fails loudly.
+    struct {
+      WGPUChainedStruct chain{nullptr, WGPUSType_DawnInstanceDescriptor};
+      uint32_t additionalRuntimeSearchPathsCount = 0;
+      const char* const* additionalRuntimeSearchPaths = nullptr;
+      dawn::platform::Platform* platform = nullptr;
+      dawn::native::BackendValidationLevel backendValidationLevel = dawn::native::BackendValidationLevel::Disabled;
+      bool beginCaptureOnStartup = false;
+      WGPULoggingCallbackInfo loggingCallbackInfo = WGPU_LOGGING_CALLBACK_INFO_INIT;
+    } dawnInstanceDescriptor;
+    static_assert(sizeof(dawnInstanceDescriptor) == 80);
+    static_assert(offsetof(decltype(dawnInstanceDescriptor), backendValidationLevel) == 40);
+    static_assert(offsetof(decltype(dawnInstanceDescriptor), loggingCallbackInfo) == 48);
+    dawnInstanceDescriptor.loggingCallbackInfo.callback = [](WGPULoggingType type, WGPUStringView message, void*,
+                                                             void*) {
+      wgpu_log(static_cast<wgpu::LoggingType>(type), message);
+    };
+    instanceDescriptor.nextInChain = reinterpret_cast<wgpu::ChainedStruct*>(&dawnInstanceDescriptor);
 #endif
     g_instance = wgpu::CreateInstance(&instanceDescriptor);
     if (!g_instance) {
@@ -807,6 +839,7 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
   // D3D12's debug layer is very slow
   g_dawnInstance->EnableBackendValidation(backend != WGPUBackendType::D3D12);
 #endif
+  g_deviceLost = false;
 
   if (!create_surface()) {
     return false;
@@ -849,10 +882,11 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
     }
     if (!g_adapter) {
       if (requestAdapterCallbackCompleted) {
-        Log.error("Failed to create adapter: request status {}, message: {}",
+        Log.error("No usable {} adapter ({}: {}); trying the next backend", magic_enum::enum_name(backend),
                   magic_enum::enum_name(requestAdapterStatus), requestAdapterMessage);
       } else {
-        Log.error("Failed to create adapter: request callback did not complete");
+        Log.error("No usable {} adapter (request callback did not complete); trying the next backend",
+                  magic_enum::enum_name(backend));
       }
       return false;
     }
@@ -873,9 +907,12 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
     description = wgpu::StringView("Unknown");
   }
   g_backendType = g_adapterInfo.backendType;
+  g_adapterName = std::string_view{adapterName};
+  g_adapterDriver = std::string_view{description};
   const auto backendName = magic_enum::enum_name(g_backendType);
-  Log.info("Graphics adapter information\n  API: {}\n  Device: {} ({})\n  Driver: {}", backendName, adapterName,
-           magic_enum::enum_name(g_adapterInfo.adapterType), description);
+  Log.info("Graphics adapter information\n  API: {}\n  Device: {} ({}) [{:04x}:{:04x}]\n  Driver: {}", backendName,
+           adapterName, magic_enum::enum_name(g_adapterInfo.adapterType), g_adapterInfo.vendorID,
+           g_adapterInfo.deviceID, description);
 
   {
     wgpu::Limits supportedLimits{};
@@ -1012,9 +1049,12 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
         wgpu::CallbackMode::AllowSpontaneous,
         [](const wgpu::Device& device, wgpu::DeviceLostReason reason, wgpu::StringView message) {
           if (g_initialized) {
-            FATAL("Device lost: {}", message);
+            FATAL("Device lost on {} ({}): {}", g_adapterName, magic_enum::enum_name(g_backendType), message);
           } else {
-            Log.warn("Device lost: {}", message);
+            if (reason != wgpu::DeviceLostReason::Destroyed) {
+              g_deviceLost = true;
+            }
+            Log.warn("Device lost on {} ({}): {}", g_adapterName, magic_enum::enum_name(g_backendType), message);
           }
         });
     const auto future =
@@ -1023,7 +1063,8 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
                                   if (status == wgpu::RequestDeviceStatus::Success) {
                                     g_device = std::move(device);
                                   } else {
-                                    Log.warn("Device request failed: {}", message);
+                                    Log.error("{} ({}) rejected device creation: {}; trying the next backend",
+                                              g_adapterName, magic_enum::enum_name(g_backendType), message);
                                   }
                                 });
     const auto status = g_instance.WaitAny(future, 5000000000);
@@ -1074,6 +1115,14 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
   create_resample_pipeline();
   gpu_prof::initialize();
   resize_swapchain(size.fb_width, size.fb_height, size.native_fb_width, size.native_fb_height, true);
+  // Flush any device-lost raised by the pipeline/swapchain work above before
+  // declaring this backend usable.
+  g_instance.ProcessEvents();
+  if (g_deviceLost) {
+    Log.error("{} ({}) lost its device during initialization; trying the next backend", g_adapterName,
+              magic_enum::enum_name(g_backendType));
+    return false;
+  }
   g_initialized = true;
   return true;
 }

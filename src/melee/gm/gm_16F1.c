@@ -1314,9 +1314,7 @@ int gm_80172140(void)
 
 void gm_80172174(void)
 {
-    /// @todo create struct of size 0x4D8 returned by gmMainLib_8015CCE4
-    memzero(gmMainLib_8015CCE4(),
-            offsetof(struct gmm_x0, vs) - offsetof(struct gmm_x0, unk_44));
+    memzero(gmMainLib_8015CCE4(), sizeof(struct gmm_x0_44_t));
 }
 
 bool gm_8017219C(u32 arg0)

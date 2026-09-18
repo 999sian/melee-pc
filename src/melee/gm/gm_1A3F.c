@@ -1,6 +1,7 @@
 #include "gm_1A3F.h"
 
 #include "gm_1A36.h"
+#include "gmboot.h"
 #include "gmmain_lib.h"
 #include "gmscdata.h"
 #include "gmscene.h"
@@ -166,6 +167,15 @@ void gm_801A4014(GameMode* mode)
     state = findState(mode->states);
     sm->routing.curr_state_id = state->id;
 
+#ifdef TARGET_PC
+    /* The state id is what separates "the mode loaded" from "the match is
+     * running": GM_CLASSIC state 0 is only its intro, state 1 is the fight.
+     * A scripted run has no screen to read, so this line is the evidence. */
+    if (pc_boot_scene() != GM_COUNT) {
+        OSReport("boot scene: state %d scene %d\n", state->id,
+                 state->info.scene_kind);
+    }
+#endif
     preloadState(state);
     if (state->on_enter != NULL) {
         state->on_enter(state);
@@ -323,6 +333,15 @@ u8 runGameMode(u8 mode_kind)
 
     mode = findMode(mode_kind);
 
+#ifdef TARGET_PC
+    /* With MELEE_BOOT_SCENE set there is no screen to read and no reliable
+     * way to drive one, so the mode the state machine actually entered is
+     * the only evidence a scripted run has (tools/smoke_test.py asserts on
+     * it). Costs nothing when the knob is unset. */
+    if (pc_boot_scene() != GM_COUNT) {
+        OSReport("boot scene: game mode %d\n", mode_kind);
+    }
+#endif
     state_machine.pending_mode_change = false;
     state_machine.routing.curr_state_id = 0;
     state_machine.routing.prev_state_id = 0;
@@ -378,6 +397,23 @@ void gm_801A4510(void)
     } else {
         state_machine.routing.curr_mode = GM_BOOT;
     }
+#ifdef TARGET_PC
+    /* MELEE_BOOT_SCENE: start the state machine in the requested mode rather
+     * than routing through GM_BOOT. GM_BOOT's memory-card scene burns a
+     * mode-dependent and wildly variable number of frames (under 300 ahead of
+     * GM_TITLE, over 1800 ahead of GM_CLASSIC), which is exactly the
+     * indeterminacy a bounded automated run cannot have. Skipping it also
+     * leaves gm_SetGameModeOverride unset, so a card fault cannot divert the
+     * run into GM_MEMCARD. */
+    if (pc_boot_scene() != GM_COUNT) {
+        state_machine.routing.curr_mode = pc_boot_scene();
+        /* A mode's on_load runs before the first preloadState, so it expects
+         * heap 0 to already exist from whatever scene ran before it. With
+         * GM_BOOT skipped nothing has, and gm_Mode_Classic_OnLoad's trophy
+         * read fails with "lbHeap: alloc ... REFUSED: status=1". */
+        lbHeap_80015900();
+    }
+#endif
     state_machine.routing.prev_mode = GM_COUNT;
 
     while (true) {

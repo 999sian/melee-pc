@@ -28,22 +28,7 @@ static HSD_WObjDesc interest = {
     0,
 };
 
-/// @todo ::HSD_CameraDescFrustum without `left` or `right`
-/* 3F9E60 */ static struct DISC_STRUCT fake_HSD_CObjDesc {
-    DISC_PTR(char) class_name;
-    u16 flags;
-    u16 projection_type;
-    DiscRectS16 viewport;
-    DiscScissor scissor;
-    DISC_PTR(HSD_WObjDesc) eyepos;
-    DISC_PTR(HSD_WObjDesc) interest;
-    f32 roll;
-    DISC_PTR(DiscVec3) up_vector;
-    f32 nnear;
-    f32 ffar;
-    f32 top;
-    f32 bottom;
-} un_803F9E60 = {
+/* 3F9E60 */ static HSD_CameraDescPerspective un_803F9E60 = {
     0,
     0,
     (1 << 0),

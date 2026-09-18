@@ -81,6 +81,10 @@ static s8 axis(SDL_Scancode neg, SDL_Scancode pos) {
     return (s8)((pos_on ? 80 : 0) - (neg_on ? 80 : 0));
 }
 
+static int i8abs(s8 v) {
+    return v < 0 ? -(int)v : v;
+}
+
 static SDL_Mutex* s_key_mutex;
 
 /* MELEE_KEY_FIFO=path: test driver that does not depend on X focus. Each
@@ -287,11 +291,38 @@ static void publish_locked(void) {
         any_active = true;
     }
 
+    /* Port 1 carries a real GC-adapter controller too (gcadapter.c leaves this
+     * slot to us). Keyboard/touch layer on top: dominant stick, OR buttons,
+     * max triggers -- the same merge aurora does for virtual pads. Clear once
+     * when every source goes quiet so a released button does not stick. */
+    PADStatus gc_st;
+    if (pc_gcadapter_status(0, &gc_st)) {
+        st.button |= gc_st.button;
+        if (i8abs(gc_st.stickX) > i8abs(st.stickX))
+            st.stickX = gc_st.stickX;
+        if (i8abs(gc_st.stickY) > i8abs(st.stickY))
+            st.stickY = gc_st.stickY;
+        if (i8abs(gc_st.substickX) > i8abs(st.substickX))
+            st.substickX = gc_st.substickX;
+        if (i8abs(gc_st.substickY) > i8abs(st.substickY))
+            st.substickY = gc_st.substickY;
+        if (gc_st.triggerLeft > st.triggerLeft)
+            st.triggerLeft = gc_st.triggerLeft;
+        if (gc_st.triggerRight > st.triggerRight)
+            st.triggerRight = gc_st.triggerRight;
+        any_active = true;
+    }
+
+    static bool s_published0;
     if (any_active) {
         if (s_trace) {
             trace_locked(&st);
         }
         PADSetVirtualStatus(0, &st);
+        s_published0 = true;
+    } else if (s_published0) {
+        PADClearVirtualStatus(0);
+        s_published0 = false;
     }
 }
 

@@ -10,7 +10,13 @@
 #include <aurora/event.h>
 #include <aurora/gfx.h>
 #include <aurora/rmlui.hpp>
-#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
+/* TargetConditionals.h defines TARGET_OS_IPHONE on macOS too, as 0, so this
+ * has to test its value: defined() alone pulled the iOS-only dialog into the
+ * macOS build and left the link short a symbol. */
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+#if defined(__APPLE__) && TARGET_OS_IPHONE
 #include "ios_dialog.h"
 #endif
 #include <RmlUi/Core.h>
@@ -40,10 +46,23 @@ const char* backend_name(int mode) {
 #if defined(__APPLE__)
     return "Metal";
 #else
-    static const char* const names[] = {"Auto", "Direct3D 12", "Vulkan"};
-    if (mode < 0 || mode > 2)
+    static const char* const names[] = {"Auto", "Direct3D 12", "Vulkan", "Direct3D 11"};
+    if (mode < 0 || mode > 3)
         return "Auto";
     return names[mode];
+#endif
+}
+
+/* The two Direct3D entries only exist on Windows, so elsewhere the cycle goes
+ * straight from Auto to Vulkan: offering a backend that can only ever fail
+ * over leaves the button showing a label for something the run is not using.
+ * ponytail: indices stay identical on every platform so the prefs file and
+ * the BACKEND_* mapping below need no per-platform cases. */
+int backend_next(int mode) {
+#if defined(_WIN32)
+    return (mode + 1) % 4;
+#else
+    return mode == 0 ? 2 : 0;
 #endif
 }
 
@@ -171,7 +190,7 @@ class Launcher final : public Rml::EventListener {
             return {"volume", "music-volume", "sfx-volume", "mute", "fps", "scale", "check-updates",
                 "check-now", "settings-discord"};
         case 2:
-            return {"unlock-all", "frozen-stadium", "free-camera"};
+            return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
         default:
             return {};
         }
@@ -276,6 +295,7 @@ class Launcher final : public Rml::EventListener {
         text("hud-mode", prefs.hud_mode == 0 ? "Classic (4:3)" : "Wide (16:9)");
         text("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         text("free-camera", prefs.free_camera ? "Free" : "Normal");
+        text("ucf", std::getenv("MELEE_UCF") ? "Environment override" : prefs.ucf ? "On" : "Off");
         text("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         text("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -381,8 +401,9 @@ class Launcher final : public Rml::EventListener {
             static const SDL_DialogFileFilter filters[] = {
                 {"GameCube disc images", "iso;gcm;ciso;rvz;gcz;wia"}, {"All files", "*"}};
             dialog = std::make_shared<DialogResult>();
-#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
-            ios_show_open_file_dialog(dialog_done, new std::shared_ptr<DialogResult>(dialog), window);
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+            ios_show_open_file_dialog(
+                dialog_done, new std::shared_ptr<DialogResult>(dialog), window);
 #else
             SDL_ShowOpenFileDialog(dialog_done, new std::shared_ptr<DialogResult>(dialog), window,
                 filters, 2, prefs.disc.empty() ? nullptr : prefs.disc.c_str(), false);
@@ -467,7 +488,7 @@ class Launcher final : public Rml::EventListener {
             if (std::getenv("MELEE_BACKEND")) {
                 status("Backend is controlled by the MELEE_BACKEND environment setting.");
             } else {
-                prefs.backend = (prefs.backend + 1) % 3;
+                prefs.backend = backend_next(prefs.backend);
                 save();
                 refresh_settings();
                 status("Graphics backend set to " + std::string(backend_name(prefs.backend)) +
@@ -495,6 +516,11 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("free-camera")->Focus();
+        } else if (id == "ucf") {
+            prefs.ucf = !prefs.ucf;
+            save();
+            refresh_settings();
+            element("ucf")->Focus();
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
             save();
@@ -921,13 +947,16 @@ extern "C" void pc_launcher_configure(AuroraConfig* config) {
         if ((prefs.disc.empty() || !file_accessible(prefs.disc)) && home && home[0] != '\0') {
             std::filesystem::path docs = std::filesystem::path(home) / "Documents";
             std::error_code dir_ec;
-            if (std::filesystem::exists(docs, dir_ec) && std::filesystem::is_directory(docs, dir_ec)) {
+            if (std::filesystem::exists(docs, dir_ec) &&
+                std::filesystem::is_directory(docs, dir_ec))
+            {
                 for (const auto& entry : std::filesystem::directory_iterator(docs, dir_ec)) {
                     if (entry.is_regular_file(dir_ec)) {
                         auto ext = entry.path().extension().string();
                         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                        if (ext == ".iso" || ext == ".ciso" || ext == ".rvz" ||
-                            ext == ".gcm" || ext == ".gcz" || ext == ".wia") {
+                        if (ext == ".iso" || ext == ".ciso" || ext == ".rvz" || ext == ".gcm" ||
+                            ext == ".gcz" || ext == ".wia")
+                        {
                             auto info = launcher::inspect_disc(entry.path().string());
                             if (info.supported) {
                                 prefs.disc = entry.path().string();
@@ -953,6 +982,8 @@ extern "C" void pc_launcher_configure(AuroraConfig* config) {
             config->desiredBackend = BACKEND_D3D12;
         else if (prefs.backend == 2)
             config->desiredBackend = BACKEND_VULKAN;
+        else if (prefs.backend == 3)
+            config->desiredBackend = BACKEND_D3D11;
         else
             config->desiredBackend = BACKEND_AUTO;
 #endif
@@ -1079,7 +1110,7 @@ public:
             return {"volume", "music-volume", "sfx-volume", "mute", "fps", "scale",
                 "port-check-update"};
         case 2:
-            return {"unlock-all", "frozen-stadium", "free-camera"};
+            return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
         default: {
             std::vector<std::string> ids{"pad-port"};
             for (int i = 0; i < PAD_BUTTON_COUNT; ++i)
@@ -1186,6 +1217,7 @@ public:
         label("hud-mode", prefs.hud_mode == 0 ? "Classic (4:3)" : "Wide (16:9)");
         label("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         label("free-camera", prefs.free_camera ? "Free" : "Normal");
+        label("ucf", std::getenv("MELEE_UCF") ? "Environment override" : prefs.ucf ? "On" : "Off");
         label("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         label("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -1367,6 +1399,8 @@ public:
             prefs.frozen_stadium = !prefs.frozen_stadium;
         } else if (id == "free-camera") {
             prefs.free_camera = !prefs.free_camera;
+        } else if (id == "ucf") {
+            prefs.ucf = !prefs.ucf;
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
         } else if (id == "backend") {
@@ -1376,7 +1410,7 @@ public:
             if (std::getenv("MELEE_BACKEND")) {
                 label("menu-status", "Backend set by MELEE_BACKEND environment.");
             } else {
-                prefs.backend = (prefs.backend + 1) % 3;
+                prefs.backend = backend_next(prefs.backend);
                 label("menu-status", "Backend set to " + std::string(backend_name(prefs.backend)) +
                                          " (restart required).");
             }
@@ -1644,6 +1678,10 @@ extern "C" uint64_t pc_install_id(void) {
 }
 extern "C" const char* pc_app_rev(void) {
     return pc::get_app_version().c_str();
+}
+extern "C" bool pc_is_ucf_enabled(void) {
+    static const char* env = std::getenv("MELEE_UCF");
+    return env ? env[0] != '0' : prefs.ucf;
 }
 extern "C" int pc_get_hud_mode(void) {
     return prefs.hud_mode;

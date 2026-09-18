@@ -33,6 +33,29 @@ void pc_keyboard_event(const SDL_Event* e);
 void pc_keyboard_apply(void);
 void pc_touch_apply(void);
 
+/* GameCube adapter (WUP-028) read directly for raw 8-bit values
+ * (src/pc/gcadapter.c). init runs before SDL_Init so SDL's own driver leaves
+ * the adapter alone; poll runs on the 1000 Hz thread; status hands the
+ * origin-relative pad for a port to the virtual-pad merge (keyboard.c). */
+void pc_gcadapter_init(void);
+void pc_gcadapter_poll(void);
+struct PADStatus;
+bool pc_gcadapter_status(int port, struct PADStatus* out);
+/* HUD snapshot: raw[6] = stick x,y  c-stick x,y  L R as the adapter reports
+ * them (0-255). Returns false when no controller is in that slot. Safe from
+ * any thread. */
+bool pc_gcadapter_raw(int port, uint8_t raw[6], bool* wireless);
+uint64_t pc_gcadapter_report_count(void);
+
+/* Input latency meter (src/pc/input_poll.c): the 1000 Hz thread stamps each
+ * sample; pc_frame_boundary records how old the sample the sim is about to
+ * consume is. Stats cover the last 600 frames; any out-param may be NULL. */
+void pc_input_latency_record(void);
+bool pc_input_latency(float* mean_ms, float* max_ms, float* p99_ms);
+/* MELEE_INPUT_HUD=1: in-match controller diagnostic text (if/ifinput.c) and
+ * a log summary every 600 frames. */
+bool pc_is_input_hud_enabled(void);
+
 /* Set once the window is closed; the game loop is expected to exit. */
 extern bool pc_exit_requested;
 
@@ -57,9 +80,12 @@ bool pc_is_custom_textures_enabled(void);
 bool pc_is_unlock_all_enabled(void);
 bool pc_is_frozen_stadium_enabled(void);
 bool pc_is_free_camera_enabled(void);
+bool pc_is_ucf_enabled(void);
 int pc_get_hud_mode(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
+/* Build version string ("v0.1.7-beta"), src/pc/version.cpp. */
+const char* pc_app_version(void);
 
 /* The whole unlock surface the RNG-visible unlock predicates read, packed
  * into one scalar: chars:16 | stages:16 | features:8 | latch4:8 | latch5:8 |
@@ -88,6 +114,11 @@ void pc_textures_init(void);
 void pc_textures_reload(void);
 void pc_textures_shutdown(void);
 const char* pc_textures_get_path(void);
+
+/* Pipeline prewarm (src/pc/vi.c): blocks up to max_wait_ms while background
+ * shader-pipeline compiles drain, returns how many are still pending. Call
+ * from a load screen; 0 only polls. */
+uint32_t pc_gfx_prewarm(uint32_t max_wait_ms);
 
 #ifdef __cplusplus
 }

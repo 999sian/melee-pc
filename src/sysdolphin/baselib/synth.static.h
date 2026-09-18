@@ -80,8 +80,8 @@ struct HSD_SynthSFXNode {
     /* 4C */ float x4C;
 };
 
-static AXVPB* HSD_Synth_804C28E0[0x100 / 4];
-static struct foo* HSD_Synth_804C29E0[0x80 / 4]; ///< entries by (id & 0x1F)
+static AXVPB* voicelist[0x100 / 4];
+static struct foo* hsd_SynthSFXDataHash[0x80 / 4]; ///< entries by (id & 0x1F)
 static struct {
     /* 00 */ int entrynum;
     /* 04 */ int bankID;
@@ -98,11 +98,11 @@ static struct {
     float x1784;
     float x1788;
     int x178C;
-} HSD_Synth_804C28E0_1784[0xC0 / 0xC];
+} voicelist_1784[0xC0 / 0xC];
 
 #define HSD_SYNTHSFXGROUP_MAX 0x100
 
-static int HSD_Synth_804C28E0_1844[HSD_SYNTHSFXGROUP_MAX];
+static int voicelist_1844[HSD_SYNTHSFXGROUP_MAX];
 
 static u8 lbl_804C4524[0x1C];
 
@@ -113,7 +113,7 @@ static struct DISC_STRUCT {
     /* 04 */ s32 x4;
     /* 08 */ s32 x8;
     /* 0C */ char pad[0x14];
-} lbl_804C4540[3] __attribute__((aligned(32)));
+} pstHakoHeader[3] __attribute__((aligned(32)));
 
 /* 4D7720 */ static int HSD_Synth_804D7720;
 /* 4D7724 */ static int hsd_SynthSFXBankNum;

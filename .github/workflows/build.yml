@@ -7,9 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Tag builds publish a release; everything else just produces artifacts.
+# Build jobs are read-only; only the release job needs to write.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,6 +32,50 @@ jobs:
 
       - name: Verify game syntax
         run: python3 tools/compile_check.py
+
+  tests:
+    name: Unit tests (${{ matrix.build_type }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, RelWithDebInfo]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          # No packaging tools here: the test targets only link aurora::dvd,
+          # aurora::main, OpenSSL and curl. aurora still builds SDL3 from
+          # source (not in Ubuntu 24.04), so its X11/Wayland/audio deps are
+          # needed to configure and link.
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ninja-build cmake pkg-config python3 \
+            libssl-dev libcurl4-openssl-dev \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxfixes-dev libxss-dev libxkbcommon-dev libxtst-dev \
+            libwayland-dev wayland-protocols libdecor-0-dev \
+            libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libgbm-dev
+
+      - name: Configure
+        # Same dependency providers as tools/package_linux.sh: prebuilt Dawn
+        # and nod keep this job from building Rust/Dawn from source just to
+        # link aurora::main.
+        run: |
+          cmake -B build-tests-${{ matrix.build_type }} -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DAURORA_SDL3_PROVIDER=vendor \
+            -DAURORA_DAWN_PROVIDER=package \
+            -DAURORA_NOD_PROVIDER=package
+
+      - name: Build unit tests
+        # Only the unit_tests target: the game and launcher stay unbuilt.
+        run: ninja -C build-tests-${{ matrix.build_type }} unit_tests
+
+      - name: Run unit tests
+        run: ctest --test-dir build-tests-${{ matrix.build_type }} -L melee --output-on-failure
 
   linux:
     name: Linux (${{ matrix.arch }})
@@ -62,6 +106,11 @@ jobs:
 
       - name: Build and package
         run: tools/package_linux.sh
+
+      # Runs in this job, not in `tests`: every smoke case runs the real
+      # binary, and this is the only Linux job that builds one.
+      - name: Smoke test (disc-free subset)
+        run: python3 tools/smoke_test.py --no-disc
 
       - uses: actions/upload-artifact@v4
         with:
@@ -248,9 +297,11 @@ jobs:
 
   release:
     name: Publish release
-    needs: [linux, windows, android, ios, macos]
+    needs: [tests, linux, windows, android, ios, macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 

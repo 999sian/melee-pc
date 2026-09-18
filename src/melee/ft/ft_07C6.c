@@ -63,9 +63,8 @@ void ft_8007C77C(Fighter_GObj* gobj)
     HSD_GObj* next;
     Item* ip;
     HSD_GObj* cur_gobj;
-    f32(*temp_r26)[4];
+    Fighter_x1614_t* temp_r26;
     int i;
-    Mtx coll;
 
     f32 temp_f1;
     int var_r0;
@@ -112,22 +111,12 @@ void ft_8007C77C(Fighter_GObj* gobj)
         if (!var_r29) {
             continue;
         }
-        /* The coin's item vars are owned by it_2E5A_ItemVars, whose `sub`
-         * record holds an HSD_JObj*; reading them back through
-         * itUnk4_ItemVars only coincides while pointers are 4 bytes. On
-         * x86-64 `unk4.xDF0` sits at ip+DD4+0x1C while `it_2E5A.sub` sits at
-         * ip+DD4+0x20, and the two Vec3s inside slip a further 8 and 12
-         * bytes, so lbColl_80007B78 read the sphere from the wrong offsets
-         * and no coin could ever be collected. Read through the owning view
-         * and hand the collider a record in the layout it indexes:
-         * +00 radius, +08 current pos, +14 previous pos, +20 contact pos. */
-        {
-            it_2E5A_SubVars* sub = &ip->xDD4_itemVar.it_2E5A.sub;
-            coll[0][0] = sub->x0;
-            *(Vec3*) &coll[0][2] = sub->x8;
-            *(Vec3*) &coll[1][1] = sub->x14;
-        }
-        temp_r26 = coll;
+        /* Disc-safe on LP64 only because upstream retyped xDF0 to
+         * Fighter_x1614_t: it_2E5A_ItemVars::sub (what the coin actually
+         * writes) and itUnk4_ItemVars::xDF0 now land at the same offset with
+         * the same member layout. While xDF0 was a raw Mtx the two views
+         * diverged once pointers grew to 8 bytes and no coin was collectable. */
+        temp_r26 = &ip->xDD4_itemVar.unk4.xDF0;
         for (i = 0; i < 2; i++) {
             struct Fighter_x1614_t* tmp = &fp->x1614[i];
             if (lbColl_80007B78(temp_r26, tmp, ip->scl, fp->x34_scale.y)) {
@@ -139,7 +128,7 @@ void ft_8007C77C(Fighter_GObj* gobj)
                                          Player_GetTotalCoins(fp->player_id));
                 lbAudioAx_80023870(0x93, 0x7F, 0x40, 0x1A);
                 sp18 = 1.0f;
-                efSync_Spawn(0x432, NULL, temp_r26[2], &sp18);
+                efSync_Spawn(0x432, NULL, &temp_r26->x20, &sp18);
                 Item_8026A8EC(ip->entity);
                 break;
             }

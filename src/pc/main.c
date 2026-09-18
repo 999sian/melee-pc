@@ -203,11 +203,15 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info) {
 
 static void usage(const char* argv0) {
     fprintf(stderr,
-        "usage: %s [--no-card] [--dvd] [disc image (iso/gcm/ciso/rvz/...)]\nNo disc argument opens "
-        "the launcher.\n",
-        argv0);
+        "usage: %s [--no-card] [--dvd] [disc image (iso/gcm/ciso/rvz/...)]\n"
+        "       %s --version | --help\n"
+        "No disc argument opens the launcher. MELEE_BACKEND, MELEE_VSYNC, MELEE_LOG_FILE,\n"
+        "MELEE_DEBUG and the other MELEE_* knobs are documented in README.md.\n",
+        argv0, argv0);
     exit(2);
 }
+
+#include "pc/input_poll.h"
 
 static void pc_shutdown_once(void) {
     static bool done;
@@ -217,6 +221,7 @@ static void pc_shutdown_once(void) {
     done = true;
     /* Stop producers before joining DMA and destroying platform resources.
      * An unjoined ARQ worker aborts in std::thread's static destructor. */
+    pc_input_poll_shutdown();
     AXQuit();
     aurora_dvd_close();
     pc_textures_shutdown();
@@ -309,14 +314,38 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
     const char* disc = NULL;
     bool card = true;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--dvd") == 0 && i + 1 < argc) {
-            disc = argv[++i];
+        const char* d = NULL;
+        if (strcmp(argv[i], "--dvd") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "%s: --dvd needs a disc path\n", argv[0]);
+                usage(argv[0]);
+            }
+            d = argv[++i];
         } else if (strcmp(argv[i], "--no-card") == 0) {
             card = false;
-        } else if (argv[i][0] != '-') {
-            disc = argv[i];
+        } else if (strcmp(argv[i], "--version") == 0) {
+            printf("melee-pc %s\n", pc_app_version());
+            return 0;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "%s: unknown option %s\n", argv[0], argv[i]);
+            usage(argv[0]);
+        } else {
+            d = argv[i];
+        }
+        if (d != NULL) {
+            if (disc != NULL) {
+                fprintf(stderr, "%s: more than one disc given (%s, %s)\n", argv[0], disc, d);
+                usage(argv[0]);
+            }
+            FILE* f = fopen(d, "rb");
+            if (d[0] == '\0' || f == NULL) {
+                fprintf(stderr, "%s: cannot open disc %s\n", argv[0], d);
+                exit(2);
+            }
+            fclose(f);
+            disc = d;
         }
     }
 
@@ -347,14 +376,31 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         .mem1Size = PC_MEM1_SIZE,
         .mem2Size = PC_ARAM_SIZE,
     };
+    /* Before aurora_initialize -> SDL_Init(JOYSTICK): claims the GC adapter's
+     * hidapi hint so SDL's rescaling driver leaves it for our raw path. */
+    pc_gcadapter_init();
     pc_launcher_configure(&config);
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
-    /* Record which backend was actually selected. Without this the log cannot
-     * say whether a run went through D3D12 or Vulkan, which is the first thing
-     * worth knowing about a fault that only reproduces on one platform. */
-    pc_log_line("graphics backend: %s%s", backend_name(info.backend),
-        config.desiredBackend == BACKEND_AUTO ? " (auto)" : " (MELEE_BACKEND)");
+    /* Record which backend was actually selected and the adapter it landed on.
+     * Without this the log cannot say whether a run went through D3D12 or
+     * Vulkan, or on which GPU/driver, which is the first thing worth knowing
+     * about a fault that only reproduces on one machine. The origin has to be
+     * derived from info.backend, not from the request alone: a run pinned to
+     * d3d11 that aurora quietly fell back to d3d12 would otherwise log
+     * "d3d12 (pinned)", which is the opposite of the truth. */
+    char origin[64];
+    if (config.desiredBackend == BACKEND_AUTO) {
+        snprintf(origin, sizeof(origin), " (auto)");
+    } else if (info.backend == config.desiredBackend) {
+        snprintf(origin, sizeof(origin), " (pinned)");
+    } else {
+        snprintf(
+            origin, sizeof(origin), " (fallback from %s)", backend_name(config.desiredBackend));
+    }
+    pc_log_line("graphics backend: %s%s, adapter: %s [%04x:%04x], driver: %s",
+        backend_name(info.backend), origin, info.adapterName, info.adapterVendorId,
+        info.adapterDeviceId, info.adapterDriver);
     /* Closing the window exits from inside the frame loop (pc/vi.c), which
      * would otherwise skip aurora_shutdown() entirely: Dawn's static
      * destructors then tear the device down while aurora still thinks it is

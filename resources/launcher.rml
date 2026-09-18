@@ -75,7 +75,7 @@
               </div>
             </div>
             <div class="setting">
-              <div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and the HUD keep original aspect.</p></div>
+              <div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and cutscenes keep the original aspect.</p></div>
               <button id="aspect">Original (73:60)</button>
             </div>
             <div class="setting">
@@ -99,7 +99,7 @@
               <button id="custom-textures">Enabled</button>
             </div>
             <div class="setting">
-              <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Choose Direct3D 12 or Vulkan.</p></div>
+              <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Auto, or a specific API this platform provides.</p></div>
               <button id="backend">Auto</button>
             </div>
           </div>
@@ -115,6 +115,10 @@
             <div class="setting">
               <div class="description"><h3>Free camera</h3><p>Unlock camera rotation and zoom distance in pause mode.</p></div>
               <button id="free-camera">Normal</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Universal Controller Fix</h3><p>UCF 0.8x dashback and shield-drop consistency on any controller. MELEE_UCF overrides.</p></div>
+              <button id="ucf">Off</button>
             </div>
           </div>
           <div id="page-audio" class="page">

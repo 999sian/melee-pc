@@ -1,5 +1,6 @@
 #include "gmclassic.h"
 
+#include "gmboot.h"
 #include "gm_unsplit.h"
 #include "gmmain_lib.h"
 #include "gmregcommon.h"
@@ -714,6 +715,28 @@ void gm_Mode_Classic_OnLoad(void)
     data->x0.x70 = gm_8017EC50;
 
     gm_SetGameModeStateId(0x70U);
+#ifdef TARGET_PC
+    /* MELEE_BOOT_SCENE=classic: state 0x70 is Classic's own character select,
+     * the only way in, and it needs stick + Start. Do what its on_exit
+     * (gmClassic_801B3E44) does for a fixed Mario pick and go straight to the
+     * first fight instead, so an automated run needs no synthetic input. */
+    if (pc_boot_scene() == GM_CLASSIC) {
+        struct gmm_x0_528_t* pick = gmMainLib_8015CDC8();
+        pick->c_kind = CKind_Mario;
+        pick->color = 0;
+        pick->stocks = 3;
+        pick->cpu_level = 0;
+        pick->nametag = 0x78;
+        pick->x5 = 0;
+        data->x0.x0.ckind = pick->c_kind;
+        data->x0.x0.color = pick->color;
+        data->x0.x0.cpu_level = pick->cpu_level;
+        data->x0.x0.stocks = pick->stocks;
+        data->x0.x0.nametag = pick->nametag;
+        gmClassic_801B2D54(gmClassic_803DDEC8.x00);
+        gm_SetGameModeStateId(0);
+    }
+#endif
     gm_80172174();
     Ground_801C5A28();
 }

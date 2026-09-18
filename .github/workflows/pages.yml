@@ -1,0 +1,35 @@
+name: Pages
+
+on:
+  push:
+    branches: [master]
+    paths: ['docs/site/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # One-time manual setup: Settings > Pages > Source = "GitHub Actions".
+      # Until then this job fails with "Get Pages site failed ... Not Found".
+      # `enablement: true` does not help: GITHUB_TOKEN cannot create the site
+      # ("Resource not accessible by integration").
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site
+      - id: deployment
+        uses: actions/deploy-pages@v4

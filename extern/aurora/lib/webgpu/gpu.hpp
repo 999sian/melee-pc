@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 struct SDL_Window;
 
@@ -52,6 +53,8 @@ extern wgpu::RenderPipeline g_CopyPremultipliedAlphaPipeline;
 extern wgpu::BindGroup g_CopyBindGroup;
 extern wgpu::Instance g_instance;
 extern wgpu::AdapterInfo g_adapterInfo;
+extern std::string g_adapterName;
+extern std::string g_adapterDriver;
 extern bool g_hasCoreFeatures;
 extern bool g_bcTexturesSupported;
 extern bool g_astcTexturesSupported;

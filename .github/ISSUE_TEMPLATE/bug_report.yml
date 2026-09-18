@@ -1,0 +1,108 @@
+name: Bug report
+description: A crash, hang, wrong rendering, missing audio, or other misbehaviour.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [FAQ](https://999sian.github.io/melee-pc/#faq) and search existing issues first; most first-launch crashes already have a thread.
+        Do not ask for, link to, or attach disc images. Such issues are closed.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Shown top-left in the launcher (e.g. `v0.1.7-beta`), or `melee --version`. If built from source, the commit hash.
+      placeholder: v0.1.7-beta
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture
+      placeholder: Windows 11 24H2 x86-64 / Arch Linux x86-64 / Android 14 arm64 / macOS 15 arm64
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: CPU, GPU and GPU driver version
+      description: The first lines of the log list these; copy them from there.
+      placeholder: Intel i5-4200U, Intel HD 4400, driver 20.19.15.5171
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Graphics backend
+      description: Launcher Graphics tab, or the `graphics backend:` line in the log.
+      options:
+        - auto
+        - vulkan
+        - d3d12
+        - d3d11
+        - metal
+        - opengl / gles
+        - other / unknown
+    validations:
+      required: true
+  - type: dropdown
+    id: vulkan-changes
+    attributes:
+      label: Does `MELEE_BACKEND=vulkan` change anything?
+      description: Windows only. Set the variable (`set MELEE_BACKEND=vulkan` in a console, then run `melee.exe` from it) and try again.
+      options:
+        - Not tested
+        - Not applicable (Linux/Android/macOS)
+        - Same problem
+        - Problem goes away
+        - Different problem (describe below)
+    validations:
+      required: true
+  - type: dropdown
+    id: disc
+    attributes:
+      label: Disc verify result
+      description: Launcher > Verify. Only NTSC-U 1.02 (GALE01) has a reference hash.
+      options:
+        - Verified (NTSC-U 1.02)
+        - Unverified, PAL (GALP01)
+        - Unverified, NTSC-U 1.02 (hash mismatch)
+        - Unverified, other region or revision
+        - Modded image (20XX, UnclePunch, ...) - not supported
+        - Did not verify
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Launcher > Play with a verified disc
+        2. VS Mode, Fox vs Peach on Pokémon Stadium
+        3. Stage transforms to Grass, game closes
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What happened, and what you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: |
+        Attach the log (drag the file in). Where it is:
+        - Windows: `melee-pc.log` next to `melee.exe`. If the game closes at once, run `RUN-AND-LOG.bat` instead and attach `melee-pc.log` from the same folder.
+        - Linux / macOS: run with `MELEE_LOG_FILE=melee-pc.log` (e.g. `MELEE_LOG_FILE=melee-pc.log ./Melee-x86_64.AppImage disc.iso`) and attach `melee-pc.log` from the current directory.
+        - Android: `adb logcat -s Aurora > melee-pc.log`.
+        Paste the last 30 lines here if the file is small; attach the whole file otherwise.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, video, settings you changed, whether an older release worked.

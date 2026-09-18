@@ -23,10 +23,14 @@ EXPECTED = {
     # outlive the damage view and no position inside the motion-var union
     # survives on LP64. See src/melee/ft/kinds/ftCommon/types.h.
     "sizeof(struct Fighter) == 0x23EC",
-    # Upstream decomp reconstruction gap: gmm_x0_vsmodes is missing 4 bytes of pad
-    # between nametags and vs_melee (0x588 + 4 vs 0x590).
+    # Upstream decomp reconstruction gaps, not port divergences: the members of
+    # these three do not add up to the totals upstream asserts, so they fail
+    # under -m32 both before and after a decomp sync. gmm_x0_vsmodes is short
+    # 4 bytes of pad between nametags and the mode table (0x588 + 4 vs 0x590),
+    # and GmSaveData/gmm_x0 inherit that plus the same gap in gmm_x0_44_t.
     "sizeof(struct gmm_x0_vsmodes) == 0x1850 - 0x588",
-    "sizeof(struct gmm_x0) == 0x8518",
+    "sizeof(GmSaveData) == 0x1790",
+    "sizeof(struct gmm_x0) == 0x10A30",
 }
 
 

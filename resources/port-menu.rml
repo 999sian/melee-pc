@@ -9,7 +9,7 @@
 <div class="setting"><div class="description"><h3>Display mode</h3></div><button id="display">Display</button></div>
 <div class="setting"><div class="description"><h3>Vertical sync</h3></div><button id="sync">VSync</button></div>
 <div class="setting"><div class="description"><h3>Internal resolution</h3><p>Auto follows the window size. Applied when the menu closes.</p></div><div class="slider-control"><input type="range" id="resolution" min="0" max="10" step="1" value="0" /><span id="resolution-val" class="slider-value">Auto</span></div></div>
-<div class="setting"><div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and the HUD keep original aspect. Applied when the menu closes.</p></div><button id="aspect">Original (73:60)</button></div>
+<div class="setting"><div class="description"><h3>Aspect ratio</h3><p>Applies to fights. Menus and cutscenes keep the original aspect. Applied when the menu closes.</p></div><button id="aspect">Original (73:60)</button></div>
 <div class="setting"><div class="description"><h3>HUD layout</h3><p>Classic keeps 4:3 safe margins; Wide anchors damage/stocks to 16:9 edges.</p></div><button id="hud-mode">Classic (4:3)</button></div>
 <div class="setting"><div class="description"><h3>Anti-aliasing <span class="badge">RESTART</span></h3></div><button id="aa">Anti-aliasing</button></div>
 <div class="setting"><div class="description"><h3>Anisotropic filtering <span class="badge">RESTART</span></h3></div><button id="filter">Filtering</button></div>
@@ -21,6 +21,7 @@
 <div class="setting"><div class="description"><h3>Unlock everything</h3><p>Unlock all 26 characters, 11 secret stages, and All-Star mode.</p></div><button id="unlock-all">Off</button></div>
 <div class="setting"><div class="description"><h3>Hazardless stages</h3><p>Lock Pokémon Stadium in neutral mode without transformations.</p></div><button id="frozen-stadium">Off</button></div>
 <div class="setting"><div class="description"><h3>Free camera</h3><p>Unlock 360° orbital rotation and zoom distance in pause mode.</p></div><button id="free-camera">Normal</button></div>
+<div class="setting"><div class="description"><h3>Universal Controller Fix</h3><p>UCF 0.8x dashback and shield-drop consistency on any controller.</p></div><button id="ucf">Off</button></div>
 </div>
 <div id="page-audio" class="page">
 <div class="setting"><div class="description"><h3>Master volume</h3><p>Left/right or drag to adjust.</p></div><div class="slider-control"><input type="range" id="volume" min="0" max="100" step="5" value="100" /><span id="volume-val" class="slider-value">100%</span></div></div>

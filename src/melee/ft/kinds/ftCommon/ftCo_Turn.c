@@ -24,6 +24,34 @@
 #include <melee/ft/ft_0892.h>
 #include <melee/ft/inlines.h>
 #include <melee/ft/types.h>
+#include <melee/pl/player.h>
+#include <pc/pc.h>
+
+s8 ftCo_ucf_raw_x[4][3];
+
+/// UCF 0.8x dashback (AltimorTASDK/ucf src/dashback/dashback.cpp +
+/// include/ucf/pad_buffer.h check_ucf_xsmash, "tilt intent algorithm by
+/// tauKhan"). Vanilla only dashes back when the stick reaches
+/// dash_smash_stick_threshold (0.8) on the very frame it leaves the smash
+/// deadzone; one frame of an in-between poll enters a tilt turn instead. UCF
+/// lets tilt-turn anim frame 2 cancel into the dashback when the vanilla
+/// smash-turn stick conditions hold (|x| >= 0.8 toward the new direction,
+/// stick X active < dash_smash_window = 2 frames) AND the raw stick X moved
+/// more than 75 of 80 units since two frames ago, i.e. it was a fast flick,
+/// not a slow tilt. Nana (sub fighter) is excluded; she is patched
+/// retroactively by the caller instead.
+bool ftCo_UcfDashback(Fighter* fp)
+{
+    // ponytail: octagon-clamped stickX (HSD_PadGameStatus), not the pre-clamp
+    // raw queue UCF reads; they only differ beyond the 80-unit rim.
+    s8* h = ftCo_ucf_raw_x[fp->x618_player_id];
+    int delta = h[0] - h[2];
+    return !fp->is_sub_fighter && fp->cur_anim_frame == 2.0f &&
+           fp->input.lstick[0].x * fp->mv.co.turn.facing_after >=
+               p_ftCommonData->dash_smash_stick_threshold &&
+           fp->active_timer.lstick.x < p_ftCommonData->dash_smash_window &&
+           delta * delta > 75 * 75;
+}
 
 bool ftCo_800C97A8(Fighter_GObj* gobj)
 {
@@ -103,6 +131,18 @@ void ftCo_Turn_IASA(Fighter_GObj* gobj)
     }
     if (!fp->mv.co.turn.has_turned) {
         fp->facing_dir = -fp->facing_dir;
+        if (pc_is_ucf_enabled() && ftCo_UcfDashback(fp)) {
+            Fighter_GObj* nana = Player_GetEntityAtIndex(fp->player_id, 1);
+            fp->mv.co.turn.has_turned = true;
+            fp->mv.co.turn.just_turned = true;
+            if (nana != NULL && GET_FIGHTER(nana)->kind == Ft_Kind_Nana) {
+                // Nana replays Popo's inputs later; rewrite the pending
+                // entry so she dashes back too (UCF dashback.cpp).
+                Fighter* nfp = GET_FIGHTER(nana);
+                nfp->cpu.x444->facing_dir = fp->facing_dir;
+                nfp->cpu.x444->lstick.x = fp->facing_dir < 0 ? -128 : 127;
+            }
+        }
     }
 
     RETURN_IF(ftCo_SpecialS_CheckInput(gobj));

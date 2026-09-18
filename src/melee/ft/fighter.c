@@ -50,6 +50,7 @@
 #include "kinds/ftCommon/ftCo_Rebound.h"
 #include "kinds/ftCommon/ftCo_ShieldBreakFly.h"
 #include "kinds/ftCommon/ftCo_SpecialS.h"
+#include "kinds/ftCommon/ftCo_Turn.h"
 #include "kinds/ftCrazyHand/ftcrazyhandwait10.h"
 #include "kinds/ftKirby/ftkirby.h"
 #include "kinds/ftMasterHand/ftmasterhandwait10.h"
@@ -1831,6 +1832,10 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
                 fp->input.triggers[0] = (tempf0 > tempf1) ? tempf0 : tempf1;
 
             } else {
+                s8* h = ftCo_ucf_raw_x[fp->x618_player_id];
+                h[2] = h[1];
+                h[1] = h[0];
+                h[0] = HSD_PadGameStatus[fp->x618_player_id].stickX;
                 SET_STICKS(fp->input.lstick[0].x, fp->input.lstick[0].y,
                            HSD_PadGameStatus[fp->x618_player_id].nml_stickX,
                            HSD_PadGameStatus[fp->x618_player_id].nml_stickY);

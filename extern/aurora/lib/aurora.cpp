@@ -72,14 +72,17 @@ constexpr std::array PreferredBackendOrder{
 #ifdef DAWN_ENABLE_BACKEND_D3D12
     BACKEND_D3D12,
 #endif
+// D3D11 before Vulkan: it is in-box on every Windows install, whereas Vulkan
+// needs a vendor ICD and the GPUs that fail D3D12 (Intel Gen7, which Dawn
+// refuses outright) never got one.
+#ifdef DAWN_ENABLE_BACKEND_D3D11
+    BACKEND_D3D11,
+#endif
 #ifdef DAWN_ENABLE_BACKEND_METAL
     BACKEND_METAL,
 #endif
 #ifdef DAWN_ENABLE_BACKEND_VULKAN
     BACKEND_VULKAN,
-#endif
-#ifdef DAWN_ENABLE_BACKEND_D3D11
-    BACKEND_D3D11,
 #endif
 // #ifdef DAWN_ENABLE_BACKEND_DESKTOP_GL
 //     BACKEND_OPENGL,
@@ -94,6 +97,32 @@ constexpr std::array PreferredBackendOrder{
 #else
 constexpr std::array<AuroraBackend, 0> PreferredBackendOrder{};
 #endif
+
+// Not magic_enum: AuroraBackend is a plain C enum with no fixed underlying
+// type, and instantiating enum_name on one fails to compile under Apple clang.
+constexpr const char* backend_name(AuroraBackend backend) noexcept {
+  switch (backend) {
+  case BACKEND_AUTO:
+    return "auto";
+  case BACKEND_D3D11:
+    return "D3D11";
+  case BACKEND_D3D12:
+    return "D3D12";
+  case BACKEND_METAL:
+    return "Metal";
+  case BACKEND_VULKAN:
+    return "Vulkan";
+  case BACKEND_OPENGL:
+    return "OpenGL";
+  case BACKEND_OPENGLES:
+    return "OpenGL ES";
+  case BACKEND_WEBGPU:
+    return "WebGPU";
+  case BACKEND_NULL:
+    return "null";
+  }
+  return "?";
+}
 
 bool g_initialFrame = false;
 
@@ -161,6 +190,15 @@ AuroraInfo initialize(int argc, char* argv[], const AuroraConfig& config) noexce
     }
   }
 
+  // A pinned backend that cannot come up silently falls through to the
+  // preferred order, and the only trace of that was the per-attempt warnings
+  // a few hundred lines earlier. Say it once, plainly, so a log tail still
+  // shows the pin was not honoured.
+  if (windowCreated && config.desiredBackend != BACKEND_AUTO && selectedBackend != config.desiredBackend) {
+    Log.warn("Requested backend {} could not be initialized; running on {} instead",
+             backend_name(config.desiredBackend), backend_name(selectedBackend));
+  }
+
   AURORA_ASSERT(windowCreated, "Error creating window: {}", SDL_GetError());
 
   // Initialize SDL_Renderer for ImGui when we can't use a Dawn backend
@@ -202,6 +240,17 @@ AuroraInfo initialize(int argc, char* argv[], const AuroraConfig& config) noexce
   g_config.desiredBackend = selectedBackend;
   return {
       .backend = selectedBackend,
+#ifdef AURORA_ENABLE_GX
+      .adapterName = webgpu::g_adapterName.c_str(),
+      .adapterDriver = webgpu::g_adapterDriver.c_str(),
+      .adapterVendorId = webgpu::g_adapterInfo.vendorID,
+      .adapterDeviceId = webgpu::g_adapterInfo.deviceID,
+#else
+      .adapterName = "",
+      .adapterDriver = "",
+      .adapterVendorId = 0,
+      .adapterDeviceId = 0,
+#endif
       .userPath = g_config.userPath,
       .cachePath = g_config.cachePath,
       .window = window::get_sdl_window(),

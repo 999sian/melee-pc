@@ -736,7 +736,7 @@ void start_download_async() {
         g_worker.thread.join();
     }
 
-    g_worker.thread = std::thread([download_url, asset_name] {
+    g_worker.thread = std::thread([download_url, asset_name, total_bytes] {
         bool restart_supported = false;
         auto dest_path = get_target_download_path(asset_name, restart_supported);
         std::string error;
@@ -750,6 +750,19 @@ void start_download_async() {
         ok = true;
 #elif defined(MELEE_USE_CURL)
         ok = http_download_file_curl(download_url, dest_path, error);
+        if (ok && total_bytes > 0) {
+            // The release API told us the asset size: a short file is an
+            // interrupted or disk-full download, never something to execute.
+            // ponytail: size only; SHA-256 when the API digest is trusted.
+            std::error_code ec;
+            auto got = std::filesystem::file_size(dest_path, ec);
+            if (ec || got != total_bytes) {
+                std::filesystem::remove(dest_path, ec);
+                error = "Incomplete download (" + std::to_string(ec ? 0 : got) + " of " +
+                        std::to_string(total_bytes) + " bytes)";
+                ok = false;
+            }
+        }
         if (ok) {
             chmod(dest_path.c_str(), 0755);
         }

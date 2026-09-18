@@ -10,12 +10,7 @@ if (APPLE)
     enable_language(OBJC)
 endif ()
 
-if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
-    # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
-    # on-disc structures, which only GCC implements (C only). Android and macOS
-    # keep Clang for C++ and route the game's C through GCC (tools/gcc_launcher.py).
-    message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
-endif ()
+include(cmake/MeleeToolchainCheck.cmake)
 
 # Every platform builds the simulation at -O2 (Windows/Android packaging use
 # Release, Linux RelWithDebInfo): -O3 vectorises float reductions differently
@@ -117,13 +112,7 @@ else ()
 endif ()
 
 # ---- Game code (decomp, compiled as C) -------------------------------------
-# src/thp (Melee's PPC THP decoder) is replaced by aurora::thp; see src/pc/thp.c.
-file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
-        src/melee/*.c
-        src/sysdolphin/*.c)
-list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
-# PowerPC/MetroTRK debugger integration; no PC equivalent.
-list(FILTER GAME_SOURCES EXCLUDE REGEX "baselib/debugconsole_main\\.c$")
+include(cmake/GameSources.cmake)
 
 add_library(melee_game STATIC ${GAME_SOURCES})
 target_include_directories(melee_game PUBLIC extern/aurora/include src src/sdk_include)
@@ -167,12 +156,62 @@ elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
 endif ()
 
 # ---- PC platform layer -----------------------------------------------------
-file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp src/pc/libm/*.c)
-if (APPLE)
-    file(GLOB PC_OBJC_SOURCES CONFIGURE_DEPENDS src/pc/*.m)
-    list(APPEND PC_SOURCES ${PC_OBJC_SOURCES})
+# Explicit, not a glob: this list links straight into the shipped binary, so a
+# stray .c/.cpp dropped into src/pc must not silently join the build.
+# src/pc/vtxarray.c is deliberately absent - it belongs to melee_game.
+set(PC_SOURCES
+        src/pc/audio.c
+        src/pc/disc_open.c
+        src/pc/discfont.c
+        src/pc/gcadapter.c
+        src/pc/gx.c
+        src/pc/input_poll.c
+        src/pc/keyboard.c
+        src/pc/main.c
+        src/pc/misc.c
+        src/pc/os.c
+        src/pc/region.c
+        src/pc/stb_vorbis.c
+        src/pc/thp.c
+        src/pc/touch.c
+        src/pc/vi.c
+        src/pc/widescreen.c
+        src/pc/windows_arm64_softfp.c
+        src/pc/android_compat.cpp
+        src/pc/file_cache.cpp
+        src/pc/launcher.cpp
+        src/pc/launcher_data.cpp
+        src/pc/music_stream.cpp
+        src/pc/textures.cpp
+        src/pc/updater.cpp
+        src/pc/version.cpp
+        # Netplay (docs/netcode-plan.md). net.c is the session and rollback
+        # loop; the rest are its modules behind src/pc/net_internal.h.
+        src/pc/net.c
+        src/pc/net_handshake.c
+        src/pc/net_lan.c
+        src/pc/net_reliable.c
+        src/pc/net_sim.c
+        src/pc/net_snapshot.c
+        src/pc/net_sync.c
+        src/pc/net_wire.c
+        # Vendored musl trig: platform libm differs by an ULP between targets,
+        # which is a cross-platform desync (docs/netcode-plan.md section 5).
+        src/pc/libm/pc_atanf.c
+        src/pc/libm/pc_cosdf.c
+        src/pc/libm/pc_cosf.c
+        src/pc/libm/pc_perturb.c
+        src/pc/libm/pc_rem_pio2_large.c
+        src/pc/libm/pc_rem_pio2f.c
+        src/pc/libm/pc_sindf.c
+        src/pc/libm/pc_sinf.c
+        src/pc/libm/pc_tandf.c
+        src/pc/libm/pc_tanf.c)
+# iOS, not APPLE: ios_dialog.m imports UIKit, which the macOS SDK has no
+# headers for. The glob this replaced matched src/pc/*.m on macOS too.
+if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    list(APPEND PC_SOURCES src/pc/ios_dialog.m)
 endif ()
-list(REMOVE_ITEM PC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
 if (ANDROID)
     add_library(melee SHARED ${PC_SOURCES})
 else ()
@@ -343,19 +382,32 @@ if (MELEE_ENABLE_LTO)
 endif ()
 
 if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # Unit tests: `ninja -C build unit_tests && ctest --test-dir build -L melee`
+    # (aurora registers its own tests, unbuilt here).
+    enable_testing()
+    add_custom_target(unit_tests)
     add_executable(launcher_data_test EXCLUDE_FROM_ALL tools/test_launcher_data.cpp src/pc/launcher_data.cpp src/pc/disc_open.c)
     target_include_directories(launcher_data_test PRIVATE src)
     target_link_libraries(launcher_data_test PRIVATE aurora::dvd ${MELEE_CRYPTO_LIBS})
     target_compile_options(launcher_data_test PRIVATE -UNDEBUG)
+    add_test(NAME launcher_data COMMAND launcher_data_test)
+    set_tests_properties(launcher_data PROPERTIES LABELS melee)
+    add_dependencies(unit_tests launcher_data_test)
 
     add_executable(version_test EXCLUDE_FROM_ALL tools/test_version.cpp src/pc/version.cpp)
     target_include_directories(version_test PRIVATE src)
     target_compile_options(version_test PRIVATE -UNDEBUG)
+    add_test(NAME version COMMAND version_test)
+    set_tests_properties(version PROPERTIES LABELS melee)
+    add_dependencies(unit_tests version_test)
 
     if (NOT WIN32)
         add_executable(updater_test EXCLUDE_FROM_ALL tools/test_updater.cpp src/pc/updater.cpp src/pc/version.cpp)
         target_include_directories(updater_test PRIVATE src)
         target_link_libraries(updater_test PRIVATE ${MELEE_NETWORK_LIBS} aurora::main)
         target_compile_options(updater_test PRIVATE -UNDEBUG)
+        add_test(NAME updater COMMAND updater_test)
+        set_tests_properties(updater PROPERTIES LABELS melee)
+        add_dependencies(unit_tests updater_test)
     endif ()
 endif ()

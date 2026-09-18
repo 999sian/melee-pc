@@ -2741,7 +2741,7 @@ void mn_8022D7F4(HSD_GObj* gp)
             break;
         case SEL_1P_EVENT:
             sfxForward();
-            mnEvent_8024E838(0, 1);
+            mnEvent_8024E838(0, true);
             HSD_GObjFree(gp);
             break;
         case SEL_1P_TRAINING:
@@ -3172,7 +3172,7 @@ void mnMain_Scene_OnEnter(void* user_data)
 
     switch (data->menu_kind) {
     case MENU_KIND_EVENT:
-        mnEvent_8024E838(gm_801BEB80(), 0);
+        mnEvent_8024E838(gm_801BEB80(), false);
         break;
     case MENU_KIND_MULTI_VS:
         mnHyaku_8024CD64(data->hovered_selection);

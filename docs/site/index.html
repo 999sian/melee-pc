@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>melee-pc — a native PC port of Super Smash Bros. Melee</title>
+<meta name="description" content="melee-pc: a native Linux, Windows, macOS, Android and iOS port of Super Smash Bros. Melee built from the decompilation. Bring your own disc image.">
+<style>
+  :root { --bg:#0e0f13; --fg:#e8e8ec; --dim:#a4a6b3; --line:#2a2c36; --accent:#e4b04a; --card:#171922; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  a { color:var(--accent); }
+  code, kbd, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em; }
+  code, kbd { background:#22242e; padding:.1em .35em; border-radius:4px; }
+  pre { background:#22242e; padding:.8em 1em; border-radius:6px; overflow:auto; }
+  pre code { background:none; padding:0; }
+  header { padding:3.5rem 1rem 2rem; text-align:center; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:2.6rem; letter-spacing:.02em; }
+  header p { color:var(--dim); max-width:38rem; margin:1rem auto 0; }
+  .beta { display:inline-block; background:var(--accent); color:#111; font-weight:700; font-size:.8rem; padding:.2em .6em; border-radius:4px; letter-spacing:.06em; }
+  .cta { display:inline-block; margin-top:1.5rem; background:var(--accent); color:#111; font-weight:700; padding:.7em 1.4em; border-radius:6px; text-decoration:none; }
+  nav { position:sticky; top:0; background:rgba(14,15,19,.95); border-bottom:1px solid var(--line); padding:.5rem 1rem; text-align:center; }
+  nav a { color:var(--fg); text-decoration:none; margin:0 .6rem; font-size:.95rem; white-space:nowrap; }
+  nav a:hover { color:var(--accent); }
+  main { max-width: 52rem; margin:0 auto; padding:1rem 1rem 4rem; }
+  section { padding:2.5rem 0 0; scroll-margin-top:3.5rem; }
+  h2 { border-bottom:1px solid var(--line); padding-bottom:.3em; margin-bottom:1rem; }
+  h3 { margin:1.6rem 0 .5rem; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { text-align:left; padding:.45em .6em; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; }
+  details { border:1px solid var(--line); border-radius:6px; margin:.5rem 0; background:var(--card); }
+  summary { cursor:pointer; padding:.7em 1em; font-weight:600; }
+  details > :not(summary) { margin:0; padding:0 1em .9em; }
+  details p + p, details p + pre, details pre + p { padding-top:.6em; }
+  .src { color:var(--dim); font-size:.85em; }
+  ol.steps li { margin:.5rem 0; }
+  .note { border-left:3px solid var(--accent); padding:.5em 1em; background:var(--card); border-radius:0 6px 6px 0; }
+  footer { border-top:1px solid var(--line); color:var(--dim); text-align:center; padding:2rem 1rem; font-size:.9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="beta">BETA</span>
+  <h1>melee-pc</h1>
+  <p>A native port of <strong>Super Smash Bros. Melee</strong> for Linux, Windows, macOS, Android and iOS, built from the
+  <a href="https://github.com/doldecomp/melee">decompilation</a> and compiled straight to your CPU. No emulator, no game data shipped: you bring your own disc.</p>
+  <a class="cta" href="https://github.com/999sian/melee-pc/releases/latest">Download the latest release</a>
+</header>
+
+<nav>
+  <a href="#about">About</a>
+  <a href="#download">Download</a>
+  <a href="#requirements">Requirements</a>
+  <a href="#setup">Setup</a>
+  <a href="#faq">FAQ</a>
+  <a href="#known-issues">Known issues</a>
+  <a href="#community">Community</a>
+  <a href="#credits">Credits</a>
+</nav>
+
+<main>
+
+<section id="about">
+  <h2>What it is</h2>
+  <p>melee-pc recompiles the C source recovered by <a href="https://github.com/doldecomp/melee">doldecomp/melee</a> for
+  x86-64 and ARM64, on top of <a href="https://github.com/encounter/aurora">aurora</a> (a GameCube GX/OS/PAD/DVD/CARD
+  compatibility layer with a WebGPU renderer) and SDL3. The game logic runs natively at 60 Hz; the graphics go through
+  Vulkan, Direct3D 12/11 or Metal.</p>
+  <p><strong>Nothing from the game ships here.</strong> Textures, models, music, even the two HSD font atlases are read
+  out of the disc image you supply at boot. The repository and the release archives contain only the port code and
+  third-party libraries.</p>
+  <p>It is a beta, for testing. Expect crashes. Online play with rollback netcode is planned and <strong>not implemented
+  yet</strong>. Every game mode runs -- VS, 1-P Classic / Adventure / All-Star, Training, Stadium, Trophies, Event
+  Match -- alongside PC extras like internal resolution up to 10x, a 16:9 combat camera, post-processing shaders,
+  gamepad remapping, custom soundtracks and HD texture packs. Feature by feature, including what is only half done, the
+  <a href="https://github.com/999sian/melee-pc#status">status table in the README</a> is the authoritative list; this
+  page does not keep its own copy.</p>
+</section>
+
+<section id="download">
+  <h2>Download</h2>
+  <p>Grab the file for your platform from the <a href="https://github.com/999sian/melee-pc/releases/latest">latest
+  release</a>. Every build is produced by the public CI from the tagged source.</p>
+  <table>
+    <tr><th>Platform</th><th>File</th><th>Notes</th></tr>
+    <tr><td>Linux x86-64</td><td><code>Melee-x86_64.AppImage</code> / <code>melee-linux-x86_64.tar.gz</code></td><td>Needs a Vulkan driver. <code>chmod +x</code> the AppImage, or run <code>run.sh</code> in the tarball.</td></tr>
+    <tr><td>Linux ARM64</td><td><code>Melee-aarch64.AppImage</code> / <code>melee-linux-aarch64.tar.gz</code></td><td>Raspberry Pi 5, Asahi Linux, RK3588 boards, ARM handhelds.</td></tr>
+    <tr><td>Windows x86-64</td><td><code>Melee-Windows-x86_64.zip</code></td><td>Extract, run <code>melee.exe</code>. Keep the DLLs and <code>resources/</code> beside it.</td></tr>
+    <tr><td>Windows ARM64</td><td><code>Melee-Windows-arm64.zip</code></td><td>Native build for Snapdragon X / Surface Pro.</td></tr>
+    <tr><td>macOS</td><td><code>Melee-macOS-arm64.zip</code> / <code>Melee-macOS-x86_64.zip</code></td><td>Apple Silicon tested; Intel built but untested. Ad-hoc signed: right-click &gt; Open on first launch.</td></tr>
+    <tr><td>Android arm64</td><td><code>Melee-Android-arm64.apk</code></td><td>Signed release build; allow installs from unknown sources.</td></tr>
+    <tr><td>iOS arm64</td><td><code>Melee-iOS-arm64.ipa</code></td><td>Sideload with AltStore, Sideloadly or TrollStore.</td></tr>
+  </table>
+</section>
+
+<section id="requirements">
+  <h2>Requirements</h2>
+  <ul>
+    <li><strong>A disc image you dumped yourself</strong> from your own copy of <em>Super Smash Bros. Melee</em>, USA revision 2
+      (<strong>NTSC-U 1.02, game ID GALE01</strong>) as <code>.iso</code>, <code>.gcm</code>, <code>.ciso</code> or <code>.rvz</code>.
+      A Europe (PAL, GALP01) image boots experimentally. Japanese discs, 1.00/1.01 revisions and modified builds (20XX, UnclePunch, …) do not work.</li>
+    <li><strong>GPU:</strong> Vulkan 1.1 on Linux and Android; Direct3D 12 (feature level 11_0) or Vulkan on Windows; Metal on macOS/iOS.
+      A Direct3D 11 fallback is built for the Intel Haswell iGPUs (HD 4000/4400/4600, 2012–2014 laptops) that Dawn refuses on D3D12, but it has not been verified on real hardware, see the <a href="#faq-intel">FAQ</a>.</li>
+    <li><strong>CPU/RAM:</strong> any 64-bit x86 or ARM CPU from the last decade; 2 GB of RAM is enough (the asset cache scales itself down on low-memory devices).</li>
+    <li><strong>Android:</strong> Android 8.0 (API 26) or newer, 64-bit ARM, Vulkan-capable GPU. Android 9 phones that only expose OpenGL ES are not supported.</li>
+    <li><strong>Controllers:</strong> any gamepad SDL3 knows (Xbox, PlayStation, Switch Pro, …), or the keyboard. An official Wii U / Switch GameCube adapter is read directly for raw stick and trigger values; in PC mode it is just another gamepad.</li>
+  </ul>
+</section>
+
+<section id="setup">
+  <h2>Setup in five steps</h2>
+  <ol class="steps">
+    <li><strong>Dump your disc.</strong> Use a homebrew-enabled Wii or GameCube with <a href="https://github.com/emukidid/cleanrip">CleanRip</a>
+      to read your own Melee disc to an SD card. The result should be about 1.36 GB (1,459,978,240 bytes).</li>
+    <li><strong>Download and unpack</strong> the build for your platform from the <a href="#download">table above</a>. On Windows, extract the whole zip into its own folder; on macOS right-click &gt; Open the first time.</li>
+    <li><strong>Start the launcher</strong> (double-click <code>melee.exe</code> / the AppImage / <code>Melee.app</code>, or open the APK) and choose your image with <em>Select disc</em>.</li>
+    <li><strong>Verify the disc.</strong> Press <em>Verify</em>. The launcher hashes the image with SHA-1 and compares it with the Redump entry
+      (<code>d4e70c064cc714ba8400a849cf299dbd1aa326fc</code>). A green check means the exact supported disc. Unverified images still play, but if something breaks, the first question will be "did it verify?".</li>
+    <li><strong>Play.</strong> Press <em>Play Melee</em>. In game, <kbd>F1</kbd> (or Back/Select on a pad) opens the settings overlay for resolution, fullscreen, audio, cheats and controller mapping. The game pauses underneath.</li>
+  </ol>
+  <p class="note">Command line users: <code>./Melee-x86_64.AppImage /path/to/melee.iso</code> or <code>melee.exe C:\path\to\melee.iso</code> skips the launcher.</p>
+
+  <h3>Default keyboard layout</h3>
+  <table>
+    <tr><th>GameCube</th><th>Key</th><th>GameCube</th><th>Key</th></tr>
+    <tr><td>Control stick</td><td>Arrow keys</td><td>C-stick</td><td>I J K L</td></tr>
+    <tr><td>A / B</td><td>X / Z</td><td>X / Y</td><td>C / V</td></tr>
+    <tr><td>L / R</td><td>Q / E</td><td>Z</td><td>Tab</td></tr>
+    <tr><td>Start</td><td>Enter</td><td>D-pad</td><td>T F G H</td></tr>
+  </table>
+  <p>Gamepads are mapped automatically and can be remapped per device in the <em>Controls</em> tab of the launcher or the <kbd>F1</kbd> overlay: pick the port, pick a GameCube button, press the physical one.</p>
+
+  <h3 id="settings-location">Where your settings live</h3>
+  <p>Everything (selected disc, graphics, audio, cheats) is one text file, <code>launcher.cfg</code>. Controller bindings sit beside it in per-device <code>.controller</code> files; memory cards, <code>music/</code> and <code>textures/</code> too.</p>
+  <table>
+    <tr><th>OS</th><th>Folder</th></tr>
+    <tr><td>Windows</td><td><code>%APPDATA%\melee-pc\</code> (usually <code>C:\Users\&lt;you&gt;\AppData\Roaming\melee-pc\</code>)</td></tr>
+    <tr><td>Linux</td><td><code>~/.local/share/melee-pc/</code></td></tr>
+    <tr><td>macOS</td><td><code>~/Library/Application Support/melee-pc/</code></td></tr>
+    <tr><td>Android</td><td>The app's private storage; use the in-app settings.</td></tr>
+  </table>
+  <p>Delete <code>launcher.cfg</code> to reset every setting. The <code>dawn_cache.db</code> next to it is the compiled-shader cache; deleting it is harmless but brings back the first-use stutter.</p>
+</section>
+
+<section id="faq">
+  <h2>FAQ</h2>
+
+  <details id="faq-piracy"><summary>Where do I get the game? Can you send me the ISO?</summary>
+    <p>No. melee-pc contains no Nintendo assets and we will not link, host, or help you find a disc image. The only supported way to obtain one is to dump the disc you own (see <a href="#setup">Setup</a>). Requests for ROMs on the issue tracker or Discord are closed and removed.</p>
+  </details>
+
+  <details id="faq-disc"><summary>Which disc version do I need?</summary>
+    <p><strong>USA revision 2 — NTSC-U 1.02, game ID GALE01.</strong> This is the only version the code was recovered from, and the only one the disc verifier has a reference hash for. A PAL (GALP01) image also boots, experimentally: it runs the USA game code on the PAL files, with English (UK) text and at 60 Hz. PAL images always show as "unverified" because there is no reference hash for them.</p>
+    <p>1.00 and 1.01 discs, the Japanese release, and any modified image will not work. If you own a 1.00/1.01 US disc you are out of luck for now.</p>
+    <p class="src">Sources: README, release notes.</p>
+  </details>
+
+  <details id="faq-mods"><summary>Can I play 20XX, UnclePunch Training Pack, Slippi Nightly, or another modded ISO?</summary>
+    <p>No. Those projects patch the PowerPC executable on the disc. melee-pc does not run that executable at all: it is the game's C source compiled for your CPU, so assembly patches and Gecko codes have nothing to attach to. A modded image will crash at boot or verify as unknown. Features from those mods (UCF, training tools, …) have to be reimplemented natively, and some are on the <a href="https://github.com/999sian/melee-pc/blob/master/ROADMAP.md">roadmap</a>.</p>
+    <p class="src">Source: <a href="https://github.com/999sian/melee-pc/issues/28">#28</a>.</p>
+  </details>
+
+  <details id="faq-verify"><summary>Verify says "unverified" or a different hash. Is it broken?</summary>
+    <p>Verification reads the whole image through nod (compressed <code>.ciso</code>/<code>.rvz</code> included) and compares the SHA-1 with Redump's <code>d4e70c064cc714ba8400a849cf299dbd1aa326fc</code>, 1,459,978,240 bytes. A mismatch means the image is not a clean NTSC-U 1.02 dump: another revision or region, a scrubbed/trimmed rip, or a modded build. PAL is expected to be unverified. Unverified images still launch, but bug reports about them are triaged last.</p>
+    <p class="src">Sources: README, <a href="https://github.com/999sian/melee-pc/issues/28">#28</a>.</p>
+  </details>
+
+  <details id="faq-smartscreen"><summary>Windows says "Windows protected your PC" / SmartScreen blocks melee.exe.</summary>
+    <p>The executable is not code-signed (certificates cost money and this is a hobby beta), so SmartScreen warns on first launch. Click <em>More info</em> &gt; <em>Run anyway</em>. If an antivirus quarantines the exe, restore it and add the folder to its exclusions. You can always rebuild from source if you would rather not trust a binary.</p>
+  </details>
+
+  <details id="faq-windows-crash"><summary>Windows: the launcher works but the game closes the moment I press Play.</summary>
+    <p>First, update. Every release from v0.1.4 to v0.1.6 had one variant of this and each was fixed in the next build: <code>Failed to commit memory for MEM1 strictly under 4GB</code> (v0.1.5, fixed in v0.1.6) and a null write inside <code>melee.exe</code> right after <code>Initialized 0x1000000 bytes of ARAM</code> (v0.1.6, fixed in v0.1.7).</p>
+    <p>Still crashing on the latest release? Run <code>RUN-AND-LOG.bat</code> from the game folder instead of <code>melee.exe</code>. It sets verbose logging, runs the game, and leaves <code>melee-pc.log</code>, <code>melee-pc-env.log</code> and <code>melee-frames.log</code> beside the exe. Attach <code>melee-pc.log</code> to a bug report. Even the plain <code>melee.exe</code> writes <code>melee-pc.log</code> next to itself on Windows, flushed line by line, so it survives a crash.</p>
+    <p class="src">Sources: <a href="https://github.com/999sian/melee-pc/issues/40">#40</a>, <a href="https://github.com/999sian/melee-pc/issues/43">#43</a>, <a href="https://github.com/999sian/melee-pc/issues/49">#49</a>, <a href="https://github.com/999sian/melee-pc/issues/62">#62</a>, <a href="https://github.com/999sian/melee-pc/issues/63">#63</a>.</p>
+  </details>
+
+  <details id="faq-intel"><summary>Windows: <code>DXGI_ERROR_DEVICE_HUNG</code> / "Device lost" on an older Intel laptop.</summary>
+    <p>Intel HD 4000/4400/4600 (Haswell) iGPUs cannot use Direct3D 12 here: Dawn refuses D3D12 on Intel Gen7 outright and Intel never shipped a Windows Vulkan driver for them, so <em>Auto</em> is meant to land on Direct3D 11. That fallback is built but nobody has confirmed it working on such a machine yet, so a report with a log from one is genuinely useful. A <code>DXGI_ERROR_DEVICE_HUNG</code> in the log on one of these machines is Intel's last Haswell driver (20.19.15.x, from 2020) timing out the GPU mid-match — Pokémon Stadium transformations are a reliable trigger — and there is no further API to fall back to on that hardware.</p>
+    <p>The graphics backend can be pinned from the launcher's Graphics tab (<em>Direct3D 11</em>) or with <code>MELEE_BACKEND=d3d11</code>, which is useful when reporting so the log shows the same path every run.</p>
+    <p class="src">Sources: <a href="https://github.com/999sian/melee-pc/issues/67">#67</a>, <a href="https://github.com/999sian/melee-pc/issues/64">#64</a>.</p>
+  </details>
+
+  <details id="faq-stutter"><summary>The game freezes for a second the first time a character uses a move or a stage loads. Audio keeps playing.</summary>
+    <p>That is shader (pipeline) compilation. The GameCube has no programmable shaders; every new combination of TEV stages, blend modes and lighting the game asks for is turned into a GPU pipeline the first time it is seen, and your driver compiles it synchronously. The result is cached on disk (<code>dawn_cache.db</code> in the <a href="#settings-location">settings folder</a>), so each hitch happens once per machine. Releases ship a pre-seeded cache (<code>initial_pipeline_cache.db</code>) covering common cases; the rest fill in as you play. Deleting <code>dawn_cache.db</code> or changing GPU/driver/backend starts over.</p>
+    <p class="src">Source: <a href="https://github.com/999sian/melee-pc/issues/46">#46</a>.</p>
+  </details>
+
+  <details id="faq-fullscreen"><summary>Fullscreen crashes at launch, windowed is fine.</summary>
+    <p>Two different bugs looked like this. Overlays that hook the swapchain (NVIDIA ShadowPlay, Discord, Steam) briefly hand the game a 0x0 surface when fullscreen toggles; fixed in v0.1.6. Fullscreen driver buffers fragmenting the low 4 GB of address space before the GameCube memory was mapped; also fixed in v0.1.6. If you still see it on a current build, attach the log.</p>
+    <p class="src">Sources: <a href="https://github.com/999sian/melee-pc/issues/52">#52</a>, <a href="https://github.com/999sian/melee-pc/issues/43">#43</a>.</p>
+  </details>
+
+  <details id="faq-android"><summary>Android: what phones work, and why does it close immediately on mine?</summary>
+    <p>Requirements: Android 8.0+, 64-bit ARM, a Vulkan-capable GPU. Devices stuck on OpenGL ES (many Android 9 phones and cheap tablets) are not supported and there is no plan to add a GLES renderer. Inverted red/blue colours on Adreno GPUs were fixed in v0.1.6. Some Snapdragon 7 Gen 3 / 8 Gen 2 devices (Honor 200, OnePlus Ace 3, AYN Odin 2) still close at boot on v0.1.7 and this is being investigated; a <code>logcat</code> capture filtered on the tag <code>Aurora</code> is what helps most.</p>
+    <p class="src">Sources: <a href="https://github.com/999sian/melee-pc/issues/66">#66</a>, <a href="https://github.com/999sian/melee-pc/issues/20">#20</a>, <a href="https://github.com/999sian/melee-pc/issues/23">#23</a>, <a href="https://github.com/999sian/melee-pc/issues/59">#59</a>.</p>
+  </details>
+
+  <details id="faq-wsl"><summary>I built it myself and the textures cycle through garbage / the log says OpenGLES.</summary>
+    <p>You compiled the Linux build and ran it under WSL. WSL has no real GPU driver for this, so Dawn falls back to a software OpenGL ES path that renders wrong and slowly. On Windows, build the Windows package (<code>tools/package_windows.sh</code> cross-compiles from Linux with MinGW) or download the release zip.</p>
+    <p class="src">Source: <a href="https://github.com/999sian/melee-pc/issues/69">#69</a>.</p>
+  </details>
+
+  <details id="faq-controls"><summary>Can I remap buttons, turn off tap jump, change what the C-stick does?</summary>
+    <p>Button, stick and trigger remapping per controller is built in (Controls tab, launcher or <kbd>F1</kbd>). Tap jump, C-stick macros and input buffers are game-engine behaviour from vanilla 1.02, not settings; toggles for them are tracked as feature requests and would have to be disabled for online play later.</p>
+    <p class="src">Sources: README, <a href="https://github.com/999sian/melee-pc/issues/3">#3</a>.</p>
+  </details>
+
+  <details id="faq-perf"><summary>It runs below 60 FPS on my Switch / Raspberry Pi / 4-core ARM board.</summary>
+    <p>v0.1.6 removed thread pinning that had squeezed the game, FIFO and render threads onto two cores of quad-core ARM devices. If a current build still drops frames, lower internal resolution to 1x and turn off MSAA and post-processing in the Graphics tab. <code>MELEE_FPS=1</code> prints the frame rate to the log once a second.</p>
+    <p class="src">Source: <a href="https://github.com/999sian/melee-pc/issues/47">#47</a>.</p>
+  </details>
+
+  <details id="faq-online"><summary>Is there online play?</summary>
+    <p>Not yet. Rollback netcode with serverless peer discovery is Phase 4 of the <a href="https://github.com/999sian/melee-pc/blob/master/ROADMAP.md">roadmap</a>. Until then, local multiplayer with up to four controllers works.</p>
+  </details>
+
+  <details id="faq-macos"><summary>macOS: "Melee.app is damaged" or it will not open.</summary>
+    <p>The app is ad-hoc signed, not notarised. Right-click &gt; <em>Open</em> the first time, or run <code>xattr -d com.apple.quarantine Melee.app</code>. Apple Silicon is tested; the Intel build is produced by CI but nobody has run it on Intel hardware yet.</p>
+    <p class="src">Source: README.</p>
+  </details>
+
+  <details id="faq-log"><summary>Where is the log file?</summary>
+    <table>
+      <tr><th>OS</th><th>Log</th></tr>
+      <tr><td>Windows</td><td><code>melee-pc.log</code> in the folder with <code>melee.exe</code> (always written). <code>RUN-AND-LOG.bat</code> adds <code>melee-pc-env.log</code> and <code>melee-frames.log</code>.</td></tr>
+      <tr><td>Linux / macOS</td><td>Console output. To keep it: <code>MELEE_LOG_FILE=melee-pc.log ./Melee-x86_64.AppImage disc.iso</code>.</td></tr>
+      <tr><td>Android</td><td><code>adb logcat -s Aurora</code>.</td></tr>
+    </table>
+    <p>The log records CPU, GPU, driver, backend, and on a crash the faulting address and module. It contains your username in file paths and nothing else personal.</p>
+  </details>
+</section>
+
+<section id="known-issues">
+  <h2>Known issues</h2>
+  <h3>All platforms</h3>
+  <ul>
+    <li>Online play is not implemented.</li>
+    <li>First-use shader compilation hitches (<a href="#faq-stutter">FAQ</a>).</li>
+    <li>Widescreen applies to fights only (VS, Sudden Death, Training); menus, results and cutscenes stay at the original aspect. The wide HUD is a separate toggle.</li>
+    <li>All-Star mode needs the full roster unlocked (or the <em>Unlock Everything</em> cheat).</li>
+    <li>It is a decompilation port: a scene nobody has tested yet can still crash. Reports with a log and steps get fixed quickly.</li>
+  </ul>
+  <h3>Windows</h3>
+  <ul>
+    <li>Haswell-era Intel iGPUs (HD 4000/4400/4600) have no working API here yet: D3D12 refuses them, Intel shipped no Vulkan driver, and the Direct3D 11 fallback is unverified (<a href="#faq-intel">FAQ</a>).</li>
+    <li>Unsigned executable: SmartScreen warning on first run.</li>
+    <li>Overlay software (ShadowPlay, Discord) occasionally interferes with fullscreen toggles; fixed in v0.1.6, report if it recurs.</li>
+  </ul>
+  <h3>Linux</h3>
+  <ul>
+    <li>Vulkan only. No Vulkan driver (old Intel, NVIDIA without proprietary or NVK driver, WSL) means no game.</li>
+    <li>Under Xwayland, some screenshot tools return a stale frame while the game is running normally.</li>
+  </ul>
+  <h3>macOS</h3>
+  <ul>
+    <li>Experimental. Intel build untested on hardware.</li>
+  </ul>
+  <h3>Android / iOS</h3>
+  <ul>
+    <li>No OpenGL ES fallback; Android 9 GLES-only devices unsupported (<a href="https://github.com/999sian/melee-pc/issues/66">#66</a>).</li>
+    <li>Some Snapdragon 7 Gen 3 / 8 Gen 2 devices close at boot on v0.1.7 (<a href="https://github.com/999sian/melee-pc/issues/23">#23</a>, <a href="https://github.com/999sian/melee-pc/issues/59">#59</a>).</li>
+    <li>iOS requires sideloading; there is no App Store listing and there will not be one.</li>
+    <li>iOS touch controls are invisible screen regions, not the drawn overlay Android gets: no on-screen buttons, no calibration, and they do not hide when you connect a controller.</li>
+  </ul>
+</section>
+
+<section id="community">
+  <h2>Community</h2>
+  <ul>
+    <li><a href="https://discord.gg/aurt34svq">Discord</a>: help, testing, chatting. The fastest place to ask "is this a known thing?".</li>
+    <li><a href="https://github.com/999sian/melee-pc/issues">GitHub issues</a>: bugs and feature requests. Please use the bug report form; it asks for the log and hardware details every report needs. Search first: most first-launch crashes already have a thread.</li>
+    <li><a href="https://github.com/999sian/melee-pc">Source code</a>: the port layer is GPL-3.0-or-later. Read <a href="https://github.com/999sian/melee-pc/blob/master/CODING_STYLE.md">CODING_STYLE.md</a> before opening a pull request.</li>
+  </ul>
+</section>
+
+<section id="credits">
+  <h2>Credits</h2>
+  <ul>
+    <li><a href="https://github.com/doldecomp/melee">doldecomp/melee</a>: the decompilation this port is built from, years of work by many contributors.</li>
+    <li><a href="https://github.com/encounter/aurora">aurora</a> by Luke Street and contributors: the GameCube compatibility layer and WebGPU renderer.</li>
+    <li><a href="https://github.com/libsdl-org/SDL">SDL3</a>, <a href="https://dawn.googlesource.com/dawn">Dawn</a>, <a href="https://github.com/mikke89/RmlUi">RmlUi</a>, <a href="https://github.com/nothings/stb">stb_vorbis</a>, <a href="https://github.com/encounter/nod">nod</a>.</li>
+    <li><a href="https://github.com/TwilitRealm/dusklight">dusklight</a>, whose approach this port follows.</li>
+    <li>Everyone who filed a bug with a log attached.</li>
+  </ul>
+  <p>AI coding tools were used extensively to write and debug the PC layer of this port; every change is reviewed, built and played by a person before it is released, and the game code itself is the decompilation team's work.</p>
+  <p>Super Smash Bros. Melee is a trademark of Nintendo / HAL Laboratory. This project is not affiliated with or endorsed by them.</p>
+</section>
+
+</main>
+
+<footer>
+  <a href="https://github.com/999sian/melee-pc">github.com/999sian/melee-pc</a> · <a href="https://discord.gg/aurt34svq">Discord</a>
+</footer>
+
+</body>
+</html>

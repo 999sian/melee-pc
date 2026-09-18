@@ -35,5 +35,8 @@ template <typename Config>
 PipelineRef find_pipeline(ShaderType type, const Config& config, NewPipelineCallback&& cb);
 
 bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline);
+/* Blocks up to maxWaitMs while queued pipelines compile; returns how many are
+ * still pending (queued or mid-compile). */
+uint32_t wait_pipelines(uint32_t maxWaitMs);
 
 } // namespace aurora::gfx
