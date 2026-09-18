@@ -10,12 +10,7 @@ if (APPLE)
     enable_language(OBJC)
 endif ()
 
-if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
-    # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
-    # on-disc structures, which only GCC implements (C only). Android and macOS
-    # keep Clang for C++ and route the game's C through GCC (tools/gcc_launcher.py).
-    message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
-endif ()
+include(cmake/MeleeToolchainCheck.cmake)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
@@ -72,13 +67,7 @@ else ()
 endif ()
 
 # ---- Game code (decomp, compiled as C) -------------------------------------
-# src/thp (Melee's PPC THP decoder) is replaced by aurora::thp; see src/pc/thp.c.
-file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
-        src/melee/*.c
-        src/sysdolphin/*.c)
-list(APPEND GAME_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
-# PowerPC/MetroTRK debugger integration; no PC equivalent.
-list(FILTER GAME_SOURCES EXCLUDE REGEX "baselib/debugconsole_main\\.c$")
+include(cmake/GameSources.cmake)
 
 add_library(melee_game STATIC ${GAME_SOURCES})
 target_include_directories(melee_game PUBLIC extern/aurora/include src src/sdk_include)
@@ -120,12 +109,38 @@ elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
 endif ()
 
 # ---- PC platform layer -----------------------------------------------------
-file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp)
+# Explicit, not a glob: this list links straight into the shipped binary, so a
+# stray .c/.cpp dropped into src/pc must not silently join the build.
+# src/pc/vtxarray.c is deliberately absent - it belongs to melee_game.
+set(PC_SOURCES
+        src/pc/audio.c
+        src/pc/disc_open.c
+        src/pc/discfont.c
+        src/pc/gcadapter.c
+        src/pc/gx.c
+        src/pc/input_poll.c
+        src/pc/keyboard.c
+        src/pc/main.c
+        src/pc/misc.c
+        src/pc/os.c
+        src/pc/region.c
+        src/pc/stb_vorbis.c
+        src/pc/thp.c
+        src/pc/touch.c
+        src/pc/vi.c
+        src/pc/widescreen.c
+        src/pc/windows_arm64_softfp.c
+        src/pc/android_compat.cpp
+        src/pc/file_cache.cpp
+        src/pc/launcher.cpp
+        src/pc/launcher_data.cpp
+        src/pc/music_stream.cpp
+        src/pc/textures.cpp
+        src/pc/updater.cpp
+        src/pc/version.cpp)
 if (APPLE)
-    file(GLOB PC_OBJC_SOURCES CONFIGURE_DEPENDS src/pc/*.m)
-    list(APPEND PC_SOURCES ${PC_OBJC_SOURCES})
+    list(APPEND PC_SOURCES src/pc/ios_dialog.m)
 endif ()
-list(REMOVE_ITEM PC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
 if (ANDROID)
     add_library(melee SHARED ${PC_SOURCES})
 else ()
