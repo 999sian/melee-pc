@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.25)
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "Build type" FORCE)
 endif ()
-
 project(melee-pc LANGUAGES C CXX)
 
 if (APPLE)
@@ -16,6 +15,12 @@ if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE AND NOT
     # keep Clang for C++ and route the game's C through GCC (tools/gcc_launcher.py).
     message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
 endif ()
+
+# Every platform builds the simulation at -O2 (Windows/Android packaging use
+# Release, Linux RelWithDebInfo): -O3 vectorises float reductions differently
+# and netplay needs identical bits on both peers.
+set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
@@ -33,6 +38,16 @@ if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 endif ()
 add_subdirectory(extern/aurora EXCLUDE_FROM_ALL)
+# FP determinism for netplay: no fused multiply-add anywhere game logic can
+# reach (AArch64 emits fmadd by default), no platform trig (see
+# src/pc/libm/pc_trig.h). aurora_mtx is C and used by collision, so it gets
+# the trig routing too; gx/gd only render.
+set(MELEE_FP_FLAGS -ffp-contract=off -fno-fast-math)
+target_compile_options(aurora_mtx PRIVATE ${MELEE_FP_FLAGS}
+        -fno-builtin-sinf -fno-builtin-cosf -fno-builtin-tanf -fno-builtin-atanf
+        -include ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/libm/pc_trig.h)
+target_compile_options(aurora_gx PRIVATE ${MELEE_FP_FLAGS})
+target_compile_options(aurora_gd PRIVATE ${MELEE_FP_FLAGS})
 if (WIN32)
     set(MELEE_CRYPTO_LIBS bcrypt)
     set(MELEE_NETWORK_LIBS winhttp ws2_32)
@@ -91,7 +106,9 @@ target_compile_options(melee_game PRIVATE
         -Werror=incompatible-pointer-types
         -fno-strict-aliasing
         -fwrapv
-        -ffp-contract=off
+        ${MELEE_FP_FLAGS}
+        -fno-builtin-sinf -fno-builtin-cosf -fno-builtin-tanf -fno-builtin-atanf
+        -ftrivial-auto-var-init=zero
         # The game's Japanese string literals are consumed as Shift-JIS at
         # runtime: mnnamenew.c stores name glyphs two bytes at a time into a
         # fixed 3-bytes-per-slot buffer, and compares that buffer against
@@ -120,7 +137,7 @@ elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
 endif ()
 
 # ---- PC platform layer -----------------------------------------------------
-file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp src/pc/*.m)
+file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp src/pc/*.m src/pc/libm/*.c)
 list(REMOVE_ITEM PC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
 if (ANDROID)
     add_library(melee SHARED ${PC_SOURCES})
@@ -129,6 +146,7 @@ else ()
 endif ()
 
 target_compile_options(melee PRIVATE
+        ${MELEE_FP_FLAGS}
         $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>,$<NOT:$<BOOL:${APPLE}>>>:-fno-pie>
         $<$<BOOL:${ANDROID}>:-march=armv8-a+crc+crypto>
         $<$<BOOL:${ANDROID}>:-mtune=cortex-a73>)

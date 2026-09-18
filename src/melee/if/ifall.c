@@ -10,6 +10,9 @@
 #include "ifstatus.h"
 #include "ifstock.h"
 #include "iftime.h"
+#ifdef TARGET_PC
+#include "ifnet.h"
+#endif
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbspdisplay.h>
@@ -269,6 +272,9 @@ void ifAll_802F390C(void)
     un_802FD4C8();
     un_802FF1B4();
     un_802FF498();
+#ifdef TARGET_PC
+    ifNet_Create();
+#endif
 }
 
 void ifAll_802F3A64(void)
@@ -299,4 +305,7 @@ void ifAll_802F3A64(void)
     un_802FE390();
     un_802FF190();
     un_802FF4FC();
+#ifdef TARGET_PC
+    ifNet_Free();
+#endif
 }
