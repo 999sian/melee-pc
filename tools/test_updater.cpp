@@ -43,14 +43,24 @@ int main() {
     auto canceled_state = updater::get_state();
     assert(canceled_state.status != updater::Status::Checking);
 
-    // Test version comparisons
-    assert(is_update_available(get_app_version(), "v0.1.8-beta"));
-    assert(is_update_available(get_app_version(), "v0.2.0"));
-    assert(!is_update_available(get_app_version(), "v0.1.7-beta"));
-    assert(!is_update_available(get_app_version(), "v0.1.6-beta"));
-    assert(!is_update_available(get_app_version(), "v0.1.5-beta"));
-    assert(!is_update_available(get_app_version(), "v0.1.4-beta"));
-    assert(!is_update_available(get_app_version(), "v0.1.0-beta"));
+    // Version comparisons against the version this binary actually reports.
+    // Deliberately not spelled as "the next release": pinning a literal like
+    // v0.1.8-beta here means the test fails the moment the app reaches it,
+    // which is every release.
+    assert(is_update_available(get_app_version(), "v99.0.0"));
+    assert(!is_update_available(get_app_version(), get_app_version()));
+    assert(!is_update_available(get_app_version(), "v0.0.1-beta"));
+
+    // A release strictly derived from the running version, so this keeps
+    // testing the real comparison after any bump.
+    const SemVer self = SemVer::parse(get_app_version());
+    assert(self.valid);
+    const std::string newer =
+        "v" + std::to_string(self.major) + "." + std::to_string(self.minor + 1) + ".0";
+    const std::string older = "v" + std::to_string(self.major) + "." + std::to_string(self.minor) +
+                              "." + std::to_string(self.patch) + "-alpha";
+    assert(is_update_available(get_app_version(), newer));
+    assert(!is_update_available(get_app_version(), older));
 
     std::cout << "PASS: Updater async check, cancellation, and state transitions\n";
     return 0;

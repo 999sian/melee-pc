@@ -16,6 +16,18 @@ English (UK) text.
 
 ## Highlights
 
+- **Hitlag, SDI and DI are fixed.** Every build before this one gave *every*
+  hit in the game exactly 3 frames of hitlag regardless of damage, instead of
+  4-20. Hits had almost no freeze, SDI was effectively impossible (one input at
+  best, usually none), and because DI is established from the stick at the
+  moment hitlag ends, the DI window was 3 frames too, so launches landed at
+  their raw undirected endpoint. That reads in play as "no hitlag, no SDI, and
+  everybody gets sent way further than usual" — thanks to Syrox for the report
+  that identified it. Hitlag is now `floor(floor(floor(d/3 + 3) * e) * c)`
+  capped at 20, with the 1.5x electric multiplier on the victim and the
+  0.666667x crouch-cancel multiplier, verified against 1634 measured hits.
+  Knockback *magnitude* was never affected: 259 measured launches match the
+  vanilla formula exactly.
 - **Direct3D 11 backend (Windows):** a Direct3D 11 path is now built and ordered after D3D12, ahead of Vulkan, for the GPUs Dawn refuses on D3D12 (Intel Gen7 / Haswell-era iGPUs); it is also selectable in the launcher's *Graphics backend* setting and as `MELEE_BACKEND=d3d11`. **Untested on real Windows hardware**: the adapter enumerates and the fall-back to D3D12 works, but nobody has yet seen a D3D11 device created. Reports with a log are wanted. The log records each skipped backend and why, plus the adapter and driver chosen.
 - **Universal Controller Fix (UCF 0.8x):** dashback and shield-drop rules, off by default; toggle on the launcher's Gameplay page or the F1 port menu ("Universal Controller Fix"), or force with `MELEE_UCF=1`.
 
