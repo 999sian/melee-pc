@@ -85,7 +85,11 @@
 #define TIMEOUT_NS 15000000000ull
 #define ELECTION_NS 100000000ull /* ready -> host decision: a simultaneous Start is seen first */
 #define REL_READY_BARRIER 0x11   /* reliable type: "my handshake is done" (net_lan.h) */
+/* clang-format off -- Ubuntu's clang-format (CI) and 22.x disagree on the
+ * spacing of a braced-list macro body, and neither accepts the other's
+ * output; pinning the two lines is cheaper than pinning a compiler. */
 #define MSTR(s) {(s), strlen(s)}
+/* clang-format on */
 #define MAX_IFACES 16
 
 enum { ST_LOBBY, ST_READY, ST_STARTING };
@@ -310,7 +314,9 @@ static void drop(int i) {
  * vanishing from it (RFC 6763 §6.6). A peer claiming our version must send
  * exactly our key set: the TXT layout is part of PC_NET_PROTO_VERSION. */
 enum { K_V, K_REV, K_DISC, K_ID, K_NAME, K_PORT, K_STATE, K_GEN, K_HOST, K_PEER, K_N };
+/* clang-format off -- see the note on MSTR above. */
 #define KEY(s) {s, sizeof s - 1}
+/* clang-format on */
 static const struct {
     const char* k;
     size_t len;
