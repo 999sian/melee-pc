@@ -1159,22 +1159,40 @@ static uint32_t frame_checksum(const PADStatus* head) {
 
 /* What went into the checksum, one line, so two peers' logs can be diffed
  * by eye when a DESYNC is reported. */
-static void log_checksum_inputs(const PADStatus* head, int32_t frame) {
-    char buf[512];
-    int n = snprintf(buf, sizeof buf, "net: state f%d seed=%08x pads=%04x/%d,%d %04x/%d,%d", frame,
+#define STATE_RING 64
+static char s_state_ring[STATE_RING][320];
+
+/* Remember what went into this frame's checksum (overwritten when the
+ * frame is re-simulated, so the last write is the confirmed timeline). */
+static void record_state(const PADStatus* head, int32_t frame) {
+    char* buf = s_state_ring[frame & (STATE_RING - 1)];
+    int n = snprintf(buf, sizeof s_state_ring[0], "f%d seed=%08x pads=%04x/%d,%d %04x/%d,%d", frame,
                      *HSD_RandSeedPtr, head[0].button, head[0].stickX, head[0].stickY,
                      head[1].button, head[1].stickX, head[1].stickY);
-    for (int slot = 0; in_fight() && slot < 4 && n < (int) sizeof buf - 80; slot++) {
+    for (int slot = 0; in_fight() && slot < 4 && n < (int) sizeof s_state_ring[0] - 80; slot++) {
         HSD_GObj* gobj = Player_GetEntity(slot);
         if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
             continue;
         }
         const Fighter* fp = GET_FIGHTER(gobj);
-        n += snprintf(buf + n, sizeof buf - (size_t) n, " p%d=(%.3f,%.3f) f%.0f %.1f%% m%d s%d", slot,
-                      (double) fp->cur_pos.x, (double) fp->cur_pos.y, (double) fp->facing_dir,
+        n += snprintf(buf + n, sizeof s_state_ring[0] - (size_t) n,
+                      " p%d=(%.3f,%.3f) v(%.3f,%.3f) kb(%.3f,%.3f) f%.0f %.1f%% m%d s%d", slot,
+                      (double) fp->cur_pos.x, (double) fp->cur_pos.y, (double) fp->self_vel.x,
+                      (double) fp->self_vel.y, (double) fp->x8c_kb_vel.x,
+                      (double) fp->x8c_kb_vel.y, (double) fp->facing_dir,
                       (double) fp->dmg.x1830_percent, fp->motion_id, Player_GetStocks(slot));
     }
-    pc_log_line("%s", buf);
+}
+
+/* Dump the recorded states around `frame` (both peers do this on DESYNC, so
+ * the two logs can be diffed line by line). */
+static void dump_states_around(int32_t frame) {
+    for (int32_t f = frame - 3; f <= frame + 1; f++) {
+        const char* s = s_state_ring[f & (STATE_RING - 1)];
+        if (f >= 0 && strncmp(s, "f", 1) == 0) {
+            pc_log_line("net: state %s", s);
+        }
+    }
 }
 
 /* ---- snapshot ---------------------------------------------------------
@@ -1555,13 +1573,11 @@ static void fresh_tick(PADStatus* head, bool raw) {
     uint32_t ck = frame_checksum(head);
     s_ck_ring[s_frame & (RING - 1)] = ck;
     if (s_active) {
+        record_state(head, s_frame);
         bool before = s_desync_reported;
         check_desync();
-        /* First three match frames always, plus the frame a desync is
-         * reported: enough to localise an initial-state mismatch. */
-        if ((s_start_frame > 0 && s_frame >= s_start_frame && s_frame <= s_start_frame + 2) ||
-            (s_desync_reported && !before)) {
-            log_checksum_inputs(head, s_frame);
+        if (s_desync_reported && !before) {
+            dump_states_around(s_remote_ck_frame);
         }
     }
     if (s_rec != NULL) {
