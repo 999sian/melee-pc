@@ -380,8 +380,22 @@ Ordered by expected gain per line of code:
   (Link vs Mario), the fixture for all of the above.
 - `MELEE_CACHE_DIR`: per-instance pipeline cache for two local instances.
 
-Next: menus in lockstep at delay = RTT frames, SFX dedupe on re-sim, the
-`GM_ONLINE` lobby.
+**M3 LAN (done)** — `src/pc/net_lan.c` (mDNS `_meleepc._udp.local.` via
+vendored mjansson/mdns, TXT `id/name/port/state/host/peer`, 1 s announce,
+5 s expiry, first-to-press-Start hosts), `src/pc/net.c` runtime
+`pc_net_connect`, stop-and-wait reliable channel, RULES/READY handshake
+with a synced `start_frame` (+120), `src/melee/gm/gmonlinemode.c` GM_ONLINE
+(lobby → VS → results → lobby) reached from the VS submenu's new ONLINE
+entry (SIS text over the 6th slot; texture is the follow-up). Verified: two
+instances navigate the real menus into the lobby, see "1 players found",
+Start on one → both enter Link vs Mario on the same frame, 7200 frames, 0
+desync, ping 13 ms. Test aids: `MELEE_LAN_TEST=1|host`,
+`MELEE_NET_HANDSHAKE_TEST=1`, `MELEE_KEY_FIFO=<fifo>` (focus-free key
+injection: `echo "Return 150" > fifo`).
+
+Next: M4 Internet (DHT rendezvous, hole punch, connect codes), then SFX
+dedupe on re-sim, the Online submenu (Ranked/Unranked/Direct/LAN/Profile),
+CSS/SSS under sync instead of the fixed Link-vs-Mario match, label texture.
 
 New third-party code, all vendored as source, all static: jech/dht (MIT),
 mjansson/mdns (PD), Monocypher (BSD-2/CC0), sha1.c (PD), musl trig (MIT).
