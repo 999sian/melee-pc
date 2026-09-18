@@ -92,31 +92,38 @@ for ports 3–4. Local port = P1 for the host (lower pubkey), P2 for the guest.
 Stick at-rest clamp ±2 before sending (Slippi `TriggerSendInput.asm:100-125`)
 so idle noise does not cause rollbacks.
 
-**Snapshot regions** (capture/restore, in this order):
-1. `libmelee_game.a` `.data/.bss` bracketed by linker symbols from a GNU ld
-   `INSERT AFTER .data` script (`*libmelee_game.a:(.data .data.* .bss .bss.* COMMON)`).
-   No section grouping exists today (`CMakeLists.txt:156`, no `-fdata-sections`).
-2. Live spans of every OSAlloc heap except the audio heap
-   `HSD_Synth_804D6018` (`src/sysdolphin/baselib/initialize.c:171-186`):
-   main heap (recreated per scene, `initialize.c:203-236`), lbHeap sub-heaps
-   (`src/melee/lb/lbheap.c:22-25`). Span = heap start .. highest allocated
-   cell end, from the same walk `MELEE_HEAP_CHECK` uses (`OSAlloc.cpp:65-84`).
-3. Allocator/engine statics outside MEM1: `ArenaLow/High` (`OSArena.cpp:10-11`),
-   `sHeapArray/sNumHeaps/__OSCurrHeap` (`OSAlloc.cpp:434-449`), `obj_heap`,
-   `alloc_datas` (`objalloc.c:13-19`), `current_heap` (`initialize.c:180-183`),
-   `seed`/`HSD_RandSeedPtr` (`random.c:3-4`), `lbHeap_80431FA0`, pad
-   queue indices, `HSD_PadMaster/Copy/GameStatus`, `controller_map`.
-4. Preserve-after-restore (netcode's own state, like Slippi's ODB/RXB): the
-   net input ring and frame counters live in `src/pc/net`, outside every region.
+**Snapshot regions** (implemented in `src/pc/net.c`, `src/pc/melee_state.ld`):
+1. `libmelee_game.a` `.data/.bss` bracketed by `__melee_{data,bss}_{start,end}`
+   from the GNU ld `INSERT AFTER` script, **minus** the TUs whose statics are
+   owned by other threads or are engine bookkeeping: `axdriver.c`, `synth.c`,
+   `lbaudio_ax.c` (audio thread), `video.c` (XFB/VI state, anti-alias copy
+   target written by the render side), `perf.c` (wall-clock stats),
+   `vtxarray.c` (host-side cache), `lbmthp.c` (THP movie, wall-clock paced),
+   `card.c` (async memory-card context). Each of these was found by the sync
+   test, not guessed.
+2. The `HeapDesc[]` array at the arena start (`aurora_heap_descs`) — list
+   heads live outside every cell and the first attempt missed them.
+3. Every OSAlloc heap's live extent (`aurora_heap_extent`: allocated cells in
+   full, free cells header-only) except the audio heap `HSD_Synth_804D6018`.
+   The gameplay heap is `current_heap` (`initialize.c:229`); lbHeap sub-heaps
+   hold preloaded read-only file data and are not covered.
+4. `HSD_RandSeedPtr` (aurora-side pointer the game redirects).
+5. Netcode's own state lives in `src/pc/net.c`, outside every region.
 
-Excluded: audio heap and all `axdriver/synth/lbaudio_ax` statics (audio thread
-owns them; restoring tears linked lists and double-frees voices —
-`synth.c:490,749,1038`), XFB + GX FIFO, ARAM (read-only after load), texture
-cache (ids only; a stale `GXTexObj` just re-hashes and re-uploads,
-`texture.cpp:47-127`).
+Measured on a live Link vs Mario match: 5.6 MB, 0.6 ms per snapshot (plain
+memcpy). No dirty tracking needed.
 
-`ponytail:` full memcpy per snapshot; expected 10–25 MB, 1–3 ms. Add dirty-page
-tracking only if the resim budget (7 restores + 7 ticks < 8 ms) is missed.
+**I/O rule (measured, not optional).** A tick that issues a disc/ARAM request,
+or runs while one is in flight, can never be re-simulated: completions land on
+worker threads, so a restore either double-issues the read (crash in
+`HSD_DevComDVDMemCallback`) or erases a completion the re-run then waits for
+forever (hang). `HSD_DevComRequest` counts issues, aurora exposes
+`aurora_dvd_inflight()`/`aurora_arq_inflight()`, and the engine refuses to
+roll back across either. In online play every match asset is prewarmed
+behind the ready barrier so this never triggers mid-match.
+
+Excluded on purpose: ARAM (read-only after load), texture cache (ids only; a
+stale `GXTexObj` just re-hashes and re-uploads, `texture.cpp:47-127`).
 
 **Side effects during re-sim** (`pc_net_resim` flag): `AXDriver_8038CFF4`
 returns −1; `lbAudioAx_80023F28` no-op; `HSD_PadRumbleInterpret` skipped;
@@ -334,13 +341,27 @@ Ordered by expected gain per line of code:
 | M5 Ranked | identity, Weng-Lin, signed records, BEP 44 publish/verify, ranked set flow, tiers UI | After a Bo3 both clients hold identical rating bits; opponent's published item verifies; a tampered local history is rejected by the peer |
 | M6 Latency polish | §11 items 2–4, 7; SFX log dedupe; quick chat; label textures | Measured button→photon latency (LED + high-speed camera or photodiode) at delay 1 ≤ Slippi at delay 2 on the same hardware |
 
-**Prototype (branch `netcode-prototype`)**: `src/pc/net.c` — delay-based
-lockstep over raw UDP, hooked at `gmscene.c` before `lb_800198E0`. Env:
-`MELEE_NET=host:port`, `MELEE_NET_PORT`, `MELEE_NET_PLAYER=0|1`,
-`MELEE_NET_DELAY` (default 2); run both peers with the same `MELEE_SEED` and
-`--no-card`. Verified on localhost: 2400 lockstep frames at 60 fps, inputs
-cross both ways, mismatched seeds are flagged as `DESYNC` at frame 0. This is
-M2's transport + input sync; M0 and M1 build on it.
+**Prototype status (branch `netcode-prototype`)**, all in `src/pc/net.c`:
+- `MELEE_NET=host:port` (+`MELEE_NET_PORT`, `MELEE_NET_PLAYER=0|1`,
+  `MELEE_NET_DELAY`): delay-based UDP lockstep, hooked before `lb_800198E0`
+  in the frame loop. Verified on localhost: 7200+ frames at 60 fps, inputs
+  cross both ways, mismatched seeds flagged as `DESYNC` at frame 0.
+- `MELEE_NET_RECORD=file` / `MELEE_NET_REPLAY=file`: seed + per-frame pads +
+  checksum; a 3875-frame recording replays bit-identical, a flipped byte at
+  frame 2000 is reported at frame 2000.
+- `MELEE_NET_SYNCTEST=1`: every tick run twice from a restored snapshot,
+  xxh3 of all regions compared, differing 64-byte chunks tallied by address.
+  Result on a replayed Link vs CPU match: 9000 frames, 2 mismatches, both
+  in pad-alarm bookkeeping (`lb_804329F0`, `HSD_PadMasterStatus`) — the
+  1/60 s OSAlarm firing inside a tick. Online play drives ticks itself and
+  bypasses the raw pad queue, which removes that noise.
+- `MELEE_DEBUG_VS=1|cpu`: Start at the title jumps into the debug VS match
+  (Link vs Mario), the fixture for all of the above.
+- `MELEE_CACHE_DIR`: per-instance pipeline cache for two local instances.
+
+Next: rollback proper = replace the blocking wait in `wait_remote()` with
+prediction + `snapshot_take` on predicted frames + `snapshot_restore` and
+re-tick via `pc_net_after_tick()` when a real input disagrees.
 
 New third-party code, all vendored as source, all static: jech/dht (MIT),
 mjansson/mdns (PD), Monocypher (BSD-2/CC0), sha1.c (PD), musl trig (MIT).
