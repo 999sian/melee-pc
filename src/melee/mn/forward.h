@@ -164,6 +164,7 @@ typedef enum VsMenuSelection {
     SEL_VS_SPECIAL = 2,
     SEL_VS_RULES = 3,
     SEL_VS_NAME = 4,
+    SEL_VS_ONLINE = 5,
 } VsMenuSelection;
 
 typedef enum SpecialVsMenuSelection {

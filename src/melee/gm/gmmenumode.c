@@ -177,6 +177,12 @@ void onEnter(GameModeState* scene)
         data->menu_kind = MENU_KIND_VS;
         data->hovered_selection = SEL_VS_TOURNAMENT;
         return;
+#ifdef TARGET_PC
+    case GM_ONLINE:
+        data->menu_kind = MENU_KIND_VS;
+        data->hovered_selection = SEL_VS_ONLINE;
+        return;
+#endif
     case GM_CAMERA_MODE:
         data->menu_kind = MENU_KIND_SPECIAL;
         data->hovered_selection = SEL_SPECIAL_VS_CAMERA;
