@@ -695,7 +695,7 @@ auto attr_load(const ShaderConfig& config, GXAttr attr, std::string_view vidx) -
   const auto [offs, buf, le] = attr_address(mapping, attr, vidx, config.vtxStride, 0u, 0u);
   switch (attr) {
   case GX_VA_PNMTXIDX:
-    return fmt::format("(raw_fetch_u8_1(&{}, {}) / 3u)", buf, offs);
+    return fmt::format("min(raw_fetch_u8_1(&{}, {}) / 3u, {}u)", buf, offs, MaxPnMtx - 1);
   case GX_VA_TEX0MTXIDX:
   case GX_VA_TEX1MTXIDX:
   case GX_VA_TEX2MTXIDX:
@@ -990,7 +990,7 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
     }
     vidxAttr = "in_vidx"sv;
   } else if (config.attrs[GX_VA_PNMTXIDX].attrType == GX_NONE) {
-    vtxXfrAttrsPre += "\n    let in_pnmtxidx = imm.current_pnmtx;";
+    vtxXfrAttrsPre += fmt::format("\n    let in_pnmtxidx = min(imm.current_pnmtx, {}u);", MaxPnMtx - 1);
   }
 
   // Load vertex attributes
@@ -1246,11 +1246,13 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
       UNLIKELY FATAL("unhandled tcg src {}", underlying(tcg.src));
     if (tcg.type == GX_TG_MTX2x4 || tcg.type == GX_TG_MTX3x4) {
       if (info.indexAttr.test(GX_VA_TEX0MTXIDX + i)) {
-        vtxXfrAttrs += fmt::format("\n    var tc{0}_tmp = tc{0} * ubuf.postex_mtx[in_texmtxidx{0} / 3u];", i);
+        vtxXfrAttrs += fmt::format(
+            "\n    var tc{0}_tmp = tc{0} * ubuf.postex_mtx[min(in_texmtxidx{0} / 3u, {1}u)];", i,
+            MaxPnMtx + MaxTexMtx - 1);
       } else if (tcg.mtx == GX_IDENTITY) {
         vtxXfrAttrs += fmt::format("\n    var tc{0}_tmp = tc{0}.xyz;", i);
       } else {
-        u32 texMtxIdx = (tcg.mtx) / 3;
+        u32 texMtxIdx = std::min(static_cast<u32>(tcg.mtx / 3), MaxPnMtx + MaxTexMtx - 1);
         vtxXfrAttrs += fmt::format("\n    var tc{0}_tmp = tc{0} * ubuf.postex_mtx[{1}];", i, texMtxIdx);
       }
       if (tcg.type == GX_TG_MTX2x4) {
@@ -1750,10 +1752,10 @@ fn load_u16(p: ptr<storage, array<u32>>, byte_off: u32, le: bool) -> u32 {{
   let sub = byte_off & 3u;
   let word = load_word(p, word_idx);
   if (sub <= 2u) {{
-    return bswap16(extractBits(word, sub * 8u, 16u), le);
+    return bswap16((word >> (sub * 8u)) & 0xFFFFu, le);
   }}
   let next = load_word(p, word_idx + 1u);
-  let raw = extractBits(word, 24u, 8u) | (extractBits(next, 0u, 8u) << 8u);
+  let raw = ((word >> 24u) & 0xFFu) | (((next >> 0u) & 0xFFu) << 8u);
   return bswap16(raw, le);
 }}
 
@@ -1786,33 +1788,33 @@ fn raw_fetch_u8_2(p: ptr<storage, array<u32>>, byte_off: u32) -> vec2u {{
   if (sub <= 2u) {{
     let shift = sub * 8u;
     return vec2u(
-      extractBits(word, shift + 0u, 8u),
-      extractBits(word, shift + 8u, 8u),
+      (word >> (shift + 0u)) & 0xFFu,
+      (word >> (shift + 8u)) & 0xFFu,
     );
   }}
   let next = load_word(p, word_idx + 1u);
   return vec2u(
-    extractBits(word, 24u, 8u),
-    extractBits(next, 0u, 8u),
+    (word >> 24u) & 0xFFu,
+    (next >> 0u) & 0xFFu,
   );
 }}
 
 fn raw_fetch_u8_3(p: ptr<storage, array<u32>>, byte_off: u32) -> vec3u {{
   let raw = load_u32_raw(p, byte_off);
   return vec3u(
-    extractBits(raw, 0u, 8u),
-    extractBits(raw, 8u, 8u),
-    extractBits(raw, 16u, 8u),
+    (raw >> 0u) & 0xFFu,
+    (raw >> 8u) & 0xFFu,
+    (raw >> 16u) & 0xFFu,
   );
 }}
 
 fn raw_fetch_u8_4(p: ptr<storage, array<u32>>, byte_off: u32) -> vec4u {{
   let raw = load_u32_raw(p, byte_off);
   return vec4u(
-    extractBits(raw, 0u, 8u),
-    extractBits(raw, 8u, 8u),
-    extractBits(raw, 16u, 8u),
-    extractBits(raw, 24u, 8u),
+    (raw >> 0u) & 0xFFu,
+    (raw >> 8u) & 0xFFu,
+    (raw >> 16u) & 0xFFu,
+    (raw >> 24u) & 0xFFu,
   );
 }}
 
