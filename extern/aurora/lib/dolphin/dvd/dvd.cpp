@@ -407,6 +407,10 @@ void finishCommand(DVDCommandBlock* block, s32 result, u32 transferred) {
   setCommandResult(block, stateForResult(result), transferred);
 }
 
+// melee-pc: commands enqueued and not yet completed (callback included), so
+// the netplay snapshot can refuse to roll back across an in-flight read.
+std::atomic<int> s_inflight{0};
+
 class DvdWorker {
 public:
   ~DvdWorker() { stop(); }
@@ -455,6 +459,7 @@ public:
 
   void enqueue(DVDCommandBlock* block) {
     bool executeNow = false;
+    s_inflight.fetch_add(1, std::memory_order_relaxed);
     {
       std::lock_guard lk(m_mutex);
       if (!m_running || m_shutdown) {
@@ -609,6 +614,7 @@ private:
     if (block->callback != nullptr) {
       block->callback(result, block);
     }
+    s_inflight.fetch_sub(1, std::memory_order_release);
   }
 
   void execute(DVDCommandBlock* block) {
@@ -645,6 +651,7 @@ private:
     if (block->callback != nullptr) {
       block->callback(DVD_RESULT_CANCELED, block);
     }
+    s_inflight.fetch_sub(1, std::memory_order_release);
   }
 
   static void complete_canceled_commands(const std::vector<DVDCommandBlock*>& blocks) {
@@ -675,6 +682,10 @@ private:
 };
 
 DvdWorker s_worker;
+
+} // namespace
+extern "C" int aurora_dvd_inflight() { return s_inflight.load(std::memory_order_acquire); }
+namespace {
 
 int completeImmediateCommand(DVDCommandBlock* block, u32 command, s32 result, u32 transferred, DVDCBCallback callback) {
   beginCommand(block, command, nullptr, 0, 0, callback);

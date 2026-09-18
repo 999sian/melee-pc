@@ -1,5 +1,6 @@
 #include "gmtitlemode.h"
 
+#include <stdlib.h>
 #include "gm_1A3F.h"
 #include "gm_unsplit.h"
 #include "types.h"
@@ -56,6 +57,13 @@ void onExit(GameModeState* scene)
             gm_801BF708(1);
             gm_SetPendingGameMode(GM_OPENING_MV);
         }
+#ifdef TARGET_PC
+    } else if ((*buttons & HSD_PAD_START) && getenv("MELEE_DEBUG_VS") != NULL) {
+        /* MELEE_DEBUG_VS=1|cpu: Start at the title jumps straight into the
+         * debug VS match (Link vs Mario) with no menus, for netplay and
+         * determinism testing. */
+        gm_SetPendingGameMode(GM_DEBUG_VS);
+#endif
     } else if (*buttons & HSD_PAD_START) {
         gm_80173EEC();
         gm_80172898(0x100);

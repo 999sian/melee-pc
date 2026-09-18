@@ -15,9 +15,12 @@
 #include "pc/net.h"
 #include "pc/pc.h"
 
+#include <dolphin/os.h>
 #include <dolphin/pad.h>
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/random.h>
+#include <sysdolphin/baselib/synth.h>
+#include <xxhash.h>
 
 #include <SDL3/SDL_timer.h>
 #include <stdio.h>
@@ -355,6 +358,237 @@ static uint32_t frame_checksum(const PADStatus* head) {
     return fnv1a(ck, HSD_RandSeedPtr, sizeof(u32));
 }
 
+/* ---- snapshot ---------------------------------------------------------
+ * Whole-region copy of everything the simulation can touch:
+ *   1. the decomp's statics, bracketed by src/pc/melee_state.ld (the sound
+ *      machine's TUs are excluded there: the audio thread owns them);
+ *   2. every OSAlloc heap's live extent except the audio heap;
+ *   3. the RNG seed pointer (aurora-side static the game redirects).
+ * ponytail: plain memcpy each time; dirty tracking only if the measured cost
+ * breaks the rollback budget. */
+extern char __melee_data_start[], __melee_data_end[];
+extern char __melee_bss_start[], __melee_bss_end[];
+
+#define MAX_HEAPS 8
+
+typedef struct Region {
+    const char* name;
+    void* ptr;
+    size_t len;
+} Region;
+
+#define MAX_REGIONS (3 + MAX_HEAPS)
+
+/* Everything a snapshot covers, as it stands right now. */
+static int regions_now(Region* r) {
+    int n = 0;
+    void* lo;
+    size_t len;
+    aurora_heap_descs(&lo, &len);
+    r[n++] = (Region) { "heapdescs", lo, len };
+    r[n++] = (Region) { "data", __melee_data_start, (size_t) (__melee_data_end - __melee_data_start) };
+    r[n++] = (Region) { "bss", __melee_bss_start, (size_t) (__melee_bss_end - __melee_bss_start) };
+    for (int h = 0; h < MAX_HEAPS; h++) {
+        void* hi;
+        if (h == HSD_Synth_804D6018 || !aurora_heap_extent(h, &lo, &hi)) {
+            continue;
+        }
+        static char names[MAX_HEAPS][8];
+        snprintf(names[h], sizeof names[h], "heap%d", h);
+        r[n++] = (Region) { names[h], lo, (size_t) ((char*) hi - (char*) lo) };
+    }
+    return n;
+}
+
+typedef struct Snapshot {
+    int32_t frame;
+    uint8_t* buf;
+    size_t cap;
+    size_t used;
+    int nregions;
+    Region regions[MAX_REGIONS];
+    u32* seed_ptr;
+} Snapshot;
+
+static void snap_put(Snapshot* s, const void* src, size_t n) {
+    if (s->used + n > s->cap) {
+        s->cap = (s->used + n) * 3 / 2;
+        s->buf = realloc(s->buf, s->cap);
+    }
+    memcpy(s->buf + s->used, src, n);
+    s->used += n;
+}
+
+static void snapshot_take(Snapshot* s, int32_t frame) {
+    bool intr = OSDisableInterrupts();
+    s->frame = frame;
+    s->used = 0;
+    s->seed_ptr = HSD_RandSeedPtr;
+    s->nregions = regions_now(s->regions);
+    for (int i = 0; i < s->nregions; i++) {
+        snap_put(s, s->regions[i].ptr, s->regions[i].len);
+    }
+    OSRestoreInterrupts(intr);
+}
+
+static void snapshot_restore(const Snapshot* s) {
+    bool intr = OSDisableInterrupts();
+    const uint8_t* p = s->buf;
+    for (int i = 0; i < s->nregions; i++) {
+        memcpy(s->regions[i].ptr, p, s->regions[i].len);
+        p += s->regions[i].len;
+    }
+    HSD_RandSeedPtr = s->seed_ptr;
+    OSRestoreInterrupts(intr);
+}
+
+/* Hash of the same regions a snapshot covers, taken fresh from memory. */
+static uint64_t state_hash(void) {
+    Region r[MAX_REGIONS];
+    int n = regions_now(r);
+    XXH3_state_t* st = XXH3_createState();
+    XXH3_64bits_reset(st);
+    for (int i = 0; i < n; i++) {
+        XXH3_64bits_update(st, r[i].ptr, r[i].len);
+    }
+    XXH3_64bits_update(st, HSD_RandSeedPtr, sizeof(u32));
+    uint64_t h = XXH3_64bits_digest(st);
+    XXH3_freeState(st);
+    return h;
+}
+
+/* Tally of differing 64-byte chunks across every mismatch, keyed by address
+ * (statics keep their address; heap chunks are keyed by address too, which
+ * is stable within a scene). Dumped with the periodic report. */
+typedef struct DiffTally {
+    const void* addr;
+    const char* region;
+    unsigned count;
+} DiffTally;
+#define TALLY_MAX 256
+static DiffTally s_tally[TALLY_MAX];
+static int s_tally_n;
+
+static void tally_add(const char* region, const void* addr) {
+    for (int i = 0; i < s_tally_n; i++) {
+        if (s_tally[i].addr == addr) {
+            s_tally[i].count++;
+            return;
+        }
+    }
+    if (s_tally_n < TALLY_MAX) {
+        s_tally[s_tally_n++] = (DiffTally) { addr, region, 1 };
+    }
+}
+
+static void tally_report(void) {
+    for (int pass = 0; pass < 8 && s_tally_n > 0; pass++) {
+        int best = -1;
+        for (int i = 0; i < s_tally_n; i++) {
+            if (s_tally[i].count > 0 && (best < 0 || s_tally[i].count > s_tally[best].count)) {
+                best = i;
+            }
+        }
+        if (best < 0) {
+            break;
+        }
+        pc_log_line("net:   %-6s %p x%u", s_tally[best].region, s_tally[best].addr,
+                    s_tally[best].count);
+        s_tally[best].count = 0; /* consumed; keeps the table for identity */
+    }
+}
+
+static void snapshot_diff(const Snapshot* s) {
+    const uint8_t* p = s->buf;
+    for (int i = 0; i < s->nregions; i++) {
+        const Region* r = &s->regions[i];
+        for (size_t off = 0; off < r->len; off += 64) {
+            size_t n = r->len - off < 64 ? r->len - off : 64;
+            if (memcmp((uint8_t*) r->ptr + off, p + off, n) != 0) {
+                tally_add(r->name, (uint8_t*) r->ptr + off);
+            }
+        }
+        p += r->len;
+    }
+}
+
+/* ---- sync test --------------------------------------------------------
+ * MELEE_NET_SYNCTEST=1: every tick is run twice, snapshot -> tick -> hash ->
+ * restore -> tick again -> hash, and the two hashes must match. Proves that
+ * the snapshot covers all state the tick depends on and that a tick is a
+ * pure function of (state, inputs), which is what rollback needs. */
+static bool s_synctest;
+static bool s_resim;          /* inside a re-simulated tick */
+static Snapshot s_snap;       /* state before the tick */
+static Snapshot s_after1;     /* state after the first run of the tick */
+static uint64_t s_hash_first;
+static int s_retick;          /* 0 normal, 1 first tick done, 2 retick done */
+static unsigned s_sync_fail, s_sync_skipped;
+static uint64_t s_snap_ns, s_snap_ns_max;
+static unsigned s_io_count;   /* disc requests issued so far */
+static unsigned s_io_at_tick; /* value when the current tick started */
+static bool s_io_inflight_at_take;
+
+void pc_net_note_io(void) {
+    s_io_count++;
+}
+
+int aurora_dvd_inflight(void);
+int aurora_arq_inflight(void);
+
+/* True when a disc or ARAM transfer is still pending on a worker thread:
+ * its completion will write into game memory whenever it lands, so no
+ * snapshot may be taken or restored until it has. */
+static bool io_inflight(void) {
+    return aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0;
+}
+
+bool pc_net_resim(void) {
+    return s_resim || s_synctest;
+}
+
+bool pc_net_after_tick(void) {
+    if (!s_synctest) {
+        return false;
+    }
+    if (s_retick == 0) {
+        if (s_io_count != s_io_at_tick || s_io_inflight_at_take || io_inflight()) {
+            /* The tick issued a disc read, or one is still completing on a
+             * worker thread; re-running would issue it twice / lose the
+             * completion. Rollback proper never spans a load either. */
+            s_sync_skipped++;
+            return false;
+        }
+        s_hash_first = state_hash();
+        snapshot_take(&s_after1, s_snap.frame);
+        snapshot_restore(&s_snap);
+        s_retick = 1;
+        s_resim = true;
+        return true;
+    }
+    s_resim = false;
+    s_retick = 0;
+    uint64_t second = state_hash();
+    if (second != s_hash_first) {
+        s_sync_fail++;
+        snapshot_diff(&s_after1);
+    }
+    if ((s_snap.frame % 600) == 0 && s_snap.frame > 0) {
+        size_t heap_bytes = 0;
+        for (int i = 3; i < s_snap.nregions; i++) {
+            heap_bytes += s_snap.regions[i].len;
+        }
+        pc_log_line("net: synctest frame %d, %u mismatches, %u skipped (I/O), snapshot %.2f MB "
+                    "(%d heaps %.2f MB), take %.2f ms (max %.2f)",
+                    s_snap.frame, s_sync_fail, s_sync_skipped, s_snap.used / 1048576.0,
+                    s_snap.nregions - 3, heap_bytes / 1048576.0, s_snap_ns / 1e6,
+                    s_snap_ns_max / 1e6);
+        s_snap_ns_max = 0;
+        tally_report();
+    }
+    return false;
+}
+
 /* ---- per-tick entry --------------------------------------------------- */
 
 static bool sync_netplay(PADStatus* head) {
@@ -395,8 +629,23 @@ void pc_net_sync(void) {
     if (!opened) {
         opened = true;
         record_open();
+        s_synctest = getenv("MELEE_NET_SYNCTEST") != NULL;
+        if (s_synctest) {
+            pc_log_line("net: synctest on (every tick simulated twice, sound off)");
+        }
+    }
+    if (s_synctest) {
+        uint64_t t0 = SDL_GetTicksNS();
+        snapshot_take(&s_snap, s_frame);
+        s_io_at_tick = s_io_count;
+        s_io_inflight_at_take = io_inflight();
+        s_snap_ns = SDL_GetTicksNS() - t0;
+        if (s_snap_ns > s_snap_ns_max) {
+            s_snap_ns_max = s_snap_ns;
+        }
     }
     if (!s_active && s_rec == NULL && s_rep == NULL) {
+        s_frame++;
         return;
     }
     PadLibData* p = &HSD_PadLibData;
@@ -426,6 +675,7 @@ void pc_net_sync(void) {
         memcpy(r.pads, head, sizeof r.pads);
         r.ck = ck;
         fwrite(&r, sizeof r, 1, s_rec);
+        fflush(s_rec); /* runs usually end by SIGTERM; keep every frame */
     }
     if (s_rep != NULL) {
         replay_compare(ck);

@@ -20,6 +20,17 @@ bool pc_net_active(void);
  * frame, blocking until the remote input arrives. */
 void pc_net_sync(void);
 
+/* Called after each tick. Returns true when the tick must be run again
+ * (rollback re-simulation or the MELEE_NET_SYNCTEST self-check). */
+bool pc_net_after_tick(void);
+
+/* True while re-simulating: sound/music/rumble starts must be suppressed. */
+bool pc_net_resim(void);
+
+/* Called whenever the game issues a disc request: a tick that did I/O can
+ * never be re-simulated (completions land on worker threads). */
+void pc_net_note_io(void);
+
 #ifdef __cplusplus
 }
 #endif

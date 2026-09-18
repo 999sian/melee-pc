@@ -11,6 +11,9 @@
 #include <dolphin/axfx.h>
 #include <dolphin/dvd.h>
 #include <dolphin/os.h>
+#ifdef TARGET_PC
+#include "pc/net.h"
+#endif
 
 /* Cached once: the .sem interpreter below runs this guard for every opcode
  * of every sound machine inside the 5ms AX callback, with interrupts
@@ -602,6 +605,13 @@ int AXDriver_8038CFF4(int sound_id, u8 volume, u8 pan, int track, int channel)
     int bank_mem;
     bool enabled;
 
+#ifdef TARGET_PC
+    /* Re-simulated frames must not start sounds twice; -1 is the "no voice"
+     * handle every caller already tolerates. */
+    if (pc_net_resim()) {
+        return -1;
+    }
+#endif
     bank_idx = sound_id / 10000;
     bank_mem = sound_id % 10000;
 

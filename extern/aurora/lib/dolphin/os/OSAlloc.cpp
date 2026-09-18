@@ -1,5 +1,6 @@
 #include <dolphin/os.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <unordered_map>
 #include <array>
@@ -753,6 +754,41 @@ void OSVisitAllocated(void (*visitor)(void*, u32)) {
               static_cast<u32>(cell->size - static_cast<s32>(kHeaderSize)));
     }
   }
+}
+
+// melee-pc: bytes that must be copied to snapshot/restore a heap: every
+// allocated cell in full, every free cell's header (its body is dead space
+// until it is split, and splitting rewrites only headers). Returns false for
+// an unused handle.
+bool aurora_heap_extent(OSHeapHandle heap, void** lo, void** hi) {
+  if (!validHeapHandle(heap)) {
+    return false;
+  }
+  const auto& hd = sHeapArray[heap];
+  uintptr_t min = UINTPTR_MAX, max = 0;
+  for (Cell* cell = hd.allocated; cell != nullptr; cell = cell->next) {
+    const auto p = reinterpret_cast<uintptr_t>(cell);
+    min = std::min(min, p);
+    max = std::max(max, p + static_cast<uintptr_t>(cell->size));
+  }
+  for (Cell* cell = hd.freeList; cell != nullptr; cell = cell->next) {
+    const auto p = reinterpret_cast<uintptr_t>(cell);
+    min = std::min(min, p);
+    max = std::max(max, p + kHeaderSize);
+  }
+  if (max == 0) {
+    return false;
+  }
+  *lo = reinterpret_cast<void*>(min);
+  *hi = reinterpret_cast<void*>(max);
+  return true;
+}
+
+// melee-pc: the HeapDesc array (list heads) sits at the arena start, outside
+// every cell, and must be part of any snapshot of the heaps.
+void aurora_heap_descs(void** lo, size_t* len) {
+  *lo = sHeapArray;
+  *len = static_cast<size_t>(sNumHeaps) * sizeof(HeapDesc);
 }
 
 } // extern "C"

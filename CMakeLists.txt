@@ -175,7 +175,9 @@ elseif (APPLE)
     # arm64 macOS requires PIE and refuses binaries with a __PAGEZERO under 4GB;
     # MEM1 lives above 4GB and pc_resolve_dp restores its high half (disc.h).
 elseif (NOT ANDROID)
-    target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
+    target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000
+            -Wl,-T,${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
+    set_property(TARGET melee APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
 else ()
     target_link_options(melee PRIVATE -Wl,-z,max-page-size=16384)
 endif ()
