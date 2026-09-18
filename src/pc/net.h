@@ -15,6 +15,8 @@ extern "C" {
  * (src/pc/net_lan.h); see net.c for the other knobs. */
 void pc_net_init(void);
 bool pc_net_active(void);
+/* Controller port the local player drives (0 = P1/host, 1 = P2/guest). */
+int pc_net_local_player(void);
 
 /* Frame of the tick being simulated (-1 before the first); identical on both
  * peers, so a scene change scheduled for a given frame lands in sync. */

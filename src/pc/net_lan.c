@@ -124,6 +124,10 @@ static Uint32 SDLCALL announce_timer(void* ud, SDL_TimerID id, Uint32 interval) 
 static void fail(const char* why) {
     s_state = 3;
     s_why = why;
+    if (s_timer) {
+        SDL_RemoveTimer(s_timer); /* stop advertising "starting" */
+        s_timer = 0;
+    }
     pc_log_line("lan: failed: %s", why);
 }
 
@@ -324,10 +328,11 @@ void pc_lan_poll(void) {
 }
 
 int pc_lan_peers(PcLanPeer* out, int max) {
-    for (int i = 0; i < s_n && i < max; i++) {
+    int n = s_n < max ? s_n : max;
+    for (int i = 0; i < n; i++) {
         out[i] = s_peers[i].p;
     }
-    return s_n;
+    return n;
 }
 
 const char* pc_lan_local_name(void) {

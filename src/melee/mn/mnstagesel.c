@@ -26,6 +26,90 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/random.h>
+#ifdef TARGET_PC
+#include "pc/net.h"
+#include "pc/net_lan.h"
+#include "pc/pc.h"
+
+/* Online: each player picks a stage on their own port (the SSS otherwise
+ * merges every port into one cursor), picks are exchanged over the reliable
+ * channel, and the stage is one of the two chosen by a coin flip from the
+ * shared seed, so both peers agree without another message. Values are
+ * table indices (mnStageSel_803F06D0), 30 = random. */
+#define NET_MSG_STAGE_PICK 0x20
+static int net_local_pick = -1;
+static int net_remote_pick = -1;
+
+static bool netStageSel_Active(void)
+{
+    return pc_net_active();
+}
+
+static void netStageSel_Reset(void)
+{
+    net_local_pick = net_remote_pick = -1;
+}
+
+static void netStageSel_Poll(void)
+{
+    u8 type;
+    u8 buf[4];
+    while (pc_net_recv_reliable(&type, buf, sizeof buf) >= 0) {
+        if (type == NET_MSG_STAGE_PICK) {
+            net_remote_pick = buf[0];
+            pc_log_line("sss: opponent picked %d", net_remote_pick);
+        }
+    }
+}
+
+static void netStageSel_SendPick(int idx)
+{
+    u8 b = (u8) idx;
+    net_local_pick = idx;
+    pc_net_send_reliable(NET_MSG_STAGE_PICK, &b, 1);
+    pc_log_line("sss: we picked %d", idx);
+}
+
+/* Both peers have picked: order the picks by port so the expression is the
+ * same on both sides, then let the shared seed flip the coin. */
+static u32 netStageSel_Mix(void)
+{
+    int local = pc_net_local_player();
+    int p0 = local == 0 ? net_local_pick : net_remote_pick;
+    int p1 = local == 0 ? net_remote_pick : net_local_pick;
+    return pc_net_seed() * 2654435761u + (u32) (p0 * 31 + p1);
+}
+
+static int netStageSel_Resolve(void)
+{
+    int local = pc_net_local_player();
+    int p0 = local == 0 ? net_local_pick : net_remote_pick;
+    int p1 = local == 0 ? net_remote_pick : net_local_pick;
+    int pick = (netStageSel_Mix() >> 16) & 1 ? p1 : p0;
+    pc_log_line("sss: picks P1=%d P2=%d -> %d", p0, p1, pick);
+    return pick;
+}
+
+/* "Random" online: the offline roll uses the live RNG and a per-machine
+ * cooldown table, neither of which is in sync at this point (the peer's
+ * pick lands on a different frame on each side). Draw from the seed
+ * instead, over the stages the synced random-stage switches allow. */
+static int netStageSel_Random(void)
+{
+    int allowed[NUM_STAGES];
+    int n = 0;
+    for (int i = 0; i < NUM_STAGES; i++) {
+        if ((u8) gm_80164330(mnStageSel_803F06D0[i].xA)) {
+            allowed[n++] = i;
+        }
+    }
+    if (n == 0) {
+        return 0;
+    }
+    u32 r = netStageSel_Mix() * 22695477u + 1u;
+    return allowed[(r >> 8) % (u32) n];
+}
+#endif
 
 /// @todo .sdata2 order hack
 #ifdef MUST_MATCH
@@ -129,6 +213,14 @@ void mnStageSel_80259C28(void)
         lbAudioAx_80024030(3);
         return;
     }
+#ifdef TARGET_PC
+    if (netStageSel_Active()) {
+        /* Send the cell (30 = random) and defer the roll to the resolve so
+         * both peers roll from the same RNG state. */
+        netStageSel_SendPick(mnStageSel_804D6CAE);
+        goto skip_randomize;
+    }
+#endif
     mnStageSel_804D6CAE = mnStageSel_802599EC();
 skip_randomize:
 
@@ -488,6 +580,12 @@ void mnStageSel_Scene_OnEnter(void* arg0)
         mnStageSel_804D6CAD = 0;
         mnStageSel_804D6CAE = 0x1E;
         mnStageSel_804D50A0 = sss_data->unk_stage - 1;
+#ifdef TARGET_PC
+        if (netStageSel_Active()) {
+            mnStageSel_804D50A0 = pc_net_local_player();
+            netStageSel_Reset();
+        }
+#endif
         mnStageSel_804D6CA4 = 0x14;
 
         {
@@ -880,6 +978,18 @@ void mnStageSel_Scene_OnFrame(void)
         gm_801A4B60();
     }
     if (mnStageSel_804D6CAF == 2) {
+#ifdef TARGET_PC
+        if (netStageSel_Active()) {
+            netStageSel_Poll();
+            if (net_remote_pick < 0) {
+                return; /* opponent still choosing; keep showing our pick */
+            }
+            mnStageSel_804D6CAE = netStageSel_Resolve();
+            if (mnStageSel_804D6CAE >= 0x1E) {
+                mnStageSel_804D6CAE = netStageSel_Random();
+            }
+        }
+#endif
         sss_data->vs.start.rules.stkind =
             mnStageSel_803F06D0[mnStageSel_804D6CAE].stkind;
         gm_801A4B60();

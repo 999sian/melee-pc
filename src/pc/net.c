@@ -808,11 +808,18 @@ bool pc_net_active(void) {
     return s_active;
 }
 
+int pc_net_local_player(void) {
+    return s_local;
+}
+
 static void snaps_invalidate(void);
 
 /* Back to frame 0 with empty rings; called with the timer parked (s_active
  * false), so only the game thread is looking. */
+static bool s_seen_remote;
+
 static void session_reset(void) {
+    s_seen_remote = false;
     memset(s_local_ring, 0, sizeof s_local_ring);
     memset(s_remote_ring, 0, sizeof s_remote_ring);
     memset(s_ck_ring, 0, sizeof s_ck_ring);
@@ -859,6 +866,13 @@ void pc_net_disconnect(void) {
     s_hs = HS_IDLE;
     rules_restore();
     HSD_PadLibData.qtype = 0;
+    SDL_UnlockMutex(s_tx_lock);
+    /* The timer parks itself when it sees !s_active; removing it here makes
+     * that synchronous so nothing can touch the socket after this returns. */
+    if (s_timer) {
+        SDL_RemoveTimer(s_timer);
+        s_timer = 0;
+    }
     pc_log_line("net: disconnected at frame %d", s_tick_frame);
 }
 
@@ -1448,9 +1462,8 @@ static void write_head(PADStatus* head, int32_t f) {
     from_wire(&head[s_local], mine);
     const WirePad* theirs = &s_remote_ring[f & (RING - 1)];
     from_wire(&head[s_remote], theirs);
-    static bool seen_remote;
-    if (!seen_remote && theirs->button != 0) {
-        seen_remote = true;
+    if (!s_seen_remote && theirs->button != 0) {
+        s_seen_remote = true;
         pc_log_line("net: first remote button press (%04x) at frame %d", theirs->button, f);
     }
     for (int i = 2; i < 4; i++) {
