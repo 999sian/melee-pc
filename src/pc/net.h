@@ -26,6 +26,11 @@ uint32_t pc_net_seed(void);
 /* Match handshake progress: 0 idle, 1 pending, 2 done, 3 failed (15 s). */
 int pc_net_handshake_state(void);
 
+/* Match rules in force from the RULES handshake until disconnect: unlock-all
+ * is on for both peers, frozen stadium is the host's setting. False when no
+ * rules are in force (use the local prefs). */
+bool pc_net_rules(bool* unlock_all, bool* frozen_stadium);
+
 /* Called once per simulation tick before the pad queue head is consumed.
  * Replaces the head sample's four ports with the synced inputs for this
  * frame, predicting the remote one when it has not arrived (stalling only

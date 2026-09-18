@@ -20,6 +20,7 @@ OnlineKind gmOnline_GetKind(void);
 
 void gm_Scene_OnlineLobby_OnFrame(void);
 void gm_Scene_OnlineLobby_OnEnter(void*);
+void gm_Scene_OnlineLobby_OnExit(void*);
 
 /* ---- lobby view (src/melee/mn/mnonlinelobby.c) --------------------------
  * The lobby scene owns the flow and the network; the view only draws. The

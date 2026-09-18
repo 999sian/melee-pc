@@ -30,6 +30,7 @@
 #pragma GCC diagnostic ignored "-Wscalar-storage-order" /* disc-struct unions in lb/types.h */
 #include <melee/ft/fighter.h>
 #include <melee/ft/inlines.h>
+#include <melee/gm/gmmain_lib.h>
 #include <melee/gm/types.h>
 #include <melee/pl/player.h>
 #pragma GCC diagnostic pop
@@ -207,11 +208,15 @@ static RelMsg s_rel_rx[REL_QUEUE];
 static int s_rel_rx_head, s_rel_rx_n;
 static uint8_t s_rel_expect;            /* next seq accepted */
 
-/* Match handshake: RULES {seed, start_frame} host -> guest, READY back.
- * Each side applies the seed when it learns it, and both apply it again
- * entering start_frame, the frame the lobby switches to GS_VS on; frame
- * checksums are only compared from start_frame on, since the two lobbies
- * run different states until then. */
+/* Match handshake: RULES host -> guest, READY back. RULES carries the seed,
+ * start_frame (the frame the lobby leaves for the CSS on both peers; each
+ * side applies the seed when it learns it and again entering that frame,
+ * and frame checksums are only compared from it on, since the two lobbies
+ * run different states until then) and everything match-affecting from
+ * plan §5 item 7: the memcard GameRules, the item/stage switches from
+ * GamePrefs and the frozen-stadium toggle. The guest overwrites its copies
+ * (restored at disconnect) so CSS/SSS/match read the same values on both
+ * peers; unlock-all is forced on for both (pc_net_rules). */
 enum { HS_IDLE, HS_PENDING, HS_DONE, HS_FAILED };
 #define HS_TIMEOUT_MS 15000
 #define HS_LEAD_FRAMES 120   /* ponytail: 2 s for READY; a slower link misses the start */
@@ -225,7 +230,17 @@ static int32_t s_ck_from;               /* checksums before this frame are not c
 typedef struct Rules {
     uint32_t seed;
     int32_t start_frame;
+    GameRules game;
+    uint8_t item_freq;
+    uint64_t item_mask;
+    uint32_t stage_mask;
+    uint8_t frozen_stadium;
 } __attribute__((packed)) Rules;
+
+static bool s_rules_on;                 /* a RULES set is in force (host or guest) */
+static bool s_rules_frozen;
+static bool s_rules_saved;              /* guest: s_rules_orig holds its own values */
+static Rules s_rules_orig;
 
 /* ---- helpers ---------------------------------------------------------- */
 
@@ -547,6 +562,56 @@ static void hs_done(void) {
                 s_tick_frame);
 }
 
+/* The match-affecting part of RULES, from (capture) or into (apply) the
+ * game's own copies. */
+static void rules_capture(Rules* ru) {
+    const struct GamePrefs* p = gmMainLib_GetGamePrefs();
+    ru->game = *gmMainLib_GetGameRules();
+    ru->item_freq = p->item_freq;
+    ru->item_mask = p->item_mask;
+    ru->stage_mask = p->stage_mask;
+    ru->frozen_stadium = pc_is_frozen_stadium_enabled();
+}
+
+static void rules_apply(const Rules* ru, bool from_peer) {
+    struct GamePrefs* p = gmMainLib_GetGamePrefs();
+    if (from_peer && !s_rules_saved) {
+        rules_capture(&s_rules_orig);
+        s_rules_saved = true;
+    }
+    *gmMainLib_GetGameRules() = ru->game;
+    p->item_freq = ru->item_freq;
+    p->item_mask = ru->item_mask;
+    p->stage_mask = ru->stage_mask;
+    s_rules_frozen = ru->frozen_stadium != 0;
+    s_rules_on = true;
+    pc_log_line("net: RULES %s mode=%u time=%u stock=%u handicap=%u dmg=%u stage_sel=%u ff=%u "
+                "pause=%u sd=%u items=%u/%016llx stages=%08x frozen=%u unlock_all=1",
+                from_peer ? "applied" : "in force", ru->game.mode, ru->game.time_limit,
+                ru->game.stock_count, ru->game.handicap, ru->game.damage_ratio,
+                ru->game.stage_sel, ru->game.friendly_fire, ru->game.pause, ru->game.unk_xc,
+                ru->item_freq, (unsigned long long) ru->item_mask, ru->stage_mask,
+                ru->frozen_stadium);
+}
+
+static void rules_restore(void) {
+    if (s_rules_saved) {
+        s_rules_saved = false;
+        rules_apply(&s_rules_orig, false);
+        pc_log_line("net: RULES restored own settings");
+    }
+    s_rules_on = false;
+}
+
+bool pc_net_rules(bool* unlock_all, bool* frozen_stadium) {
+    if (!s_rules_on) {
+        return false;
+    }
+    *unlock_all = true;
+    *frozen_stadium = s_rules_frozen;
+    return true;
+}
+
 /* Reliable types below 0x10: the match handshake. */
 static void handshake_msg(uint8_t type, const uint8_t* payload, int len) {
     if (type == REL_RULES && len == (int) sizeof(Rules)) {
@@ -555,6 +620,7 @@ static void handshake_msg(uint8_t type, const uint8_t* payload, int len) {
         s_seed = ru.seed;
         s_start_frame = ru.start_frame;
         *HSD_RandSeedPtr = s_seed;
+        rules_apply(&ru, true);
         if (s_start_frame <= s_tick_frame) {
             pc_log_line("net: RULES late, start_frame %d already passed (frame %d)", s_start_frame,
                         s_tick_frame);
@@ -790,8 +856,9 @@ void pc_net_disconnect(void) {
     s_active = false;
     sock_close(s_sock);
     s_sock = SOCK_INVALID;
-    SDL_UnlockMutex(s_tx_lock);
     s_hs = HS_IDLE;
+    rules_restore();
+    HSD_PadLibData.qtype = 0;
     pc_log_line("net: disconnected at frame %d", s_tick_frame);
 }
 
@@ -846,8 +913,13 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
         return false;
     }
     sock_nonblock(sock);
-
     session_reset();
+    /* A full raw queue (any stall) with qtype 0 makes the pad alarm shift
+     * qread, dropping the head write_head() just filled: the tick then eats
+     * a raw sample (remote port = no controller) and the peers diverge. 2
+     * drops the new raw sample instead; the local input is read from the
+     * head anyway. */
+    HSD_PadLibData.qtype = 2;
     s_local = player ? 1 : 0;
     s_remote = 1 - s_local;
     const char* delay = getenv("MELEE_NET_DELAY");
@@ -940,8 +1012,10 @@ bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
         *HSD_RandSeedPtr = seed;
         s_start_frame = s_tick_frame + HS_LEAD_FRAMES;
         Rules ru = { seed, s_start_frame };
+        rules_capture(&ru);
         pc_net_send_reliable(REL_RULES, &ru, sizeof ru);
         pc_log_line("net: RULES sent seed=%u start_frame=%d", seed, s_start_frame);
+        rules_apply(&ru, false);
     }
     return hs_poll(start_frame);
 }

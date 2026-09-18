@@ -1620,11 +1620,14 @@ extern "C" void pc_menu_update(void) {
 extern "C" bool pc_is_custom_textures_enabled(void) {
     return prefs.custom_textures;
 }
+extern "C" bool pc_net_rules(bool* unlock_all, bool* frozen_stadium);
 extern "C" bool pc_is_unlock_all_enabled(void) {
-    return prefs.unlock_all;
+    bool unlock_all, frozen;
+    return pc_net_rules(&unlock_all, &frozen) ? unlock_all : prefs.unlock_all;
 }
 extern "C" bool pc_is_frozen_stadium_enabled(void) {
-    return prefs.frozen_stadium;
+    bool unlock_all, frozen;
+    return pc_net_rules(&unlock_all, &frozen) ? frozen : prefs.frozen_stadium;
 }
 extern "C" bool pc_is_free_camera_enabled(void) {
     return prefs.free_camera;

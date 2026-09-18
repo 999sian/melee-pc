@@ -231,13 +231,7 @@ void pc_lan_start(void) {
         pc_log_line("lan: cannot open mDNS socket on udp/%d", MDNS_PORT);
         return;
     }
-    char host[64];
-    if (gethostname(host, sizeof host) != 0) {
-        strcpy(host, "melee");
-    }
-    host[sizeof host - 1] = '\0';
-    host[strcspn(host, ".")] = '\0';
-    snprintf(s_name, sizeof s_name, "%s", host);
+    pc_lan_local_name();
     s_id = (uint32_t) SDL_GetPerformanceCounter() ^ ((uint32_t) getpid() << 16);
     snprintf(s_instance, sizeof s_instance, "%s-%08x." SERVICE, s_name, s_id);
     snprintf(s_hostname, sizeof s_hostname, "%s.local.", s_name);
@@ -336,6 +330,19 @@ int pc_lan_peers(PcLanPeer* out, int max) {
     return s_n;
 }
 
+const char* pc_lan_local_name(void) {
+    if (s_name[0] == '\0') {
+        char host[64];
+        if (gethostname(host, sizeof host) != 0) {
+            strcpy(host, "melee");
+        }
+        host[sizeof host - 1] = '\0';
+        host[strcspn(host, ".")] = '\0';
+        snprintf(s_name, sizeof s_name, "%s", host);
+    }
+    return s_name;
+}
+
 bool pc_lan_start_match(void) {
     if (s_sock < 0 || s_state != 0 || s_n == 0) {
         return false;
@@ -364,6 +371,10 @@ int pc_lan_state(const char** why) {
         *why = s_why;
     }
     return s_state;
+}
+
+bool pc_lan_is_host(void) {
+    return s_host;
 }
 
 uint32_t pc_lan_seed(void) {

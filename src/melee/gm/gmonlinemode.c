@@ -5,9 +5,11 @@
 #include <melee/lb/forward.h>
 
 #include "forward.h"
+#include "gm_1601.h"
 #include "gm_1A36.h"
 #include "gm_1A3F.h"
 #include "gm_unsplit.h"
+#include "gmresult.h"
 #include "gmscene.h"
 #include "gmvsmelee.h"
 #include "types.h"
@@ -18,27 +20,43 @@
 #include <melee/mn/types.h>
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/random.h>
-#include <sysdolphin/baselib/sislib.h>
 #ifdef TARGET_PC
 #include "pc/net.h"
 #include "pc/net_lan.h"
 #include "pc/pc.h"
 #endif
 
-/* GM_ONLINE: lobby -> VS -> results -> lobby. The lobby is the Double Dash
- * LAN counter screen (docs/netcode-plan.md §8): pc_lan_* announces us, counts
- * peers, and the first Start elects the host; once pc_lan_state() reports the
- * match (2) both peers leave the lobby on the same synced frame. */
+/* GM_ONLINE: lobby -> CSS -> SSS -> VS -> (sudden death) -> results -> CSS,
+ * the vanilla VS flow (gmvsmode.c) on a private VsModeData that both peers
+ * reset identically on entering the lobby. The lobby is the Double Dash LAN
+ * counter screen (docs/netcode-plan.md §8): pc_lan_* announces us, counts
+ * peers, and the first Start elects the host; once pc_lan_state() reports
+ * the match (2) both peers leave for the CSS on the same synced frame. From
+ * there every scene runs on synced inputs: the local player is P1 when
+ * hosting and P2 as guest, ports 3/4 report no controller, and the RULES
+ * handshake (net.c) has made GameRules/GamePrefs/unlock/frozen-stadium
+ * identical on both sides. B on the CSS goes back to the lobby. */
 
 enum {
     state_lobby = 0,
-    state_vs = 1,
-    state_results = 2,
+    state_css = 1,
+    state_sss = 2,
+    state_vs = 3,
+    state_sudden_death = 4,
+    state_results = 5, /* last: gmVsMelee_ExitResults skips challengers */
 };
 
 static void onEnterLobby(GameModeState*);
-static void onEnterOnlineVs(GameModeState*);
+static void onEnterCss(GameModeState*);
+static void onExitCss(GameModeState*);
+static void onEnterSss(GameModeState*);
+static void onExitSss(GameModeState*);
+static void onEnterVs(GameModeState*);
+static void onExitVs(GameModeState*);
+static void onEnterSuddenDeath(GameModeState*);
+static void onExitSuddenDeath(GameModeState*);
 static void onEnterResults(GameModeState*);
+static void onExitResults(GameModeState*);
 
 GameModeState gm_Mode_Online_States[] = {
     {
@@ -54,11 +72,35 @@ GameModeState gm_Mode_Online_States[] = {
         },
     },
     {
-        state_vs,
-        lbDvdPreload_2,
+        state_css,
+        lbDvdPreload_3,
         0,
-        onEnterOnlineVs,
-        NULL,
+        onEnterCss,
+        onExitCss,
+        {
+            GS_CSS,
+            &gmVsMelee_CssData,
+            &gmVsMelee_CssData,
+        },
+    },
+    {
+        state_sss,
+        lbDvdPreload_3,
+        0,
+        onEnterSss,
+        onExitSss,
+        {
+            GS_SSS,
+            &gmVsMelee_SssData,
+            &gmVsMelee_SssData,
+        },
+    },
+    {
+        state_vs,
+        lbDvdPreload_3,
+        0,
+        onEnterVs,
+        onExitVs,
         {
             GS_VS,
             &gmVsMelee_StartData,
@@ -66,11 +108,23 @@ GameModeState gm_Mode_Online_States[] = {
         },
     },
     {
+        state_sudden_death,
+        lbDvdPreload_3,
+        0,
+        onEnterSuddenDeath,
+        onExitSuddenDeath,
+        {
+            GS_SUDDEN_DEATH,
+            &gmVsMelee_StartData,
+            &gmVsMelee_SuddenDeathExitInfo,
+        },
+    },
+    {
         state_results,
-        lbDvdPreload_2,
+        lbDvdPreload_3,
         0,
         onEnterResults,
-        NULL,
+        onExitResults,
         {
             GS_RESULTS,
             &gmVsMelee_ResultsEnterData,
@@ -80,61 +134,89 @@ GameModeState gm_Mode_Online_States[] = {
     { GM_GAMEMODESTATE_TERMINATE },
 };
 
-static HSD_Text* lobby_text;
-static int lobby_entry;
-static char lobby_status[96];
+static OnlineKind online_kind;
+static VsModeData online_vs;
+
+void gmOnline_SetKind(OnlineKind kind)
+{
+    online_kind = kind;
+}
+
+OnlineKind gmOnline_GetKind(void)
+{
+    return online_kind;
+}
 
 void onEnterLobby(UNUSED GameModeState* state)
 {
 #ifdef TARGET_PC
-    if (gm_GetPreviousSceneIndex() == state_results) {
-        /* Back from a match: the session belongs to the match, not the
-         * lobby (net_lan.c), so tear it down here before re-announcing. */
-        pc_net_disconnect();
-        pc_lan_stop();
-    }
+    /* Fresh from the menu both are no-ops; back from a match or from B on
+     * the CSS the session belongs to the match, not the lobby (net_lan.c),
+     * so tear it down before re-announcing. */
+    pc_net_disconnect();
+    pc_lan_stop();
 #endif
+    /* Same CSS start state on both peers: two human doors, nothing picked. */
+    gm_InitVsMode(&online_vs);
+    online_vs.start.players[0].slot_type = Gm_PKind_Human;
+    online_vs.start.players[1].slot_type = Gm_PKind_Human;
 }
 
-/* Copy of gmvsmode.c onEnterDebugVs (the netplay fixture) as a stock match:
- * Link vs Mario, both human, 4 stocks, 8 minutes, Final Destination. */
-void onEnterOnlineVs(GameModeState* state)
+void onEnterCss(GameModeState* state)
 {
-    StartMeleeData* start = gm_GetGameModeStateEnterData(state);
+    gmVsMelee_EnterCss(state, &online_vs, VS_MELEE);
+}
+
+void onExitCss(GameModeState* state)
+{
+    CSSData* css = gm_GetGameModeStateExitData(state);
+    if (css->pending_scene_change == CSSPendingSceneChange_2) {
+        gm_SetNextGameModeStateId(state_lobby);
+        return;
+    }
+    gmVsMelee_ExitCss(state, &online_vs);
+}
+
+void onEnterSss(GameModeState* state)
+{
+    gmVsMelee_EnterSss(state, &online_vs);
+}
+
+void onExitSss(GameModeState* state)
+{
+    gmVsMelee_ExitSss(state, &online_vs, state_css);
+}
+
+void onEnterVs(GameModeState* state)
+{
+    gmVsMelee_EnterVs(state, &online_vs, NULL, NULL);
+}
+
+void onExitVs(GameModeState* state)
+{
+    MatchExitInfo* mei;
     ssize_t i;
 
-    gm_SetupRulesDefaults(&start->rules);
-    start->rules.stkind = St_Kind_Last;
-    start->rules.item_freq = -1;
-    start->rules.sd_penalty = -1;
-    start->rules.match_kind = MatchKind_Stock;
-    start->rules.is_stock = true;
-    start->rules.is_vs = true;
-    start->rules.timer_enabled = true;
-    start->rules.time_limit = 8 * 60;
-
-    for (i = 0; i < Gm_Player_NumMax; i++) {
-        gm_SetupPlayerDefaults(&start->players[i]);
-        start->players[i].stocks = 4;
-        start->players[i].cpu_kind = 4;
+    gmVsMelee_ExitVs(state, state_results, state_sudden_death);
+    mei = gm_GetGameModeStateExitData(state);
+    for (i = 0; i < GM_MAX_PLAYERS; i++) {
+        if (mei->match_end.player_standings[i].pkind != Gm_PKind_NA) {
+            gm_80162A98(mei->match_end.player_standings[i].x20);
+            gm_RecordSelfDestructs(
+                mei->match_end.player_standings[i].self_destructs);
+            gm_80162A4C(mei->match_end.player_standings[i].x44);
+        }
     }
+}
 
-    start->players[0].ckind = CKind_Link;
-    start->players[1].ckind = CKind_Mario;
-    start->players[2].ckind = CKind_Link;
-    start->players[3].ckind = CKind_Link;
+void onEnterSuddenDeath(GameModeState* state)
+{
+    gmVsMelee_EnterSuddenDeath(state, &online_vs, NULL, NULL);
+}
 
-    start->players[0].slot_type = Gm_PKind_Human;
-    start->players[1].slot_type = Gm_PKind_Human;
-    start->players[2].slot_type = Gm_PKind_NA;
-    start->players[3].slot_type = Gm_PKind_NA;
-
-    start->players[0].rumble_enabled = false;
-    start->players[1].rumble_enabled = false;
-    start->players[2].rumble_enabled = false;
-    start->players[3].rumble_enabled = false;
-
-    gm_LoadAnnouncer();
+void onExitSuddenDeath(GameModeState* state)
+{
+    gmVsMelee_ExitSuddenDeath(state);
 }
 
 void onEnterResults(GameModeState* state)
@@ -142,47 +224,109 @@ void onEnterResults(GameModeState* state)
     gmVsMelee_EnterResults(state);
 }
 
-static void lobbySetStatus(const char* status)
+void onExitResults(GameModeState* state)
 {
-    if (strcmp(status, lobby_status) == 0) {
-        return;
+    gmVsMelee_ExitResults(state, &online_vs, state_css);
+    if (!gm_WasMatchCanceled(gmVsMelee_ResultsEnterData.match_end.outcome)) {
+        gm_801623A4(&gmVsMelee_ResultsEnterData.match_end);
     }
-    snprintf(lobby_status, sizeof(lobby_status), "%s", status);
-    HSD_SisLib_803A70A0(lobby_text, lobby_entry, "%s", lobby_status);
-#ifdef TARGET_PC
-    pc_log_line("lobby: %s", lobby_status);
-#endif
 }
 
-/* ponytail: black screen + two SIS lines, same canvas as the title screen's
- * build stamp; the Names panel backdrop can replace it later. */
+/* ---- lobby scene ------------------------------------------------------- */
+
 void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
 {
-    int entry;
-
-    HSD_SisLib_803A611C(0, NULL, 9, 0xD, 0, 0xE, 0, 0x13);
-    lobby_text = HSD_SisLib_803A6754(0, 0);
-    lobby_text->default_kerning = 1;
-    entry = HSD_SisLib_803A6B98(lobby_text, 40.0F, 60.0F, "ONLINE - LAN");
-    HSD_SisLib_803A7548(lobby_text, entry, 0.9f, 0.9f);
-    lobby_entry = HSD_SisLib_803A6B98(lobby_text, 40.0F, 220.0F, "%s",
-                                      "LAN: searching...");
-    HSD_SisLib_803A7548(lobby_text, lobby_entry, 0.6f, 0.6f);
-    snprintf(lobby_status, sizeof(lobby_status), "LAN: searching...");
-    entry = HSD_SisLib_803A6B98(lobby_text, 40.0F, 400.0F,
-                                "START: play with the first peer    B: back");
-    HSD_SisLib_803A7548(lobby_text, entry, 0.45f, 0.45f);
+    mnOnlineLobby_Create();
 #ifdef TARGET_PC
     pc_lan_start();
 #endif
 }
 
+void gm_Scene_OnlineLobby_OnExit(UNUSED void* unused)
+{
+    mnOnlineLobby_Destroy();
+}
+
+#ifdef TARGET_PC
+static void lobbyCopyName(char* dst, const char* src)
+{
+    snprintf(dst, ONLINE_LOBBY_NAME_LEN, "%s", src);
+}
+
+/* Fill the view from the LAN state; logs the status line when it changes. */
+static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
+                          const PcLanPeer* peers, int n)
+{
+    static char last_status[ONLINE_LOBBY_MSG_LEN];
+    char status[ONLINE_LOBBY_MSG_LEN];
+    bool connected = state == 1 || state == 2;
+    bool host = connected && pc_lan_is_host();
+    int ping = -1, delay;
+    unsigned rollbacks;
+    int i;
+
+    memset(view, 0, sizeof *view);
+    view->title =
+        online_kind == ONLINE_KIND_DIRECT ? "DIRECT CONNECT" : "LAN PLAY";
+    if (connected && !pc_net_stats(&ping, &delay, &rollbacks)) {
+        ping = -1;
+    }
+
+    lobbyCopyName(view->players[0].name, pc_lan_local_name());
+    view->players[0].ping_ms = -1;
+    view->players[0].is_host = host;
+    view->players[0].is_local = true;
+    view->player_count = 1;
+    for (i = 0; i < n && view->player_count < ONLINE_LOBBY_MAX_PLAYERS; i++) {
+        OnlineLobbyPlayer* p = &view->players[view->player_count++];
+        lobbyCopyName(p->name, peers[i].name);
+        p->is_host = peers[i].host;
+        /* The session peer: the host we joined, or our first peer as host. */
+        p->ping_ms = connected && (peers[i].host || (host && i == 0)) ? ping : -1;
+    }
+
+    switch (state) {
+    case 0:
+        view->phase = n == 0 ? LOBBY_PHASE_SEARCHING : LOBBY_PHASE_FOUND;
+        if (n == 0) {
+            snprintf(status, sizeof status, "LAN: searching...");
+        } else {
+            snprintf(status, sizeof status, "%d players found - press START",
+                     n + 1);
+        }
+        break;
+    case 1:
+        view->phase = LOBBY_PHASE_CONNECTING;
+        snprintf(status, sizeof status, "Connecting...");
+        break;
+    case 2:
+        view->phase = LOBBY_PHASE_STARTING;
+        view->countdown_frames = pc_lan_start_frame() - pc_net_frame();
+        if (view->countdown_frames < 0) {
+            view->countdown_frames = 0;
+        }
+        snprintf(status, sizeof status, "Starting...");
+        break;
+    default:
+        view->phase = LOBBY_PHASE_ERROR;
+        snprintf(status, sizeof status, "Failed: %s",
+                 why != NULL ? why : "unknown error");
+        break;
+    }
+    memcpy(view->message, status, sizeof view->message);
+    if (strcmp(status, last_status) != 0) {
+        memcpy(last_status, status, sizeof last_status);
+        pc_log_line("lobby: %s", status);
+    }
+}
+#endif
+
 void gm_Scene_OnlineLobby_OnFrame(void)
 {
 #ifdef TARGET_PC
     PcLanPeer peers[PC_LAN_MAX_PEERS];
+    OnlineLobbyView view;
     const char* why = NULL;
-    char buf[96];
     int state;
     int n;
     u64 input = gm_GetButtonsTriggered(PAD_MAX_CONTROLLERS);
@@ -190,33 +334,15 @@ void gm_Scene_OnlineLobby_OnFrame(void)
     pc_lan_poll();
     state = pc_lan_state(&why);
     n = pc_lan_peers(peers, PC_LAN_MAX_PEERS);
-    switch (state) {
-    case 0:
-        if (n == 0) {
-            snprintf(buf, sizeof(buf), "LAN: searching...");
-        } else {
-            snprintf(buf, sizeof(buf), "%d players found - press START", n);
-        }
-        break;
-    case 1:
-        snprintf(buf, sizeof(buf), "Connecting...");
-        break;
-    case 2:
-        snprintf(buf, sizeof(buf), "Starting...");
-        break;
-    default:
-        snprintf(buf, sizeof(buf), "Failed: %s (B to go back)",
-                 why != NULL ? why : "unknown");
-        break;
-    }
-    lobbySetStatus(buf);
+    lobbyFillView(&view, state, why, peers, n);
+    mnOnlineLobby_Update(&view);
 
     if (state == 2) {
         /* Both peers tick in lockstep once connected, so leaving on the
-         * agreed frame puts GS_VS on the same synced frame everywhere. */
+         * agreed frame puts the CSS on the same synced frame everywhere. */
         if (pc_net_frame() >= pc_lan_start_frame()) {
             *HSD_RandSeedPtr = pc_lan_seed();
-            pc_log_line("lobby: entering VS at frame %d, seed %u",
+            pc_log_line("lobby: entering CSS at frame %d, seed %u",
                         pc_net_frame(), pc_lan_seed());
             gm_801A4B60();
         }

@@ -34,13 +34,18 @@ void pc_lan_poll(void);
 /* Snapshot of known peers, excluding ourselves. Returns count. */
 int pc_lan_peers(PcLanPeer* out, int max);
 
+/* Our own display name, the same one the announce carries (hostname). */
+const char* pc_lan_local_name(void);
+
 /* Local player pressed Start: claim host and start a match with the first
  * peer. Returns false if there is no peer yet. */
 bool pc_lan_start_match(void);
 
 /* Lobby state for the menu: 0 idle/searching, 1 connecting, 2 in match,
- * 3 failed (message in *why). */
+ * 3 failed (message in *why). pc_lan_is_host(): we pressed Start first
+ * (valid while the state is 1 or 2). */
 int pc_lan_state(const char** why);
+bool pc_lan_is_host(void);
 
 /* Valid once pc_lan_state() returns 2: the match seed (host picked it, the
  * guest got it from RULES) and the synced frame at which to enter GS_VS. */

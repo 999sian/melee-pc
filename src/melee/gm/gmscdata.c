@@ -376,7 +376,7 @@ static GameScene scenes[] = {
         GS_ONLINE_LOBBY,
         gm_Scene_OnlineLobby_OnFrame,
         gm_Scene_OnlineLobby_OnEnter,
-        NULL,
+        gm_Scene_OnlineLobby_OnExit,
         NULL,
     },
     {
