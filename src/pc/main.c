@@ -75,6 +75,8 @@ void pc_log_line(const char* fmt, ...) {
     const double t = log_now_ms();
 #if defined(__APPLE__)
     os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, "[Melee] %{public}s", msg);
+#elif defined(__ANDROID__)
+    __android_log_print(ANDROID_LOG_INFO, "Melee", "%s", msg); /* stderr is not logcat */
 #endif
     fprintf(stderr, "[%9.3f] %s\n", t, msg);
     fflush(stderr);

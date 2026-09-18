@@ -1083,6 +1083,26 @@ static uint32_t frame_checksum(const PADStatus* head) {
     return ck;
 }
 
+/* What went into the checksum, one line, so two peers' logs can be diffed
+ * by eye when a DESYNC is reported. */
+static void log_checksum_inputs(const PADStatus* head, int32_t frame) {
+    char buf[512];
+    int n = snprintf(buf, sizeof buf, "net: state f%d seed=%08x pads=%04x/%d,%d %04x/%d,%d", frame,
+                     *HSD_RandSeedPtr, head[0].button, head[0].stickX, head[0].stickY,
+                     head[1].button, head[1].stickX, head[1].stickY);
+    for (int slot = 0; in_fight() && slot < 4 && n < (int) sizeof buf - 80; slot++) {
+        HSD_GObj* gobj = Player_GetEntity(slot);
+        if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
+            continue;
+        }
+        const Fighter* fp = GET_FIGHTER(gobj);
+        n += snprintf(buf + n, sizeof buf - (size_t) n, " p%d=(%.3f,%.3f) f%.0f %.1f%% m%d s%d", slot,
+                      (double) fp->cur_pos.x, (double) fp->cur_pos.y, (double) fp->facing_dir,
+                      (double) fp->dmg.x1830_percent, fp->motion_id, Player_GetStocks(slot));
+    }
+    pc_log_line("%s", buf);
+}
+
 /* ---- snapshot ---------------------------------------------------------
  * Whole-region copy of everything the simulation can touch:
  *   1. the decomp's statics, bracketed by src/pc/melee_state.ld (the sound
@@ -1461,7 +1481,14 @@ static void fresh_tick(PADStatus* head, bool raw) {
     uint32_t ck = frame_checksum(head);
     s_ck_ring[s_frame & (RING - 1)] = ck;
     if (s_active) {
+        bool before = s_desync_reported;
         check_desync();
+        /* First three match frames always, plus the frame a desync is
+         * reported: enough to localise an initial-state mismatch. */
+        if ((s_start_frame > 0 && s_frame >= s_start_frame && s_frame <= s_start_frame + 2) ||
+            (s_desync_reported && !before)) {
+            log_checksum_inputs(head, s_frame);
+        }
     }
     if (s_rec != NULL) {
         if (s_frame == 0) {
