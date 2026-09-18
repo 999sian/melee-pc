@@ -13,17 +13,22 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <deque>
 #include <filesystem>
 #include <limits>
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <vector>
 
 #include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_thread.h>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
+#include <aurora/gfx.h>
 #include <fmt/format.h>
 #include <tracy/Tracy.hpp>
 
@@ -67,7 +72,7 @@ constexpr size_t BuildPipelinesPerFrame = 5;
 #else
 constexpr size_t BuildPipelinesPerFrame = 1;
 #endif
-static std::thread g_pipelineThread;
+static std::vector<std::thread> g_pipelineThreads;
 static std::atomic_bool g_pipelineThreadEnd = false;
 static std::condition_variable g_pipelineQueueCv;
 static std::condition_variable g_pipelineReadyCv;
@@ -76,6 +81,27 @@ static std::deque<PendingPipeline> g_pipelineQueue;
 static std::deque<PendingPipeline> g_backgroundPipelineQueue;
 static absl::flat_hash_set<PipelineRef> g_pendingPipelines;
 static std::atomic_bool g_gpuCachePrunePending = false;
+
+static bool env_flag(const char* name) {
+  const char* v = std::getenv(name);
+  return v != nullptr && *v != '\0' && *v != '0';
+}
+
+/* MELEE_PIPELINE_SYNC=1: block the frame on a never-before-seen GX pipeline
+ * (the issue #46 stutter) instead of dropping its draw until it compiles.
+ * Kept for A/B; skipping is the default. */
+static const bool g_pipelineSync = env_flag("MELEE_PIPELINE_SYNC");
+
+/* MELEE_PIPELINE_JOBS=<n>: compile threads. The seed alone is ~12k configs,
+ * so one thread takes minutes to turn it into PSOs; anything the game asks
+ * for before then is skipped or (sync mode) stalled on. Threads run at low
+ * priority so they only take CPU the game is not using. */
+static unsigned pipeline_job_count() {
+  if (const char* v = std::getenv("MELEE_PIPELINE_JOBS"); v != nullptr && *v != '\0') {
+    return static_cast<unsigned>(std::clamp(std::strtoul(v, nullptr, 10), 1ul, 32ul));
+  }
+  return std::clamp(std::thread::hardware_concurrency() / 2, 1u, 8u);
+}
 
 static sqlite3* g_pipelineCacheDb = nullptr;
 static sqlite3_stmt* g_pipelineCacheLoadStmt = nullptr;
@@ -975,26 +1001,24 @@ static void pipeline_worker() {
 #ifdef TRACY_ENABLE
   tracy::SetThreadName("Pipeline compilation thread");
 #endif
+  if (g_hasPipelineThread && !g_pipelineSync) {
+    SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_LOW);
+  }
 
-  bool hasMore = false;
   while (g_hasPipelineThread || g_pipelinesPerFrame < BuildPipelinesPerFrame) {
     PendingPipeline pending;
     {
       std::unique_lock lock{g_pipelineMutex};
       if (g_hasPipelineThread) {
-        if (!hasMore) {
-          g_pipelineQueueCv.wait(lock, [] {
-            return !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty() || g_pipelineThreadEnd;
-          });
-        }
-      } else if (!g_hasPipelineThread) {
+        // Several workers share the queues, so always re-check under the lock
+        // rather than trusting a "has more" observed before it was released.
+        g_pipelineQueueCv.wait(lock, [] {
+          return !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty() || g_pipelineThreadEnd;
+        });
+      } else if (g_pipelineQueue.empty()) {
         // On platforms without a background compilation thread (e.g. mobile/Android),
         // only process pipelines actively queued by the current frame (g_pipelineQueue).
         // Never stall the presentation loop compiling unneeded background pipelines.
-        if (g_pipelineQueue.empty()) {
-          return;
-        }
-      } else if (g_pipelineQueue.empty() && g_backgroundPipelineQueue.empty()) {
         return;
       }
       if (g_pipelineThreadEnd) {
@@ -1012,7 +1036,6 @@ static void pipeline_worker() {
                                                 .firstFrameUsed = pending.firstFrameUsed,
                                             });
       g_pendingPipelines.erase(pending.hash);
-      hasMore = !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty();
     }
     if (!g_hasPipelineThread) {
       ++g_pipelinesPerFrame;
@@ -1055,6 +1078,21 @@ static size_t load_pipeline_cache_entries(ShaderType type, uint32_t configVersio
       continue;
     }
 
+    if constexpr (std::is_same_v<PipelineConfig, gx::PipelineConfig>) {
+      /* The config hash is the cache key and msaaSamples is part of it, so a
+       * seed recorded at 1x never matches an EFB draw at 4x. Queue the 4x twin
+       * of every 1x row (offscreen passes stay 1x, so keep both), and drop rows
+       * from a sample count this session cannot draw with. */
+      const uint32_t msaa = webgpu::g_graphicsConfig.msaaSamples;
+      if (config.msaaSamples != 1 && config.msaaSamples != msaa) {
+        continue;
+      }
+      if (config.msaaSamples == 1 && msaa > 1) {
+        PipelineConfig twin = config;
+        twin.msaaSamples = msaa;
+        find_pipeline_impl(type, twin, [=] { return create(twin); }, PipelinePriority::Background, firstFrameUsed);
+      }
+    }
     find_pipeline_impl(type, config, [=] { return create(config); }, PipelinePriority::Background, firstFrameUsed);
     ++acceptedRows;
   }
@@ -1119,16 +1157,17 @@ PipelineRef find_pipeline(ShaderType type, const clear::PipelineConfig& config, 
   return find_pipeline_impl(type, config, std::move(cb));
 }
 
-/* GX draws block on their pipeline rather than being skipped. Skipping is
- * invisible on a long-lived screen (the geometry appears a frame or two late)
- * but silently loses it entirely on a short one: the Classic team-intro
- * splash lives about a second and needs ten never-before-seen variants, so
- * every one of its tiles was dropped on every frame. Correctness over
- * smoothness -- and the compiled result is persisted, so the stall is once
- * per variant per install, not per visit. */
+/* A GX draw whose pipeline is still compiling is skipped (Wiicompiled's
+ * approach): the geometry is missing for the few frames the compile takes,
+ * and the frame never stalls (issue #46). Once compiled it lands in
+ * g_pipelines and the next frame binds it. This used to block instead, because
+ * with a single low-throughput compile thread a short-lived screen (the
+ * Classic team-intro splash, ten fresh variants in about a second) lost all
+ * its tiles; the worker pool makes that window a few frames wide. */
 template <>
 PipelineRef find_pipeline(ShaderType type, const gx::PipelineConfig& config, NewPipelineCallback&& cb) {
-  return find_pipeline_impl(type, config, std::move(cb), PipelinePriority::Blocking);
+  return find_pipeline_impl(type, config, std::move(cb),
+                            g_pipelineSync ? PipelinePriority::Blocking : PipelinePriority::Normal);
 }
 
 #ifdef AURORA_ENABLE_RMLUI
@@ -1155,7 +1194,11 @@ void initialize_pipeline_cache() {
     g_hasPipelineThread = false;
 #else
     g_hasPipelineThread = true;
-    g_pipelineThread = std::thread(pipeline_worker);
+    const unsigned jobs = pipeline_job_count();
+    Log.info("Compiling pipelines on {} thread(s){}", jobs, g_pipelineSync ? ", sync mode" : "");
+    for (unsigned i = 0; i < jobs; ++i) {
+      g_pipelineThreads.emplace_back(pipeline_worker);
+    }
 #endif
   }
 
@@ -1174,7 +1217,10 @@ void shutdown_pipeline_cache() {
     g_pipelineThreadEnd = true;
     g_pipelineQueueCv.notify_all();
     g_pipelineReadyCv.notify_all();
-    g_pipelineThread.join();
+    for (auto& thread : g_pipelineThreads) {
+      thread.join();
+    }
+    g_pipelineThreads.clear();
   }
   g_hasPipelineThread = false;
 
@@ -1214,4 +1260,17 @@ bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline) {
   return true;
 }
 
+uint32_t wait_pipelines(uint32_t maxWaitMs) {
+  std::unique_lock lock{g_pipelineMutex};
+  // Without a worker pool the pending entries compile on this thread at frame
+  // end, so waiting here would only wait on ourselves.
+  if (g_hasPipelineThread && maxWaitMs != 0) {
+    g_pipelineReadyCv.wait_for(lock, std::chrono::milliseconds{maxWaitMs},
+                               [] { return g_pendingPipelines.empty() || g_pipelineThreadEnd; });
+  }
+  return static_cast<uint32_t>(g_pendingPipelines.size());
+}
+
 } // namespace aurora::gfx
+
+uint32_t aurora_wait_pipelines(uint32_t max_wait_ms) { return aurora::gfx::wait_pipelines(max_wait_ms); }

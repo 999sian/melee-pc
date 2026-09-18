@@ -122,6 +122,12 @@ typedef struct {
 
 typedef struct {
   AuroraBackend backend;
+  /* Adapter the backend landed on: WebGPU device name, driver description,
+   * PCI vendor/device id. Empty strings / 0 without a GPU backend. */
+  const char* adapterName;
+  const char* adapterDriver;
+  uint32_t adapterVendorId;
+  uint32_t adapterDeviceId;
   const char* userPath;
   const char* cachePath;
   SDL_Window* window;
