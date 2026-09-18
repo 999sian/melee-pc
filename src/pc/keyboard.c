@@ -203,10 +203,10 @@ static void trace_locked(const PADStatus* st) {
     /* "focus 0 fifo 0" with a non-zero button means the input came from
      * neither source this file owns - which is the one thing a log could not
      * tell us when a Wine build steered its own menus. */
-    pc_log_line("pad: btn %04x stick %d,%d sub %d,%d trig %u,%u focus %d fifo %d",
-        st->button, st->stickX, st->stickY, st->substickX, st->substickY,
-        (unsigned) st->triggerLeft, (unsigned) st->triggerRight,
-        atomic_load_explicit(&s_focused, memory_order_relaxed) ? 1 : 0, fifo_held ? 1 : 0);
+    pc_log_line("pad: btn %04x stick %d,%d sub %d,%d trig %u,%u focus %d fifo %d", st->button,
+        st->stickX, st->stickY, st->substickX, st->substickY, (unsigned)st->triggerLeft,
+        (unsigned)st->triggerRight, atomic_load_explicit(&s_focused, memory_order_relaxed) ? 1 : 0,
+        fifo_held ? 1 : 0);
 }
 
 /* Merge the three sources - polled SDL keyboard state (focus-gated), fifo keys

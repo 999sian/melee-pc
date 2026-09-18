@@ -30,22 +30,22 @@
 
 #define SESSION 0xABCD1234u
 #define SEED 0x5EEDu
-#define FRAME 200   /* the frame the parked game thread is on */
-#define WROTE 201   /* newest local frame in our ring */
-#define HAVE 190    /* newest contiguous remote frame we hold */
-#define ACKED 185   /* newest local frame we know the peer holds */
+#define FRAME 200 /* the frame the parked game thread is on */
+#define WROTE 201 /* newest local frame in our ring */
+#define HAVE 190  /* newest contiguous remote frame we hold */
+#define ACKED 185 /* newest local frame we know the peer holds */
 
 /* ---- harness state ---------------------------------------------------- */
 
-static uint64_t s_now = 1000000000ull;   /* virtual clock */
-static void (*s_step)(void);             /* one scripted network step per wait-loop turn */
+static uint64_t s_now = 1000000000ull; /* virtual clock */
+static void (*s_step)(void);           /* one scripted network step per wait-loop turn */
 static char s_log[128 * 1024];
 static size_t s_log_n;
-static int s_resume_sends;               /* REL_RESUME messages we queued */
-static int s_rel_fail;                   /* fail that many pc_net_send_reliable calls */
-static Resume s_resume_out;              /* decoded payload of the last one */
+static int s_resume_sends;  /* REL_RESUME messages we queued */
+static int s_rel_fail;      /* fail that many pc_net_send_reliable calls */
+static Resume s_resume_out; /* decoded payload of the last one */
 static uint8_t s_resume_raw[sizeof(Resume)];
-static Packet s_tx_pkt;                  /* last input packet handed to tx() */
+static Packet s_tx_pkt; /* last input packet handed to tx() */
 static bool s_tx_pkt_valid;
 
 static bool logged(const char* needle) {
@@ -71,7 +71,7 @@ void pc_log_line(const char* fmt, ...) {
     vsnprintf(line, sizeof line, fmt, ap);
     va_end(ap);
     printf("  log| %s\n", line);
-    s_log_n += (size_t) snprintf(s_log + s_log_n, sizeof s_log - s_log_n, "%s\n", line);
+    s_log_n += (size_t)snprintf(s_log + s_log_n, sizeof s_log - s_log_n, "%s\n", line);
 }
 
 uint64_t pc_sim_period_ns(void) {
@@ -83,7 +83,7 @@ Uint64 SDL_GetTicksNS(void) {
 }
 
 void SDL_DelayNS(Uint64 ns) {
-    (void) ns;
+    (void)ns;
     s_now += 1000000ull; /* 1 ms per wait-loop turn */
     if (s_step != NULL) {
         s_step();
@@ -94,19 +94,19 @@ SDL_Mutex* SDL_CreateMutex(void) {
     return NULL;
 }
 void SDL_LockMutex(SDL_Mutex* m) {
-    (void) m;
+    (void)m;
 }
 void SDL_UnlockMutex(SDL_Mutex* m) {
-    (void) m;
+    (void)m;
 }
 SDL_TimerID SDL_AddTimer(Uint32 interval, SDL_TimerCallback cb, void* ud) {
-    (void) interval;
-    (void) cb;
-    (void) ud;
+    (void)interval;
+    (void)cb;
+    (void)ud;
     return 1;
 }
 bool SDL_RemoveTimer(SDL_TimerID id) {
-    (void) id;
+    (void)id;
     return true;
 }
 SDL_ThreadID SDL_GetCurrentThreadID(void) {
@@ -119,37 +119,37 @@ Uint64 SDL_GetPerformanceCounter(void) {
 /* net_wire.c: identity codecs, so a captured packet reads in host order.
  * wire_resume() is net.c's own and stays real. */
 Hdr hdr(uint8_t magic) {
-    Hdr h = { magic, WIRE_VERSION, net.session, (uint8_t) net.remote };
+    Hdr h = {magic, WIRE_VERSION, net.session, (uint8_t)net.remote};
     return h;
 }
 void wire_packet(Packet* pk) {
-    (void) pk;
+    (void)pk;
 }
 void wire_ack(Ack* a) {
-    (void) a;
+    (void)a;
 }
 void wire_rel(Rel* r) {
-    (void) r;
+    (void)r;
 }
 void wire_hdr(Hdr* h) {
-    (void) h;
+    (void)h;
 }
 void to_wire(WirePad* w, const PADStatus* p) {
-    (void) p;
+    (void)p;
     memset(w, 0, sizeof *w);
 }
 void from_wire(PADStatus* p, const WirePad* w) {
-    (void) w;
+    (void)w;
     memset(p, 0, sizeof *p);
 }
 bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b) {
-    (void) a;
-    (void) b;
+    (void)a;
+    (void)b;
     return true;
 }
 uint32_t fnv1a(uint32_t h, const void* data, size_t n) {
-    (void) data;
-    (void) n;
+    (void)data;
+    (void)n;
     return h;
 }
 
@@ -165,49 +165,49 @@ void tx(const void* buf, size_t len) {
 }
 void tx_flush(void) {}
 int held_put(Held* held, const void* buf, size_t len, uint64_t release_ns) {
-    (void) held;
-    (void) buf;
-    (void) len;
-    (void) release_ns;
+    (void)held;
+    (void)buf;
+    (void)len;
+    (void)release_ns;
     return -1;
 }
 Held* held_due(Held* held, uint64_t now) {
-    (void) held;
-    (void) now;
+    (void)held;
+    (void)now;
     return NULL;
 }
 void sim_env(uint16_t bind_port) {
-    (void) bind_port;
+    (void)bind_port;
 }
 void sim_reset(void) {}
 
 /* net_reliable.c: the transmit side is what the resume machine drives. */
 bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
     assert(type == REL_RESUME);
-    assert(len == (int) sizeof(Resume));
+    assert(len == (int)sizeof(Resume));
     if (s_rel_fail > 0) {
         s_rel_fail--;
         return false; /* lane queue full */
     }
-    memcpy(s_resume_raw, payload, (size_t) len);
+    memcpy(s_resume_raw, payload, (size_t)len);
     memcpy(&s_resume_out, payload, sizeof s_resume_out);
     wire_resume(&s_resume_out);
     s_resume_sends++;
     return true;
 }
 int pc_net_recv_reliable(uint8_t* type, void* payload, int max) {
-    (void) type;
-    (void) payload;
-    (void) max;
+    (void)type;
+    (void)payload;
+    (void)max;
     return -1;
 }
 void rel_service(void) {}
 void on_rel(const Rel* r, int n) {
-    (void) r;
-    (void) n;
+    (void)r;
+    (void)n;
 }
 void on_rel_ack(const RelAck* k) {
-    (void) k;
+    (void)k;
 }
 void rel_reset(void) {}
 
@@ -215,10 +215,10 @@ void rel_reset(void) {}
 void rules_restore(void) {}
 void handshake_test(void) {}
 void offset_note(int32_t off) {
-    (void) off;
+    (void)off;
 }
 void jitter_note(uint32_t rtt) {
-    (void) rtt;
+    (void)rtt;
 }
 uint32_t jitter_us(void) {
     return 0;
@@ -233,11 +233,11 @@ u32 VIGetRetraceCount(void) {
     return 0;
 }
 bool lb_80019A30(int i) {
-    (void) i;
+    (void)i;
     return false;
 }
 const char* state_line(int32_t frame) {
-    (void) frame;
+    (void)frame;
     return "";
 }
 
@@ -248,14 +248,14 @@ bool snapshot_take(Snapshot* s, int32_t frame) {
     return true;
 }
 const char* snapshot_unusable(const Snapshot* s) {
-    (void) s;
+    (void)s;
     return NULL;
 }
 void snapshot_restore(const Snapshot* s) {
-    (void) s;
+    (void)s;
 }
 Snapshot* snap_slot(int32_t f) {
-    (void) f;
+    (void)f;
     return &s_snap;
 }
 void snaps_free(void) {}
@@ -264,38 +264,38 @@ const char* snapshot_state_region_missing(void) {
     return NULL;
 }
 uint32_t frame_checksum(const PADStatus* head) {
-    (void) head;
+    (void)head;
     return 0;
 }
 void record_state(const PADStatus* head, int32_t frame) {
-    (void) head;
-    (void) frame;
+    (void)head;
+    (void)frame;
 }
 void dump_states_around(int32_t frame) {
-    (void) frame;
+    (void)frame;
 }
 void record_open(void) {}
 bool record_active(void) {
     return false;
 }
 void replay_feed(PADStatus* head) {
-    (void) head;
+    (void)head;
 }
 void record_frame(const PADStatus* head, uint32_t ck) {
-    (void) head;
-    (void) ck;
+    (void)head;
+    (void)ck;
 }
 void synctest_before_tick(void) {}
 bool synctest_after_tick(void) {
     return false;
 }
 void resim_note(int ticks, bool split) {
-    (void) ticks;
-    (void) split;
+    (void)ticks;
+    (void)split;
 }
 const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
-    (void) s;
-    (void) n;
+    (void)s;
+    (void)n;
     return buf;
 }
 
@@ -324,7 +324,7 @@ static void setup(void) {
     a.sin_family = AF_INET;
     a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     a.sin_port = 0; /* ephemeral: no collision with a concurrent run */
-    assert(bind(sock, (struct sockaddr*) &a, sizeof a) == 0);
+    assert(bind(sock, (struct sockaddr*)&a, sizeof a) == 0);
     assert(sock_nonblock(sock));
     session_reset();
     net.sock = sock;
@@ -338,7 +338,7 @@ static void setup(void) {
     net.tick_frame = FRAME - 1;
     /* The peer's address: loopback discard, so sendto() succeeds and nothing
      * ever answers. */
-    struct sockaddr_in* p = (struct sockaddr_in*) &net.peer;
+    struct sockaddr_in* p = (struct sockaddr_in*)&net.peer;
     memset(p, 0, sizeof *p);
     p->sin_family = AF_INET;
     p->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
@@ -350,7 +350,7 @@ static void setup(void) {
     s_heard = true;
     s_rc_window_ms = RECONNECT_MS;
     for (int32_t f = 0; f <= WROTE; f++) {
-        s_local_ring[f & (RING - 1)].button = (uint16_t) (0x1000 + f);
+        s_local_ring[f & (RING - 1)].button = (uint16_t)(0x1000 + f);
     }
     s_resume_sends = 0;
     s_rel_fail = 0;
@@ -364,9 +364,9 @@ static void setup(void) {
 
 /* The peer's half of the exchange. */
 static void peer_resume(uint32_t session, uint32_t seed, int32_t newest, int32_t have) {
-    Resume r = { session, seed, newest, have, newest - 2 };
+    Resume r = {session, seed, newest, have, newest - 2};
     wire_resume(&r);
-    net_resume_rel(&r, (int) sizeof r);
+    net_resume_rel(&r, (int)sizeof r);
 }
 
 /* The peer's pads for first..last, buttons 0x2000 + frame so the refill can
@@ -379,11 +379,11 @@ static void peer_pads(int32_t first, int32_t last) {
     pk.first = first;
     pk.newest = last;
     pk.ck_frame = -1;
-    pk.count = (uint8_t) (last - first + 1);
+    pk.count = (uint8_t)(last - first + 1);
     for (int i = 0; i < pk.count; i++) {
-        pk.pads[i].button = (uint16_t) (0x2000 + first + i);
+        pk.pads[i].button = (uint16_t)(0x2000 + first + i);
     }
-    on_inputs(&pk, (int) (offsetof(Packet, pads) + (size_t) pk.count * sizeof(WirePad)));
+    on_inputs(&pk, (int)(offsetof(Packet, pads) + (size_t)pk.count * sizeof(WirePad)));
 }
 
 /* ---- cases ------------------------------------------------------------ */
@@ -435,12 +435,12 @@ static void case_resume_inside_ring(void) {
     assert(s_did_exchange && s_did_pads);
     assert(s_rc == RSM_NONE);
     assert(s_status == PC_NET_PEER_OK);
-    assert(pc_net_quality() == 2); /* the stall itself, as before */
+    assert(pc_net_quality() == 2);           /* the stall itself, as before */
     assert(s_red_floor == REDUNDANCY_FLOOR); /* back to the ordinary cadence */
     assert(s_remote_have == 199);
     /* Their ring refilled into ours, frame by frame. */
     for (int32_t f = HAVE + 1; f <= 199; f++) {
-        assert(s_remote_ring[f & (RING - 1)].button == (uint16_t) (0x2000 + f));
+        assert(s_remote_ring[f & (RING - 1)].button == (uint16_t)(0x2000 + f));
     }
     /* Ours refilled toward them: the reconnect send starts above the frame
      * the peer reported and carries every frame we hold, up to REDUNDANCY. */
@@ -448,7 +448,7 @@ static void case_resume_inside_ring(void) {
     assert(s_tx_pkt.first == 196 && s_tx_pkt.newest == WROTE);
     assert(s_tx_pkt.count == WROTE - 196 + 1);
     for (int i = 0; i < s_tx_pkt.count; i++) {
-        assert(s_tx_pkt.pads[i].button == (uint16_t) (0x1000 + 196 + i));
+        assert(s_tx_pkt.pads[i].button == (uint16_t)(0x1000 + 196 + i));
     }
     assert(logged("net: interrupted at frame 200 (peer silent 7000 ms), reconnecting"));
     assert(logged("net: resumed at frame 200"));
@@ -702,10 +702,8 @@ static void case_knob_parse(void) {
     static const struct {
         const char* set;
         long want;
-    } t[] = { { NULL, RECONNECT_MS },   { "0", 0 },
-              { "2500", 2500 },         { "-1", RECONNECT_MS },
-              { "", RECONNECT_MS },     { "later", RECONNECT_MS },
-              { "2500x", RECONNECT_MS } };
+    } t[] = {{NULL, RECONNECT_MS}, {"0", 0}, {"2500", 2500}, {"-1", RECONNECT_MS},
+        {"", RECONNECT_MS}, {"later", RECONNECT_MS}, {"2500x", RECONNECT_MS}};
     setenv("MELEE_NET_PORT", "0", 1); /* ephemeral: no collision with a real run */
     for (size_t i = 0; i < sizeof t / sizeof *t; i++) {
         if (t[i].set != NULL) {

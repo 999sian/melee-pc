@@ -11,10 +11,10 @@
 #include <string.h>
 
 static int s_sim_burst_left;
-static uint64_t s_sim_burst_ns;          /* when the next burst starts */
-static int s_sim_swap = -1;              /* held slot waiting to go out behind the next packet */
-static uint32_t s_sim_rng;               /* xorshift32, seeded from the port */
-static Held s_held[HELD_MAX];            /* outgoing, under tx_lock */
+static uint64_t s_sim_burst_ns; /* when the next burst starts */
+static int s_sim_swap = -1;     /* held slot waiting to go out behind the next packet */
+static uint32_t s_sim_rng;      /* xorshift32, seeded from the port */
+static Held s_held[HELD_MAX];   /* outgoing, under tx_lock */
 
 static unsigned sim_rand(unsigned n) {
     s_sim_rng ^= s_sim_rng << 13;
@@ -28,7 +28,7 @@ int held_put(Held* held, const void* buf, size_t len, uint64_t release_ns) {
     for (int i = 0; i < HELD_MAX; i++) {
         if (held[i].release_ns == 0) {
             held[i].release_ns = release_ns;
-            held[i].len = (uint16_t) len;
+            held[i].len = (uint16_t)len;
             memcpy(held[i].buf, buf, len);
             return i;
         }
@@ -41,7 +41,8 @@ Held* held_due(Held* held, uint64_t now) {
     Held* due = NULL;
     for (int i = 0; i < HELD_MAX; i++) {
         if (held[i].release_ns != 0 && held[i].release_ns <= now &&
-            (due == NULL || held[i].release_ns < due->release_ns)) {
+            (due == NULL || held[i].release_ns < due->release_ns))
+        {
             due = &held[i];
         }
     }
@@ -52,7 +53,7 @@ Held* held_due(Held* held, uint64_t now) {
 void tx(const void* buf, size_t len) {
     uint64_t now = SDL_GetTicksNS();
     net.tx_pkts++;
-    if (*(const uint8_t*) buf == 'M') {
+    if (*(const uint8_t*)buf == 'M') {
         net.tx_inputs++;
     }
     if (net.sim_burst > 0 && now >= s_sim_burst_ns) {
@@ -64,30 +65,30 @@ void tx(const void* buf, size_t len) {
         s_sim_burst_left--;
         return;
     }
-    if (net.sim_loss > 0 && (int) sim_rand(100) < net.sim_loss) {
+    if (net.sim_loss > 0 && (int)sim_rand(100) < net.sim_loss) {
         return;
     }
     if (!net.sim_hold) {
-        sendto(net.sock, (const char*) buf, len, 0, (struct sockaddr*) &net.peer, net.peer_len);
+        sendto(net.sock, (const char*)buf, len, 0, (struct sockaddr*)&net.peer, net.peer_len);
         return;
     }
-    int copies = net.sim_dup > 0 && (int) sim_rand(100) < net.sim_dup ? 2 : 1;
+    int copies = net.sim_dup > 0 && (int)sim_rand(100) < net.sim_dup ? 2 : 1;
     for (; copies > 0; copies--) {
-        int64_t release = (int64_t) (now + net.sim_delay_ns);
+        int64_t release = (int64_t)(now + net.sim_delay_ns);
         if (net.sim_jitter_ms > 0) {
-            release += ((int64_t) sim_rand(2 * net.sim_jitter_ms + 1) - net.sim_jitter_ms) * 1000000;
+            release += ((int64_t)sim_rand(2 * net.sim_jitter_ms + 1) - net.sim_jitter_ms) * 1000000;
         }
-        if (release < (int64_t) now) {
-            release = (int64_t) now;
+        if (release < (int64_t)now) {
+            release = (int64_t)now;
         }
-        int slot = held_put(s_held, buf, len, (uint64_t) release);
+        int slot = held_put(s_held, buf, len, (uint64_t)release);
         if (slot < 0) {
             return;
         }
         if (s_sim_swap >= 0) {
-            s_held[s_sim_swap].release_ns = (uint64_t) release + 1; /* right behind this one */
+            s_held[s_sim_swap].release_ns = (uint64_t)release + 1; /* right behind this one */
             s_sim_swap = -1;
-        } else if (net.sim_reorder > 0 && (int) sim_rand(100) < net.sim_reorder) {
+        } else if (net.sim_reorder > 0 && (int)sim_rand(100) < net.sim_reorder) {
             s_held[slot].release_ns = UINT64_MAX; /* until the next packet is queued */
             s_sim_swap = slot;
         }
@@ -98,7 +99,7 @@ void tx(const void* buf, size_t len) {
 void tx_flush(void) {
     uint64_t now = SDL_GetTicksNS();
     for (Held* h; (h = held_due(s_held, now)) != NULL;) {
-        sendto(net.sock, (const char*) h->buf, h->len, 0, (struct sockaddr*) &net.peer, net.peer_len);
+        sendto(net.sock, (const char*)h->buf, h->len, 0, (struct sockaddr*)&net.peer, net.peer_len);
         h->release_ns = 0;
     }
 }
@@ -106,21 +107,26 @@ void tx_flush(void) {
 /* MELEE_NET_SIM_* knobs for the session; the PRNG is seeded from the local
  * port so runs repeat. */
 void sim_env(uint16_t bind_port) {
-    static const struct { const char* env; int* out; } knobs[] = {
-        { "MELEE_NET_SIM_LOSS", &net.sim_loss },       { "MELEE_NET_SIM_JITTER_MS", &net.sim_jitter_ms },
-        { "MELEE_NET_SIM_REORDER", &net.sim_reorder }, { "MELEE_NET_SIM_DUP", &net.sim_dup },
-        { "MELEE_NET_SIM_BURST", &net.sim_burst },
+    static const struct {
+        const char* env;
+        int* out;
+    } knobs[] = {
+        {"MELEE_NET_SIM_LOSS", &net.sim_loss},
+        {"MELEE_NET_SIM_JITTER_MS", &net.sim_jitter_ms},
+        {"MELEE_NET_SIM_REORDER", &net.sim_reorder},
+        {"MELEE_NET_SIM_DUP", &net.sim_dup},
+        {"MELEE_NET_SIM_BURST", &net.sim_burst},
     };
     for (size_t i = 0; i < sizeof knobs / sizeof knobs[0]; i++) {
         const char* v = getenv(knobs[i].env);
         *knobs[i].out = v ? atoi(v) : 0;
     }
     const char* v = getenv("MELEE_NET_SIM_DELAY_MS");
-    net.sim_delay_ns = v ? (uint64_t) atoi(v) * 1000000ull : 0;
+    net.sim_delay_ns = v ? (uint64_t)atoi(v) * 1000000ull : 0;
     v = getenv("MELEE_NET_SIM_DELAY_RX_MS");
-    net.sim_rx_delay_ns = v ? (uint64_t) atoi(v) * 1000000ull : 0;
+    net.sim_rx_delay_ns = v ? (uint64_t)atoi(v) * 1000000ull : 0;
     net.sim_hold = net.sim_delay_ns || net.sim_jitter_ms || net.sim_reorder || net.sim_dup;
-    s_sim_rng = (uint32_t) bind_port * 2654435761u | 1u;
+    s_sim_rng = (uint32_t)bind_port * 2654435761u | 1u;
 }
 
 /* Session start: empty held queue, no burst or swap pending (timer parked). */

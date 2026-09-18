@@ -24,16 +24,16 @@
 
 #define OFFSET_SAMPLES 30
 #define JITTER_SAMPLES 30
-#define DELAY_LEAD 600           /* frames between announcing a delay and applying it */
+#define DELAY_LEAD 600 /* frames between announcing a delay and applying it */
 
 static int32_t s_offset[OFFSET_SAMPLES];
 static int s_offset_n, s_offset_i;
 static int s_skip_left;
-static int s_drop_left;                  /* SYNC_LEGACY only: samples to discard */
-static int s_sync_over;                  /* +1/-1 when the last window crossed a threshold */
-static int32_t s_sync_acted;             /* frame of the last skip/advance burst */
-static uint32_t s_rtt_prev;              /* last RTT sample, for the jitter ring */
-static uint32_t s_jit[JITTER_SAMPLES];   /* |dRTT| ring; its mean scales the thresholds */
+static int s_drop_left;                /* SYNC_LEGACY only: samples to discard */
+static int s_sync_over;                /* +1/-1 when the last window crossed a threshold */
+static int32_t s_sync_acted;           /* frame of the last skip/advance burst */
+static uint32_t s_rtt_prev;            /* last RTT sample, for the jitter ring */
+static uint32_t s_jit[JITTER_SAMPLES]; /* |dRTT| ring; its mean scales the thresholds */
 static int s_jit_n, s_jit_i;
 static uint64_t s_jit_sum;
 
@@ -67,7 +67,7 @@ static int32_t offset_us(void) {
     for (int i = drop; i < s_offset_n - drop; i++) {
         sum += b[i];
     }
-    return (int32_t) (sum / (s_offset_n - 2 * drop));
+    return (int32_t)(sum / (s_offset_n - 2 * drop));
 }
 
 /* 30-sample mean of |dRTT|: the noise floor of the offset estimate. */
@@ -87,7 +87,7 @@ void jitter_note(uint32_t rtt) {
 }
 
 uint32_t jitter_us(void) {
-    return s_jit_n ? (uint32_t) (s_jit_sum / s_jit_n) : 0;
+    return s_jit_n ? (uint32_t)(s_jit_sum / s_jit_n) : 0;
 }
 
 /* The delay is shared state: the frame a local sample is written for is
@@ -121,32 +121,32 @@ static void delay_auto(void) {
     if ((net.frame % 600) != 0 || net.ping_us == 0 || in_fight()) {
         return;
     }
-    int d = (int) ((net.ping_us / 2 + jitter_us() + FRAME_US / 2) / FRAME_US) - 1;
+    int d = (int)((net.ping_us / 2 + jitter_us() + FRAME_US / 2) / FRAME_US) - 1;
     d = d < 1 ? 1 : d > 4 ? 4 : d;
     if (d == net.delay) {
         return;
     }
-    DelayMsg m = { htonl((uint32_t) d), htonl((uint32_t) (net.frame + DELAY_LEAD)) };
+    DelayMsg m = {htonl((uint32_t)d), htonl((uint32_t)(net.frame + DELAY_LEAD))};
     if (!pc_net_send_reliable(REL_DELAY, &m, sizeof m)) {
         return; /* lane full: the next window announces again */
     }
     net.delay_next = d;
     net.delay_at = net.frame + DELAY_LEAD;
     pc_log_line("net: auto delay %d -> %d at frame %d (ping %u ms, jitter %u ms)", net.delay, d,
-                net.delay_at, net.ping_us / 1000, jitter_us() / 1000);
+        net.delay_at, net.ping_us / 1000, jitter_us() / 1000);
 }
 
 /* The host's announcement (REL_DELAY, reliable lane 1). The guest never
  * decides: whatever it measures, it switches where and when it is told. */
 void net_delay_rel(const void* payload, int len) {
     DelayMsg m;
-    if (len != (int) sizeof m) {
+    if (len != (int)sizeof m) {
         pc_log_line("net: REL_DELAY of %d bytes ignored", len);
         return;
     }
     memcpy(&m, payload, sizeof m);
-    int d = (int) ntohl(m.delay);
-    int32_t at = (int32_t) ntohl(m.frame);
+    int d = (int)ntohl(m.delay);
+    int32_t at = (int32_t)ntohl(m.frame);
     if (d < 1 || d >= RING / 2) {
         pc_log_line("net: REL_DELAY asked for delay %d, ignored", d);
         return;
@@ -157,7 +157,7 @@ void net_delay_rel(const void* payload, int len) {
      * have killed first) is applied at once rather than never. */
     net.delay_at = at > net.frame ? at : net.frame;
     pc_log_line("net: auto delay %d -> %d at frame %d (host's pick%s)", net.delay, d, net.delay_at,
-                at > net.frame ? "" : ", late");
+        at > net.frame ? "" : ", late");
     delay_apply();
 }
 
@@ -168,7 +168,7 @@ void net_delay_rel(const void* payload, int len) {
 void time_sync(void) {
     delay_auto();
     net.offset_last = offset_us();
-    int32_t skip_at = 10000 + (int32_t) jitter_us();
+    int32_t skip_at = 10000 + (int32_t)jitter_us();
     int32_t advance_at = FRAME_US + skip_at;
     int over = net.offset_last > skip_at ? 1 : net.offset_last < -advance_at ? -1 : 0;
     bool confirmed = over != 0 && over == s_sync_over;
@@ -213,12 +213,12 @@ static void pad_queue_pin(void) {
     }
     bool intr = OSDisableInterrupts();
     while (p->qcount > 1) {
-        p->qread = (uint8_t) ((p->qread + 1) % p->qnum);
+        p->qread = (uint8_t)((p->qread + 1) % p->qnum);
         p->qcount--;
     }
     net.pad_reused = p->qcount == 0;
     if (net.pad_reused) {
-        p->qread = (uint8_t) ((p->qread + p->qnum - 1) % p->qnum);
+        p->qread = (uint8_t)((p->qread + p->qnum - 1) % p->qnum);
         p->qcount = 1;
         net.pad_reuse++;
     }
@@ -233,7 +233,7 @@ static void pad_queue_pin(void) {
 static uint64_t pace_adjust_legacy(void) {
     PadLibData* p = &HSD_PadLibData;
     while (s_drop_left > 0 && p->qcount > 1) {
-        p->qwrite = (uint8_t) ((p->qwrite + p->qnum - 1) % p->qnum);
+        p->qwrite = (uint8_t)((p->qwrite + p->qnum - 1) % p->qnum);
         p->qcount--;
         s_drop_left--;
         net.skips++;
@@ -243,7 +243,7 @@ static uint64_t pace_adjust_legacy(void) {
     }
     s_skip_left--;
     s_drop_left++;
-    return (uint64_t) FRAME_US * 1000;
+    return (uint64_t)FRAME_US * 1000;
 }
 
 uint64_t pc_net_pace_adjust_ns(void) {
@@ -262,20 +262,20 @@ uint64_t pc_net_pace_adjust_ns(void) {
      * falls one frame further behind the wall clock. */
     s_skip_left--;
     net.skips++;
-    return (uint64_t) FRAME_US * 1000;
+    return (uint64_t)FRAME_US * 1000;
 }
 
 /* Session start: empty rings, no burst pending, holdoff already elapsed. */
 void sync_reset(void) {
     const char* mode = getenv("MELEE_NET_SYNC");
-    net.sync_mode = mode == NULL                  ? SYNC_ON
-                    : strcmp(mode, "off") == 0    ? SYNC_OFF
-                    : strcmp(mode, "legacy") == 0 ? SYNC_LEGACY
-                                                  : SYNC_ON;
+    net.sync_mode = mode == NULL                ? SYNC_ON :
+                    strcmp(mode, "off") == 0    ? SYNC_OFF :
+                    strcmp(mode, "legacy") == 0 ? SYNC_LEGACY :
+                                                  SYNC_ON;
     if (net.sync_mode != SYNC_ON) {
         pc_log_line("net: time sync %s (MELEE_NET_SYNC)",
-                    net.sync_mode == SYNC_OFF ? "off: offset measured, never acted on"
-                                              : "legacy: skips discard a queued pad sample");
+            net.sync_mode == SYNC_OFF ? "off: offset measured, never acted on" :
+                                        "legacy: skips discard a queued pad sample");
     }
     s_offset_n = s_offset_i = 0;
     net.offset_last = 0;

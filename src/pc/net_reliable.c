@@ -26,7 +26,7 @@
 #define REL_LANES 2
 #define REL_LANE_BIT 0x80
 #define REL_SEQ_MASK 0x7f
-#define REL_REACK 8                     /* already-accepted seqs still re-acked */
+#define REL_REACK 8 /* already-accepted seqs still re-acked */
 
 typedef struct RelMsg {
     uint8_t type;
@@ -35,15 +35,15 @@ typedef struct RelMsg {
 } RelMsg;
 
 typedef struct RelTx {
-    RelMsg q[REL_QUEUE];                /* [head] is the one in flight */
+    RelMsg q[REL_QUEUE]; /* [head] is the one in flight */
     int head, n;
-    uint8_t seq;                        /* lane seq of the message in flight */
-    uint64_t sent_ns;                   /* 0: not sent yet */
+    uint8_t seq;      /* lane seq of the message in flight */
+    uint64_t sent_ns; /* 0: not sent yet */
     int resends;
 } RelTx;
 
-static RelTx s_rel_tx[REL_LANES];       /* under tx_lock */
-static RelMsg s_rel_rx[REL_QUEUE];      /* lane 1 messages waiting for the caller */
+static RelTx s_rel_tx[REL_LANES];  /* under tx_lock */
+static RelMsg s_rel_rx[REL_QUEUE]; /* lane 1 messages waiting for the caller */
 static int s_rel_rx_head, s_rel_rx_n;
 static uint8_t s_rel_expect[REL_LANES]; /* next lane seq accepted */
 static bool s_rel_unexpected_logged;
@@ -75,15 +75,15 @@ void rel_service(void) {
             continue;
         }
         const RelMsg* m = &t->q[t->head];
-        Rel r = { hdr('R'), (uint8_t) (lane << 7 | t->seq), m->type, m->len, { 0 } };
+        Rel r = {hdr('R'), (uint8_t)(lane << 7 | t->seq), m->type, m->len, {0}};
         memcpy(r.payload, m->payload, m->len);
         wire_rel(&r);
         tx(&r, offsetof(Rel, payload) + m->len);
         if (t->sent_ns != 0) {
             t->resends++;
-            if (log_resend((unsigned) t->resends)) {
+            if (log_resend((unsigned)t->resends)) {
                 pc_log_line("net: reliable seq %u type %02x len %u resend #%d", r.seq, m->type,
-                            m->len, t->resends);
+                    m->len, t->resends);
             }
         }
         t->sent_ns = now;
@@ -100,9 +100,9 @@ bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
     if (ok) {
         RelMsg* m = &t->q[(t->head + t->n++) % REL_QUEUE];
         m->type = type;
-        m->len = (uint16_t) len;
+        m->len = (uint16_t)len;
         if (len > 0) {
-            memcpy(m->payload, payload, (size_t) len);
+            memcpy(m->payload, payload, (size_t)len);
         }
         rel_service();
     }
@@ -117,14 +117,14 @@ int pc_net_recv_reliable(uint8_t* type, void* payload, int max) {
     RelMsg* m = &s_rel_rx[s_rel_rx_head];
     int n = m->len > max ? max : m->len;
     *type = m->type;
-    memcpy(payload, m->payload, (size_t) n);
+    memcpy(payload, m->payload, (size_t)n);
     s_rel_rx_head = (s_rel_rx_head + 1) % REL_QUEUE;
     s_rel_rx_n--;
     return n;
 }
 
 void on_rel(const Rel* r, int n) {
-    if (r->len > REL_MAX || n < (int) (offsetof(Rel, payload) + r->len)) {
+    if (r->len > REL_MAX || n < (int)(offsetof(Rel, payload) + r->len)) {
         return;
     }
     int lane = r->seq >> 7;
@@ -149,11 +149,11 @@ void on_rel(const Rel* r, int n) {
         if (!s_rel_unexpected_logged) {
             s_rel_unexpected_logged = true;
             pc_log_line("net: reliable seq %u unexpected (expect %u)", r->seq,
-                        lane << 7 | s_rel_expect[lane]);
+                lane << 7 | s_rel_expect[lane]);
         }
         return;
     }
-    RelAck k = { hdr('K'), r->seq };
+    RelAck k = {hdr('K'), r->seq};
     SDL_LockMutex(net.tx_lock);
     tx(&k, sizeof k);
     SDL_UnlockMutex(net.tx_lock);

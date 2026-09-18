@@ -57,59 +57,77 @@ void pc_log_line(const char* fmt, ...) {
     }
 }
 
-uint64_t pc_install_id(void) { return 0x1111222233334444ull; }
-const char* pc_app_rev(void) { return "0.1.2-test"; }
+uint64_t pc_install_id(void) {
+    return 0x1111222233334444ull;
+}
+const char* pc_app_rev(void) {
+    return "0.1.2-test";
+}
 
 void pc_android_multicast_lock_acquire(void) {}
 void pc_android_multicast_lock_release(void) {}
-const char* pc_android_device_name(void) { return NULL; }
+const char* pc_android_device_name(void) {
+    return NULL;
+}
 
 bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
-    (void) ip;
-    (void) port;
-    (void) player;
-    (void) seed;
+    (void)ip;
+    (void)port;
+    (void)player;
+    (void)seed;
     return true;
 }
 void pc_net_disconnect(void) {}
-bool pc_net_active(void) { return true; }
-int pc_net_peer_status(void) { return 0; }
-int pc_net_handshake_state(void) { return 0; }
-int pc_net_quality(void) { return 0; }
+bool pc_net_active(void) {
+    return true;
+}
+int pc_net_peer_status(void) {
+    return 0;
+}
+int pc_net_handshake_state(void) {
+    return 0;
+}
+int pc_net_quality(void) {
+    return 0;
+}
 bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
-    (void) type;
-    (void) payload;
-    (void) len;
+    (void)type;
+    (void)payload;
+    (void)len;
     return true;
 }
 int pc_net_recv_reliable(uint8_t* type, void* payload, int max) {
-    (void) type;
-    (void) payload;
-    (void) max;
+    (void)type;
+    (void)payload;
+    (void)max;
     return -1;
 }
 bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
-    (void) seed;
-    (void) start_frame;
+    (void)seed;
+    (void)start_frame;
     return false;
 }
 bool pc_net_guest_wait_match(uint32_t* seed, int32_t* start_frame) {
-    (void) seed;
-    (void) start_frame;
+    (void)seed;
+    (void)start_frame;
     return false;
 }
 
 static uint64_t s_now = 1000;
-Uint64 SDL_GetTicksNS(void) { return s_now; }
-Uint64 SDL_GetTicks(void) { return s_now / 1000000; }
+Uint64 SDL_GetTicksNS(void) {
+    return s_now;
+}
+Uint64 SDL_GetTicks(void) {
+    return s_now / 1000000;
+}
 SDL_TimerID SDL_AddTimer(Uint32 interval, SDL_TimerCallback cb, void* ud) {
-    (void) interval;
-    (void) cb;
-    (void) ud;
+    (void)interval;
+    (void)cb;
+    (void)ud;
     return 1;
 }
 bool SDL_RemoveTimer(SDL_TimerID id) {
-    (void) id;
+    (void)id;
     return true;
 }
 
@@ -119,12 +137,16 @@ static int s_image;
 static DVDDiskID s_disk;
 static uint8_t s_dol[4096];
 
-DVDDiskID* DVDGetCurrentDiskID(void) { return &s_disk; }
+DVDDiskID* DVDGetCurrentDiskID(void) {
+    return &s_disk;
+}
 const u8* DVDGetDOLLocation(s32* out_size) {
-    *out_size = (s32) sizeof s_dol;
+    *out_size = (s32)sizeof s_dol;
     return s_dol;
 }
-s32 aurora_dvd_base_entry_count(void) { return s_image == 0 ? 1233 : 1240; }
+s32 aurora_dvd_base_entry_count(void) {
+    return s_image == 0 ? 1233 : 1240;
+}
 
 static void set_image(int which) {
     s_image = which;
@@ -134,7 +156,7 @@ static void set_image(int which) {
     s_disk.diskNumber = 0;
     s_disk.gameVersion = which == 0 ? 2 : 0;
     for (size_t i = 0; i < sizeof s_dol; i++) {
-        s_dol[i] = (uint8_t) (i * 7 + which);
+        s_dol[i] = (uint8_t)(i * 7 + which);
     }
 }
 
@@ -148,7 +170,7 @@ static size_t put_name(size_t o, const char* dotted) {
     for (const char* p = dotted; *p != '\0';) {
         size_t len = strcspn(p, ".");
         assert(len > 0 && len < 64);
-        s_pkt[o++] = (uint8_t) len;
+        s_pkt[o++] = (uint8_t)len;
         memcpy(s_pkt + o, p, len);
         o += len;
         p += len + (p[len] == '.');
@@ -161,8 +183,8 @@ static size_t put_name(size_t o, const char* dotted) {
  * laid out on the wire exactly as an announce does, so mdns_record_parse_txt
  * does the key/value split. `pairs` are raw TXT strings ("port=42100"); a
  * string with no '=' is a bare key. */
-static void feed(const char* instance, const char* const* pairs, size_t n, uint32_t ttl,
-                 const char* src_ip) {
+static void feed(
+    const char* instance, const char* const* pairs, size_t n, uint32_t ttl, const char* src_ip) {
     memset(s_pkt, 0, sizeof s_pkt);
     s_pkt[2] = 0x84; /* response, authoritative */
     s_pkt[7] = 1;    /* ancount */
@@ -172,7 +194,7 @@ static void feed(const char* instance, const char* const* pairs, size_t n, uint3
     s_pkt[o++] = 0;
     s_pkt[o++] = MDNS_CLASS_IN;
     for (int i = 0; i < 4; i++) {
-        s_pkt[o++] = (uint8_t) (ttl >> (24 - 8 * i));
+        s_pkt[o++] = (uint8_t)(ttl >> (24 - 8 * i));
     }
     size_t lenat = o;
     o += 2;
@@ -180,21 +202,21 @@ static void feed(const char* instance, const char* const* pairs, size_t n, uint3
     for (size_t i = 0; i < n; i++) {
         size_t len = strlen(pairs[i]);
         assert(len < 256 && o + 1 + len < sizeof s_pkt);
-        s_pkt[o++] = (uint8_t) len;
+        s_pkt[o++] = (uint8_t)len;
         memcpy(s_pkt + o, pairs[i], len);
         o += len;
     }
     size_t rdlen = o - rdata;
-    s_pkt[lenat] = (uint8_t) (rdlen >> 8);
-    s_pkt[lenat + 1] = (uint8_t) rdlen;
+    s_pkt[lenat] = (uint8_t)(rdlen >> 8);
+    s_pkt[lenat + 1] = (uint8_t)rdlen;
 
     struct sockaddr_in from;
     memset(&from, 0, sizeof from);
     from.sin_family = AF_INET;
     from.sin_port = htons(5353);
     assert(inet_pton(AF_INET, src_ip, &from.sin_addr) == 1);
-    on_record(0, (const struct sockaddr*) &from, sizeof from, MDNS_ENTRYTYPE_ANSWER, 0,
-              MDNS_RECORDTYPE_TXT, MDNS_CLASS_IN, ttl, s_pkt, o, 12, 0, rdata, rdlen, NULL);
+    on_record(0, (const struct sockaddr*)&from, sizeof from, MDNS_ENTRYTYPE_ANSWER, 0,
+        MDNS_RECORDTYPE_TXT, MDNS_CLASS_IN, ttl, s_pkt, o, 12, 0, rdata, rdlen, NULL);
 }
 
 #define INSTANCE "peer-00000000deadbeef._meleepc._udp.local."
@@ -202,8 +224,14 @@ static void feed(const char* instance, const char* const* pairs, size_t n, uint3
 
 /* A well-formed lobby record; cases override one string. */
 static const char* good[] = {
-    "v=4", "rev=0.1.2-test", "disc=00000000", "id=00000000deadbeef",
-    "name=peer", "port=42100", "state=lobby", "gen=7",
+    "v=4",
+    "rev=0.1.2-test",
+    "disc=00000000",
+    "id=00000000deadbeef",
+    "name=peer",
+    "port=42100",
+    "state=lobby",
+    "gen=7",
 };
 
 static char s_v[32], s_disc[32];
@@ -220,8 +248,8 @@ static void reset(void) {
 
 /* Copy of `good` with the pair whose key is `key` replaced by `repl`
  * (repl == NULL drops it; key == NULL replaces nothing), plus `add`. */
-static size_t variant(const char** out, const char* key, const char* repl, const char* const* add,
-                      size_t n_add) {
+static size_t variant(
+    const char** out, const char* key, const char* repl, const char* const* add, size_t n_add) {
     size_t n = 0, klen = key != NULL ? strlen(key) : 0;
     for (size_t i = 0; i < NPAIRS(good); i++) {
         if (key != NULL && strncmp(good[i], key, klen) == 0 && good[i][klen] == '=') {
@@ -244,9 +272,10 @@ static void must_reject(const char* what, const char** pairs, size_t n) {
     reset();
     feed(INSTANCE, pairs, n, 120, "10.0.0.7");
     if (g_rejects != 1 || s_n != 0 || g_found != 0) {
-        fprintf(stderr, "%s: expected 1 rejection and an empty table, got rejects=%d peers=%d "
-                        "found=%d last=\"%s\"\n",
-                what, g_rejects, s_n, g_found, g_last);
+        fprintf(stderr,
+            "%s: expected 1 rejection and an empty table, got rejects=%d peers=%d "
+            "found=%d last=\"%s\"\n",
+            what, g_rejects, s_n, g_found, g_last);
         exit(1);
     }
     printf("  reject %-34s -> %s\n", what, g_last + strlen("lan: "));
@@ -257,14 +286,15 @@ static void must_accept(const char* what, const char** pairs, size_t n, bool com
     reset();
     feed(INSTANCE, pairs, n, 120, "10.0.0.7");
     if (g_rejects != 0 || s_n != 1 || g_found != 1 || s_peers[0].p.compatible != compatible) {
-        fprintf(stderr, "%s: expected 1 %s peer, got rejects=%d peers=%d found=%d compat=%d "
-                        "last=\"%s\"\n",
-                what, compatible ? "compatible" : "incompatible", g_rejects, s_n, g_found,
-                s_n > 0 ? s_peers[0].p.compatible : -1, g_last);
+        fprintf(stderr,
+            "%s: expected 1 %s peer, got rejects=%d peers=%d found=%d compat=%d "
+            "last=\"%s\"\n",
+            what, compatible ? "compatible" : "incompatible", g_rejects, s_n, g_found,
+            s_n > 0 ? s_peers[0].p.compatible : -1, g_last);
         exit(1);
     }
     printf("  accept %-34s -> %s%s\n", what, s_peers[0].p.name,
-           compatible ? " (eligible)" : " (incompatible)");
+        compatible ? " (eligible)" : " (incompatible)");
 }
 
 int main(int argc, char** argv) {
@@ -278,7 +308,7 @@ int main(int argc, char** argv) {
 
     const char* id = disc_id();
     printf("image %s: disc id %s, rev %s, proto %s\n", s_image == 0 ? "a" : "b", id, pc_app_rev(),
-           s_proto);
+        s_proto);
     assert(strlen(id) == 8);
     for (const char* p = id; *p != '\0'; p++) {
         assert((*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'f'));
@@ -310,7 +340,7 @@ int main(int argc, char** argv) {
     n = variant(p, "state", "state=ready", NULL, 0);
     must_accept("state=ready", p, n, true);
     {
-        static const char* const add[] = { "host=10.0.0.7:42100", "peer=00000000cafef00d" };
+        static const char* const add[] = {"host=10.0.0.7:42100", "peer=00000000cafef00d"};
         n = variant(p, "state", "state=starting", add, 2);
         must_accept("state=starting with host/peer", p, n, true);
         assert(s_peers[0].state == ST_STARTING && s_peers[0].p.host);
@@ -333,8 +363,8 @@ int main(int argc, char** argv) {
            strstr(g_detail, id) != NULL);
     printf("    %s\n", g_detail + strlen("lan:   "));
 
-    {   /* another protocol version: identity only, unknown keys tolerated */
-        static const char* const add[] = { "future=yes" };
+    { /* another protocol version: identity only, unknown keys tolerated */
+        static const char* const add[] = {"future=yes"};
         n = variant(p, "v", "v=99", add, 1);
         must_accept("another protocol version + unknown key", p, n, false);
         assert(g_incompat == 1 && strstr(g_detail, "proto 99") != NULL);
@@ -343,12 +373,12 @@ int main(int argc, char** argv) {
 
     printf("\nrejected records:\n");
     {
-        static const char* const add[] = { "future=yes" };
+        static const char* const add[] = {"future=yes"};
         n = variant(p, NULL, NULL, add, 1);
         must_reject("unknown key, our own version", p, n);
     }
     {
-        static const char* const add[] = { "id=00000000deadbee0" };
+        static const char* const add[] = {"id=00000000deadbee0"};
         n = variant(p, NULL, NULL, add, 1);
         must_reject("duplicate id=", p, n);
     }
@@ -376,8 +406,7 @@ int main(int argc, char** argv) {
     n = variant(p, "name", "name=sixteencharsxxxx", NULL, 0); /* 16: no room for the NUL */
     must_reject("name of 16 chars", p, n);
     n = variant(p, "rev",
-                "rev=0123456789012345678901234567890123456789012345678901234567890123456789",
-                NULL, 0);
+        "rev=0123456789012345678901234567890123456789012345678901234567890123456789", NULL, 0);
     must_reject("value over 63 bytes", p, n);
     n = variant(p, "rev", "rev=0123456789012345678901234567890123", NULL, 0);
     must_reject("rev over 31 bytes", p, n);
@@ -405,12 +434,12 @@ int main(int argc, char** argv) {
     n = variant(p, "state", "state=starting", NULL, 0);
     must_reject("starting without host/peer", p, n);
     {
-        static const char* const add[] = { "host=10.0.0.7:42100", "peer=00000000cafef00d" };
+        static const char* const add[] = {"host=10.0.0.7:42100", "peer=00000000cafef00d"};
         n = variant(p, NULL, NULL, add, 2);
         must_reject("host/peer in a lobby record", p, n);
     }
     {
-        static const char* const add[] = { "host=10.0.0.7:42100", "peer=zz" };
+        static const char* const add[] = {"host=10.0.0.7:42100", "peer=zz"};
         n = variant(p, "state", "state=starting", add, 2);
         must_reject("non-hex peer=", p, n);
     }
@@ -422,8 +451,8 @@ int main(int argc, char** argv) {
     n = variant(p, "disc", "disc=zzzz", NULL, 0);
     must_reject("non-hex disc=", p, n);
 
-    {   /* 12 pairs: mdns_record_parse_txt can no longer prove it saw them all */
-        static const char* const add[] = { "host=x", "peer=1", "a=1", "b=2" };
+    { /* 12 pairs: mdns_record_parse_txt can no longer prove it saw them all */
+        static const char* const add[] = {"host=x", "peer=1", "a=1", "b=2"};
         n = variant(p, NULL, NULL, add, 4);
         must_reject("12 or more TXT keys", p, n);
     }
@@ -434,9 +463,9 @@ int main(int argc, char** argv) {
     {
         reset();
         mdns_record_txt_t raw[8];
-        const char* keys[8] = { "v", "rev", "disc", "id", "name", "port", "state", "gen" };
-        const char* vals[8] = { s_proto, "0.1.2-test", id, "00000000deadbeef",
-                                "pe\x01r", "42100", "lobby", "7" };
+        const char* keys[8] = {"v", "rev", "disc", "id", "name", "port", "state", "gen"};
+        const char* vals[8] = {
+            s_proto, "0.1.2-test", id, "00000000deadbeef", "pe\x01r", "42100", "lobby", "7"};
         for (size_t i = 0; i < 8; i++) {
             raw[i].key.str = keys[i];
             raw[i].key.length = strlen(keys[i]);
@@ -513,7 +542,7 @@ int main(int argc, char** argv) {
         assert(inet_pton(AF_INET6, "fe80::1", &v6.sin6_addr) == 1);
         v6.sin6_scope_id = 3;
         char text[46];
-        addr_text((const struct sockaddr*) &v6, text, sizeof text);
+        addr_text((const struct sockaddr*)&v6, text, sizeof text);
         assert(strcmp(text, "fe80::1%3") == 0);
         printf("  addr_text(fe80::1 scope 3) = %s\n", text);
     }

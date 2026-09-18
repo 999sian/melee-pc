@@ -73,8 +73,14 @@
 typedef SOCKET sock_t;
 #define SOCK_INVALID INVALID_SOCKET
 #define getpid _getpid
-static inline bool sock_nonblock(sock_t s) { u_long on = 1; return ioctlsocket(s, FIONBIO, &on) == 0; }
-static inline void sock_startup(void) { WSADATA wsa; WSAStartup(MAKEWORD(2, 2), &wsa); }
+static inline bool sock_nonblock(sock_t s) {
+    u_long on = 1;
+    return ioctlsocket(s, FIONBIO, &on) == 0;
+}
+static inline void sock_startup(void) {
+    WSADATA wsa;
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+}
 #define sock_close closesocket
 #else
 #include <arpa/inet.h>
@@ -85,23 +91,26 @@ static inline void sock_startup(void) { WSADATA wsa; WSAStartup(MAKEWORD(2, 2), 
 #include <unistd.h>
 typedef int sock_t;
 #define SOCK_INVALID (-1)
-static inline bool sock_nonblock(sock_t s) { int f = fcntl(s, F_GETFL, 0); return f != -1 && fcntl(s, F_SETFL, f | O_NONBLOCK) != -1; }
+static inline bool sock_nonblock(sock_t s) {
+    int f = fcntl(s, F_GETFL, 0);
+    return f != -1 && fcntl(s, F_SETFL, f | O_NONBLOCK) != -1;
+}
 static inline void sock_startup(void) {}
 #define sock_close close
 #endif
 
 /* ---- constants -------------------------------------------------------- */
 
-#define RING 64            /* frames of history kept per side; power of two */
-#define REDUNDANCY 16      /* unacked frames repeated in every input packet */
-#define WINDOW 7           /* predicted frames allowed before a hard stall */
-#define SNAPS 8            /* snapshot ring, one per predicted frame; > WINDOW */
-#define FRAME_US ((int32_t) (pc_sim_period_ns() / 1000)) /* the boundary's pacing target */
+#define RING 64       /* frames of history kept per side; power of two */
+#define REDUNDANCY 16 /* unacked frames repeated in every input packet */
+#define WINDOW 7      /* predicted frames allowed before a hard stall */
+#define SNAPS 8       /* snapshot ring, one per predicted frame; > WINDOW */
+#define FRAME_US ((int32_t)(pc_sim_period_ns() / 1000)) /* the boundary's pacing target */
 #define STALL_TIMEOUT_MS 7000
 #define CONNECT_TIMEOUT_MS 60000
-#define SYNC_INTERVAL 30   /* frames between time-sync decisions (Slippi) */
-#define SYNC_HOLDOFF 120   /* frames between skip/advance bursts */
-#define IO_QUIET 120       /* frames a disc request keeps the barrier ahead */
+#define SYNC_INTERVAL 30 /* frames between time-sync decisions (Slippi) */
+#define SYNC_HOLDOFF 120 /* frames between skip/advance bursts */
+#define IO_QUIET 120     /* frames a disc request keeps the barrier ahead */
 
 /* ---- wire format ------------------------------------------------------ */
 
@@ -120,62 +129,62 @@ typedef struct WirePad {
  * address is dropped before its body is looked at. */
 typedef struct Hdr {
     uint8_t magic;
-    uint8_t version;       /* WIRE_VERSION */
-    uint32_t session;      /* host picks it at connect, the guest learns it */
+    uint8_t version;  /* WIRE_VERSION */
+    uint32_t session; /* host picks it at connect, the guest learns it */
     uint8_t player;
 } __attribute__((packed)) Hdr;
 
 typedef struct Packet {
-    Hdr h;                 /* 'M' */
-    uint16_t seq;          /* per-session tx sequence: dedup, reorder, RTT match */
-    int32_t newest;        /* newest local frame the sender holds */
-    int32_t first;         /* frame of pads[0]; pads[i] is frame first+i */
-    int32_t ck_frame;      /* frame the checksum was taken before */
+    Hdr h;            /* 'M' */
+    uint16_t seq;     /* per-session tx sequence: dedup, reorder, RTT match */
+    int32_t newest;   /* newest local frame the sender holds */
+    int32_t first;    /* frame of pads[0]; pads[i] is frame first+i */
+    int32_t ck_frame; /* frame the checksum was taken before */
     uint32_t ck;
     uint8_t count;
     WirePad pads[REDUNDANCY];
 } __attribute__((packed)) Packet;
 
 typedef struct Ack {
-    Hdr h;                 /* 'A' */
-    uint16_t seq;          /* seq of the input packet being acked (RTT sample) */
-    int32_t frame;         /* newest contiguous frame the sender now holds */
+    Hdr h;         /* 'A' */
+    uint16_t seq;  /* seq of the input packet being acked (RTT sample) */
+    int32_t frame; /* newest contiguous frame the sender now holds */
 } __attribute__((packed)) Ack;
 
 /* Reliable lobby message (stop-and-wait, net_reliable.c). */
 #define REL_MAX 256
-#define REL_RESUME 0x12    /* net.c's resume exchange, dispatched by on_rel */
-#define REL_DELAY 0x13     /* the host's input-delay pick, dispatched by on_rel */
+#define REL_RESUME 0x12 /* net.c's resume exchange, dispatched by on_rel */
+#define REL_DELAY 0x13  /* the host's input-delay pick, dispatched by on_rel */
 typedef struct Rel {
-    Hdr h;                 /* 'R' */
+    Hdr h; /* 'R' */
     uint8_t seq;
-    uint8_t type;          /* < 0x10 the handshake, REL_RESUME net.c, else the caller */
+    uint8_t type; /* < 0x10 the handshake, REL_RESUME net.c, else the caller */
     uint16_t len;
     uint8_t payload[REL_MAX];
 } __attribute__((packed)) Rel;
 
 typedef struct RelAck {
-    Hdr h;                 /* 'K' */
+    Hdr h; /* 'K' */
     uint8_t seq;
 } __attribute__((packed)) RelAck;
 
 typedef struct Bye {
-    Hdr h;                 /* 'B' */
-    uint8_t reason;        /* a pc_net_peer_status() value */
+    Hdr h;          /* 'B' */
+    uint8_t reason; /* a pc_net_peer_status() value */
 } __attribute__((packed)) Bye;
 
 /* Payload of the RULES handshake message (net_handshake.c). */
 typedef struct Rules {
     uint32_t seed;
     int32_t start_frame;
-    uint64_t nonce;        /* the host's per-session nonce, from the platform CSPRNG */
+    uint64_t nonce; /* the host's per-session nonce, from the platform CSPRNG */
     GameRules game;
     uint8_t item_freq;
     uint64_t item_mask;
     uint32_t stage_mask;
     uint8_t frozen_stadium;
-    uint32_t unlock_hash;  /* unlock_hash_now() after the sender forced its masks */
-    uint32_t hash;         /* rules_hash() of the wire image above; the guest recomputes it */
+    uint32_t unlock_hash; /* unlock_hash_now() after the sender forced its masks */
+    uint32_t hash;        /* rules_hash() of the wire image above; the guest recomputes it */
 } __attribute__((packed)) Rules;
 
 /* Payload of the READY reply (net_handshake.c): the guest's own nonce and
@@ -183,21 +192,21 @@ typedef struct Rules {
  * of an older session's READY. Its unlock_hash lets the host refuse a
  * mismatch at once instead of waiting out the 15 s timeout. */
 typedef struct Ready {
-    uint64_t nonce;        /* the guest's */
-    uint64_t echo;         /* Rules.nonce as the guest received it */
-    uint32_t unlock_hash;  /* the guest's forced unlock state */
-    uint32_t hash;         /* ready_hash() of the wire image above */
+    uint64_t nonce;       /* the guest's */
+    uint64_t echo;        /* Rules.nonce as the guest received it */
+    uint32_t unlock_hash; /* the guest's forced unlock state */
+    uint32_t hash;        /* ready_hash() of the wire image above */
 } __attribute__((packed)) Ready;
 
 /* Payload of the RESUME message (reliable REL_RESUME, net.c): what the
  * sender still holds after an interruption. Every field is 32-bit, so the
  * big-endian conversion is one loop over the image. */
 typedef struct Resume {
-    uint32_t session;      /* the sender's session id: a restarted peer's differs */
-    uint32_t seed;         /* the agreed seed: another match cannot be resumed into */
-    int32_t newest;        /* newest frame of its own input it still holds */
-    int32_t have;          /* newest contiguous frame it holds of OURS */
-    int32_t frame;         /* the frame its game thread is parked on (diagnostics) */
+    uint32_t session; /* the sender's session id: a restarted peer's differs */
+    uint32_t seed;    /* the agreed seed: another match cannot be resumed into */
+    int32_t newest;   /* newest frame of its own input it still holds */
+    int32_t have;     /* newest contiguous frame it holds of OURS */
+    int32_t frame;    /* the frame its game thread is parked on (diagnostics) */
 } __attribute__((packed)) Resume;
 
 /* Payload of REL_DELAY (net_sync.c): the host's input delay and the frame
@@ -240,16 +249,16 @@ typedef struct Region {
 } Region;
 
 typedef struct Snapshot {
-    int32_t frame;       /* -1: holds nothing usable */
-    int scene;           /* scene_kind() when taken; another scene cannot take it back */
+    int32_t frame; /* -1: holds nothing usable */
+    int scene;     /* scene_kind() when taken; another scene cannot take it back */
     uint8_t* buf;
     size_t cap;
     size_t used;
     int nregions;
     Region regions[MAX_REGIONS];
     u32* seed_ptr;
-    uint32_t seed_val;   /* *seed_ptr when taken (diagnostics) */
-    int32_t barrier;     /* net.rb_barrier when taken (diagnostics) */
+    uint32_t seed_val; /* *seed_ptr when taken (diagnostics) */
+    int32_t barrier;   /* net.rb_barrier when taken (diagnostics) */
 } Snapshot;
 
 /* ---- session state that crosses modules --------------------------------- */
@@ -269,42 +278,42 @@ struct NetSession {
     struct sockaddr_storage peer;
     socklen_t peer_len;
     int local, remote, delay;
-    uint32_t session;                    /* 0 on the guest until the host's first packet */
-    int32_t frame;                       /* next fresh frame to simulate */
-    int32_t tick_frame;                  /* frame the last prepared tick simulates */
-    bool resim;                          /* re-running frames after a rollback */
+    uint32_t session;   /* 0 on the guest until the host's first packet */
+    int32_t frame;      /* next fresh frame to simulate */
+    int32_t tick_frame; /* frame the last prepared tick simulates */
+    bool resim;         /* re-running frames after a rollback */
     bool desync_reported;
-    int32_t rb_barrier;                  /* no frame <= this is rolled back to */
+    int32_t rb_barrier; /* no frame <= this is rolled back to */
 
     /* transmit: timer thread + game thread under tx_lock */
     SDL_Mutex* tx_lock;
-    unsigned tx_pkts, tx_inputs;         /* datagrams / input packets this stats window */
+    unsigned tx_pkts, tx_inputs; /* datagrams / input packets this stats window */
 
     /* link simulator knobs (net_sim.c), set at connect */
-    int sim_loss;                        /* percent of outgoing packets dropped */
+    int sim_loss; /* percent of outgoing packets dropped */
     uint64_t sim_delay_ns, sim_rx_delay_ns;
     int sim_jitter_ms, sim_reorder, sim_dup, sim_burst;
-    bool sim_hold;                       /* delay/jitter/reorder/dup on: tx goes via s_held */
+    bool sim_hold; /* delay/jitter/reorder/dup on: tx goes via s_held */
 
     /* match handshake (net_handshake.c) */
-    int hs;                              /* HS_* */
+    int hs; /* HS_* */
     bool hs_host;
-    uint32_t seed;                       /* agreed RNG seed (0: none) */
+    uint32_t seed; /* agreed RNG seed (0: none) */
     int32_t start_frame;
-    int32_t ck_from;                     /* checksums before this frame are not compared */
+    int32_t ck_from; /* checksums before this frame are not compared */
 
     /* time sync (net_sync.c) */
-    uint32_t ping_us;                    /* smoothed RTT */
+    uint32_t ping_us; /* smoothed RTT */
     bool delay_auto;
-    int delay_next;                      /* the host's pick, applied at delay_at */
-    int32_t delay_at;                    /* frame both peers switch delay on (0: none) */
+    int delay_next;   /* the host's pick, applied at delay_at */
+    int32_t delay_at; /* frame both peers switch delay on (0: none) */
     int32_t offset_last;
     unsigned skips;
     int advance_left;
-    int sync_mode;                       /* SYNC_* from MELEE_NET_SYNC */
-    bool pad_reused;                     /* this present queued no new physical sample */
-    unsigned pad_reuse;                  /* how often that happened */
-    unsigned pad_empty;                  /* ticks that ran with an empty pad queue (a bug) */
+    int sync_mode;      /* SYNC_* from MELEE_NET_SYNC */
+    bool pad_reused;    /* this present queued no new physical sample */
+    unsigned pad_reuse; /* how often that happened */
+    unsigned pad_empty; /* ticks that ran with an empty pad queue (a bug) */
 
     /* sync test (net_snapshot.c) */
     bool synctest;
@@ -351,14 +360,14 @@ bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b)
 
 int held_put(Held* held, const void* buf, size_t len, uint64_t release_ns);
 Held* held_due(Held* held, uint64_t now);
-void tx(const void* buf, size_t len);     /* caller holds tx_lock */
-void tx_flush(void);                      /* caller holds tx_lock */
-void sim_env(uint16_t bind_port);         /* MELEE_NET_SIM_* into net.sim_* */
+void tx(const void* buf, size_t len); /* caller holds tx_lock */
+void tx_flush(void);                  /* caller holds tx_lock */
+void sim_env(uint16_t bind_port);     /* MELEE_NET_SIM_* into net.sim_* */
 void sim_reset(void);
 
 /* ---- net_reliable.c --------------------------------------------------- */
 
-void rel_service(void);                   /* caller holds tx_lock */
+void rel_service(void); /* caller holds tx_lock */
 void on_rel(const Rel* r, int n);
 void on_rel_ack(const RelAck* k);
 void rel_reset(void);
@@ -388,13 +397,13 @@ void snapshot_restore(const Snapshot* s);
 /* Non-NULL when this platform's linker cannot bracket the decomp's statics
  * (Windows, Apple): snapshot_take refuses and the session runs lockstep. */
 const char* snapshot_state_region_missing(void);
-Snapshot* snap_slot(int32_t f);           /* rollback ring entry for frame f */
+Snapshot* snap_slot(int32_t f); /* rollback ring entry for frame f */
 void snaps_free(void);
 void snap_stats_report(void);
 uint32_t frame_checksum(const PADStatus* head);
 void record_state(const PADStatus* head, int32_t frame);
 void dump_states_around(int32_t frame);
-const char* state_line(int32_t frame);    /* one frame's recorded state line, "" if gone */
+const char* state_line(int32_t frame); /* one frame's recorded state line, "" if gone */
 void record_open(void);
 bool record_active(void);
 void replay_feed(PADStatus* head);
@@ -403,7 +412,8 @@ void synctest_before_tick(void);
 bool synctest_after_tick(void);
 
 /* ---- Snapshot ---- */
-const char* snapshot_describe(const Snapshot* s, char* buf, size_t n); /* one log line of metadata */
-void resim_note(int ticks, bool split);   /* re-run ticks this present; spilled into the next */
+const char* snapshot_describe(
+    const Snapshot* s, char* buf, size_t n); /* one log line of metadata */
+void resim_note(int ticks, bool split);      /* re-run ticks this present; spilled into the next */
 
 #endif

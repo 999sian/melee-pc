@@ -113,8 +113,14 @@ int pc_net_quality(void);
  * never broke, 1 the peer left (BYE), 2 timeout, 3 desync, 4 incompatible
  * protocol version, 5 an interruption could not be resumed (the input gap
  * outran the rings, or the peer answered for another session or seed). */
-enum { PC_NET_PEER_OK, PC_NET_PEER_LEFT, PC_NET_PEER_TIMEOUT, PC_NET_PEER_DESYNC,
-       PC_NET_PEER_INCOMPATIBLE, PC_NET_PEER_RESUME };
+enum {
+    PC_NET_PEER_OK,
+    PC_NET_PEER_LEFT,
+    PC_NET_PEER_TIMEOUT,
+    PC_NET_PEER_DESYNC,
+    PC_NET_PEER_INCOMPATIBLE,
+    PC_NET_PEER_RESUME
+};
 int pc_net_peer_status(void);
 
 #ifdef __cplusplus

@@ -10,41 +10,69 @@
 #include <stdlib.h>
 
 /* not <assert.h>: the decomp's debug.h owns __assert, and -DNDEBUG must not blind this */
-#define assert(c) do { if (!(c)) { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
+#define assert(c)                                                                                  \
+    do {                                                                                           \
+        if (!(c)) {                                                                                \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #c);                                \
+            exit(1);                                                                               \
+        }                                                                                          \
+    } while (0)
 
 struct NetSession net;
 static uint64_t s_now = 1;
-static uint8_t s_out[sizeof(Rel)];      /* last datagram, [0] is its magic */
+static uint8_t s_out[sizeof(Rel)]; /* last datagram, [0] is its magic */
 static size_t s_out_len;
-static Rel s_last;                      /* last 'R' handed to on_rel */
-static size_t s_last_len;               /* its wire length (s_out_len is later reused by 'K') */
+static Rel s_last;        /* last 'R' handed to on_rel */
+static size_t s_last_len; /* its wire length (s_out_len is later reused by 'K') */
 static int s_hs_msgs, s_unexpected, s_resend_logs;
 
-Uint64 SDL_GetTicksNS(void) { return s_now; }
-void SDL_LockMutex(SDL_Mutex* m) { (void) m; }
-void SDL_UnlockMutex(SDL_Mutex* m) { (void) m; }
-Hdr hdr(uint8_t magic) { Hdr h = { magic, WIRE_VERSION, 0, 0 }; return h; }
-void wire_rel(Rel* r) { (void) r; }
-void tx(const void* buf, size_t len) { memcpy(s_out, buf, len); s_out_len = len; }
-void handshake_msg(uint8_t type, const uint8_t* p, int len) { (void) type; (void) p; (void) len; s_hs_msgs++; }
+Uint64 SDL_GetTicksNS(void) {
+    return s_now;
+}
+void SDL_LockMutex(SDL_Mutex* m) {
+    (void)m;
+}
+void SDL_UnlockMutex(SDL_Mutex* m) {
+    (void)m;
+}
+Hdr hdr(uint8_t magic) {
+    Hdr h = {magic, WIRE_VERSION, 0, 0};
+    return h;
+}
+void wire_rel(Rel* r) {
+    (void)r;
+}
+void tx(const void* buf, size_t len) {
+    memcpy(s_out, buf, len);
+    s_out_len = len;
+}
+void handshake_msg(uint8_t type, const uint8_t* p, int len) {
+    (void)type;
+    (void)p;
+    (void)len;
+    s_hs_msgs++;
+}
 static int s_resume_msgs, s_resume_len;
 void net_resume_rel(const void* payload, int len) {
     s_resume_msgs++;
     s_resume_len = len;
-    (void) payload;
+    (void)payload;
 }
 static int s_delay_msgs;
 void net_delay_rel(const void* payload, int len) {
     s_delay_msgs++;
-    (void) payload;
-    (void) len;
+    (void)payload;
+    (void)len;
 }
 void pc_log_line(const char* fmt, ...) {
     s_unexpected += strstr(fmt, "unexpected") != NULL;
     s_resend_logs += strstr(fmt, "resend #") != NULL;
 }
 
-static uint8_t out_seq(void) { assert(s_out[0] == 'R'); return s_out[offsetof(Rel, seq)]; }
+static uint8_t out_seq(void) {
+    assert(s_out[0] == 'R');
+    return s_out[offsetof(Rel, seq)];
+}
 
 /* Hand the captured 'R' to the receiver; true when it answered with a 'K'. */
 static bool deliver(void) {
@@ -52,7 +80,7 @@ static bool deliver(void) {
     memcpy(&s_last, s_out, s_out_len);
     s_last_len = s_out_len;
     s_out[0] = 0;
-    on_rel(&s_last, (int) s_last_len);
+    on_rel(&s_last, (int)s_last_len);
     return s_out[0] == 'K';
 }
 
@@ -98,26 +126,26 @@ int main(void) {
 
     /* duplicate of the last one (its 'K' was lost): re-acked, not re-processed */
     Rel dup = s_last;
-    on_rel(&dup, (int) s_last_len);
+    on_rel(&dup, (int)s_last_len);
     assert(s_out[0] == 'K' && s_out[offsetof(RelAck, seq)] == dup.seq && s_hs_msgs == 300);
     s_out[0] = 0;
-    dup.seq = (uint8_t) ((s_rel_expect[0] - REL_REACK) & REL_SEQ_MASK); /* oldest re-acked */
-    on_rel(&dup, (int) s_last_len);
+    dup.seq = (uint8_t)((s_rel_expect[0] - REL_REACK) & REL_SEQ_MASK); /* oldest re-acked */
+    on_rel(&dup, (int)s_last_len);
     assert(s_out[0] == 'K' && s_hs_msgs == 300 && s_unexpected == 0);
     s_out[0] = 0;
 
     /* out of window: 9 back and 1 ahead are dropped, logged once per session */
-    dup.seq = (uint8_t) ((s_rel_expect[0] - REL_REACK - 1) & REL_SEQ_MASK);
-    on_rel(&dup, (int) s_last_len);
-    dup.seq = (uint8_t) ((s_rel_expect[0] + 1) & REL_SEQ_MASK);
-    on_rel(&dup, (int) s_last_len);
-    dup.seq = (uint8_t) (0x80 | ((s_rel_expect[1] + 1) & REL_SEQ_MASK));
-    on_rel(&dup, (int) s_last_len);
+    dup.seq = (uint8_t)((s_rel_expect[0] - REL_REACK - 1) & REL_SEQ_MASK);
+    on_rel(&dup, (int)s_last_len);
+    dup.seq = (uint8_t)((s_rel_expect[0] + 1) & REL_SEQ_MASK);
+    on_rel(&dup, (int)s_last_len);
+    dup.seq = (uint8_t)(0x80 | ((s_rel_expect[1] + 1) & REL_SEQ_MASK));
+    on_rel(&dup, (int)s_last_len);
     assert(s_out[0] == 0 && s_hs_msgs == 300 && recv_user() < 0 && s_unexpected == 1);
     rel_reset();
     assert(s_rel_expect[0] == 0 && s_rel_tx[1].seq == 0 && s_rel_tx[1].sent_ns == 0);
     dup.seq = 0x85;
-    on_rel(&dup, (int) s_last_len);
+    on_rel(&dup, (int)s_last_len);
     assert(s_unexpected == 2); /* the once-flag was cleared */
 
     /* receive side: the caller stops draining, RULES/READY still flow */
@@ -131,7 +159,7 @@ int main(void) {
     ack();
     assert(recv_user() == 4);
     s_now += REL_RESEND_NS;
-    rel_service();                      /* lane 1 resends "full" now that there is room */
+    rel_service(); /* lane 1 resends "full" now that there is room */
     assert(out_seq() == (0x80 | REL_QUEUE) && deliver() && s_resend_logs == 1);
     ack();
     for (int i = 0; i < REL_QUEUE; i++) {

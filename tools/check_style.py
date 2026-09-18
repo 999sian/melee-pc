@@ -24,6 +24,10 @@ CHECK_DIRS = [ROOT / "src/pc"]
 TOOL_FILES = list((ROOT / "tools").glob("*.cpp")) + list((ROOT / "tools").glob("*.c"))
 SOURCE_EXTENSIONS = {".c", ".cpp", ".h", ".hpp"}
 EXCLUDE_FILES = {"stb_vorbis.c", "stb_vorbis.h"}
+# Vendored verbatim, so upstream diffs stay readable: src/pc/libm is musl's
+# trig (one implementation on every target, see docs/netcode-plan.md section 5)
+# and src/pc/mdns is mjansson/mdns. Reformatting them is churn, not style.
+EXCLUDE_DIRS = {ROOT / "src/pc/libm", ROOT / "src/pc/mdns"}
 
 # Regex to detect bare long/unsigned long, excluding 'long double', 'long long', and standard macros
 BANNED_LONG_REGEX = re.compile(
@@ -39,8 +43,11 @@ def get_target_files(custom_files=None):
     for d in CHECK_DIRS:
         if d.is_dir():
             for p in d.rglob("*"):
-                if p.suffix in SOURCE_EXTENSIONS and p.is_file() and p.name not in EXCLUDE_FILES:
-                    files.append(p)
+                if p.suffix not in SOURCE_EXTENSIONS or not p.is_file():
+                    continue
+                if p.name in EXCLUDE_FILES or any(x in EXCLUDE_DIRS for x in p.parents):
+                    continue
+                files.append(p)
     for p in TOOL_FILES:
         if p.is_file() and p.name not in EXCLUDE_FILES:
             files.append(p)

@@ -66,7 +66,8 @@ void record_open(void) {
         char magic[4];
         uint32_t seed;
         if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC1", 4) != 0 ||
-                      fread(&seed, 4, 1, s_rep) != 1)) {
+                         fread(&seed, 4, 1, s_rep) != 1))
+        {
             fclose(s_rep);
             s_rep = NULL;
         }
@@ -105,7 +106,7 @@ static void replay_compare(uint32_t ck) {
     if (!s_rep_reported && s_rep_cur.ck != ck) {
         s_rep_reported = true;
         pc_log_line("net: REPLAY DIVERGED at frame %d (recorded %08x now %08x)", net.frame,
-                    s_rep_cur.ck, ck);
+            s_rep_cur.ck, ck);
     }
 }
 
@@ -113,7 +114,7 @@ static void replay_compare(uint32_t ck) {
 void replay_feed(PADStatus* head) {
     if (s_rep != NULL && !replay_load(head)) {
         pc_log_line("net: replay finished at frame %d%s", net.frame,
-                    s_rep_reported ? "" : ", no divergence");
+            s_rep_reported ? "" : ", no divergence");
         fclose(s_rep);
         s_rep = NULL;
     }
@@ -183,17 +184,16 @@ static uint32_t f32bits(float f) {
 static void log_state_bits(int32_t frame) {
     char buf[512];
     int n = snprintf(buf, sizeof buf, "f%d seed=%08x", frame, *HSD_RandSeedPtr);
-    for (int slot = 0; in_fight() && slot < 4 && n < (int) sizeof buf - 96; slot++) {
+    for (int slot = 0; in_fight() && slot < 4 && n < (int)sizeof buf - 96; slot++) {
         HSD_GObj* gobj = Player_GetEntity(slot);
         if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
             continue;
         }
         const Fighter* fp = GET_FIGHTER(gobj);
-        n += snprintf(buf + n, sizeof buf - (size_t) n,
-                      " p%d pos=%08x/%08x/%08x dir=%08x pct=%08x mid=%d st=%d", slot,
-                      f32bits(fp->cur_pos.x), f32bits(fp->cur_pos.y), f32bits(fp->cur_pos.z),
-                      f32bits(fp->facing_dir), f32bits(fp->dmg.x1830_percent), fp->motion_id,
-                      Player_GetStocks(slot));
+        n += snprintf(buf + n, sizeof buf - (size_t)n,
+            " p%d pos=%08x/%08x/%08x dir=%08x pct=%08x mid=%d st=%d", slot, f32bits(fp->cur_pos.x),
+            f32bits(fp->cur_pos.y), f32bits(fp->cur_pos.z), f32bits(fp->facing_dir),
+            f32bits(fp->dmg.x1830_percent), fp->motion_id, Player_GetStocks(slot));
     }
     fprintf(s_state_log, "net: bits %s\n", buf);
 }
@@ -208,20 +208,20 @@ void record_state(const PADStatus* head, int32_t frame) {
     }
     char* buf = s_state_ring[frame & (STATE_RING - 1)];
     int n = snprintf(buf, sizeof s_state_ring[0], "f%d seed=%08x pads=%04x/%d,%d %04x/%d,%d", frame,
-                     *HSD_RandSeedPtr, head[0].button, head[0].stickX, head[0].stickY,
-                     head[1].button, head[1].stickX, head[1].stickY);
-    for (int slot = 0; in_fight() && slot < 4 && n < (int) sizeof s_state_ring[0] - 80; slot++) {
+        *HSD_RandSeedPtr, head[0].button, head[0].stickX, head[0].stickY, head[1].button,
+        head[1].stickX, head[1].stickY);
+    for (int slot = 0; in_fight() && slot < 4 && n < (int)sizeof s_state_ring[0] - 80; slot++) {
         HSD_GObj* gobj = Player_GetEntity(slot);
         if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
             continue;
         }
         const Fighter* fp = GET_FIGHTER(gobj);
-        n += snprintf(buf + n, sizeof s_state_ring[0] - (size_t) n,
-                      " p%d=(%.3f,%.3f) v(%.3f,%.3f) kb(%.3f,%.3f) f%.0f %.1f%% m%d s%d", slot,
-                      (double) fp->cur_pos.x, (double) fp->cur_pos.y, (double) fp->self_vel.x,
-                      (double) fp->self_vel.y, (double) fp->x8c_kb_vel.x,
-                      (double) fp->x8c_kb_vel.y, (double) fp->facing_dir,
-                      (double) fp->dmg.x1830_percent, fp->motion_id, Player_GetStocks(slot));
+        n += snprintf(buf + n, sizeof s_state_ring[0] - (size_t)n,
+            " p%d=(%.3f,%.3f) v(%.3f,%.3f) kb(%.3f,%.3f) f%.0f %.1f%% m%d s%d", slot,
+            (double)fp->cur_pos.x, (double)fp->cur_pos.y, (double)fp->self_vel.x,
+            (double)fp->self_vel.y, (double)fp->x8c_kb_vel.x, (double)fp->x8c_kb_vel.y,
+            (double)fp->facing_dir, (double)fp->dmg.x1830_percent, fp->motion_id,
+            Player_GetStocks(slot));
     }
     if (s_state_log != NULL) {
         fprintf(s_state_log, "net: state %s\n", buf);
@@ -307,9 +307,9 @@ static int regions_now(Region* r) {
     void* lo;
     size_t len;
     aurora_heap_descs(&lo, &len);
-    r[n++] = (Region) { "heapdescs", lo, len };
-    r[n++] = (Region) { "data", __melee_data_start, (size_t) (__melee_data_end - __melee_data_start) };
-    r[n++] = (Region) { "bss", __melee_bss_start, (size_t) (__melee_bss_end - __melee_bss_start) };
+    r[n++] = (Region){"heapdescs", lo, len};
+    r[n++] = (Region){"data", __melee_data_start, (size_t)(__melee_data_end - __melee_data_start)};
+    r[n++] = (Region){"bss", __melee_bss_start, (size_t)(__melee_bss_end - __melee_bss_start)};
     for (int h = 0; h < MAX_HEAPS; h++) {
         void* hi;
         if (h == HSD_Synth_804D6018 || !aurora_heap_extent(h, &lo, &hi)) {
@@ -317,7 +317,7 @@ static int regions_now(Region* r) {
         }
         static char names[MAX_HEAPS][8];
         snprintf(names[h], sizeof names[h], "heap%d", h);
-        r[n++] = (Region) { names[h], lo, (size_t) ((char*) hi - (char*) lo) };
+        r[n++] = (Region){names[h], lo, (size_t)((char*)hi - (char*)lo)};
     }
     return n;
 }
@@ -327,8 +327,8 @@ static int regions_now(Region* r) {
 static uint64_t s_take_ns, s_take_ns_max, s_restore_ns, s_restore_ns_max;
 static uint64_t s_take_ns_worst, s_restore_ns_worst;
 static unsigned s_takes, s_restores;
-static int s_resim_n_max;                /* re-run ticks per present, worst */
-static unsigned s_resim_splits;          /* rollbacks that spilled into the next present */
+static int s_resim_n_max;       /* re-run ticks per present, worst */
+static unsigned s_resim_splits; /* rollbacks that spilled into the next present */
 
 /* MELEE_NET_SIM_OOM_FRAME=n: the first take at frame >= n fails the way a
  * realloc failure does, to exercise the lockstep fallback. */
@@ -346,7 +346,7 @@ bool snapshot_take(Snapshot* s, int32_t frame) {
     if (!env_read) {
         env_read = true;
         const char* e = getenv("MELEE_NET_SIM_OOM_FRAME");
-        s_oom_frame = e != NULL ? (int32_t) atol(e) : -1;
+        s_oom_frame = e != NULL ? (int32_t)atol(e) : -1;
     }
     if (s_oom_frame >= 0 && !s_oom_fired && frame >= s_oom_frame) {
         s_oom_fired = true;
@@ -454,8 +454,8 @@ const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
         heap_bytes += s->regions[i].len;
     }
     snprintf(buf, n, "frame %d scene %d barrier %d seed %08x %d heaps %.2f MB of %.2f MB", s->frame,
-             s->scene, s->barrier, s->seed_val, s->nregions > 3 ? s->nregions - 3 : 0,
-             heap_bytes / 1048576.0, s->used / 1048576.0);
+        s->scene, s->barrier, s->seed_val, s->nregions > 3 ? s->nregions - 3 : 0,
+        heap_bytes / 1048576.0, s->used / 1048576.0);
     return buf;
 }
 
@@ -464,10 +464,9 @@ const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
 void snap_stats_report(void) {
     pc_log_line("net:   snapshot take %.2f ms (max %.2f, n %u), restore %.2f ms (max %.2f, n %u), "
                 "worst ever %.2f/%.2f, resim/present max %d, split %u",
-                s_takes ? s_take_ns / 1e6 / s_takes : 0.0, s_take_ns_max / 1e6, s_takes,
-                s_restores ? s_restore_ns / 1e6 / s_restores : 0.0, s_restore_ns_max / 1e6,
-                s_restores, s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max,
-                s_resim_splits);
+        s_takes ? s_take_ns / 1e6 / s_takes : 0.0, s_take_ns_max / 1e6, s_takes,
+        s_restores ? s_restore_ns / 1e6 / s_restores : 0.0, s_restore_ns_max / 1e6, s_restores,
+        s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max, s_resim_splits);
     s_take_ns = s_take_ns_max = s_restore_ns = s_restore_ns_max = 0;
     s_takes = s_restores = 0;
     s_resim_n_max = 0;
@@ -508,7 +507,7 @@ static void tally_add(const char* region, const void* addr) {
         }
     }
     if (s_tally_n < TALLY_MAX) {
-        s_tally[s_tally_n++] = (DiffTally) { addr, region, 1 };
+        s_tally[s_tally_n++] = (DiffTally){addr, region, 1};
     }
 }
 
@@ -523,8 +522,8 @@ static void tally_report(void) {
         if (best < 0) {
             break;
         }
-        pc_log_line("net:   %-6s %p x%u", s_tally[best].region, s_tally[best].addr,
-                    s_tally[best].count);
+        pc_log_line(
+            "net:   %-6s %p x%u", s_tally[best].region, s_tally[best].addr, s_tally[best].count);
         s_tally[best].count = 0; /* consumed; keeps the table for identity */
     }
 }
@@ -535,8 +534,8 @@ static void snapshot_diff(const Snapshot* s) {
         const Region* r = &s->regions[i];
         for (size_t off = 0; off < r->len; off += 64) {
             size_t n = r->len - off < 64 ? r->len - off : 64;
-            if (memcmp((uint8_t*) r->ptr + off, p + off, n) != 0) {
-                tally_add(r->name, (uint8_t*) r->ptr + off);
+            if (memcmp((uint8_t*)r->ptr + off, p + off, n) != 0) {
+                tally_add(r->name, (uint8_t*)r->ptr + off);
             }
         }
         p += r->len;
@@ -548,10 +547,10 @@ static void snapshot_diff(const Snapshot* s) {
  * restore -> tick again -> hash, and the two hashes must match. Proves that
  * the snapshot covers all state the tick depends on and that a tick is a
  * pure function of (state, inputs), which is what rollback needs. */
-static Snapshot s_snap;       /* state before the tick */
-static Snapshot s_after1;     /* state after the first run of the tick */
+static Snapshot s_snap;   /* state before the tick */
+static Snapshot s_after1; /* state after the first run of the tick */
 static uint64_t s_hash_first;
-static int s_retick;          /* 0 normal, 1 first tick done, 2 retick done */
+static int s_retick; /* 0 normal, 1 first tick done, 2 retick done */
 static unsigned s_sync_fail, s_sync_skipped;
 
 void synctest_before_tick(void) {
@@ -589,8 +588,8 @@ bool synctest_after_tick(void) {
         }
         pc_log_line("net: synctest frame %d, %u mismatches, %u skipped (I/O), snapshot %.2f MB "
                     "(%d heaps %.2f MB)",
-                    s_snap.frame, s_sync_fail, s_sync_skipped, s_snap.used / 1048576.0,
-                    s_snap.nregions - 3, heap_bytes / 1048576.0);
+            s_snap.frame, s_sync_fail, s_sync_skipped, s_snap.used / 1048576.0, s_snap.nregions - 3,
+            heap_bytes / 1048576.0);
         snap_stats_report();
         tally_report();
     }

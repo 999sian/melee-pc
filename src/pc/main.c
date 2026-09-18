@@ -356,8 +356,8 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         .userPath = SDL_GetPrefPath(NULL, "melee-pc"),
         /* MELEE_CACHE_DIR: two instances on one machine (netplay testing)
          * must not share the pipeline-cache SQLite file. */
-        .cachePath = getenv("MELEE_CACHE_DIR") ? getenv("MELEE_CACHE_DIR")
-                                               : SDL_GetPrefPath(NULL, "melee-pc"),
+        .cachePath = getenv("MELEE_CACHE_DIR") ? getenv("MELEE_CACHE_DIR") :
+                                                 SDL_GetPrefPath(NULL, "melee-pc"),
         .msaa = 1,
         .maxTextureAnisotropy = 16,
         /* MELEE_VSYNC=0 picks Mailbox/Immediate instead of FifoRelaxed; some

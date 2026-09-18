@@ -57,7 +57,7 @@
 #if defined(MELEE_USE_BCRYPT)
 #include <bcrypt.h>
 static bool csprng(void* out, size_t n) {
-    return BCryptGenRandom(NULL, out, (ULONG) n, BCRYPT_USE_SYSTEM_PREFERRED_RNG) >= 0;
+    return BCryptGenRandom(NULL, out, (ULONG)n, BCRYPT_USE_SYSTEM_PREFERRED_RNG) >= 0;
 }
 #else
 #include <errno.h>
@@ -68,14 +68,14 @@ static bool csprng(void* out, size_t n) {
     size_t got = 0;
 #if defined(__linux__) || defined(__ANDROID__)
     while (got < n) {
-        ssize_t r = getrandom((uint8_t*) out + got, n - got, 0);
+        ssize_t r = getrandom((uint8_t*)out + got, n - got, 0);
         if (r <= 0) {
             if (r < 0 && errno == EINTR) {
                 continue;
             }
             break;
         }
-        got += (size_t) r;
+        got += (size_t)r;
     }
     if (got == n) {
         return true;
@@ -89,34 +89,34 @@ static bool csprng(void* out, size_t n) {
         return false;
     }
     while (got < n) {
-        ssize_t r = read(fd, (uint8_t*) out + got, n - got);
+        ssize_t r = read(fd, (uint8_t*)out + got, n - got);
         if (r <= 0) {
             if (r < 0 && errno == EINTR) {
                 continue;
             }
             break;
         }
-        got += (size_t) r;
+        got += (size_t)r;
     }
     close(fd);
     return got == n;
 }
 #endif
 
-#define REL_RULES 0x01               /* host -> guest {seed, start_frame, nonce} */
-#define REL_READY 0x02               /* guest -> host {nonce, echo} */
+#define REL_RULES 0x01 /* host -> guest {seed, start_frame, nonce} */
+#define REL_READY 0x02 /* guest -> host {nonce, echo} */
 #define HS_TIMEOUT_MS 15000
-#define HS_LEAD_FRAMES 120   /* ponytail: 2 s for READY; a slower link misses the start */
+#define HS_LEAD_FRAMES 120 /* ponytail: 2 s for READY; a slower link misses the start */
 
 static uint64_t s_hs_t0;
-static bool s_rules_on;                 /* a RULES set is in force (host or guest) */
+static bool s_rules_on; /* a RULES set is in force (host or guest) */
 static bool s_rules_frozen;
-static bool s_rules_saved;              /* guest: s_rules_orig holds its own values */
+static bool s_rules_saved; /* guest: s_rules_orig holds its own values */
 static Rules s_rules_orig;
-static uint64_t s_nonce_local;          /* ours this session; 0: not drawn yet */
-static uint32_t s_nonce_session;        /* net.session s_nonce_local was drawn for */
-static uint64_t s_nonce_peer;           /* theirs, from RULES (guest) or READY (host) */
-static bool s_unlock_saved;              /* s_unlock_orig holds what the player had */
+static uint64_t s_nonce_local;   /* ours this session; 0: not drawn yet */
+static uint32_t s_nonce_session; /* net.session s_nonce_local was drawn for */
+static uint64_t s_nonce_peer;    /* theirs, from RULES (guest) or READY (host) */
+static bool s_unlock_saved;      /* s_unlock_orig holds what the player had */
 static uint64_t s_unlock_orig;
 /* One log line per refusal class per session (the log-line rule): a peer, or
  * a stale process at its address, that keeps resending must not flood it. */
@@ -132,7 +132,7 @@ enum {
     LOG_READY_HASH = 1 << 8,
     LOG_READY_NONCE = 1 << 9,
 };
-static uint32_t s_hs_logged;            /* LOG_* classes already logged this session */
+static uint32_t s_hs_logged; /* LOG_* classes already logged this session */
 
 uint32_t pc_net_seed(void) {
     return net.seed;
@@ -147,7 +147,7 @@ static void hs_done(void) {
     net.ck_from = net.start_frame;
     net.desync_reported = false; /* anything before start_frame was the lobbies differing */
     pc_log_line("net: handshake done seed=%u start_frame=%d (frame %d)", net.seed, net.start_frame,
-                net.tick_frame);
+        net.tick_frame);
 }
 
 /* The match-affecting part of RULES, from (capture) or into (apply) the
@@ -175,11 +175,10 @@ static void rules_apply(const Rules* ru, bool from_peer) {
     s_rules_on = true;
     pc_log_line("net: RULES %s mode=%u time=%u stock=%u handicap=%u dmg=%u stage_sel=%u ff=%u "
                 "pause=%u sd=%u items=%u/%016llx stages=%08x frozen=%u unlock_all=1",
-                from_peer ? "applied" : "in force", ru->game.mode, ru->game.time_limit,
-                ru->game.stock_count, ru->game.handicap, ru->game.damage_ratio,
-                ru->game.stage_sel, ru->game.friendly_fire, ru->game.pause, ru->game.unk_xc,
-                ru->item_freq, (unsigned long long) ru->item_mask, ru->stage_mask,
-                ru->frozen_stadium);
+        from_peer ? "applied" : "in force", ru->game.mode, ru->game.time_limit,
+        ru->game.stock_count, ru->game.handicap, ru->game.damage_ratio, ru->game.stage_sel,
+        ru->game.friendly_fire, ru->game.pause, ru->game.unk_xc, ru->item_freq,
+        (unsigned long long)ru->item_mask, ru->stage_mask, ru->frozen_stadium);
 }
 
 /* ---- unlock state -----------------------------------------------------
@@ -217,15 +216,14 @@ static void unlock_force(void) {
     s_unlock_saved = true;
     pc_unlock_state_set(pc_unlock_state_all());
     pc_log_line("net: unlock forced %016llx (was %016llx)",
-                (unsigned long long) pc_unlock_state_get(),
-                (unsigned long long) s_unlock_orig);
+        (unsigned long long)pc_unlock_state_get(), (unsigned long long)s_unlock_orig);
 }
 
 static void unlock_restore(void) {
     if (s_unlock_saved) {
         s_unlock_saved = false;
         pc_unlock_state_set(s_unlock_orig);
-        pc_log_line("net: unlock state restored (%016llx)", (unsigned long long) s_unlock_orig);
+        pc_log_line("net: unlock state restored (%016llx)", (unsigned long long)s_unlock_orig);
     }
 }
 
@@ -237,7 +235,7 @@ static uint32_t unlock_hash_now(void) {
     uint64_t s = pc_unlock_state_get();
     uint8_t be[8];
     for (int i = 0; i < 8; i++) {
-        be[i] = (uint8_t) (s >> (56 - 8 * i));
+        be[i] = (uint8_t)(s >> (56 - 8 * i));
     }
     return fnv1a(2166136261u, be, sizeof be);
 }
@@ -281,7 +279,8 @@ static const char* rules_invalid(const Rules* ru) {
     }
     if (ru->game.mode > 3 || ru->game.time_limit > 99 || ru->game.stock_count > 99 ||
         ru->game.damage_ratio < 5 || ru->game.damage_ratio > 20 || ru->item_freq > 5 ||
-        ru->stage_mask == 0) {
+        ru->stage_mask == 0)
+    {
         return "value out of range";
     }
     return NULL;
@@ -317,7 +316,7 @@ static void on_rules(const uint8_t* payload, int len) {
         hs_drop(LOG_RULES_HOST, "RULES", "we host");
         return;
     }
-    if (len != (int) sizeof(Rules)) {
+    if (len != (int)sizeof(Rules)) {
         hs_drop(LOG_RULES_LEN, "RULES", "wrong length");
         return;
     }
@@ -330,7 +329,7 @@ static void on_rules(const uint8_t* payload, int len) {
          * either the host changed its mind too late or someone injected it.
          * Logged once and dropped; the rules in force do not move. */
         hs_drop(ru.nonce == s_nonce_peer ? LOG_RULES_DUP : LOG_RULES_CONFLICT, "RULES",
-                ru.nonce == s_nonce_peer ? "already applied" : "conflicting nonce after done");
+            ru.nonce == s_nonce_peer ? "already applied" : "conflicting nonce after done");
         return;
     }
     const char* bad = rules_invalid(&ru);
@@ -353,12 +352,12 @@ static void on_rules(const uint8_t* payload, int len) {
     uint32_t unlock_mine = unlock_hash_now();
     if (unlock_mine != ru.unlock_hash) {
         pc_log_line("net: RULES rejected: unlock state mismatch (ours %08x/%016llx, host %08x)",
-                    unlock_mine, (unsigned long long) pc_unlock_state_get(), ru.unlock_hash);
+            unlock_mine, (unsigned long long)pc_unlock_state_get(), ru.unlock_hash);
         unlock_restore();
         net.hs = HS_FAILED;
         return;
     }
-    Ready rd = { nonce_local(), ru.nonce, unlock_mine, 0 };
+    Ready rd = {nonce_local(), ru.nonce, unlock_mine, 0};
     if (rd.nonce == 0) {
         pc_log_line("net: RULES rejected: no random source");
         unlock_restore();
@@ -373,7 +372,7 @@ static void on_rules(const uint8_t* payload, int len) {
     rules_apply(&ru, true);
     if (net.start_frame <= net.tick_frame) {
         pc_log_line("net: RULES late, start_frame %d already passed (frame %d)", net.start_frame,
-                    net.tick_frame);
+            net.tick_frame);
     }
     wire_ready(&rd);
     if (!pc_net_send_reliable(REL_READY, &rd, sizeof rd)) {
@@ -395,7 +394,7 @@ static void on_ready(const uint8_t* payload, int len) {
         hs_drop(LOG_READY_IDLE, "READY", "no handshake pending");
         return;
     }
-    if (len != (int) sizeof(Ready)) {
+    if (len != (int)sizeof(Ready)) {
         hs_drop(LOG_READY_LEN, "READY", "wrong length");
         return;
     }
@@ -420,8 +419,7 @@ static void on_ready(const uint8_t* payload, int len) {
      * than an injection: fail hard instead of waiting out the timeout. */
     if (rd.unlock_hash != unlock_hash_now()) {
         pc_log_line("net: READY rejected: unlock state mismatch (ours %08x/%016llx, guest %08x)",
-                    unlock_hash_now(), (unsigned long long) pc_unlock_state_get(),
-                    rd.unlock_hash);
+            unlock_hash_now(), (unsigned long long)pc_unlock_state_get(), rd.unlock_hash);
         net.hs = HS_FAILED;
         return;
     }
@@ -471,7 +469,7 @@ bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
         net.seed = seed;
         *HSD_RandSeedPtr = seed;
         net.start_frame = net.tick_frame + HS_LEAD_FRAMES;
-        Rules ru = { 0 };
+        Rules ru = {0};
         ru.seed = seed;
         ru.start_frame = net.start_frame;
         ru.nonce = s_nonce_local;
@@ -528,6 +526,6 @@ void handshake_test(void) {
     int n = pc_net_recv_reliable(&type, buf, sizeof buf);
     if (n >= 0) {
         pc_log_line("net: reliable recv type %02x len %d '%.*s' at frame %d", type, n, n, buf,
-                    net.tick_frame);
+            net.tick_frame);
     }
 }

@@ -68,10 +68,10 @@ void pc_frame_boundary(void) {
     static u32 lan_frames;
     if (lan_test < 0) {
         const char* t = getenv("MELEE_LAN_TEST");
-        lan_test = getenv("MELEE_LAN_DIRECT") != NULL ? 3
-                   : t == NULL                        ? 0
-                   : strcmp(t, "host") == 0           ? 2
-                                                      : 1;
+        lan_test = getenv("MELEE_LAN_DIRECT") != NULL ? 3 :
+                   t == NULL                          ? 0 :
+                   strcmp(t, "host") == 0             ? 2 :
+                                                        1;
     }
     if (lan_test) {
         pc_lan_poll();
@@ -85,10 +85,10 @@ void pc_frame_boundary(void) {
             const char* d = getenv("MELEE_LAN_DIRECT");
             char host[64];
             const char* colon = strrchr(d, ':');
-            if (colon != NULL && (size_t) (colon - d) < sizeof host) {
-                memcpy(host, d, (size_t) (colon - d));
+            if (colon != NULL && (size_t)(colon - d) < sizeof host) {
+                memcpy(host, d, (size_t)(colon - d));
                 host[colon - d] = '\0';
-                pc_lan_connect_direct(host, (uint16_t) atoi(colon + 1));
+                pc_lan_connect_direct(host, (uint16_t)atoi(colon + 1));
             } else {
                 pc_log_line("lan: MELEE_LAN_DIRECT must be ip:port");
             }

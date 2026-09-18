@@ -47,11 +47,11 @@ uint32_t fnv1a(uint32_t h, const void* data, size_t n) {
  * the bytes as big-endian, store the value in host order. That is its own
  * inverse, so each wire_*() below serves both send and receive. */
 static uint16_t get16(const uint8_t* p) {
-    return (uint16_t) (p[0] << 8 | p[1]);
+    return (uint16_t)(p[0] << 8 | p[1]);
 }
 
 static uint32_t get32(const uint8_t* p) {
-    return (uint32_t) get16(p) << 16 | get16(p + 2);
+    return (uint32_t)get16(p) << 16 | get16(p + 2);
 }
 
 static void be16(void* p) {
@@ -65,7 +65,7 @@ static void be32(void* p) {
 }
 
 static void be64(void* p) {
-    uint64_t v = (uint64_t) get32(p) << 32 | get32((const uint8_t*) p + 4);
+    uint64_t v = (uint64_t)get32(p) << 32 | get32((const uint8_t*)p + 4);
     memcpy(p, &v, sizeof v);
 }
 
@@ -118,8 +118,8 @@ void wire_ready(Ready* rd) {
  * later session; the nonces ride in the images themselves (Rules.nonce,
  * Ready.nonce/.echo) and are checked by net_handshake.c. */
 static uint32_t hs_hash(const void* image, size_t n, uint32_t session) {
-    uint8_t be[4] = { (uint8_t) (session >> 24), (uint8_t) (session >> 16),
-                      (uint8_t) (session >> 8), (uint8_t) session };
+    uint8_t be[4] = {(uint8_t)(session >> 24), (uint8_t)(session >> 16), (uint8_t)(session >> 8),
+        (uint8_t)session};
     return fnv1a(fnv1a(2166136261u, image, n), be, sizeof be);
 }
 
@@ -135,7 +135,7 @@ uint32_t ready_hash(Ready rd, uint32_t session) {
 
 /* A header in wire order, ready to send. */
 Hdr hdr(uint8_t magic) {
-    Hdr h = { magic, WIRE_VERSION, net.session, (uint8_t) net.local };
+    Hdr h = {magic, WIRE_VERSION, net.session, (uint8_t)net.local};
     wire_hdr(&h);
     return h;
 }
@@ -145,10 +145,11 @@ bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b)
         return false;
     }
     if (a->ss_family == AF_INET6) {
-        const struct sockaddr_in6 *x = (const struct sockaddr_in6*) a, *y = (const struct sockaddr_in6*) b;
+        const struct sockaddr_in6 *x = (const struct sockaddr_in6*)a,
+                                  *y = (const struct sockaddr_in6*)b;
         return x->sin6_port == y->sin6_port &&
                memcmp(&x->sin6_addr, &y->sin6_addr, sizeof x->sin6_addr) == 0;
     }
-    const struct sockaddr_in *x = (const struct sockaddr_in*) a, *y = (const struct sockaddr_in*) b;
+    const struct sockaddr_in *x = (const struct sockaddr_in*)a, *y = (const struct sockaddr_in*)b;
     return x->sin_port == y->sin_port && x->sin_addr.s_addr == y->sin_addr.s_addr;
 }

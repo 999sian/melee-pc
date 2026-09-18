@@ -17,12 +17,14 @@
  *   Context.getApplicationContext   ()Landroid/content/Context;
  *   Context.getSystemService        (Ljava/lang/String;)Ljava/lang/Object;
  *   Context.WIFI_SERVICE            = "wifi"
- *   WifiManager.createMulticastLock (Ljava/lang/String;)Landroid/net/wifi/WifiManager$MulticastLock;
+ *   WifiManager.createMulticastLock
+ * (Ljava/lang/String;)Landroid/net/wifi/WifiManager$MulticastLock;
  *   MulticastLock.setReferenceCounted (Z)V
  *   MulticastLock.acquire           ()V
  *   MulticastLock.release           ()V
  *   Context.getContentResolver      ()Landroid/content/ContentResolver;
- *   Settings$Global.getString       (Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;  [static]
+ *   Settings$Global.getString
+ * (Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;  [static]
  *   Settings$Global.DEVICE_NAME     = "device_name"
  *   Build.MODEL                     Ljava/lang/String;  [static]
  * The lock needs android.permission.CHANGE_WIFI_MULTICAST_STATE
@@ -33,11 +35,11 @@
 namespace {
 
 std::mutex g_mutex;
-int g_depth;        /* acquire() nesting, guarded by g_mutex */
-jobject g_lock;     /* global ref: WifiManager$MulticastLock */
+int g_depth;    /* acquire() nesting, guarded by g_mutex */
+jobject g_lock; /* global ref: WifiManager$MulticastLock */
 jmethodID g_acquire;
 jmethodID g_release;
-bool g_failed;      /* the lookup failed once: do not report it again */
+bool g_failed; /* the lookup failed once: do not report it again */
 
 /* True (and clears the exception) when the last JNI call left one pending. */
 bool threw(JNIEnv* env, const char* what) {
@@ -67,9 +69,10 @@ bool lock_open(JNIEnv* env) {
         return false;
     }
     bool ok = [env]() -> bool {
-        jobject activity = (jobject) SDL_GetAndroidActivity();
+        jobject activity = (jobject)SDL_GetAndroidActivity();
         if (activity == nullptr) {
-            pc_log_line("lan: no Android activity: no multicast lock, mDNS answers may be filtered");
+            pc_log_line(
+                "lan: no Android activity: no multicast lock, mDNS answers may be filtered");
             return false;
         }
         jclass ctx_cls = env->FindClass("android/content/Context");
@@ -78,15 +81,18 @@ bool lock_open(JNIEnv* env) {
         if (ctx_cls == nullptr || wifi_cls == nullptr || lock_cls == nullptr) {
             return false;
         }
-        jmethodID app_ctx = env->GetMethodID(ctx_cls, "getApplicationContext", "()Landroid/content/Context;");
-        jmethodID get_svc = env->GetMethodID(ctx_cls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
+        jmethodID app_ctx =
+            env->GetMethodID(ctx_cls, "getApplicationContext", "()Landroid/content/Context;");
+        jmethodID get_svc =
+            env->GetMethodID(ctx_cls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
         jmethodID create = env->GetMethodID(wifi_cls, "createMulticastLock",
-                                            "(Ljava/lang/String;)Landroid/net/wifi/WifiManager$MulticastLock;");
+            "(Ljava/lang/String;)Landroid/net/wifi/WifiManager$MulticastLock;");
         jmethodID counted = env->GetMethodID(lock_cls, "setReferenceCounted", "(Z)V");
         g_acquire = env->GetMethodID(lock_cls, "acquire", "()V");
         g_release = env->GetMethodID(lock_cls, "release", "()V");
         if (app_ctx == nullptr || get_svc == nullptr || create == nullptr || counted == nullptr ||
-            g_acquire == nullptr || g_release == nullptr) {
+            g_acquire == nullptr || g_release == nullptr)
+        {
             return false;
         }
         jstring service = env->NewStringUTF("wifi"); /* Context.WIFI_SERVICE */
@@ -135,7 +141,8 @@ bool lock_open(JNIEnv* env) {
 void dns_label(const char* in, char* out, size_t cap) {
     size_t n = 0;
     for (const char* p = in; *p != '\0' && n + 1 < cap; p++) {
-        bool keep = (*p >= '0' && *p <= '9') || (*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z');
+        bool keep =
+            (*p >= '0' && *p <= '9') || (*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z');
         if (keep) {
             out[n++] = *p;
         } else if (n > 0 && out[n - 1] != '-') {
@@ -153,19 +160,22 @@ void dns_label(const char* in, char* out, size_t cap) {
  * to Build.MODEL ("Pixel 7"). Neither read needs a permission. The local
  * ref returned lives in the caller's frame. */
 jstring device_name_string(JNIEnv* env) {
-    jobject activity = (jobject) SDL_GetAndroidActivity();
+    jobject activity = (jobject)SDL_GetAndroidActivity();
     jclass ctx_cls = env->FindClass("android/content/Context");
     jclass set_cls = env->FindClass("android/provider/Settings$Global");
     if (activity != nullptr && ctx_cls != nullptr && set_cls != nullptr) {
-        jmethodID resolver = env->GetMethodID(ctx_cls, "getContentResolver", "()Landroid/content/ContentResolver;");
+        jmethodID resolver =
+            env->GetMethodID(ctx_cls, "getContentResolver", "()Landroid/content/ContentResolver;");
         jmethodID get = env->GetStaticMethodID(set_cls, "getString",
-                                               "(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;");
+            "(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;");
         jstring key = env->NewStringUTF("device_name"); /* Settings.Global.DEVICE_NAME */
         if (resolver != nullptr && get != nullptr && key != nullptr) {
             jobject cr = env->CallObjectMethod(activity, resolver);
             if (!threw(env, "getContentResolver") && cr != nullptr) {
-                jstring name = (jstring) env->CallStaticObjectMethod(set_cls, get, cr, key);
-                if (!threw(env, "Settings.Global.getString") && name != nullptr && env->GetStringLength(name) > 0) {
+                jstring name = (jstring)env->CallStaticObjectMethod(set_cls, get, cr, key);
+                if (!threw(env, "Settings.Global.getString") && name != nullptr &&
+                    env->GetStringLength(name) > 0)
+                {
                     return name;
                 }
             }
@@ -173,8 +183,11 @@ jstring device_name_string(JNIEnv* env) {
     }
     threw(env, "device name lookup");
     jclass build_cls = env->FindClass("android/os/Build");
-    jfieldID model = build_cls != nullptr ? env->GetStaticFieldID(build_cls, "MODEL", "Ljava/lang/String;") : nullptr;
-    jstring name = model != nullptr ? (jstring) env->GetStaticObjectField(build_cls, model) : nullptr;
+    jfieldID model = build_cls != nullptr ?
+                         env->GetStaticFieldID(build_cls, "MODEL", "Ljava/lang/String;") :
+                         nullptr;
+    jstring name =
+        model != nullptr ? (jstring)env->GetStaticObjectField(build_cls, model) : nullptr;
     threw(env, "Build.MODEL");
     return name;
 }
@@ -186,7 +199,7 @@ void pc_android_multicast_lock_acquire(void) {
     if (g_depth++ > 0) {
         return;
     }
-    JNIEnv* env = (JNIEnv*) SDL_GetAndroidJNIEnv();
+    JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
     if (env == nullptr || !lock_open(env)) {
         return; /* the depth still counts, so the release below stays balanced */
     }
@@ -201,7 +214,7 @@ void pc_android_multicast_lock_release(void) {
     if (g_depth == 0 || --g_depth > 0 || g_lock == nullptr) {
         return;
     }
-    JNIEnv* env = (JNIEnv*) SDL_GetAndroidJNIEnv();
+    JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
     if (env == nullptr) {
         return;
     }
@@ -217,7 +230,7 @@ const char* pc_android_device_name(void) {
     std::lock_guard<std::mutex> guard(g_mutex);
     if (!s_done) {
         s_done = true;
-        JNIEnv* env = (JNIEnv*) SDL_GetAndroidJNIEnv();
+        JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
         if (env != nullptr && env->PushLocalFrame(16) == JNI_OK) {
             jstring text = device_name_string(env);
             const char* utf = text != nullptr ? env->GetStringUTFChars(text, nullptr) : nullptr;
