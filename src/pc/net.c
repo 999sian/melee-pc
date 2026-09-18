@@ -852,7 +852,7 @@ static bool resume_begin(uint64_t now) {
     s_rc_ns = now;
     s_rc_sent = false;
     s_red_floor = REDUNDANCY; /* every refill packet costs a round trip */
-    pc_log_line("net: interrupted at frame %d (peer silent %d ms), reconnecting for up to %ld ms",
+    pc_log_line("net: interrupted at frame %d (peer silent %d ms), reconnecting for up to %d ms",
         net.frame, STALL_TIMEOUT_MS, s_rc_window_ms);
     resume_send();
     return true;
