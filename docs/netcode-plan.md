@@ -277,11 +277,17 @@ needs a third party — out of scope by design.
    `pending_mode = GM_ONLINE`; wrap-around at `mnmain.c:2541-2552` uses the
    new last item; add an `AnimLoopSettings` row (`mn_803EB48C`, `:309`) and a
    description (`mn_803EB678`, `:353`, or literal via `HSD_SisLib_803A70A0`).
-   Label: matanim frame 50 in `MnMaAll` is unused but blank → v1 draws
-   "ONLINE" with SIS text at the slot position; v2 patches the texture into the
-   texture-replacement pack path we already ship.
-2. **Online submenu**: new `MENU_KIND_ONLINE` row (rows 7–10 are free,
-   `mnmain.c:1022-1024`): Ranked / Unranked / Direct / LAN / Profile.
+   Label: `MnMaAll` has no blank label frame (frame 50 holds the Name Entry
+   key, so the 6th slot showed a second "Name Entry") → `mn_8022B3A0` hides
+   the slot's label jobj (`cursor_parts[1]`) and `mn_UpdatePcLabels` draws
+   SIS text at the slot position every frame; a texture is v2 via the
+   texture-replacement pack.
+2. **Online submenu** (done): `MENU_KIND_ONLINE = 34` appended to
+   `mn_803EB6B0`/`mn_803EAE8C` (`MENU_KIND_TABLE_LEN`), think and literal
+   labels/descriptions in `src/melee/mn/mnonline.c`: LAN Play / Direct Connect
+   → `gmOnline_SetKind` + `GM_ONLINE`; Ranked / Unranked / Profile are stubs
+   (deny SFX, "Coming soon."). B returns to VS Mode on ONLINE; leaving
+   `GM_ONLINE` lands back on the item you came from (`gmmenumode.c`).
 3. **`GM_ONLINE`** in `GameModeKind` (`gm/forward.h:19-66`), `modes[]` row,
    `gm_Mode_Online_States[] = { LOBBY, CSS, SSS, VS, SUDDEN_DEATH, RESULTS }`
    copying `gm_Mode_Vs_States` (`gmvsmode.c:28-129`). Lobby = `GS_ONLINE_LOBBY`

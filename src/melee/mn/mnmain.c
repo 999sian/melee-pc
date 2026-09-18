@@ -18,6 +18,7 @@
 #include "mnlanguage.h"
 #include "mnmainrule.h"
 #include "mnname.h"
+#include "mnonline.h"
 #include "mnsnap.h"
 #include "mnsound.h"
 #include "mnsoundtest.h"
@@ -98,7 +99,13 @@ static u16 mn_803EAE68[] = {
 static u16 mn_803EAE7C[] = {
     0x2, 0x3, 0x4, 0x9, 0xB, 0xC, 0xD, 0x0,
 };
-static AnimLoopSettings mn_803EAE8C[0x22][3] = {
+#ifdef TARGET_PC
+#define MENU_KIND_TABLE_LEN (MENU_KIND_ONLINE + 1)
+#else
+#define MENU_KIND_TABLE_LEN 0x22
+#endif
+
+static AnimLoopSettings mn_803EAE8C[MENU_KIND_TABLE_LEN][3] = {
     {
         { 0, 99, 0 },
         { 0, 0, 0 },
@@ -269,6 +276,13 @@ static AnimLoopSettings mn_803EAE8C[0x22][3] = {
         { 5850, 5899, 5870 },
         { 5900, 5999, 5920 },
     },
+#ifdef TARGET_PC
+    { /* MENU_KIND_ONLINE: keep the VS. Mode title */
+        { 400, 449, 400 },
+        { 450, 499, 450 },
+        { 500, 599, 500 },
+    },
+#endif
 };
 
 static AnimLoopSettings mn_803EB354 = { 0, 799, 0 };
@@ -312,6 +326,14 @@ static AnimLoopSettings mn_803EB48C[] = {
     { 700, 749, 720 }, /* SEL_VS_ONLINE: reuse the Melee preview */
 #endif
 };
+
+#ifdef TARGET_PC
+/* MENU_KIND_ONLINE preview pane: the Melee (CSS) preview for every item */
+static AnimLoopSettings mn_OnlinePreview[5] = {
+    { 700, 749, 720 }, { 700, 749, 720 }, { 700, 749, 720 },
+    { 700, 749, 720 }, { 700, 749, 720 },
+};
+#endif
 
 static AnimLoopSettings mn_803EB4C8[] = {
     { 1000, 1049, 1020 },
@@ -378,7 +400,7 @@ static GXColor mn_804D4B60 = { 0x9B, 0x41, 0xFF, 0xFF };
 
 GXColor mn_804D4B64 = { 0xFF, 0xC8, 0x00, 0xFF };
 
-MenuKindData mn_803EB6B0[0x22] = {
+MenuKindData mn_803EB6B0[MENU_KIND_TABLE_LEN] = {
     {
         mn_803EB3FC,
         0,
@@ -621,6 +643,15 @@ MenuKindData mn_803EB6B0[0x22] = {
         0x01,
         NULL,
     },
+#ifdef TARGET_PC
+    { /* MENU_KIND_ONLINE: labels and descriptions come from mnonline.c */
+        mn_OnlinePreview,
+        40,
+        NULL,
+        ARRAY_SIZE(mn_OnlinePreview),
+        mnOnline_Think,
+    },
+#endif
 };
 
 u8 mn_802295AC(void)
@@ -776,21 +807,22 @@ static void mn_80229A7C(MainMenuData* data, MenuKind menu_kind, int selection)
     }
     sis_idx = mn_803EB6B0[menu_kind].description_indices;
 #ifdef TARGET_PC
-    if (menu_kind == MENU_KIND_VS && selection == SEL_VS_ONLINE) {
-        /* ponytail: literal text; SdMenu has no SIS string for this entry. */
-        text = HSD_SisLib_803A6754(0, mn_804D6BB4);
-        data->description = text;
-        text->pos_x = -9.5f;
-        text->pos_y = 9.1f;
-        text->pos_z = 17.0f;
-        /* left-anchored, matching the other descriptions */
-        {
-            int e = HSD_SisLib_803A6B98(
-                text, 0.0f, 0.0f,
-                "Play against another PC on the local network.");
-            HSD_SisLib_803A7548(text, e, 0.4f, 0.4f);
+    {
+        const char* literal = mnOnline_Description(menu_kind, selection);
+        if (literal != NULL) {
+            /* ponytail: literal text; SdMenu has no SIS strings for PC
+             * entries. Sized and placed to sit where the stock ones do. */
+            text = HSD_SisLib_803A6754(0, mn_804D6BB4);
+            data->description = text;
+            text->pos_x = -9.0f;
+            text->pos_y = 9.3f;
+            text->pos_z = 17.0f;
+            text->default_kerning = 1;
+            text->font_size.x = 0.022f;
+            text->font_size.y = 0.022f;
+            HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%s", literal);
+            return;
         }
-        return;
     }
 #endif
     if (sis_idx != 0) {
@@ -809,41 +841,53 @@ static inline void mn_80229A7C_dontinline(void* arg0, int arg1, int arg2)
 }
 
 #ifdef TARGET_PC
-/* ponytail: the VS submenu's Online label is SIS text drawn over the 6th
- * slot (its matanim label frame is blank) every frame; a real texture comes
- * with the replacement pack. Freed with the description on menu slide-out. */
-static int s_online_entry;
-
-static void mn_UpdateOnlineLabel(MainMenuData* data, bool alive)
+/* ponytail: PC-only entries (mnonline.h) have no label texture. mn_8022B3A0
+ * hides their slot's matanim label and this draws SIS text over the slot
+ * every frame (the tree animates). Freed with the description on slide-out. */
+static void mn_UpdatePcLabels(MainMenuData* data, bool alive)
 {
-    static const GXColor hovered = { 0xFF, 0xFF, 0xFF, 0xFF };
-    static const GXColor idle = { 0x96, 0x96, 0xB4, 0xFF };
-    Vec3 pos;
+    static const GXColor hovered = { 0x28, 0x28, 0x28, 0xFF };
+    static const GXColor idle = { 0xFF, 0xD2, 0x50, 0xFF };
+    const float label_size = 0.033f;
+    int i;
 
-    if (!alive || data->menu_kind != MENU_KIND_VS) {
-        if (data->online_label != NULL) {
-            HSD_SisLib_803A5CC4(data->online_label);
-            data->online_label = NULL;
+    if (alive && data->description != NULL) {
+        const char* notice = mnOnline_TakeNotice();
+        if (notice != NULL) {
+            HSD_SisLib_803A70A0(data->description, 0, "%s", notice);
         }
-        return;
     }
-    if (data->online_label == NULL) {
-        HSD_Text* text = HSD_SisLib_803A6754(0, mn_804D6BB4);
-        data->online_label = text;
-        text->default_alignment = 1;
-        text->font_size.x = 0.013f;
-        text->font_size.y = 0.013f;
-        s_online_entry = HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "ONLINE");
+    for (i = 0; i < (int) ARRAY_SIZE(data->pc_label); i++) {
+        const char* label = alive ? mnOnline_Label(data->menu_kind, i) : NULL;
+        HSD_Text* text = data->pc_label[i];
+        Vec3 pos;
+
+        if (label == NULL) {
+            if (text != NULL) {
+                HSD_SisLib_803A5CC4(text);
+                data->pc_label[i] = NULL;
+            }
+            continue;
+        }
+        if (text == NULL) {
+            text = HSD_SisLib_803A6754(0, mn_804D6BB4);
+            data->pc_label[i] = text;
+            text->default_alignment = 1;
+            text->default_kerning = 1;
+            text->font_size.x = label_size;
+            text->font_size.y = label_size;
+            HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%s", label);
+        }
+        lb_8000B1CC(data->tree[mn_803EAE68[i]], NULL, &pos);
+        text->pos_x = pos.x;
+        /* the entry anchors its top edge; the glyph cell is 32 canvas px */
+        text->pos_y = -pos.y - 16.0f * label_size;
+        text->pos_z = pos.z;
+        HSD_SisLib_803A74F0(text, 0,
+                            (GXColor*) (mn_804A04F0.hovered_selection == i
+                                            ? &hovered
+                                            : &idle));
     }
-    lb_8000B1CC(data->tree[mn_803EAE68[SEL_VS_ONLINE]], NULL, &pos);
-    data->online_label->pos_x = pos.x;
-    data->online_label->pos_y = -pos.y;
-    data->online_label->pos_z = pos.z;
-    HSD_SisLib_803A74F0(data->online_label, s_online_entry,
-                        (GXColor*) (mn_804A04F0.hovered_selection ==
-                                            SEL_VS_ONLINE
-                                        ? &hovered
-                                        : &idle));
 }
 #endif
 
@@ -1424,9 +1468,9 @@ void fn_8022AFEC(HSD_GObj* gp)
         break;
     }
 #ifdef TARGET_PC
-    mn_UpdateOnlineLabel(final_data,
-                         final_data->state != MENU_STATE_EXIT_FROM &&
-                             final_data->state != MENU_STATE_ENTER_FROM);
+    mn_UpdatePcLabels(final_data,
+                      final_data->state != MENU_STATE_EXIT_FROM &&
+                          final_data->state != MENU_STATE_ENTER_FROM);
 #endif
     if (var_r26 != 0) {
         data->menu_kind = mn_804A04F0.cur_menu;
@@ -1507,7 +1551,9 @@ HSD_GObj* mn_8022B3A0(u8 state)
     user_data->state = state;
     user_data->description = NULL;
 #ifdef TARGET_PC
-    user_data->online_label = NULL;
+    for (idx = 0; idx < (int) ARRAY_SIZE(user_data->pc_label); idx++) {
+        user_data->pc_label[idx] = NULL;
+    }
 #endif
     for (idx = 0; idx < (int) ARRAY_SIZE(user_data->tree); idx++) {
         lb_80011E24(root_jobj, &user_data->tree[idx], idx, -1);
@@ -1581,6 +1627,12 @@ HSD_GObj* mn_8022B3A0(u8 state)
             if (i != hovered_selection) {
                 HSD_JObjSetFlagsAll(cursor_parts[4], JOBJ_HIDDEN);
             }
+#ifdef TARGET_PC
+            if (mnOnline_Label(mn_804A04F0.cur_menu, i) != NULL) {
+                /* no label texture; mn_UpdatePcLabels draws SIS text */
+                HSD_JObjSetFlagsAll(cursor_parts[1], JOBJ_HIDDEN);
+            }
+#endif
             HSD_JObjAddChild(option_jobjs[unlocked_index], cursor_jobj);
         }
     }
@@ -1806,6 +1858,9 @@ int mn_8022C010(int menu_kind, int selection)
     case MENU_KIND_RULES_ITEMS:
     case MENU_KIND_RULES_STAGE:
     case MENU_KIND_NAME_ENTRY:
+#ifdef TARGET_PC
+    case MENU_KIND_ONLINE:
+#endif
         return 1;
     case MENU_KIND_TOY:
         return 2;
@@ -2571,9 +2626,7 @@ void mn_8022D594(HSD_GObj* gp)
 #ifdef TARGET_PC
         case SEL_VS_ONLINE:
             sfxForward();
-            data = gm_GetCurrentSceneExitData();
-            data->pending_mode = GM_ONLINE;
-            gm_801A4B60();
+            mn_80229894(MENU_KIND_ONLINE, SEL_ONLINE_LAN, 1);
             break;
 #endif
         case SEL_VS_SPECIAL:
