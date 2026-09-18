@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: FAQ and known issues
+    url: https://999sian.github.io/melee-pc/#faq
+    about: Supported disc, Windows first run, Intel iGPUs, shader stutter, Android requirements, where the log is.
+  - name: Discord
+    url: https://discord.gg/aurt34svq
+    about: Quick questions, testing, and "is this a known thing?".
