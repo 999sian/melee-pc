@@ -1,3 +1,4 @@
+#include "gmboot.h"
 
 #include "gm_unsplit.h"
 #include "gmmain_lib.h"
@@ -6,6 +7,10 @@
 #include <melee/lb/lbcardnew.h>
 #include <melee/lb/lblanguage.h>
 #include <melee/ty/toy.h>
+#ifdef TARGET_PC
+#include <stdlib.h>
+#include <string.h>
+#endif
 
 /* 1BF948 */ static void bootOnLoad(GameModeState*);
 /* 1BF9A8 */ static void bootOnLeave(GameModeState*);
@@ -29,6 +34,44 @@ struct leaveData {
 
 static struct loadData load_data;
 static struct leaveData leave_data;
+
+#ifdef TARGET_PC
+/* MELEE_BOOT_SCENE=<title|vs|classic|training>: skip the whole menu walk and
+ * boot into one scene with a fixed setup. Menu navigation here can only be
+ * driven by synthetic input, which misses keypresses often enough that an
+ * automated run cannot rely on it (see tools/smoke_test.py).
+ *
+ * vs maps to GM_DEBUG_VS because that mode already *is* a fixed direct start
+ * (onEnterDebugVs in gmvsmode.c fills the StartMeleeData itself). classic and
+ * training still open on a character-select state, so their on_load hooks
+ * seed the pick and jump past it. */
+u8 pc_boot_scene(void)
+{
+    static int done;
+    static u8 scene = GM_COUNT;
+
+    if (!done) {
+        const char* want = getenv("MELEE_BOOT_SCENE");
+        done = 1;
+        if (want == NULL || want[0] == '\0') {
+            /* nothing */
+        } else if (strcmp(want, "title") == 0) {
+            scene = GM_TITLE;
+        } else if (strcmp(want, "vs") == 0) {
+            scene = GM_DEBUG_VS;
+        } else if (strcmp(want, "classic") == 0) {
+            scene = GM_CLASSIC;
+        } else if (strcmp(want, "training") == 0) {
+            scene = GM_TRAINING;
+        } else {
+            OSReport("MELEE_BOOT_SCENE: unknown scene '%s'; valid values are "
+                     "title, vs, classic, training\n",
+                     want);
+        }
+    }
+    return scene;
+}
+#endif
 
 GameModeState gm_Mode_Boot_States[] = {
     {

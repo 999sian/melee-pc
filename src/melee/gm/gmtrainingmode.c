@@ -3,6 +3,9 @@
 #include <melee/lb/forward.h>
 
 #include "gm_1884.h"
+#include "gmboot.h"
+#include <melee/ft/forward.h>
+#include <melee/gr/forward.h>
 #include "gm_1A3F.h"
 #include "gm_1B03.h"
 #include "gm_unsplit.h"
@@ -279,4 +282,48 @@ void gm_Mode_Training_OnLoad(void)
 {
     gm_804D68C0 = gm_801677F0();
     gm_804D68C1 = 0;
+#ifdef TARGET_PC
+    /* MELEE_BOOT_SCENE=training: states 0 and 1 are the CSS and SSS, both of
+     * which need stick + Start. State 2 takes its whole setup out of
+     * VsModeData (see gm_801B1F70), so filling that here is enough to reach
+     * Training with no synthetic input.
+     *
+     * GM_TRAINING is registered preloaded, so lbDvd keeps the preload region
+     * reserved and the CSS is the thing that normally tells it which
+     * characters to hold. Without that the region stays full of the
+     * gm_InitVsMode defaults and Mario's 1.2 MB PlMrAJ has nowhere to go:
+     * "lbMemory: no room for 1259328 bytes ... in ARAM". Publish the real
+     * cast the way gmOpeningMode does. */
+    if (pc_boot_scene() == GM_TRAINING) {
+        VsModeData* vs = &gmMainLib_804D3EE0->modes.unk_D10;
+        struct GameCache* cache;
+        int i;
+
+        gm_SetupRulesDefaults(&vs->start.rules);
+        vs->start.rules.stkind = St_Kind_Battle;
+        gm_SetupAllPlayerDefaults(vs->start.players);
+        vs->start.players[0].ckind = CKind_Mario;
+        vs->start.players[0].color = 0;
+        vs->start.players[0].slot = gm_804D68C0 + 1;
+        vs->start.players[1].ckind = CKind_Link;
+        vs->start.players[1].color = 1;
+        vs->start.players[1].cpu_kind = 0;
+        vs->start.players[1].slot = 2;
+        for (i = 2; i < 4; i++) {
+            vs->start.players[i].ckind = ChKind_None;
+            vs->start.players[i].slot_type = Gm_PKind_NA;
+        }
+
+        cache = &lbDvd_GetPreloadCacheScene()->game_cache;
+        lbDvd_80018C6C();
+        for (i = 0; i < 4; i++) {
+            cache->entries[i].char_id = vs->start.players[i].ckind;
+            cache->entries[i].color = vs->start.players[i].color;
+        }
+        cache->stkind = vs->start.rules.stkind;
+        lbDvd_80018254();
+
+        gm_SetGameModeStateId(2);
+    }
+#endif
 }

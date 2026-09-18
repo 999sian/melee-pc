@@ -34,6 +34,10 @@ static bool s_in_frame;
 void pc_os_run_alarms(void);
 void aurora_heap_check(void);
 
+uint32_t pc_gfx_prewarm(uint32_t max_wait_ms) {
+    return aurora_wait_pipelines(max_wait_ms);
+}
+
 void pc_frame_boundary(void) {
     static int fps_log = -1;
     static u64 fps_t0;
@@ -117,6 +121,20 @@ void pc_frame_boundary(void) {
      * frame instead of clearing the EFB to black underneath the menu. */
     aurora_preserve_frame_buffer(pc_menu_is_open());
     pc_keyboard_apply();
+    /* MELEE_EXIT_AFTER_FRAMES=<n>: bound a scripted run without needing
+     * synthetic input, which is unreliable under Xwayland. Setting
+     * pc_exit_requested instead of exiting here on purpose: the window-close
+     * path is the one that runs atexit(pc_shutdown_once), and skipping it is
+     * what makes Dawn's static destructors race the live device. */
+    static int exit_after = -1;
+    if (exit_after < 0) {
+        const char* n = getenv("MELEE_EXIT_AFTER_FRAMES");
+        exit_after = n != NULL ? atoi(n) : 0;
+    }
+    if (exit_after > 0 && s_retrace_count >= (u32)exit_after && !pc_exit_requested) {
+        pc_log_line("MELEE_EXIT_AFTER_FRAMES: reached frame %u, exiting", s_retrace_count);
+        pc_exit_requested = true;
+    }
     if (pc_exit_requested) {
         exit(0);
     }
@@ -163,6 +181,9 @@ void pc_frame_boundary(void) {
     s_in_frame = true;
 
     s_retrace_count++;
+    /* Age of the 1000 Hz sample the sim is about to consume, before the pad
+     * alarms (fn_800195FC -> PADRead) fire from pc_os_run_alarms. */
+    pc_input_latency_record();
     pc_os_run_alarms();
     if (s_pre_cb) {
         s_pre_cb(s_retrace_count);
