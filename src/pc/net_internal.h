@@ -145,6 +145,7 @@ typedef struct Ack {
 /* Reliable lobby message (stop-and-wait, net_reliable.c). */
 #define REL_MAX 256
 #define REL_RESUME 0x12    /* net.c's resume exchange, dispatched by on_rel */
+#define REL_DELAY 0x13     /* the host's input-delay pick, dispatched by on_rel */
 typedef struct Rel {
     Hdr h;                 /* 'R' */
     uint8_t seq;
@@ -173,15 +174,18 @@ typedef struct Rules {
     uint64_t item_mask;
     uint32_t stage_mask;
     uint8_t frozen_stadium;
+    uint32_t unlock_hash;  /* unlock_hash_now() after the sender forced its masks */
     uint32_t hash;         /* rules_hash() of the wire image above; the guest recomputes it */
 } __attribute__((packed)) Rules;
 
 /* Payload of the READY reply (net_handshake.c): the guest's own nonce and
  * the host's echoed back, so the host can tell its live peer from a replay
- * of an older session's READY. */
+ * of an older session's READY. Its unlock_hash lets the host refuse a
+ * mismatch at once instead of waiting out the 15 s timeout. */
 typedef struct Ready {
     uint64_t nonce;        /* the guest's */
     uint64_t echo;         /* Rules.nonce as the guest received it */
+    uint32_t unlock_hash;  /* the guest's forced unlock state */
     uint32_t hash;         /* ready_hash() of the wire image above */
 } __attribute__((packed)) Ready;
 
@@ -196,15 +200,24 @@ typedef struct Resume {
     int32_t frame;         /* the frame its game thread is parked on (diagnostics) */
 } __attribute__((packed)) Resume;
 
+/* Payload of REL_DELAY (net_sync.c): the host's input delay and the frame
+ * both peers switch to it on. Two 32-bit fields, so htonl/ntohl is the
+ * whole codec. */
+typedef struct DelayMsg {
+    uint32_t delay;
+    uint32_t frame;
+} __attribute__((packed)) DelayMsg;
+
 _Static_assert(sizeof(WirePad) == 8, "wire layout");
 _Static_assert(sizeof(Hdr) == 7, "wire layout");
 _Static_assert(sizeof(Packet) == 26 + REDUNDANCY * 8, "wire layout");
 _Static_assert(sizeof(Ack) == 13, "wire layout");
 _Static_assert(sizeof(Rel) == 11 + REL_MAX, "wire layout");
 _Static_assert(sizeof(RelAck) == 8 && sizeof(Bye) == 8, "wire layout");
-_Static_assert(sizeof(Rules) == 16 + sizeof(GameRules) + 18, "wire layout");
-_Static_assert(sizeof(Ready) == 20, "wire layout");
+_Static_assert(sizeof(Rules) == 16 + sizeof(GameRules) + 22, "wire layout");
+_Static_assert(sizeof(Ready) == 24, "wire layout");
 _Static_assert(sizeof(Resume) == 20 && sizeof(Resume) % 4 == 0, "wire layout");
+_Static_assert(sizeof(DelayMsg) == 8, "wire layout");
 
 /* Datagrams parked by the simulator; release_ns 0 marks a free slot. Sent in
  * release order, so plain delay stays FIFO and jitter reorders. */
@@ -243,6 +256,12 @@ typedef struct Snapshot {
 
 enum { HS_IDLE, HS_PENDING, HS_DONE, HS_FAILED };
 
+/* MELEE_NET_SYNC: "on" (default) is the time sync this file documents;
+ * "off" measures a run with no skip/advance at all; "legacy" restores the
+ * pre-fix skip that discarded a queued pad sample, which is the regression
+ * test for the desync it caused. */
+enum { SYNC_ON, SYNC_OFF, SYNC_LEGACY };
+
 struct NetSession {
     /* session (net.c); active and sock flip under tx_lock */
     bool active;
@@ -277,10 +296,15 @@ struct NetSession {
     /* time sync (net_sync.c) */
     uint32_t ping_us;                    /* smoothed RTT */
     bool delay_auto;
-    int delay_next;                      /* auto delay wanted; applied outside a fight */
+    int delay_next;                      /* the host's pick, applied at delay_at */
+    int32_t delay_at;                    /* frame both peers switch delay on (0: none) */
     int32_t offset_last;
     unsigned skips;
     int advance_left;
+    int sync_mode;                       /* SYNC_* from MELEE_NET_SYNC */
+    bool pad_reused;                     /* this present queued no new physical sample */
+    unsigned pad_reuse;                  /* how often that happened */
+    unsigned pad_empty;                  /* ticks that ran with an empty pad queue (a bug) */
 
     /* sync test (net_snapshot.c) */
     bool synctest;
@@ -351,6 +375,9 @@ void offset_note(int32_t off);
 void jitter_note(uint32_t rtt);
 uint32_t jitter_us(void);
 void time_sync(void);
+/* The host's REL_DELAY announcement (on_rel dispatches it here, like
+ * REL_RESUME); game thread. */
+void net_delay_rel(const void* payload, int len);
 void sync_reset(void);
 
 /* ---- net_snapshot.c --------------------------------------------------- */
@@ -367,6 +394,7 @@ void snap_stats_report(void);
 uint32_t frame_checksum(const PADStatus* head);
 void record_state(const PADStatus* head, int32_t frame);
 void dump_states_around(int32_t frame);
+const char* state_line(int32_t frame);    /* one frame's recorded state line, "" if gone */
 void record_open(void);
 bool record_active(void);
 void replay_feed(PADStatus* head);

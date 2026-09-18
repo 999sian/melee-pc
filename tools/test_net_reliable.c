@@ -33,6 +33,12 @@ void net_resume_rel(const void* payload, int len) {
     s_resume_len = len;
     (void) payload;
 }
+static int s_delay_msgs;
+void net_delay_rel(const void* payload, int len) {
+    s_delay_msgs++;
+    (void) payload;
+    (void) len;
+}
 void pc_log_line(const char* fmt, ...) {
     s_unexpected += strstr(fmt, "unexpected") != NULL;
     s_resend_logs += strstr(fmt, "resend #") != NULL;

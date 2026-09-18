@@ -8,7 +8,10 @@
  * nonces; a RULES or READY captured off one session is refused in the next;
  * a second, conflicting RULES after the handshake is dropped and logged
  * once; a tampered hash is refused; a forged READY cannot end a live
- * handshake. From the repo root:
+ * handshake; two sides with *different* unlock progress both end up pinned
+ * to the same forced state and complete (checks 1, 12), while a peer whose
+ * forced state hashes differently is refused on either RULES or READY with
+ * the player's own masks put back (checks 11, 13). From the repo root:
  *   cc -DTARGET_PC=1 -DMELEE_PC=1 -DNDEBUG -std=gnu11 \
  *      -I extern/aurora/include -I src -I src/sdk_include \
  *      -I build/_deps/sdl-src/include \
@@ -44,6 +47,16 @@ static GameRules s_game;
 static struct GamePrefs s_prefs;
 static u32 s_seed_store;
 u32* HSD_RandSeedPtr = &s_seed_store;
+
+/* The unlock surface (src/melee/gm/gmmain_lib.c behind the real thing): one
+ * scalar standing in for the save-data masks, so a test can give the two
+ * sides different starting progress, and s_unlock_all can be moved to model
+ * a peer whose build disagrees about what "all unlocked" means. */
+static uint64_t s_unlock_live;
+static uint64_t s_unlock_all = 0x07ff07ffff010101ull;
+uint64_t pc_unlock_state_get(void) { return s_unlock_live; }
+void pc_unlock_state_set(uint64_t s) { s_unlock_live = s; }
+uint64_t pc_unlock_state_all(void) { return s_unlock_all; }
 
 Uint64 SDL_GetTicksNS(void) { return s_now; }
 void recv_inputs(void) {}
@@ -93,6 +106,9 @@ typedef struct Side {
     uint32_t seed, session;
     int32_t start_frame, ck_from;
     int local, remote;
+    /* the side's own save data plus what the module saved off it */
+    uint64_t unlock_live, unlock_orig;
+    bool unlock_saved;
 } Side;
 
 static void side_save(Side* s) {
@@ -113,6 +129,9 @@ static void side_save(Side* s) {
     s->ck_from = net.ck_from;
     s->local = net.local;
     s->remote = net.remote;
+    s->unlock_live = s_unlock_live;
+    s->unlock_orig = s_unlock_orig;
+    s->unlock_saved = s_unlock_saved;
 }
 
 static void side_load(const Side* s) {
@@ -133,10 +152,16 @@ static void side_load(const Side* s) {
     net.ck_from = s->ck_from;
     net.local = s->local;
     net.remote = s->remote;
+    s_unlock_live = s->unlock_live;
+    s_unlock_orig = s->unlock_orig;
+    s_unlock_saved = s->unlock_saved;
 }
 
 /* Load a side that has just connected to session `id` and learned nothing:
- * HS_IDLE, no nonce, no rules. `local` 1 is the guest, 0 the host. */
+ * HS_IDLE, no nonce, no rules, and its own untouched unlock progress
+ * (s_fresh_unlock, which a test moves to make the two sides differ).
+ * `local` 1 is the guest, 0 the host. */
+static uint64_t s_fresh_unlock = 0x0003000100000000ull; /* partial progress */
 static void load_fresh(uint32_t id, int local) {
     Side s = { 0 };
     s.hs = HS_IDLE;
@@ -144,6 +169,7 @@ static void load_fresh(uint32_t id, int local) {
     s.start_frame = -1;
     s.local = local;
     s.remote = 1 - local;
+    s.unlock_live = s_fresh_unlock;
     side_load(&s);
 }
 
@@ -162,8 +188,32 @@ static void forge_rules(uint8_t* out, const uint8_t* from, uint32_t session, uin
     memcpy(out, &ru, sizeof ru);
 }
 
-static void forge_ready(uint8_t* out, uint32_t session, uint64_t nonce, uint64_t echo) {
-    Ready rd = { nonce, echo, 0 };
+/* What unlock_hash_now() will return once a side has forced its masks: the
+ * value a peer that agrees puts on the wire, computable before forcing. */
+static uint32_t hash_of_all(void) {
+    uint64_t was = s_unlock_live;
+    uint32_t h;
+    s_unlock_live = s_unlock_all;
+    h = unlock_hash_now();
+    s_unlock_live = was;
+    return h;
+}
+
+/* Rewrite a packed RULES' unlock hash and re-bind it: a peer whose build
+ * disagrees about what "all unlocked" is, with everything else identical. */
+static void reforge_unlock(uint8_t* buf, uint32_t session, uint32_t unlock_hash) {
+    Rules ru;
+    memcpy(&ru, buf, sizeof ru);
+    wire_rules(&ru);
+    ru.unlock_hash = unlock_hash;
+    ru.hash = rules_hash(ru, session);
+    wire_rules(&ru);
+    memcpy(buf, &ru, sizeof ru);
+}
+
+static void forge_ready(uint8_t* out, uint32_t session, uint64_t nonce, uint64_t echo,
+                        uint32_t unlock_hash) {
+    Ready rd = { nonce, echo, unlock_hash, 0 };
     rd.hash = ready_hash(rd, session);
     wire_ready(&rd);
     memcpy(out, &rd, sizeof rd);
@@ -177,7 +227,7 @@ int main(void) {
     Side host, guest;
 
     /* every check below depends on these sizes being the wire ones */
-    assert(sizeof(Rules) == 16 + sizeof(GameRules) + 18 && sizeof(Ready) == 20);
+    assert(sizeof(Rules) == 16 + sizeof(GameRules) + 22 && sizeof(Ready) == 24);
 
     s_game.mode = 1;
     s_game.time_limit = 8;
@@ -191,6 +241,7 @@ int main(void) {
     /* ---- 1. a correct exchange completes and binds both nonces -------- */
     net.active = true;
     net.tick_frame = 300;
+    s_fresh_unlock = 0x0003000100000000ull;  /* the host's own save progress */
     load_fresh(sess_a, 0);
     assert(!pc_net_host_match(1234, &sf));  /* queued RULES, now waiting for READY */
     assert(net.hs == HS_PENDING);
@@ -199,7 +250,17 @@ int main(void) {
     host_nonce = s_nonce_local;
     assert(host_nonce != 0);
     side_save(&host);
+    /* the host pinned its own masks before hashing, and RULES carries that */
+    assert(s_unlock_live == s_unlock_all && s_unlock_saved);
+    assert(s_unlock_orig == 0x0003000100000000ull);
+    {
+        Rules ru;
+        memcpy(&ru, rules_a, sizeof ru);
+        wire_rules(&ru);
+        assert(ru.unlock_hash == unlock_hash_now() && ru.unlock_hash != 0);
+    }
 
+    s_fresh_unlock = 0x000000ff00000000ull;  /* the guest's differs: the regression */
     load_fresh(sess_a, 1);
     s_out_len = -1;
     handshake_msg(REL_RULES, rules_a, (int) sizeof rules_a);
@@ -216,7 +277,10 @@ int main(void) {
         wire_ready(&rd);
         assert(rd.nonce == guest_nonce && rd.echo == host_nonce);
         assert(rd.hash == ready_hash(rd, sess_a));
+        assert(rd.unlock_hash == unlock_hash_now());
     }
+    /* both peers now hold the same unlock state, each with its own saved */
+    assert(s_unlock_live == s_unlock_all && s_unlock_orig == 0x000000ff00000000ull);
     side_save(&guest);
 
     side_load(&host);
@@ -312,7 +376,7 @@ int main(void) {
         s_logn = 0;
 
         /* right hash for this session, wrong echo: an off-path forgery */
-        forge_ready(k, sess_c, 0x1111111111111111ull, hn ^ 1u);
+        forge_ready(k, sess_c, 0x1111111111111111ull, hn ^ 1u, unlock_hash_now());
         handshake_msg(REL_READY, k, (int) sizeof k);
         assert(net.hs == HS_PENDING && s_nonce_peer == 0);
         assert(log_count("net: READY ignored (echoed nonce mismatch)") == 1);
@@ -329,7 +393,7 @@ int main(void) {
         assert(s_logn == 2);
 
         /* the genuine one still completes the handshake afterwards */
-        forge_ready(k, sess_c, 0x2222222222222222ull, hn);
+        forge_ready(k, sess_c, 0x2222222222222222ull, hn, unlock_hash_now());
         handshake_msg(REL_READY, k, (int) sizeof k);
         assert(net.hs == HS_DONE && s_nonce_peer == 0x2222222222222222ull);
         printf("ok 7: forged and replayed READY dropped (handshake stays PENDING), real one completes\n");
@@ -360,6 +424,66 @@ int main(void) {
         handshake_msg(REL_RULES, rules_a, (int) sizeof rules_a);
         assert(net.hs == HS_IDLE && log_count("net: RULES ignored (we host)") == 1);
         printf("ok 10: RULES arriving at the host refused\n");
+    }
+
+    /* ---- 6. unlock state the two sides disagree on ---------------------
+     * Both sides write pc_unlock_state_all() before hashing, so the hashes
+     * match whatever save progress each started from (checked in 1 above,
+     * where the two differ). A mismatch therefore means the two builds
+     * disagree about what "all unlocked" is, i.e. one peer would keep a
+     * reader saying "locked" and draw one HSD_Rand fewer: refuse. */
+    {
+        uint8_t ru_bad[sizeof(Rules)];
+        uint32_t peer_hash;
+
+        /* the guest refuses a RULES whose unlock hash is not what it got */
+        net.tick_frame = 300;
+        s_fresh_unlock = 0x0003000100000000ull;
+        load_fresh(sess_b, 1);
+        forge_rules(ru_bad, rules_a, sess_b, 0x5555555555555555ull, 777, 310);
+        reforge_unlock(ru_bad, sess_b, hash_of_all() ^ 0x1u);
+        s_logn = 0;
+        s_out_len = -1;
+        handshake_msg(REL_RULES, ru_bad, (int) sizeof ru_bad);
+        assert(net.hs == HS_FAILED);
+        assert(log_count("net: RULES rejected: unlock state mismatch") == 1);
+        assert(s_out_len == -1);                  /* no READY: nothing agreed */
+        assert(net.seed == 0 && net.start_frame == -1);
+        /* and the refusal left the player's own progress alone */
+        assert(!s_unlock_saved && s_unlock_live == 0x0003000100000000ull);
+        printf("ok 11: RULES with a differing unlock state refused, own masks restored\n");
+
+        /* the same set with the guest's own hash is accepted: it was the
+         * unlock comparison that refused above, not anything else */
+        forge_rules(ru_bad, rules_a, sess_b, 0x5555555555555555ull, 777, 310);
+        reforge_unlock(ru_bad, sess_b, hash_of_all());
+        load_fresh(sess_b, 1);
+        s_logn = 0;
+        s_out_len = -1;
+        handshake_msg(REL_RULES, ru_bad, (int) sizeof ru_bad);
+        assert(net.hs == HS_DONE && net.seed == 777);
+        assert(s_out_type == REL_READY && s_unlock_live == s_unlock_all);
+        printf("ok 12: same RULES with the matching unlock state accepted\n");
+
+        /* the host refuses a READY whose unlock hash differs, at once */
+        net.tick_frame = 300;
+        load_fresh(sess_c, 0);
+        assert(!pc_net_host_match(99, &sf));
+        peer_hash = unlock_hash_now() ^ 0x2u;
+        {
+            uint8_t k[sizeof(Ready)];
+            forge_ready(k, sess_c, 0x3333333333333333ull, s_nonce_local, peer_hash);
+            s_logn = 0;
+            handshake_msg(REL_READY, k, (int) sizeof k);
+            assert(net.hs == HS_FAILED);
+            assert(log_count("net: READY rejected: unlock state mismatch") == 1);
+            assert(s_logn == 1);
+        }
+        /* rules_restore at disconnect puts the host's own masks back */
+        rules_restore();
+        assert(!s_unlock_saved && s_unlock_live == 0x0003000100000000ull);
+        assert(log_count("net: unlock state restored") == 1);
+        printf("ok 13: READY with a differing unlock state refused, restore undoes the force\n");
     }
 
     printf("test_net_handshake: all checks passed\n");

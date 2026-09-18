@@ -101,12 +101,14 @@ void wire_rules(Rules* ru) {
     be32(&ru->game.unk_14);
     be64(&ru->item_mask);
     be32(&ru->stage_mask);
+    be32(&ru->unlock_hash);
     be32(&ru->hash);
 }
 
 void wire_ready(Ready* rd) {
     be64(&rd->nonce);
     be64(&rd->echo);
+    be32(&rd->unlock_hash);
     be32(&rd->hash);
 }
 

@@ -1,5 +1,9 @@
 #include "efasync.h"
 
+#ifdef TARGET_PC
+#include <pc/net.h>
+#endif
+
 #include <math.h>
 #include <stdarg.h>
 
@@ -1299,6 +1303,17 @@ void efAsync_LoadSync(int idx)
     if (lookup->data) {
         return;
     }
+#ifdef TARGET_PC
+    /* A tick that loads an effect archive cannot be re-simulated: it
+     * allocates from a game heap and fills a bank the effects then index.
+     * The async path reaches pc_net_note_io() through HSD_DevComRequest
+     * (baselib/devcom.c), but this one does not when the PC file cache
+     * answers it (lbFile_8001668C returns before the request), and cache
+     * warmth is per machine -- so without this the two peers would raise
+     * the rollback barrier on different frames. Kirby's copy ability loads
+     * here mid-match (ftkirby.c:2800). */
+    pc_net_note_io();
+#endif
     {
         bool chk = lbArchive_80017040(NULL, lookup->ef_DAT_file, &spC,
                                       lookup->effDataTable_name, NULL);

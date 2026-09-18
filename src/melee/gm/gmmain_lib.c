@@ -1,6 +1,8 @@
 #include "gmmain_lib.h"
 #ifdef TARGET_PC
+#include "pc/pc.h"
 #include "pc/region.h"
+#include <dolphin/card.h>
 #endif
 
 #include <Runtime/platform.h>
@@ -9,6 +11,7 @@
 
 #include "forward.h"
 #include "gm_unsplit.h"
+#include "gm_1601.h"
 #include "gmhomerun.h"
 #include "types.h"
 #include <dolphin/os/OSReset.h>
@@ -948,6 +951,49 @@ struct gmm_x1868_1A8_t* gmMainLib_8015EDC8(void)
     return &gmMainLib_GetCardData()->save_data.unk_1A8;
 }
 
+#ifdef TARGET_PC
+/* ---- unlock state as one scalar (pc/pc.h) -----------------------------
+ * Everything the unlock predicates in gm_1601.c read, plus the three
+ * gm_16F1.c latches derived from them, packed so netplay can snapshot,
+ * force and restore it as a unit and hash it onto the wire. The layout is
+ * part of the netplay wire contract (PC_NET_PROTO_VERSION): changing it
+ * changes pc_unlock_state_all(), which both peers compare. */
+#define UNLOCK_PACK(chars, stages, features, l4, l5, l6)                     \
+    ((u64) (chars) << 48 | (u64) (stages) << 32 | (u64) (features) << 24 |   \
+     (u64) ((l4) != 0) << 16 | (u64) ((l5) != 0) << 8 | (u64) ((l6) != 0))
+
+u64 pc_unlock_state_get(void)
+{
+    GmSaveData* sd = gmMainLib_GetSaveData();
+    return UNLOCK_PACK(sd->unlocked_characters, sd->x186A, sd->x186C,
+                       sd->unk_1A8.x4, sd->unk_1A8.x5, sd->unk_1A8.x6);
+}
+
+void pc_unlock_state_set(u64 state)
+{
+    GmSaveData* sd = gmMainLib_GetSaveData();
+    sd->unlocked_characters = (u16) (state >> 48);
+    sd->x186A = (u16) (state >> 32);
+    sd->x186C = (u8) (state >> 24);
+    sd->unk_1A8.x4 = (u8) (state >> 16 & 1);
+    sd->unk_1A8.x5 = (u8) (state >> 8 & 1);
+    sd->unk_1A8.x6 = (u8) (state & 1);
+}
+
+u64 pc_unlock_state_all(void)
+{
+    /* The three latches are set to 1 rather than left for the predicates to
+     * latch on first read: gm_16F1.c's fn_801735F0/fn_80173510/fn_8017367C
+     * would each write save data the first time they run, and which frame
+     * that is depends on the menu path each peer took. Pre-set, the whole
+     * unlock surface is constant for the session and no rollback can see it
+     * change. 0xFF is x186C fully unlocked, the same value the DbLevel
+     * unlock-everything path in gmMainLib_8015FA34 writes. */
+    return UNLOCK_PACK((1u << NUM_UNLOCKABLE_CHARACTERS) - 1,
+                       (1u << NUM_UNLOCKABLE_STAGES) - 1, 0xFF, 1, 1, 1);
+}
+#endif
+
 s32 gmMainLib_8015EDD4(void)
 {
     return gmMainLib_GetCardData()->save_data.x186C & 4;
@@ -1239,6 +1285,39 @@ void gmMainLib_8015F600(int arg0, int arg1)
         memzero(&gmMainLib_804D3EE0->thing, 0x448);
         gm_801623FC(0x32);
         gm_IncrementPowerCount();
+#ifdef TARGET_PC
+        /* With no memory card there is no save file, so every unlock mask
+         * would stay at the zero this memzero just wrote, and the unlock
+         * predicates in gm_1601.c were answered by the launcher's unlock-all
+         * preference instead. That preference lives in a host-local file,
+         * <aurora userPath>/launcher.cfg, which is a different file per
+         * platform, per user and per XDG_DATA_HOME -- so the simulation's RNG
+         * stream became a function of the host: the alternate-BGM roll at
+         * ground.c:1431 (case 6) draws HSD_Randi(100) only when
+         * gm_80164ABC() is true, and gmMainLib_8015ECBC below draws
+         * HSD_Randi(4) only when both "all unlocked" predicates are. Pin the
+         * card-absent default here, in the default-save builder itself, so it
+         * is identical on every platform and every instance and survives
+         * every path that rebuilds defaults (boot, soft reset, data delete
+         * and the card-absent memory-card scene, which re-runs this with
+         * arg1 == 0).
+         *
+         * A netplay session pins the same state for real: it writes
+         * pc_unlock_state_all() into these masks and verifies the result
+         * against the peer's (src/pc/net_handshake.c), so a card-present peer
+         * with a different launcher.cfg is covered too. This branch still
+         * carries the card-absent single-player and replay cases, which never
+         * open a session, and it keeps two card-less peers identical before
+         * the handshake lands. */
+        if (!aurora_card_is_present()) {
+            gm_80164F18();
+            gm_8016468C();
+            pc_log_line("save: no memory card, card-absent default unlocks "
+                        "all (chars=%04x stages=%04x)",
+                        *gmMainLib_GetUnlockedCharactersBitmaskPtr(),
+                        *gmMainLib_8015EDA4());
+        }
+#endif
 
         if (arg1 == 0 && Toy_803048C0(0xA5) > 0 && gm_80164430(0x14U) == 0) {
             gm_80164504(0x14U);
@@ -1329,7 +1408,10 @@ void gmMainLib_8015FBA4(void)
 {
     int i;
 
-    memzero(gmMainLib_804D3EE0, 0x10A30);
+    /* 0x10A30 is the GameCube sizeof (types.h asserts it); on LP64 the struct
+     * is 0x10C88 because pointers inside it grew, so the literal left the last
+     * 0x258 bytes un-reset on every soft reset and data delete. */
+    memzero(gmMainLib_804D3EE0, sizeof(*gmMainLib_804D3EE0));
 #ifdef TARGET_PC
     /* /usa.ini is how the NTSC-U build tells itself apart from the Japanese
      * one; a PAL disc has neither and must not fall into Japanese mode. */

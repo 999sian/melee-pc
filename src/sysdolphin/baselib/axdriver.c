@@ -597,7 +597,35 @@ static inline HSD_SM* AXDriver_8038CFF4_inline(void)
     }
 }
 
+#ifdef TARGET_PC
+static int AXDriver_8038CFF4_play(int sound_id, u8 volume, u8 pan, int track,
+                                  int channel);
+
+/* Netplay: the voice id a sound start hands back is state the simulation
+ * keeps (fighters store it in fp->x2144..x2160 and ask about it later), but
+ * it comes from the audio engine, not from the frame's inputs. The netcode
+ * journals it per frame, so every re-simulation of a frame hands the game
+ * the same id and starts no second sound; see pc/net.h. */
 int AXDriver_8038CFF4(int sound_id, u8 volume, u8 pan, int track, int channel)
+{
+    int32_t j;
+    if (pc_net_audio_replay(&j)) {
+        return (int) j;
+    }
+    if (pc_net_resim()) {
+        /* No journal entry for this call (the frame's journal is full):
+         * suppress it as before rather than start the sound a second time. */
+        return (int) pc_net_audio_record(-1);
+    }
+    return (int) pc_net_audio_record(
+        AXDriver_8038CFF4_play(sound_id, volume, pan, track, channel));
+}
+
+static int AXDriver_8038CFF4_play(int sound_id, u8 volume, u8 pan, int track,
+                                  int channel)
+#else
+int AXDriver_8038CFF4(int sound_id, u8 volume, u8 pan, int track, int channel)
+#endif
 {
     HSD_SM* v;
     int sample_idx;
@@ -605,13 +633,6 @@ int AXDriver_8038CFF4(int sound_id, u8 volume, u8 pan, int track, int channel)
     int bank_mem;
     bool enabled;
 
-#ifdef TARGET_PC
-    /* Re-simulated frames must not start sounds twice; -1 is the "no voice"
-     * handle every caller already tolerates. */
-    if (pc_net_resim()) {
-        return -1;
-    }
-#endif
     bank_idx = sound_id / 10000;
     bank_mem = sound_id % 10000;
 
@@ -850,7 +871,26 @@ bool AXDriver_8038D914(s32 channel, s32 aux_bus, s8 send_level)
     return true;
 }
 
-bool AXDriver_8038D9D8(int vid)
+/* "Is that voice still playing". The answer comes from the AX playback state
+ * and from HSD_SynthSFXCheck's nodes in the HSD_Synth heap: memory no
+ * snapshot covers, advanced by the audio engine in real time -- and the
+ * simulation branches on it (src/melee/sfx/crowdsfx.c counts frames off it,
+ * src/melee/gr/ground.c:3125 gates a stage answer on it, and the branch
+ * reaches the RNG through the crowd's own sound spawns).
+ *
+ * Real time is the problem, and it breaks netplay twice over. Within one
+ * peer, a rollback re-runs a frame a round trip later, when the answer may
+ * have flipped. Across the two peers, each machine's audio clock runs on its
+ * own: a peer that stalled 200 ms waiting for inputs has let the voice age
+ * 200 ms further than the peer that did not, so the frame the answer flips
+ * on differs by several frames between them. Journalling the answer per
+ * frame fixes the first and cannot fix the second.
+ *
+ * So during a session the simulation is told the voice has finished, which
+ * is the answer it gets on all but the handful of frames a sound is actually
+ * running under one of these queries. It is a behaviour change, not only a
+ * determinism fix: see pc/net.h. Offline play is untouched. */
+static bool AXDriver_8038D9D8_ask(int vid)
 {
     HSD_SM* v;
     int idx;
@@ -867,6 +907,20 @@ bool AXDriver_8038D9D8(int vid)
         return false;
     }
     return true;
+}
+
+bool AXDriver_8038D9D8(int vid)
+{
+#ifdef TARGET_PC
+    bool live;
+    if (pc_net_audio_deaf(&live)) {
+        /* Measurement only: what the engine would have said. The value never
+         * reaches the simulation, it only sizes the behaviour change. */
+        pc_net_audio_deaf_note(AXDriver_8038D9D8_ask(vid));
+        return live;
+    }
+#endif
+    return AXDriver_8038D9D8_ask(vid);
 }
 
 static void fn_8038DA5C(s32 result, DVDFileInfo* fileInfo)

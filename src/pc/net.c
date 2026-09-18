@@ -31,6 +31,8 @@
 #include "pc/net_internal.h"
 
 #include <dolphin/os.h>
+#include <dolphin/vi.h>
+#include <melee/lb/lb_0195.h>
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/random.h>
 
@@ -78,7 +80,9 @@ static int32_t s_stall_frame = -1000;    /* frame that ended a stall > 500 ms */
  * interruption", these live here because send_inputs and fresh_tick read
  * them. MELEE_NET_RECONNECT_MS overrides the window at connect. */
 #define RECONNECT_MS 15000
-enum { RC_NONE, RC_ACTIVE, RC_FAILED };
+/* RSM_, not RC_: mingw-w64's wingdi.h defines RC_NONE as an empty macro
+ * (raster capabilities), so RC_NONE broke the whole enum on Windows. */
+enum { RSM_NONE, RSM_ACTIVE, RSM_FAILED };
 static int s_rc;                         /* reconnect phase */
 static uint64_t s_rc_ns;                 /* when the phase opened */
 static bool s_rc_sent;                   /* our RESUME is out for this phase */
@@ -623,6 +627,44 @@ void recv_inputs(void) {
     }
 }
 
+/* Frames the last 16 rollbacks restored to, newest last: a desync with an
+ * uncorrected misprediction in it has no rollback to the frame that went
+ * wrong, and that is otherwise invisible. */
+static int32_t s_rb_recent[16];
+static unsigned s_rb_recent_n;
+
+/* On a desync: what the input rings and the checksum ring finally held
+ * around the frame, after every rollback. The two peers' logs together are
+ * the only thing that separates "we simulated different inputs" (a
+ * misprediction nobody corrected, a delay mismatch, a lost packet taken as
+ * contiguous) from "the same inputs built different state" (an impure
+ * tick): the state dump beside it is the first pass only. */
+static uint8_t s_sim_n[RING];            /* times each frame index was simulated */
+
+static void dump_rings_around(int32_t f) {
+    for (int32_t i = f - 16; i <= f + 1; i++) {
+        if (i < 0 || i > net.frame || i <= net.frame - RING) {
+            continue;
+        }
+        const WirePad* m = &s_local_ring[i & (RING - 1)];
+        const WirePad* t = &s_remote_ring[i & (RING - 1)];
+        pc_log_line("net: ring f%d p%d %04x/%d,%d p%d %04x/%d,%d ck %08x x%u%s", i, net.local + 1,
+                    m->button, m->stickX, m->stickY, net.remote + 1, t->button, t->stickX,
+                    t->stickY, s_ck_ring[i & (RING - 1)], s_sim_n[i & (RING - 1)],
+                    i > s_remote_have ? " predicted" : "");
+    }
+    char rb[16 * 8 + 1];
+    int n = 0;
+    for (unsigned i = s_rb_recent_n > 16 ? s_rb_recent_n - 16 : 0; i < s_rb_recent_n; i++) {
+        n += snprintf(rb + n, sizeof rb - (size_t) n, "%d ", s_rb_recent[i % 16]);
+    }
+    rb[n > 0 ? n - 1 : 0] = '\0';
+    pc_log_line("net: ring have %d newest %d wrote %d delay %d barrier %d rb_frame %d resim %d, "
+                "last rollbacks %s",
+                s_remote_have, s_remote_newest, s_wrote, net.delay, net.rb_barrier, s_rb_frame,
+                net.resim, rb);
+}
+
 static void check_desync(void) {
     if (net.desync_reported || net.hs == HS_PENDING || s_remote_ck_frame < net.ck_from ||
         s_remote_ck_frame > confirmed_frame() || s_remote_ck_frame <= net.frame - RING) {
@@ -633,6 +675,8 @@ static void check_desync(void) {
         net.desync_reported = true;
         pc_log_line("net: DESYNC at frame %d (local %08x remote %08x)", s_remote_ck_frame, mine,
                     s_remote_ck);
+        dump_rings_around(s_remote_ck_frame);
+        dump_states_around(s_remote_ck_frame);
     }
 }
 
@@ -696,7 +740,7 @@ static void resume_send(void) {
  * run on with a gap neither ring can fill. The BYE pc_net_disconnect()
  * sends carries the same status, so the other side reports it too. */
 static void resume_fail(void) {
-    s_rc = RC_FAILED;
+    s_rc = RSM_FAILED;
     s_status = PC_NET_PEER_RESUME;
 }
 
@@ -795,7 +839,7 @@ static bool resume_begin(uint64_t now) {
     if (s_rc_window_ms <= 0 || !session_established()) {
         return false;
     }
-    s_rc = RC_ACTIVE;
+    s_rc = RSM_ACTIVE;
     s_rc_ns = now;
     s_rc_sent = false;
     s_red_floor = REDUNDANCY; /* every refill packet costs a round trip */
@@ -808,7 +852,7 @@ static bool resume_begin(uint64_t now) {
 /* Once per wait-loop turn while the phase is open. False ends the session:
  * the window expired, or the exchange was refused. */
 static bool resume_poll(uint64_t now) {
-    if (s_rc == RC_FAILED) {
+    if (s_rc == RSM_FAILED) {
         return false;
     }
     if (!s_rc_sent) {
@@ -826,7 +870,7 @@ static bool resume_poll(uint64_t now) {
 static void resume_end(uint64_t now) {
     pc_log_line("net: resumed at frame %d after %.1f s (hold remote %d, its newest %d)",
                 net.frame, (now - s_rc_ns) / 1e9, s_remote_have, s_remote_newest);
-    s_rc = RC_NONE;
+    s_rc = RSM_NONE;
     s_rc_sent = false;
     s_red_floor = REDUNDANCY_FLOOR;
 }
@@ -854,7 +898,7 @@ static bool wait_remote(int32_t need) {
             return false;
         }
         uint64_t now = SDL_GetTicksNS();
-        if (s_rc != RC_NONE) {
+        if (s_rc != RSM_NONE) {
             if (!resume_poll(now)) {
                 return false;
             }
@@ -870,7 +914,7 @@ static bool wait_remote(int32_t need) {
         }
         SDL_DelayNS(500000);
     }
-    if (s_rc != RC_NONE) {
+    if (s_rc != RSM_NONE) {
         resume_end(SDL_GetTicksNS());
     }
     uint64_t dt = SDL_GetTicksNS() - t0;
@@ -912,7 +956,7 @@ static void session_reset(void) {
     net.desync_reported = s_heard = s_peer_left = false;
     s_warn_src = s_warn_sess = s_warn_bad = false;
     s_status = PC_NET_PEER_OK;
-    s_rc = RC_NONE;
+    s_rc = RSM_NONE;
     s_rc_sent = false;
     s_stalls = net.skips = s_advances = s_rollbacks = s_rb_lost = 0;
     s_rb_depth_max = s_rb_depth_cur = s_rb_depth_recent = 0;
@@ -1008,8 +1052,8 @@ int pc_net_quality(void) {
     if (!net.active) {
         return 0;
     }
-    if (s_rc == RC_ACTIVE) {
-        return 3; /* reconnecting; RC_FAILED is one tick from the disconnect */
+    if (s_rc == RSM_ACTIVE) {
+        return 3; /* reconnecting; RSM_FAILED is one tick from the disconnect */
     }
     if (s_peer_left || net.frame - s_stall_frame < 120) {
         return 2;
@@ -1105,6 +1149,17 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
     }
     net.delay_next = net.delay;
     s_wrote = net.delay - 1; /* frames 0..delay-1 stay neutral on both sides */
+    /* MELEE_NET_ROLLBACK=off: keep the barrier ahead of every frame, which
+     * is the lockstep the out-of-memory path already falls back to (nothing
+     * is predicted, nothing is snapshotted, nothing is re-run). The session
+     * then runs at the link's round trip, so this is a diagnostic: a row
+     * that desyncs with rollback on and survives with it off has its fault
+     * in the re-simulation, not in the input pipeline. */
+    const char* rb = getenv("MELEE_NET_ROLLBACK");
+    if (rb != NULL && strcmp(rb, "off") == 0) {
+        barrier_raise(INT32_MAX);
+        pc_log_line("net: rollback off (MELEE_NET_ROLLBACK), lockstep at the link's round trip");
+    }
     /* 0 means "no resume phase at all", so it must survive the parse; a
      * negative or unparseable value falls back to the default rather than
      * silently disabling the feature. */
@@ -1172,8 +1227,115 @@ bool pc_net_stats(int* ping_ms, int* delay_frames, unsigned* rollbacks) {
     return true;
 }
 
+/* ---- audio answers the simulation is allowed to see --------------------
+ * pc/net.h has the why. One journal per frame in a RING-deep ring, replayed
+ * in call order: the order of audio questions inside a tick is a function
+ * of the state and the inputs, so the answer sequence is too. Journalling
+ * is armed only between the start of a tick's frame and the end of that
+ * tick, so a query from the render phase or the audio thread cannot shift
+ * the sequence. */
+#define AUDIO_J 32
+static struct AudioJournal {
+    int32_t frame;
+    uint8_t n;
+    int32_t v[AUDIO_J];
+} s_aj[RING];
+static uint8_t s_aj_i;                   /* answers replayed/recorded so far this tick */
+static bool s_aj_on;                     /* a tick is running */
+static unsigned s_aj_over, s_aj_replays; /* answers that did not fit / were replayed */
+static int s_aj_off = -1;                /* MELEE_NET_AUDIO_JOURNAL=off */
+
+static bool audio_journal_live(void) {
+    if (s_aj_off < 0) {
+        const char* e = getenv("MELEE_NET_AUDIO_JOURNAL");
+        s_aj_off = e != NULL && strcmp(e, "off") == 0;
+    }
+    return s_aj_off == 0 && s_aj_on && net.active &&
+           SDL_GetCurrentThreadID() == s_game_thread;
+}
+
+/* A frame's simulation begins (a fresh tick or a re-run of it). */
+static void audio_journal_begin(int32_t f) {
+    s_aj_i = 0;
+    s_aj_on = true;
+    struct AudioJournal* j = &s_aj[f & (RING - 1)];
+    if (j->frame != f) {
+        j->frame = f;
+        j->n = 0;
+    }
+}
+
+bool pc_net_audio_replay(int32_t* out) {
+    if (!audio_journal_live()) {
+        return false;
+    }
+    struct AudioJournal* j = &s_aj[net.tick_frame & (RING - 1)];
+    if (j->frame != net.tick_frame || s_aj_i >= j->n) {
+        return false;
+    }
+    *out = j->v[s_aj_i++];
+    s_aj_replays++;
+    return true;
+}
+
+int32_t pc_net_audio_record(int32_t v) {
+    if (!audio_journal_live()) {
+        return v;
+    }
+    struct AudioJournal* j = &s_aj[net.tick_frame & (RING - 1)];
+    if (j->frame == net.tick_frame && j->n == s_aj_i && s_aj_i < AUDIO_J) {
+        j->v[s_aj_i] = v;
+        j->n = ++s_aj_i;
+    } else {
+        s_aj_over++;
+    }
+    return v;
+}
+
+/* "Is that voice still playing" during a session: the simulation is told no,
+ * because the true answer is a wall-clock fact and the two peers' audio
+ * clocks are not the same clock (axdriver.c AXDriver_8038D9D8 has the why).
+ * False outside a session, so offline play keeps the real answer.
+ * MELEE_NET_AUDIO_DEAF=off restores it and is the regression test for the
+ * desync it causes. s_deaf_true counts how often the engine would have said
+ * "still playing", which is the size of the behaviour change. */
+static int s_deaf_off = -1;
+static unsigned s_deaf_asks, s_deaf_true;
+
+bool pc_net_audio_deaf(bool* answer) {
+    if (s_deaf_off < 0) {
+        const char* e = getenv("MELEE_NET_AUDIO_DEAF");
+        s_deaf_off = e != NULL && strcmp(e, "off") == 0;
+    }
+    if (s_deaf_off != 0 || !net.active || SDL_GetCurrentThreadID() != s_game_thread) {
+        return false;
+    }
+    s_deaf_asks++;
+    *answer = false;
+    return true;
+}
+
+/* What the engine would have answered, for the report: called by axdriver.c
+ * only when the choke is on and only to measure it. */
+void pc_net_audio_deaf_note(bool live) {
+    if (live) {
+        s_deaf_true++;
+    }
+}
+
+/* Only the sound path asks (axdriver.c AXDriver_8038CFF4, lbaudio_ax.c
+ * lbAudioAx_80023F28): a re-simulated frame must not start its sounds a
+ * second time. That choke is the one thing a re-simulated frame does
+ * differently from a fresh one, so MELEE_NET_RESIM_SFX=1 lifts it: a row
+ * that desyncs with the choke and survives without it has its divergence
+ * inside the sound path, not in the physics. */
 bool pc_net_resim(void) {
-    return net.resim || net.synctest;
+    static int choke = -1;
+    if (choke < 0) {
+        const char* e = getenv("MELEE_NET_RESIM_SFX");
+        choke = e != NULL && e[0] == '1' ? 0 : 1;
+    }
+    return choke != 0 && (net.resim || net.synctest);
 }
 
 /* ---- rollback ---------------------------------------------------------
@@ -1208,12 +1370,136 @@ static void snap_predicted(int32_t f) {
     }
 }
 
+/* MELEE_NET_RESIM_AUDIT_POISON=1: the audit's discarded pass runs with a
+ * deliberately wrong remote input, which is what a real misprediction is.
+ * The true re-run after it must still land exactly where the first pass
+ * did; anything the wrong pass left behind that the snapshot does not
+ * cover shows up there and nowhere else. */
+static bool s_audit_poison;              /* a wrong-input pass is running now */
+static bool s_audit_poison_want;         /* and the knob that asks for one */
+
+/* The queue slot HSD_PadRenewMasterStatus will consume next. */
+static PADStatus* pad_head(void) {
+    PadLibData* p = &HSD_PadLibData;
+    return &p->queue->stat[p->qread * 4];
+}
+
+/* The raw pad queue must never move its read cursor under the inputs a tick
+ * is about to consume. With qtype 0 a full queue makes HSD_PadRenewRawStatus
+ * shift qread, merge the dropped sample's buttons into the next one and
+ * overwrite the slot write_head just filled (controller.c:77-105); the tick
+ * then simulates a raw local sample -- the remote port reads as "no
+ * controller", the local port as the undelayed physical pad -- while the
+ * frame's checksum still reports the synced inputs. One such frame on one
+ * peer is a permanent divergence.
+ *
+ * pc_net_connect sets qtype 2 (drop the new sample instead), but in
+ * MELEE_NET mode it connects from pc_platform_init, and the game's own
+ * gmMain_8015FD24 later runs HSD_PadInit, which copies default_libinfo_data
+ * over the whole PadLibData and puts qtype back to 0. So the invariant is
+ * re-asserted every tick: one byte, and it cannot be lost by a re-init.
+ * MELEE_NET_PAD_QTYPE=0 restores the shifting queue and is the regression
+ * test for the desync it causes. */
+static void pad_qtype_hold(void) {
+    static int want = -1;
+    if (want < 0) {
+        const char* e = getenv("MELEE_NET_PAD_QTYPE");
+        want = e != NULL ? atoi(e) : 2;
+        if (want != 2) {
+            pc_log_line("net: raw pad queue type %d (MELEE_NET_PAD_QTYPE), expect input slips",
+                        want);
+        }
+    }
+    HSD_PadLibData.qtype = (uint8_t) want;
+}
+
+/* Detector for the same hazard, kept as the regression test: what
+ * write_head put in the queue head for the frame about to be simulated,
+ * against what the tick actually consumed. Both must agree on every tick of
+ * a session; a mismatch is the divergence above, and the counters below go
+ * into the periodic report so a run can be believed. */
+static uint16_t s_head_button[4];
+static int32_t s_head_frame = -1;
+static const PADStatus* s_head_ptr;      /* slot write_head filled */
+static uint8_t s_head_qread, s_head_qwrite, s_head_qcount;
+static uint32_t s_head_retrace;          /* frame boundaries seen at the write */
+static unsigned s_pad_slips, s_pad_full, s_tick_idle;
+static uint8_t s_qdepth_max;
+
+static void head_note(const PADStatus* head, int32_t f) {
+    const PadLibData* p = &HSD_PadLibData;
+    for (int i = 0; i < 4; i++) {
+        s_head_button[i] = head[i].button;
+    }
+    s_head_frame = f;
+    s_head_ptr = head;
+    s_head_qread = p->qread;
+    s_head_qwrite = p->qwrite;
+    s_head_qcount = p->qcount;
+    s_head_retrace = VIGetRetraceCount();
+    if (p->qcount >= p->qnum) {
+        s_pad_full++;
+    }
+    if (p->qcount > s_qdepth_max) {
+        s_qdepth_max = p->qcount;
+    }
+}
+
+static void head_check(void) {
+    if (s_head_frame < 0 || !net.active) {
+        return;
+    }
+    const PadLibData* p = &HSD_PadLibData;
+    for (int i = 0; i < 2; i++) {
+        int port = i == 0 ? net.local : net.remote;
+        /* HSD_PadADConvert ORs synthetic direction bits above 0xffff into
+         * button (controller.c), so only the real pad bits can be compared. */
+        uint32_t saw = HSD_PadMasterStatus[port].button & 0xffffu;
+        if (saw != s_head_button[port]) {
+            s_pad_slips++;
+            if (s_pad_slips <= 8) {
+                /* The slot the tick consumed is one behind the read cursor it
+                 * left behind; if that is not the slot write_head filled,
+                 * something moved the queue in between. */
+                int read_slot = (p->qread + p->qnum - 1) % p->qnum;
+                pc_log_line("net: pad slip at frame %d port %d: wrote %04x, tick consumed %04x "
+                            "(wrote slot %d of %d at qcount %d/%d qwrite %d; tick read slot %d, "
+                            "now qread %d qcount %d qwrite %d; retrace %u -> %u)",
+                            s_head_frame, port, s_head_button[port], saw, s_head_qread, p->qnum,
+                            s_head_qcount, p->qnum, s_head_qwrite, read_slot, p->qread, p->qcount,
+                            p->qwrite, s_head_retrace, VIGetRetraceCount());
+            }
+        }
+    }
+    /* And did the tick advance the simulation at all? gm_RunSimTick only
+     * runs gm_EvaluateAllControllerInputs and the scene's frame proc when
+     * lb_80019A30(0) is set, which lb_80019900 recomputes from an
+     * accumulator in lb_0195.c -- a TU the snapshot deliberately excludes.
+     * At 60 Hz it is true every tick; if a re-run tick ever lands on a
+     * false one, that frame was counted but never simulated. */
+    if (!lb_80019A30(0)) {
+        s_tick_idle++;
+        if (s_tick_idle <= 4) {
+            pc_log_line("net: tick at frame %d did not advance the sim (lb_80019A30 false)",
+                        s_head_frame);
+        }
+    }
+    s_head_frame = -1;
+}
+
 /* Ports 0-3 of the queue head become the synced inputs for frame f. */
 static void write_head(PADStatus* head, int32_t f) {
     static const WirePad neutral;
     const WirePad* mine = f >= net.delay ? &s_local_ring[f & (RING - 1)] : &neutral;
     from_wire(&head[net.local], mine);
     const WirePad* theirs = &s_remote_ring[f & (RING - 1)];
+    WirePad wrong;
+    if (s_audit_poison) {
+        wrong = *theirs;
+        wrong.stickX = (int8_t) -wrong.stickX;
+        wrong.button ^= 0x0100; /* A */
+        theirs = &wrong;
+    }
     from_wire(&head[net.remote], theirs);
     if (!s_seen_remote && theirs->button != 0) {
         s_seen_remote = true;
@@ -1223,6 +1509,7 @@ static void write_head(PADStatus* head, int32_t f) {
         memset(&head[i], 0, sizeof head[i]);
         head[i].err = PAD_ERR_NO_CONTROLLER;
     }
+    head_note(head, f);
 }
 
 /* Re-expose the slot the last tick consumed so the next tick has one to
@@ -1263,7 +1550,15 @@ static void resim_prepare(int32_t f) {
     }
     write_head(head, f);
     s_ck_ring[f & (RING - 1)] = frame_checksum(head);
+    /* The state ring is the last simulation of each frame, which is the
+     * confirmed timeline (the desync dump and the audit's field-level diff
+     * both read it); without this it held first-pass values only. */
+    record_state(head, f);
+    if (s_sim_n[f & (RING - 1)] < 255) {
+        s_sim_n[f & (RING - 1)]++;
+    }
     net.tick_frame = f;
+    audio_journal_begin(f); /* the re-run replays this frame's audio answers */
 }
 
 static bool rollback_to(int32_t f) {
@@ -1298,6 +1593,7 @@ static bool rollback_to(int32_t f) {
     HSD_PadLibData = pad;
     OSRestoreInterrupts(intr);
     s_rollbacks++;
+    s_rb_recent[s_rb_recent_n++ % 16] = f;
     if (depth > s_rb_depth_max) {
         s_rb_depth_max = depth;
     }
@@ -1310,6 +1606,44 @@ static bool rollback_to(int32_t f) {
 }
 
 /* ---- per-tick entry --------------------------------------------------- */
+
+/* Draws of random.c's LCG between two seeds, -1 past the bound. A
+ * re-simulation that took a different branch usually shows up here first:
+ * same fighter positions, a seed a few draws apart. */
+static int seed_steps(uint32_t from, uint32_t to) {
+    for (int i = 0; i <= 4096; i++) {
+        if (from == to) {
+            return i;
+        }
+        from = from * 214013u + 2531011u;
+    }
+    return -1;
+}
+
+/* Seed at the end of the last tick of a present, and how far it had moved
+ * by the start of the next one: everything between those two points is
+ * outside every tick (the render phase, the audio thread), so a draw there
+ * is state the rollback re-run can never reproduce. */
+static uint32_t s_seed_after_tick;
+static bool s_seed_have;
+static unsigned s_seed_out_draws, s_seed_out_frames;
+
+static void seed_out_of_tick_check(void) {
+    if (!s_seed_have) {
+        return;
+    }
+    uint32_t now = *HSD_RandSeedPtr;
+    if (now == s_seed_after_tick) {
+        return;
+    }
+    int steps = seed_steps(s_seed_after_tick, now);
+    s_seed_out_frames++;
+    s_seed_out_draws += steps > 0 ? (unsigned) steps : 0;
+    if (s_seed_out_frames <= 3) {
+        pc_log_line("net: seed moved outside the tick at frame %d: %08x -> %08x (%d draws)",
+                    net.frame, s_seed_after_tick, now, steps);
+    }
+}
 
 /* A fresh frame: capture the local sample, exchange inputs, predict or
  * stall, and feed the queue head. `raw` is false for the extra tick a
@@ -1347,7 +1681,7 @@ static void fresh_tick(PADStatus* head, bool raw) {
         if (!wait_remote(need)) {
             /* A refused resume logged its own reason, and the peer was not
              * silent at all: its answer was simply unusable. */
-            if (!s_peer_left && s_rc != RC_FAILED) {
+            if (!s_peer_left && s_rc != RSM_FAILED) {
                 pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
                             s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
             }
@@ -1361,6 +1695,15 @@ static void fresh_tick(PADStatus* head, bool raw) {
             predict(net.frame);
             snap_predicted(net.frame);
         }
+        /* Re-resolve the slot the next HSD_PadRenewMasterStatus will read.
+         * The pointer this tick started with was taken before wait_remote
+         * and snap_predicted, and every OSRestoreInterrupts in between
+         * delivers the pad alarms that came due during the stall (src/pc/os.c
+         * deliver_pending); with the raw queue full and qtype back to 0 those
+         * move qread, and the inputs would then be written into a slot no
+         * tick ever reads. pad_qtype_hold() keeps qtype at 2 so the cursor
+         * cannot move at all; this is the second lock on the same door. */
+        head = pad_head();
         write_head(head, net.frame); /* after anything that can run the pad alarm */
     }
     replay_feed(head);
@@ -1370,13 +1713,12 @@ static void fresh_tick(PADStatus* head, bool raw) {
     }
     uint32_t ck = frame_checksum(head);
     s_ck_ring[net.frame & (RING - 1)] = ck;
+    s_sim_n[net.frame & (RING - 1)] = 1;
+    /* No-op unless netplay is running or MELEE_NET_STATE_LOG is set: a solo
+     * replay is how a cross-platform divergence is localised. */
+    record_state(head, net.frame);
     if (net.active) {
-        record_state(head, net.frame);
-        bool before = net.desync_reported;
-        check_desync();
-        if (net.desync_reported && !before) {
-            dump_states_around(s_remote_ck_frame);
-        }
+        check_desync(); /* reports and dumps both rings on the first mismatch */
     }
     record_frame(head, ck);
 
@@ -1391,14 +1733,19 @@ static void fresh_tick(PADStatus* head, bool raw) {
         pc_log_line("net: frame %d, rollbacks %u (max depth %d, lost %u), stalls %u (worst "
                     "%.1f ms), skips %u, advances %u, ping %u ms (avg %.0f, min %u, max %u, "
                     "jitter %.1f), loss %d%% (%u tx %u rx), offset %+.1f ms, remote behind %d, "
-                    "barrier %d, quality %d, dup %u reorder %u sock_err %u resim_eat %u red %d",
+                    "barrier %d, quality %d, dup %u reorder %u sock_err %u resim_eat %u red %d, "
+                    "pad reuse %u empty %u, audio replayed %u over %u, seed out-of-tick %u draws "
+                    "in %u frames, pad slips %u (queue worst %u, full at write %u), idle ticks %u, "
+                    "audio liveness asked %u (engine would say yes %u)",
                     net.frame, s_rollbacks, s_rb_depth_max, s_rb_lost, s_stalls,
                     s_stall_ns_max / 1e6, net.skips, s_advances, net.ping_us / 1000,
                     s_ping_n ? s_ping_sum / 1000.0 / s_ping_n : 0.0, s_rtt_min / 1000,
                     s_rtt_max / 1000, jitter_us() / 1000.0, s_loss_pct, net.tx_pkts, s_rx_pkts,
                     net.offset_last / 1000.0, net.frame - 1 - s_remote_have, net.rb_barrier,
                     pc_net_quality(), s_rx_dups, s_rx_reorders, s_sock_err, s_resim_eat,
-                    s_red_target);
+                    s_red_target, net.pad_reuse, net.pad_empty, s_aj_replays, s_aj_over,
+                    s_seed_out_draws, s_seed_out_frames, s_pad_slips, s_qdepth_max, s_pad_full,
+                    s_tick_idle, s_deaf_asks, s_deaf_true);
         snap_stats_report();
         s_stall_ns_max = 0;
         s_ping_sum = 0;
@@ -1407,9 +1754,45 @@ static void fresh_tick(PADStatus* head, bool raw) {
         net.tx_pkts = s_rx_pkts = net.tx_inputs = s_rx_acks = 0;
         s_rx_dups = s_rx_reorders = s_sock_err = s_resim_eat = 0;
     }
+#ifdef MELEE_FP_PERTURB_NAME
+    if ((net.frame % 600) == 0 && net.frame > 0) {
+        extern unsigned pc_fp_perturb_calls; /* src/pc/libm/pc_perturb.c */
+        pc_log_line("net: fp perturb " MELEE_FP_PERTURB_NAME " fired %u times by frame %d",
+                    pc_fp_perturb_calls, net.frame);
+    }
+#endif
     net.tick_frame = net.frame;
+    audio_journal_begin(net.tick_frame);
     net.frame++;
 }
+
+/* ---- re-simulation audit ----------------------------------------------
+ * MELEE_NET_RESIM_AUDIT=K: every AUDIT_EVERY frames, roll back K frames and
+ * re-run them from the same input rings. Nothing about the inputs changed,
+ * so every byte of the state must come back as it was; a block that does
+ * not is the re-simulation diverging from the fresh pass on its own, which
+ * is a desync waiting for a peer that re-ran a different set of frames.
+ *
+ * Each audit re-runs the range twice and reports two comparisons: the first
+ * re-run against the first pass, and the second re-run against the first
+ * re-run. The pair separates the two faults that both look like "the
+ * re-simulation diverged": a tick that is not a pure function of (state,
+ * inputs) breaks both, while a first pass that did something a re-run never
+ * does -- rendered, loaded, ran a frame twice, read a clock -- breaks only
+ * the first. Off unless the variable is set. */
+#define AUDIT_EVERY 120
+static int s_audit_k;
+static Snapshot s_audit_after;           /* state after the first pass of the frames */
+static Snapshot s_audit_run1;            /* and after the first re-run of them */
+static Snapshot s_audit_now;             /* region list of the state being compared */
+static bool s_audit_running;
+static int s_audit_pass;                 /* 1 = first re-run, 2 = second */
+static int32_t s_audit_from;
+static unsigned s_audit_runs, s_audit_ck_bad, s_audit_pure_bad;
+static uint32_t s_audit_ck[RING], s_audit_ck1[RING]; /* checksums of pass 1 / re-run 1 */
+static char s_audit_state[SNAPS][320];   /* their state lines, for the field-level diff */
+static char s_audit_state1[SNAPS][320];
+static int32_t s_audit_done = -1;        /* frame the last audit ran at */
 
 void pc_net_sync(void) {
     static bool opened;
@@ -1420,8 +1803,27 @@ void pc_net_sync(void) {
         if (net.synctest) {
             pc_log_line("net: synctest on (every tick simulated twice, sound off)");
         }
+#ifdef MELEE_FP_PERTURB_NAME
+        /* A determinism-harness build (CMakeLists.txt MELEE_FP_PERTURB): say
+         * so on every single run, because it desyncs against every other
+         * build by design. src/pc/libm/pc_perturb.c owns the counter. */
+        pc_log_line("net: FP PERTURB " MELEE_FP_PERTURB_NAME " +1 ULP (determinism test build, "
+                    "never ship)");
+#endif
         const char* ea = getenv("MELEE_NET_EXIT_AFTER_FRAMES");
         s_exit_after = ea != NULL ? atol(ea) : 0;
+        const char* au = getenv("MELEE_NET_RESIM_AUDIT");
+        s_audit_k = au != NULL ? atoi(au) : 0;
+        if (s_audit_k > SNAPS) {
+            s_audit_k = SNAPS; /* one snapshot per predicted frame is all there is */
+        }
+        const char* po = getenv("MELEE_NET_RESIM_AUDIT_POISON");
+        s_audit_poison_want = po != NULL && po[0] == '1';
+        if (s_audit_k > 0) {
+            pc_log_line("net: resim audit on, %d frames every %d%s (MELEE_NET_RESIM_AUDIT)",
+                        s_audit_k, AUDIT_EVERY,
+                        s_audit_poison_want ? ", with a mispredicted pass first" : "");
+        }
     }
     if (net.active && s_exit_after > 0 && net.frame >= s_exit_after) {
         exit_if_test_done();
@@ -1433,6 +1835,10 @@ void pc_net_sync(void) {
         }
         SDL_UnlockMutex(net.tx_lock);
     }
+    if (net.active) {
+        pad_qtype_hold(); /* HSD_PadInit wipes it; the tick depends on it */
+        seed_out_of_tick_check();
+    }
     if (net.synctest) {
         synctest_before_tick();
     }
@@ -1440,11 +1846,154 @@ void pc_net_sync(void) {
         net.frame++;
         return;
     }
+    /* Every tick must consume a queue entry: HSD_PadRenewMasterStatus renews
+     * the game's inputs only when the queue is non-empty, so a tick that
+     * finds it empty runs on the previous frame's inputs while write_head
+     * and the checksum below say it ran on this frame's -- a divergence on
+     * one side only. pc_net_pace_adjust_ns pins one entry there; this counts
+     * the invariant (pad_empty must stay 0) and repairs it if some flush got
+     * in between. The local sample is read back out of the head only when
+     * this present really queued one. */
     PadLibData* p = &HSD_PadLibData;
-    fresh_tick(&p->queue->stat[p->qread * 4], true);
+    bool fresh = p->qcount > 0 && !net.pad_reused;
+    if (p->qcount == 0) {
+        net.pad_empty++;
+    }
+    if (net.sync_mode != SYNC_ON) {
+        fresh_tick(&p->queue->stat[p->qread * 4], true); /* pre-fix path, net_sync.c */
+        return;
+    }
+    PADStatus* head = p->qcount > 0 ? &p->queue->stat[p->qread * 4] : unconsume();
+    fresh_tick(head != NULL ? head : &p->queue->stat[p->qread * 4], fresh);
+}
+
+/* Compare the live state against what an earlier run of the same frames
+ * left, by region and by per-frame checksum. `label` names the pair being
+ * compared; returns the number of frames whose checksum did not come back. */
+static int audit_diff(const Snapshot* want_s, const uint32_t* want_ck,
+                      const char (*want_state)[320], const char* label) {
+    Snapshot* n = &s_audit_now;
+    if (!snapshot_take(n, net.frame)) {
+        pc_log_line("net: audit could not snapshot the re-run state");
+        return -1;
+    }
+    int blocks = 0, ranges = 0;
+    const uint8_t* want = want_s->buf;
+    for (int i = 0; i < want_s->nregions; i++) {
+        const Region* r = &want_s->regions[i];
+        const Region* q = i < n->nregions ? &n->regions[i] : NULL;
+        if (q == NULL || q->ptr != r->ptr || q->len != r->len) {
+            /* Report and skip: a heap whose extent moved says nothing about
+             * the regions after it, and stopping here hid them. */
+            pc_log_line("net: audit f%d+%d %s region %s moved (%p/%zu -> %p/%zu)", s_audit_from,
+                        s_audit_k, label, r->name, r->ptr, r->len, q ? q->ptr : NULL,
+                        q ? q->len : 0);
+            want += r->len;
+            continue;
+        }
+        /* Runs of adjacent differing 16-byte blocks, merged: a re-run
+         * differs in a few hundred blocks that belong to a handful of
+         * objects, and one line per object is what `nm` can be pointed at. */
+        size_t run_from = 0;
+        bool in_run = false;
+        for (size_t off = 0; off <= r->len; off += 16) {
+            size_t len = off < r->len ? (r->len - off < 16 ? r->len - off : 16) : 0;
+            bool diff = len != 0 && memcmp((const uint8_t*) r->ptr + off, want + off, len) != 0;
+            if (diff) {
+                blocks++;
+                if (!in_run) {
+                    in_run = true;
+                    run_from = off;
+                }
+            } else if (in_run) {
+                in_run = false;
+                ranges++;
+                if (ranges <= 40) {
+                    pc_log_line("net: audit f%d+%d %s differs %s+0x%zx..0x%zx at %p (%zu bytes)",
+                                s_audit_from, s_audit_k, label, r->name, run_from, off,
+                                (const uint8_t*) r->ptr + run_from, off - run_from);
+                }
+            }
+        }
+        want += r->len;
+    }
+    /* The blocks above include state no checksum looks at (the HUD, the
+     * debug font, render-phase scratch). What decides a desync is whether
+     * the re-run reproduced each frame's checksum: inputs, the RNG seed and
+     * every fighter's position, facing, percent, action and stocks. */
+    int ck_bad = 0;
+    for (int32_t f = s_audit_from; f < net.frame; f++) {
+        if (s_ck_ring[f & (RING - 1)] != want_ck[f & (RING - 1)]) {
+            if (ck_bad < 4) {
+                pc_log_line("net: audit f%d %s checksum %08x -> %08x", f, label,
+                            want_ck[f & (RING - 1)], s_ck_ring[f & (RING - 1)]);
+                /* Which field moved: the state line the earlier run wrote
+                 * against the one this run wrote (net_snapshot.c). */
+                pc_log_line("net: audit f%d was %s", f, want_state[(f - s_audit_from) % SNAPS]);
+                pc_log_line("net: audit f%d now %s", f, state_line(f));
+            }
+            ck_bad++;
+        }
+    }
+    /* A branch that only changed how many random numbers the frame drew is
+     * the commonest shape of an unfaithful re-run: same positions, a seed a
+     * few draws along. */
+    uint32_t seed_was = want_s->seed_val, seed_now = *HSD_RandSeedPtr;
+    if (seed_was != seed_now) {
+        pc_log_line("net: audit f%d+%d %s seed %08x -> %08x (%d draws on)", s_audit_from,
+                    s_audit_k, label, seed_was, seed_now, seed_steps(seed_was, seed_now));
+    }
+    pc_log_line("net: audit f%d+%d %s: %d blocks in %d ranges differ, %d checksums differ, "
+                "seed %s",
+                s_audit_from, s_audit_k, label, blocks, ranges, ck_bad,
+                seed_was == seed_now ? "same" : "MOVED");
+    return ck_bad;
+}
+
+/* The discarded mispredicted pass is done: drop the wrong input and re-run
+ * the range with the true one, which is exactly what a real rollback does. */
+static bool audit_after_poison(void) {
+    s_audit_poison = false;
+    s_audit_pass = 1;
+    return rollback_to(s_audit_from);
+}
+
+/* The first re-run is done: compare it with the first pass, then keep its
+ * own result and re-run the range a second time. Returns true when that
+ * second re-run is under way (the caller must let the frame loop tick). */
+static bool audit_after_run1(void) {
+    int ck_bad = audit_diff(&s_audit_after, s_audit_ck, s_audit_state, "vs pass1");
+    if (ck_bad > 0) {
+        s_audit_ck_bad++;
+    }
+    /* The same range again, from the same snapshot: whatever differs
+     * between two re-runs is the tick itself reading something outside the
+     * state, and whatever differs only against pass 1 is something the
+     * first pass did that a re-run does not. */
+    if (!snapshot_take(&s_audit_run1, net.frame)) {
+        return false;
+    }
+    memcpy(s_audit_ck1, s_ck_ring, sizeof s_audit_ck1);
+    for (int i = 0; i < s_audit_k; i++) {
+        snprintf(s_audit_state1[i], sizeof s_audit_state1[0], "%s", state_line(s_audit_from + i));
+    }
+    s_audit_pass = 2;
+    return rollback_to(s_audit_from);
+}
+
+static void audit_after_run2(void) {
+    int ck_bad = audit_diff(&s_audit_run1, s_audit_ck1, s_audit_state1, "vs re-run1");
+    if (ck_bad > 0) {
+        s_audit_pure_bad++;
+    }
+    s_audit_runs++;
+    pc_log_line("net: audit f%d+%d done (%u first-pass / %u re-run mismatches of %u audits)",
+                s_audit_from, s_audit_k, s_audit_ck_bad, s_audit_pure_bad, s_audit_runs);
 }
 
 bool pc_net_after_tick(void) {
+    s_aj_on = false; /* the tick is over: later audio queries are not its own */
+    head_check();    /* did this tick consume the inputs write_head wrote? */
     if (net.synctest) {
         return synctest_after_tick();
     }
@@ -1465,6 +2014,40 @@ bool pc_net_after_tick(void) {
             return true;
         }
         net.resim = false;
+        if (s_audit_running) {
+            bool more = s_audit_pass == 0   ? audit_after_poison()
+                        : s_audit_pass == 1 ? audit_after_run1()
+                                            : (audit_after_run2(), false);
+            if (more) {
+                return true; /* the next pass of this audit is running */
+            }
+            s_audit_running = false;
+            s_audit_poison = false;
+        }
+    }
+    /* The audit's own rollback: same rings, so the re-run must reproduce the
+     * state it replaces (MELEE_NET_RESIM_AUDIT). */
+    if (s_audit_k > 0 && !s_audit_running && s_rb_frame < 0 && in_fight() &&
+        (net.frame % AUDIT_EVERY) == 0 && net.frame != s_audit_done) {
+        int32_t f = net.frame - s_audit_k;
+        Snapshot* s = f > 0 ? snap_slot(f) : NULL;
+        if (s != NULL && s->frame == f && f > net.rb_barrier && snapshot_unusable(s) == NULL &&
+            snapshot_take(&s_audit_after, net.frame)) {
+            memcpy(s_audit_ck, s_ck_ring, sizeof s_audit_ck);
+            for (int i = 0; i < s_audit_k; i++) {
+                snprintf(s_audit_state[i], sizeof s_audit_state[0], "%s", state_line(f + i));
+            }
+            s_audit_from = f;
+            s_audit_done = net.frame;
+            s_audit_running = true;
+            s_audit_pass = s_audit_poison_want ? 0 : 1;
+            s_audit_poison = s_audit_poison_want;
+            if (rollback_to(f)) {
+                return true;
+            }
+            s_audit_running = false;
+            pc_log_line("net: audit could not roll back to frame %d", f);
+        }
     }
     check_desync();
     handshake_test();
@@ -1478,5 +2061,7 @@ bool pc_net_after_tick(void) {
             return true;
         }
     }
+    s_seed_after_tick = *HSD_RandSeedPtr; /* seed_out_of_tick_check reads it next present */
+    s_seed_have = true;
     return false;
 }

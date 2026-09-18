@@ -49,6 +49,35 @@ target_compile_options(aurora_mtx PRIVATE ${MELEE_FP_FLAGS}
         -include ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/libm/pc_trig.h)
 target_compile_options(aurora_gx PRIVATE ${MELEE_FP_FLAGS})
 target_compile_options(aurora_gd PRIVATE ${MELEE_FP_FLAGS})
+
+# Determinism-harness hook, off by default: perturb one routed trig function
+# by one ULP so tools/net_determinism.py can prove it catches a libm
+# divergence. Every math symbol the simulation uses is defined inside the
+# executable (src/pc/libm + lbtrigf.c), so there is nothing for LD_PRELOAD to
+# interpose and the injection has to happen at build time. See the header
+# comment of src/pc/libm/pc_perturb.c. Such a build desyncs against every
+# other build by design; it warns here, logs "net: FP PERTURB" on every run
+# (src/pc/net.c) and tools/package_windows.sh refuses to package it.
+set(MELEE_FP_PERTURB "" CACHE STRING
+        "Determinism test only: return one ULP off from sinf|cosf|tanf|atanf")
+set_property(CACHE MELEE_FP_PERTURB PROPERTY STRINGS "" sinf cosf tanf atanf)
+set(MELEE_FP_PERTURB_DEFS)
+if (MELEE_FP_PERTURB)
+    if (NOT MELEE_FP_PERTURB MATCHES "^(sinf|cosf|tanf|atanf)$")
+        message(FATAL_ERROR "MELEE_FP_PERTURB must be sinf, cosf, tanf or atanf "
+                "(got '${MELEE_FP_PERTURB}')")
+    endif ()
+    string(TOUPPER "${MELEE_FP_PERTURB}" _perturb_upper)
+    set(MELEE_FP_PERTURB_DEFS MELEE_FP_PERTURB_${_perturb_upper}=1
+            MELEE_FP_PERTURB_NAME="${MELEE_FP_PERTURB}")
+    message(WARNING "MELEE_FP_PERTURB=${MELEE_FP_PERTURB}: this build returns "
+            "${MELEE_FP_PERTURB} one ULP off on purpose. It desyncs against every other build "
+            "and must never be shipped or used for anything but tools/net_determinism.py.")
+endif ()
+# aurora_mtx is already configured above, so it needs the definition by hand;
+# melee_game and melee are created below and pick it up from the directory.
+target_compile_definitions(aurora_mtx PRIVATE ${MELEE_FP_PERTURB_DEFS})
+add_compile_definitions(${MELEE_FP_PERTURB_DEFS})
 if (WIN32)
     set(MELEE_CRYPTO_LIBS bcrypt)
     set(MELEE_NETWORK_LIBS winhttp ws2_32 iphlpapi) # iphlpapi: GetAdaptersAddresses in src/pc/net_lan.c
@@ -192,6 +221,51 @@ if (WIN32)
     if (COMMAND aurora_copy_runtime_dlls)
         aurora_copy_runtime_dlls(melee)
     endif ()
+    # Two DLLs the exe imports that nothing stages, so a fresh build-win died
+    # with STATUS_DLL_NOT_FOUND (c0000135) before the first log line:
+    #   nod.dll            aurora_copy_runtime_dlls copies $<TARGET_RUNTIME_DLLS>,
+    #                      i.e. each imported target's IMPORTED_LOCATION file
+    #                      name, and nodConfig.cmake points that at
+    #                      bin/libnod.dll (CMAKE_SHARED_LIBRARY_PREFIX). The
+    #                      MinGW import library in the same package was built
+    #                      against nod.dll, so nod.dll is the name in our
+    #                      import table; the prebuilt ships both, byte for
+    #                      byte identical. find_package(nod) ran in aurora's
+    #                      directory scope, so nod::nod_shared is not visible
+    #                      here and the file has to be found on disc.
+    #   libwinpthread-1.dll  a toolchain file, not a CMake target, so it is in
+    #                      no runtime-DLL set at all. tools/package_windows.sh
+    #                      finds it for the zip, which is why this only ever
+    #                      broke running from the build directory.
+    # The Clang names mirror MINGW_DLLS in package_windows.sh; under GCC they
+    # resolve to nothing and are skipped.
+    set(_melee_runtime_dlls nod.dll libwinpthread-1.dll)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        list(APPEND _melee_runtime_dlls libc++.dll libunwind.dll)
+    endif ()
+    get_filename_component(_cxx_bin "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    # aurora fetched the nod package during its own configure, so its bin/ is
+    # already on disc; globbed rather than named so a renamed FetchContent
+    # directory still resolves.
+    file(GLOB _nod_bins LIST_DIRECTORIES true "${CMAKE_BINARY_DIR}/_deps/*nod*/bin")
+    foreach (_dll IN LISTS _melee_runtime_dlls)
+        string(MAKE_C_IDENTIFIER "MELEE_RUNTIME_${_dll}" _cache_var)
+        # The sysroot's bin/ is where mingw-w64 keeps its DLLs; -print-file-name
+        # only knows the link-time libraries, so it misses them.
+        find_file(${_cache_var} NAMES ${_dll}
+                PATHS ${_nod_bins} ${CMAKE_FIND_ROOT_PATH} ${_cxx_bin}/.. ${_cxx_bin}
+                PATH_SUFFIXES bin
+                NO_CMAKE_FIND_ROOT_PATH)
+        if (${_cache_var})
+            message(STATUS "melee: staging ${_dll} from ${${_cache_var}}")
+            add_custom_command(TARGET melee POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${${_cache_var}}" "$<TARGET_FILE_DIR:melee>")
+        elseif (NOT _dll MATCHES "^libc\\+\\+|^libunwind")
+            message(WARNING "melee: ${_dll} not found for ${CMAKE_CXX_COMPILER}; "
+                    "melee.exe will not start from the build directory")
+        endif ()
+    endforeach ()
 elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     target_link_options(melee PRIVATE -Wl,-dead_strip)
 elseif (APPLE)

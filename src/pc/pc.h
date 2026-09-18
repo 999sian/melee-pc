@@ -60,6 +60,16 @@ bool pc_is_free_camera_enabled(void);
 int pc_get_hud_mode(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
+
+/* The whole unlock surface the RNG-visible unlock predicates read, packed
+ * into one scalar: chars:16 | stages:16 | features:8 | latch4:8 | latch5:8 |
+ * latch6:8. Implemented in src/melee/gm/gmmain_lib.c, next to the save-data
+ * layout and the NUM_UNLOCKABLE_* constants that define it; netplay
+ * snapshots it, forces pc_unlock_state_all() for the session and puts it
+ * back at disconnect (src/pc/net_handshake.c). */
+uint64_t pc_unlock_state_get(void);
+void pc_unlock_state_set(uint64_t state);
+uint64_t pc_unlock_state_all(void);
 /* Per-install random id, generated once and kept in launcher.cfg
  * (src/pc/launcher.cpp); the LAN lobby's host election key. */
 uint64_t pc_install_id(void);

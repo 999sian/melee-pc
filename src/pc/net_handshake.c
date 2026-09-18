@@ -7,8 +7,16 @@
  * match-affecting from plan §5 item 7: the memcard GameRules, the
  * item/stage switches from GamePrefs and the frozen-stadium toggle. The
  * guest overwrites its copies (restored at disconnect) so CSS/SSS/match
- * read the same values on both peers; unlock-all is forced on for both
- * (pc_net_rules).
+ * read the same values on both peers.
+ *
+ * Unlock state gets the same treatment, but written for real: both sides
+ * pin the whole unlock surface to pc_unlock_state_all() before RULES is
+ * built (unlock_force below) and put the player's own back at disconnect,
+ * and RULES/READY each carry an FNV hash of what the masks actually came
+ * out as, so two builds that disagree refuse the handshake. Before this,
+ * unlock-all was a read-time override on three of the four predicates and
+ * the direct mask readers bypassed it, so the two peers could differ by a
+ * single HSD_Randi draw and desync on the first frame of the match.
  *
  * Freshness: each side draws a 64-bit nonce from the platform CSPRNG at
  * handshake time. RULES carries the host's; READY carries the guest's plus
@@ -108,6 +116,8 @@ static Rules s_rules_orig;
 static uint64_t s_nonce_local;          /* ours this session; 0: not drawn yet */
 static uint32_t s_nonce_session;        /* net.session s_nonce_local was drawn for */
 static uint64_t s_nonce_peer;           /* theirs, from RULES (guest) or READY (host) */
+static bool s_unlock_saved;              /* s_unlock_orig holds what the player had */
+static uint64_t s_unlock_orig;
 /* One log line per refusal class per session (the log-line rule): a peer, or
  * a stale process at its address, that keeps resending must not flood it. */
 enum {
@@ -172,7 +182,68 @@ static void rules_apply(const Rules* ru, bool from_peer) {
                 ru->frozen_stadium);
 }
 
+/* ---- unlock state -----------------------------------------------------
+ * Unlock progress is per-install save data (or, with no card, whatever the
+ * card-absent default builder wrote), and several unlock predicates gate
+ * HSD_Rand draws: gm_80164ABC gates the alternate-BGM HSD_Randi(100) roll
+ * reached from ground.c case 6, and gmMainLib_8015ECBC gates an
+ * HSD_Randi(4). One peer drawing where the other does not is a one-draw
+ * seed divergence that shows up as a desync on the first frame that
+ * advances fighter state, with every fighter field still bit-identical.
+ *
+ * So the session pins the whole unlock surface: pc_unlock_state_all() is
+ * written into the real masks before RULES is built, which is what makes
+ * every reader agree -- the three predicates with a pc_is_unlock_all_enabled
+ * short circuit, gm_80164600 which has none, and the direct mask readers in
+ * gm_1601.c and gm_16F1.c that bypass any read-time override. The state
+ * each side actually ended up with is hashed onto the wire and compared, so
+ * two builds that disagree about what "all unlocked" means refuse the
+ * handshake instead of desyncing mid-match.
+ *
+ * These masks are the RAM save image, and rules_restore() puts the player's
+ * own back at disconnect. Nothing reaches the card in between: the only
+ * flush is lbCardGame_SaveChanges(), whose callers are all single-player
+ * mode-end paths (gm_17C0.c, gmmultiman.c, gmhomerun.c, gmscmemcard.c,
+ * tyfigupon.c), so a VS session never saves and a crash mid-session loses
+ * only the forced value, never the card.
+ * ponytail: that is "no VS path saves today", not an enforced invariant. A
+ * save trigger added to a VS path must run after rules_restore(), or the
+ * flush has to be suppressed while s_unlock_saved is set. */
+static void unlock_force(void) {
+    if (s_unlock_saved) {
+        return; /* already pinned for this session */
+    }
+    s_unlock_orig = pc_unlock_state_get();
+    s_unlock_saved = true;
+    pc_unlock_state_set(pc_unlock_state_all());
+    pc_log_line("net: unlock forced %016llx (was %016llx)",
+                (unsigned long long) pc_unlock_state_get(),
+                (unsigned long long) s_unlock_orig);
+}
+
+static void unlock_restore(void) {
+    if (s_unlock_saved) {
+        s_unlock_saved = false;
+        pc_unlock_state_set(s_unlock_orig);
+        pc_log_line("net: unlock state restored (%016llx)", (unsigned long long) s_unlock_orig);
+    }
+}
+
+/* Hash of the unlock state as read back out of the save data, not of the
+ * constant we asked for: what goes on the wire is what the readers will
+ * see. Folded into the RULES/READY hash discipline by riding inside their
+ * wire images, so tampering with it fails the payload hash first. */
+static uint32_t unlock_hash_now(void) {
+    uint64_t s = pc_unlock_state_get();
+    uint8_t be[8];
+    for (int i = 0; i < 8; i++) {
+        be[i] = (uint8_t) (s >> (56 - 8 * i));
+    }
+    return fnv1a(2166136261u, be, sizeof be);
+}
+
 void rules_restore(void) {
+    unlock_restore();
     if (s_rules_saved) {
         s_rules_saved = false;
         rules_apply(&s_rules_orig, false);
@@ -268,9 +339,29 @@ static void on_rules(const uint8_t* payload, int len) {
         net.hs = HS_FAILED;
         return;
     }
-    Ready rd = { nonce_local(), ru.nonce, 0 };
+    /* Pin our unlock surface, then check the host's came out the same. Both
+     * sides write the same constant, so a mismatch means the two builds
+     * disagree about what "all unlocked" is -- one peer would run with a
+     * reader still saying "locked", which is a silent mid-match seed
+     * divergence. Refuse instead (local://UnlockSync-doc.md).
+     * ponytail: refusing sends no READY, so the host only finds out from its
+     * own 15 s timeout. Sending a READY and then failing would cut that to
+     * one RTT, but it would make the guest's refusal depend on the host
+     * checking too; a NAK message type is the fix if this path ever stops
+     * being one-in-never. */
+    unlock_force();
+    uint32_t unlock_mine = unlock_hash_now();
+    if (unlock_mine != ru.unlock_hash) {
+        pc_log_line("net: RULES rejected: unlock state mismatch (ours %08x/%016llx, host %08x)",
+                    unlock_mine, (unsigned long long) pc_unlock_state_get(), ru.unlock_hash);
+        unlock_restore();
+        net.hs = HS_FAILED;
+        return;
+    }
+    Ready rd = { nonce_local(), ru.nonce, unlock_mine, 0 };
     if (rd.nonce == 0) {
         pc_log_line("net: RULES rejected: no random source");
+        unlock_restore();
         net.hs = HS_FAILED;
         return;
     }
@@ -324,6 +415,16 @@ static void on_ready(const uint8_t* payload, int len) {
         hs_drop(LOG_READY_NONCE, "READY", "echoed nonce mismatch");
         return;
     }
+    /* The guest's unlock hash rides inside the image the two checks above
+     * just authenticated, so a mismatch here is a real disagreement rather
+     * than an injection: fail hard instead of waiting out the timeout. */
+    if (rd.unlock_hash != unlock_hash_now()) {
+        pc_log_line("net: READY rejected: unlock state mismatch (ours %08x/%016llx, guest %08x)",
+                    unlock_hash_now(), (unsigned long long) pc_unlock_state_get(),
+                    rd.unlock_hash);
+        net.hs = HS_FAILED;
+        return;
+    }
     s_nonce_peer = rd.nonce;
     hs_done();
 }
@@ -375,6 +476,8 @@ bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
         ru.start_frame = net.start_frame;
         ru.nonce = s_nonce_local;
         rules_capture(&ru);
+        unlock_force();
+        ru.unlock_hash = unlock_hash_now();
         ru.hash = rules_hash(ru, net.session);
         rules_apply(&ru, false);
         wire_rules(&ru);

@@ -226,6 +226,21 @@ uint32_t jitter_us(void) {
 void time_sync(void) {}
 void sync_reset(void) {}
 
+/* The pad-slip detector (net.c head_note/head_check) reads the retrace count
+ * and the game's master pad array; neither is linked into this harness. */
+HSD_PadStatus HSD_PadMasterStatus[4];
+u32 VIGetRetraceCount(void) {
+    return 0;
+}
+bool lb_80019A30(int i) {
+    (void) i;
+    return false;
+}
+const char* state_line(int32_t frame) {
+    (void) frame;
+    return "";
+}
+
 /* net_snapshot.c */
 static Snapshot s_snap;
 bool snapshot_take(Snapshot* s, int32_t frame) {
@@ -378,7 +393,7 @@ static bool s_did_exchange, s_did_pads;
 
 /* Gap inside the ring: the exchange agrees, the pads follow, the wait ends. */
 static void step_resume_ok(void) {
-    if (!s_did_exchange && s_rc == RC_ACTIVE) {
+    if (!s_did_exchange && s_rc == RSM_ACTIVE) {
         s_did_exchange = true;
         /* The phase opened at the stall timeout, not before or after. */
         uint64_t waited = (s_now - s_t0) / 1000000ull;
@@ -396,7 +411,7 @@ static void step_resume_ok(void) {
         assert(s_resume_raw[2] == 0x12 && s_resume_raw[3] == 0x34);
         /* The peer holds our input up to 195 and has produced up to 203. */
         peer_resume(SESSION, SEED, 203, 195);
-        assert(s_rc == RC_ACTIVE);
+        assert(s_rc == RSM_ACTIVE);
         assert(s_status == PC_NET_PEER_OK);
         assert(s_last_acked == 195); /* our refill starts above what it holds */
         assert(s_remote_newest == 203);
@@ -418,7 +433,7 @@ static void case_resume_inside_ring(void) {
     s_step = step_resume_ok;
     assert(wait_remote(199));
     assert(s_did_exchange && s_did_pads);
-    assert(s_rc == RC_NONE);
+    assert(s_rc == RSM_NONE);
     assert(s_status == PC_NET_PEER_OK);
     assert(pc_net_quality() == 2); /* the stall itself, as before */
     assert(s_red_floor == REDUNDANCY_FLOOR); /* back to the ordinary cadence */
@@ -449,7 +464,7 @@ static void case_one_way_while_running(void) {
     setup();
     peer_resume(SESSION, SEED, 203, 195);
     assert(s_resume_sends == 0);
-    assert(s_rc == RC_NONE);
+    assert(s_rc == RSM_NONE);
     assert(pc_net_quality() != 3);
     assert(s_status == PC_NET_PEER_OK);
     assert(s_last_acked == 195); /* its numbers are still adopted */
@@ -467,10 +482,10 @@ static void case_one_way_while_running(void) {
 /* A gap the rings cannot cover must end the session, not resume into a
  * desync. */
 static void step_gap_too_big(void) {
-    if (!s_did_exchange && s_rc == RC_ACTIVE) {
+    if (!s_did_exchange && s_rc == RSM_ACTIVE) {
         s_did_exchange = true;
         peer_resume(SESSION, SEED, 203, WROTE - RING - 5);
-        assert(s_rc == RC_FAILED);
+        assert(s_rc == RSM_FAILED);
     }
 }
 
@@ -491,7 +506,7 @@ static void case_gap_past_ring(void) {
 
 /* Same for a peer that answers for another session or another seed. */
 static void step_seed_mismatch(void) {
-    if (!s_did_exchange && s_rc == RC_ACTIVE) {
+    if (!s_did_exchange && s_rc == RSM_ACTIVE) {
         s_did_exchange = true;
         peer_resume(SESSION, SEED + 1, 203, 195);
     }
@@ -513,7 +528,7 @@ static void case_session_mismatch(void) {
     printf("case: a restarted peer (other session id) fails\n");
     setup();
     peer_resume(SESSION + 1, SEED, 203, 195);
-    assert(s_rc == RC_FAILED);
+    assert(s_rc == RSM_FAILED);
     assert(s_status == PC_NET_PEER_RESUME);
     assert(logged("the peer answers for session abcd1235"));
 }
@@ -543,7 +558,7 @@ static void case_disabled(void) {
     uint64_t waited = (s_now - s_t0) / 1000000ull;
     assert(s_status == PC_NET_PEER_TIMEOUT);
     assert(waited >= STALL_TIMEOUT_MS && waited <= STALL_TIMEOUT_MS + 10);
-    assert(s_rc == RC_NONE);
+    assert(s_rc == RSM_NONE);
     assert(s_resume_sends == 0);
     assert(!logged("reconnecting"));
 }
@@ -571,7 +586,7 @@ static void case_connect_timeout(void) {
     uint64_t waited = (s_now - s_t0) / 1000000ull;
     assert(s_status == PC_NET_PEER_TIMEOUT);
     assert(waited >= CONNECT_TIMEOUT_MS && waited <= CONNECT_TIMEOUT_MS + 10);
-    assert(s_rc == RC_NONE);
+    assert(s_rc == RSM_NONE);
     assert(s_resume_sends == 0);
     assert(!logged("reconnecting"));
 }
@@ -588,7 +603,7 @@ static void case_handshake_pending_fails_fast(void) {
     uint64_t waited = (s_now - s_t0) / 1000000ull;
     assert(s_status == PC_NET_PEER_TIMEOUT);
     assert(waited >= STALL_TIMEOUT_MS && waited <= STALL_TIMEOUT_MS + 10);
-    assert(s_rc == RC_NONE);
+    assert(s_rc == RSM_NONE);
     assert(s_resume_sends == 0);
     assert(!logged("reconnecting"));
 }
@@ -610,7 +625,7 @@ static void case_young_session_fails_fast(void) {
     uint64_t waited = (s_now - s_t0) / 1000000ull;
     assert(s_status == PC_NET_PEER_TIMEOUT);
     assert(waited >= STALL_TIMEOUT_MS && waited <= STALL_TIMEOUT_MS + 10);
-    assert(s_rc == RC_NONE);
+    assert(s_rc == RSM_NONE);
     assert(s_resume_sends == 0);
     assert(!logged("reconnecting"));
 }
@@ -628,7 +643,7 @@ static void case_handshake_done_resumes_young(void) {
     s_last_acked = -1;
     s_t0 = s_now;
     assert(!wait_remote(2)); /* nobody answers: the window ends it */
-    assert(s_rc == RC_ACTIVE);
+    assert(s_rc == RSM_ACTIVE);
     assert(s_resume_sends == 1);
     assert(logged("net: interrupted at frame 3"));
     assert(logged("net: resume window of 15000 ms expired at frame 3"));
@@ -642,7 +657,7 @@ static void case_resume_before_established_ignored(void) {
     net.hs = HS_PENDING;
     net.seed = 0; /* the guest has no agreed seed yet */
     peer_resume(SESSION, SEED, 203, 195);
-    assert(s_rc == RC_NONE);
+    assert(s_rc == RSM_NONE);
     assert(s_status == PC_NET_PEER_OK);
     assert(s_resume_sends == 0);
     assert(s_last_acked == ACKED);
@@ -670,7 +685,7 @@ static void case_tick_resume_refused_disconnects(void) {
     printf("case: the tick body disconnects on a refused resume\n");
     setup();
     peer_resume(SESSION, SEED, 203, WROTE - RING - 5);
-    assert(s_rc == RC_FAILED);
+    assert(s_rc == RSM_FAILED);
     PADStatus head[4];
     memset(head, 0, sizeof head);
     fresh_tick(head, true);

@@ -250,8 +250,14 @@ suppress only; none of them fixes anything.
 
 Two copies of the game play a rollback match over UDP (`src/pc/net.c`;
 design and current state in [docs/netcode-plan.md](docs/netcode-plan.md)).
-Both must run the same build and the same disc, with no memory card
-(`--no-card`). In the menus: VS Mode → ONLINE → LAN PLAY finds other
+Both must run the same build **and the same game image**, with no memory card
+(`--no-card`). The LAN lobby announces a 32-bit id of the disc it booted
+(region, revision, file-table shape and the DOL, so a code mod counts), and a
+peer on a different image is listed as incompatible before a single game
+packet is exchanged — same as a different build version. Direct connect does
+not check either: there is no lobby record to read them from.
+
+In the menus: VS Mode → ONLINE → LAN PLAY finds other
 copies on the local network by mDNS and the first Start elects a host
 (lowest install id wins a tie); DIRECT CONNECT takes the other machine's
 `ip:port` and needs no discovery, which is also the way past Wi-Fi client
@@ -260,19 +266,45 @@ isolation. The game port is UDP 41000 by default and discovery uses UDP
 launch). The install id used for the election is `install_id` in
 `launcher.cfg`.
 
+If the link drops mid-match, the session no longer dies with it: after 7 s of
+silence it enters a reconnect phase and resumes where it left off if the peer
+comes back within 15 s and neither side's 64-frame input ring has been
+outrun. The lobby shows "reconnecting"; a failure that cannot be resumed says
+"Could not resume" instead of "Connection timed out".
+
+**What works where.** Only Linux x86-64 has played real matches, but a Linux
+recording now replays bit-identical on Windows, so the two builds compute the
+same game.
+
+| Platform | Netplay | Rollback | Notes |
+|---|---|---|---|
+| Linux x86-64 | yes | yes | the configuration everything below was measured on; longest run 36 minutes and 126k frames of match |
+| Windows | yes, but lockstep | **no** | the snapshot region is named by an ELF linker script, which PE/COFF cannot use, so the session never predicts and input delay has to cover the whole round trip. Determinism against Linux is proven by replay; two machines actually playing has not been tried |
+| macOS / iOS | builds, never run | no | same linker limitation; no macOS hardware here to try it on |
+| Android | builds, never run on a device | yes, in principle | LAN discovery needs the Wi-Fi multicast lock, which the app now holds only while the lobby is open |
+
 | Variable | Effect |
 |---|---|
 | `MELEE_NET=<host:port>` | Connect to that peer at boot, no lobby (`MELEE_NET_PLAYER` and the same `MELEE_SEED` on both sides). |
 | `MELEE_NET_PORT=<n>` | Local UDP game port (default 41000). Two copies on one machine need different ports. |
 | `MELEE_NET_PLAYER=0\|1` | Controller port the local player drives with `MELEE_NET`: 0 = P1/host, 1 = P2. |
 | `MELEE_NET_DELAY=<n>\|auto` | Input delay in frames (default `auto`: 1–4 from ping and jitter, re-evaluated every 600 frames, changed only between matches). |
+| `MELEE_NET_RECONNECT_MS=<ms>` | How long a broken link may take to resume (default 15000). `0` disables the reconnect phase: the session drops 7 s after the peer goes quiet, as it used to. Anything negative or unparseable falls back to the default. |
 | `MELEE_LAN_TEST=1\|host` | LAN lobby without the menu; `host` presses Start once the title is up. Both set to `host` exercises a simultaneous Start. |
 | `MELEE_LAN_DIRECT=<ip:port>` | Direct connect without the menu, at frame 300; set on both sides with the other's address. The lower `ip:port` hosts. |
 | `MELEE_NET_HANDSHAKE_TEST=1` | Run the RULES/READY handshake at frame 300 with `MELEE_NET`, no lobby. |
 | `MELEE_NET_RECORD=<file>` | Write the seed, then per frame the four pad states simulated and a state checksum. |
 | `MELEE_NET_REPLAY=<file>` | Feed a recording back in; reports the first frame whose checksum differs (`net: REPLAY DIVERGED`). Solo only. |
+| `MELEE_NET_STATE_LOG=<file>` | Write two lines per frame to that file: the readable state line, and the raw float bits of exactly the fields the checksum covers. Only meaningful with `MELEE_NET_RECORD`/`MELEE_NET_REPLAY`; this is how two platforms' runs are diffed down to the field that differs. |
+| `MELEE_INPUT_TRACE=1` | One `pad: ` line per change of port 0's virtual pad, with the focus and fifo state that produced it. |
 | `MELEE_NET_SYNCTEST=1` | Run every tick twice from a restored snapshot and compare state hashes; sound is off. Proves the snapshot covers everything a tick reads. |
+| `MELEE_NET_ROLLBACK=off` | Play the session in lockstep — no prediction, no snapshots. A bisecting tool, not a mode. |
+| `MELEE_NET_SYNC=off\|legacy` | Measure the clock offset but never act on it, or restore the pre-batch skip behaviour. |
+| `MELEE_NET_PAD_QTYPE=0` | Restore the raw pad queue's shifting overflow branch; the regression test for the input-slip fix. |
+| `MELEE_NET_AUDIO_JOURNAL=off`, `MELEE_NET_AUDIO_DEAF=off` | Restore the two audio behaviours netplay overrides for determinism; each is the regression test for its own defect. |
+| `MELEE_NET_RESIM_AUDIT=<k>` | Every 120 frames, roll back k frames and re-run them from unchanged inputs, comparing every snapshot region and checksum. The instrument that proves re-simulation is faithful. |
 | `MELEE_NET_EXIT_AFTER_FRAMES=<n>` | Disconnect (BYE) and exit at that frame, logging `net: test done at frame n`. |
+| `MELEE_NET_SIM_OOM_FRAME=<n>` | Fail the first snapshot taken at or after that frame, the way a failed allocation would, to exercise the lockstep fallback. |
 | `MELEE_NET_SIM_LOSS=<pct>` | Drop that share of outgoing packets. |
 | `MELEE_NET_SIM_DELAY_MS=<ms>` | Hold every outgoing packet that long. |
 | `MELEE_NET_SIM_DELAY_RX_MS=<ms>` | Hold every incoming packet that long (asymmetric links). |
@@ -286,19 +318,29 @@ Every 600 frames the log prints rollbacks, stalls, ping, jitter, loss and
 snapshot cost; `net: DESYNC`, `net: cannot roll back` and `net: peer silent`
 are the lines that mean something went wrong. Two copies on one machine also
 need distinct `MELEE_CACHE_DIR` (pipeline cache) and `MELEE_KEY_FIFO` if you
-drive them with key injection.
+drive them with key injection. Keyboard keys only reach the game while the
+window has keyboard focus; `MELEE_KEY_FIFO` keys are deliberately exempt, so
+harnesses can still drive menus in background windows.
 
-`tools/net_test.py` runs all of that: two instances on this machine, a match,
-then asserts on both logs (both reach `net: test done`, exit 0, no DESYNC, no
-`peer silent`, no lost rollback). Direct mode boots straight into Link vs
-Mario via `MELEE_NET` + `MELEE_DEBUG_VS=1`; `--lan` walks the real menus into
-the LAN lobby and needs the shared LAN free.
+A run that never leaves a menu proves nothing: outside a fight the state
+checksum covers only the four pads and the RNG seed, so two title screens can
+neither desync nor roll back. The harnesses below check that a match really
+started before they report anything.
+
+| Tool | What it does |
+|---|---|
+| `tools/net_test.py` | Two instances on this machine through a real match, asserting on both logs (both reach `net: test done`, exit 0, no DESYNC, no `peer silent`, no lost rollback). Direct mode boots straight into Link vs Mario via `MELEE_NET` + `MELEE_DEBUG_VS=1`; `--lan` walks the real menus into the LAN lobby and needs the shared LAN free; `--scenes` walks CSS and SSS too; `--oom FRAME` and `--disconnect` cover the snapshot-failure and hard-drop paths. |
+| `tools/net_acceptance.py` | The same across a link matrix (loss, delay, jitter, reorder, dup, burst, asymmetric rx) into one markdown table. |
+| `tools/net_lan_test.py` | Lobby paths a match never reaches: simultaneous Start, direct connect, a peer killed mid-lobby, the host killed while the guest connects. |
+| `tools/net_determinism.py` | Records one run and replays it on every platform reachable from this machine, reporting the first frame that differs. Android and macOS report SKIPPED rather than passing. |
+| `tools/net_fuzz.py`, `tools/net_lan_fuzz.py` | Malformed game datagrams and malformed mDNS records against a running instance. Both keep their crafted multicast on this host (`IP_MULTICAST_TTL 0`). |
 
 ```sh
 python3 tools/net_test.py                                  # 2 min, clean link
 python3 tools/net_test.py --loss 5 --delay 30 --jitter --reorder
 python3 tools/net_test.py --lan --minutes 1
 python3 tools/net_test.py --fuzz                           # tools/net_fuzz.py hammers A's port
+python3 tools/net_determinism.py --only linux,linux-flip   # ~2 min, no Proton
 ```
 
 `--exe build/melee`, `--disc ../melee.ciso`, `--port 42050` (B uses +1) and

@@ -17,7 +17,7 @@ extern "C" {
 /* Wire protocol version; a peer with another one is refused (both sides
  * report PEER_INCOMPATIBLE). Bump on any change to the packet layouts,
  * Rules or the handshake. */
-#define PC_NET_PROTO_VERSION 4
+#define PC_NET_PROTO_VERSION 5
 void pc_net_init(void);
 bool pc_net_active(void);
 /* Controller port the local player drives (0 = P1/host, 1 = P2/guest). */
@@ -35,7 +35,11 @@ int pc_net_handshake_state(void);
 
 /* Match rules in force from the RULES handshake until disconnect: unlock-all
  * is on for both peers, frozen stadium is the host's setting. False when no
- * rules are in force (use the local prefs). */
+ * rules are in force (use the local prefs).
+ *
+ * While a session is in force the unlock masks in the save data are actually
+ * written all-unlocked (net_handshake.c), so this flag now agrees with them
+ * instead of overriding them; the direct mask readers agree too. */
 bool pc_net_rules(bool* unlock_all, bool* frozen_stadium);
 
 /* Called once per simulation tick before the pad queue head is consumed.
@@ -55,6 +59,40 @@ uint64_t pc_net_pace_adjust_ns(void);
 
 /* True while re-simulating: sound/music/rumble starts must be suppressed. */
 bool pc_net_resim(void);
+
+/* The simulation asks the audio engine two questions whose answers live
+ * outside every snapshot and move in real time: "did this sound start, and
+ * with what voice id" (AXDriver_8038CFF4) and "is that voice still playing"
+ * (AXDriver_8038D9D8 -> HSD_SynthSFXCheck, whose nodes sit in the excluded
+ * HSD_Synth heap and whose voice state the audio engine clears when the
+ * sample ends). A rollback re-runs a frame one round trip later, so on any
+ * link with real latency the second answer differs from the first, the
+ * simulation branches differently (src/melee/sfx/crowdsfx.c,
+ * src/melee/gr/ground.c) and the frame's checksum diverges from the peer
+ * that never re-ran it. So the answers are journalled per frame: the first
+ * simulation of a frame asks the engine and records, every later
+ * simulation of that frame replays the same answers and touches nothing.
+ * MELEE_NET_AUDIO_JOURNAL=off restores the old behaviour.
+ *
+ * replay: true when this frame already has an answer at this point in its
+ * call order, and *out is it. record: stores and returns v. Both are no-ops
+ * outside a netplay tick on the game thread. */
+bool pc_net_audio_replay(int32_t* out);
+int32_t pc_net_audio_record(int32_t v);
+
+/* The second question -- "is that voice still playing" (AXDriver_8038D9D8 ->
+ * HSD_SynthSFXCheck) -- cannot be journalled into agreement, because each
+ * peer's audio engine runs on its own wall clock and a peer that stalled for
+ * a round trip has aged the voice further than the peer that did not. During
+ * a session the simulation is therefore told "no, it finished" (true return,
+ * *answer = false); outside one the real answer stands. That is a behaviour
+ * change: crowd cheers no longer wait for the previous cheer to end and the
+ * ground.c:3125 gate reads as "the stage sound is over".
+ * MELEE_NET_AUDIO_DEAF=off restores the real answer.
+ * pc_net_audio_deaf_note() records what the engine would have said, so the
+ * periodic report can show how often that differs. */
+bool pc_net_audio_deaf(bool* answer);
+void pc_net_audio_deaf_note(bool live);
 
 /* Called whenever the game issues a disc request: a tick that did I/O can
  * never be re-simulated (completions land on worker threads). */

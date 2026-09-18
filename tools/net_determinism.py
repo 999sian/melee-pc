@@ -5,7 +5,7 @@ replay bit-identical on every platform we ship.
     tools/net_determinism.py [--frames 2400] [--seed 7] [--exe build/melee]
                              [--win-exe build-win/melee.exe] [--disc ../melee.ciso]
                              [--work /tmp/net_determinism] [--port 42400]
-                             [--only linux,linux-flip,windows] [--keep]
+                             [--only linux,linux-flip,windows] [--keep] [--state-log]
 
 One reference recording is made on this Linux build with a fixed MELEE_SEED, a
 fixed frame count and input driven through MELEE_KEY_FIFO (MELEE_DEBUG_VS=cpu,
@@ -15,7 +15,17 @@ platform we can reach here, and src/pc/net_snapshot.c reports the first frame
 whose checksum differs ("net: REPLAY DIVERGED at frame N").
 
 Rows:
-  linux       the reference build replaying its own recording; must be identical.
+  linux-record  the reference build replaying the RECORDING leg's file. This
+              row is about the recording, not about a platform: the recording
+              leg runs with the 1 kHz keyboard poller live (MELEE_KEY_FIFO)
+              and is paced differently from a replay, and the simulation is
+              sensitive to that pacing, so this row currently diverges at the
+              first frame of an input transition. Its own recording - written
+              while being fed the recorded pads - is the canonical file every
+              row below is judged against, so one defect cannot masquerade as
+              the other.
+  linux       the reference build replaying the canonical file; must be
+              identical.
   linux-flip  the same recording with ONE byte flipped at a known frame; must
               report divergence at exactly that frame. Without this row a green
               table proves nothing - a replay harness that silently compares
@@ -28,6 +38,15 @@ Rows:
 Exit 0 when every platform that actually ran was identical (and the flip row
 was caught), 1 otherwise. A platform that never reached the replay is reported
 BLOCKED, never "identical" and never "diverged".
+
+--state-log points MELEE_NET_STATE_LOG at <work>/<leg>.state, so every leg
+writes "net: state f<N> ..." plus "net: bits f<N> ..." for each frame
+(src/pc/net_snapshot.c). That is how a divergence is localised from "the
+checksums differ at frame N" to "this field of this fighter differs": run it,
+then diff two legs' .state files (or the recording leg's against a replay's)
+over the frames around N. The bits line carries the raw float bits of exactly
+the fields frame_checksum() folds, because the readable line rounds to three
+decimals and hides a 1-ULP difference. Off by default.
 """
 import argparse
 import os
@@ -160,6 +179,7 @@ def record(args):
         "MELEE_NET_PORT": str(args.port), "MELEE_CACHE_DIR": cache,
         "MELEE_KEY_FIFO": fifo, "MELEE_NET_RECORD": path,
         "MELEE_WINDOW_TITLE": "net-determinism-record",
+        **state_log(args, "record"),
     })
     print(f"determinism: recording {args.frames} frames, seed {args.seed}, pid {run.proc.pid}",
           flush=True)
@@ -315,10 +335,13 @@ class Result:
         return "identical"
 
 
-def watch(run, platform, frames, timeout):
-    """Wait for src/pc/net_snapshot.c to finish or report the replay."""
+def watch(run, platform, frames, timeout, run_to_end=False):
+    """Wait for src/pc/net_snapshot.c to finish or report the replay.
+    run_to_end keeps waiting after a divergence is reported, so the leg's own
+    recording still covers every frame instead of stopping at the mismatch."""
     deadline = time.time() + timeout
     opened = False
+    div = None
     while time.time() < deadline:
         text = run.text()
         if not opened and OPENED.search(text):
@@ -326,12 +349,14 @@ def watch(run, platform, frames, timeout):
             if "net: cannot open" in text:
                 return Result(platform, blocked="the build could not open the recording")
         d = DIVERGED.search(text)
-        if d:
-            return Result(platform, frames=int(d.group(1)), diverged=int(d.group(1)),
-                          detail=f"recorded {d.group(2)} now {d.group(3)}")
+        if d and div is None:
+            div = Result(platform, frames=int(d.group(1)), diverged=int(d.group(1)),
+                         detail=f"recorded {d.group(2)} now {d.group(3)}")
+            if not run_to_end:
+                return div
         f = FINISHED.search(text)
         if f:
-            return Result(platform, frames=int(f.group(1)))
+            return div if div is not None else Result(platform, frames=int(f.group(1)))
         if not run.alive():
             break
         time.sleep(0.5)
@@ -339,12 +364,26 @@ def watch(run, platform, frames, timeout):
     if not opened:
         tail = " | ".join(text.strip().splitlines()[-3:])[:220]
         return Result(platform, blocked=f"never reached the replay (last log: {tail})")
+    if div is not None:
+        return div
     if not run.alive():
         return Result(platform, blocked=f"exited at code {run.proc.returncode} mid-replay")
     return Result(platform, blocked=f"still short of {frames} frames after {timeout:.0f} s")
 
 
-def replay_linux(args, rec, platform, port):
+def state_log(args, name, wine=False):
+    """--state-log: one file per leg, including the recording one, so a replay
+    can be diffed against the run it came from as well as against another
+    platform. src/pc/net_snapshot.c writes it block-buffered; it deliberately
+    does not go through the pc_log_line path, which flushes twice per line and
+    perturbed the frame pacing enough to move the divergence it was measuring."""
+    if not args.state_log:
+        return {}
+    path = os.path.join(args.work, f"{name}.state")
+    return {"MELEE_NET_STATE_LOG": win_path(path) if wine else path}
+
+
+def replay_linux(args, rec, platform, port, run_to_end=False):
     cache = os.path.join(args.work, f"{platform}.cache")
     os.makedirs(cache, exist_ok=True)
     own = os.path.join(args.work, f"{platform}.rec")
@@ -354,10 +393,11 @@ def replay_linux(args, rec, platform, port):
         "MELEE_NET_PORT": str(port), "MELEE_CACHE_DIR": cache,
         "MELEE_NET_REPLAY": rec, "MELEE_NET_RECORD": own,
         "MELEE_WINDOW_TITLE": f"net-determinism-{platform}",
+        **state_log(args, platform),
     })
     print(f"determinism: [{platform}] replaying, pid {run.proc.pid}", flush=True)
     try:
-        r = watch(run, platform, args.frames, args.frames / 8.0 + 120)
+        r = watch(run, platform, args.frames, args.frames / 8.0 + 120, run_to_end)
     finally:
         run.kill()
     if not r.blocked:
@@ -370,8 +410,8 @@ def replay_windows(args, rec, port):
     space in this checkout's parent directory, so the disc is handed over as a
     symlink on a space-free path; the recording and cache go the same way."""
     if not os.path.exists(args.win_exe):
-        return Result("windows", blocked=f"{args.win_exe} missing; run tools/package_windows.sh "
-                                         "(see doc: needs --defsym at HEAD)")
+        return Result("windows", blocked=f"{args.win_exe} missing; build it with "
+                                         "tools/package_windows.sh or cmake/ninja into build-win")
     proton = os.path.join(HERE, "run_proton.sh")
     cache = os.path.join(args.work, "windows.cache")
     os.makedirs(cache, exist_ok=True)
@@ -384,6 +424,7 @@ def replay_windows(args, rec, port):
         "MELEE_NET_PORT": str(port), "MELEE_CACHE_DIR": win_path(cache),
         "MELEE_NET_REPLAY": win_path(rec), "MELEE_NET_RECORD": win_path(own),
         "MELEE_WINDOW_TITLE": "net-determinism-windows",
+        **state_log(args, "windows", wine=True),
         "STEAM_COMPAT_DATA_PATH": os.environ.get("STEAM_COMPAT_DATA_PATH",
                                                  "/tmp/proton_melee_test"),
     })
@@ -451,6 +492,9 @@ def parse_args(argv=None):
     ap.add_argument("--rec", help="skip recording and replay this file instead")
     ap.add_argument("--keep", action="store_true",
                     help="keep the work directory contents (implied by --rec)")
+    ap.add_argument("--state-log", action="store_true",
+                    help="MELEE_NET_STATE_LOG=1 on the replay legs: per-frame state and "
+                         "exact-bits lines, so a divergence can be diffed field by field")
     return ap.parse_args(argv)
 
 
@@ -474,20 +518,55 @@ def main():
     print(f"determinism: recording {rec} sha256:{digest} ({args.frames} frames)", flush=True)
 
     results = []
+    # The recording leg drives input through MELEE_KEY_FIFO, so its 1 kHz
+    # keyboard poller is live and its frames are paced differently from a
+    # replay's, and the simulation turns out to be sensitive to that pacing
+    # (local/WindowsM0-doc.md: the same build replaying the same file diverges
+    # from the recording at the first frame of an input transition, and even
+    # turning --state-log on moves that frame). So the recording's PAD stream
+    # is the input truth, but its own checksum column is not a sound reference
+    # for a platform comparison. One Linux replay canonicalises it: its own
+    # recording, written while being fed those pads, is the file every
+    # platform row is then judged against. The record-vs-replay difference is
+    # reported as its own row, "linux-record", so the pacing defect stays
+    # visible instead of masquerading as a platform divergence.
+    canon = rec
+    if only:
+        pacing = replay_linux(args, rec, "linux-record", args.port + 4, run_to_end=True)
+        results.append(pacing)
+        own = os.path.join(args.work, "linux-record.rec")
+        if pacing.blocked or not os.path.exists(own):
+            print("determinism: canonicalisation leg did not run; rows below are judged "
+                  "against the recording leg's own checksums", flush=True)
+        else:
+            # The replay keeps recording after the last record is consumed, so
+            # cut it back to the reference length.
+            with open(own, "r+b") as f:
+                f.truncate(REC_HDR + args.frames * REC_STRIDE)
+            if rec_frames(rec_read(own)) == args.frames:
+                canon = own
+                print(f"determinism: canonical reference {canon} "
+                      f"sha256:{rec_digest(canon)} ({args.frames} frames)", flush=True)
+            else:
+                print(f"determinism: canonicalisation leg only reached "
+                      f"{rec_frames(rec_read(own))} frames; keeping the recording leg's file",
+                      flush=True)
+    digest = rec_digest(canon)
+
     if "linux" in only:
-        results.append(replay_linux(args, rec, "linux", args.port + 1))
+        results.append(replay_linux(args, canon, "linux", args.port + 1))
 
     flip_frame = args.frames // 2
     flip = None
     if "linux-flip" in only:
         bad = os.path.join(args.work, "corrupted.rec")
-        off = corrupt(rec, bad, flip_frame)
+        off = corrupt(canon, bad, flip_frame)
         print(f"determinism: flipping byte {off} (frame {flip_frame}, pad 0 stickX)", flush=True)
         flip = replay_linux(args, bad, "linux-flip", args.port + 2)
         results.append(flip)
     if "windows" in only:
-        results.append(replay_windows(args, rec, args.port + 3))
-    results.extend(skipped(args, rec))
+        results.append(replay_windows(args, canon, args.port + 3))
+    results.extend(skipped(args, canon))
 
     print()
     print(f"{'platform':<12} {'frames':>7}  {'first diverging frame':<22} recording")
@@ -515,7 +594,12 @@ def main():
                 fails.append(f"linux never ran: {r.blocked}")
             continue
         if r.diverged is not None:
-            fails.append(f"{r.platform} diverged at frame {r.diverged}")
+            if r.platform == "linux-record":
+                fails.append(f"the recording leg's own run is not reproducible: replaying it "
+                             f"diverges at frame {r.diverged} (frame pacing, not a platform "
+                             f"difference; the rows below use the canonical file)")
+            else:
+                fails.append(f"{r.platform} diverged at frame {r.diverged}")
         elif r.frames != args.frames:
             fails.append(f"{r.platform} replayed {r.frames} of {args.frames} frames")
     if flip is not None:

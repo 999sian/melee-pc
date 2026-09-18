@@ -3,9 +3,10 @@
  * or slow caller lane never holds up RULES/READY. Lane 0 carries the match
  * handshake (types < 0x10, consumed inline by net_handshake.c), lane 1 the
  * caller's messages (types >= 0x10, queued for pc_net_recv_reliable) except
- * REL_RESUME, which net.c consumes inline the same way (it arrives while
- * the game thread is parked in a stall, where no caller is draining). Each
- * lane has one 'R' in flight, resent every 250 ms until its 'K' arrives,
+ * REL_RESUME and REL_DELAY, which net.c and net_sync.c consume inline the
+ * same way (REL_RESUME arrives while the game thread is parked in a stall
+ * and REL_DELAY mid-match, where no caller is draining). Each lane has one
+ * 'R' in flight, resent every 250 ms until its 'K' arrives,
  * 4 queued behind it and its own sequence space.
  *
  * Wire: Rel.seq / RelAck.seq bit 7 is the lane, bits 0-6 the lane's 7-bit
@@ -133,6 +134,8 @@ void on_rel(const Rel* r, int n) {
             handshake_msg(r->type, r->payload, r->len);
         } else if (r->type == REL_RESUME) {
             net_resume_rel(r->payload, r->len);
+        } else if (r->type == REL_DELAY) {
+            net_delay_rel(r->payload, r->len);
         } else if (s_rel_rx_n < REL_QUEUE) {
             RelMsg* m = &s_rel_rx[(s_rel_rx_head + s_rel_rx_n++) % REL_QUEUE];
             m->type = r->type;

@@ -28,10 +28,26 @@
  * MELEE_NET_REPLAY=file  feeds those pads back in and reports the first
  *                        frame whose checksum differs: the determinism test
  *                        for M0 (docs/netcode-plan.md §5). Works solo or
- *                        together with netplay (record only). */
+ *                        together with netplay (record only).
+ * MELEE_NET_STATE_LOG=file
+ *                        writes record_state()'s line plus an exact-bits
+ *                        line for EVERY frame to `file`, not just into the
+ *                        DESYNC ring. A checksum says two platforms differ;
+ *                        these say which field of which fighter differs,
+ *                        which is the only way to localise a cross-platform
+ *                        divergence (two files, one diff).
+ *                        Its own file, block-buffered and flushed every 8
+ *                        frames, deliberately NOT pc_log_line: that flushes
+ *                        stderr and the log file on every call, and two of
+ *                        those per frame slowed the loop enough to change
+ *                        which frame the pad alarm fires on - the instrument
+ *                        moved what it was measuring (the same replay went
+ *                        from "identical over 1376 frames" to "diverges at
+ *                        1359"). Off by default. */
 static FILE* s_rec;
 static FILE* s_rep;
 static bool s_rep_reported;
+static FILE* s_state_log;
 
 typedef struct FrameRecord {
     PADStatus pads[4];
@@ -58,6 +74,15 @@ void record_open(void) {
             *HSD_RandSeedPtr = seed;
         }
         pc_log_line("net: %s %s", s_rep ? "replaying" : "cannot open", rep);
+    }
+    const char* sl = getenv("MELEE_NET_STATE_LOG");
+    if (sl != NULL && sl[0] != '\0') {
+        s_state_log = fopen(sl, "w");
+        if (s_state_log != NULL) {
+            static char buf[1 << 16];
+            setvbuf(s_state_log, buf, _IOFBF, sizeof buf);
+        }
+        pc_log_line("net: %s state log %s", s_state_log ? "writing" : "cannot open", sl);
     }
 }
 
@@ -143,9 +168,44 @@ uint32_t frame_checksum(const PADStatus* head) {
 #define STATE_RING 64
 static char s_state_ring[STATE_RING][320];
 
+/* Raw bits of a float: the human line below rounds to three decimals, which
+ * hides exactly the 1-ULP differences a codegen or libm divergence starts
+ * as, and every one of those fields is folded into the checksum verbatim. */
+static uint32_t f32bits(float f) {
+    uint32_t u;
+    memcpy(&u, &f, sizeof u);
+    return u;
+}
+
+/* Everything frame_checksum() folds, exactly, one line per frame. This is
+ * what two platforms' logs are diffed on to name the first field that
+ * differs (MELEE_NET_STATE_LOG). */
+static void log_state_bits(int32_t frame) {
+    char buf[512];
+    int n = snprintf(buf, sizeof buf, "f%d seed=%08x", frame, *HSD_RandSeedPtr);
+    for (int slot = 0; in_fight() && slot < 4 && n < (int) sizeof buf - 96; slot++) {
+        HSD_GObj* gobj = Player_GetEntity(slot);
+        if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
+            continue;
+        }
+        const Fighter* fp = GET_FIGHTER(gobj);
+        n += snprintf(buf + n, sizeof buf - (size_t) n,
+                      " p%d pos=%08x/%08x/%08x dir=%08x pct=%08x mid=%d st=%d", slot,
+                      f32bits(fp->cur_pos.x), f32bits(fp->cur_pos.y), f32bits(fp->cur_pos.z),
+                      f32bits(fp->facing_dir), f32bits(fp->dmg.x1830_percent), fp->motion_id,
+                      Player_GetStocks(slot));
+    }
+    fprintf(s_state_log, "net: bits %s\n", buf);
+}
+
 /* Remember what went into this frame's checksum (overwritten when the
- * frame is re-simulated, so the last write is the confirmed timeline). */
+ * frame is re-simulated, so the last write is the confirmed timeline), and
+ * log it too under MELEE_NET_STATE_LOG. Called for every frame, not only
+ * the netplay ones: a solo replay is how a platform divergence is chased. */
 void record_state(const PADStatus* head, int32_t frame) {
+    if (!net.active && !s_state_log) {
+        return;
+    }
     char* buf = s_state_ring[frame & (STATE_RING - 1)];
     int n = snprintf(buf, sizeof s_state_ring[0], "f%d seed=%08x pads=%04x/%d,%d %04x/%d,%d", frame,
                      *HSD_RandSeedPtr, head[0].button, head[0].stickX, head[0].stickY,
@@ -163,17 +223,40 @@ void record_state(const PADStatus* head, int32_t frame) {
                       (double) fp->x8c_kb_vel.y, (double) fp->facing_dir,
                       (double) fp->dmg.x1830_percent, fp->motion_id, Player_GetStocks(slot));
     }
+    if (s_state_log != NULL) {
+        fprintf(s_state_log, "net: state %s\n", buf);
+        log_state_bits(frame);
+        /* A harness SIGKILLs the run a moment after the divergence it was
+         * waiting for, so the tail must already be on disc; every 8 frames
+         * is one write syscall per 4 KB instead of four per frame. */
+        if ((frame & 7) == 0) {
+            fflush(s_state_log);
+        }
+    }
 }
 
 /* Dump the recorded states around `frame` (both peers do this on DESYNC, so
  * the two logs can be diffed line by line). */
 void dump_states_around(int32_t frame) {
-    for (int32_t f = frame - 3; f <= frame + 1; f++) {
+    /* Most of the ring: the checksum covers position but not velocity, so
+     * the frame a desync is reported on is not the frame the two timelines
+     * parted -- that one is found by diffing the two peers' dumps back
+     * until the lines agree. */
+    for (int32_t f = frame - 40; f <= frame + 1; f++) {
         const char* s = s_state_ring[f & (STATE_RING - 1)];
         if (f >= 0 && strncmp(s, "f", 1) == 0) {
             pc_log_line("net: state %s", s);
         }
     }
+}
+
+/* One frame's recorded state line, "" when that frame is not in the ring:
+ * the audit (net.c) keeps a copy from before a re-run and compares it with
+ * the line the re-run wrote, which names the field that moved instead of
+ * leaving a raw memory block to resolve by hand. */
+const char* state_line(int32_t frame) {
+    const char* s = s_state_ring[frame & (STATE_RING - 1)];
+    return s[0] == 'f' ? s : "";
 }
 
 /* ---- snapshot ---------------------------------------------------------

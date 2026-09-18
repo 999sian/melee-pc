@@ -39,6 +39,7 @@ bool Initialized = false;
 // melee-pc: report "no card" to the game without touching the card image.
 static bool CardPresent = true;
 extern "C" void aurora_card_set_present(bool present) { CardPresent = present; }
+extern "C" bool aurora_card_is_present(void) { return CardPresent; }
 // melee-pc: completion callbacks go through a dispatcher so the game can
 // defer them (on GameCube they arrived from a later interrupt, never from
 // inside the CARD*Async call itself).

@@ -98,8 +98,14 @@ static int netStageSel_Random(void)
 {
     int allowed[NUM_STAGES];
     int n = 0;
+    /* NUM_STAGES is 29 and the table holds 30: the last entry is the RANDOM
+     * button, not a stage (mnstagesel.static.h:45, stkind 0). The bound
+     * already excludes it; the stkind test says so out loud, because a
+     * stkind of 0 starts a match with no stage that falls straight through
+     * to the results screen, in sync, with nothing logged. */
     for (int i = 0; i < NUM_STAGES; i++) {
-        if ((u8) gm_80164330(mnStageSel_803F06D0[i].xA)) {
+        if (mnStageSel_803F06D0[i].stkind != 0 &&
+            (u8) gm_80164330(mnStageSel_803F06D0[i].xA)) {
             allowed[n++] = i;
         }
     }
@@ -985,11 +991,32 @@ void mnStageSel_Scene_OnFrame(void)
                 return; /* opponent still choosing; keep showing our pick */
             }
             mnStageSel_804D6CAE = netStageSel_Resolve();
-            if (mnStageSel_804D6CAE >= 0x1E) {
+            /* >= NUM_STAGES, not >= 0x1E: 29 is the RANDOM button (stkind 0)
+             * and 30 is "no cell". Taking 29 literally handed the match
+             * stkind 0 — both peers agreed on it, so no desync was reported;
+             * the match simply started with no stage and fell through to the
+             * results screen. */
+            if (mnStageSel_804D6CAE >= NUM_STAGES) {
                 mnStageSel_804D6CAE = netStageSel_Random();
             }
         }
 #endif
+        /* mnStageSel_804D6CAE is 30 ("no cell") until the cursor hit test at
+         * :409-423 matches, and the table holds exactly 30 entries — so
+         * confirming without a cell read ONE PAST THE END and handed the
+         * match whatever stkind that garbage byte held. Observed online as a
+         * match that requests "Gr.dat" (the empty stage name) and falls
+         * straight through to the results screen. Fall back to a real stage
+         * instead, and say so once. */
+        if (mnStageSel_804D6CAE < 0 || mnStageSel_804D6CAE >= NUM_STAGES) {
+            static bool warned;
+            if (!warned) {
+                warned = true;
+                pc_log_line("sss: confirmed with no cell (%d), falling back to %d",
+                            mnStageSel_804D6CAE, netStageSel_Random());
+            }
+            mnStageSel_804D6CAE = netStageSel_Random();
+        }
         sss_data->vs.start.rules.stkind =
             mnStageSel_803F06D0[mnStageSel_804D6CAE].stkind;
         gm_801A4B60();
