@@ -23,11 +23,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      # enablement: the repo has no Pages site until something creates one, and
-      # without it configure-pages fails with "Get Pages site failed ... Not Found".
+      # One-time manual setup: Settings > Pages > Source = "GitHub Actions".
+      # Until then this job fails with "Get Pages site failed ... Not Found".
+      # `enablement: true` does not help: GITHUB_TOKEN cannot create the site
+      # ("Resource not accessible by integration").
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs/site
