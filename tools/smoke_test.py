@@ -29,7 +29,9 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parent.parent
-MELEE = ROOT / "build" / "melee"
+# MELEE_BIN: CI builds into a per-configuration directory, and every case --
+# even the disc-free ones -- runs the real binary.
+MELEE = Path(os.environ.get("MELEE_BIN") or ROOT / "build" / "melee")
 
 # A crash is a crash whatever the case was testing.
 # "Device lost ... Device was destroyed" is aurora's own teardown message and
@@ -402,7 +404,7 @@ def main():
         cases = [c for c in cases if not c.get("needs")]
 
     if not MELEE.exists():
-        print("%s not built; run: ninja -C build" % MELEE, file=sys.stderr)
+        print("%s not built; run `ninja -C build melee` or set MELEE_BIN" % MELEE, file=sys.stderr)
         return 2
     if any("disc" in c.get("needs", "") for c in cases) and not os.path.exists(disc):
         print("disc image not found: %s (set MELEE_DISC)" % disc, file=sys.stderr)
