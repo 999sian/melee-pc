@@ -1,5 +1,12 @@
 #include "tylist.h"
 
+#ifdef TARGET_PC
+#include "pc/region.h"
+#define SIS_IDX(font, idx) pc_region_sis_index(HSD_SisLib_FontSymbol(font), (idx))
+#else
+#define SIS_IDX(font, idx) (idx)
+#endif
+
 #include <Runtime/platform.h>
 
 #include <placeholder.h>
@@ -69,7 +76,7 @@ static void order_data_0(void)
 /// Formats a number into a string buffer using digit glyphs from the font.
 char* _tyList_80312834(char* buf, u32 num)
 {
-    u8* lookup = DP(u8, ((DiscU32*) HSD_SisLib_804D1124[0])[0x4E8 / 4].v);
+    u8* lookup = DP(u8, ((DiscU32*) HSD_SisLib_804D1124[0])[SIS_IDX(0, 0x4E8 / 4)].v);
     u32 idx;
     u32 original = num;
 
@@ -166,7 +173,7 @@ void _tyList_80312904(TyListArg* row, s8 arg1)
     text->font_size.y = 0.029f;
     HSD_SisLib_803A6368(row->texts[1], 0x13B);
 
-    digits = DP(u8, ((DiscU32*) HSD_SisLib_804D1124[0])[0x4B8 / 4 + row->x28].v);
+    digits = DP(u8, ((DiscU32*) HSD_SisLib_804D1124[0])[SIS_IDX(0, 0x4B8 / 4 + row->x28)].v);
     _tyList_80312834((char*) digits, Toy_803048C0(Toy_80308354(row->idx)));
 
     row->texts[2]->default_alignment = 2;

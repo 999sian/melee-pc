@@ -145,6 +145,15 @@ Handle* lbMemory_80014FC8(Handle* arg0, size_t size)
             start = (u8*) iter->x4_lo + (uintptr_t) iter->x8_hi;
         }
     }
+#ifdef TARGET_PC
+    if (memp_kouho == NULL) {
+        OSReport("lbMemory: no room for %u bytes in region %p..%p (%u free in"
+                 " %s)\n",
+                 (unsigned) size, arg0->x4_lo, arg0->x8_hi,
+                 lbMemory_80014F7C(arg0),
+                 PC_IS_ARAM_ADDR(arg0->x4_lo) ? "ARAM" : "RAM");
+    }
+#endif
     HSD_ASSERT(0xE9, memp_kouho);
     {
         Handle* result;

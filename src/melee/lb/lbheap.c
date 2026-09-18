@@ -5,6 +5,9 @@
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/initialize.h>
 #include <sysdolphin/baselib/memory.h>
+#ifdef TARGET_PC
+#include "pc/region.h"
+#endif
 
 struct lbHeap_HeapDesc {
     u32 idx;
@@ -313,6 +316,12 @@ void lbHeap_80015F3C(void)
 
         curr_heap->type = desc->type;
         curr_heap->size = desc->size;
+#ifdef TARGET_PC
+        /* PAL files outgrow the NTSC-U RAM heaps; the PC arena has the room. */
+        if (pc_region_pal && (curr_idx == 3 || curr_idx == 4)) {
+            curr_heap->size *= 2;
+        }
+#endif
         prev_idx = desc->prev_idx;
         if (prev_idx == 6) {
             switch (curr_heap->type) {

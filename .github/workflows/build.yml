@@ -163,6 +163,43 @@ jobs:
           path: dist/Melee-Android-arm64.apk
           if-no-files-found: error
 
+  macos:
+    name: macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    # macos-15-intel is on GitHub's deprecation path: the Intel build must not
+    # block a release.
+    continue-on-error: ${{ matrix.arch == 'x86_64' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          xcodebuild -version
+          # Apple clang builds the C++; the decomp's C needs GCC for
+          # scalar_storage_order, so tools/gcc_launcher.py routes melee_game
+          # through Homebrew's gcc. SDL3 comes from Homebrew and is bundled
+          # into the .app with the other dylibs by package_macos.sh.
+          brew install gcc cmake ninja sdl3 zstd libpng freetype
+
+      - name: Build and package
+        env:
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.7' }}
+        run: tools/package_macos.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: dist/Melee-macOS-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
   ios:
     name: iOS (arm64, IPA)
     runs-on: ubuntu-24.04
@@ -211,7 +248,7 @@ jobs:
 
   release:
     name: Publish release
-    needs: [linux, windows, android, ios]
+    needs: [linux, windows, android, ios, macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:

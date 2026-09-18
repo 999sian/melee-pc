@@ -32,6 +32,7 @@ static inline u32 sis_rd_u32(const void* p)
 }
 static inline s32 sis_rd_s32(const void* p) { return (s32) sis_rd_u32(p); }
 
+
 static inline f32 HSD_SisLib_GlyphWidth(HSD_Text* text, f32 scale_x)
 {
     return 32.0F * text->x80.x * scale_x;
@@ -319,7 +320,7 @@ void HSD_SisLib_803A8134(void* cursor, HSD_Text* text, f32* out_width,
     *out_width = 0.0F;
     *out_height = 32.0F * text->x80.y;
 loop_3:
-    opcode = *(u8*) cursor;
+    opcode = sis_opcode((u8*) cursor);
     switch (opcode) {
     case 0:
         pop_result = HSD_SisLib_803A7F0C(text, 0x85);
@@ -386,7 +387,7 @@ loop_3:
         if (opcode >= 0x20U) {
             *out_width += text->x80.x * (32.0F + text->x78.x);
             if (kern_enabled != 0) {
-                glyph_code = sis_rd_u16(cursor);
+                glyph_code = sis_glyph(cursor);
                 if (glyph_code < 0x4000U) {
                     kern_data =
                         (TextKerning*) (default_kerning +
@@ -407,7 +408,7 @@ loop_3:
             if (*out_height < (32.0F * text->x80.y)) {
                 *out_height = 32.0F * text->x80.y;
             }
-            cursor = (u8*) cursor + 1;
+            cursor = (u8*) cursor + (sis_glyph_len() - 1);
         }
         goto block_33;
     }
@@ -642,8 +643,8 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                     s32 clear_idx;
                     f32 x_origin;
                     s16 y_offset;
-                    u8 opcode = *sis_cursor;
-                    switch (*sis_cursor) {
+                    u8 opcode = sis_opcode(sis_cursor);
+                    switch (opcode) {
                         case 0:
                             pop_result = HSD_SisLib_803A7F0C(text, 5);
                             if (pop_result != 0U) {
@@ -839,7 +840,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                                     measured_width = line_width_out;
                                     sisFitLineToBox(text, measured_width);
                                 }
-                                glyph_idx = sis_rd_u16(sis_cursor);
+                                glyph_idx = sis_glyph(sis_cursor);
                                 if (glyph_idx < 0x4000U) {
                                     tex_offset = glyph_idx - 0x2000;
                                 } else {
@@ -941,9 +942,9 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                                     } else {
                                         text->x98 = (u32) (text->x98 + 1);
                                         text->x94 = (u32) line_delay;
-                                        text->x60 = (void *) (sis_cursor + 2);
+                                        text->x60 = (void *) (sis_cursor + sis_glyph_len());
                                     }
-                                    sis_cursor += 1;
+                                    sis_cursor += sis_glyph_len() - 1;
                             }
                         }
                     }

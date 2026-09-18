@@ -295,19 +295,34 @@ static void* AllocMEM1(u32 size) {
   }
 #endif
 
-  // Fallback for 64-bit platforms where lower 4GB is reserved (e.g. iOS arm64 with 4GB __PAGEZERO)
+  // Fallback for 64-bit platforms where the lower 4GB is reserved (macOS and iOS arm64 have a
+  // 4GB __PAGEZERO). First try addresses whose low 32 bits are exactly 0x80000000: a MEM1
+  // pointer truncated to 32 bits is then its GameCube address, which keeps the game's own
+  // `addr < 0x80000000` ARAM tests and hard-coded 0x8xxxxxxx comparisons meaningful.
+  if (!p) {
+    for (uintptr_t hi = 1; hi < 0x100 && !p; hi++) {
+      const uintptr_t want = (hi << 32) | 0x80000000ULL;
+      void* res = mmap(reinterpret_cast<void*>(want), size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+      if (res == MAP_FAILED) {
+        continue;
+      }
+      if (reinterpret_cast<uintptr_t>(res) == want) {
+        p = res;
+      } else {
+        munmap(res, size);
+      }
+    }
+  }
   if (!p) {
     void* res = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (res != MAP_FAILED) {
-      // Ensure the allocation does not cross a 4GB boundary so all MEM1 pointers share the same upper 32 bits
+      const uintptr_t lo = reinterpret_cast<uintptr_t>(res) & 0xFFFFFFFFULL;
+      // All MEM1 pointers must share the same upper 32 bits, and their low halves must not
+      // look like NULL, an ARAM offset (< 16MB) or the 0x02000000 external pointer tag.
       if ((reinterpret_cast<uintptr_t>(res) >> 32) ==
-          ((reinterpret_cast<uintptr_t>(res) + size - 1) >> 32)) {
-        // Ensure lower 32 bits do not collide with 0x02000000 external pointer tag
-        if ((reinterpret_cast<uintptr_t>(res) & 0xFF000000u) != 0x02000000u) {
-          p = res;
-        } else {
-          munmap(res, size);
-        }
+              ((reinterpret_cast<uintptr_t>(res) + size - 1) >> 32) &&
+          lo >= 0x01000000u && (lo & 0xFF000000u) != 0x02000000u) {
+        p = res;
       } else {
         munmap(res, size);
       }

@@ -1,4 +1,7 @@
 #include "gmmain_lib.h"
+#ifdef TARGET_PC
+#include "pc/region.h"
+#endif
 
 #include <Runtime/platform.h>
 
@@ -1327,7 +1330,13 @@ void gmMainLib_8015FBA4(void)
     int i;
 
     memzero(gmMainLib_804D3EE0, 0x10A30);
+#ifdef TARGET_PC
+    /* /usa.ini is how the NTSC-U build tells itself apart from the Japanese
+     * one; a PAL disc has neither and must not fall into Japanese mode. */
+    if (pc_region_pal || DVDConvertPathToEntrynum("/usa.ini") != -1) {
+#else
     if (DVDConvertPathToEntrynum("/usa.ini") != -1) {
+#endif
         lbLang_SetLanguageSetting(1);
         lbLang_SetSavedLanguage(1);
     } else {

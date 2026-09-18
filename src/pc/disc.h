@@ -72,6 +72,10 @@ static inline void* pc_resolve_dp(uint32_t slot) {
         if (ext)
             return ext;
     }
+    /* Slots that double as ARAM offsets (see PC_IS_ARAM_ADDR) stay raw:
+     * MEM1's low half never lands in that range (OSMemory.cpp). */
+    if (slot < 0x01000000u)
+        return (void*)(uintptr_t)slot;
     if (OSBaseAddress >> 32) {
         return (void*)((uintptr_t)slot | (OSBaseAddress & ~0xFFFFFFFFULL));
     }

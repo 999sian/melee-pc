@@ -49,6 +49,19 @@
       ]
     },
     {
+      "name": "macos-default",
+      "displayName": "macOS (Default Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos",
+      "inherits": [
+        "release"
+      ],
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
       "name": "windows-mingw",
       "displayName": "Windows (MinGW-w64 Cross)",
       "generator": "Ninja",
@@ -105,6 +118,10 @@
     {
       "name": "linux-debug",
       "configurePreset": "linux-debug"
+    },
+    {
+      "name": "macos-default",
+      "configurePreset": "macos-default"
     },
     {
       "name": "windows-mingw",

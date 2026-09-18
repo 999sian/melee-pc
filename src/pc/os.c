@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 #include "pc/pc.h"
+#include "pc/disc.h"
 
 /* ---- interrupts ------------------------------------------------------- */
 

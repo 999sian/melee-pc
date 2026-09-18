@@ -6,9 +6,10 @@ endif ()
 
 project(melee-pc LANGUAGES C CXX)
 
-if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
+if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
     # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
-    # on-disc structures, which only GCC implements (C only).
+    # on-disc structures, which only GCC implements (C only). Android and macOS
+    # keep Clang for C++ and route the game's C through GCC (tools/gcc_launcher.py).
     message(FATAL_ERROR "melee-pc requires GCC as the C compiler (got ${CMAKE_C_COMPILER_ID})")
 endif ()
 
@@ -36,6 +37,18 @@ elseif (ANDROID OR IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(MELEE_CRYPTO_LIBS)
     set(MELEE_NETWORK_LIBS)
     add_compile_definitions(MELEE_USE_BUILTIN_SHA1)
+elseif (APPLE)
+    # Builtin SHA-1 keeps the bundle free of a Homebrew OpenSSL; libcurl ships
+    # with macOS, so the updater can use it without bundling anything.
+    set(MELEE_CRYPTO_LIBS)
+    add_compile_definitions(MELEE_USE_BUILTIN_SHA1)
+    find_package(CURL QUIET)
+    if (CURL_FOUND)
+        set(MELEE_NETWORK_LIBS CURL::libcurl)
+        add_compile_definitions(MELEE_USE_CURL)
+    else ()
+        set(MELEE_NETWORK_LIBS)
+    endif ()
 else ()
     find_package(OpenSSL COMPONENTS Crypto QUIET)
     if (OpenSSL_FOUND)
@@ -93,10 +106,11 @@ target_link_libraries(melee_game PUBLIC
         aurora::core aurora::gx aurora::gd aurora::vi aurora::pad aurora::si aurora::mtx
         aurora::os aurora::dvd aurora::card aurora::thp)
 
-if (ANDROID)
-    set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
-elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+# iOS is APPLE too, so it must be matched before the macOS launcher.
+if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_ios_launcher.py")
+elseif (ANDROID OR APPLE)
+    set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_launcher.py")
 elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
     set_property(TARGET melee_game PROPERTY C_COMPILER_LAUNCHER "${CMAKE_CURRENT_SOURCE_DIR}/tools/gcc_windows_arm64_launcher.py")
 endif ()
@@ -111,7 +125,7 @@ else ()
 endif ()
 
 target_compile_options(melee PRIVATE
-        $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>,$<NOT:$<BOOL:${IOS}>>,$<NOT:$<STREQUAL:${CMAKE_SYSTEM_NAME},iOS>>>:-fno-pie>
+        $<$<AND:$<COMPILE_LANGUAGE:C>,$<NOT:$<BOOL:${WIN32}>>,$<NOT:$<BOOL:${ANDROID}>>,$<NOT:$<BOOL:${APPLE}>>>:-fno-pie>
         $<$<BOOL:${ANDROID}>:-march=armv8-a+crc+crypto>
         $<$<BOOL:${ANDROID}>:-mtune=cortex-a73>)
 target_link_libraries(melee PRIVATE melee_game aurora::main ${MELEE_CRYPTO_LIBS} ${MELEE_NETWORK_LIBS})
@@ -152,6 +166,9 @@ if (WIN32)
     endif ()
 elseif (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
     target_link_options(melee PRIVATE -Wl,-dead_strip)
+elseif (APPLE)
+    # arm64 macOS requires PIE and refuses binaries with a __PAGEZERO under 4GB;
+    # MEM1 lives above 4GB and pc_resolve_dp restores its high half (disc.h).
 elseif (NOT ANDROID)
     target_link_options(melee PRIVATE -no-pie -Wl,-Ttext-segment=0x10000000)
 else ()

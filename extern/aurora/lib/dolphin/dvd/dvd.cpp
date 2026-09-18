@@ -1131,9 +1131,43 @@ int DVDSetAutoFatalMessaging(BOOL enable) {
   return prev;
 }
 
+static char s_localeExt[4] = {};
+
+void aurora_dvd_set_locale_extension(const char* ext) {
+  std::lock_guard lock(s_fstLock);
+  if (ext == nullptr || std::strlen(ext) != 3) {
+    s_localeExt[0] = '\0';
+    return;
+  }
+  std::memcpy(s_localeExt, ext, 4);
+}
+
+static s32 convertPathToEntrynumLocked(const char* pathPtr);
+
 s32 DVDConvertPathToEntrynum(const char* pathPtr) {
   std::lock_guard lock(s_fstLock);
 
+  s32 entry = convertPathToEntrynumLocked(pathPtr);
+  if (entry >= 0 || s_localeExt[0] == '\0' || pathPtr == nullptr) {
+    return entry;
+  }
+  // Locale fallback: the game names its localized files by the region it was
+  // built for (.usd / .dat for NTSC-U); other regions carry the same files
+  // under their own extension (.ukd, .frd, ...). Retry with that extension.
+  const size_t len = std::strlen(pathPtr);
+  if (len < 4 || pathPtr[len - 4] != '.') {
+    return entry;
+  }
+  const char* ext = pathPtr + len - 3;
+  if (!nameEqualsIgnoreCase(std::string(ext), "usd", 3) && !nameEqualsIgnoreCase(std::string(ext), "dat", 3)) {
+    return entry;
+  }
+  std::string alt(pathPtr, len - 3);
+  alt += s_localeExt;
+  return convertPathToEntrynumLocked(alt.c_str());
+}
+
+static s32 convertPathToEntrynumLocked(const char* pathPtr) {
   if (!s_initialized || pathPtr == nullptr || s_fstEntries.empty()) {
     return -1;
   }

@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "pc/region.h"
 #include <sysdolphin/baselib/hsd_3915.h>
 #include <sysdolphin/baselib/sislib_font.h>
 
@@ -160,6 +161,7 @@ static bool load_from_dol(const u8* dol, size_t len, const char* game_id) {
     }
     /* Fewer glyphs than the array holds (PAL) leaves the tail zeroed. */
     memcpy(HSD_SisLib_FontAtlas, dol + start, (size_t)(glyphs * SIS_GLYPH_BYTES));
+    pc_region_set_sis_kerning(dol + kern, (unsigned)kerning_len);
     return true;
 }
 
@@ -209,6 +211,7 @@ bool pc_load_disc_fonts(const char* disc_path) {
         goto done;
     }
 
+    pc_region_set((const char*)header);
     ok = load_from_dol(dol, dol_size, (const char*)header);
 
 done:

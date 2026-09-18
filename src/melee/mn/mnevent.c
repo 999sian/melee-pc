@@ -368,7 +368,8 @@ void mnEvent_8024D5B0(HSD_GObj* gobj, u8 event)
         return;
     }
     temp_r3_2->default_kerning = 1;
-    HSD_SisLib_803A6B98(temp_r3_2, 0.0f, 0.0f, "−");
+    /* U+2212 MINUS SIGN as CP932 bytes: macOS libiconv has no mapping for it. */
+    HSD_SisLib_803A6B98(temp_r3_2, 0.0f, 0.0f, "\x81\x7C");
 }
 
 void mnEvent_8024D7E0(HSD_GObj* gobj, s32 idx)

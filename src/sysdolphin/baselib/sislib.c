@@ -2,6 +2,11 @@
 
 #include <printf.h> // IWYU pragma: keep
 #include <stdio.h>
+#include <string.h>
+#ifdef TARGET_PC
+#include "pc/pc.h"
+#include "pc/region.h"
+#endif
 
 #include "cobj.h"
 #include "gobj.h"
@@ -555,8 +560,31 @@ int HSD_SisLib_803A611C(int font_idx, HSD_GObj* parent_gobj, u16 class_id,
     return count;
 }
 
+#ifdef TARGET_PC
+/* Symbol each font slot was loaded from, for pc_region_sis_index(). Stored
+ * without the USA "_E" suffix when the PAL alias resolved it. */
+static char s_font_symbol[ARRAY_SIZE(HSD_SisLib_804D1124)][64];
+const char* HSD_SisLib_FontSymbol(s32 font_idx)
+{
+    return (font_idx >= 0 && font_idx < (s32) ARRAY_SIZE(s_font_symbol)) ? s_font_symbol[font_idx] : NULL;
+}
+#endif
+
 void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
 {
+#ifdef TARGET_PC
+    if (font_idx >= 0 && font_idx < (s32) ARRAY_SIZE(s_font_symbol)) {
+        size_t len = strlen(symbol_name);
+        if (len > 2 && strcmp(symbol_name + len - 2, "_E") == 0) {
+            len -= 2;
+        }
+        if (len >= sizeof s_font_symbol[0]) {
+            len = sizeof s_font_symbol[0] - 1;
+        }
+        memcpy(s_font_symbol[font_idx], symbol_name, len);
+        s_font_symbol[font_idx][len] = '\0';
+    }
+#endif
     HSD_Archive* tmp = HSD_SisLib_803A945C(archive_name);
     HSD_SisLib_804D1110[font_idx] = tmp;
     if (tmp == NULL) {
@@ -566,6 +594,22 @@ void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
     {
         SIS* sis = HSD_ArchiveGetPublicAddress(HSD_SisLib_804D1110[font_idx],
                                                symbol_name);
+#ifdef TARGET_PC
+        /* The NTSC-U disc suffixes its English trophy tables "_E" next to
+         * the Japanese ones; a PAL archive carries the single table under
+         * the plain name. */
+        if (sis == NULL) {
+            size_t len = strlen(symbol_name);
+            if (len > 2 && strcmp(symbol_name + len - 2, "_E") == 0) {
+                char plain[64];
+                if (len - 2 < sizeof plain) {
+                    memcpy(plain, symbol_name, len - 2);
+                    plain[len - 2] = '\0';
+                    sis = HSD_ArchiveGetPublicAddress(HSD_SisLib_804D1110[font_idx], plain);
+                }
+            }
+        }
+#endif
         HSD_SisLib_804D1124[font_idx] = sis;
         if (sis == NULL) {
             OSReport("Cannot find symbol %s.\n", symbol_name);
@@ -574,7 +618,24 @@ void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
     }
 }
 
+#ifdef TARGET_PC
+static void sis_bind(HSD_Text* text, s32 sis_idx);
+
 void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
+{
+    sis_bind(text, pc_region_sis_index(HSD_SisLib_FontSymbol(text->font_idx), sis_idx));
+}
+
+/* Bind by PAL-native index; for code that already speaks the PAL layout. */
+void HSD_SisLib_803A6368Raw(HSD_Text* text, s32 sis_idx)
+{
+    sis_bind(text, sis_idx);
+}
+
+static void sis_bind(HSD_Text* text, s32 sis_idx)
+#else
+void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
+#endif
 {
     /* The font's SIS symbol is an on-disc array of 32-bit pointer slots. */
     DiscU32* sis_table;
@@ -583,6 +644,32 @@ void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
     sis_table = (DiscU32*) HSD_SisLib_804D1124[text->font_idx];
     if (sis_table != NULL) {
         text->sis_buffer = DP(SIS, sis_table[sis_idx].v);
+#ifdef TARGET_PC
+        /* String indices are the NTSC-U build's; a table from another
+         * region may be shorter or ordered differently, and an index past
+         * its end yields whatever follows it in the archive. Loaded
+         * archives live in MEM1, so anything else is not a string. */
+        {
+            u32 slot = sis_table[sis_idx].v;
+            /* 0x02xxxxxx slots name registered host pointers (statics the
+             * game linked in with DP_SET) and are valid by construction. */
+            bool ext = (slot & 0xFF000000u) == 0x02000000u;
+            uintptr_t addr = (uintptr_t) text->sis_buffer;
+            bool in_mem1 = addr - OSBaseAddress < PC_MEM1_SIZE;
+            if (text->sis_buffer != NULL && !ext && !in_mem1) {
+                static const u8 empty_sis[1] = { 0 };
+                static s32 last_font = -1, last_idx = -1;
+                if (text->font_idx != last_font || sis_idx != last_idx) {
+                    OSReport("sislib: font %d string %d resolves outside"
+                             " MEM1 (slot 0x%08x); showing nothing\n",
+                             text->font_idx, sis_idx, slot);
+                    last_font = text->font_idx;
+                    last_idx = sis_idx;
+                }
+                text->sis_buffer = (SIS*) empty_sis;
+            }
+        }
+#endif
     }
     text->x60 = NULL;
     text->current_height = 0.0F;

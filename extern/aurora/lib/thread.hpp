@@ -2,11 +2,14 @@
 
 #include <concepts>
 #include <functional>
-#if defined(__has_include)
-#if __has_include(<stop_token>)
+#include <version>
+// Apple's libc++ ships <stop_token> long before it exposes std::stop_token
+// and std::jthread (they stay experimental until the macOS 26 SDK), so key on
+// the feature-test macro rather than on the header being present.
+#if defined(__cpp_lib_jthread) && __cpp_lib_jthread >= 201911L
 #include <stop_token>
+#include <thread>
 #define AURORA_HAS_STOP_TOKEN 1
-#endif
 #endif
 
 #ifndef AURORA_HAS_STOP_TOKEN

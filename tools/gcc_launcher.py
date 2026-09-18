@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Compile decomp translation units with GCC instead of the NDK's Clang.
+"""Compile decomp translation units with GCC instead of Clang.
 
 The decomp relies on __attribute__((scalar_storage_order)), which Clang does
-not implement, so melee_game's sources go through an aarch64 GCC cross
-compiler pointed at the NDK sysroot. Everything else keeps using Clang.
+not implement, so melee_game's sources go through GCC. Everything else keeps
+using Clang.
+
+Android: an aarch64 GCC cross compiler pointed at the NDK sysroot.
+macOS:   Homebrew's GCC (gcc-NN), which emits Mach-O objects that link with
+         Apple's clang/ld. Set GCC_BIN to pick a specific binary.
 """
 import shutil
 import sys
@@ -26,6 +30,39 @@ for arg in cmd_args:
 if not is_decomp:
     # Run original compiler (clang)
     os.execv(compiler, [compiler] + cmd_args)
+
+CLANG_ONLY_FLAGS = (
+    '-fcolor-diagnostics',
+    '-Wno-unknown-warning-option',
+    '-Werror=format-security',
+    '-Wno-unknown-attributes',
+)
+
+if sys.platform == 'darwin':
+    gcc_bin = os.environ.get('GCC_BIN')
+    if not gcc_bin:
+        for ver in range(20, 12, -1):
+            gcc_bin = shutil.which(f'gcc-{ver}')
+            if gcc_bin:
+                break
+    if not gcc_bin or not os.path.exists(gcc_bin):
+        sys.exit('gcc_launcher: no GCC found. `brew install gcc` or set '
+                 'GCC_BIN. Clang cannot build the decomp because it lacks '
+                 'scalar_storage_order.')
+
+    filtered_args = []
+    for arg in cmd_args:
+        if arg in CLANG_ONLY_FLAGS:
+            continue
+        filtered_args.append(arg)
+
+    gcc_cmd = [
+        gcc_bin,
+        '-fdiagnostics-color=always',
+        '-fexec-charset=CP932',
+        '-Wno-scalar-storage-order',
+    ] + filtered_args
+    os.execv(gcc_bin, gcc_cmd)
 
 # Setup GCC paths
 gcc_bin = os.environ.get('GCC_AARCH64_BIN') or shutil.which(
@@ -56,12 +93,7 @@ for i, arg in enumerate(cmd_args):
         continue
     if arg == '-D_FORTIFY_SOURCE' or arg.startswith('-D_FORTIFY_SOURCE='):
         continue
-    if arg in (
-        '-fcolor-diagnostics',
-        '-Wno-unknown-warning-option',
-        '-Werror=format-security',
-        '-Wno-unknown-attributes',
-    ):
+    if arg in CLANG_ONLY_FLAGS:
         continue
     filtered_args.append(arg)
 

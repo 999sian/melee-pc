@@ -10,6 +10,9 @@
 #include <dolphin/os.h>
 #include <sysdolphin/baselib/archive.h>
 #include <sysdolphin/baselib/debug.h>
+#ifdef TARGET_PC
+#include "pc/region.h"
+#endif
 
 #ifdef MUST_MATCH
 #pragma push
@@ -135,6 +138,11 @@ static inline void lbArchive_vLoadSectionsFatal(HSD_Archive* archive,
         symbol_name = va_arg(symbols, const char*);
         *symbol = NULL;
         *symbol = HSD_ArchiveGetPublicAddress(archive, symbol_name);
+#ifdef TARGET_PC
+        if (*symbol == NULL) {
+            *symbol = (void*) pc_region_missing_symbol(symbol_name);
+        }
+#endif
         if (*symbol == NULL) {
             OSReport("Cannot find symbol %s.\n", symbol_name);
             HSD_ASSERT(112, 0);

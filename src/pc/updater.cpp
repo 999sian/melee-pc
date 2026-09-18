@@ -614,16 +614,6 @@ bool http_download_file_curl(
     return true;
 }
 
-#elif (defined(__linux__) || defined(__APPLE__)) && !defined(__ANDROID__)
-static bool http_get(const std::string&, std::string&, std::string& out_error) {
-    out_error = "curl not available";
-    return false;
-}
-static bool http_download_file(
-    const std::string&, const std::string&, std::string& out_error, std::atomic_bool*) {
-    out_error = "curl not available";
-    return false;
-}
 #endif
 
 }  // namespace

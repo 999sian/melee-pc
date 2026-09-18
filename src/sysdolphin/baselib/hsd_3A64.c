@@ -5,6 +5,9 @@
 #include "cobj.h"
 #include "gobjobject.h"
 #include "sislib.h"
+#ifdef TARGET_PC
+#include "pc/region.h"
+#endif
 #include "sislib.static.h"
 #include "sislib_font.h"
 #include "wobj.h"
@@ -17,7 +20,9 @@ u8* HSD_SisLib_803A6478(u8* dst, u8* src)
     while (*src != 0) {
         if (*src >= 0x20) {
             *dst++ = *src++;
-            *dst++ = *src++;
+            if (sis_glyph_len() == 2) {
+                *dst++ = *src++;
+            }
         } else {
             switch (*dst++ = *src++) {
             case 6:
@@ -53,7 +58,7 @@ void HSD_SisLib_803A660C(s32 font_idx, s32 dst_idx, s32 src_idx)
 
     while (*dst != 0) {
         if (*dst >= 0x20) {
-            dst += 2;
+            dst += sis_glyph_len();
         } else {
             switch (*dst) {
             case 6:
@@ -210,6 +215,17 @@ s32 HSD_SisLib_803A67EC(u8* data, u8* string)
             if ((sjis_hi == lbl_8040C8C0[lut_idx * 2]) &&
                 (sjis_lo == lbl_8040C8C0[lut_idx * 2 + 1]))
             {
+#ifdef TARGET_PC
+                if (pc_region_pal) {
+                    /* One byte per glyph on PAL: 0x21 + atlas index, or 0x20
+                     * for the blank slot region.c maps fullwidth space to. */
+                    u32 code = ((u32) HSD_SisLib_8040C680[lut_idx * 2] << 8) |
+                               HSD_SisLib_8040C680[lut_idx * 2 + 1];
+                    u32 idx = code - 0x2000;
+                    data[out_idx++] = idx + 0x21 <= 0xFF ? (u8) (idx + 0x21) : 0x20;
+                    break;
+                }
+#endif
                 data[out_idx++] = HSD_SisLib_8040C680[lut_idx * 2];
                 data[out_idx++] = HSD_SisLib_8040C680[lut_idx * 2 + 1];
                 break;
@@ -340,7 +356,7 @@ end:
         do {
             char_size = 0;
             if (*scan_ptr >= 32) {
-                char_size = 2;
+                char_size = sis_glyph_len();
             } else if (*scan_ptr == 10) {
                 char_size = 5;
             } else if (*scan_ptr == 11) {

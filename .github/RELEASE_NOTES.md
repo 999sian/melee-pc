@@ -4,7 +4,9 @@ You need your own Super Smash Bros. Melee disc image. **No game data ships in
 these artifacts** — the port reads everything, including its font atlases, from
 the image you supply at runtime.
 
-Only **USA revision 2 (NTSC-U 1.02, GALE01)** is supported.
+**USA revision 2 (NTSC-U 1.02, GALE01)** is the supported disc. A Europe (PAL,
+GALP01) image boots experimentally, running the USA game code on PAL data with
+English (UK) text.
 
 ## Downloads
 
@@ -18,6 +20,8 @@ Only **USA revision 2 (NTSC-U 1.02, GALE01)** is supported.
 | Windows ARM64 | `Melee-Windows-arm64.zip` | Native 64-bit ARM build for Windows on ARM (Snapdragon X Elite, Surface Pro). |
 | Android arm64 | `Melee-Android-arm64.apk` | Release build, signed. Allow install from unknown sources. |
 | iOS arm64 | `Melee-iOS-arm64.ipa` | Sideloadable IPA (AltStore, Sideloadly, TrollStore) with Metal backend. |
+| macOS arm64 | `Melee-macOS-arm64.zip` | Apple Silicon. Ad-hoc signed: right-click > Open on first launch. |
+| macOS x86_64 | `Melee-macOS-x86_64.zip` | Intel. Same notes; built but not yet tested on Intel hardware. |
 
 Launch with no arguments to open the launcher and pick a disc, or pass the
 image path directly:
@@ -261,8 +265,9 @@ Contest, 10-Man Melee), Trophy gallery, Event Match list, music and sound.
 
 Online play with rollback netcode is **not implemented**. All-Star is
 unreachable until the roster is unlocked. Widescreen camera and HUD are
-incomplete. There is no macOS build: the game code depends on GCC's
-`scalar_storage_order`, which Clang does not implement.
+incomplete. The macOS builds are experimental (the Intel one is untested on hardware): the
+game's C is compiled with Homebrew GCC (`scalar_storage_order`), the C++
+with Apple clang.
 
 ## Controls
 
