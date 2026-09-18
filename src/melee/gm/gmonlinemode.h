@@ -35,6 +35,7 @@ typedef struct OnlineLobbyPlayer {
     int ping_ms;   /* -1 = unknown */
     bool is_host;
     bool is_local;
+    bool incompatible; /* other protocol/build; listed, never counted */
 } OnlineLobbyPlayer;
 
 typedef enum OnlineLobbyPhase {
@@ -51,6 +52,7 @@ typedef struct OnlineLobbyView {
     OnlineLobbyPlayer players[ONLINE_LOBBY_MAX_PLAYERS];
     int player_count;                  /* includes the local player */
     char message[ONLINE_LOBBY_MSG_LEN]; /* one status line, may be "" */
+    const char* link;                  /* quality word by the ping, or NULL */
     int countdown_frames;              /* STARTING only, else 0 */
 } OnlineLobbyView;
 

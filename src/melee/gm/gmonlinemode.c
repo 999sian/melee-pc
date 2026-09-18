@@ -253,16 +253,34 @@ static void lobbyCopyName(char* dst, const char* src)
     snprintf(dst, ONLINE_LOBBY_NAME_LEN, "%s", src);
 }
 
+/* Peers on our protocol and build: the only ones counted or started with. */
+static int lobbyCompatible(const PcLanPeer* peers, int n)
+{
+    int i, nc = 0;
+    for (i = 0; i < n; i++) {
+        nc += peers[i].compatible;
+    }
+    return nc;
+}
+
 /* Fill the view from the LAN state; logs the status line when it changes. */
 static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
                           const PcLanPeer* peers, int n)
 {
+    /* Indexed by pc_net_quality() 0/1/2 and pc_net_peer_status() 0..4;
+     * anything outside stays blank. */
+    static const char* const link_word[] = { "stable", "warning", "stalling" };
+    static const char* const peer_word[] = { "", "Peer left",
+                                             "Connection timed out", "Desync",
+                                             "Incompatible version" };
     static char last_status[ONLINE_LOBBY_MSG_LEN];
     char status[ONLINE_LOBBY_MSG_LEN];
     bool connected = state == 1 || state == 2;
     bool host = connected && pc_lan_is_host();
     int ping = -1, delay;
     unsigned rollbacks;
+    int quality, reason;
+    int nc = lobbyCompatible(peers, n);
     int i;
 
     memset(view, 0, sizeof *view);
@@ -270,6 +288,10 @@ static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
         online_kind == ONLINE_KIND_DIRECT ? "DIRECT CONNECT" : "LAN PLAY";
     if (connected && !pc_net_stats(&ping, &delay, &rollbacks)) {
         ping = -1;
+    }
+    quality = connected ? pc_net_quality() : -1;
+    if (quality >= 0 && quality < (int) ARRAY_SIZE(link_word)) {
+        view->link = link_word[quality];
     }
 
     lobbyCopyName(view->players[0].name, pc_lan_local_name());
@@ -281,23 +303,29 @@ static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
         OnlineLobbyPlayer* p = &view->players[view->player_count++];
         lobbyCopyName(p->name, peers[i].name);
         p->is_host = peers[i].host;
+        p->incompatible = !peers[i].compatible;
         /* The session peer: the host we joined, or our first peer as host. */
         p->ping_ms = connected && (peers[i].host || (host && i == 0)) ? ping : -1;
     }
 
     switch (state) {
     case 0:
-        view->phase = n == 0 ? LOBBY_PHASE_SEARCHING : LOBBY_PHASE_FOUND;
-        if (n == 0) {
-            snprintf(status, sizeof status, "LAN: searching...");
+        view->phase = nc == 0 ? LOBBY_PHASE_SEARCHING : LOBBY_PHASE_FOUND;
+        if (nc == 0) {
+            snprintf(status, sizeof status, "LAN: searching...%s",
+                     pc_lan_full() ? " - Lobby full" : "");
         } else {
-            snprintf(status, sizeof status, "%d players found - press START",
-                     n + 1);
+            snprintf(status, sizeof status, "%d players found - press START%s",
+                     nc + 1, pc_lan_full() ? " - Lobby full" : "");
         }
         break;
     case 1:
         view->phase = LOBBY_PHASE_CONNECTING;
         snprintf(status, sizeof status, "Connecting...");
+        break;
+    case 4:
+        view->phase = LOBBY_PHASE_CONNECTING;
+        snprintf(status, sizeof status, "Ready - waiting for host...");
         break;
     case 2:
         view->phase = LOBBY_PHASE_STARTING;
@@ -309,8 +337,13 @@ static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
         break;
     default:
         view->phase = LOBBY_PHASE_ERROR;
-        snprintf(status, sizeof status, "Failed: %s",
-                 why != NULL ? why : "unknown error");
+        reason = pc_net_peer_status();
+        if (reason <= 0 || reason >= (int) ARRAY_SIZE(peer_word)) {
+            reason = 0;
+        }
+        snprintf(status, sizeof status, "Failed: %s%s%s",
+                 why != NULL ? why : "unknown error", reason ? " - " : "",
+                 peer_word[reason]);
         break;
     }
     memcpy(view->message, status, sizeof view->message);
@@ -353,7 +386,7 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         pc_lan_stop();
         gm_ChangeGameModeAfterCurrentScene(GM_MENU);
         gm_801A4B60();
-    } else if ((input & HSD_PAD_START) && state == 0 && n > 0) {
+    } else if ((input & HSD_PAD_START) && state == 0 && lobbyCompatible(peers, n)) {
         sfxForward();
         pc_lan_start_match();
     }

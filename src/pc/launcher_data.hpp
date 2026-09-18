@@ -38,6 +38,7 @@ struct Preferences {
     bool free_camera = false;
     float music_volume = 1.0f;
     float sfx_volume = 1.0f;
+    uint64_t install_id = 0;  // random once per install (LAN host election); 0 = not yet
 };
 DiscInfo inspect_disc(const std::string& path);
 Verification verify_disc(

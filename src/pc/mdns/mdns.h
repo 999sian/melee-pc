@@ -21,8 +21,8 @@
 
 #include <fcntl.h>
 #ifdef _WIN32
-#include <Winsock2.h>
-#include <Ws2tcpip.h>
+#include <winsock2.h>  /* lowercase: the MinGW cross build has a case-sensitive sysroot */
+#include <ws2tcpip.h>
 #define strncasecmp _strnicmp
 #else
 #include <unistd.h>

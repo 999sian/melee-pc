@@ -32,26 +32,38 @@ static struct {
     int ping;
     int delay;
     unsigned rollbacks;
+    int quality;
 } ifNet;
+
+/* pc_net_quality() 0/1/2 -> nothing / "!" / "!!". The SIS ASCII encoder
+ * (HSD_SisLib_803A67EC) has no '!', so spell the fullwidth SJIS pair. */
+#define SJIS_BANG "\x81\x49"
+static const char* ifNet_Marker(int quality)
+{
+    return quality >= 2 ? "  " SJIS_BANG SJIS_BANG
+           : quality == 1 ? "  " SJIS_BANG : "";
+}
 
 static void ifNet_Think(HSD_GObj* gobj)
 {
-    int ping, delay;
+    int ping, delay, quality;
     unsigned rollbacks;
     if (!pc_net_stats(&ping, &delay, &rollbacks)) {
         return;
     }
+    quality = pc_net_quality();
     if (ping == ifNet.ping && delay == ifNet.delay &&
-        rollbacks == ifNet.rollbacks)
+        rollbacks == ifNet.rollbacks && quality == ifNet.quality)
     {
         return;
     }
     ifNet.ping = ping;
     ifNet.delay = delay;
     ifNet.rollbacks = rollbacks;
+    ifNet.quality = quality;
     HSD_SisLib_803A70A0(ifNet.text, ifNet.entry,
-                        "P%d  delay %d  ping %dms  rb %u", ifNet.player,
-                        delay, ping, rollbacks);
+                        "P%d  delay %d  ping %dms  rb %u%s", ifNet.player,
+                        delay, ping, rollbacks, ifNet_Marker(quality));
 }
 
 void ifNet_Create(void)
@@ -73,6 +85,7 @@ void ifNet_Create(void)
     ifNet.ping = ping;
     ifNet.delay = delay;
     ifNet.rollbacks = rollbacks;
+    ifNet.quality = pc_net_quality();
 
     canvas = HSD_SisLib_803A611C(2, ifAll_GetHUDGObj(), HSD_GOBJ_CLASS_UI, 15,
                                  0, 11, 0, 19);
@@ -80,8 +93,8 @@ void ifNet_Create(void)
     ifNet.text->default_kerning = 1;
     ifNet.entry = HSD_SisLib_803A6B98(
         ifNet.text, pc_widescreen_hud_player_x(0, 2, IFNET_X), IFNET_Y,
-        "P%d  delay %d  ping %dms  rb %u", ifNet.player, delay, ping,
-        rollbacks);
+        "P%d  delay %d  ping %dms  rb %u%s", ifNet.player, delay, ping,
+        rollbacks, ifNet_Marker(ifNet.quality));
     HSD_SisLib_803A7548(ifNet.text, ifNet.entry, IFNET_SCALE, IFNET_SCALE);
 
     ifNet.gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);

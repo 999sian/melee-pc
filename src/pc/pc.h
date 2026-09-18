@@ -19,6 +19,8 @@ void pc_platform_init(void);
 /* Frame boundary: presents the current frame, pumps events, starts the next
  * frame and runs due OSAlarms. Called from VIWaitForRetrace. */
 void pc_frame_boundary(void);
+/* Simulation frame period the boundary paces to (60.000 Hz), src/pc/vi.c. */
+uint64_t pc_sim_period_ns(void);
 
 /* Append a line to the diagnostic log (src/pc/main.c), so frame stalls
  * interleave with aurora's own records and can be attributed to whatever
@@ -58,6 +60,11 @@ bool pc_is_free_camera_enabled(void);
 int pc_get_hud_mode(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
+/* Per-install random id, generated once and kept in launcher.cfg
+ * (src/pc/launcher.cpp); the LAN lobby's host election key. */
+uint64_t pc_install_id(void);
+/* Build identity peers must share to play (the app version, src/pc/version.cpp). */
+const char* pc_app_rev(void);
 
 /* Audio volume control */
 void pc_audio_set_volume(float volume);

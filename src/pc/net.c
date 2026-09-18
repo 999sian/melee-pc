@@ -12,125 +12,40 @@
  *   MELEE_NET=host:port          peer address (enables netplay at boot)
  *   MELEE_NET_PORT=n             local UDP port (default 41000)
  *   MELEE_NET_PLAYER=0|1         which controller port the local player drives
- *   MELEE_NET_DELAY=n            input delay in frames (default 2)
+ *   MELEE_NET_DELAY=n|auto       input delay in frames (default auto: from ping and jitter)
  *   MELEE_NET_SIM_LOSS=percent   drop that share of outgoing packets
  *   MELEE_NET_SIM_DELAY_MS=ms    hold every outgoing packet that long
+ *   MELEE_NET_SIM_DELAY_RX_MS=ms hold every incoming packet that long (asymmetric links)
+ *   MELEE_NET_SIM_JITTER_MS=ms   uniform +-ms on the outgoing delay (reorders when > delay)
+ *   MELEE_NET_SIM_REORDER=pct    hold that share of packets behind the next one
+ *   MELEE_NET_SIM_DUP=pct        send that share of packets twice
+ *   MELEE_NET_SIM_BURST=n        every 5 s drop n consecutive outgoing packets
+ *   (the simulator's PRNG is seeded from MELEE_NET_PORT, so runs repeat)
  *   MELEE_NET_HANDSHAKE_TEST=1   run the lobby handshake at frame 300 without a lobby
- */
+ *
+ * This file is the session, the socket and the rollback loop; the wire
+ * codec, link simulator, reliable channel, handshake, time sync and
+ * snapshots are the net_*.c modules listed in net_internal.h. */
 #include "compat.h"
-#include "pc/net.h"
-#include "pc/pc.h"
+#include "pc/net_internal.h"
 
 #include <dolphin/os.h>
-#include <dolphin/pad.h>
 #include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/random.h>
-#include <sysdolphin/baselib/synth.h>
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wscalar-storage-order" /* disc-struct unions in lb/types.h */
-#include <melee/ft/fighter.h>
-#include <melee/ft/inlines.h>
-#include <melee/gm/gmmain_lib.h>
-#include <melee/gm/types.h>
-#include <melee/pl/player.h>
-#pragma GCC diagnostic pop
-#include <xxhash.h>
 
-#include <SDL3/SDL_mutex.h>
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_thread.h>
 #include <SDL3/SDL_timer.h>
-#include <stddef.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(_WIN32)
-#include <process.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-typedef SOCKET sock_t;
-#define SOCK_INVALID INVALID_SOCKET
-#define getpid _getpid
-static void sock_nonblock(sock_t s) { u_long on = 1; ioctlsocket(s, FIONBIO, &on); }
-#define sock_close closesocket
-#else
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-typedef int sock_t;
-#define SOCK_INVALID (-1)
-static void sock_nonblock(sock_t s) { fcntl(s, F_SETFL, fcntl(s, F_GETFL, 0) | O_NONBLOCK); }
-#define sock_close close
-#endif
-
-/* ---- wire format ------------------------------------------------------ */
-
-#define RING 64            /* frames of history kept per side; power of two */
-#define REDUNDANCY 16      /* unacked frames repeated in every input packet */
-#define WINDOW 7           /* predicted frames allowed before a hard stall */
-#define SNAPS 8            /* snapshot ring, one per predicted frame; > WINDOW */
-#define FRAME_US 16683
-#define STALL_TIMEOUT_MS 7000
-#define CONNECT_TIMEOUT_MS 60000
-#define SYNC_INTERVAL 30   /* frames between time-sync decisions (Slippi) */
-#define OFFSET_SAMPLES 30
-
-/* 8-byte pad, same fields Slippi puts on the wire. */
-typedef struct WirePad {
-    uint16_t button;
-    int8_t stickX, stickY, substickX, substickY;
-    uint8_t triggerLeft, triggerRight;
-} WirePad;
-
-typedef struct Packet {
-    uint8_t magic;         /* 'M' */
-    uint8_t player;
-    int32_t newest;        /* newest local frame the sender holds */
-    int32_t first;         /* frame of pads[0]; pads[i] is frame first+i */
-    int32_t ck_frame;      /* frame the checksum was taken before */
-    uint32_t ck;
-    uint32_t send_time_us; /* sender clock, echoed back in the ack for RTT */
-    uint8_t count;
-    WirePad pads[REDUNDANCY];
-} __attribute__((packed)) Packet;
-
-typedef struct Ack {
-    uint8_t magic;         /* 'A' */
-    uint8_t player;
-    int32_t frame;         /* newest contiguous frame the sender now holds */
-    uint32_t echo_time_us; /* send_time_us of the packet being acked */
-} __attribute__((packed)) Ack;
-
-/* Reliable lobby message (stop-and-wait, see "reliable channel" below). */
-#define REL_MAX 256
-typedef struct Rel {
-    uint8_t magic;         /* 'R' */
-    uint8_t player;
-    uint8_t seq;
-    uint8_t type;          /* < 0x10 handled here (handshake), else for the caller */
-    uint16_t len;
-    uint8_t payload[REL_MAX];
-} __attribute__((packed)) Rel;
-
-typedef struct RelAck {
-    uint8_t magic;         /* 'K' */
-    uint8_t player;
-    uint8_t seq;
-} __attribute__((packed)) RelAck;
-
 /* ---- state ------------------------------------------------------------ */
 
-static bool s_active;
-static sock_t s_sock = SOCK_INVALID;
-static struct sockaddr_storage s_peer;
-static socklen_t s_peer_len;
-static int s_local, s_remote, s_delay;
-static int32_t s_frame;                  /* next fresh frame to simulate */
-static int32_t s_tick_frame = -1;        /* frame the last prepared tick simulates */
-static bool s_resim;                     /* re-running frames after a rollback */
+struct NetSession net = { .sock = SOCK_INVALID, .tick_frame = -1, .rb_barrier = -1,
+                          .start_frame = -1 };
+
 static WirePad s_local_ring[RING];       /* indexed by frame & (RING-1) */
 static WirePad s_remote_ring[RING];      /* real input, or the prediction in use */
 static int32_t s_remote_have = -1;       /* newest contiguous real remote frame */
@@ -140,178 +55,112 @@ static int32_t s_rb_frame = -1;          /* oldest mispredicted frame not rolled
 static int32_t s_remote_ck_frame = -1;
 static uint32_t s_remote_ck;
 static uint32_t s_ck_ring[RING];         /* our checksum entering each frame */
-static bool s_desync_reported;
 static bool s_heard;                     /* any packet from the peer yet */
 static PADStatus s_raw_last;             /* newest physical sample (port 0) */
+static int s_status;                     /* pc_net_peer_status(); kept until the next connect */
+static bool s_peer_left;                 /* BYE received or version mismatch: stop waiting */
+static bool s_warn_src, s_warn_sess, s_warn_bad; /* one reject line each per session */
 
-static unsigned s_stalls, s_skips, s_advances, s_rollbacks, s_rb_lost;
+static unsigned s_stalls, s_advances, s_rollbacks, s_rb_lost;
 static int s_rb_depth_max;
 static uint64_t s_stall_ns_max;
-static uint32_t s_ping_us;               /* smoothed RTT */
 static uint64_t s_ping_sum;
 static unsigned s_ping_n;
+static uint32_t s_rtt_min, s_rtt_max;    /* this stats window */
+static unsigned s_rx_pkts;               /* datagrams this stats window */
+static unsigned s_rx_acks;               /* every input packet earns one ack: the gap is loss */
+static int s_loss_pct;                   /* round-trip loss of the last window */
+static int s_rb_depth_cur, s_rb_depth_recent; /* deepest rollback this second / the last */
+static int32_t s_stall_frame = -1000;    /* frame that ended a stall > 500 ms */
 
-/* Time sync, copied from Slippi (SlippiNetplay.cpp CalcTimeOffsetUs):
- * positive offset = we run ahead of the peer. */
-static int32_t s_offset[OFFSET_SAMPLES];
-static int s_offset_n, s_offset_i;
-static int32_t s_offset_last;
-static int s_skip_left, s_advance_left;
+static int32_t s_wrote = -1;             /* newest local frame written to s_local_ring */
 static uint64_t s_send_ns;               /* when the newest local frame first went out */
 static int32_t s_send_frame = -1;
 
-static unsigned s_io_count;              /* game-thread disc requests issued so far */
-static int32_t s_io_frame = -1000;       /* frame of the newest one */
 static SDL_ThreadID s_game_thread;
 
 /* Outgoing side: the game thread and a 4 ms SDL timer (mid-frame resend +
  * release of held packets + reliable retransmit) share the socket under
- * s_tx_lock. s_active flips under it too, so the timer never sends on a
- * closed socket. */
-static SDL_Mutex* s_tx_lock;
+ * net.tx_lock. net.active flips under it too, so the timer never sends on
+ * a closed socket. */
 static SDL_TimerID s_timer;
 static Packet s_last_pkt;
 static bool s_last_valid;
 static uint64_t s_last_send_ns;
-static int s_sim_loss;                   /* percent of outgoing packets dropped */
-static uint64_t s_sim_delay_ns;
+static Held s_rx_held[HELD_MAX];         /* incoming, game thread */
 
-typedef struct Held {
-    uint64_t release_ns;
-    uint16_t len;
-    uint8_t buf[sizeof(Rel)];
-} Held;
-#define HELD_MAX 128
-static Held s_held[HELD_MAX];
-static int s_held_head, s_held_n;
+/* Sequence numbers (proto 3): every outgoing datagram carries s_tx_seq++,
+ * assigned in send_packet under tx_lock. The receiver dedups exact copies
+ * (RTP-style anti-replay: a 64-bit window behind the highest seq) and counts
+ * reorders but still processes them (their pads may fill a gap). */
+static uint16_t s_tx_seq;                /* next tx seq (tx_lock) */
+static struct { uint16_t seq; uint64_t send_ns; } s_rtt_ring[64]; /* last 64 sends (tx_lock) */
+static bool s_rx_seq_init;
+static uint16_t s_rx_seq_top;            /* highest seq seen */
+static uint64_t s_rx_seq_bits;           /* bit k: (top-k) received; bit 0 = top */
+static unsigned s_rx_dups, s_rx_reorders; /* this stats window */
 
-/* Reliable channel: one 'R' in flight, resent every 250 ms until its 'K'
- * arrives, 4 queued behind it; 4 received messages wait for the caller.
- * Transmit side under s_tx_lock, receive side game thread only. */
-#define REL_QUEUE 4
-#define REL_RESEND_NS 250000000ull
-#define REL_RULES 0x01               /* host -> guest {seed, start_frame} */
-#define REL_READY 0x02               /* guest -> host */
+/* Socket errors: transient ones (EAGAIN/EINTR/ICMP unreachable) are ignored,
+ * a hard one is logged once per session and counted. */
+static unsigned s_sock_err;
+static bool s_warn_sock;
 
-typedef struct RelMsg {
-    uint8_t type;
-    uint16_t len;
-    uint8_t payload[REL_MAX];
-} RelMsg;
+/* Adaptive redundancy: unacked frames repeated per input packet, clamped to
+ * loss and rollback depth; the value in force is reported as `red`. */
+static int s_red_target = REDUNDANCY;
 
-static RelMsg s_rel_tx[REL_QUEUE];      /* [s_rel_tx_head] is the one in flight */
-static int s_rel_tx_head, s_rel_tx_n;
-static uint8_t s_rel_seq;               /* seq of the message in flight */
-static uint64_t s_rel_sent_ns;          /* 0: not sent yet */
-static int s_rel_resends;
-static RelMsg s_rel_rx[REL_QUEUE];
-static int s_rel_rx_head, s_rel_rx_n;
-static uint8_t s_rel_expect;            /* next seq accepted */
+/* Rollback re-run budget: at most RESIM_BUDGET re-run ticks per present, the
+ * rest spill to the next present (snapshot's s_resim_splits). A full pad
+ * queue during a re-run forces reuse of a live sample (s_resim_eat). */
+#define RESIM_BUDGET 6
+static int s_resim_run;                  /* re-run ticks this present */
+static unsigned s_resim_eat;             /* live-sample reuses this window */
+static bool s_resim_eat_logged;          /* one log per session */
+static bool s_timer_tried;               /* SDL_AddTimer attempted this session */
 
-/* Match handshake: RULES host -> guest, READY back. RULES carries the seed,
- * start_frame (the frame the lobby leaves for the CSS on both peers; each
- * side applies the seed when it learns it and again entering that frame,
- * and frame checksums are only compared from it on, since the two lobbies
- * run different states until then) and everything match-affecting from
- * plan §5 item 7: the memcard GameRules, the item/stage switches from
- * GamePrefs and the frozen-stadium toggle. The guest overwrites its copies
- * (restored at disconnect) so CSS/SSS/match read the same values on both
- * peers; unlock-all is forced on for both (pc_net_rules). */
-enum { HS_IDLE, HS_PENDING, HS_DONE, HS_FAILED };
-#define HS_TIMEOUT_MS 15000
-#define HS_LEAD_FRAMES 120   /* ponytail: 2 s for READY; a slower link misses the start */
-static int s_hs;
-static bool s_hs_host;
-static uint64_t s_hs_t0;
-static uint32_t s_seed;                 /* agreed RNG seed (0: none) */
-static int32_t s_start_frame = -1;
-static int32_t s_ck_from;               /* checksums before this frame are not compared */
+/* Rollback barrier: no frame <= net.rb_barrier can be rolled back to, so
+ * fresh_tick predicts nothing up to it either (lockstep). Raised by
+ *   - a scene change (heaps are torn down and rebuilt around it);
+ *   - a game-thread disc request, to IO_QUIET frames ahead: the tick that
+ *     issued it cannot be re-run, the completion lands on a worker thread
+ *     some frames later, and the match's own loads trail into its first
+ *     frames. aurora's in-flight counters cannot narrow that window: the
+ *     audio thread streams music through the same path all match;
+ *   - a lost rollback (rb_lost) or a snapshot that could not be taken, to
+ *     the newest simulated frame;
+ *   - INT32_MAX when snapshot memory ran out (lockstep for the session). */
+static int s_scene_last = -1;            /* scene_kind() at the last fresh tick */
+static bool s_rb_lost_logged;            /* rb_lost: one log per session */
 
-typedef struct Rules {
-    uint32_t seed;
-    int32_t start_frame;
-    GameRules game;
-    uint8_t item_freq;
-    uint64_t item_mask;
-    uint32_t stage_mask;
-    uint8_t frozen_stadium;
-} __attribute__((packed)) Rules;
-
-static bool s_rules_on;                 /* a RULES set is in force (host or guest) */
-static bool s_rules_frozen;
-static bool s_rules_saved;              /* guest: s_rules_orig holds its own values */
-static Rules s_rules_orig;
-
-/* ---- helpers ---------------------------------------------------------- */
-
-static int8_t at_rest(int8_t v) {
-    /* Slippi's clamp: idle stick noise must not look like a new input. */
-    return v >= -2 && v <= 2 ? 0 : v;
-}
-
-static void to_wire(WirePad* w, const PADStatus* p) {
-    w->button = p->button;
-    w->stickX = at_rest(p->stickX);
-    w->stickY = at_rest(p->stickY);
-    w->substickX = at_rest(p->substickX);
-    w->substickY = at_rest(p->substickY);
-    w->triggerLeft = p->triggerLeft;
-    w->triggerRight = p->triggerRight;
-}
-
-static void from_wire(PADStatus* p, const WirePad* w) {
-    memset(p, 0, sizeof *p);
-    p->button = w->button;
-    p->stickX = w->stickX;
-    p->stickY = w->stickY;
-    p->substickX = w->substickX;
-    p->substickY = w->substickY;
-    p->triggerLeft = w->triggerLeft;
-    p->triggerRight = w->triggerRight;
-    p->err = PAD_ERR_NONE;
-}
-
-static uint32_t fnv1a(uint32_t h, const void* data, size_t n) {
-    const uint8_t* b = data;
-    for (size_t i = 0; i < n; i++) {
-        h = (h ^ b[i]) * 16777619u;
+static void barrier_raise(int32_t f) {
+    if (f > net.rb_barrier) {
+        net.rb_barrier = f;
     }
-    return h;
 }
 
 /* Disc requests issued by the game thread. The audio thread streams music
  * through the same path into ARAM and its own statics, none of which a
  * snapshot covers, so those do not count. */
 void pc_net_note_io(void) {
-    if (SDL_GetCurrentThreadID() != s_game_thread) {
-        return;
+    if (SDL_GetCurrentThreadID() == s_game_thread) {
+        barrier_raise(net.frame + IO_QUIET);
     }
-    s_io_count++;
-    s_io_frame = s_frame;
-}
-
-int aurora_dvd_inflight(void);
-int aurora_arq_inflight(void);
-
-/* True when a game-thread disc or ARAM transfer may still be pending on a
- * worker thread: its completion writes into game memory whenever it lands,
- * so no snapshot may be taken or restored until it has. The in-flight
- * counters also see the music stream, so they are only believed for a
- * while after the game thread itself asked for something. */
-static bool io_inflight(void) {
-    return s_frame - s_io_frame < 120 && (aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0);
 }
 
 extern struct GameSceneInfo* gm_804D6720; /* current scene, gmscene.c */
 
-static bool in_fight(void) {
-    return gm_804D6720 != NULL &&
-           (gm_804D6720->scene_kind == GS_VS || gm_804D6720->scene_kind == GS_SUDDEN_DEATH);
+int scene_kind(void) {
+    return gm_804D6720 != NULL ? gm_804D6720->scene_kind : -1;
+}
+
+bool in_fight(void) {
+    int k = scene_kind();
+    return k == GS_VS || k == GS_SUDDEN_DEATH;
 }
 
 /* Newest frame ticked in the current timeline. */
 static int32_t simulated_upto(void) {
-    return s_resim ? s_tick_frame : s_frame - 1;
+    return net.resim ? net.tick_frame : net.frame - 1;
 }
 
 /* Newest frame whose checksum is final: simulated with real inputs on both
@@ -333,55 +182,65 @@ static size_t packet_len(const Packet* pk) {
     return offsetof(Packet, pads) + pk->count * sizeof(WirePad);
 }
 
-/* Every outgoing datagram passes here (caller holds s_tx_lock). The loss and
- * delay simulators replace `tc netem`, which needs root. */
-static void tx(const void* buf, size_t len) {
-    if (s_sim_loss > 0 && rand() % 100 < s_sim_loss) {
-        return;
-    }
-    if (s_sim_delay_ns == 0) {
-        sendto(s_sock, (const char*) buf, len, 0, (struct sockaddr*) &s_peer, s_peer_len);
-        return;
-    }
-    if (s_held_n == HELD_MAX) {
-        return; /* simulator queue full: one more loss */
-    }
-    Held* h = &s_held[(s_held_head + s_held_n++) % HELD_MAX];
-    h->release_ns = SDL_GetTicksNS() + s_sim_delay_ns;
-    h->len = (uint16_t) len;
-    memcpy(h->buf, buf, len);
+#if defined(_WIN32)
+#define sock_last_err() WSAGetLastError()
+#else
+#define sock_last_err() errno
+#endif
+
+/* "Drained": the non-blocking socket has nothing more (recv stops). */
+static bool sock_would_block(int e) {
+#if defined(_WIN32)
+    return e == WSAEWOULDBLOCK;
+#else
+    return e == EAGAIN || e == EWOULDBLOCK;
+#endif
 }
 
-/* Release held packets whose simulated delay has passed (caller holds s_tx_lock). */
-static void tx_flush(void) {
-    uint64_t now = SDL_GetTicksNS();
-    while (s_held_n > 0 && s_held[s_held_head].release_ns <= now) {
-        Held* h = &s_held[s_held_head];
-        sendto(s_sock, (const char*) h->buf, h->len, 0, (struct sockaddr*) &s_peer, s_peer_len);
-        s_held_head = (s_held_head + 1) % HELD_MAX;
-        s_held_n--;
+/* Transient and ignorable: an interrupted call or an ICMP unreachable queued
+ * against a connectionless UDP socket. Not a would-block, so recv keeps
+ * draining and send just drops the datagram. */
+static bool sock_transient(int e) {
+#if defined(_WIN32)
+    return e == WSAEINTR || e == WSAECONNRESET;
+#else
+    return e == EINTR || e == ECONNREFUSED;
+#endif
+}
+
+/* One hard socket error logged per session, counted for the report. */
+static void sock_err_note(const char* what, int e) {
+    s_sock_err++;
+    if (!s_warn_sock) {
+        s_warn_sock = true;
+        pc_log_line("net: %s error %d at frame %d", what, e, net.frame);
     }
 }
 
-/* Send or resend the reliable message in flight (caller holds s_tx_lock). */
-static void rel_service(void) {
-    if (s_rel_tx_n == 0) {
-        return;
+/* One sendto with error translation (caller holds tx_lock). */
+int net_sendto(const void* buf, size_t len) {
+    int r = (int) sendto(net.sock, (const char*) buf, len, 0, (struct sockaddr*) &net.peer,
+                         net.peer_len);
+    if (r < 0) {
+        int e = sock_last_err();
+        if (!sock_would_block(e) && !sock_transient(e)) {
+            sock_err_note("sendto", e);
+        }
     }
-    uint64_t now = SDL_GetTicksNS();
-    if (s_rel_sent_ns != 0 && now - s_rel_sent_ns < REL_RESEND_NS) {
-        return;
-    }
-    const RelMsg* m = &s_rel_tx[s_rel_tx_head];
-    Rel r = { 'R', (uint8_t) s_local, s_rel_seq, m->type, m->len, { 0 } };
-    memcpy(r.payload, m->payload, m->len);
-    tx(&r, offsetof(Rel, payload) + m->len);
-    if (s_rel_sent_ns != 0) {
-        s_rel_resends++;
-        pc_log_line("net: reliable seq %u type %02x len %u resend #%d", s_rel_seq, m->type,
-                    m->len, s_rel_resends);
-    }
-    s_rel_sent_ns = now;
+    return r;
+}
+
+/* Wire copy of a host-order input packet out (caller holds tx_lock). Stamps
+ * the next tx seq and remembers when it went out, so the matching ack yields
+ * a clean RTT sample regardless of resends or delayed acks. */
+static void send_packet(Packet* pk) {
+    pk->seq = s_tx_seq++;
+    int slot = pk->seq & 63;
+    s_rtt_ring[slot].seq = pk->seq;
+    s_rtt_ring[slot].send_ns = SDL_GetTicksNS();
+    Packet w = *pk;
+    wire_packet(&w);
+    tx(&w, packet_len(pk));
 }
 
 /* Slippi's second send: the newest input packet goes out again mid-frame,
@@ -391,31 +250,37 @@ static void rel_service(void) {
 static Uint32 SDLCALL tx_timer(void* ud, SDL_TimerID id, Uint32 interval) {
     (void) ud;
     (void) id;
-    SDL_LockMutex(s_tx_lock);
-    if (!s_active) {
+    SDL_LockMutex(net.tx_lock);
+    if (!net.active) {
         s_timer = 0;
-        SDL_UnlockMutex(s_tx_lock);
+        SDL_UnlockMutex(net.tx_lock);
         return 0;
     }
     tx_flush();
     rel_service();
     uint64_t now = SDL_GetTicksNS();
     if (s_last_valid && now - s_last_send_ns >= 7000000ull) {
-        s_last_pkt.send_time_us = (uint32_t) (now / 1000);
-        tx(&s_last_pkt, packet_len(&s_last_pkt));
+        send_packet(&s_last_pkt);
         s_last_send_ns = now;
     }
-    SDL_UnlockMutex(s_tx_lock);
+    if (s_last_valid && now - s_last_send_ns >= 500000000ull) {
+        /* Keepalive while the game thread is not ticking (a load): an empty
+         * input packet keeps the peer's silence timer and NAT mapping fresh. */
+        Packet ka = s_last_pkt;
+        ka.count = 0;
+        send_packet(&ka);
+        s_last_send_ns = now;
+    }
+    SDL_UnlockMutex(net.tx_lock);
     return interval;
 }
 
 static void send_inputs(void) {
     Packet pk;
     memset(&pk, 0, sizeof pk);
-    pk.magic = 'M';
-    pk.player = (uint8_t) s_local;
+    pk.h = hdr('M');
     /* The local sample taken at frame f is the input for frame f + delay. */
-    int32_t newest = s_frame + s_delay;
+    int32_t newest = s_wrote;
     /* Everything the peer has not acked yet, oldest first so its contiguous
      * mark can always advance; the cap only bites when acks are starved. */
     int32_t first = s_last_acked + 1;
@@ -425,9 +290,24 @@ static void send_inputs(void) {
     if (first <= newest - RING) {
         first = newest - RING + 1;
     }
+    /* Repeat only as many unacked frames as loss and rollback depth warrant,
+     * clamped to REDUNDANCY: a clean link ships the floor, a lossy or bursty
+     * one widens toward the full window. */
+    int target = 4 + 2 * s_loss_pct + s_rb_depth_recent;
+    if (target < 4) {
+        target = 4;
+    }
+    if (target > REDUNDANCY) {
+        target = REDUNDANCY;
+    }
+    s_red_target = target;
     int32_t count = newest - first + 1;
-    if (count > REDUNDANCY) {
-        count = REDUNDANCY;
+    if (count > target) {
+        count = target;
+    }
+    if (count < 1) {
+        count = 0;
+        first = newest > 0 ? newest : 0; /* keep first <= newest so the peer accepts it */
     }
     for (int32_t i = 0; i < count; i++) {
         pk.pads[i] = s_local_ring[(first + i) & (RING - 1)];
@@ -438,40 +318,88 @@ static void send_inputs(void) {
     pk.ck_frame = confirmed_frame();
     pk.ck = pk.ck_frame >= 0 ? s_ck_ring[pk.ck_frame & (RING - 1)] : 0;
     uint64_t now = SDL_GetTicksNS();
-    pk.send_time_us = (uint32_t) (now / 1000);
-    SDL_LockMutex(s_tx_lock);
+    SDL_LockMutex(net.tx_lock);
     tx_flush();
     rel_service();
-    tx(&pk, packet_len(&pk));
+    send_packet(&pk);
     s_last_pkt = pk;
     s_last_valid = true;
     s_last_send_ns = now;
-    SDL_UnlockMutex(s_tx_lock);
+    SDL_UnlockMutex(net.tx_lock);
     if (newest != s_send_frame) {
         s_send_frame = newest;
         s_send_ns = now;
     }
 }
 
-static void send_ack(int32_t frame, uint32_t echo) {
-    Ack a = { 'A', (uint8_t) s_local, frame, echo };
-    SDL_LockMutex(s_tx_lock);
+static void send_ack(int32_t frame, uint16_t seq) {
+    Ack a = { hdr('A'), seq, frame };
+    wire_ack(&a);
+    SDL_LockMutex(net.tx_lock);
     tx(&a, sizeof a);
-    SDL_UnlockMutex(s_tx_lock);
+    SDL_UnlockMutex(net.tx_lock);
+}
+
+static void send_bye(uint8_t reason) {
+    Bye b = { hdr('B'), reason };
+    tx(&b, sizeof b);
 }
 
 /* ---- receive ---------------------------------------------------------- */
 
+/* RTP/IPsec-style anti-replay over the per-datagram seq: SEQ_DUP is an exact
+ * copy already seen (drop it), SEQ_REORDER is older but not a duplicate
+ * (process it, its pads may fill a gap), SEQ_NEW advances the window. */
+enum { SEQ_NEW, SEQ_DUP, SEQ_REORDER };
+static int seq_check(uint16_t seq) {
+    if (!s_rx_seq_init) {
+        s_rx_seq_init = true;
+        s_rx_seq_top = seq;
+        s_rx_seq_bits = 1; /* bit 0 marks the top as received */
+        return SEQ_NEW;
+    }
+    int16_t d = (int16_t) (seq - s_rx_seq_top);
+    if (d > 0) {
+        s_rx_seq_bits = d >= 64 ? 0 : s_rx_seq_bits << d;
+        s_rx_seq_bits |= 1;
+        s_rx_seq_top = seq;
+        return SEQ_NEW;
+    }
+    uint32_t back = (uint32_t) (-d);
+    if (back >= 64) {
+        return SEQ_REORDER; /* too old to remember: process, cannot dedup */
+    }
+    uint64_t bit = 1ull << back;
+    if (s_rx_seq_bits & bit) {
+        return SEQ_DUP;
+    }
+    s_rx_seq_bits |= bit;
+    return SEQ_REORDER;
+}
+
 static void on_inputs(const Packet* pk, int n) {
     int count = pk->count > REDUNDANCY ? REDUNDANCY : pk->count;
-    if (n < (int) (offsetof(Packet, pads) + count * sizeof(WirePad))) {
+    /* A peer can be at most window + delays ahead of us; anything else is
+     * garbage (a corrupt packet, or a stale process at the peer's address).
+     * All arithmetic is in int64 so first/count/newest at INT32 extremes
+     * cannot overflow the comparisons. */
+    int64_t first = pk->first, newest = pk->newest, ckf = pk->ck_frame;
+    int64_t last = first + count - 1;
+    if (n < (int) (offsetof(Packet, pads) + (size_t) count * sizeof(WirePad)) || first < 0 ||
+        newest < first || last > newest || newest > (int64_t) net.frame + RING / 2 || ckf < -1 ||
+        ckf > newest) {
+        if (!s_warn_bad) {
+            s_warn_bad = true;
+            pc_log_line("net: dropped malformed input packet (len %d first %d count %d newest %d "
+                        "ck_frame %d at frame %d)",
+                        n, pk->first, count, pk->newest, pk->ck_frame, net.frame);
+        }
         return;
     }
-    int32_t last = pk->first + count - 1;
     /* Only contiguous data is taken; the ack below tells the peer what to
      * resend, so a gap never has to be tracked. */
     if (count > 0 && pk->first <= s_remote_have + 1 && last > s_remote_have &&
-        last < s_frame + RING / 2) {
+        last < net.frame + RING / 2) {
         int32_t upto = simulated_upto();
         for (int32_t f = s_remote_have + 1; f <= last; f++) {
             WirePad pad = pk->pads[f - pk->first];
@@ -489,233 +417,210 @@ static void on_inputs(const Packet* pk, int n) {
         s_remote_ck_frame = pk->ck_frame;
         s_remote_ck = pk->ck;
     }
-    send_ack(s_remote_have, pk->send_time_us);
+    send_ack(s_remote_have, pk->seq);
     if (pk->newest > s_remote_newest) {
         s_remote_newest = pk->newest;
         if (s_send_frame >= 0 && s_ping_n > 0) {
             /* Clocks are not shared, so the peer's send time is estimated as
              * now - ping/2 (Slippi); the frame difference is in our units. */
             int64_t now_us = (int64_t) (SDL_GetTicksNS() / 1000);
-            int64_t their_send_us = now_us - s_ping_us / 2;
+            int64_t their_send_us = now_us - net.ping_us / 2;
             int64_t off = their_send_us - (int64_t) (s_send_ns / 1000) +
                           (int64_t) FRAME_US * (s_send_frame - pk->newest);
-            s_offset[s_offset_i] = (int32_t) off;
-            s_offset_i = (s_offset_i + 1) % OFFSET_SAMPLES;
-            if (s_offset_n < OFFSET_SAMPLES) {
-                s_offset_n++;
-            }
+            offset_note((int32_t) off);
         }
     }
 }
 
 static void on_ack(const Ack* a) {
-    if (a->frame > s_last_acked) {
+    /* The peer cannot hold a frame we never sent: a bogus ack above s_wrote
+     * would leave send_inputs() with first > newest, i.e. shipping no pads at
+     * all for the rest of the session (and INT32_MAX overflows first). */
+    if (a->frame > s_last_acked && a->frame <= s_wrote) {
         s_last_acked = a->frame;
     }
-    uint32_t rtt = (uint32_t) (SDL_GetTicksNS() / 1000) - a->echo_time_us;
-    if (rtt < 5000000u) {
-        s_ping_us = s_ping_us == 0 ? rtt : (s_ping_us * 3 + rtt) / 4;
+    /* Sample RTT only when the ack echoes a seq we actually sent and have
+     * not sampled yet; consume it so a delayed duplicate ack cannot skew the
+     * estimate. The ring is written by both senders under tx_lock. */
+    uint64_t rtt = 0;
+    bool got = false;
+    SDL_LockMutex(net.tx_lock);
+    int slot = a->seq & 63;
+    if (s_rtt_ring[slot].seq == a->seq && s_rtt_ring[slot].send_ns != 0) {
+        uint64_t now = SDL_GetTicksNS();
+        if (now > s_rtt_ring[slot].send_ns) {
+            rtt = (now - s_rtt_ring[slot].send_ns) / 1000;
+            got = true;
+        }
+        s_rtt_ring[slot].send_ns = 0;
+    }
+    SDL_UnlockMutex(net.tx_lock);
+    if (got && rtt < 5000000u) {
+        net.ping_us = net.ping_us == 0 ? (uint32_t) rtt : (uint32_t) ((net.ping_us * 3 + rtt) / 4);
         s_ping_sum += rtt;
         s_ping_n++;
-    }
-}
-
-/* ---- reliable channel ------------------------------------------------- */
-
-bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
-    if (!s_active || len < 0 || len > REL_MAX) {
-        return false;
-    }
-    SDL_LockMutex(s_tx_lock);
-    bool ok = s_rel_tx_n < REL_QUEUE;
-    if (ok) {
-        RelMsg* m = &s_rel_tx[(s_rel_tx_head + s_rel_tx_n++) % REL_QUEUE];
-        m->type = type;
-        m->len = (uint16_t) len;
-        if (len > 0) {
-            memcpy(m->payload, payload, (size_t) len);
+        if (s_rtt_min == 0 || rtt < s_rtt_min) {
+            s_rtt_min = (uint32_t) rtt;
         }
-        rel_service();
-    }
-    SDL_UnlockMutex(s_tx_lock);
-    return ok;
-}
-
-int pc_net_recv_reliable(uint8_t* type, void* payload, int max) {
-    if (s_rel_rx_n == 0) {
-        return -1;
-    }
-    RelMsg* m = &s_rel_rx[s_rel_rx_head];
-    int n = m->len > max ? max : m->len;
-    *type = m->type;
-    memcpy(payload, m->payload, (size_t) n);
-    s_rel_rx_head = (s_rel_rx_head + 1) % REL_QUEUE;
-    s_rel_rx_n--;
-    return n;
-}
-
-static void hs_done(void) {
-    s_hs = HS_DONE;
-    s_ck_from = s_start_frame;
-    s_desync_reported = false; /* anything before start_frame was the lobbies differing */
-    pc_log_line("net: handshake done seed=%u start_frame=%d (frame %d)", s_seed, s_start_frame,
-                s_tick_frame);
-}
-
-/* The match-affecting part of RULES, from (capture) or into (apply) the
- * game's own copies. */
-static void rules_capture(Rules* ru) {
-    const struct GamePrefs* p = gmMainLib_GetGamePrefs();
-    ru->game = *gmMainLib_GetGameRules();
-    ru->item_freq = p->item_freq;
-    ru->item_mask = p->item_mask;
-    ru->stage_mask = p->stage_mask;
-    ru->frozen_stadium = pc_is_frozen_stadium_enabled();
-}
-
-static void rules_apply(const Rules* ru, bool from_peer) {
-    struct GamePrefs* p = gmMainLib_GetGamePrefs();
-    if (from_peer && !s_rules_saved) {
-        rules_capture(&s_rules_orig);
-        s_rules_saved = true;
-    }
-    *gmMainLib_GetGameRules() = ru->game;
-    p->item_freq = ru->item_freq;
-    p->item_mask = ru->item_mask;
-    p->stage_mask = ru->stage_mask;
-    s_rules_frozen = ru->frozen_stadium != 0;
-    s_rules_on = true;
-    pc_log_line("net: RULES %s mode=%u time=%u stock=%u handicap=%u dmg=%u stage_sel=%u ff=%u "
-                "pause=%u sd=%u items=%u/%016llx stages=%08x frozen=%u unlock_all=1",
-                from_peer ? "applied" : "in force", ru->game.mode, ru->game.time_limit,
-                ru->game.stock_count, ru->game.handicap, ru->game.damage_ratio,
-                ru->game.stage_sel, ru->game.friendly_fire, ru->game.pause, ru->game.unk_xc,
-                ru->item_freq, (unsigned long long) ru->item_mask, ru->stage_mask,
-                ru->frozen_stadium);
-}
-
-static void rules_restore(void) {
-    if (s_rules_saved) {
-        s_rules_saved = false;
-        rules_apply(&s_rules_orig, false);
-        pc_log_line("net: RULES restored own settings");
-    }
-    s_rules_on = false;
-}
-
-bool pc_net_rules(bool* unlock_all, bool* frozen_stadium) {
-    if (!s_rules_on) {
-        return false;
-    }
-    *unlock_all = true;
-    *frozen_stadium = s_rules_frozen;
-    return true;
-}
-
-/* Reliable types below 0x10: the match handshake. */
-static void handshake_msg(uint8_t type, const uint8_t* payload, int len) {
-    if (type == REL_RULES && len == (int) sizeof(Rules)) {
-        Rules ru;
-        memcpy(&ru, payload, sizeof ru);
-        s_seed = ru.seed;
-        s_start_frame = ru.start_frame;
-        *HSD_RandSeedPtr = s_seed;
-        rules_apply(&ru, true);
-        if (s_start_frame <= s_tick_frame) {
-            pc_log_line("net: RULES late, start_frame %d already passed (frame %d)", s_start_frame,
-                        s_tick_frame);
+        if (rtt > s_rtt_max) {
+            s_rtt_max = (uint32_t) rtt;
         }
-        if (!pc_net_send_reliable(REL_READY, NULL, 0)) {
-            pc_log_line("net: READY not queued, reliable queue full");
-        }
-        hs_done();
-    } else if (type == REL_READY && s_hs == HS_PENDING && s_hs_host) {
-        hs_done();
+        jitter_note((uint32_t) rtt);
     }
 }
 
-static void on_rel(const Rel* r, int n) {
-    if (r->len > REL_MAX || n < (int) (offsetof(Rel, payload) + r->len)) {
-        return;
-    }
-    if (r->seq == s_rel_expect) {
-        if (r->type < 0x10) {
-            handshake_msg(r->type, r->payload, r->len);
-        } else if (s_rel_rx_n < REL_QUEUE) {
-            RelMsg* m = &s_rel_rx[(s_rel_rx_head + s_rel_rx_n++) % REL_QUEUE];
-            m->type = r->type;
-            m->len = r->len;
-            memcpy(m->payload, r->payload, r->len);
-        } else {
-            return; /* caller is not draining: no ack, the peer resends later */
-        }
-        s_rel_expect++;
-    } else if (r->seq != (uint8_t) (s_rel_expect - 1)) {
-        return; /* neither the next one nor a repeat of the last */
-    }
-    RelAck k = { 'K', (uint8_t) s_local, r->seq };
-    SDL_LockMutex(s_tx_lock);
-    tx(&k, sizeof k);
-    SDL_UnlockMutex(s_tx_lock);
-}
-
-static void on_rel_ack(const RelAck* k) {
-    SDL_LockMutex(s_tx_lock);
-    if (s_rel_tx_n > 0 && k->seq == s_rel_seq) {
-        s_rel_tx_head = (s_rel_tx_head + 1) % REL_QUEUE;
-        s_rel_tx_n--;
-        s_rel_seq++;
-        s_rel_sent_ns = 0;
-        s_rel_resends = 0;
-        rel_service(); /* next queued message goes out at once */
-    }
-    SDL_UnlockMutex(s_tx_lock);
-}
-
-static void recv_inputs(void) {
-    for (;;) {
-        union {
-            Packet pk;
-            Ack ack;
-            Rel rel;
-            RelAck rack;
-        } u;
-        int n = (int) recvfrom(s_sock, (char*) &u, sizeof u, 0, NULL, NULL);
-        if (n <= 0) {
+/* One datagram from the peer, header already in host order and checked. */
+static void rx_dispatch(void* buf, int n) {
+    union {
+        Hdr h;
+        Packet pk;
+        Ack ack;
+        Rel rel;
+        RelAck rack;
+        Bye bye;
+    }* u = buf;
+    switch (u->h.magic) {
+    case 'M':
+        if (n < (int) offsetof(Packet, pads)) {
             return;
         }
-        if (n < 2 || u.pk.player != s_remote) {
+        wire_packet(&u->pk);
+        switch (seq_check(u->pk.seq)) {
+        case SEQ_DUP:
+            s_rx_dups++; /* exact copy: the original was already processed and acked */
+            break;
+        case SEQ_REORDER:
+            s_rx_reorders++; /* older but new: still process, its pads may fill a gap */
+            on_inputs(&u->pk, n);
+            break;
+        default:
+            on_inputs(&u->pk, n);
+            break;
+        }
+        break;
+    case 'A':
+        if (n != (int) sizeof(Ack)) {
+            return;
+        }
+        wire_ack(&u->ack);
+        s_rx_acks++;
+        on_ack(&u->ack);
+        break;
+    case 'R':
+        if (n < (int) offsetof(Rel, payload)) {
+            return;
+        }
+        wire_rel(&u->rel);
+        on_rel(&u->rel, n);
+        break;
+    case 'K':
+        if (n != (int) sizeof(RelAck)) {
+            return;
+        }
+        on_rel_ack(&u->rack);
+        break;
+    case 'B':
+        if (n != (int) sizeof(Bye) || s_peer_left) {
+            return;
+        }
+        s_peer_left = true;
+        s_status = u->bye.reason <= PC_NET_PEER_INCOMPATIBLE ? u->bye.reason : PC_NET_PEER_LEFT;
+        pc_log_line("net: peer left (reason %d) at frame %d", s_status, net.frame);
+        break;
+    default:
+        return;
+    }
+    s_heard = true;
+}
+
+/* Drain the socket. A datagram is dropped, with one log line per session
+ * and reason, unless it comes from the peer's address, carries our protocol
+ * version and session id (the guest learns the id from the host's first
+ * packet) and names the remote player. */
+void recv_inputs(void) {
+    for (;;) {
+        union {
+            Hdr h;
+            uint8_t raw[sizeof(Rel)];
+        } u;
+        struct sockaddr_storage from;
+        socklen_t from_len = sizeof from;
+        int n = (int) recvfrom(net.sock, (char*) &u, sizeof u, 0, (struct sockaddr*) &from, &from_len);
+        if (n < 0) {
+            int e = sock_last_err();
+            if (sock_would_block(e)) {
+                break; /* nothing more queued */
+            }
+            if (sock_transient(e)) {
+                continue; /* EINTR / ICMP unreachable: more may still be queued */
+            }
+            sock_err_note("recvfrom", e);
+            break;
+        }
+        if (n == 0) {
+            continue; /* empty datagram: nothing to parse */
+        }
+        s_rx_pkts++;
+        if (n < (int) sizeof(Hdr)) {
             continue;
         }
-        if (n >= (int) offsetof(Packet, pads) && u.pk.magic == 'M') {
-            on_inputs(&u.pk, n);
-        } else if (n == (int) sizeof(Ack) && u.ack.magic == 'A') {
-            on_ack(&u.ack);
-        } else if (n >= (int) offsetof(Rel, payload) && u.rel.magic == 'R') {
-            on_rel(&u.rel, n);
-        } else if (n == (int) sizeof(RelAck) && u.rack.magic == 'K') {
-            on_rel_ack(&u.rack);
-        } else {
+        if (!addr_eq(&from, &net.peer)) {
+            if (!s_warn_src) {
+                s_warn_src = true;
+                pc_log_line("net: dropped a datagram from an address other than the peer's");
+            }
             continue;
         }
-        s_heard = true;
+        wire_hdr(&u.h);
+        if (u.h.version != WIRE_VERSION) {
+            if (!s_peer_left) {
+                s_peer_left = true;
+                s_status = PC_NET_PEER_INCOMPATIBLE;
+                pc_log_line("net: peer speaks protocol %u, we speak %u", u.h.version, WIRE_VERSION);
+            }
+            continue;
+        }
+        if (net.session == 0 && net.local == 1 && u.h.session != 0) {
+            net.session = u.h.session; /* the host picked it */
+        }
+        if (u.h.session != net.session || u.h.player != net.remote) {
+            if (!s_warn_sess) {
+                s_warn_sess = true;
+                pc_log_line("net: dropped a datagram for session %08x player %u (ours %08x, peer %d)",
+                            u.h.session, u.h.player, net.session, net.remote);
+            }
+            continue;
+        }
+        if (net.sim_rx_delay_ns == 0) {
+            rx_dispatch(&u, n);
+        } else if (held_put(s_rx_held, &u, (size_t) n, SDL_GetTicksNS() + net.sim_rx_delay_ns) < 0) {
+            continue; /* simulator queue full: one more loss */
+        }
+    }
+    if (net.sim_rx_delay_ns != 0) {
+        uint64_t now = SDL_GetTicksNS();
+        for (Held* h; (h = held_due(s_rx_held, now)) != NULL;) {
+            h->release_ns = 0;
+            rx_dispatch(h->buf, h->len);
+        }
     }
 }
 
 static void check_desync(void) {
-    if (s_desync_reported || s_hs == HS_PENDING || s_remote_ck_frame < s_ck_from ||
-        s_remote_ck_frame > confirmed_frame() || s_remote_ck_frame <= s_frame - RING) {
+    if (net.desync_reported || net.hs == HS_PENDING || s_remote_ck_frame < net.ck_from ||
+        s_remote_ck_frame > confirmed_frame() || s_remote_ck_frame <= net.frame - RING) {
         return;
     }
     uint32_t mine = s_ck_ring[s_remote_ck_frame & (RING - 1)];
     if (mine != s_remote_ck) {
-        s_desync_reported = true;
+        net.desync_reported = true;
         pc_log_line("net: DESYNC at frame %d (local %08x remote %08x)", s_remote_ck_frame, mine,
                     s_remote_ck);
     }
 }
 
-/* Block until the remote input for `need` is here. Returns false on timeout. */
+/* Block until the remote input for `need` is here. False on timeout or
+ * when the peer announced it is gone (s_status says which). */
 static bool wait_remote(int32_t need) {
     if (s_remote_have >= need) {
         return true;
@@ -728,9 +633,13 @@ static bool wait_remote(int32_t need) {
         if (s_remote_have >= need) {
             break;
         }
+        if (s_peer_left) {
+            return false;
+        }
         uint64_t now = SDL_GetTicksNS();
         uint64_t limit = (s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS) * 1000000ull;
         if (now - t0 > limit) {
+            s_status = PC_NET_PEER_TIMEOUT;
             return false;
         }
         if (now - last_send > 16000000ull) {
@@ -743,78 +652,23 @@ static bool wait_remote(int32_t need) {
     if (dt > s_stall_ns_max) {
         s_stall_ns_max = dt;
     }
+    if (dt > 500000000ull) {
+        s_stall_frame = net.frame;
+    }
     return true;
-}
-
-/* ---- time sync -------------------------------------------------------- */
-
-/* Trimmed mean of the offset ring: drop the top and bottom third. */
-static int32_t offset_us(void) {
-    if (s_offset_n == 0) {
-        return 0;
-    }
-    int32_t b[OFFSET_SAMPLES];
-    memcpy(b, s_offset, s_offset_n * sizeof b[0]);
-    for (int i = 1; i < s_offset_n; i++) {
-        int32_t v = b[i];
-        int j = i;
-        while (j > 0 && b[j - 1] > v) {
-            b[j] = b[j - 1];
-            j--;
-        }
-        b[j] = v;
-    }
-    int drop = s_offset_n / 3;
-    int64_t sum = 0;
-    for (int i = drop; i < s_offset_n - drop; i++) {
-        sum += b[i];
-    }
-    return (int32_t) (sum / (s_offset_n - 2 * drop));
-}
-
-static void time_sync(void) {
-    s_offset_last = offset_us();
-    if (s_offset_last > 10000 && s_skip_left == 0) {
-        s_skip_left = (s_offset_last - 10000) / FRAME_US + 1;
-        if (s_skip_left > 5) {
-            s_skip_left = 5;
-        }
-    } else if (s_offset_last < -26683 && s_advance_left == 0) {
-        s_advance_left = -s_offset_last / FRAME_US;
-        if (s_advance_left > 3) {
-            s_advance_left = 3;
-        }
-    }
-}
-
-/* Stall one frame. The sim loop ticks once per queued pad sample and the
- * 1/60 s pad alarm is wall-clock, so merely sleeping would be paid back as an
- * extra tick: let the period pass, deliver the alarm, drop what it queued. */
-static void skip_frame(void) {
-    PadLibData* p = &HSD_PadLibData;
-    SDL_DelayNS(FRAME_US * 1000ull);
-    uint8_t before = p->qcount;
-    OSRestoreInterrupts(OSDisableInterrupts()); /* delivers due alarms */
-    for (int grew = p->qcount - before; grew > 0; grew--) {
-        p->qwrite = (uint8_t) ((p->qwrite + p->qnum - 1) % p->qnum);
-        p->qcount--;
-    }
-    s_skips++;
 }
 
 /* ---- public ----------------------------------------------------------- */
 
 bool pc_net_active(void) {
-    return s_active;
+    return net.active;
 }
 
 int pc_net_local_player(void) {
-    return s_local;
+    return net.local;
 }
 
-static void snaps_invalidate(void);
-
-/* Back to frame 0 with empty rings; called with the timer parked (s_active
+/* Back to frame 0 with empty rings; called with the timer parked (net.active
  * false), so only the game thread is looking. */
 static bool s_seen_remote;
 
@@ -823,66 +677,122 @@ static void session_reset(void) {
     memset(s_local_ring, 0, sizeof s_local_ring);
     memset(s_remote_ring, 0, sizeof s_remote_ring);
     memset(s_ck_ring, 0, sizeof s_ck_ring);
-    s_frame = 0;
-    s_tick_frame = -1;
-    s_resim = false;
+    sim_reset();
+    memset(s_rx_held, 0, sizeof s_rx_held);
+    net.frame = 0;
+    net.tick_frame = -1;
+    net.resim = false;
     s_remote_have = s_remote_newest = s_last_acked = s_rb_frame = s_remote_ck_frame = -1;
     s_remote_ck = 0;
-    s_desync_reported = s_heard = false;
-    s_stalls = s_skips = s_advances = s_rollbacks = s_rb_lost = 0;
-    s_rb_depth_max = 0;
+    net.desync_reported = s_heard = s_peer_left = false;
+    s_warn_src = s_warn_sess = s_warn_bad = false;
+    s_status = PC_NET_PEER_OK;
+    s_stalls = net.skips = s_advances = s_rollbacks = s_rb_lost = 0;
+    s_rb_depth_max = s_rb_depth_cur = s_rb_depth_recent = 0;
     s_stall_ns_max = 0;
-    s_ping_us = 0;
+    s_stall_frame = -1000;
+    net.ping_us = 0;
     s_ping_sum = 0;
     s_ping_n = 0;
-    s_offset_n = s_offset_i = 0;
-    s_offset_last = 0;
-    s_skip_left = s_advance_left = 0;
+    s_rtt_min = s_rtt_max = 0;
+    net.tx_pkts = s_rx_pkts = net.tx_inputs = s_rx_acks = 0;
+    s_tx_seq = 0;
+    memset(s_rtt_ring, 0, sizeof s_rtt_ring);
+    s_rx_seq_init = false;
+    s_rx_seq_top = 0;
+    s_rx_seq_bits = 0;
+    s_rx_dups = s_rx_reorders = 0;
+    s_sock_err = 0;
+    s_warn_sock = false;
+    s_red_target = REDUNDANCY;
+    s_resim_run = 0;
+    s_resim_eat = 0;
+    s_resim_eat_logged = false;
+    s_timer_tried = false;
+    s_loss_pct = 0;
+    sync_reset();
+    s_wrote = -1;
     s_send_ns = 0;
     s_send_frame = -1;
-    s_io_frame = -1000;
+    net.rb_barrier = -1;
+    s_scene_last = -1;
+    s_rb_lost_logged = false;
     s_last_valid = false;
-    s_held_head = s_held_n = 0;
-    s_rel_tx_head = s_rel_tx_n = s_rel_rx_head = s_rel_rx_n = 0;
-    s_rel_seq = s_rel_expect = 0;
-    s_rel_sent_ns = 0;
-    s_rel_resends = 0;
-    s_hs = HS_IDLE;
-    s_hs_host = false;
-    s_seed = 0;
-    s_start_frame = -1;
-    s_ck_from = 0;
-    snaps_invalidate();
+    rel_reset();
+    net.hs = HS_IDLE;
+    net.hs_host = false;
+    net.seed = 0;
+    net.start_frame = -1;
+    net.ck_from = 0;
+    snaps_free();
 }
 
 void pc_net_disconnect(void) {
-    if (s_sock == SOCK_INVALID) {
+    if (net.sock == SOCK_INVALID) {
         return;
     }
-    SDL_LockMutex(s_tx_lock);
-    s_active = false;
-    sock_close(s_sock);
-    s_sock = SOCK_INVALID;
-    s_hs = HS_IDLE;
-    rules_restore();
-    HSD_PadLibData.qtype = 0;
-    SDL_UnlockMutex(s_tx_lock);
-    /* The timer parks itself when it sees !s_active; removing it here makes
-     * that synchronous so nothing can touch the socket after this returns. */
+    /* Timer first: once removed it cannot fire again, and taking tx_lock
+     * below waits out a callback already running, so nothing touches the
+     * socket after this returns. */
     if (s_timer) {
         SDL_RemoveTimer(s_timer);
         s_timer = 0;
     }
-    pc_log_line("net: disconnected at frame %d", s_tick_frame);
+    SDL_LockMutex(net.tx_lock);
+    if (!s_peer_left) {
+        /* Tell the peer why so it need not wait out the 7 s silence; sent
+         * twice, unacked (the timeout is the fallback). */
+        uint8_t why = s_status == PC_NET_PEER_OK ? PC_NET_PEER_LEFT : (uint8_t) s_status;
+        net.sim_hold = false; /* straight out: the held queue dies with the socket */
+        send_bye(why);
+        send_bye(why);
+    }
+    net.active = false;
+    sock_close(net.sock);
+    net.sock = SOCK_INVALID;
+    net.hs = HS_IDLE;
+    rules_restore();
+    HSD_PadLibData.qtype = 0;
+    SDL_UnlockMutex(net.tx_lock);
+    pc_log_line("net: disconnected at frame %d (status %d)", net.tick_frame, s_status);
+    snaps_free();
+}
+
+/* MELEE_NET_EXIT_AFTER_FRAMES=n (tools/net_test.py): the instance that reaches
+ * n first sends BYE, and the other one is a frame or two behind (the clocks
+ * differ by the time offset), so its own check would never fire — it would sit
+ * at the title until the harness killed it. A BYE this close to the target ends
+ * the test as done; a BYE for a real reason still logs DESYNC etc. first. */
+static long s_exit_after; /* 0 = knob unset */
+static void exit_if_test_done(void) {
+    if (s_exit_after > 0 && net.frame >= s_exit_after - 16) {
+        pc_log_line("net: test done at frame %d", net.frame);
+        pc_net_disconnect(); /* BYE goes out, the peer need not wait out the timeout */
+        exit(0);
+    }
+}
+
+int pc_net_peer_status(void) {
+    return s_status;
+}
+
+int pc_net_quality(void) {
+    if (!net.active) {
+        return 0;
+    }
+    if (s_peer_left || net.frame - s_stall_frame < 120) {
+        return 2;
+    }
+    if (s_loss_pct >= 5 || s_rb_depth_recent >= 4 || jitter_us() >= 8000) {
+        return 1;
+    }
+    return 0;
 }
 
 bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
-    if (s_tx_lock == NULL) {
-        s_tx_lock = SDL_CreateMutex();
-#if defined(_WIN32)
-        WSADATA wsa;
-        WSAStartup(MAKEWORD(2, 2), &wsa);
-#endif
+    if (net.tx_lock == NULL) {
+        net.tx_lock = SDL_CreateMutex();
+        sock_startup();
     }
     pc_net_disconnect();
     char portstr[8];
@@ -895,8 +805,8 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
         pc_log_line("net: cannot resolve %s:%u", ip, port);
         return false;
     }
-    memcpy(&s_peer, res->ai_addr, res->ai_addrlen);
-    s_peer_len = (socklen_t) res->ai_addrlen;
+    memcpy(&net.peer, res->ai_addr, res->ai_addrlen);
+    net.peer_len = (socklen_t) res->ai_addrlen;
     int family = res->ai_family;
     freeaddrinfo(res);
 
@@ -926,7 +836,27 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
         sock_close(sock);
         return false;
     }
-    sock_nonblock(sock);
+    if (!sock_nonblock(sock)) {
+        pc_log_line("net: could not put the socket in non-blocking mode");
+        sock_close(sock);
+        return false;
+    }
+    /* Ask the network for expedited forwarding (DSCP EF / 46): low-latency
+     * queueing where the path honours it, harmless where it does not. */
+#if defined(_WIN32)
+    /* ponytail: Windows ignores IP_TOS for DSCP; real marking there needs the
+     * qWAVE API (QOSAddSocketToFlow). Skipped in the prototype. */
+#else
+    {
+        int tos = 0xB8; /* DSCP 46 << 2, ECN 0 */
+        int qr = family == AF_INET6
+                     ? setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof tos)
+                     : setsockopt(sock, IPPROTO_IP, IP_TOS, &tos, sizeof tos);
+        if (qr != 0) {
+            pc_log_line("net: could not set DSCP EF on the socket (non-fatal)");
+        }
+    }
+#endif
     session_reset();
     /* A full raw queue (any stall) with qtype 0 makes the pad alarm shift
      * qread, dropping the head write_head() just filled: the tick then eats
@@ -934,32 +864,34 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
      * drops the new raw sample instead; the local input is read from the
      * head anyway. */
     HSD_PadLibData.qtype = 2;
-    s_local = player ? 1 : 0;
-    s_remote = 1 - s_local;
+    net.local = player ? 1 : 0;
+    net.remote = 1 - net.local;
     const char* delay = getenv("MELEE_NET_DELAY");
-    s_delay = delay ? atoi(delay) : 2;
-    if (s_delay < 0 || s_delay >= RING / 2) {
-        s_delay = 2;
+    net.delay_auto = delay == NULL || strcmp(delay, "auto") == 0;
+    net.delay = net.delay_auto ? 2 : atoi(delay);
+    if (net.delay < 0 || net.delay >= RING / 2) {
+        net.delay = 2;
     }
-    const char* loss = getenv("MELEE_NET_SIM_LOSS");
-    const char* sim_delay = getenv("MELEE_NET_SIM_DELAY_MS");
-    s_sim_loss = loss ? atoi(loss) : 0;
-    s_sim_delay_ns = sim_delay ? (uint64_t) atoi(sim_delay) * 1000000ull : 0;
-    if (s_sim_loss > 0) {
-        srand((unsigned) getpid());
-    }
-    s_seed = seed;
+    net.delay_next = net.delay;
+    s_wrote = net.delay - 1; /* frames 0..delay-1 stay neutral on both sides */
+    sim_env(bind_port);
+    /* The host names the session; the guest takes it from the first packet. */
+    net.session = net.local == 0 ? (uint32_t) (SDL_GetPerformanceCounter() ^ (uint64_t) getpid() << 20) | 1u : 0;
+    net.seed = seed;
     if (seed != 0) {
         *HSD_RandSeedPtr = seed;
     }
-    SDL_LockMutex(s_tx_lock);
-    s_sock = sock;
-    s_active = true;
-    SDL_UnlockMutex(s_tx_lock);
-    pc_log_line("net: rollback with %s:%u, local port %u, player P%d, delay %d, window %d, "
-                "seed %u, sim loss %d%% delay %d ms",
-                ip, port, bind_port, s_local + 1, s_delay, WINDOW, seed, s_sim_loss,
-                (int) (s_sim_delay_ns / 1000000));
+    SDL_LockMutex(net.tx_lock);
+    net.sock = sock;
+    net.active = true;
+    SDL_UnlockMutex(net.tx_lock);
+    pc_log_line("net: rollback with %s:%u, local port %u, player P%d, delay %s%d, window %d, "
+                "seed %u, session %08x, proto %d, sim loss %d%% delay %d/%d ms jitter %d reorder %d%% "
+                "dup %d%% burst %d",
+                ip, port, bind_port, net.local + 1, net.delay_auto ? "auto " : "", net.delay, WINDOW, seed,
+                net.session, WIRE_VERSION, net.sim_loss, (int) (net.sim_delay_ns / 1000000),
+                (int) (net.sim_rx_delay_ns / 1000000), net.sim_jitter_ms, net.sim_reorder, net.sim_dup,
+                net.sim_burst);
     return true;
 }
 
@@ -987,440 +919,21 @@ void pc_net_init(void) {
 }
 
 int32_t pc_net_frame(void) {
-    return s_tick_frame;
-}
-
-uint32_t pc_net_seed(void) {
-    return s_seed;
-}
-
-int pc_net_handshake_state(void) {
-    return s_hs;
-}
-
-/* Drive the pending handshake a step; true once done, with start_frame. */
-static bool hs_poll(int32_t* start_frame) {
-    if (s_hs == HS_PENDING) {
-        recv_inputs();
-        if (SDL_GetTicksNS() - s_hs_t0 > HS_TIMEOUT_MS * 1000000ull) {
-            s_hs = HS_FAILED;
-            pc_log_line("net: handshake timed out, no %s", s_hs_host ? "READY" : "RULES");
-        }
-    }
-    if (s_hs != HS_DONE) {
-        return false;
-    }
-    *start_frame = s_start_frame;
-    return true;
-}
-
-bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
-    if (s_hs == HS_IDLE) {
-        if (!s_active) {
-            return false;
-        }
-        s_hs = HS_PENDING;
-        s_hs_host = true;
-        s_hs_t0 = SDL_GetTicksNS();
-        s_seed = seed;
-        *HSD_RandSeedPtr = seed;
-        s_start_frame = s_tick_frame + HS_LEAD_FRAMES;
-        Rules ru = { seed, s_start_frame };
-        rules_capture(&ru);
-        pc_net_send_reliable(REL_RULES, &ru, sizeof ru);
-        pc_log_line("net: RULES sent seed=%u start_frame=%d", seed, s_start_frame);
-        rules_apply(&ru, false);
-    }
-    return hs_poll(start_frame);
-}
-
-bool pc_net_guest_wait_match(uint32_t* seed, int32_t* start_frame) {
-    if (s_hs == HS_IDLE) {
-        if (!s_active) {
-            return false;
-        }
-        s_hs = HS_PENDING; /* RULES may already have landed: then s_hs is DONE */
-        s_hs_host = false;
-        s_hs_t0 = SDL_GetTicksNS();
-    }
-    if (!hs_poll(start_frame)) {
-        return false;
-    }
-    *seed = s_seed;
-    return true;
-}
-
-/* MELEE_NET_HANDSHAKE_TEST=1: the lobby handshake without a lobby, from
- * frame 300, plus one caller-typed message each way at frame 600. */
-static void handshake_test(void) {
-    static int on = -1;
-    if (on < 0) {
-        on = getenv("MELEE_NET_HANDSHAKE_TEST") != NULL;
-    }
-    if (!on || s_tick_frame < 300 || s_hs == HS_FAILED) {
-        return;
-    }
-    int32_t sf;
-    uint32_t seed;
-    if (s_local == 0) {
-        pc_net_host_match(1234, &sf);
-    } else {
-        pc_net_guest_wait_match(&seed, &sf);
-    }
-    if (s_tick_frame == 600) {
-        pc_net_send_reliable(0x10, "ping", 4);
-    }
-    uint8_t type;
-    char buf[REL_MAX];
-    int n = pc_net_recv_reliable(&type, buf, sizeof buf);
-    if (n >= 0) {
-        pc_log_line("net: reliable recv type %02x len %d '%.*s' at frame %d", type, n, n, buf,
-                    s_tick_frame);
-    }
+    return net.tick_frame;
 }
 
 bool pc_net_stats(int* ping_ms, int* delay_frames, unsigned* rollbacks) {
-    if (!s_active) {
+    if (!net.active) {
         return false;
     }
-    *ping_ms = (int) (s_ping_us / 1000);
-    *delay_frames = s_delay;
+    *ping_ms = (int) (net.ping_us / 1000);
+    *delay_frames = net.delay;
     *rollbacks = s_rollbacks;
     return true;
 }
 
-/* ---- record / replay --------------------------------------------------
- * MELEE_NET_RECORD=file  writes the seed, then per frame the four PADStatus
- *                        actually simulated plus the frame checksum.
- * MELEE_NET_REPLAY=file  feeds those pads back in and reports the first
- *                        frame whose checksum differs: the determinism test
- *                        for M0 (docs/netcode-plan.md §5). Works solo or
- *                        together with netplay (record only). */
-static FILE* s_rec;
-static FILE* s_rep;
-static bool s_rep_reported;
-
-typedef struct FrameRecord {
-    PADStatus pads[4];
-    uint32_t ck;
-} FrameRecord;
-
-static void record_open(void) {
-    const char* rec = getenv("MELEE_NET_RECORD");
-    const char* rep = getenv("MELEE_NET_REPLAY");
-    if (rec != NULL && rec[0] != '\0') {
-        s_rec = fopen(rec, "wb");
-        pc_log_line("net: %s %s", s_rec ? "recording to" : "cannot open", rec);
-    }
-    if (rep != NULL && rep[0] != '\0' && !s_active) {
-        s_rep = fopen(rep, "rb");
-        char magic[4];
-        uint32_t seed;
-        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC1", 4) != 0 ||
-                      fread(&seed, 4, 1, s_rep) != 1)) {
-            fclose(s_rep);
-            s_rep = NULL;
-        }
-        if (s_rep) {
-            *HSD_RandSeedPtr = seed;
-        }
-        pc_log_line("net: %s %s", s_rep ? "replaying" : "cannot open", rep);
-    }
-}
-
-static FrameRecord s_rep_cur;
-
-/* Load the next record's pads for this frame; false at end of file. */
-static bool replay_load(PADStatus* head) {
-    if (fread(&s_rep_cur, sizeof s_rep_cur, 1, s_rep) != 1) {
-        return false;
-    }
-    memcpy(head, s_rep_cur.pads, sizeof s_rep_cur.pads);
-    return true;
-}
-
-static void replay_compare(uint32_t ck) {
-    if (!s_rep_reported && s_rep_cur.ck != ck) {
-        s_rep_reported = true;
-        pc_log_line("net: REPLAY DIVERGED at frame %d (recorded %08x now %08x)", s_frame,
-                    s_rep_cur.ck, ck);
-    }
-}
-
-static uint32_t frame_checksum(const PADStatus* head) {
-    /* Inputs as simulated, the RNG seed entering the frame, and each
-     * fighter's position, facing, percent, stocks and action state (plan
-     * §4), so a physics divergence is caught on the frame it happens. */
-    uint32_t ck = fnv1a(2166136261u, head, 4 * sizeof(PADStatus));
-    ck = fnv1a(ck, HSD_RandSeedPtr, sizeof(u32));
-    /* Player slots keep dangling entity pointers between scenes, so only
-     * look while a fight is running and the entity really is a fighter. */
-    for (int slot = 0; in_fight() && slot < 4; slot++) {
-        HSD_GObj* gobj = Player_GetEntity(slot);
-        if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
-            continue;
-        }
-        const Fighter* fp = GET_FIGHTER(gobj);
-        s32 stocks = Player_GetStocks(slot);
-        ck = fnv1a(ck, &fp->cur_pos, sizeof fp->cur_pos);
-        ck = fnv1a(ck, &fp->facing_dir, sizeof fp->facing_dir);
-        ck = fnv1a(ck, &fp->dmg.x1830_percent, sizeof fp->dmg.x1830_percent);
-        ck = fnv1a(ck, &fp->motion_id, sizeof fp->motion_id);
-        ck = fnv1a(ck, &stocks, sizeof stocks);
-    }
-    return ck;
-}
-
-/* What went into the checksum, one line, so two peers' logs can be diffed
- * by eye when a DESYNC is reported. */
-#define STATE_RING 64
-static char s_state_ring[STATE_RING][320];
-
-/* Remember what went into this frame's checksum (overwritten when the
- * frame is re-simulated, so the last write is the confirmed timeline). */
-static void record_state(const PADStatus* head, int32_t frame) {
-    char* buf = s_state_ring[frame & (STATE_RING - 1)];
-    int n = snprintf(buf, sizeof s_state_ring[0], "f%d seed=%08x pads=%04x/%d,%d %04x/%d,%d", frame,
-                     *HSD_RandSeedPtr, head[0].button, head[0].stickX, head[0].stickY,
-                     head[1].button, head[1].stickX, head[1].stickY);
-    for (int slot = 0; in_fight() && slot < 4 && n < (int) sizeof s_state_ring[0] - 80; slot++) {
-        HSD_GObj* gobj = Player_GetEntity(slot);
-        if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER) {
-            continue;
-        }
-        const Fighter* fp = GET_FIGHTER(gobj);
-        n += snprintf(buf + n, sizeof s_state_ring[0] - (size_t) n,
-                      " p%d=(%.3f,%.3f) v(%.3f,%.3f) kb(%.3f,%.3f) f%.0f %.1f%% m%d s%d", slot,
-                      (double) fp->cur_pos.x, (double) fp->cur_pos.y, (double) fp->self_vel.x,
-                      (double) fp->self_vel.y, (double) fp->x8c_kb_vel.x,
-                      (double) fp->x8c_kb_vel.y, (double) fp->facing_dir,
-                      (double) fp->dmg.x1830_percent, fp->motion_id, Player_GetStocks(slot));
-    }
-}
-
-/* Dump the recorded states around `frame` (both peers do this on DESYNC, so
- * the two logs can be diffed line by line). */
-static void dump_states_around(int32_t frame) {
-    for (int32_t f = frame - 3; f <= frame + 1; f++) {
-        const char* s = s_state_ring[f & (STATE_RING - 1)];
-        if (f >= 0 && strncmp(s, "f", 1) == 0) {
-            pc_log_line("net: state %s", s);
-        }
-    }
-}
-
-/* ---- snapshot ---------------------------------------------------------
- * Whole-region copy of everything the simulation can touch:
- *   1. the decomp's statics, bracketed by src/pc/melee_state.ld (the sound
- *      machine's TUs are excluded there: the audio thread owns them);
- *   2. every OSAlloc heap's live extent except the audio heap;
- *   3. the RNG seed pointer (aurora-side static the game redirects).
- * ponytail: plain memcpy each time; dirty tracking only if the measured cost
- * breaks the rollback budget. */
-extern char __melee_data_start[], __melee_data_end[];
-extern char __melee_bss_start[], __melee_bss_end[];
-
-#define MAX_HEAPS 8
-
-typedef struct Region {
-    const char* name;
-    void* ptr;
-    size_t len;
-} Region;
-
-#define MAX_REGIONS (3 + MAX_HEAPS)
-
-/* Everything a snapshot covers, as it stands right now. */
-static int regions_now(Region* r) {
-    int n = 0;
-    void* lo;
-    size_t len;
-    aurora_heap_descs(&lo, &len);
-    r[n++] = (Region) { "heapdescs", lo, len };
-    r[n++] = (Region) { "data", __melee_data_start, (size_t) (__melee_data_end - __melee_data_start) };
-    r[n++] = (Region) { "bss", __melee_bss_start, (size_t) (__melee_bss_end - __melee_bss_start) };
-    for (int h = 0; h < MAX_HEAPS; h++) {
-        void* hi;
-        if (h == HSD_Synth_804D6018 || !aurora_heap_extent(h, &lo, &hi)) {
-            continue;
-        }
-        static char names[MAX_HEAPS][8];
-        snprintf(names[h], sizeof names[h], "heap%d", h);
-        r[n++] = (Region) { names[h], lo, (size_t) ((char*) hi - (char*) lo) };
-    }
-    return n;
-}
-
-typedef struct Snapshot {
-    int32_t frame;
-    unsigned io_count;   /* s_io_count when taken; a later request forbids restore */
-    uint8_t* buf;
-    size_t cap;
-    size_t used;
-    int nregions;
-    Region regions[MAX_REGIONS];
-    u32* seed_ptr;
-} Snapshot;
-
-static void snap_put(Snapshot* s, const void* src, size_t n) {
-    if (s->used + n > s->cap) {
-        s->cap = (s->used + n) * 3 / 2;
-        s->buf = realloc(s->buf, s->cap);
-    }
-    memcpy(s->buf + s->used, src, n);
-    s->used += n;
-}
-
-static void snapshot_take(Snapshot* s, int32_t frame) {
-    bool intr = OSDisableInterrupts();
-    s->frame = frame;
-    s->io_count = s_io_count;
-    s->used = 0;
-    s->seed_ptr = HSD_RandSeedPtr;
-    s->nregions = regions_now(s->regions);
-    for (int i = 0; i < s->nregions; i++) {
-        snap_put(s, s->regions[i].ptr, s->regions[i].len);
-    }
-    OSRestoreInterrupts(intr);
-}
-
-static void snapshot_restore(const Snapshot* s) {
-    bool intr = OSDisableInterrupts();
-    const uint8_t* p = s->buf;
-    for (int i = 0; i < s->nregions; i++) {
-        memcpy(s->regions[i].ptr, p, s->regions[i].len);
-        p += s->regions[i].len;
-    }
-    HSD_RandSeedPtr = s->seed_ptr;
-    OSRestoreInterrupts(intr);
-}
-
-/* Hash of the same regions a snapshot covers, taken fresh from memory. */
-static uint64_t state_hash(void) {
-    Region r[MAX_REGIONS];
-    int n = regions_now(r);
-    XXH3_state_t* st = XXH3_createState();
-    XXH3_64bits_reset(st);
-    for (int i = 0; i < n; i++) {
-        XXH3_64bits_update(st, r[i].ptr, r[i].len);
-    }
-    XXH3_64bits_update(st, HSD_RandSeedPtr, sizeof(u32));
-    uint64_t h = XXH3_64bits_digest(st);
-    XXH3_freeState(st);
-    return h;
-}
-
-/* Tally of differing 64-byte chunks across every mismatch, keyed by address
- * (statics keep their address; heap chunks are keyed by address too, which
- * is stable within a scene). Dumped with the periodic report. */
-typedef struct DiffTally {
-    const void* addr;
-    const char* region;
-    unsigned count;
-} DiffTally;
-#define TALLY_MAX 256
-static DiffTally s_tally[TALLY_MAX];
-static int s_tally_n;
-
-static void tally_add(const char* region, const void* addr) {
-    for (int i = 0; i < s_tally_n; i++) {
-        if (s_tally[i].addr == addr) {
-            s_tally[i].count++;
-            return;
-        }
-    }
-    if (s_tally_n < TALLY_MAX) {
-        s_tally[s_tally_n++] = (DiffTally) { addr, region, 1 };
-    }
-}
-
-static void tally_report(void) {
-    for (int pass = 0; pass < 8 && s_tally_n > 0; pass++) {
-        int best = -1;
-        for (int i = 0; i < s_tally_n; i++) {
-            if (s_tally[i].count > 0 && (best < 0 || s_tally[i].count > s_tally[best].count)) {
-                best = i;
-            }
-        }
-        if (best < 0) {
-            break;
-        }
-        pc_log_line("net:   %-6s %p x%u", s_tally[best].region, s_tally[best].addr,
-                    s_tally[best].count);
-        s_tally[best].count = 0; /* consumed; keeps the table for identity */
-    }
-}
-
-static void snapshot_diff(const Snapshot* s) {
-    const uint8_t* p = s->buf;
-    for (int i = 0; i < s->nregions; i++) {
-        const Region* r = &s->regions[i];
-        for (size_t off = 0; off < r->len; off += 64) {
-            size_t n = r->len - off < 64 ? r->len - off : 64;
-            if (memcmp((uint8_t*) r->ptr + off, p + off, n) != 0) {
-                tally_add(r->name, (uint8_t*) r->ptr + off);
-            }
-        }
-        p += r->len;
-    }
-}
-
-/* ---- sync test --------------------------------------------------------
- * MELEE_NET_SYNCTEST=1: every tick is run twice, snapshot -> tick -> hash ->
- * restore -> tick again -> hash, and the two hashes must match. Proves that
- * the snapshot covers all state the tick depends on and that a tick is a
- * pure function of (state, inputs), which is what rollback needs. */
-static bool s_synctest;
-static Snapshot s_snap;       /* state before the tick */
-static Snapshot s_after1;     /* state after the first run of the tick */
-static uint64_t s_hash_first;
-static int s_retick;          /* 0 normal, 1 first tick done, 2 retick done */
-static unsigned s_sync_fail, s_sync_skipped;
-static uint64_t s_snap_ns, s_snap_ns_max;
-static unsigned s_io_at_tick; /* value when the current tick started */
-static bool s_io_inflight_at_take;
-
 bool pc_net_resim(void) {
-    return s_resim || s_synctest;
-}
-
-static bool synctest_after_tick(void) {
-    if (s_retick == 0) {
-        if (s_io_count != s_io_at_tick || s_io_inflight_at_take || io_inflight()) {
-            /* The tick issued a disc read, or one is still completing on a
-             * worker thread; re-running would issue it twice / lose the
-             * completion. Rollback proper never spans a load either. */
-            s_sync_skipped++;
-            return false;
-        }
-        s_hash_first = state_hash();
-        snapshot_take(&s_after1, s_snap.frame);
-        snapshot_restore(&s_snap);
-        s_retick = 1;
-        s_resim = true;
-        return true;
-    }
-    s_resim = false;
-    s_retick = 0;
-    uint64_t second = state_hash();
-    if (second != s_hash_first) {
-        s_sync_fail++;
-        snapshot_diff(&s_after1);
-    }
-    if ((s_snap.frame % 600) == 0 && s_snap.frame > 0) {
-        size_t heap_bytes = 0;
-        for (int i = 3; i < s_snap.nregions; i++) {
-            heap_bytes += s_snap.regions[i].len;
-        }
-        pc_log_line("net: synctest frame %d, %u mismatches, %u skipped (I/O), snapshot %.2f MB "
-                    "(%d heaps %.2f MB), take %.2f ms (max %.2f)",
-                    s_snap.frame, s_sync_fail, s_sync_skipped, s_snap.used / 1048576.0,
-                    s_snap.nregions - 3, heap_bytes / 1048576.0, s_snap_ns / 1e6,
-                    s_snap_ns_max / 1e6);
-        s_snap_ns_max = 0;
-        tally_report();
-    }
-    return false;
+    return net.resim || net.synctest;
 }
 
 /* ---- rollback ---------------------------------------------------------
@@ -1428,14 +941,6 @@ static bool synctest_after_tick(void) {
  * tick that consumes the prediction. When the real input for such a frame
  * arrives and differs, that frame's snapshot is restored and every frame
  * since is ticked again from the input rings with the resim flag on. */
-static Snapshot s_snaps[SNAPS];
-
-/* A new session restarts at frame 0: no old snapshot may match a frame. */
-static void snaps_invalidate(void) {
-    for (int i = 0; i < SNAPS; i++) {
-        s_snaps[i].frame = -1;
-    }
-}
 
 static void predict(int32_t f) {
     static const WirePad neutral;
@@ -1443,25 +948,29 @@ static void predict(int32_t f) {
         s_remote_have >= 0 ? s_remote_ring[s_remote_have & (RING - 1)] : neutral;
 }
 
-/* Snapshot before a predicted frame. Nothing can be captured while a disc
- * transfer is pending, so that slot stays unusable and a misprediction there
- * is lost. */
+/* Snapshot before a predicted frame. Behind the barrier nothing is taken
+ * (the frame cannot be rolled back to anyway); when the buffer cannot be
+ * grown the session drops to lockstep for good rather than mispredicting
+ * into a desync. */
 static void snap_predicted(int32_t f) {
-    Snapshot* s = &s_snaps[f & (SNAPS - 1)];
-    if (io_inflight()) {
+    Snapshot* s = snap_slot(f);
+    if (f <= net.rb_barrier) {
         s->frame = -1;
         return;
     }
-    snapshot_take(s, f);
+    if (!snapshot_take(s, f)) {
+        barrier_raise(INT32_MAX);
+        pc_log_line("net: out of memory for snapshots at frame %d, lockstep from here", f);
+    }
 }
 
 /* Ports 0-3 of the queue head become the synced inputs for frame f. */
 static void write_head(PADStatus* head, int32_t f) {
     static const WirePad neutral;
-    const WirePad* mine = f >= s_delay ? &s_local_ring[f & (RING - 1)] : &neutral;
-    from_wire(&head[s_local], mine);
+    const WirePad* mine = f >= net.delay ? &s_local_ring[f & (RING - 1)] : &neutral;
+    from_wire(&head[net.local], mine);
     const WirePad* theirs = &s_remote_ring[f & (RING - 1)];
-    from_wire(&head[s_remote], theirs);
+    from_wire(&head[net.remote], theirs);
     if (!s_seen_remote && theirs->button != 0) {
         s_seen_remote = true;
         pc_log_line("net: first remote button press (%04x) at frame %d", theirs->button, f);
@@ -1493,22 +1002,41 @@ static void resim_prepare(int32_t f) {
     }
     PADStatus* head = unconsume();
     if (head == NULL) {
-        /* ponytail: queue full (a hitch queued 5 samples during a rollback);
-         * this re-run eats a real sample, time sync pays it back. */
+        /* ponytail: the pad queue is full (a hitch queued several samples
+         * during the rollback) and the game reads the queue head directly
+         * through HSD_PadRenewMasterStatus (controller.c), not a pointer we
+         * own, so a private re-run buffer would never be read. This re-run
+         * therefore reuses the live head, eating one real sample; time sync
+         * pays it back. Counted (resim_eat) so the report shows how often. */
         PadLibData* p = &HSD_PadLibData;
         head = &p->queue->stat[p->qread * 4];
+        s_resim_eat++;
+        if (!s_resim_eat_logged) {
+            s_resim_eat_logged = true;
+            pc_log_line("net: pad queue full during a rollback at frame %d, re-run reused a live "
+                        "sample", f);
+        }
     }
     write_head(head, f);
     s_ck_ring[f & (RING - 1)] = frame_checksum(head);
-    s_tick_frame = f;
+    net.tick_frame = f;
 }
 
 static bool rollback_to(int32_t f) {
-    Snapshot* s = &s_snaps[f & (SNAPS - 1)];
-    if (s->buf == NULL || s->frame != f || s->io_count != s_io_count || io_inflight()) {
+    Snapshot* s = snap_slot(f);
+    const char* why = s->buf == NULL || s->frame != f ? "no snapshot"
+                      : f <= net.rb_barrier          ? "behind the barrier"
+                                                     : snapshot_unusable(s);
+    if (why != NULL) {
+        /* The misprediction stays in the timeline: the peers have diverged
+         * unless the inputs happened to match. Everything simulated so far
+         * is now behind the barrier so it is not rolled back to later. */
         s_rb_lost++;
-        pc_log_line("net: cannot roll back to frame %d (%s), expect a desync", f,
-                    s->buf != NULL && s->frame == f ? "disc I/O since" : "no snapshot");
+        barrier_raise(simulated_upto());
+        if (!s_rb_lost_logged) {
+            s_rb_lost_logged = true;
+            pc_log_line("net: cannot roll back to frame %d (%s), expect a desync", f, why);
+        }
         return false;
     }
     int depth = simulated_upto() - f + 1;
@@ -1529,7 +1057,10 @@ static bool rollback_to(int32_t f) {
     if (depth > s_rb_depth_max) {
         s_rb_depth_max = depth;
     }
-    s_resim = true;
+    if (depth > s_rb_depth_cur) {
+        s_rb_depth_cur = depth;
+    }
+    net.resim = true;
     resim_prepare(f);
     return true;
 }
@@ -1540,88 +1071,98 @@ static bool rollback_to(int32_t f) {
  * stall, and feed the queue head. `raw` is false for the extra tick a
  * time-sync advance adds, which reuses the last physical sample. */
 static void fresh_tick(PADStatus* head, bool raw) {
-    if (s_active) {
+    if (net.active) {
         if (raw) {
             s_raw_last = head[0];
         }
-        to_wire(&s_local_ring[(s_frame + s_delay) & (RING - 1)], &s_raw_last);
+        /* One slot per tick; a delay change (delay_auto) leaves a gap to fill
+         * with the same sample, or already-sent frames that must not move. */
+        for (int32_t w = s_wrote + 1; w <= net.frame + net.delay; w++) {
+            to_wire(&s_local_ring[w & (RING - 1)], &s_raw_last);
+            s_wrote = w;
+        }
         send_inputs();
         recv_inputs();
-        /* Predict at most WINDOW frames past the remote, and only in a
-         * fight: a tick that loads from disc can never be re-run, menus and
-         * scene changes load constantly, and the match's own loads trail
-         * into its first frames, so stay in lockstep until they have been
-         * quiet a while (plan §10.4: menus lockstep, rollback armed in GS_VS). */
-        bool lockstep = !in_fight() || s_frame - s_io_frame < 120 || io_inflight();
-        int32_t need = lockstep ? s_frame : s_frame - WINDOW;
-        if (!wait_remote(need)) {
-            pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
-                        s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, s_frame);
+        if (s_peer_left) {
+            exit_if_test_done();
             pc_net_disconnect();
             return;
         }
-        if ((s_frame % SYNC_INTERVAL) == 0 && s_frame > 0) {
+        /* A scene change tears heaps down and rebuilds them: nothing across
+         * it can be restored, and its loads trail into the next frames. */
+        int scene = scene_kind();
+        if (scene != s_scene_last) {
+            s_scene_last = scene;
+            barrier_raise(net.frame + IO_QUIET);
+        }
+        /* Predict at most WINDOW frames past the remote, and only in a
+         * fight past the barrier (plan §10.4: menus lockstep, rollback
+         * armed in GS_VS once the match's own loads have gone quiet). */
+        bool lockstep = !in_fight() || net.frame <= net.rb_barrier;
+        int32_t need = lockstep ? net.frame : net.frame - WINDOW;
+        if (!wait_remote(need)) {
+            if (!s_peer_left) {
+                pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
+                            s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
+            }
+            pc_net_disconnect();
+            return;
+        }
+        if ((net.frame % SYNC_INTERVAL) == 0 && net.frame > 0) {
             time_sync();
         }
-        if (s_skip_left > 0) {
-            skip_frame();
-            s_skip_left--;
+        if (s_remote_have < net.frame) {
+            predict(net.frame);
+            snap_predicted(net.frame);
         }
-        if (s_remote_have < s_frame) {
-            predict(s_frame);
-            snap_predicted(s_frame);
-        }
-        write_head(head, s_frame); /* after anything that can run the pad alarm */
+        write_head(head, net.frame); /* after anything that can run the pad alarm */
     }
-    if (s_rep != NULL && !replay_load(head)) {
-        pc_log_line("net: replay finished at frame %d%s", s_frame,
-                    s_rep_reported ? "" : ", no divergence");
-        fclose(s_rep);
-        s_rep = NULL;
-    }
+    replay_feed(head);
 
-    if (s_start_frame == s_frame && s_hs != HS_FAILED) {
-        *HSD_RandSeedPtr = s_seed; /* both peers enter the match from the agreed seed */
+    if (net.start_frame == net.frame && net.hs != HS_FAILED) {
+        *HSD_RandSeedPtr = net.seed; /* both peers enter the match from the agreed seed */
     }
     uint32_t ck = frame_checksum(head);
-    s_ck_ring[s_frame & (RING - 1)] = ck;
-    if (s_active) {
-        record_state(head, s_frame);
-        bool before = s_desync_reported;
+    s_ck_ring[net.frame & (RING - 1)] = ck;
+    if (net.active) {
+        record_state(head, net.frame);
+        bool before = net.desync_reported;
         check_desync();
-        if (s_desync_reported && !before) {
+        if (net.desync_reported && !before) {
             dump_states_around(s_remote_ck_frame);
         }
     }
-    if (s_rec != NULL) {
-        if (s_frame == 0) {
-            fwrite("MRC1", 4, 1, s_rec);
-            fwrite(HSD_RandSeedPtr, 4, 1, s_rec);
-        }
-        FrameRecord r;
-        memcpy(r.pads, head, sizeof r.pads);
-        r.ck = ck;
-        fwrite(&r, sizeof r, 1, s_rec);
-        fflush(s_rec); /* runs usually end by SIGTERM; keep every frame */
-    }
-    if (s_rep != NULL) {
-        replay_compare(ck);
-    }
+    record_frame(head, ck);
 
-    if ((s_frame % 600) == 0 && s_frame > 0 && s_active) {
+    if ((net.frame % 60) == 0) {
+        s_rb_depth_recent = s_rb_depth_cur; /* pc_net_quality: deepest rollback last second */
+        s_rb_depth_cur = 0;
+    }
+    if ((net.frame % 600) == 0 && net.frame > 0 && net.active) {
+        s_loss_pct = net.tx_inputs > s_rx_acks && net.tx_inputs > 0
+                         ? (int) (100 * (net.tx_inputs - s_rx_acks) / net.tx_inputs)
+                         : 0;
         pc_log_line("net: frame %d, rollbacks %u (max depth %d, lost %u), stalls %u (worst "
-                    "%.1f ms), skips %u, advances %u, ping %u ms (avg %.0f), offset %+.1f ms, "
-                    "remote behind %d",
-                    s_frame, s_rollbacks, s_rb_depth_max, s_rb_lost, s_stalls,
-                    s_stall_ns_max / 1e6, s_skips, s_advances, s_ping_us / 1000,
-                    s_ping_n ? s_ping_sum / 1000.0 / s_ping_n : 0.0, s_offset_last / 1000.0,
-                    s_frame - 1 - s_remote_have);
+                    "%.1f ms), skips %u, advances %u, ping %u ms (avg %.0f, min %u, max %u, "
+                    "jitter %.1f), loss %d%% (%u tx %u rx), offset %+.1f ms, remote behind %d, "
+                    "barrier %d, quality %d, dup %u reorder %u sock_err %u resim_eat %u red %d",
+                    net.frame, s_rollbacks, s_rb_depth_max, s_rb_lost, s_stalls,
+                    s_stall_ns_max / 1e6, net.skips, s_advances, net.ping_us / 1000,
+                    s_ping_n ? s_ping_sum / 1000.0 / s_ping_n : 0.0, s_rtt_min / 1000,
+                    s_rtt_max / 1000, jitter_us() / 1000.0, s_loss_pct, net.tx_pkts, s_rx_pkts,
+                    net.offset_last / 1000.0, net.frame - 1 - s_remote_have, net.rb_barrier,
+                    pc_net_quality(), s_rx_dups, s_rx_reorders, s_sock_err, s_resim_eat,
+                    s_red_target);
+        snap_stats_report();
         s_stall_ns_max = 0;
         s_ping_sum = 0;
         s_ping_n = 0;
+        s_rtt_min = s_rtt_max = 0;
+        net.tx_pkts = s_rx_pkts = net.tx_inputs = s_rx_acks = 0;
+        s_rx_dups = s_rx_reorders = s_sock_err = s_resim_eat = 0;
     }
-    s_tick_frame = s_frame;
-    s_frame++;
+    net.tick_frame = net.frame;
+    net.frame++;
 }
 
 void pc_net_sync(void) {
@@ -1629,30 +1170,28 @@ void pc_net_sync(void) {
     if (!opened) {
         opened = true;
         record_open();
-        s_synctest = getenv("MELEE_NET_SYNCTEST") != NULL;
-        if (s_synctest) {
+        net.synctest = getenv("MELEE_NET_SYNCTEST") != NULL;
+        if (net.synctest) {
             pc_log_line("net: synctest on (every tick simulated twice, sound off)");
         }
+        const char* ea = getenv("MELEE_NET_EXIT_AFTER_FRAMES");
+        s_exit_after = ea != NULL ? atol(ea) : 0;
     }
-    if (s_active) {
-        SDL_LockMutex(s_tx_lock);
+    if (net.active && s_exit_after > 0 && net.frame >= s_exit_after) {
+        exit_if_test_done();
+    }
+    if (net.active) {
+        SDL_LockMutex(net.tx_lock);
         if (s_timer == 0) {
             s_timer = SDL_AddTimer(4, tx_timer, NULL);
         }
-        SDL_UnlockMutex(s_tx_lock);
+        SDL_UnlockMutex(net.tx_lock);
     }
-    if (s_synctest) {
-        uint64_t t0 = SDL_GetTicksNS();
-        snapshot_take(&s_snap, s_frame);
-        s_io_at_tick = s_io_count;
-        s_io_inflight_at_take = io_inflight();
-        s_snap_ns = SDL_GetTicksNS() - t0;
-        if (s_snap_ns > s_snap_ns_max) {
-            s_snap_ns_max = s_snap_ns;
-        }
+    if (net.synctest) {
+        synctest_before_tick();
     }
-    if (!s_active && s_rec == NULL && s_rep == NULL) {
-        s_frame++;
+    if (!net.active && !record_active()) {
+        net.frame++;
         return;
     }
     PadLibData* p = &HSD_PadLibData;
@@ -1660,10 +1199,10 @@ void pc_net_sync(void) {
 }
 
 bool pc_net_after_tick(void) {
-    if (s_synctest) {
+    if (net.synctest) {
         return synctest_after_tick();
     }
-    if (!s_active) {
+    if (!net.active) {
         return false;
     }
     recv_inputs();
@@ -1674,20 +1213,20 @@ bool pc_net_after_tick(void) {
             return true;
         }
     }
-    if (s_resim) {
-        if (s_tick_frame + 1 < s_frame) {
-            resim_prepare(s_tick_frame + 1);
+    if (net.resim) {
+        if (net.tick_frame + 1 < net.frame) {
+            resim_prepare(net.tick_frame + 1);
             return true;
         }
-        s_resim = false;
+        net.resim = false;
     }
     check_desync();
     handshake_test();
-    if (s_advance_left > 0 && (s_frame % 5) == 0) {
+    if (net.advance_left > 0 && (net.frame % 5) == 0) {
         /* Behind the peer: one extra tick this present, once per 5 frames. */
         PADStatus* head = unconsume();
         if (head != NULL) {
-            s_advance_left--;
+            net.advance_left--;
             s_advances++;
             fresh_tick(head, false);
             return true;

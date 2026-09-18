@@ -21,6 +21,7 @@
 #include "pc/launcher.h"
 #include "pc/touch.h"
 #include "pc/widescreen.h"
+#include "pc/net.h"
 #include "pc/net_lan.h"
 
 bool pc_exit_requested;
@@ -57,16 +58,36 @@ void pc_frame_boundary(void) {
     aurora_heap_check();    /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
     /* MELEE_LAN_TEST=1|host: the LAN lobby without the menu; "host" starts
-     * a match with the first peer found (src/pc/net_lan.c). */
+     * a match with the first peer found. MELEE_LAN_DIRECT=ip:port: the same
+     * with a known peer, no discovery (src/pc/net_lan.c). */
     static int lan_test = -1;
+    static u32 lan_frames;
     if (lan_test < 0) {
         const char* t = getenv("MELEE_LAN_TEST");
-        lan_test = t == NULL ? 0 : strcmp(t, "host") == 0 ? 2 : 1;
+        lan_test = getenv("MELEE_LAN_DIRECT") != NULL ? 3
+                   : t == NULL                        ? 0
+                   : strcmp(t, "host") == 0           ? 2
+                                                      : 1;
     }
     if (lan_test) {
         pc_lan_poll();
-        if (lan_test == 2 && pc_lan_state(NULL) == 0) {
+        /* Both fixtures start only once the game has its rules loaded (the
+         * title screen), not at frame 0: RULES would carry zeros. */
+        lan_frames++;
+        if (lan_test == 2 && lan_frames >= 300 && pc_lan_state(NULL) == 0) {
             pc_lan_start_match();
+        }
+        if (lan_test == 3 && lan_frames == 300) {
+            const char* d = getenv("MELEE_LAN_DIRECT");
+            char host[64];
+            const char* colon = strrchr(d, ':');
+            if (colon != NULL && (size_t) (colon - d) < sizeof host) {
+                memcpy(host, d, (size_t) (colon - d));
+                host[colon - d] = '\0';
+                pc_lan_connect_direct(host, (uint16_t) atoi(colon + 1));
+            } else {
+                pc_log_line("lan: MELEE_LAN_DIRECT must be ip:port");
+            }
         }
     }
     if (fps_log < 0) {
@@ -142,7 +163,7 @@ void pc_frame_boundary(void) {
      * the simulation would run at 2x-4x speed. Pacing strictly to 60.000 Hz ensures physics,
      * hitboxes, and timers remain bit-identical. */
     static u64 next_sim_ns;
-    const u64 sim_period = 1000000000ull / 60;
+    const u64 sim_period = pc_sim_period_ns();
     u64 now = SDL_GetTicksNS();
     if (next_sim_ns == 0 || now > next_sim_ns + sim_period * 2) {
         next_sim_ns = now; /* first frame, or large hitch: resync */
@@ -179,6 +200,7 @@ void pc_frame_boundary(void) {
 
     s_retrace_count++;
     pc_os_run_alarms();
+    next_sim_ns += pc_net_pace_adjust_ns(); /* time-sync skips: a longer wait next frame */
     if (s_pre_cb) {
         s_pre_cb(s_retrace_count);
     }
@@ -200,6 +222,10 @@ void VIWaitForRetrace(void) {
 
 u32 VIGetRetraceCount(void) {
     return s_retrace_count;
+}
+
+u64 pc_sim_period_ns(void) {
+    return 1000000000ull / 60;
 }
 
 u32 VIGetNextField(void) {

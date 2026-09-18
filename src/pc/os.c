@@ -338,7 +338,7 @@ void pc_platform_init(void) {
     pc_textures_init();
     pc_input_poll_init();
     pc_net_init();
-    if (getenv("MELEE_LAN_TEST")) {
+    if (getenv("MELEE_LAN_TEST") || getenv("MELEE_LAN_DIRECT")) {
         pc_lan_start(); /* LAN lobby fixture without the menu, see vi.c */
     }
 }

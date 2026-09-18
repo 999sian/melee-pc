@@ -13,6 +13,11 @@ extern "C" {
  * (src/pc/net.c, docs/netcode-plan.md §4). Enabled at boot by
  * MELEE_NET=<peer host:port> or at runtime by pc_net_connect()
  * (src/pc/net_lan.h); see net.c for the other knobs. */
+
+/* Wire protocol version; a peer with another one is refused (both sides
+ * report PEER_INCOMPATIBLE). Bump on any change to the packet layouts,
+ * Rules or the handshake. */
+#define PC_NET_PROTO_VERSION 3
 void pc_net_init(void);
 bool pc_net_active(void);
 /* Controller port the local player drives (0 = P1/host, 1 = P2/guest). */
@@ -43,6 +48,11 @@ void pc_net_sync(void);
  * (rollback re-simulation or the MELEE_NET_SYNCTEST self-check). */
 bool pc_net_after_tick(void);
 
+/* Called by the frame boundary (src/pc/vi.c) after the pad alarm ran; the
+ * returned ns are added to the next pacing wait. Time-sync skips are paid
+ * here rather than by sleeping inside a tick. */
+uint64_t pc_net_pace_adjust_ns(void);
+
 /* True while re-simulating: sound/music/rumble starts must be suppressed. */
 bool pc_net_resim(void);
 
@@ -52,6 +62,18 @@ void pc_net_note_io(void);
 
 /* Live netplay numbers for the HUD. False when netplay is not active. */
 bool pc_net_stats(int* ping_ms, int* delay_frames, unsigned* rollbacks);
+
+/* Link quality for the HUD/lobby: 0 stable, 1 warning (loss, jitter or
+ * deep rollbacks in the last second), 2 stalling (a stall over 500 ms in the
+ * last two seconds, or the peer announced it is leaving). */
+int pc_net_quality(void);
+
+/* Why the last session ended (kept until the next connect): 0 still up /
+ * never broke, 1 the peer left (BYE), 2 timeout, 3 desync, 4 incompatible
+ * protocol version. */
+enum { PC_NET_PEER_OK, PC_NET_PEER_LEFT, PC_NET_PEER_TIMEOUT, PC_NET_PEER_DESYNC,
+       PC_NET_PEER_INCOMPATIBLE };
+int pc_net_peer_status(void);
 
 #ifdef __cplusplus
 }

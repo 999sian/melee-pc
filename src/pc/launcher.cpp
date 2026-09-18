@@ -17,6 +17,7 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <chrono>
+#include <random>
 #include <cstdlib>
 #include <future>
 #include <memory>
@@ -881,6 +882,12 @@ public:
 extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config_path = std::filesystem::path(config->userPath ? config->userPath : ".") / "launcher.cfg";
     prefs = launcher::load_preferences(config_path);
+    if (prefs.install_id == 0) {
+        prefs.install_id = std::random_device{}() | uint64_t(std::random_device{}()) << 32 | 1;
+        std::string error;
+        if (!launcher::save_preferences(config_path, prefs, error))
+            SDL_Log("%s", error.c_str());
+    }
 #if defined(__APPLE__) || defined(TARGET_OS_IPHONE)
     auto file_accessible = [](const std::filesystem::path& path) -> bool {
         std::error_code ec;
@@ -1631,6 +1638,12 @@ extern "C" bool pc_is_frozen_stadium_enabled(void) {
 }
 extern "C" bool pc_is_free_camera_enabled(void) {
     return prefs.free_camera;
+}
+extern "C" uint64_t pc_install_id(void) {
+    return prefs.install_id;
+}
+extern "C" const char* pc_app_rev(void) {
+    return pc::get_app_version().c_str();
 }
 extern "C" int pc_get_hud_mode(void) {
     return prefs.hud_mode;

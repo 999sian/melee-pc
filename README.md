@@ -1,7 +1,9 @@
 # melee-pc
 
 **Beta, for testing only.** "melee-pc" is a working name. Online play with
-rollback netcode is planned and **not implemented yet**.
+rollback netcode is in development: on this branch two copies play over a
+LAN or a direct IP (see [Netplay](#netplay-lan-and-direct-ip-prototype));
+internet matchmaking is **not implemented yet**.
 
 A native PC port of Super Smash Bros. Melee (NTSC-U 1.02), built from
 [doldecomp/melee](https://github.com/doldecomp/melee) on top of
@@ -243,6 +245,64 @@ suppress only; none of them fixes anything.
 | `MELEE_AUDIO_ADDR=1` | Report voice sample addresses against the ARAM bounds. |
 | `MELEE_CPU_TRACE=1` | Per-CPU-player AI census every ~2s. |
 | `MELEE_EF_LOG=1`, `MELEE_EF_SKIP=a-b` | Report or suppress effect ids. |
+
+## Netplay (LAN and direct IP, prototype)
+
+Two copies of the game play a rollback match over UDP (`src/pc/net.c`;
+design and current state in [docs/netcode-plan.md](docs/netcode-plan.md)).
+Both must run the same build and the same disc, with no memory card
+(`--no-card`). In the menus: VS Mode → ONLINE → LAN PLAY finds other
+copies on the local network by mDNS and the first Start elects a host
+(lowest install id wins a tie); DIRECT CONNECT takes the other machine's
+`ip:port` and needs no discovery, which is also the way past Wi-Fi client
+isolation. The game port is UDP 41000 by default and discovery uses UDP
+5353 multicast; allow both through the firewall (Windows asks on first
+launch). The install id used for the election is `install_id` in
+`launcher.cfg`.
+
+| Variable | Effect |
+|---|---|
+| `MELEE_NET=<host:port>` | Connect to that peer at boot, no lobby (`MELEE_NET_PLAYER` and the same `MELEE_SEED` on both sides). |
+| `MELEE_NET_PORT=<n>` | Local UDP game port (default 41000). Two copies on one machine need different ports. |
+| `MELEE_NET_PLAYER=0\|1` | Controller port the local player drives with `MELEE_NET`: 0 = P1/host, 1 = P2. |
+| `MELEE_NET_DELAY=<n>\|auto` | Input delay in frames (default `auto`: 1–4 from ping and jitter, re-evaluated every 600 frames, changed only between matches). |
+| `MELEE_LAN_TEST=1\|host` | LAN lobby without the menu; `host` presses Start once the title is up. Both set to `host` exercises a simultaneous Start. |
+| `MELEE_LAN_DIRECT=<ip:port>` | Direct connect without the menu, at frame 300; set on both sides with the other's address. The lower `ip:port` hosts. |
+| `MELEE_NET_HANDSHAKE_TEST=1` | Run the RULES/READY handshake at frame 300 with `MELEE_NET`, no lobby. |
+| `MELEE_NET_RECORD=<file>` | Write the seed, then per frame the four pad states simulated and a state checksum. |
+| `MELEE_NET_REPLAY=<file>` | Feed a recording back in; reports the first frame whose checksum differs (`net: REPLAY DIVERGED`). Solo only. |
+| `MELEE_NET_SYNCTEST=1` | Run every tick twice from a restored snapshot and compare state hashes; sound is off. Proves the snapshot covers everything a tick reads. |
+| `MELEE_NET_EXIT_AFTER_FRAMES=<n>` | Disconnect (BYE) and exit at that frame, logging `net: test done at frame n`. |
+| `MELEE_NET_SIM_LOSS=<pct>` | Drop that share of outgoing packets. |
+| `MELEE_NET_SIM_DELAY_MS=<ms>` | Hold every outgoing packet that long. |
+| `MELEE_NET_SIM_DELAY_RX_MS=<ms>` | Hold every incoming packet that long (asymmetric links). |
+| `MELEE_NET_SIM_JITTER_MS=<ms>` | Uniform ±ms on the outgoing delay; reorders when larger than the delay. |
+| `MELEE_NET_SIM_REORDER=<pct>` | Hold that share of packets behind the next one. |
+| `MELEE_NET_SIM_DUP=<pct>` | Send that share of packets twice. |
+| `MELEE_NET_SIM_BURST=<n>` | Every 5 s drop n consecutive outgoing packets. |
+
+The link simulator's PRNG is seeded from `MELEE_NET_PORT`, so a run repeats.
+Every 600 frames the log prints rollbacks, stalls, ping, jitter, loss and
+snapshot cost; `net: DESYNC`, `net: cannot roll back` and `net: peer silent`
+are the lines that mean something went wrong. Two copies on one machine also
+need distinct `MELEE_CACHE_DIR` (pipeline cache) and `MELEE_KEY_FIFO` if you
+drive them with key injection.
+
+`tools/net_test.py` runs all of that: two instances on this machine, a match,
+then asserts on both logs (both reach `net: test done`, exit 0, no DESYNC, no
+`peer silent`, no lost rollback). Direct mode boots straight into Link vs
+Mario via `MELEE_NET` + `MELEE_DEBUG_VS=1`; `--lan` walks the real menus into
+the LAN lobby and needs the shared LAN free.
+
+```sh
+python3 tools/net_test.py                                  # 2 min, clean link
+python3 tools/net_test.py --loss 5 --delay 30 --jitter --reorder
+python3 tools/net_test.py --lan --minutes 1
+python3 tools/net_test.py --fuzz                           # tools/net_fuzz.py hammers A's port
+```
+
+`--exe build/melee`, `--disc ../melee.ciso`, `--port 42050` (B uses +1) and
+`--work /tmp/net_test` (logs in `a.log`/`b.log`) are the defaults.
 
 ## Porting notes
 

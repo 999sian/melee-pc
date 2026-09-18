@@ -10,9 +10,11 @@ extern "C" {
 #endif
 
 /* LAN lobby (src/pc/net_lan.c). mDNS/DNS-SD discovery of other melee-pc
- * instances on the local network, Double Dash style: everyone who opens the
- * LAN menu is announced, the lobby shows how many were found, the first to
- * press Start becomes the host and the match starts on every peer. */
+ * instances on the local network (IPv4 and IPv6), Double Dash style:
+ * everyone who opens the LAN menu is announced, the lobby shows how many
+ * were found, Start marks us ready and the ready peer with the lowest
+ * install id hosts. Leaving (stop, failure, exit) announces a goodbye, so
+ * a peer connecting to us fails at once with "peer left lobby". */
 
 #define PC_LAN_MAX_PEERS 8
 #define PC_LAN_NAME_LEN 16
@@ -22,6 +24,7 @@ typedef struct PcLanPeer {
     char ip[46];                /* dotted IPv4 or IPv6 text */
     uint16_t port;              /* game UDP port */
     bool host;                  /* elected host */
+    bool compatible;            /* same protocol version and build (rev) */
 } PcLanPeer;
 
 /* Start/stop announcing + browsing. Idempotent. */
@@ -33,17 +36,37 @@ void pc_lan_poll(void);
 
 /* Snapshot of known peers, excluding ourselves. Returns count. */
 int pc_lan_peers(PcLanPeer* out, int max);
+/* True while a peer was refused because the table holds PC_LAN_MAX_PEERS. */
+bool pc_lan_full(void);
+/* True when discovery cannot work here: no mDNS socket could be opened, or
+ * nothing at all (not even our own looped-back announce) was heard for 5 s
+ * after pc_lan_start(). Tell the user to use a direct ip;
+ * pc_lan_connect_direct() works without discovery. Clears itself if a
+ * record does arrive later. */
+bool pc_lan_discovery_unavailable(void);
 
 /* Our own display name, the same one the announce carries (hostname). */
 const char* pc_lan_local_name(void);
 
-/* Local player pressed Start: claim host and start a match with the first
- * peer. Returns false if there is no peer yet. */
+/* Local player pressed Start: we advertise state=ready. If a ready peer with
+ * a lower install id exists it hosts and we join; otherwise we host the
+ * first eligible peer (100 ms after pressing, so a simultaneous Start on the
+ * other side is seen first). Returns false if there is no peer yet. */
 bool pc_lan_start_match(void);
 
+/* Skip discovery: session with a known ip + game port, both sides call this
+ * with the other's address (MELEE_LAN_DIRECT=ip:port at boot). The lower
+ * ip:port hosts. Requires pc_lan_start(). Returns false on socket error. */
+bool pc_lan_connect_direct(const char* ip, uint16_t port);
+
 /* Lobby state for the menu: 0 idle/searching, 1 connecting, 2 in match,
- * 3 failed (message in *why). pc_lan_is_host(): we pressed Start first
- * (valid while the state is 1 or 2). */
+ * 3 failed (message in *why), 4 ready (Start pressed, waiting for the
+ * election). 2 means BOTH peers finished the RULES/READY handshake: each
+ * side sends reliable type 0x11 (READY_BARRIER, empty payload) once its
+ * handshake is done and reports 2 only after the peer's arrived (15 s,
+ * else 3 "peer never became ready"). Other reliable types received in
+ * that window are logged and dropped. pc_lan_is_host(): valid while the
+ * state is 1 or 2. */
 int pc_lan_state(const char** why);
 bool pc_lan_is_host(void);
 
@@ -62,7 +85,8 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed);
 void pc_net_disconnect(void);
 
 /* Reliable lobby messages over the game socket (stop-and-wait, one in
- * flight). type is caller-defined (>= 0x10); payload <= 256 bytes. */
+ * flight). type is caller-defined (>= 0x10; 0x11 is the lobby's
+ * READY_BARRIER, see pc_lan_state()); payload <= 256 bytes. */
 bool pc_net_send_reliable(uint8_t type, const void* payload, int len);
 /* Returns payload length (>= 0) and fills *type when a message is pending,
  * -1 otherwise. */

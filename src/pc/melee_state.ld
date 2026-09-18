@@ -1,4 +1,4 @@
-/* Groups the decomp's static data so the netplay snapshot (src/pc/net.c) can
+/* Groups the decomp's static data so the netplay snapshot (src/pc/net_snapshot.c) can
  * copy it as two ranges. Everything from libmelee_game.a is game state except:
  *   - the sound machine (axdriver/synth/lbaudio_ax): the SDL audio thread
  *     owns those statics; restoring them would tear its lists;

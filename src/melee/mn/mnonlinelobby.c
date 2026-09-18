@@ -191,9 +191,13 @@ void mnOnlineLobby_Update(const OnlineLobbyView* view)
             sanitizeName(buf, ONLINE_LOBBY_NAME_LEN, p->name);
             setLine(&row[1], buf);
             setColor(&row[1], p->is_local ? &col_you : &col_white);
-            setLine(&row[2], p->is_host ? SJIS_LPAREN "HOST" SJIS_RPAREN : "");
+            setLine(&row[2], p->is_host ? SJIS_LPAREN "HOST" SJIS_RPAREN
+                             : p->incompatible
+                                 ? SJIS_LPAREN "other version" SJIS_RPAREN
+                                 : "");
             if (p->ping_ms >= 0) {
-                snprintf(buf, sizeof(buf), "%dms", p->ping_ms);
+                snprintf(buf, sizeof(buf), "%dms %s", p->ping_ms,
+                         view->link != NULL ? view->link : "");
             } else {
                 buf[0] = '\0';
             }
