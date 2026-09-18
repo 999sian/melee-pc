@@ -10,7 +10,13 @@
 #include <aurora/event.h>
 #include <aurora/gfx.h>
 #include <aurora/rmlui.hpp>
-#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
+/* TargetConditionals.h defines TARGET_OS_IPHONE on macOS too, as 0, so this
+ * has to test its value: defined() alone pulled the iOS-only dialog into the
+ * macOS build and left the link short a symbol. */
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+#if defined(__APPLE__) && TARGET_OS_IPHONE
 #include "ios_dialog.h"
 #endif
 #include <RmlUi/Core.h>
@@ -394,7 +400,7 @@ class Launcher final : public Rml::EventListener {
             static const SDL_DialogFileFilter filters[] = {
                 {"GameCube disc images", "iso;gcm;ciso;rvz;gcz;wia"}, {"All files", "*"}};
             dialog = std::make_shared<DialogResult>();
-#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
+#if defined(__APPLE__) && TARGET_OS_IPHONE
             ios_show_open_file_dialog(
                 dialog_done, new std::shared_ptr<DialogResult>(dialog), window);
 #else
