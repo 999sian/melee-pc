@@ -138,7 +138,11 @@ elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
 endif ()
 
 # ---- PC platform layer -----------------------------------------------------
-file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp src/pc/*.m src/pc/libm/*.c)
+file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp src/pc/libm/*.c)
+if (APPLE)
+    file(GLOB PC_OBJC_SOURCES CONFIGURE_DEPENDS src/pc/*.m)
+    list(APPEND PC_SOURCES ${PC_OBJC_SOURCES})
+endif ()
 list(REMOVE_ITEM PC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
 if (ANDROID)
     add_library(melee SHARED ${PC_SOURCES})
