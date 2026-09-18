@@ -343,9 +343,30 @@ Ordered by expected gain per line of code:
 
 **Prototype status (branch `netcode-prototype`)**, all in `src/pc/net.c`:
 - `MELEE_NET=host:port` (+`MELEE_NET_PORT`, `MELEE_NET_PLAYER=0|1`,
-  `MELEE_NET_DELAY`): delay-based UDP lockstep, hooked before `lb_800198E0`
-  in the frame loop. Verified on localhost: 7200+ frames at 60 fps, inputs
-  cross both ways, mismatched seeds flagged as `DESYNC` at frame 0.
+  `MELEE_NET_DELAY`): rollback netplay over UDP, hooked around
+  `gm_RunSimTick` in the frame loop. Remote input predicted as repeat-last,
+  snapshot ring of 8 taken before every predicted tick, restore + re-tick
+  via `pc_net_after_tick()` when the real input differs, window 7 then a
+  hard stall (disconnect after 7 s). Inputs sent every tick and again 8 ms
+  later from a 4 ms SDL timer, everything since the last ack (cap 16); the
+  ack echoes the packet's send time, which is the ping. Time sync is
+  Slippi's (offset ring of 30, trimmed mean, every 30 frames: ahead > 10 ms
+  → skip ≤ 5 frames by sleeping a period and discarding the pad sample it
+  queues; behind > 26.7 ms → up to 3 extra ticks, one per 5 frames).
+  Lockstep (no prediction) outside `GS_VS`/`GS_SUDDEN_DEATH` and for 120
+  frames after any game-thread disc request, because a tick that loads can
+  never be re-run. `MELEE_NET_SIM_LOSS=percent` / `MELEE_NET_SIM_DELAY_MS`
+  simulate the link without `tc`. Verified on localhost with 5 % loss and
+  60 ms each way: 14400 frames at 60 fps, ~200 rollbacks per side (depth
+  ≤ 5), zero desyncs, ping 130–140 ms (120 simulated + tick-granular
+  polling), offset settles within ±3 ms.
+- Snapshot excludes, besides the sound machine, `lb_0195.c` (the pad
+  alarm's wall-clock fire time; rewinding it made the alarm catch up and
+  queue extra ticks) and `devcom.c` (request queues driven by the DVD/ARQ
+  workers; the music stream keeps them busy all match). The pad queue and
+  `HSD_PadLibData` are inside the snapshot but re-applied from the live copy
+  after every restore; re-run ticks consume the slot the previous tick
+  consumed, so the raw sample stream is untouched by a rollback.
 - `MELEE_NET_RECORD=file` / `MELEE_NET_REPLAY=file`: seed + per-frame pads +
   checksum; a 3875-frame recording replays bit-identical, a flipped byte at
   frame 2000 is reported at frame 2000.
@@ -359,9 +380,8 @@ Ordered by expected gain per line of code:
   (Link vs Mario), the fixture for all of the above.
 - `MELEE_CACHE_DIR`: per-instance pipeline cache for two local instances.
 
-Next: rollback proper = replace the blocking wait in `wait_remote()` with
-prediction + `snapshot_take` on predicted frames + `snapshot_restore` and
-re-tick via `pc_net_after_tick()` when a real input disagrees.
+Next: menus in lockstep at delay = RTT frames, SFX dedupe on re-sim, the
+`GM_ONLINE` lobby.
 
 New third-party code, all vendored as source, all static: jech/dht (MIT),
 mjansson/mdns (PD), Monocypher (BSD-2/CC0), sha1.c (PD), musl trig (MIT).

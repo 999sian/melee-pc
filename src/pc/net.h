@@ -8,16 +8,16 @@
 extern "C" {
 #endif
 
-/* Netplay prototype: delay-based input lockstep between two instances over
- * UDP (src/pc/net.c). Enabled by MELEE_NET=<peer host:port>; see net.c for
- * the other knobs. Rollback is not implemented yet, this is the substrate
- * (input sync, frame index, desync checksum) it will sit on. */
+/* Netplay prototype: rollback lockstep between two instances over UDP
+ * (src/pc/net.c, docs/netcode-plan.md §4). Enabled by MELEE_NET=<peer
+ * host:port>; see net.c for the other knobs. */
 void pc_net_init(void);
 bool pc_net_active(void);
 
 /* Called once per simulation tick before the pad queue head is consumed.
  * Replaces the head sample's four ports with the synced inputs for this
- * frame, blocking until the remote input arrives. */
+ * frame, predicting the remote one when it has not arrived (stalling only
+ * when the remote is more than the rollback window behind). */
 void pc_net_sync(void);
 
 /* Called after each tick. Returns true when the tick must be run again
