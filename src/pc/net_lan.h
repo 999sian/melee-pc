@@ -42,8 +42,17 @@ bool pc_lan_start_match(void);
  * 3 failed (message in *why). */
 int pc_lan_state(const char** why);
 
+/* Valid once pc_lan_state() returns 2: the match seed (host picked it, the
+ * guest got it from RULES) and the synced frame at which to enter GS_VS. */
+uint32_t pc_lan_seed(void);
+int32_t pc_lan_start_frame(void);
+
 /* Session control (src/pc/net.c). Connect at runtime instead of via
- * MELEE_NET; player 0 = P1 (host), 1 = P2. Returns false on socket error. */
+ * MELEE_NET; player 0 = P1 (host), 1 = P2. Returns false on socket error.
+ * seed != 0 is applied to *HSD_RandSeedPtr at once (host); the guest passes
+ * 0 and learns it from RULES. The next sim tick after connecting blocks in
+ * the lockstep wait until the peer's first packet (60 s), so announce
+ * before connecting. Game thread only. */
 bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed);
 void pc_net_disconnect(void);
 
@@ -58,7 +67,12 @@ int pc_net_recv_reliable(uint8_t* type, void* payload, int max);
  * both sides are connected; it sends RULES (seed, ruleset id) and waits for
  * READY; the guest's pc_net_guest_wait_match() returns true once RULES
  * arrived and READY was sent. Both return the frame at which GS_VS must be
- * entered so the transition happens on the same synced frame. */
+ * entered so the transition happens on the same synced frame.
+ * Non-blocking: call once per frame from the game thread; false means not
+ * yet, or failed when pc_net_handshake_state() (net.h) is 3 (15 s timeout).
+ * start_frame is 120 frames after the host's call; net.c re-applies the
+ * seed on both peers entering that frame and compares frame checksums only
+ * from it on. The first call with the same seed may be repeated. */
 bool pc_net_host_match(uint32_t seed, int32_t* start_frame);
 bool pc_net_guest_wait_match(uint32_t* seed, int32_t* start_frame);
 

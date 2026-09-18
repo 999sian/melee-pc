@@ -15,11 +15,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "pc/pc.h"
 #include "pc/launcher.h"
 #include "pc/touch.h"
 #include "pc/widescreen.h"
+#include "pc/net_lan.h"
 
 bool pc_exit_requested;
 
@@ -54,6 +56,19 @@ void pc_frame_boundary(void) {
     }
     aurora_heap_check();    /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
+    /* MELEE_LAN_TEST=1|host: the LAN lobby without the menu; "host" starts
+     * a match with the first peer found (src/pc/net_lan.c). */
+    static int lan_test = -1;
+    if (lan_test < 0) {
+        const char* t = getenv("MELEE_LAN_TEST");
+        lan_test = t == NULL ? 0 : strcmp(t, "host") == 0 ? 2 : 1;
+    }
+    if (lan_test) {
+        pc_lan_poll();
+        if (lan_test == 2 && pc_lan_state(NULL) == 0) {
+            pc_lan_start_match();
+        }
+    }
     if (fps_log < 0) {
         fps_log = getenv("MELEE_FPS") != NULL;
         fps_t0 = SDL_GetTicks();

@@ -330,6 +330,7 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line) {
 
 #include "pc/input_poll.h"
 #include "pc/net.h"
+#include "pc/net_lan.h"
 
 void pc_platform_init(void) {
     s_is_game_thread = 1;
@@ -337,6 +338,9 @@ void pc_platform_init(void) {
     pc_textures_init();
     pc_input_poll_init();
     pc_net_init();
+    if (getenv("MELEE_LAN_TEST")) {
+        pc_lan_start(); /* LAN lobby fixture without the menu, see vi.c */
+    }
 }
 
 /* ---- reporting -------------------------------------------------------- */
