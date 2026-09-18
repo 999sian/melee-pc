@@ -83,7 +83,7 @@ flowchart LR
   * **Decentralized Connect Codes**: Topic/infohash-based room matchmaking.
   * **NAT Traversal & UDP Hole-Punching**: Direct P2P connectivity behind home routers.
 - [ ] **Native Rollback Netcode**: Sub-millisecond state snapshotting and restoration on native MEM1 memory blocks.
-- [ ] **macOS Support** (Apple Silicon / Metal).
+- [x] **macOS Support** (Apple Silicon tested, Intel CI-built; experimental).
 - [ ] **RetroAchievements Integration**: Native achievement tracking.
 
 ## Status
@@ -125,6 +125,12 @@ tools/package_linux.sh      # dist/Melee-x86_64.AppImage + tarball
 tools/package_windows.sh    # dist/Melee-Windows-x86_64.zip
 tools/package_macos.sh      # dist/Melee-macOS-<arch>.zip (Melee.app)
 tools/build_android.sh      # dist/Melee-Android-arm64.apk (signed release)
+```
+
+Unit tests (launcher settings, version parsing, updater), the same job CI runs:
+
+```sh
+ninja -C build unit_tests && ctest --test-dir build -L melee --output-on-failure
 ```
 
 ### macOS
@@ -221,6 +227,7 @@ per-device `.controller` files; everything else shares `launcher.cfg`.
 | `MELEE_WINDOW_TITLE=<t>` | Window title. |
 | `--no-card` | Boot without a memory card. |
 | `--dvd <image>` | Explicit form of the positional disc argument. |
+| `--version` | Print the build version and exit. |
 
 Diagnostics are off by default and cost nothing when unset. They measure or
 suppress only; none of them fixes anything.

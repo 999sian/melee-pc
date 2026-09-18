@@ -264,10 +264,10 @@ Contest, 10-Man Melee), Trophy gallery, Event Match list, music and sound.
 ## What does not
 
 Online play with rollback netcode is **not implemented**. All-Star is
-unreachable until the roster is unlocked. Widescreen camera and HUD are
-incomplete. The macOS builds are experimental (the Intel one is untested on hardware): the
-game's C is compiled with Homebrew GCC (`scalar_storage_order`), the C++
-with Apple clang.
+unreachable until the roster is unlocked. Widescreen covers the combat camera
+and HUD; menus and cutscenes stay 4:3. The macOS builds are experimental (the
+Intel one is untested on hardware): the game's C is compiled with Homebrew GCC
+(`scalar_storage_order`), the C++ with Apple clang.
 
 ## Controls
 

@@ -116,8 +116,8 @@ Focus: Zero-delay online play with completely decentralized, serverless peer mat
   * Implementation of GGPO / Slippi rollback protocol running directly on native C11/C++20 game memory.
   * Instantaneous state snapshotting and restoration using native MEM1 memory blocks (sub-millisecond rollbacks with no emulator translation overhead).
   * Low-jitter adaptive input delay and frame sync.
-- [ ] **macOS Support**:
-  * Exploration of macOS Apple Silicon (Metal) builds using GCC toolchains supporting `scalar_storage_order`.
+- [x] **macOS Support** (experimental):
+  * Apple Silicon (Metal) and Intel builds; Homebrew GCC compiles the game C, Apple clang the C++.
 - [ ] **RetroAchievements Integration**:
   * Native achievement tracking for Single Player, Event Matches, Target Tests, and Home-Run Contest.
 

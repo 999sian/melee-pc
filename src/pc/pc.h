@@ -58,6 +58,8 @@ bool pc_is_free_camera_enabled(void);
 int pc_get_hud_mode(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
+/* Build version string ("v0.1.7-beta"), src/pc/version.cpp. */
+const char* pc_app_version(void);
 
 /* Audio volume control */
 void pc_audio_set_volume(float volume);

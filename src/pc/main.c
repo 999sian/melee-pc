@@ -201,9 +201,11 @@ static LONG WINAPI crash_handler(EXCEPTION_POINTERS* info) {
 
 static void usage(const char* argv0) {
     fprintf(stderr,
-        "usage: %s [--no-card] [--dvd] [disc image (iso/gcm/ciso/rvz/...)]\nNo disc argument opens "
-        "the launcher.\n",
-        argv0);
+        "usage: %s [--no-card] [--dvd] [disc image (iso/gcm/ciso/rvz/...)]\n"
+        "       %s --version | --help\n"
+        "No disc argument opens the launcher. MELEE_BACKEND, MELEE_VSYNC, MELEE_LOG_FILE,\n"
+        "MELEE_DEBUG and the other MELEE_* knobs are documented in README.md.\n",
+        argv0, argv0);
     exit(2);
 }
 
@@ -310,14 +312,38 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
     const char* disc = NULL;
     bool card = true;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--dvd") == 0 && i + 1 < argc) {
-            disc = argv[++i];
+        const char* d = NULL;
+        if (strcmp(argv[i], "--dvd") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "%s: --dvd needs a disc path\n", argv[0]);
+                usage(argv[0]);
+            }
+            d = argv[++i];
         } else if (strcmp(argv[i], "--no-card") == 0) {
             card = false;
-        } else if (argv[i][0] != '-') {
-            disc = argv[i];
+        } else if (strcmp(argv[i], "--version") == 0) {
+            printf("melee-pc %s\n", pc_app_version());
+            return 0;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "%s: unknown option %s\n", argv[0], argv[i]);
+            usage(argv[0]);
+        } else {
+            d = argv[i];
+        }
+        if (d != NULL) {
+            if (disc != NULL) {
+                fprintf(stderr, "%s: more than one disc given (%s, %s)\n", argv[0], disc, d);
+                usage(argv[0]);
+            }
+            FILE* f = fopen(d, "rb");
+            if (d[0] == '\0' || f == NULL) {
+                fprintf(stderr, "%s: cannot open disc %s\n", argv[0], d);
+                exit(2);
+            }
+            fclose(f);
+            disc = d;
         }
     }
 
