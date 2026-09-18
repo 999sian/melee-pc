@@ -61,9 +61,31 @@ int main(void) {
     float hl18_crouch = ftCommon_CalcHitlag(18, ftCo_MS_Squat, 1.0f);
     assert(hl18_crouch == 6.0f);
 
+    // SmashWiki's worked example: a 15% move is 8 frames in Melee.
+    assert(ftCommon_CalcHitlag(15, ftCo_MS_Wait, 1.0f) == 8.0f);
+
+    // The electric 1.5x multiplies an ALREADY-FLOORED base, so the three
+    // floors are nested: floor(floor(d/3 + 3) * 1.5). These three damage
+    // values are the ones where dropping the inner floor changes the answer
+    // (it would give 5, 8 and 14), which is what a wider float or double
+    // intermediate on x86-64 would silently produce.
+    assert(ftCommon_CalcHitlag(1, ftCo_MS_Wait, 1.5f) == 4.0f);
+    assert(ftCommon_CalcHitlag(7, ftCo_MS_Wait, 1.5f) == 7.0f);
+    assert(ftCommon_CalcHitlag(19, ftCo_MS_Wait, 1.5f) == 13.0f);
+
+    // Electric is applied before crouch cancel, not after: the other order
+    // yields 3 here.
+    assert(ftCommon_CalcHitlag(5, ftCo_MS_Squat, 1.5f) == 4.0f);
+
+    // The crouch multiplier covers Squat and SquatWait, and nothing past it:
+    // SquatRv (getting up) is not crouch cancelling.
+    assert(ftCommon_CalcHitlag(18, ftCo_MS_SquatWait, 1.0f) == 6.0f);
+    assert(ftCommon_CalcHitlag(18, ftCo_MS_SquatRv, 1.0f) == 9.0f);
+
     // Verify damage scaling: 18% hitlag MUST be greater than 1% hitlag
     assert(hl18 > hl1);
 
-    puts("PASS: ftCommon_CalcHitlag scales accurately with damage and respects crouch modifier");
+    puts("PASS: ftCommon_CalcHitlag matches vanilla hitlag (base, nesting, "
+         "electric, crouch-cancel order and gate)");
     return 0;
 }
