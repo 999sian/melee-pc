@@ -10,6 +10,9 @@
 #include <aurora/event.h>
 #include <aurora/gfx.h>
 #include <aurora/rmlui.hpp>
+#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
+#include "ios_dialog.h"
+#endif
 #include <RmlUi/Core.h>
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -377,8 +380,12 @@ class Launcher final : public Rml::EventListener {
             static const SDL_DialogFileFilter filters[] = {
                 {"GameCube disc images", "iso;gcm;ciso;rvz;gcz;wia"}, {"All files", "*"}};
             dialog = std::make_shared<DialogResult>();
+#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
+            ios_show_open_file_dialog(dialog_done, new std::shared_ptr<DialogResult>(dialog), window);
+#else
             SDL_ShowOpenFileDialog(dialog_done, new std::shared_ptr<DialogResult>(dialog), window,
                 filters, 2, prefs.disc.empty() ? nullptr : prefs.disc.c_str(), false);
+#endif
             controls();
         } else if (id == "play" && supported) {
             auto check = launcher::inspect_disc(prefs.disc);
@@ -901,6 +908,27 @@ extern "C" void pc_launcher_configure(AuroraConfig* config) {
             if (file_accessible(candidates[p])) {
                 prefs.disc = std::filesystem::absolute(candidates[p]).string();
                 break;
+            }
+        }
+        // If not found in standard candidate names, scan Documents directory for any disc
+        if ((prefs.disc.empty() || !file_accessible(prefs.disc)) && home && home[0] != '\0') {
+            std::filesystem::path docs = std::filesystem::path(home) / "Documents";
+            std::error_code dir_ec;
+            if (std::filesystem::exists(docs, dir_ec) && std::filesystem::is_directory(docs, dir_ec)) {
+                for (const auto& entry : std::filesystem::directory_iterator(docs, dir_ec)) {
+                    if (entry.is_regular_file(dir_ec)) {
+                        auto ext = entry.path().extension().string();
+                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                        if (ext == ".iso" || ext == ".ciso" || ext == ".rvz" ||
+                            ext == ".gcm" || ext == ".gcz" || ext == ".wia") {
+                            auto info = launcher::inspect_disc(entry.path().string());
+                            if (info.supported) {
+                                prefs.disc = entry.path().string();
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
     }

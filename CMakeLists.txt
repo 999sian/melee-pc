@@ -6,6 +6,10 @@ endif ()
 
 project(melee-pc LANGUAGES C CXX)
 
+if (APPLE)
+    enable_language(OBJC)
+endif ()
+
 if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
     # Game code relies on __attribute__((scalar_storage_order("big-endian"))) for
     # on-disc structures, which only GCC implements (C only). Android and macOS
@@ -116,7 +120,7 @@ elseif (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
 endif ()
 
 # ---- PC platform layer -----------------------------------------------------
-file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp)
+file(GLOB PC_SOURCES CONFIGURE_DEPENDS src/pc/*.c src/pc/*.cpp src/pc/*.m)
 list(REMOVE_ITEM PC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/pc/vtxarray.c")
 if (ANDROID)
     add_library(melee SHARED ${PC_SOURCES})
@@ -140,6 +144,7 @@ if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
         "-framework GameController"
         "-framework Foundation"
         "-framework CoreGraphics"
+        "-framework UniformTypeIdentifiers"
     )
 endif ()
 
