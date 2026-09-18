@@ -712,11 +712,8 @@ void grVenom_80204284(Ground_GObj* gobj)
                 other_gobj = grVenom_80203EAC(1);
                 if (other_gobj != NULL) {
                     Ground* other_gp = GET_GROUND(other_gobj);
-                    grCorneria_801E25C4(
-                        other_gobj,
-                        (struct grSmashTaunt_GroundVars*) &other_gp->u.venom
-                            .xC4,
-                        4, 6, 0x6B6CC);
+                    grCorneria_801E25C4(other_gobj, &other_gp->u.smashtaunt,
+                                        4, 6, 0x6B6CC);
                 }
             } else {
                 ifStatus_802F6898();

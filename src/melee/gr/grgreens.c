@@ -777,8 +777,10 @@ void grGreens_80214804(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
 
-    HSD_Free((void*) gp->u.corneria.xC8);
-    HSD_Free((void*) gp->u.corneria.xCC);
+    HSD_Free(gp->u.greens.x4);
+    HSD_Free(gp->u.greens.x8_blocks);
+    gp->u.greens.x4 = NULL;
+    gp->u.greens.x8_blocks = NULL;
 }
 
 void grGreens_8021483C(Ground_GObj* gobj)

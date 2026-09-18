@@ -676,6 +676,13 @@ typedef struct DISC_STRUCT {
 } itLikelikeAttributes;
 DISC_ASSERT_SIZE(itLikelikeAttributes, 0x88);
 
+typedef struct itGShell_HurtInit {
+    /* 0x00 */ s32 state;
+    /* 0x04 */ Vec3 a_offset;
+    /* 0x10 */ Vec3 b_offset;
+    /* 0x1C */ f32 scale;
+} itGShell_HurtInit;
+
 typedef struct itLikelike_ItemVars {
     /*  +0 ip+DD4 */ char pad_0[0x18];
     /* +18 ip+DEC */ s32 x18;
@@ -689,7 +696,7 @@ typedef struct itLikelike_ItemVars {
     /* +48 ip+E1C */ s32 x48;
     /* +4C ip+E20 */ s32 x4C;
     /* +50 ip+E24 */ HSD_GObj* x50;
-    /* +54 ip+E28 */ HurtCapsule* x54;
+    /* +54 ip+E28 */ itGShell_HurtInit x54_hurtInit; // ponytail: 32B inline struct, was misdeclared as HurtCapsule* pointer
 } itLikelike_ItemVars;
 
 typedef struct DISC_STRUCT {
@@ -763,13 +770,6 @@ typedef struct DISC_STRUCT itTincleAttributes {
     /* 0x55 */ s8 x55;
 } itTincleAttributes;
 DISC_ASSERT_SIZE(itTincleAttributes, 0x58);
-
-typedef struct itGShell_HurtInit {
-    /* 0x00 */ s32 state;
-    /* 0x04 */ Vec3 a_offset;
-    /* 0x10 */ Vec3 b_offset;
-    /* 0x1C */ f32 scale;
-} itGShell_HurtInit;
 
 typedef struct {
     /* ip+DD4 */ float xDD4;
@@ -1388,7 +1388,7 @@ typedef struct DISC_STRUCT itPokemonSpawn_DatAttrs {
 DISC_ASSERT_SIZE(itPokemonSpawn_DatAttrs, 0x2BC);
 
 typedef struct itZako_ItemVars {
-    /* ip+DD4 */ HSD_JObj* jobj;
+    /* ip+DD4 */ u32 x0; // ponytail: 4B word keeps common zako state at 0x20B so enemy itemVar views align on LP64
     /* ip+DD8 */ s32 idx;
     /* ip+DDC */ Vec3 x8;
     /* ip+DE8 */ S32Vec3 x14;
@@ -1894,7 +1894,9 @@ typedef struct itLugia_ItemVars {
 typedef struct itGreatFoxLaser_ItemVars {
     /* +00 ip+DD4 */ u8 x0_pad[0x20];
     /* +20 ip+DF4 */ HSD_GObj* x20;
+#if !defined(__LP64__)
     /* +24 ip+DF8 */ u8 x24_pad[0x4];
+#endif // ponytail: x24_pad was 32-bit alignment padding after 4B x20; on LP64 x20 is 8B so padding is 0
     /* +28 ip+DFC */ Vec3 x28;
     /* +34 ip+E08 */ s16 x34;
     /* +36 ip+E0A */ s16 x36;

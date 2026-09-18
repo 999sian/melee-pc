@@ -683,7 +683,7 @@ void grZebes_801D925C(HSD_GObj* gobj)
 {
     HSD_JObj* jobj;
     Ground* gp = GET_GROUND(gobj);
-    s32 result = grZebes_801DA528(gobj, &gp->u.zebes4, 1, 2);
+    s32 result = grZebes_801DA528(gobj, &gp->u.zebes4.acid, 1, 2);
 
     if (gp->u.zebes4.xE8 != result) {
         gp->u.zebes4.xE8 = result;

@@ -1744,7 +1744,8 @@ struct grCastle_GroundVars11 {
         u8 b6 : 1;
         u8 b7 : 1;
     } xC4;
-    /* +01 gp+C5 */ u8 pad_01[3];
+    /* +01 gp+C5 */ u8 pad_01;
+    /* +02 gp+C6 */ s16 xC6; // ponytail: aligns with grCastle_GroundVars5::xC6
     /* +04 gp+C8 */ s16 xC8;
     /* +06 gp+CA */ s16 xCA;
     /* +08 gp+CC */ HSD_GObj* xCC;
@@ -1820,7 +1821,7 @@ GRCASTLE_BELOW(grCastle_GroundVars6, xCC, grCastle_GroundVars10, jobjs);
 
 /* mover (id 8-16): grCastle_801CE19C reads view 5's xC6 off a Ground that
  * grCastle_801CE578 otherwise drives through view 11. */
-GRCASTLE_BELOW(grCastle_GroundVars5, xC6, grCastle_GroundVars11, xC8);
+GRCASTLE_ALIAS(grCastle_GroundVars5, xC6, grCastle_GroundVars11, xC6);
 
 #undef GRCASTLE_ALIAS
 #undef GRCASTLE_BELOW

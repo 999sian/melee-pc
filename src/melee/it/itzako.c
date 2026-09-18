@@ -88,9 +88,14 @@ Item_GObj* it_8027B5B0(ItemKind kind, Vec3* pos, HSD_JObj* jobj, Vec3* vel,
     }
     if (gobj != NULL) {
         ip = GET_ITEM(gobj);
-        ip->xDD4_itemVar.zako.jobj = jobj;
-        ip->xDD4_itemVar.zako.idx = -1;
-        ip->xDD4_itemVar.zako.x14.z = 0;
+        if (kind == It_Kind_Mato) {
+            ip->xDD4_itemVar.mato.x0 = jobj;
+            ip->xDD4_itemVar.mato.x4 = NULL;
+        } else {
+            ip->xDD4_itemVar.zako.x0 = 0;
+            ip->xDD4_itemVar.zako.idx = -1;
+            ip->xDD4_itemVar.zako.x14.z = 0;
+        }
         ip->x378_itemColl.x34_flags.b1234 = 3;
     }
     return gobj;
@@ -101,7 +106,7 @@ void it_8027B730(Item_GObj* item_gobj)
     Item* item;
 
     item = item_gobj->user_data;
-    item->xDD4_itemVar.zako.jobj = 0;
+    item->xDD4_itemVar.zako.x0 = 0;
     item->xDD4_itemVar.zako.idx = -1;
     item->xDD4_itemVar.zako.x8.z = 0.0f;
     item->xDD4_itemVar.zako.x8.x = 0.0f;

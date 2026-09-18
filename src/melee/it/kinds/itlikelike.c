@@ -154,7 +154,7 @@ void it_802D9BA8(Item_GObj* gobj)
     ip->xDD4_itemVar.likelike.x44 = 1;
     ip->xDD4_itemVar.likelike.x4C = 0;
     ip->xDD4_itemVar.likelike.x50 = NULL;
-    it_80271590(gobj, 0, (HurtCapsule*) &ip->xDD4_itemVar.likelike.x54);
+    it_80271590(gobj, 0, (HurtCapsule*) &ip->xDD4_itemVar.likelike.x54_hurtInit);
     ip->xDD4_itemVar.likelike.x20 = ip->pos;
     ip->xDD4_itemVar.likelike.x38 = HSD_Randi(2);
     ip->pos.y -= 40.0f;

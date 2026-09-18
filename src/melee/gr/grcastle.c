@@ -792,9 +792,9 @@ void grCastle_801CE260(Ground_GObj* gobj)
     grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
 
     gp->u.castle11.xC4.b0 = 0;
-    gp->u.icemt.x2 = gp->map_id - 8;
+    gp->u.castle11.xC6 = gp->map_id - 8;
     gp->u.castle11.xCC = NULL;
-    gp->u.flatzone.xCA = yakumono_param->entries[gp->u.icemt.x2].x0;
+    gp->u.castle11.xCA = yakumono_param->entries[gp->u.castle11.xC6].x0;
 
     gp2 = GET_GROUND(gobj);
     gp2->u.castle11.xD8 = Camera_80029044(2);
@@ -1569,7 +1569,7 @@ void grCastle_801CF868(Ground_GObj* gobj)
 void fn_801CFAFC(Item_GObj* item, Ground* gp, Vec3* pos, HSD_GObj* gobj)
 {
     PAD_STACK(4);
-    *(s16*) &gp->u.castle2.xC4 = 4;
+    gp->u.castle7.xC4 = 4;
     if (ftLib_80086960(gobj)) {
         ftLib_80086A4C(gobj, (f32) yakumono_param->x4);
     }
@@ -1577,7 +1577,7 @@ void fn_801CFAFC(Item_GObj* item, Ground* gp, Vec3* pos, HSD_GObj* gobj)
 
 void fn_801CFB68(Item_GObj* item_gobj, Ground* gp, HSD_GObj* gobj)
 {
-    gp->u.pura.xC4 = 4;
+    gp->u.castle7.xC4 = 4;
     if (ftLib_80086960(gobj) != 0) {
         ftLib_80086A4C(gobj, (f32) yakumono_param->x4);
     }

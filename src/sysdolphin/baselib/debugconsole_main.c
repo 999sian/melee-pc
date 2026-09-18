@@ -73,8 +73,12 @@ struct ParticleScreenState {
 
 /* 4CF810 */ static struct ParticleScreenState hsd_804CF810;
 
+// ponytail: explicit pointer slots instead of hardcoded 0x10-byte pad so entries and index align on both 32-bit and LP64
 typedef struct _EventData {
-    /* 0x00 */ u8 _pad[0x10];
+    /* 0x00 */ struct _ExcptNode* next;
+    /* 0x04 */ void (*callback)(struct _ExcptNode*);
+    /* 0x08 */ void* event_cb;
+    /* 0x0C */ s32 (*disp_cb)(void*);
     /* 0x10 */ char** entries;
     /* 0x14 */ s32 index;
 } EventData;
@@ -1563,7 +1567,8 @@ bool hsd_80395D88(void* data)
     case 1:
         return true;
     case 2: {
-        u32 cmd = *(u32*) ((u8*) data + 0x14);
+        // ponytail: use EventData::index instead of hardcoded 32-bit byte offset 0x14
+        u32 cmd = ((EventData*) data)->index;
         switch (cmd) {
         case 0:
             hsd_804CF810.xBC = 8;
@@ -1831,7 +1836,8 @@ s32 hsd_803966A0(void* data)
     case 1:
         return 1;
     case 2: {
-        u32 cmd = *(u32*) ((u8*) data + 0x14);
+        // ponytail: use EventData::index instead of hardcoded 32-bit byte offset 0x14
+        u32 cmd = ((EventData*) data)->index;
         switch (cmd) {
         case 0:
             sp->xBC = 8;
@@ -2402,8 +2408,9 @@ void hsd_80397520(void* node_ptr)
 
 void hsd_803975D4(void)
 {
+    // ponytail: derive pad from offsetof(ParticleScreenState, _pad4) instead of hardcoded 32-bit offset 0x54
     struct ParticleInputState {
-        u8 _pad[0x54];
+        u8 _pad[offsetof(struct ParticleScreenState, _pad4)];
         PADStatus pads[8];
         s32 port;
         s32 repeat;
@@ -2717,9 +2724,10 @@ void* fn_80397814(void* arg)
             disp_node = *(void**) keybuf;
             result = 0;
             while (disp_node != NULL && !sp->x0_b5) {
-                if (*(void* (**) (void*) )((u8*) disp_node + 0xC) != NULL) {
-                    result = (s32) (*(void* (**) (void*) )((u8*) disp_node +
-                                                           0xC))(disp_node);
+                // ponytail: use EventData::disp_cb instead of hardcoded 32-bit byte offset 0xC
+                s32 (*disp_cb)(void*) = ((EventData*) disp_node)->disp_cb;
+                if (disp_cb != NULL) {
+                    result = disp_cb(disp_node);
                     switch (result) {
                     case 0:
                         break;

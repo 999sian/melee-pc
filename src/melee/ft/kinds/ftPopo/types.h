@@ -4,6 +4,7 @@
 #include <Runtime/platform.h>
 
 #include <melee/it/forward.h>
+#include <melee/ft/kinds/ftCommon/types.h>
 
 struct ftPopo_FighterVars {
     /* 0x222C */ Item_GObj* x222C;
@@ -87,18 +88,30 @@ ASSERT_SIZE(ftIceClimberAttributes, 0x15C);
 DISC_ASSERT_SIZE(ftIceClimberAttributes, 0x15C);
 
 union ftPp_MotionVars {
+    /* Squall Hammer's view. On GameCube this was 32 bytes (8 words) with
+     * an effect/GObj pointer at gp+08. On 64-bit LP64, an 8-byte host
+     * pointer at +08 pushes xC..x1C by 4 bytes (xC to host +10, x1C to +20),
+     * corrupting sibling union views (e.g. capturedamage, damage, etc).
+     *
+     * Keep gp+08 as a plain 4-byte slot and relocate the pointer past x1C
+     * (host +20), which puts xC, x10, x14, x18, x1C back at their GameCube
+     * offsets (gp+0C, gp+10, gp+14, gp+18, gp+1C).
+     *
+     * // ponytail: relocate pointer past scalar block to preserve GameCube layout */
     struct ftPp_SpecialSVars {
-        /* fp+2340 */ float x0;
-        /* fp+2344 */ int x4;
-        /* fp+2348 */ struct ftPp_SpecialSVars_x8_t {
+        /* +00 gp+00 */ float x0;
+        /* +04 gp+04 */ int x4;
+        /* +08 gp+08 */ u8 pad_x8[4];
+        /* +0C gp+0C */ int xC;
+        /* +10 gp+10 */ int x10;
+        /* +14 gp+14 */ int x14;
+        /* +18 gp+18 */ int x18;
+        /* +1C gp+1C */ float x1C;
+        /* +20 relocated from gp+08 */
+        struct ftPp_SpecialSVars_x8_t {
             int x0;
             HSD_GObj* x4;
         }* x8;
-        /* fp+234C */ int xC;
-        /* fp+2350 */ int x10;
-        /* fp+2354 */ int x14;
-        /* fp+2358 */ int x18;
-        /* fp+235C */ float x1C;
     } specials;
     struct {
         /* fp+2340 */ int x0;
@@ -108,5 +121,20 @@ union ftPp_MotionVars {
         /* fp+2344:0 */ u8 x4_b0 : 1;
     } speciallw;
 };
+
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x0) == 0x00);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x4) == 0x04);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, xC) == 0x0C);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x10) == 0x10);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x14) == 0x14);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x18) == 0x18);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x1C) == 0x1C);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x8) == 0x20);
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x10) ==
+              offsetof(union ftCommon_MotionVars, fighterthrow.self_vel_y));
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x14) ==
+              offsetof(union ftCommon_MotionVars, fighterthrow.self_vel_x));
+STATIC_ASSERT(offsetof(struct ftPp_SpecialSVars, x18) ==
+              offsetof(union ftCommon_MotionVars, capturedamage.x18));
 
 #endif

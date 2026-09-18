@@ -213,7 +213,7 @@ void it_802852B8(Item_GObj* gobj, float* arg1, float* arg2)
 {
     Item* ip = GET_ITEM(gobj);
 
-    float f1 = ip->xDD4_itemVar.sword.x4C * ip->xDD4_itemVar.star.xvel *
+    float f1 = ip->xDD4_itemVar.sword.x4C * ip->xDD4_itemVar.sword.x10 * // ponytail: sword.x10 was aliased as star.xvel in decomp
                ip->xDD4_itemVar.sword.x28 * 0.3f;
 
     if (arg1 != NULL) {

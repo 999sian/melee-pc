@@ -1138,3 +1138,10 @@ void it_802EAE80(Item_GObj* gobj)
         it_802E9308_inline(gobj);
     }
 }
+
+s32 it_802EAF28(Item_GObj* item_gobj)
+{
+    // ponytail: returns 1 if ReDead has grabbed a fighter, 0 if free to grab
+    Item* ip = GET_ITEM(item_gobj);
+    return ip->xDD4_itemVar.leadead.x38 != NULL;
+}

@@ -1411,7 +1411,7 @@ static int fn_801D8134(HSD_GObj* arg0, HSD_GObj* arg1)
             rand_val = HSD_Randf();
             diff = yakumono_param->unk24 - yakumono_param->unk20;
             gp->u.kongo3.xCA = (s16) (diff * rand_val + yakumono_param->unk20);
-            gp->u.kongo3.xD0 = (HSD_JObj*) arg1;
+            gp->u.kongo.u.taru.keep = arg1;
             gp->u.kongo3.xC6 = 1;
             Ground_801C5440(gp, 0, 0x129U);
             grMaterial_801C9604(arg0, yakumono_param->unk84, 0);
@@ -1426,8 +1426,8 @@ static int fn_801D8134(HSD_GObj* arg0, HSD_GObj* arg1)
 void grKongo_801D8270(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
-    if (gp->u.inishie2.xC6 == 1) {
-        gp->u.inishie2.xC6 = 2;
+    if (gp->u.kongo3.xC6 == 1) {
+        gp->u.kongo3.xC6 = 2;
     }
 }
 

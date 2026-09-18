@@ -493,7 +493,7 @@ void grFourside_801F37FC(Ground_GObj* gobj)
     HSD_JObj* jobj = gobj->hsd_obj;
     Ground_InitMapColl(jobj, gp->map_id);
     new_var = yakumono_param->ufo_wait;
-    gp->u.foursideCrane.x4 = new_var;
+    gp->u.foursideUfo.x4 = new_var;
     gp->u.foursideUfo.x0 = 0;
     gp->u.foursideUfo.x1 = 0xff;
     gp->u.foursideUfo.x8 = 0;
