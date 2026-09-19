@@ -535,6 +535,80 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
     pc_launcher_configure(&config);
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
+
+    /* Built-in fallback mappings for common 3rd-party GameCube adapters
+     * (DragonRise / Mayflash in PC mode) so they work out-of-the-box even if
+     * external database files are missing. */
+    static const char* const k_builtin_mappings[] = {
+        /* Mayflash / DragonRise 4-port adapter (PC mode) - Linux */
+        "03000000790000004318000010010000,Mayflash GameCube "
+        "Adapter,a:b1,b:b0,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,lefttrigger:a3,leftx:a0,"
+        "lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,start:b9,x:b2,y:b3,platform:"
+        "Linux,",
+        "03000000790000004418000010010000,Mayflash GameCube "
+        "Controller,a:b1,b:b0,dpdown:b14,dpleft:b15,dpright:b13,dpup:b12,lefttrigger:a3,leftx:a0,"
+        "lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,start:b9,x:b2,y:b3,platform:"
+        "Linux,",
+        "03000000790000004618000010010000,GameCube "
+        "Adapter,a:b1,b:b2,dpdown:b14,dpleft:b15,dpright:b13,dpup:b12,lefttrigger:a3,leftx:a0,"
+        "lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,start:b9,x:b0,y:b3,platform:"
+        "Linux,",
+        /* Mayflash / DragonRise (PC mode) - Windows */
+        "03000000790000004318000000000000,Mayflash GameCube "
+        "Adapter,a:b1,b:b2,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,leftshoulder:b4,"
+        "lefttrigger:a3,leftx:a0,lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,"
+        "start:b9,x:b0,y:b3,platform:Windows,",
+        "03000000790000004418000000000000,Mayflash GameCube "
+        "Controller,a:b1,b:b2,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,lefttrigger:a3,leftx:"
+        "a0,lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,start:b9,x:b0,y:b3,"
+        "platform:Windows,",
+        "03000000790000004618000000000000,GameCube "
+        "Adapter,a:b1,b:b2,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,lefttrigger:a3,leftx:a0,"
+        "lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,start:b9,x:b0,y:b3,platform:"
+        "Windows,",
+        /* Mayflash / DragonRise (PC mode) - macOS */
+        "03000000790000004318000000010000,Mayflash GameCube "
+        "Adapter,a:b4,b:b0,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,lefttrigger:a12,leftx:a0,"
+        "lefty:a4,rightshoulder:b28,righttrigger:a16,rightx:a20,righty:a8,start:b36,x:b8,y:b12,"
+        "platform:Mac OS X,",
+        "03000000790000004418000000010000,Mayflash GameCube "
+        "Controller,a:b1,b:b2,dpdown:b14,dpleft:b15,dpright:b13,dpup:b12,lefttrigger:a3,leftx:a0,"
+        "lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,start:b9,x:b0,y:b3,platform:"
+        "Mac OS X,",
+        "03000000790000004618000000010000,GameCube "
+        "Adapter,a:b1,b:b2,dpdown:b14,dpleft:b15,dpright:b13,dpup:b12,lefttrigger:a3,leftx:a0,"
+        "lefty:a1,rightshoulder:b7,righttrigger:a4,rightx:a5,righty:a2,start:b9,x:b0,y:b3,platform:"
+        "Mac OS X,",
+        /* Mayflash (Android) */
+        "6d6179666c617368206c696d69746564,Mayflash GameCube "
+        "Adapter,a:b22,b:b21,dpdown:b12,dpleft:b13,dpright:b14,dpup:b11,lefttrigger:b25,leftx:a0,"
+        "lefty:a1,rightshoulder:b28,righttrigger:b26,rightx:a5,righty:a2,start:b30,x:b23,y:b24,"
+        "platform:Android,",
+    };
+    for (size_t i = 0; i < sizeof(k_builtin_mappings) / sizeof(k_builtin_mappings[0]); i++) {
+        SDL_AddGamepadMapping(k_builtin_mappings[i]);
+    }
+
+    int mappings_loaded = SDL_AddGamepadMappingsFromFile("resources/gamecontrollerdb.txt");
+    if (mappings_loaded < 0) {
+        char res_path[512];
+        const char* base = SDL_GetBasePath();
+        if (base != NULL) {
+            snprintf(res_path, sizeof(res_path), "%sresources/gamecontrollerdb.txt", base);
+            mappings_loaded = SDL_AddGamepadMappingsFromFile(res_path);
+        }
+    }
+    if (config.userPath != NULL && config.userPath[0] != '\0') {
+        char user_db[512];
+        snprintf(user_db, sizeof(user_db), "%s/gamecontrollerdb.txt", config.userPath);
+        int user_loaded = SDL_AddGamepadMappingsFromFile(user_db);
+        if (user_loaded > 0) {
+            mappings_loaded = (mappings_loaded > 0 ? mappings_loaded : 0) + user_loaded;
+        }
+    }
+    if (mappings_loaded > 0) {
+        pc_log_line("input: loaded %d gamepad mappings from gamecontrollerdb.txt", mappings_loaded);
+    }
     /* Record which backend was actually selected and the adapter it landed on.
      * Without this the log cannot say whether a run went through D3D12 or
      * Vulkan, or on which GPU/driver, which is the first thing worth knowing
