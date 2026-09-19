@@ -24,7 +24,7 @@
 
 /* ---- record / replay --------------------------------------------------
  * MELEE_NET_RECORD=file  writes the seed, then per frame the four PADStatus
- *                        actually simulated plus the frame checksum.
+ *                        actually simulated, checksum and tick-start seed.
  * MELEE_NET_REPLAY=file  feeds those pads back in and reports the first
  *                        frame whose checksum differs: the determinism test
  *                        for M0 (docs/netcode-plan.md §5). Works solo or
@@ -52,6 +52,7 @@ static FILE* s_state_log;
 typedef struct FrameRecord {
     PADStatus pads[4];
     uint32_t ck;
+    uint32_t seed;
 } FrameRecord;
 
 void record_open(void) {
@@ -65,7 +66,7 @@ void record_open(void) {
         s_rep = fopen(rep, "rb");
         char magic[4];
         uint32_t seed;
-        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC1", 4) != 0 ||
+        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC2", 4) != 0 ||
                          fread(&seed, 4, 1, s_rep) != 1))
         {
             fclose(s_rep);
@@ -99,6 +100,7 @@ static bool replay_load(PADStatus* head) {
         return false;
     }
     memcpy(head, s_rep_cur.pads, sizeof s_rep_cur.pads);
+    *HSD_RandSeedPtr = s_rep_cur.seed;
     return true;
 }
 
@@ -120,16 +122,19 @@ void replay_feed(PADStatus* head) {
     }
 }
 
-/* After the checksum of net.frame: write the record / compare the replay. */
+/* Still at tick start, after the checksum and agreed-seed override but before
+ * simulation: record the same seed the checksum used, not a prior tick's or
+ * a pre-handshake seed. The intervening state/desync logging draws no RNG. */
 void record_frame(const PADStatus* head, uint32_t ck) {
     if (s_rec != NULL) {
         if (net.frame == 0) {
-            fwrite("MRC1", 4, 1, s_rec);
+            fwrite("MRC2", 4, 1, s_rec);
             fwrite(HSD_RandSeedPtr, 4, 1, s_rec);
         }
         FrameRecord r;
         memcpy(r.pads, head, sizeof r.pads);
         r.ck = ck;
+        r.seed = *HSD_RandSeedPtr;
         fwrite(&r, sizeof r, 1, s_rec);
         fflush(s_rec); /* runs usually end by SIGTERM; keep every frame */
     }

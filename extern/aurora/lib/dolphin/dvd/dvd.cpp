@@ -286,7 +286,23 @@ std::string build_path(FstIndex fstIndex) {
   return out;
 }
 
+// melee-pc: MELEE_DISC_READ_DELAY_US (fixture) stands in for a slow device's
+// disc. tools/net_test.py --cold-cache puts it on one peer only, so a load
+// costs that peer more simulated frames than the other and the pair hits the
+// scene-alignment defect on one machine (docs/netcode-plan.md §5.2). Reading
+// the env per read is fine: this is never set in a shipped run.
+s32 readDelayUs() {
+  static const s32 us = [] {
+    const char* env = getenv("MELEE_DISC_READ_DELAY_US");
+    return env != nullptr ? atoi(env) : 0;
+  }();
+  return us;
+}
+
 s32 readFromHandle(CommandDataBase* handle, void* out, s32 length, s32 offset, u32* transferredOut) {
+  if (const s32 us = readDelayUs(); us > 0) {
+    std::this_thread::sleep_for(std::chrono::microseconds(us));
+  }
   if (transferredOut != nullptr) {
     *transferredOut = 0;
   }

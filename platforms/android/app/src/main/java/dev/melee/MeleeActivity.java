@@ -48,6 +48,15 @@ public class MeleeActivity extends SDLActivity {
             android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
             lp.preferredRefreshRate = 60.0f;
             getWindow().setAttributes(lp);
+        }
+        /* Only pre-Android 13 can be granted READ/WRITE_EXTERNAL_STORAGE at
+         * all; from API 33 they are not grantable and the request resolves
+         * instantly, but the dialog still pauses and recreates the activity
+         * while the graphics device is coming up, which killed the process at
+         * startup on a Pixel 8. The disc is read from the app's own external
+         * files dir, which needs no permission on any version. */
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M
+                && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                     != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[] {

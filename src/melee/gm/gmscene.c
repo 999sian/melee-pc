@@ -339,6 +339,33 @@ static bool gm_RunSimTick(void (*on_frame)(void), struct gm_80479D58_t* temp_r25
     return temp_r25->unk_C != 0;
 }
 
+#ifdef TARGET_PC
+/* The scene-end request while the netcode agrees a frame for it; 0 = none.
+ * One scene loop runs at a time, so one slot is the whole state. */
+static int s_scene_end_held;
+
+/* True when the scene may end on this tick. A scene ends when its own code
+ * asks to, and how many ticks that takes depends on how fast the machine
+ * loaded, so under netplay the request is latched here and released on the
+ * frame both peers agreed (src/pc/net.c pc_net_scene_hold). */
+static bool scene_end_gate(struct gm_80479D58_t* st)
+{
+    if (st->unk_C != 0) {
+        if (!pc_net_scene_hold()) {
+            s_scene_end_held = 0;
+            return true;
+        }
+        s_scene_end_held = st->unk_C;
+        st->unk_C = 0;
+    } else if (s_scene_end_held != 0 && !pc_net_scene_hold()) {
+        st->unk_C = s_scene_end_held;
+        s_scene_end_held = 0;
+        return true;
+    }
+    return false;
+}
+#endif
+
 void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
 {
     int pad_queue_count;
@@ -373,13 +400,26 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
         for (i = 0; i < pad_queue_count; i++) {
             HSD_PerfSetStartTime();
 #ifdef TARGET_PC
+            /* A scene that has asked to end does not get its frame function
+             * again: it would re-run the exit path once per held frame
+             * (measured: seven "lobby: entering CSS" lines and seven re-seeds
+             * from one hand-off). The tick still runs, so pads are consumed
+             * and GObjs animate, but the decision is made once. */
+            void (*frame_fn)(void) = s_scene_end_held != 0 ? NULL : on_frame;
             pc_net_sync();
-            if (gm_RunSimTick(on_frame, temp_r25)) {
-                break;
+            gm_RunSimTick(frame_fn, temp_r25);
+            /* Finish rollback / sync-test re-simulation before gating the exit,
+             * but never insert
+             * a fresh tick past an exit request or its agreed boundary. */
+            while (pc_net_after_tick(temp_r25->unk_C != 0 || s_scene_end_held != 0)) {
+                gm_RunSimTick(frame_fn, temp_r25);
             }
-            /* Rollback / sync test: re-run this tick from a restored snapshot. */
-            while (pc_net_after_tick()) {
-                gm_RunSimTick(on_frame, temp_r25);
+            /* Per TICK, not per pad batch: a batch is however many pad
+             * periods the last load let pile up, so checking once per batch
+             * ends the scene a whole batch late on the peer that loaded
+             * slower -- the very gap this is here to close. */
+            if (scene_end_gate(temp_r25)) {
+                break;
             }
 #else
             if (gm_RunSimTick(on_frame, temp_r25)) {

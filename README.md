@@ -251,6 +251,15 @@ comes back within 15 s and neither side's 64-frame input ring has been
 outrun. The lobby shows "reconnecting"; a failure that cannot be resumed says
 "Could not resume" instead of "Connection timed out".
 
+A peer that is *loading* is not a peer that is gone. Silence is measured from
+the last datagram the peer sent, not from how long this side has been
+waiting: a machine whose game thread is inside a stage load, a character
+load or a first-time shader compile keeps its sender running, so the link
+carries it however long it takes and the transition screen simply waits.
+Before that distinction existed, any load over 7 s froze both games on "NOW
+LOADING" and one over ~22 s ended the session outright, which is what a
+phone's first match cost.
+
 **What works where.** Only Linux x86-64 has played real matches, but a Linux
 recording now replays bit-identical on Windows, so the two builds compute the
 same game.
@@ -260,7 +269,7 @@ same game.
 | Linux x86-64 | yes | yes | the configuration everything below was measured on; longest run 36 minutes and 126k frames of match |
 | Windows | yes, but lockstep | **no** | the snapshot region is named by an ELF linker script, which PE/COFF cannot use, so the session never predicts and input delay has to cover the whole round trip. Determinism against Linux is proven by replay; two machines actually playing has not been tried |
 | macOS / iOS | builds, never run | no | same linker limitation; no macOS hardware here to try it on |
-| Android | builds, never run on a device | yes, in principle | LAN discovery needs the Wi-Fi multicast lock, which the app now holds only while the lobby is open |
+| Android | runs on a device; found and joined a PC over LAN | untested | Measured on a Pixel 8 Pro against Linux x86-64: mDNS discovery, election, handshake and 1800+ frames of synced menus at 10-16 ms ping and 0 % loss, both peers entering the CSS on the same frame. No match has been played to the end yet, and no snapshot was ever taken in that session, so rollback is unproven on the platform. The lobby holds the Wi-Fi multicast lock while it is open |
 
 | Variable | Effect |
 |---|---|
@@ -272,6 +281,7 @@ same game.
 | `MELEE_LAN_TEST=1\|host` | LAN lobby without the menu; `host` presses Start once the title is up. Both set to `host` exercises a simultaneous Start. |
 | `MELEE_LAN_DIRECT=<ip:port>` | Direct connect without the menu, at frame 300; set on both sides with the other's address. The lower `ip:port` hosts. |
 | `MELEE_NET_HANDSHAKE_TEST=1` | Run the RULES/READY handshake at frame 300 with `MELEE_NET`, no lobby. |
+| `MELEE_NET_STALL_TEST=<frame>[:<ms>]` | Park the guest's game thread for `ms` at that frame (default 10000), standing in for a load the netcode cannot shorten. The sender keeps running, so this is the "peer is loading, not gone" case; only player 1 does it, so one exported value stalls exactly one side. |
 | `MELEE_NET_RECORD=<file>` | Write the seed, then per frame the four pad states simulated and a state checksum. |
 | `MELEE_NET_REPLAY=<file>` | Feed a recording back in; reports the first frame whose checksum differs (`net: REPLAY DIVERGED`). Solo only. |
 | `MELEE_NET_STATE_LOG=<file>` | Write two lines per frame to that file: the readable state line, and the raw float bits of exactly the fields the checksum covers. Only meaningful with `MELEE_NET_RECORD`/`MELEE_NET_REPLAY`; this is how two platforms' runs are diffed down to the field that differs. |

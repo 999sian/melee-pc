@@ -9,8 +9,9 @@
  * TXT:
  *   v=<protocol> rev=<build> disc=<game image id, 32-bit hex>
  *   id=<install id, 64-bit hex> name=<hostname> port=<game udp port>
- *   state=lobby|ready|starting gen=<start attempt>
- *   host=<our ip:port> peer=<guest id>                  (last two when starting)
+ *   state=lobby|ready|starting|joining gen=<start attempt>
+ *   host=<our ip:port> peer=<chosen peer id>             (starting/joining)
+ *   offer=<host generation>                            (joining only)
  * Every value is validated into a scratch record first (parse_txt), so a
  * malformed or crafted announce is dropped whole rather than applied in part.
  * Peers are keyed by install id and connected to at the datagram's source
@@ -26,12 +27,11 @@
  * compatible peer with a lower id is visible it will host (it sees us too),
  * so we wait; otherwise we host: the record flips to state=starting
  * peer=<guest id> (the lowest ready id, else the lowest compatible id) and
- * the netplay session opens as P1. The first netplay tick blocks the game
- * thread until the guest's inputs arrive, so while that record is live it
- * is repeated from an SDL timer rather than from pc_lan_poll(). The chosen
- * guest sees the flip and connects as P2 to the announcer's source ip +
- * TXT port; gen= (bumped on every Start and every hosting decision) keeps
- * a stale starting record from an earlier attempt from re-triggering that.
+ * the host waits for a state=joining acknowledgement of that generation
+ * before opening P1. Competing proposals converge on the lower ID while
+ * both game threads can still poll discovery. The chosen guest acknowledges
+ * and connects as P2; a timer repeats its joining record while the first
+ * tick waits for the host. gen= keeps stale attempts from being reused.
  * Both then poll the RULES/READY handshake in net.c once per frame, then
  * exchange one READY_BARRIER (reliable 0x11) so state 2 means both sides
  * are through the handshake. Every failure goes through fail(): session
@@ -59,6 +59,7 @@
 #include <dolphin/dvd.h>
 #include <xxhash.h>
 
+#include <SDL3/SDL_mutex.h>
 #include <SDL3/SDL_timer.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,12 +95,13 @@
 /* clang-format on */
 #define MAX_IFACES 16
 
-enum { ST_LOBBY, ST_READY, ST_STARTING };
+enum { ST_LOBBY, ST_READY, ST_STARTING, ST_JOINING };
 
 typedef struct Entry {
     uint64_t id;
     uint64_t peer_id; /* guest chosen by a starting host */
     int state;
+    uint32_t offer;    /* host generation acknowledged by a joining guest */
     uint32_t gen;      /* gen= of the latest record */
     uint32_t last_gen; /* gen= of the starting record we last joined on */
     uint64_t seen_ns;
@@ -139,13 +141,17 @@ static uint64_t s_announce_ns;
 static uint32_t s_rx[512]; /* mdns.h wants 32-bit aligned buffers */
 static uint32_t s_tx[512];
 static SDL_TimerID s_timer;
+static SDL_Mutex* s_announce_lock;
+static bool s_timer_live; /* timer_stop waits out callbacks before state changes */
 
 /* Lobby state machine (pc_lan_state()): 0 idle, 1 connecting, 2 in match,
  * 3 failed, 4 ready. Within 1, s_barrier_ns != 0 once the handshake is
  * done and we wait for the peer's READY_BARRIER. */
 static int s_state;
 static const char* s_why;
-static bool s_hosting; /* not s_host: a struct in_addr member macro on winsock */
+static bool s_offer_pending; /* no game connection until the guest acknowledges */
+static uint32_t s_offer_gen; /* guest: the host proposal we acknowledged */
+static bool s_hosting;       /* not s_host: a struct in_addr member macro on winsock */
 static uint64_t s_peer_id;
 static uint64_t s_t0_ns;
 static uint64_t s_barrier_ns;
@@ -155,6 +161,9 @@ static int32_t s_start_frame;
 static const char* state_txt(void) {
     if (s_state == 4) {
         return "ready";
+    }
+    if (!s_hosting && s_state == 1 && s_peer_id != 0) {
+        return "joining";
     }
     return s_hosting && (s_state == 1 || s_state == 2) ? "starting" : "lobby";
 }
@@ -209,6 +218,8 @@ static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
     snprintf(peer, sizeof peer, "%016llx", (unsigned long long)s_peer_id);
     snprintf(host, sizeof host, "%s:%u", s_self_ip, s_port);
     snprintf(gen, sizeof gen, "%u", s_gen);
+    char offer[12];
+    snprintf(offer, sizeof offer, "%u", s_offer_gen);
     const char* state = state_txt();
     mdns_record_t ptr = {
         .name = MSTR(SERVICE), .type = MDNS_RECORDTYPE_PTR, .data.ptr.name = MSTR(s_instance)};
@@ -216,8 +227,8 @@ static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
     {                                                                                              \
         .name = MSTR(s_instance), .type = MDNS_RECORDTYPE_TXT, .data.txt = { MSTR(k), MSTR(v) }    \
     }
-    mdns_record_t extra[13] = {
-        /* SRV + 8 TXT + host/peer + A + AAAA */
+    mdns_record_t extra[14] = {
+        /* SRV + 8 TXT + host/peer/offer + A + AAAA */
         {.name = MSTR(s_instance),
             .type = MDNS_RECORDTYPE_SRV,
             .data.srv = {0, 0, s_port, MSTR(s_hostname)}},
@@ -231,9 +242,12 @@ static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
         TXT("gen", gen),
     };
     size_t n = 9;
-    if (strcmp(state, "starting") == 0) {
+    if (strcmp(state, "starting") == 0 || strcmp(state, "joining") == 0) {
         extra[n++] = (mdns_record_t)TXT("host", host);
         extra[n++] = (mdns_record_t)TXT("peer", peer);
+    }
+    if (strcmp(state, "joining") == 0) {
+        extra[n++] = (mdns_record_t)TXT("offer", offer);
     }
 #undef TXT
     if (s_self4.s_addr != 0) {
@@ -262,17 +276,19 @@ static void announce(void* buf, size_t cap, bool goodbye) {
     }
 }
 
-/* Repeats the state=starting record while the host's game thread is stuck in
- * the first lockstep wait (SDL timer thread; own buffer). pc_lan_stop() and
- * fail() remove it before the sockets go away, so they are valid here. */
+/* Both host and guest may block in their first input wait. Repeat the
+ * immutable election record until the session handshake is complete. */
 static Uint32 SDLCALL announce_timer(void* ud, SDL_TimerID id, Uint32 interval) {
-    static uint32_t buf[512];
+    uint32_t buf[512];
     (void)ud;
     (void)id;
-    if (s_state != 1 || !s_hosting) {
+    SDL_LockMutex(s_announce_lock);
+    if (!s_timer_live) {
+        SDL_UnlockMutex(s_announce_lock);
         return 0;
     }
     announce(buf, sizeof buf, false);
+    SDL_UnlockMutex(s_announce_lock);
     return interval;
 }
 
@@ -281,6 +297,21 @@ static void timer_stop(void) {
         SDL_RemoveTimer(s_timer);
         s_timer = 0;
     }
+    if (s_announce_lock != NULL) {
+        SDL_LockMutex(s_announce_lock);
+        s_timer_live = false;
+        SDL_UnlockMutex(s_announce_lock);
+    }
+}
+
+static void timer_start(void) {
+    if (s_announce_lock == NULL) {
+        s_announce_lock = SDL_CreateMutex();
+    }
+    SDL_LockMutex(s_announce_lock);
+    s_timer_live = true;
+    s_timer = SDL_AddTimer(500, announce_timer, NULL);
+    SDL_UnlockMutex(s_announce_lock);
 }
 
 /* Every failure path: no session, no "starting" record (the goodbye takes it
@@ -292,6 +323,8 @@ static void fail(const char* why) {
     s_state = 3;
     s_why = why;
     s_hosting = false;
+    s_offer_pending = false;
+    s_offer_gen = 0;
     s_peer_id = 0;
     s_barrier_ns = 0;
     announce(s_tx, sizeof s_tx, true);
@@ -315,7 +348,7 @@ static void drop(int i) {
  * build that adds a key still shows up in the lobby with a reason instead of
  * vanishing from it (RFC 6763 §6.6). A peer claiming our version must send
  * exactly our key set: the TXT layout is part of PC_NET_PROTO_VERSION. */
-enum { K_V, K_REV, K_DISC, K_ID, K_NAME, K_PORT, K_STATE, K_GEN, K_HOST, K_PEER, K_N };
+enum { K_V, K_REV, K_DISC, K_ID, K_NAME, K_PORT, K_STATE, K_GEN, K_HOST, K_PEER, K_OFFER, K_N };
 /* Pinned: see the note on MSTR above. */
 /* clang-format off */
 #define KEY(s) { s, sizeof s - 1 }
@@ -334,10 +367,11 @@ static const struct {
     KEY("gen"),
     KEY("host"),
     KEY("peer"),
+    KEY("offer"),
 };
 #undef KEY
 #define KBIT(k) (1u << (k))
-#define TXT_MAX_PAIRS 12 /* our own record is 8 keys, 10 while starting */
+#define TXT_MAX_PAIRS 12 /* 8 keys in lobby, 10 starting, 11 joining */
 
 /* Rejection classes, one per reason: a bad announcer repeats once a second,
  * so each is logged once per session (pc_lan_start clears them) and each is
@@ -360,6 +394,7 @@ enum {
     RJ_NO_START,
     RJ_STRAY,
     RJ_PEER,
+    RJ_OFFER,
     RJ_N
 };
 static const char* const k_rj[RJ_N] = {
@@ -380,6 +415,7 @@ static const char* const k_rj[RJ_N] = {
     "starting without host/peer",
     "host/peer outside a starting record",
     "bad peer id",
+    "joining without a valid offer generation",
 };
 _Static_assert(RJ_N <= 32, "s_rj_logged is a 32-bit mask");
 static uint32_t s_rj_logged;
@@ -531,6 +567,7 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
     out->e.state = strcmp(val[K_STATE], "lobby") == 0    ? ST_LOBBY :
                    strcmp(val[K_STATE], "ready") == 0    ? ST_READY :
                    strcmp(val[K_STATE], "starting") == 0 ? ST_STARTING :
+                   strcmp(val[K_STATE], "joining") == 0  ? ST_JOINING :
                                                            -1;
     if (out->e.state < 0) {
         return reject(RJ_STATE);
@@ -538,10 +575,10 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
     if (!dec_u32(val[K_GEN], &out->e.gen)) {
         return reject(RJ_GEN);
     }
-    /* announce_on builds host= and peer= from the one state string, so they
-     * are present exactly while the record says starting. */
+    /* Starting proposals and joining acknowledgements both identify the
+     * chosen peer. The acknowledgement echoes the host's generation. */
     const unsigned start_keys = KBIT(K_HOST) | KBIT(K_PEER);
-    if (out->e.state == ST_STARTING) {
+    if (out->e.state == ST_STARTING || out->e.state == ST_JOINING) {
         if ((seen & start_keys) != start_keys) {
             return reject(RJ_NO_START);
         }
@@ -551,13 +588,21 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
     } else if (seen & start_keys) {
         return reject(RJ_STRAY);
     }
+    if (out->e.state == ST_JOINING) {
+        if (!(seen & KBIT(K_OFFER)) || !dec_u32(val[K_OFFER], &out->e.offer)) {
+            return reject(RJ_OFFER);
+        }
+    } else if (seen & KBIT(K_OFFER)) {
+        return reject(RJ_STRAY);
+    }
     out->e.p.compatible = strcmp(out->rev, pc_app_rev()) == 0 && strcmp(out->disc, disc_id()) == 0;
     return true;
 }
 
 /* Datagram source as text net.c can getaddrinfo(): IPv4, a v4-mapped v6 as
- * IPv4, IPv6 with %scope when link-local. */
-static void addr_text(const struct sockaddr* sa, char* out, size_t cap) {
+ * IPv4, IPv6 with %scope when link-local. Shared with net.c, which names
+ * the source of a datagram it rejects. */
+void net_addr_text(const struct sockaddr* sa, char* out, size_t cap) {
     if (sa->sa_family == AF_INET) {
         inet_ntop(AF_INET, &((const struct sockaddr_in*)sa)->sin_addr, out, (socklen_t)cap);
         return;
@@ -614,7 +659,7 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
     if (e.id == s_id) {
         return 0; /* our own announce, looped back */
     }
-    addr_text(from, e.p.ip, sizeof e.p.ip);
+    net_addr_text(from, e.p.ip, sizeof e.p.ip);
     int i = 0;
     while (i < s_n && s_peers[i].id != e.id) {
         i++;
@@ -895,6 +940,8 @@ void pc_lan_start(void) {
     s_state = 0;
     s_why = NULL;
     s_hosting = false;
+    s_offer_pending = false;
+    s_offer_gen = 0;
     s_peer_id = 0;
     s_barrier_ns = 0;
     pick_iface();
@@ -942,32 +989,52 @@ void pc_lan_stop(void) {
     pc_log_line("lan: stopped");
 }
 
+static bool open_host(Entry* e) {
+    s_offer_pending = false;
+    s_t0_ns = SDL_GetTicksNS(); /* proposal retry time is not handshake time */
+    pc_log_line("lan: host election: we host as P1, guest %s %s:%u", e->p.name, e->p.ip, e->p.port);
+    if (!pc_net_connect(e->p.ip, e->p.port, 0, s_seed)) {
+        fail("connect failed");
+        return false;
+    }
+    timer_start();
+    pc_log_line("lan: connect %s:%u as P1 seed=%08x", e->p.ip, e->p.port, s_seed);
+    return true;
+}
+
 static void connect_as_host(Entry* e) {
+    timer_stop();
     s_hosting = true;
     s_peer_id = e->id;
     s_seed = (uint32_t)SDL_GetTicks() ^ (uint32_t)s_id;
     s_state = 1;
+    s_barrier_ns = 0;
     s_t0_ns = SDL_GetTicksNS();
     s_gen++;
-    pc_log_line("lan: host election: we host as P1, guest %s %s:%u", e->p.name, e->p.ip, e->p.port);
-    /* The guest must learn we are starting before the session opens (see
-     * the header comment): flipped record out now, then from the timer. */
+    s_offer_pending = e->id != 0; /* direct IP already has a shared address tie-break */
+    pc_log_line("lan: host proposal: P1, guest %s %s:%u", e->p.name, e->p.ip, e->p.port);
     announce(s_tx, sizeof s_tx, false);
-    s_timer = SDL_AddTimer(500, announce_timer, NULL);
-    if (!pc_net_connect(e->p.ip, e->p.port, 0, s_seed)) {
-        fail("connect failed");
-        return;
+    if (!s_offer_pending) {
+        open_host(e);
     }
-    pc_log_line("lan: connect %s:%u as P1 seed=%08x", e->p.ip, e->p.port, s_seed);
 }
 
 static void connect_as_guest(Entry* e) {
     pc_log_line("lan: host election: %s %s:%u hosts, joining as P2", e->p.name, e->p.ip, e->p.port);
     timer_stop();
     s_hosting = false;
+    s_offer_pending = false;
+    s_offer_gen = e->gen;
     s_peer_id = e->id;
     s_state = 1;
+    s_barrier_ns = 0;
     s_t0_ns = SDL_GetTicksNS();
+    /* Keep acknowledging this proposal while the first netplay tick waits
+     * for the host. A lost multicast acknowledgement must be recoverable. */
+    announce(s_tx, sizeof s_tx, false);
+    if (e->id != 0) {
+        timer_start();
+    }
     if (!pc_net_connect(e->p.ip, e->p.port, 1, 0)) {
         fail("connect failed");
         return;
@@ -981,7 +1048,7 @@ static void elect(void) {
     Entry* guest = NULL;
     for (int i = 0; i < s_n; i++) {
         Entry* e = &s_peers[i];
-        if (!e->p.compatible || e->state == ST_STARTING) {
+        if (!e->p.compatible || e->state >= ST_STARTING) {
             continue;
         }
         if (e->state == ST_READY && e->id < s_id) {
@@ -1002,6 +1069,30 @@ static void elect(void) {
 /* State 1: the RULES/READY handshake, then one READY_BARRIER each way so
  * neither side reports the match before the other is through. */
 static void poll_connecting(uint64_t now) {
+    if (s_offer_pending) {
+        for (int i = 0; i < s_n; i++) {
+            Entry* e = &s_peers[i];
+            if (e->id != s_peer_id || !e->p.compatible || e->peer_id != s_id) {
+                continue;
+            }
+            /* Both Start announcements may have been lost. Resolve the two
+             * proposals before either host can block waiting for P2. */
+            if (e->state == ST_STARTING && e->id < s_id && e->gen > e->last_gen) {
+                e->last_gen = e->gen;
+                connect_as_guest(e);
+                return;
+            }
+            if (e->state == ST_JOINING && e->offer == s_gen) {
+                pc_log_line("lan: host election: guest acknowledged proposal %u", s_gen);
+                open_host(e);
+                return;
+            }
+        }
+        if (now - s_t0_ns > TIMEOUT_NS) {
+            fail("host proposal not acknowledged");
+        }
+        return;
+    }
     if (s_barrier_ns == 0) {
         bool ok = s_hosting ? pc_net_host_match(s_seed, &s_start_frame) :
                               pc_net_guest_wait_match(&s_seed, &s_start_frame);
@@ -1018,8 +1109,8 @@ static void poll_connecting(uint64_t now) {
         int n;
         while ((n = pc_net_recv_reliable(&type, buf, sizeof buf)) >= 0) {
             if (type == REL_READY_BARRIER) {
-                s_state = 2;
                 timer_stop();
+                s_state = 2;
                 pc_log_line("lan: match start seed=%08x start_frame=%d as P%d", s_seed,
                     s_start_frame, s_hosting ? 1 : 2);
                 return;

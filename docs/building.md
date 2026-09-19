@@ -165,6 +165,34 @@ aurora builds it from Rust source (`rustup target add aarch64-linux-android`).
 A signed release build needs `MELEE_KEYSTORE_BASE64`, `MELEE_KEYSTORE_PASSWORD`,
 `MELEE_KEY_ALIAS` and `MELEE_KEY_PASSWORD`.
 
+**Running it on a device.** The app reads the disc from a path passed as an
+intent extra, e.g.
+
+```sh
+adb install -r dist/Melee-Android-arm64.apk
+adb shell am start -n dev.melee.game/dev.melee.MeleeActivity \
+    --es disc /sdcard/Android/data/dev.melee.game/files/melee.ciso
+```
+
+Two traps, both of which read as "the port is broken on Android":
+
+1. **Never let `adb` create the app's data directory.** `adb push` to a path
+   under `/sdcard/Android/data/<pkg>/` creates the missing directories as
+   `shell`, mode `0770`, so the app cannot even traverse its own directory
+   and every `fopen` there fails with `EACCES` — the disc included, which
+   looks exactly like a crash on startup. A directory the app made is owned
+   by its own uid (`u0_a###`); compare with `adb shell ls -ld`. Launch the
+   app once to create it, or `adb shell chmod 777` the directories, then
+   copy the disc in with `adb shell cp` from `/sdcard/Download`.
+2. **There is no environment to set knobs in.** `am start` passes extras,
+   not environment, so `MELEE_*` is unreachable on a phone. `main()` reads
+   `melee-env.txt` next to the disc (one `NAME=VALUE` per line, `#`
+   comments, a real environment variable always wins) before anything calls
+   `getenv`, which is how `MELEE_LOG_FILE`, `MELEE_HEAP_CHECK` and the
+   netplay fixtures are set on a device. Its own result goes to logcat
+   (`env: applied <path>` / `env: no <path> (errno N)`), because at that
+   point no log sink exists yet.
+
 ### iOS
 
 `tools/build_ios.sh` cross-compiles from Linux with clang/lld, the theos

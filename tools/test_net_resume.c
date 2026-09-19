@@ -16,6 +16,7 @@
  *      tools/test_net_resume.c -o /tmp/test_net_resume && /tmp/test_net_resume
  */
 #include "../src/pc/net.c"
+#include "../src/sysdolphin/baselib/rumble.c"
 
 #include <stdarg.h>
 
@@ -90,6 +91,12 @@ void SDL_DelayNS(Uint64 ns) {
     }
 }
 
+/* The load-stall fixture's sleep; never armed here (no MELEE_NET_STALL_TEST),
+ * but net.c references it. */
+void SDL_Delay(Uint32 ms) {
+    s_now += (Uint64)ms * 1000000ull;
+}
+
 SDL_Mutex* SDL_CreateMutex(void) {
     return NULL;
 }
@@ -116,49 +123,32 @@ Uint64 SDL_GetPerformanceCounter(void) {
     return 424242;
 }
 
-/* net_wire.c: identity codecs, so a captured packet reads in host order.
- * wire_resume() is net.c's own and stays real. */
-Hdr hdr(uint8_t magic) {
-    Hdr h = {magic, WIRE_VERSION, net.session, (uint8_t)net.remote};
-    return h;
-}
-void wire_packet(Packet* pk) {
-    (void)pk;
-}
-void wire_ack(Ack* a) {
-    (void)a;
-}
-void wire_rel(Rel* r) {
-    (void)r;
-}
-void wire_hdr(Hdr* h) {
-    (void)h;
-}
-void to_wire(WirePad* w, const PADStatus* p) {
-    (void)p;
-    memset(w, 0, sizeof *w);
-}
-void from_wire(PADStatus* p, const WirePad* w) {
-    (void)w;
-    memset(p, 0, sizeof *p);
-}
-bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b) {
-    (void)a;
-    (void)b;
-    return true;
-}
-uint32_t fnv1a(uint32_t h, const void* data, size_t n) {
-    (void)data;
-    (void)n;
-    return h;
-}
+/* Exercise the shipping wire codecs and address comparison. */
+#include "../src/pc/net_wire.c"
 
+/* The tick's disc drain; no disc in this harness, so always idle. */
+/* The freeze watchdog; no timer thread in this harness. */
+void net_watchdog_arm(void) {}
+void net_watchdog_tick(int32_t frame) {
+    (void)frame;
+}
+int aurora_dvd_inflight(void) {
+    return 0;
+}
+int aurora_arq_inflight(void) {
+    return 0;
+}
+void net_addr_text(const struct sockaddr* sa, char* out, size_t cap) {
+    (void)sa;
+    snprintf(out, cap, "peer");
+}
 /* net_sim.c */
 void tx(const void* buf, size_t len) {
     const uint8_t* p = buf;
     net.tx_pkts++;
     if (p[0] == 'M' && len >= offsetof(Packet, pads)) {
         memcpy(&s_tx_pkt, buf, len < sizeof s_tx_pkt ? len : sizeof s_tx_pkt);
+        wire_packet(&s_tx_pkt);
         s_tx_pkt_valid = true;
         net.tx_inputs++;
     }
@@ -242,8 +232,27 @@ const char* state_line(int32_t frame) {
 }
 
 /* net_snapshot.c */
-static Snapshot s_snap;
+static Snapshot s_snaps[SNAPS];
+static uint8_t s_snap_storage[SNAPS];
+static int32_t s_snapshot_fail_at = -1;
+static int32_t s_restored = -1;
+static bool s_state_missing;
+static bool s_restore_rumble_fixture;
+static HSD_PadRumbleListData s_rumble_nodes[2];
+static HSD_PadRumbleListData s_saved_rumble_nodes[2];
+static HSD_RumbleData s_saved_rumble_heads[4];
+static RumbleInfo s_saved_rumble_info;
 bool snapshot_take(Snapshot* s, int32_t frame) {
+    s->frame = -1;
+    if (s_state_missing || frame == s_snapshot_fail_at) {
+        return false;
+    }
+    if (s_restore_rumble_fixture) {
+        memcpy(s_saved_rumble_nodes, s_rumble_nodes, sizeof s_rumble_nodes);
+        memcpy(s_saved_rumble_heads, HSD_Rumble_804C22E0, sizeof s_saved_rumble_heads);
+        s_saved_rumble_info = HSD_PadLibData.rumble_info;
+    }
+    s->buf = &s_snap_storage[frame % SNAPS];
     s->frame = frame;
     return true;
 }
@@ -252,16 +261,26 @@ const char* snapshot_unusable(const Snapshot* s) {
     return NULL;
 }
 void snapshot_restore(const Snapshot* s) {
-    (void)s;
+    s_restored = s->frame;
+    if (s_restore_rumble_fixture) {
+        /* Same lifetime as gmmain.c's static pool and rumble.c's active heads. */
+        memcpy(s_rumble_nodes, s_saved_rumble_nodes, sizeof s_rumble_nodes);
+        memcpy(HSD_Rumble_804C22E0, s_saved_rumble_heads, sizeof s_saved_rumble_heads);
+        HSD_PadLibData.rumble_info = s_saved_rumble_info;
+    }
 }
 Snapshot* snap_slot(int32_t f) {
-    (void)f;
-    return &s_snap;
+    return &s_snaps[f % SNAPS];
 }
-void snaps_free(void) {}
+void snaps_free(void) {
+    memset(s_snaps, 0, sizeof s_snaps);
+    for (int i = 0; i < SNAPS; i++) {
+        s_snaps[i].frame = -1;
+    }
+}
 void snap_stats_report(void) {}
 const char* snapshot_state_region_missing(void) {
-    return NULL;
+    return s_state_missing ? "no state region" : NULL;
 }
 uint32_t frame_checksum(const PADStatus* head) {
     (void)head;
@@ -311,6 +330,11 @@ BOOL OSRestoreInterrupts(BOOL level) {
     return level;
 }
 
+void PADControlMotor(u32 chan, u32 cmd) {
+    (void)chan;
+    (void)cmd;
+}
+
 /* ---- fixture ---------------------------------------------------------- */
 
 /* A session mid-match with the game thread parked: frame FRAME, our ring
@@ -326,6 +350,9 @@ static void setup(void) {
     a.sin_port = 0; /* ephemeral: no collision with a concurrent run */
     assert(bind(sock, (struct sockaddr*)&a, sizeof a) == 0);
     assert(sock_nonblock(sock));
+    s_snapshot_fail_at = s_restored = -1;
+    s_state_missing = false;
+    gm_804D6720 = NULL;
     session_reset();
     net.sock = sock;
     net.active = true;
@@ -348,6 +375,10 @@ static void setup(void) {
     s_remote_have = HAVE;
     s_last_acked = ACKED;
     s_heard = true;
+    /* wait_remote() times silence from the last datagram, not from the start
+     * of the wait, so an established session has to carry both halves of
+     * "we have heard from this peer" -- rx_dispatch() sets them together. */
+    s_last_rx_ns = s_now;
     s_rc_window_ms = RECONNECT_MS;
     for (int32_t f = 0; f <= WROTE; f++) {
         s_local_ring[f & (RING - 1)].button = (uint16_t)(0x1000 + f);
@@ -362,10 +393,19 @@ static void setup(void) {
     memset(s_resume_raw, 0, sizeof s_resume_raw);
 }
 
+/* Both helpers below stand in for a datagram off the socket, so they carry
+ * rx_dispatch()'s tail: the peer has been heard from, now. wait_remote()
+ * reads that clock to tell a loading peer from a lost one. */
+static void peer_heard(void) {
+    s_heard = true;
+    s_last_rx_ns = s_now;
+}
+
 /* The peer's half of the exchange. */
 static void peer_resume(uint32_t session, uint32_t seed, int32_t newest, int32_t have) {
     Resume r = {session, seed, newest, have, newest - 2};
     wire_resume(&r);
+    peer_heard();
     net_resume_rel(&r, (int)sizeof r);
 }
 
@@ -383,6 +423,7 @@ static void peer_pads(int32_t first, int32_t last) {
     for (int i = 0; i < pk.count; i++) {
         pk.pads[i].button = (uint16_t)(0x2000 + first + i);
     }
+    peer_heard();
     on_inputs(&pk, (int)(offsetof(Packet, pads) + (size_t)pk.count * sizeof(WirePad)));
 }
 
@@ -591,6 +632,34 @@ static void case_connect_timeout(void) {
     assert(!logged("reconnecting"));
 }
 
+/* A peer whose game thread is inside a load keeps its sender running (net.c
+ * tx_timer, every 7 ms) while no new frame is ever written. That is not a
+ * lost peer and must not open a reconnect phase, however long it lasts:
+ * timing it from the start of the wait instead of from the last datagram is
+ * what dropped phone<->PC sessions at the CSS->match hand-off, after a 7 s
+ * freeze and a resume window that could not be answered. */
+static void step_peer_talks_without_advancing(void) {
+    /* Re-deliver a frame we already hold: liveness, no progress. */
+    peer_pads(HAVE, HAVE);
+    if ((s_now - s_t0) / 1000000ull >= 40000) {
+        peer_pads(HAVE + 1, 199); /* the load finished; the wait can end */
+    }
+}
+
+static void case_loading_peer_is_not_silent(void) {
+    printf("case: a peer that talks but does not advance is not silent\n");
+    setup();
+    s_t0 = s_now;
+    s_step = step_peer_talks_without_advancing;
+    assert(wait_remote(199)); /* the session survives a 40 s load */
+    assert((s_now - s_t0) / 1000000ull >= 40000);
+    assert(s_rc == RSM_NONE);
+    assert(s_resume_sends == 0);
+    assert(!logged("reconnecting"));
+    assert(!logged("peer silent"));
+    assert(s_status == PC_NET_PEER_OK);
+}
+
 /* A session whose handshake never finished must fail fast: the lobby reports
  * the failure from the very thread parked here, so a phase would turn a 7 s
  * "connect failed" into a 22 s hang (tools/net_lan_test.py host_dies). */
@@ -721,7 +790,224 @@ static void case_knob_parse(void) {
     unsetenv("MELEE_NET_PORT");
 }
 
-int main(void) {
+static void case_receive_identity(void) {
+    printf("case: only the selected peer can fail compatibility\n");
+    setup();
+    struct sockaddr_in dst, src;
+    socklen_t size = sizeof dst;
+    assert(getsockname(net.sock, (struct sockaddr*)&dst, &size) == 0);
+    sock_t sender = socket(AF_INET, SOCK_DGRAM, 0);
+    assert(sender != SOCK_INVALID);
+    memset(&src, 0, sizeof src);
+    src.sin_family = AF_INET;
+    src.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    assert(bind(sender, (struct sockaddr*)&src, sizeof src) == 0);
+    size = sizeof src;
+    assert(getsockname(sender, (struct sockaddr*)&src, &size) == 0);
+    Ack a = {{'A', 255, SESSION, 1}, 0, -1};
+    wire_hdr(&a.h);
+    wire_ack(&a);
+    assert(sendto(sender, &a, sizeof a, 0, (struct sockaddr*)&dst, sizeof dst) == sizeof a);
+    recv_inputs();
+    assert(!s_peer_left && net.session == SESSION);
+
+    memcpy(&net.peer, &src, sizeof src);
+    a.h.magic = '?';
+    assert(sendto(sender, &a, sizeof a, 0, (struct sockaddr*)&dst, sizeof dst) == sizeof a);
+    recv_inputs();
+    assert(!s_peer_left);
+    a.h.magic = 'A';
+    a.h.session = htonl(SESSION + 1);
+    assert(sendto(sender, &a, sizeof a, 0, (struct sockaddr*)&dst, sizeof dst) == sizeof a);
+    recv_inputs();
+    assert(!s_peer_left);
+    a.h.session = htonl(SESSION);
+    assert(sendto(sender, &a, sizeof a, 0, (struct sockaddr*)&dst, sizeof dst) == sizeof a);
+    recv_inputs();
+    assert(s_peer_left && s_status == PC_NET_PEER_INCOMPATIBLE);
+    sock_close(sender);
+    pc_net_disconnect();
+}
+
+static void case_old_protocol(void) {
+    printf("case: protocol 5 scene peers are incompatible\n");
+    setup();
+    struct sockaddr_in dst, src;
+    socklen_t size = sizeof dst;
+    assert(getsockname(net.sock, (struct sockaddr*)&dst, &size) == 0);
+    sock_t sender = socket(AF_INET, SOCK_DGRAM, 0);
+    assert(sender != SOCK_INVALID);
+    memset(&src, 0, sizeof src);
+    src.sin_family = AF_INET;
+    src.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    assert(bind(sender, (struct sockaddr*)&src, sizeof src) == 0);
+    size = sizeof src;
+    assert(getsockname(sender, (struct sockaddr*)&src, &size) == 0);
+    memcpy(&net.peer, &src, sizeof src);
+    Ack a = {{'A', 5, SESSION, 1}, 0, -1};
+    wire_hdr(&a.h);
+    wire_ack(&a);
+    assert(sendto(sender, &a, sizeof a, 0, (struct sockaddr*)&dst, sizeof dst) == sizeof a);
+    recv_inputs();
+    assert(s_peer_left && s_status == PC_NET_PEER_INCOMPATIBLE);
+    sock_close(sender);
+    pc_net_disconnect();
+}
+
+static HSD_PadData s_test_queue[8];
+static GameSceneInfo s_test_scene;
+static void fight_setup(void) {
+    setup();
+    s_test_scene.scene_kind = GS_VS;
+    gm_804D6720 = &s_test_scene;
+    s_scene_last = GS_VS;
+    memset(s_test_queue, 0, sizeof s_test_queue);
+    HSD_PadLibData = (PadLibData){0};
+    HSD_PadLibData.queue = s_test_queue;
+    HSD_PadLibData.qnum = 8;
+    HSD_PadLibData.qcount = 1;
+}
+
+static void deliver_changed_input(void) {
+    Packet pk = {0};
+    pk.first = s_remote_have + 1;
+    pk.newest = FRAME;
+    pk.count = FRAME - pk.first + 1;
+    pk.ck_frame = -1;
+    for (int i = 0; i < pk.count; i++) {
+        pk.pads[i].button = 0x100;
+    }
+    on_inputs(&pk, offsetof(Packet, pads) + pk.count * sizeof(WirePad));
+    s_step = NULL;
+}
+
+static void case_snapshot_failure(void) {
+    printf("case: snapshot failure waits for real input and retains earlier rollback\n");
+    fight_setup();
+    s_remote_have = FRAME - 2;
+    assert(snapshot_take(snap_slot(FRAME - 1), FRAME - 1));
+    s_snapshot_fail_at = FRAME;
+    s_step = deliver_changed_input;
+    fresh_tick(s_test_queue[0].stat, true);
+    assert(net.active && net.frame == FRAME + 1);
+    assert(s_remote_have == FRAME);
+    assert(s_test_queue[0].stat[1].button == 0x100);
+    assert(s_rb_frame == FRAME - 1);
+    assert(rollback_to(s_rb_frame));
+    assert(s_restored == FRAME - 1 && s_rb_lost == 0);
+    pc_net_disconnect();
+}
+
+static void case_snapshot_missing(void) {
+    printf("case: platforms without snapshots start in lockstep\n");
+    fight_setup();
+    s_state_missing = true;
+    session_reset();
+    net.frame = FRAME;
+    net.tick_frame = FRAME - 1;
+    s_scene_last = GS_VS;
+    s_wrote = WROTE;
+    s_remote_have = FRAME - 1;
+    s_step = deliver_changed_input;
+    fresh_tick(s_test_queue[0].stat, true);
+    assert(net.active && net.frame == FRAME + 1);
+    assert(s_remote_have == FRAME);
+    assert(s_test_queue[0].stat[1].button == 0x100);
+    assert(s_rb_lost == 0 && s_rb_frame == -1);
+    pc_net_disconnect();
+    s_state_missing = false;
+}
+
+static void case_resim_snapshot_failure(void) {
+    printf("case: a failed re-simulation snapshot also waits for real input\n");
+    fight_setup();
+    net.resim = true;
+    net.frame = FRAME + 1;
+    net.tick_frame = FRAME - 1;
+    s_remote_have = FRAME - 1;
+    s_snapshot_fail_at = FRAME;
+    s_step = deliver_changed_input;
+    assert(resim_prepare(FRAME));
+    assert(s_remote_have == FRAME && net.tick_frame == FRAME);
+    assert(pad_head()[1].button == 0x100);
+    pc_net_disconnect();
+
+    fight_setup();
+    net.resim = true;
+    net.frame = FRAME + 1;
+    net.tick_frame = FRAME - 1;
+    s_remote_have = FRAME - 1;
+    s_snapshot_fail_at = FRAME;
+    assert(!resim_prepare(FRAME)); /* absent peer: timeout, no speculative re-run */
+    assert(!net.active && !net.resim);
+    assert(pc_net_peer_status() == PC_NET_PEER_TIMEOUT);
+}
+
+static void case_rollback_rumble_ownership(void) {
+    printf("case: rollback keeps the rumble free list with rewound nodes\n");
+    fight_setup();
+    net.frame = FRAME + 1;
+    net.tick_frame = FRAME;
+    s_remote_have = FRAME;
+    HSD_PadRumbleInit(2, s_rumble_nodes);
+    assert(HSD_PadRumbleAdd(0, 1, -2, 0, NULL));
+    assert(HSD_Rumble_804C22E0[0].listdatap == &s_rumble_nodes[0]);
+    s_restore_rumble_fixture = true;
+    assert(snapshot_take(snap_slot(FRAME), FRAME));
+    /* A real free moves the discarded timeline's free head onto node 0. */
+    HSD_PadRumbleRemove(0);
+    assert(HSD_PadLibData.rumble_info.listdatap == &s_rumble_nodes[0]);
+    assert(rollback_to(FRAME));
+    int mismatches = HSD_PadLibData.rumble_info.listdatap != &s_rumble_nodes[1];
+    printf("  rumble ownership mismatches: %d\n", mismatches);
+    assert(mismatches == 0);
+    /* Actual add must allocate node 1 and leave node 0's old command intact. */
+    assert(HSD_PadRumbleAdd(1, 2, -2, 0, NULL));
+    assert(HSD_Rumble_804C22E0[1].listdatap == &s_rumble_nodes[1]);
+    assert(HSD_Rumble_804C22E0[0].listdatap->id == 1);
+    /* Known-positive: inject the old head, then show one node owned twice. */
+    snapshot_restore(snap_slot(FRAME));
+    HSD_PadLibData.rumble_info.listdatap = &s_rumble_nodes[0];
+    assert(HSD_PadRumbleAdd(1, 2, -2, 0, NULL));
+    int injected = HSD_Rumble_804C22E0[0].listdatap == HSD_Rumble_804C22E0[1].listdatap;
+    assert(injected - mismatches == 1);
+    snapshot_restore(snap_slot(FRAME));
+    s_restore_rumble_fixture = false;
+    printf("  rumble ownership injection: mismatch count delta exactly 1\n");
+    pc_net_disconnect();
+}
+
+static void case_seed_reset(void) {
+    printf("case: reconnect preserves the new session seed\n");
+    setup();
+    s_seed_have = true;
+    s_seed_after_tick = 123;
+    setenv("MELEE_NET_PORT", "0", 1);
+    assert(pc_net_connect("127.0.0.1", 9, 0, 456));
+    seed_out_of_tick_check();
+    assert(*HSD_RandSeedPtr == 456);
+    pc_net_disconnect();
+    unsetenv("MELEE_NET_PORT");
+}
+
+int main(int argc, char** argv) {
+    if (argc > 1) {
+        if (strcmp(argv[1], "identity") == 0)
+            case_receive_identity();
+        else if (strcmp(argv[1], "protocol") == 0)
+            case_old_protocol();
+        else if (strcmp(argv[1], "snapshot") == 0)
+            case_snapshot_failure();
+        else if (strcmp(argv[1], "missing") == 0)
+            case_snapshot_missing();
+        else if (strcmp(argv[1], "rumble") == 0)
+            case_rollback_rumble_ownership();
+        else if (strcmp(argv[1], "seed") == 0)
+            case_seed_reset();
+        else
+            return 2;
+        return 0;
+    }
     case_resume_inside_ring();
     case_one_way_while_running();
     case_gap_past_ring();
@@ -731,6 +1017,7 @@ int main(void) {
     case_disabled();
     case_queue_full_retries();
     case_connect_timeout();
+    case_loading_peer_is_not_silent();
     case_handshake_pending_fails_fast();
     case_young_session_fails_fast();
     case_handshake_done_resumes_young();
@@ -738,6 +1025,13 @@ int main(void) {
     case_tick_window_expiry_disconnects();
     case_tick_resume_refused_disconnects();
     case_knob_parse();
+    case_receive_identity();
+    case_old_protocol();
+    case_snapshot_failure();
+    case_snapshot_missing();
+    case_resim_snapshot_failure();
+    case_seed_reset();
+    case_rollback_rumble_ownership();
     printf("test_net_resume: ok\n");
     return 0;
 }

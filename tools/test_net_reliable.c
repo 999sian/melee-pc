@@ -59,6 +59,11 @@ void net_resume_rel(const void* payload, int len) {
     (void)payload;
 }
 static int s_delay_msgs;
+/* Dispatched like REL_DELAY; this harness only exercises the channel. */
+void net_scene_rel(const void* payload, int len) {
+    (void)payload;
+    (void)len;
+}
 void net_delay_rel(const void* payload, int len) {
     s_delay_msgs++;
     (void)payload;

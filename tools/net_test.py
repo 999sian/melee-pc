@@ -49,6 +49,7 @@ import time
 # boot seen and check_match() fails a row whose match did not get its minutes.
 BOOT_FRAMES = 9000
 CACHE_ROOT = "/tmp/melee_net_cache"  # kept between runs; keyed by port, never shared
+LOAD_STALL_FRAME = 900  # --load-stall: session up, menus lockstep, every frame waits
 SIM_ENV = {  # CLI flag -> (env knob, value) in src/pc/net.c's link simulator
     "jitter": ("MELEE_NET_SIM_JITTER_MS", "20"),
     "reorder": ("MELEE_NET_SIM_REORDER", "10"),
@@ -99,6 +100,9 @@ class Instance:
         cache = os.path.join(CACHE_ROOT, str(port))
         os.makedirs(cache, exist_ok=True)
         e = dict(os.environ)
+        # A prior direct/replay run must not silently change a LAN fixture.
+        for key in ("MELEE_DEBUG_VS", "MELEE_NET", "MELEE_NET_PLAYER", "MELEE_NET_REPLAY"):
+            e.pop(key, None)
         e.update({
             "SDL_VIDEO_DRIVER": "x11",
             "MELEE_VSYNC": "0",
@@ -504,12 +508,11 @@ def drive_sss(a, b, want=1):
     # Nothing else to press: once both picks are in, mnStageSel_804D6CAF
     # reaches 2 and the scene resolves the stage and leaves on its own
     # (:980-995). A Start here would land in the loading match and pause it.
-    # The match hand-off is reported, not asserted: on this build the SSS
-    # hands the match stkind 0 and the loader asks for the empty stage name
-    # "Gr.dat" (see check_scenes). The row asserts what it can reach.
+    # Archive logging is only supporting evidence: the printed pick is the
+    # cell before the random-stage fallback, not the final stage id.
     for inst in insts:
         note = ("entered a match" if inst.wait_log(SCENE_FILE["match"], 30)
-                else "NO stage archive: stkind 0 reaches the stage loader (game-side)")
+                else "no stage archive HIT observed; match validity checked separately")
         print(f"net_test: [{inst.name}] after picks {cells}: {note}", flush=True)
     return True
 
@@ -521,62 +524,72 @@ LRAS = "Q+E+X+Return"
 
 
 # ---- was this a match at all? ------------------------------------------
-# MELEE_NET_RECORD writes "MRC1" + seed, then per fresh tick the four PADStatus
+# MELEE_NET_RECORD writes "MRC2" + seed, then per fresh tick the four PADStatus
 # simulated and the frame checksum (net_snapshot.c:36-113). frame_checksum only
 # folds fighter position, facing, percent, motion id and stocks while in_fight()
 # (:117-139), so at a menu it is a pure function of the four pads and the RNG
 # seed and moves only when a key is pressed, while a running match moves it
 # every single frame. That is the one signal that separates a real row from the
 # title screen - where this whole matrix used to pass with rollbacks 0.
-# FrameRecord = four PADStatus + u32 checksum. PADStatus is 16 bytes in this
+# FrameRecord = four PADStatus + u32 checksum + u32 tick-start seed.
+# PADStatus is 16 bytes in this
 # build, not the 12 the GameCube header's 11 used bytes suggest (measured with
-# the build's own flags: `sizeof(PADStatus)=16`), so the stride is 68 and
+# the build's own flags: `sizeof(PADStatus)=16`), so the stride is 72 and
 # record_stride_ok() refuses a file that does not divide by it rather than
 # reading garbage checksums.
-REC = 68
-CK_OFF = REC - 4
+REC = 72
+CK_OFF = 64
+REC_FORMATS = {b"MRC1": 68, b"MRC2": REC}  # retain access to earlier captures
 MATCH_WINDOW = 600
 MATCH_RATIO = 0.5
 MATCH_MIN = 1800  # frames of moving state a row has to get, i.e. 30 s of match
 
 
-def record_stride_ok(size):
-    """A recording is "MRC1" + seed once per session plus whole records."""
-    return any((size - 8 * h) % REC == 0 for h in range(1, 13))
+def record_stride_ok(size, stride=REC):
+    """A recording has magic + seed once per session plus whole records."""
+    return any((size - 8 * h) % stride == 0 for h in range(1, 13))
 
 
 def record_base(data):
     """Offset of the first record. A session restart rewrites the header
     mid-file (session_reset takes net.frame back to 0), so the last header
     that leaves a whole number of records is the live one."""
+    magic = data[:4]
+    stride = REC_FORMATS.get(magic)
+    if stride is None:
+        raise RuntimeError(f"unknown recording magic {magic!r}")
     p = len(data)
     while True:
-        p = data.rfind(b"MRC1", 0, p)
+        p = data.rfind(magic, 0, p)
         if p < 0:
             return 0
-        if (len(data) - p - 8) % REC == 0:
+        if (len(data) - p - 8) % stride == 0:
             return p + 8
 
 
 def record_cks(path, tail=None):
     """Frame checksums, oldest first (index = net.frame within the session).
-    `tail` reads only the last N records; records end at EOF, so seeking back
-    a multiple of the stride stays aligned whatever headers precede it."""
+    `tail` returns the last N records of the latest session, excluding any
+    earlier session header. MRC1 captures remain readable after MRC2 ships."""
     try:
-        size = os.path.getsize(path)
+        with open(path, "rb") as f:
+            data = f.read()
     except OSError:
         return []
-    if size > 8 and not record_stride_ok(size):
-        raise RuntimeError(f"{path}: {size} bytes is not a whole number of {REC}-byte records; "
+    if not data:
+        return []
+    size = len(data)
+    stride = REC_FORMATS.get(data[:4])
+    if stride is None:
+        raise RuntimeError(f"{path}: unknown recording magic {data[:4]!r}")
+    if size > 8 and not record_stride_ok(size, stride):
+        raise RuntimeError(f"{path}: {size} bytes is not a whole number of {stride}-byte records; "
                            "sizeof(PADStatus) changed and REC needs remeasuring")
-    with open(path, "rb") as f:
-        if tail is not None and size > 8 + tail * REC:
-            f.seek(size - tail * REC)
-            body = f.read()
-        else:
-            data = f.read()
-            body = data[record_base(data):]
-    return [body[i * REC + CK_OFF:i * REC + REC] for i in range(len(body) // REC)]
+    body = data[record_base(data):]
+    if tail is not None:
+        body = body[-tail * stride:] if tail > 0 else b""
+    return [body[i * stride + CK_OFF:i * stride + CK_OFF + 4]
+            for i in range(len(body) // stride)]
 
 
 def moved(cks):
@@ -699,13 +712,12 @@ STATS_RX = re.compile(r"net: frame (\d+), rollbacks (\d+) \(max depth (\d+), los
 # Scene-flow anchors: the online lobby's frame-stamped hand-off into the CSS
 # (gmonlinemode.c:378), the SSS's resolved pick (mnstagesel.c:89), the peer we
 # actually elected (net_lan.c:663,677), the stage archive a match loads, the
-# barrier field STATS_RX stops short of, and the snapshot report
+# snapshot report
 # (net_snapshot.c:382).
 CSS_RX = re.compile(r"lobby: entering CSS at frame (\d+), seed (\d+)")
 PICKS_RX = re.compile(r"sss: picks P1=(-?\d+) P2=(-?\d+) -> (-?\d+)")
 CONNECT_RX = re.compile(r"lan: connect (\d+\.\d+\.\d+\.\d+):(\d+) as P(\d)")
 STAGE_RX = re.compile(r"\[FileCache\] (?:LOOSE )?HIT: (Gr[A-Za-z0-9]+)\.(?:dat|usd)")
-BARRIER_RX = re.compile(r"net: frame (\d+),.*?barrier (-?\d+)")
 OOM_RX = re.compile(r"net: out of memory for snapshots at frame (\d+), lockstep from here")
 SNAP_RX = re.compile(r"net:\s+snapshot take [\d.]+ ms \(max [\d.]+, n (\d+)\)")
 
@@ -760,10 +772,33 @@ def check_scenes(a, b):
     return fails
 
 
+def check_load_stall(a, b):
+    """--load-stall: B's game thread parks mid-run while its tx timer keeps
+    sending (MELEE_NET_STALL_TEST, net.c). That is a load -- a stage, a
+    character, a first-time shader compile on a phone -- not a lost peer, so
+    the link must carry it with no reconnect phase at all. "peer silent" is
+    already a failure pattern for every row; what this adds is that the
+    session must not even be *interrupted*, because a reconnect that is
+    entered on a talking peer is the bug that dropped phone<->PC sessions at
+    the CSS->match hand-off (silence was timed from the start of the wait
+    rather than from the last datagram).
+
+    The stall must also actually have happened: an injection that silently
+    did nothing would pass every other assertion in the row."""
+    fails = []
+    if "net: stall test:" not in b.text():
+        fails.append("b never ran the stall injection (MELEE_NET_STALL_TEST did not fire)")
+    for inst in (a, b):
+        if "interrupted at frame" in inst.text():
+            fails.append(f"{inst.name} opened a reconnect phase for a peer that never "
+                         "stopped sending")
+    return fails
+
+
 def check_oom(inst, oom_frame):
     """--oom: the counters, not just the log line. A snapshot that cannot be
-    taken pins the barrier at INT32_MAX (net.c:961-964), which stops every
-    further prediction, so snapshots must have been taken before the failure
+    taken disables further prediction while preserving earlier rollback
+    snapshots, so snapshots must have been taken before the failure
     and none after it, and the run has to carry on to its exit frame in sync
     (summarize() and check_match() cover that half). Ordering is read off the
     log rather than frame numbers because the FileCache lines carry none."""
@@ -794,12 +829,10 @@ def check_oom(inst, oom_frame):
     elif any(after[1:]):  # the first report still counts takes from before the failure
         fails.append(f"snapshots still taken after the failure (n {after}): the session did not "
                      "drop to lockstep")
-    bar = BARRIER_RX.findall(text)
-    if not bar:
-        fails.append("no barrier field in the stats lines")
-    elif int(bar[-1][1]) != 2147483647:
-        fails.append(f"barrier {bar[-1][1]} at the end, want INT32_MAX (lockstep for the "
-                     "session)")
+    # Snapshot failure must leave earlier rollback snapshots usable. The old
+    # INT32_MAX barrier assertion required the very bug this test exercises.
+    # No further takes above, and no lost rollback/desync in summarize(),
+    # check the fallback's behavior without invalidating that history.
     return fails
 
 
@@ -1133,6 +1166,16 @@ def parse_args(argv=None):
     ap.add_argument("--stall", type=float, default=0, metavar="SECONDS",
                     help="SIGSTOP B mid-match for SECONDS, then SIGCONT: inside the reconnect "
                          "window the session must survive, past it it must expire with status 2")
+    ap.add_argument("--state-log", action="store_true",
+                    help="write per-frame state dumps to <work>/a.state and b.state")
+    ap.add_argument("--cold-cache", action="store_true",
+                    help="disable archive prewarm on A and enable it on B; delay A's DVD "
+                         "reads by 1.5 ms. Loose-file cache reads bypass the DVD delay, "
+                         "so this does not guarantee different scene-entry frames")
+    ap.add_argument("--load-stall", type=float, default=0, metavar="SECONDS",
+                    help="park B's game thread for SECONDS mid-run while its sender keeps "
+                         "running (a load, not a lost peer): the session must carry it with no "
+                         "reconnect phase, however long it is")
     ap.add_argument("--reconnect-ms", type=int, default=15000,
                     help="MELEE_NET_RECONNECT_MS for --stall (net.c's own default is 15000)")
     ap.add_argument("--fuzz", action="store_true", help="run tools/net_fuzz.py against A")
@@ -1168,8 +1211,25 @@ def run(args):
     sim_a = dict(sim)
     if args.oom:
         sim_a["MELEE_NET_SIM_OOM_FRAME"] = str(args.oom)
+    if args.cold_cache:
+        # Exercise prewarm asymmetry, even if the shell disabled it globally.
+        # OS caches remain warm; loose-file reads bypass the DVD delay below.
+        # Verify actual scene transitions instead of assuming different timing.
+        sim_a["MELEE_PREWARM"] = "0"
+        sim["MELEE_PREWARM"] = "1"
+        # Aurora's DVD readFromHandle hook delays reads that reach that layer.
+        sim_a["MELEE_DISC_READ_DELAY_US"] = "1500"
+    if args.load_stall:
+        # B only, and well past boot so the session is established: the wait
+        # this exercises is the one a scene hand-off makes, not the connect.
+        sim["MELEE_NET_STALL_TEST"] = f"{LOAD_STALL_FRAME}:{int(args.load_stall * 1000)}"
     shutil.rmtree(args.work, ignore_errors=True)
     os.makedirs(args.work)
+    if args.state_log:
+        # Per-frame state dumps beside the logs, so a DESYNC can be diffed
+        # field by field (src/pc/net_snapshot.c).
+        sim_a["MELEE_NET_STATE_LOG"] = os.path.join(args.work, "a.state")
+        sim["MELEE_NET_STATE_LOG"] = os.path.join(args.work, "b.state")
     a = Instance("a", args.exe, args.disc, args.work, args.port, args.port + 1, sim_a, args.lan)
     b = Instance("b", args.exe, args.disc, args.work, args.port + 1, args.port, sim, args.lan)
     print(f"net_test: {'lan' if args.lan else 'direct'} loss={args.loss}% delay={args.delay}ms "
@@ -1218,6 +1278,9 @@ def run(args):
         # a 7 s hiccup on a loaded machine must not end a 60-minute soak.
         term = (r"net: DESYNC", r"peer silent for \d+ ms at frame \d+, leaving netplay",
                 r"net: disconnected", r"cannot roll back")
+        # A deliberate load stall is exactly "no frame progress", so the
+        # watchdog has to outlast it or the row kills the run it is measuring.
+        quiet_budget = 25 + args.load_stall
         last_frame, last_progress = -1, time.time()
         while time.time() < deadline and (a.proc.poll() is None or b.proc.poll() is None):
             time.sleep(1)
@@ -1227,8 +1290,9 @@ def run(args):
             fr = max([int(x) for x in re.findall(r"net: frame (\d+)", texts)] or [-1])
             if fr > last_frame:
                 last_frame, last_progress = fr, time.time()
-            elif time.time() - last_progress > 25 and last_frame >= 0:
-                print("net_test: no frame progress for 25 s, giving up", flush=True)
+            elif time.time() - last_progress > quiet_budget and last_frame >= 0:
+                print(f"net_test: no frame progress for {quiet_budget:.0f} s, giving up",
+                      flush=True)
                 break
     finally:
         if work is not None:
@@ -1247,6 +1311,8 @@ def run(args):
     # identical `lobby: entering CSS at frame N, seed S` on both peers.
     extra = [] if args.scenes else check_entry(a, b)
     extra += check_scenes(a, b) if args.scenes else check_oom(a, args.oom) if args.oom else []
+    if args.load_stall:
+        extra += check_load_stall(a, b)
     results = []
     for inst in (a, b):
         fails, line, st = summarize(inst, need_match=not args.scenes)

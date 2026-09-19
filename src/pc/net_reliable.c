@@ -136,6 +136,8 @@ void on_rel(const Rel* r, int n) {
             net_resume_rel(r->payload, r->len);
         } else if (r->type == REL_DELAY) {
             net_delay_rel(r->payload, r->len);
+        } else if (r->type == REL_SCENE) {
+            net_scene_rel(r->payload, r->len);
         } else if (s_rel_rx_n < REL_QUEUE) {
             RelMsg* m = &s_rel_rx[(s_rel_rx_head + s_rel_rx_n++) % REL_QUEUE];
             m->type = r->type;

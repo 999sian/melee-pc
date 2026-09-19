@@ -73,6 +73,11 @@ u32 ARQGetChunkSize(void);
 u8* aurora_aram_base(void);
 BOOL ARQCheckInit(void);
 
+// melee-pc: ARAM transfers posted and not yet retired. The netplay tick
+// drains on this together with aurora_dvd_inflight(), so a load costs both
+// peers the same number of ticks (src/pc/net.c).
+int aurora_arq_inflight(void);
+
 u16 __ARGetInterruptStatus(void);
 void __ARClearInterrupt(void);
 
