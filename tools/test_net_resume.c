@@ -153,6 +153,10 @@ bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b)
     (void)b;
     return true;
 }
+void net_addr_text(const struct sockaddr* sa, char* out, size_t cap) {
+    (void)sa;
+    snprintf(out, cap, "peer");
+}
 uint32_t fnv1a(uint32_t h, const void* data, size_t n) {
     (void)data;
     (void)n;

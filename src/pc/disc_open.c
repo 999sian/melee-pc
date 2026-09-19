@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "disc_open.h"
 
+#include "pc.h"
+
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_iostream.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -60,7 +63,17 @@ NodResult pc_open_nod_disc(const char* path, NodHandle** out) {
         if (res == NOD_RESULT_OK && *out != NULL) {
             return NOD_RESULT_OK;
         }
+        pc_log_line("disc: %s opened but nod rejected it (%d)", path, (int)res);
+    } else {
+        /* Android hands the disc over as a content:// URI and stderr goes
+         * nowhere on a phone, so the reason has to reach the log or a
+         * failed open is indistinguishable from a blank launcher. */
+        pc_log_line("disc: cannot open %s: %s", path, SDL_GetError());
     }
 
-    return nod_disc_open(path, NULL, out);
+    NodResult direct = nod_disc_open(path, NULL, out);
+    if (direct != NOD_RESULT_OK) {
+        pc_log_line("disc: nod_disc_open(%s) failed (%d)", path, (int)direct);
+    }
+    return direct;
 }

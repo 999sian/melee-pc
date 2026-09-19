@@ -590,13 +590,14 @@ void recv_inputs(void) {
         if (n < (int)sizeof(Hdr)) {
             continue;
         }
-        if (!addr_eq(&from, &net.peer)) {
-            if (!s_warn_src) {
-                s_warn_src = true;
-                pc_log_line("net: dropped a datagram from an address other than the peer's");
-            }
-            continue;
-        }
+        /* Header first, address second. A peer routinely answers from a
+         * different address than the one we dialled: the lobby may hand us
+         * its IPv6 link-local while its socket replies over IPv4 (measured
+         * phone<->PC: `dropped a datagram from 192.168.1.129 (the peer is
+         * fe80::c0ef:34ff:fe21:910b%3)`, then a 60 s connect timeout), and a
+         * NAT can remap the port. Until the peer has been heard, its
+         * identity is the session id and player number, not its address; it
+         * is pinned from the first accepted datagram onwards. */
         wire_hdr(&u.h);
         if (u.h.version != WIRE_VERSION) {
             if (!s_peer_left) {
@@ -609,7 +610,16 @@ void recv_inputs(void) {
         if (net.session == 0 && net.local == 1 && u.h.session != 0) {
             net.session = u.h.session; /* the host picked it */
         }
-        if (u.h.session != net.session || u.h.player != net.remote) {
+        /* The guest stamps session 0 until it has seen one of our packets.
+         * If we dialled an address it never answers on -- the lobby handed
+         * us its IPv6 link-local, its socket replies over IPv4 -- our
+         * packets never reach it, so it can never learn the id and every
+         * packet of its own is rejected here: both sides then time out with
+         * a peer that was talking the whole time. Take that one unlearned
+         * datagram; the address block below follows it, and our next packet
+         * teaches the guest the id. */
+        const bool guest_preamble = !s_heard && net.local == 0 && u.h.session == 0;
+        if ((u.h.session != net.session && !guest_preamble) || u.h.player != net.remote) {
             if (!s_warn_sess) {
                 s_warn_sess = true;
                 pc_log_line(
@@ -617,6 +627,21 @@ void recv_inputs(void) {
                     u.h.session, u.h.player, net.session, net.remote);
             }
             continue;
+        }
+        if (!addr_eq(&from, &net.peer)) {
+            char got[80] = "?", want[80] = "?";
+            net_addr_text((const struct sockaddr*)&from, got, sizeof got);
+            net_addr_text((const struct sockaddr*)&net.peer, want, sizeof want);
+            if (s_heard) {
+                if (!s_warn_src) {
+                    s_warn_src = true;
+                    pc_log_line("net: dropped a datagram from %s (the peer is %s)", got, want);
+                }
+                continue;
+            }
+            pc_log_line("net: peer answers from %s, not %s; following it", got, want);
+            memcpy(&net.peer, &from, sizeof net.peer);
+            net.peer_len = from_len;
         }
         if (net.sim_rx_delay_ns == 0) {
             rx_dispatch(&u, n);

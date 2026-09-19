@@ -355,6 +355,8 @@ uint32_t rules_hash(Rules ru, uint32_t session);
 uint32_t ready_hash(Ready rd, uint32_t session);
 Hdr hdr(uint8_t magic);
 bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b);
+/* net_lan.c; text form of a datagram source, for logs and getaddrinfo(). */
+void net_addr_text(const struct sockaddr* sa, char* out, size_t cap);
 
 /* ---- net_sim.c -------------------------------------------------------- */
 

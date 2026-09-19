@@ -556,8 +556,9 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
 }
 
 /* Datagram source as text net.c can getaddrinfo(): IPv4, a v4-mapped v6 as
- * IPv4, IPv6 with %scope when link-local. */
-static void addr_text(const struct sockaddr* sa, char* out, size_t cap) {
+ * IPv4, IPv6 with %scope when link-local. Shared with net.c, which names
+ * the source of a datagram it rejects. */
+void net_addr_text(const struct sockaddr* sa, char* out, size_t cap) {
     if (sa->sa_family == AF_INET) {
         inet_ntop(AF_INET, &((const struct sockaddr_in*)sa)->sin_addr, out, (socklen_t)cap);
         return;
@@ -614,7 +615,7 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
     if (e.id == s_id) {
         return 0; /* our own announce, looped back */
     }
-    addr_text(from, e.p.ip, sizeof e.p.ip);
+    net_addr_text(from, e.p.ip, sizeof e.p.ip);
     int i = 0;
     while (i < s_n && s_peers[i].id != e.id) {
         i++;

@@ -67,14 +67,27 @@ static _Unwind_Reason_Code melee_unwind_frame(struct _Unwind_Context* ctx, void*
     return _URC_NO_REASON;
 }
 
+/* Handlers displaced by ours. Android installs debuggerd's SIGABRT/SIGSEGV
+ * handler at process start, and that is what writes the tombstone -- with
+ * the abort message, which is the only place a scudo or FORTIFY diagnosis
+ * appears. Resetting to SIG_DFL instead of chaining loses it: the default
+ * action just kills the process, so an in-process backtrace is bought at
+ * the price of every tombstone (measured: no tombstone for any crash this
+ * session, while /data/tombstones still held last week's). */
+static struct sigaction s_prev_sa[NSIG];
+
 static void melee_fatal_signal(int sig, siginfo_t* si, void* uc) {
     (void)uc;
     __android_log_print(ANDROID_LOG_FATAL, "melee", "FATAL signal %d at %p (tid %d)", sig,
         si ? si->si_addr : NULL, (int)gettid());
     MeleeUnwindState st = {0};
     _Unwind_Backtrace(melee_unwind_frame, &st);
-    /* Hand back to the default handler so a real tombstone is still written. */
-    signal(sig, SIG_DFL);
+    /* Hand back to whoever had it, so a real tombstone is still written. */
+    if (sig >= 0 && sig < NSIG) {
+        sigaction(sig, &s_prev_sa[sig], NULL);
+    } else {
+        signal(sig, SIG_DFL);
+    }
     raise(sig);
 }
 
@@ -86,7 +99,7 @@ static void melee_install_crash_handler(void) {
     sigemptyset(&sa.sa_mask);
     const int sigs[] = {SIGSEGV, SIGABRT, SIGBUS, SIGILL, SIGFPE};
     for (size_t i = 0; i < sizeof sigs / sizeof sigs[0]; i++) {
-        sigaction(sigs[i], &sa, NULL);
+        sigaction(sigs[i], &sa, &s_prev_sa[sigs[i]]);
     }
 }
 #else
@@ -461,12 +474,30 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
                 fprintf(stderr, "%s: more than one disc given (%s, %s)\n", argv[0], disc, d);
                 usage(argv[0]);
             }
-            FILE* f = fopen(d, "rb");
-            if (d[0] == '\0' || f == NULL) {
+            /* A `content://` URI is not a filesystem path. On Android the
+             * disc arrives as one from the file picker, and it is opened
+             * through SDL_IOStream (`pc_open_nod_disc`, src/pc/disc_open.h);
+             * `fopen` cannot open one, so probing with it rejected every
+             * disc a phone can actually hand us. */
+            const bool uri = strncmp(d, "content://", 10) == 0;
+            FILE* f = uri ? NULL : fopen(d, "rb");
+            if (d[0] == '\0' || (!uri && f == NULL)) {
                 fprintf(stderr, "%s: cannot open disc %s\n", argv[0], d);
+#if defined(__ANDROID__)
+                /* exit() runs static destructors while the Java UI thread is
+                 * still drawing, which aborts it inside minikin with
+                 * "FORTIFY: pthread_mutex_lock called on a destroyed mutex":
+                 * a crash report for what is really a bad path. Carry on
+                 * into the launcher with no disc, exactly as if the app had
+                 * been started without one. */
+                continue;
+#else
                 exit(2);
+#endif
             }
-            fclose(f);
+            if (f != NULL) {
+                fclose(f);
+            }
             disc = d;
         }
     }

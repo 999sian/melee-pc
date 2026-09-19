@@ -603,6 +603,28 @@ save. Two builds that disagree about what "all unlocked" *means* therefore
 refuse the handshake, which is the intended failure: an incompatibility at
 connect time rather than a desync at the first in-fight frame.
 
+### 6.1a Which address the peer really answers on
+
+The lobby's address is a hint, not the identity. A dual-stack peer is
+announced over both A and AAAA records, and whichever arrives first is what
+the election dials — so one side can dial an IPv6 link-local while the
+other's socket answers over IPv4, and every datagram is then rejected as
+"from an address other than the peer's" while both sides run their connect
+timeout down to nothing. Measured phone↔PC, with the host logging
+`dropped a datagram from 192.168.1.129 (the peer is
+fe80::c0ef:34ff:fe21:910b%3)`.
+
+`recv_inputs()` therefore validates the header *before* the address: the
+identity of a datagram is its protocol version, session id and player
+number. Until the peer has been heard (`s_heard`), a datagram that passes
+those is accepted and `net.peer` follows its source; afterwards the address
+is pinned and a stranger is dropped as before. The host additionally
+accepts one session-0 datagram from an unheard peer, because a guest stamps
+0 until it has seen a packet of ours — if our packets are going to an
+address it never answers on, that is the only way it can ever be heard.
+This also covers a NAT that remaps the port between the announcement and
+the first packet.
+
 ### 6.2 Timeout policy
 
 | State | Limit | Where | On expiry |
