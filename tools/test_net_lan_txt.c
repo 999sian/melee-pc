@@ -74,6 +74,23 @@ const char* pc_android_device_name(void) {
 static int g_connections, g_player;
 static void (*g_timer_stop_check)(void);
 static bool g_barrier_received;
+static int32_t g_frame = -1, g_scheduled = -1;
+static int g_polls, g_ready_after;
+static bool g_handshake_pending;
+static bool g_active = true;
+static int g_disconnect_after;
+int32_t pc_net_frame(void) {
+    return g_frame;
+}
+int32_t pc_net_start_frame(void) {
+    return g_scheduled;
+}
+void pc_net_poll(void) {
+    if (++g_polls == g_ready_after)
+        g_barrier_received = true;
+    if (g_polls == g_disconnect_after)
+        g_active = false;
+}
 
 bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
     (void)ip;
@@ -85,7 +102,7 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
 }
 void pc_net_disconnect(void) {}
 bool pc_net_active(void) {
-    return true;
+    return g_active;
 }
 int pc_net_peer_status(void) {
     return 0;
@@ -115,7 +132,10 @@ int pc_net_recv_reliable(uint8_t* type, void* payload, int max) {
 }
 bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
     (void)seed;
-    (void)start_frame;
+    if (g_handshake_pending && g_polls >= 2) {
+        *start_frame = g_scheduled;
+        return true;
+    }
     return false;
 }
 bool pc_net_guest_wait_match(uint32_t* seed, int32_t* start_frame) {
@@ -135,6 +155,9 @@ void SDL_UnlockMutex(SDL_Mutex* m) {
 }
 
 static uint64_t s_now = 1000;
+void SDL_DelayNS(Uint64 ns) {
+    s_now += ns;
+}
 Uint64 SDL_GetTicksNS(void) {
     return s_now;
 }
@@ -418,7 +441,63 @@ static void case_election(void) {
     s_started = false;
 }
 
+static void case_ready_frame_fence(void) {
+    election_setup(100, 200);
+    s_state = 1;
+    s_offer_pending = false;
+    s_barrier_ns = s_now;
+    s_start_frame = g_scheduled = 120;
+    g_frame = 119;
+    g_polls = 0;
+    g_ready_after = 3;
+    pc_lan_poll();
+    assert(s_state == 1 && g_polls == 0);
+    g_frame = 120;
+    pc_lan_poll();
+    assert(s_state == 2 && g_frame == 120 && g_polls == 3);
+
+    /* The host must also park before READY has completed its handshake. */
+    s_state = 1;
+    s_hosting = true;
+    s_barrier_ns = 0;
+    s_t0_ns = s_now;
+    g_handshake_pending = true;
+    g_polls = 0;
+    g_ready_after = 3;
+    pc_lan_poll();
+    assert(s_state == 2 && g_frame == 120 && g_polls == 3);
+    g_handshake_pending = false;
+
+    /* A missing barrier times out on this same simulation frame. */
+    s_state = 1;
+    s_barrier_ns = s_now - TIMEOUT_NS + 2000000;
+    g_ready_after = 0;
+    pc_lan_poll();
+    assert(s_state == 3 && g_frame == 120);
+
+    s_state = 1;
+    s_barrier_ns = s_now;
+    g_frame = 121;
+    g_barrier_received = true;
+    pc_lan_poll();
+    assert(s_state == 3); /* a late barrier cannot enter on a different frame */
+    s_state = 1;
+    s_barrier_ns = s_now;
+    g_frame = 120;
+    g_polls = 0;
+    g_disconnect_after = g_ready_after = 2;
+    g_barrier_received = false;
+    pc_lan_poll();
+    assert(s_state == 3); /* a queued barrier cannot override disconnect */
+    g_active = true;
+    g_disconnect_after = 0;
+    g_barrier_received = false;
+    g_frame = g_scheduled = -1;
+    s_started = false;
+}
+
 int main(int argc, char** argv) {
+    case_ready_frame_fence();
     set_image(argc > 1 && strcmp(argv[1], "b") == 0 ? 1 : 0);
 
     /* The module state pc_lan_start() would have built. */

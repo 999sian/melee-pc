@@ -1416,6 +1416,21 @@ void pc_net_init(void) {
         seed ? (uint32_t)strtoul(seed, NULL, 0) : 0);
 }
 
+int32_t pc_net_start_frame(void) {
+    return net.active ? net.start_frame : -1;
+}
+
+void pc_net_poll(void) {
+    if (!net.active) {
+        return;
+    }
+    recv_inputs();
+    send_inputs(); /* includes reliable retransmits while simulation is parked */
+    if (s_peer_left) {
+        pc_net_disconnect();
+    }
+}
+
 int32_t pc_net_frame(void) {
     return net.tick_frame;
 }

@@ -848,8 +848,10 @@ u32 PADRead(PADStatus* status) {
       const auto ylPos = _get_axis_value(controller, PAD_AXIS_LEFT_Y_POS);
       const auto ylNeg = _get_axis_value(controller, PAD_AXIS_LEFT_Y_NEG);
 
-      auto xl = static_cast<Sint16>((xlPos + -xlNeg) / 2);
-      auto yl = static_cast<Sint16>((ylPos + -ylNeg) / 2);
+      // Each binding describes one half-axis; ignore movement in the opposite
+      // direction so a button binding and an analog binding have the same range.
+      auto xl = static_cast<Sint16>(std::max<int>(0, xlPos) - std::max<int>(0, xlNeg));
+      auto yl = static_cast<Sint16>(std::max<int>(0, ylPos) - std::max<int>(0, ylNeg));
       if (controller->m_deadZones.useDeadzones) {
         if (std::abs(xl) > controller->m_deadZones.stickDeadZone) {
           xl = std::clamp((xl * 80) / 32768, -80, 80);
@@ -874,8 +876,8 @@ u32 PADRead(PADStatus* status) {
       const auto yrPos = _get_axis_value(controller, PAD_AXIS_RIGHT_Y_POS);
       const auto yrNeg = _get_axis_value(controller, PAD_AXIS_RIGHT_Y_NEG);
 
-      auto xr = static_cast<Sint16>((xrPos + -xrNeg) / 2);
-      auto yr = static_cast<Sint16>((yrPos + -yrNeg) / 2);
+      auto xr = static_cast<Sint16>(std::max<int>(0, xrPos) - std::max<int>(0, xrNeg));
+      auto yr = static_cast<Sint16>(std::max<int>(0, yrPos) - std::max<int>(0, yrNeg));
       if (controller->m_deadZones.useDeadzones) {
         if (std::abs(xr) > controller->m_deadZones.substickDeadZone) {
           xr = std::clamp((xr * 72) / 32768, -72, 72);
@@ -937,10 +939,10 @@ u32 PADRead(PADStatus* status) {
     if (g_blockPAD) {
       neutralize_status(status[i]);
     } else {
-      apply_unblock_suppression(status[i], i, captureHeldInput);
       if (g_virtualPadActive[i]) {
         merge_virtual_status(status[i], g_virtualPadStatus[i]);
       }
+      apply_unblock_suppression(status[i], i, captureHeldInput);
     }
   }
   return rumbleSupport;

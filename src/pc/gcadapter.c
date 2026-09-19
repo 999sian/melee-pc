@@ -102,6 +102,29 @@ static bool s_present[GC_SLOTS];
 static uint8_t s_origin[GC_SLOTS][6];
 static uint64_t s_combo_since[GC_SLOTS]; /* X+Y+Start held since (ns), 0 = not held */
 
+/* Publish a complete report under a short copy-only lock. Device I/O and
+ * parsing remain worker-owned; virtual pads are written only by the main thread. */
+static atomic_flag s_snapshot_lock = ATOMIC_FLAG_INIT;
+static PADStatus s_published_status[GC_SLOTS];
+static bool s_published_present[GC_SLOTS];
+static _Atomic unsigned char s_motor_request[GC_SLOTS];
+
+static void lock_snapshot(void) {
+    while (atomic_flag_test_and_set_explicit(&s_snapshot_lock, memory_order_acquire)) {
+    }
+}
+
+static void unlock_snapshot(void) {
+    atomic_flag_clear_explicit(&s_snapshot_lock, memory_order_release);
+}
+
+static void publish_snapshot(void) {
+    lock_snapshot();
+    memcpy(s_published_status, s_status, sizeof(s_status));
+    memcpy(s_published_present, s_present, sizeof(s_present));
+    unlock_snapshot();
+}
+
 /* Cross-thread snapshot for the HUD: raw[6] | present<<48 | wireless<<49. */
 static _Atomic uint64_t s_raw[GC_SLOTS];
 static _Atomic uint64_t s_reports;
@@ -121,10 +144,6 @@ static void clear_slot(int i) {
     memset(&s_status[i], 0, sizeof(s_status[i]));
     s_combo_since[i] = 0;
     atomic_store_explicit(&s_raw[i], 0, memory_order_relaxed);
-    /* Port 1 (i==0) is owned by keyboard.c's merge; it clears it when quiet. */
-    if (i != 0) {
-        PADClearVirtualStatus((u32)i);
-    }
 }
 
 static void try_open(void) {
@@ -179,6 +198,7 @@ static void close_dev(const char* why) {
     for (int i = 0; i < GC_SLOTS; i++) {
         clear_slot(i);
     }
+    publish_snapshot();
 }
 
 static s8 rel8(uint8_t v, uint8_t origin) {
@@ -268,12 +288,6 @@ static void parse_slot(int i, const uint8_t* s, uint64_t now_ns) {
         snap |= 1ull << 49;
     }
     atomic_store_explicit(&s_raw[i], snap, memory_order_relaxed);
-
-    /* Port 1 is merged with keyboard/touch by pc_keyboard_apply (it owns
-     * that slot); the other three go straight to aurora. */
-    if (i != 0) {
-        PADSetVirtualStatus((u32)i, st);
-    }
 }
 
 static void update_rumble(const uint8_t* slots) {
@@ -285,10 +299,11 @@ static void update_rumble(const uint8_t* slots) {
     for (int i = 0; i < GC_SLOTS; i++) {
         const uint8_t* s = slots + 9 * i;
         uint8_t v = 0;
+        const unsigned char motor = atomic_load_explicit(&s_motor_request[i], memory_order_relaxed);
         if (s_present[i] && (s[0] & GC_SLOT_RUMBLE_POWER) && !(s[0] & GC_SLOT_WIRELESS) &&
-            HSD_Rumble_804C22E0[i].last_status < 3)
+            motor < 3)
         {
-            v = k_motor[HSD_Rumble_804C22E0[i].last_status];
+            v = k_motor[motor];
         }
         if (s_rumble[1 + i] != v) {
             s_rumble[1 + i] = v;
@@ -333,16 +348,44 @@ void pc_gcadapter_poll(void) {
         for (int i = 0; i < GC_SLOTS; i++) {
             parse_slot(i, last + 1 + 9 * i, now);
         }
+        publish_snapshot();
         update_rumble(last + 1);
     }
 }
 
+/* Called at the main-thread input boundary before PADRead. Port 1 is merged
+ * with keyboard/touch by keyboard.c; this function owns ports 2 through 4. */
+void pc_gcadapter_apply(void) {
+    PADStatus status[GC_SLOTS];
+    bool present[GC_SLOTS];
+    lock_snapshot();
+    memcpy(status, s_published_status, sizeof(status));
+    memcpy(present, s_published_present, sizeof(present));
+    unlock_snapshot();
+    for (int i = 0; i < GC_SLOTS; i++) {
+        atomic_store_explicit(
+            &s_motor_request[i], HSD_Rumble_804C22E0[i].last_status, memory_order_relaxed);
+        if (i != 0) {
+            if (present[i]) {
+                PADSetVirtualStatus((u32)i, &status[i]);
+            } else {
+                PADClearVirtualStatus((u32)i);
+            }
+        }
+    }
+}
+
 bool pc_gcadapter_status(int port, PADStatus* out) {
-    if (port < 0 || port >= GC_SLOTS || !s_present[port]) {
+    if (port < 0 || port >= GC_SLOTS || out == NULL) {
         return false;
     }
-    *out = s_status[port];
-    return true;
+    lock_snapshot();
+    const bool present = s_published_present[port];
+    if (present) {
+        *out = s_published_status[port];
+    }
+    unlock_snapshot();
+    return present;
 }
 
 bool pc_gcadapter_raw(int port, uint8_t raw[6], bool* wireless) {

@@ -319,92 +319,62 @@ std::vector<Release> parse_github_releases(std::string_view json) {
     return releases;
 }
 
-std::string select_best_asset(
-    const std::vector<Asset>& assets, std::string& out_url, size_t& out_size) {
+constexpr std::string_view current_platform() {
 #if defined(__ANDROID__)
-    for (const auto& a : assets) {
-        if (a.name.find(".apk") != std::string::npos) {
-            out_url = a.download_url;
-            out_size = a.size;
-            return a.name;
-        }
-    }
+    return "Android";
 #elif defined(_WIN32)
-    for (const auto& a : assets) {
-        if (a.name.find("Windows") != std::string::npos && a.name.find(".zip") != std::string::npos)
-        {
-            out_url = a.download_url;
-            out_size = a.size;
-            return a.name;
-        }
-    }
-    for (const auto& a : assets) {
-        if (a.name.find(".zip") != std::string::npos) {
-            out_url = a.download_url;
-            out_size = a.size;
-            return a.name;
-        }
-    }
+    return "Windows";
+#elif defined(__APPLE__) && defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
+    return "iOS";
+#elif defined(__APPLE__)
+    return "macOS";
+#elif defined(__linux__)
+    return "Linux";
 #else
-    // Linux
-#if defined(__x86_64__) || defined(_M_X64)
-    constexpr std::string_view target_arch = "x86_64";
-    constexpr std::string_view alt_arch = "x86-64";
-#elif defined(__aarch64__) || defined(_M_ARM64)
-    constexpr std::string_view target_arch = "aarch64";
-    constexpr std::string_view alt_arch = "arm64";
+    return "";
+#endif
+}
+
+constexpr std::string_view current_architecture() {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    return "arm64";
+#elif defined(__x86_64__) || defined(_M_X64)
+    return "x86_64";
 #else
-    constexpr std::string_view target_arch = "";
-    constexpr std::string_view alt_arch = "";
+    return "";
 #endif
+}
 
-    auto matches_arch = [&](const std::string& name) {
-        if (target_arch.empty()) {
-            return true;
-        }
-        return name.find(target_arch) != std::string::npos ||
-               name.find(alt_arch) != std::string::npos;
-    };
-
-    for (const auto& a : assets) {
-        if (a.name.find(".AppImage") != std::string::npos && matches_arch(a.name)) {
-            out_url = a.download_url;
-            out_size = a.size;
-            return a.name;
-        }
+std::string select_best_asset(const std::vector<Asset>& assets, std::string& out_url,
+    size_t& out_size, std::string_view platform = current_platform(),
+    std::string_view architecture = current_architecture()) {
+    // Never retain a previous release's URL, or replace a working executable
+    // with an asset for another OS/CPU when this release is incomplete.
+    out_url.clear();
+    out_size = 0;
+    if (platform.empty() || architecture.empty()) {
+        return "";
     }
-    for (const auto& a : assets) {
-        if (a.name.find("linux") != std::string::npos &&
-            a.name.find(".tar.gz") != std::string::npos &&
-            matches_arch(a.name))
-        {
-            out_url = a.download_url;
-            out_size = a.size;
-            return a.name;
-        }
+    std::vector<std::string> names;
+    const std::string arch(architecture);
+    if (platform == "Linux") {
+        const std::string linux_arch = architecture == "arm64" ? "aarch64" : arch;
+        names = {"Melee-" + linux_arch + ".AppImage", "melee-linux-" + linux_arch + ".tar.gz"};
+    } else if (platform == "Windows" || platform == "macOS") {
+        names = {"Melee-" + std::string(platform) + "-" + arch + ".zip"};
+    } else if (platform == "Android") {
+        names = {"Melee-Android-" + arch + ".apk"};
+    } else if (platform == "iOS") {
+        names = {"Melee-iOS-" + arch + ".ipa"};
     }
-    // Fallback if no architecture-specific asset matches
-    for (const auto& a : assets) {
-        if (a.name.find(".AppImage") != std::string::npos) {
-            out_url = a.download_url;
-            out_size = a.size;
-            return a.name;
+    for (const auto& name : names) {
+        for (const auto& asset : assets) {
+            if (asset.name == name && !asset.download_url.empty()) {
+                out_url = asset.download_url;
+                out_size = asset.size;
+                return asset.name;
+            }
         }
-    }
-    for (const auto& a : assets) {
-        if (a.name.find("linux") != std::string::npos &&
-            a.name.find(".tar.gz") != std::string::npos)
-        {
-            out_url = a.download_url;
-            out_size = a.size;
-            return a.name;
-        }
-    }
-#endif
-    if (!assets.empty()) {
-        out_url = assets[0].download_url;
-        out_size = assets[0].size;
-        return assets[0].name;
     }
     return "";
 }
@@ -757,15 +727,17 @@ void start_download_async() {
         download_url = g_updater_state.target_asset_url;
         asset_name = g_updater_state.target_asset_name;
         total_bytes = g_updater_state.download_total_bytes;
-        if (download_url.empty()) {
-            open_release_in_browser();
-            return;
+        if (!download_url.empty()) {
+            g_updater_state.status = Status::Downloading;
+            g_updater_state.download_progress = 0.0f;
+            g_updater_state.download_current_bytes = 0;
+            g_updater_state.download_total_bytes = total_bytes;
+            g_updater_state.message = "Downloading update...";
         }
-        g_updater_state.status = Status::Downloading;
-        g_updater_state.download_progress = 0.0f;
-        g_updater_state.download_current_bytes = 0;
-        g_updater_state.download_total_bytes = total_bytes;
-        g_updater_state.message = "Downloading update...";
+    }
+    if (download_url.empty()) {
+        open_release_in_browser();
+        return;
     }
     g_cancel = false;
 

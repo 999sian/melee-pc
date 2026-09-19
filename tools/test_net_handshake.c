@@ -512,6 +512,15 @@ int main(void) {
         printf("ok 13: READY with a differing unlock state refused, restore undoes the force\n");
     }
 
+    net.tick_frame = 300;
+    load_fresh(sess_a, 1);
+    net.tick_frame = 300 + HS_LEAD_FRAMES;
+    s_out_len = -1;
+    handshake_msg(REL_RULES, rules_a, sizeof rules_a);
+    assert(net.hs == HS_FAILED);
+    assert(s_out_len == -1);
+    assert(!s_unlock_saved);
+
     printf("test_net_handshake: all checks passed\n");
     return 0;
 }

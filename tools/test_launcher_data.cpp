@@ -6,6 +6,9 @@
 #include <thread>
 #include <unistd.h>
 
+// Disc-open diagnostics are supplied by the game executable in production.
+extern "C" void pc_log_line(const char*, ...) {}
+
 int main(int argc, char** argv) {
     using namespace launcher;
     auto dir = std::filesystem::temp_directory_path() /

@@ -347,6 +347,12 @@ static void on_rules(const uint8_t* payload, int len) {
         net.hs = HS_FAILED;
         return;
     }
+    if (ru.start_frame <= net.tick_frame) {
+        pc_log_line("net: RULES rejected: start_frame %d already reached (frame %d)",
+            ru.start_frame, net.tick_frame);
+        net.hs = HS_FAILED;
+        return;
+    }
     /* Pin our unlock surface, then check the host's came out the same. Both
      * sides write the same constant, so a mismatch means the two builds
      * disagree about what "all unlocked" is -- one peer would run with a
@@ -379,10 +385,6 @@ static void on_rules(const uint8_t* payload, int len) {
     net.start_frame = ru.start_frame;
     *HSD_RandSeedPtr = net.seed;
     rules_apply(&ru, true);
-    if (net.start_frame <= net.tick_frame) {
-        pc_log_line("net: RULES late, start_frame %d already passed (frame %d)", net.start_frame,
-            net.tick_frame);
-    }
     wire_ready(&rd);
     if (!pc_net_send_reliable(REL_READY, &rd, sizeof rd)) {
         pc_log_line("net: READY not queued, reliable queue full");

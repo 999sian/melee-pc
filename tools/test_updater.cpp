@@ -1,67 +1,70 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-#include "pc/updater.hpp"
-#include "pc/version.hpp"
+// Include the implementation to exercise private state without network or a browser.
+#include "../src/pc/updater.cpp"
 #include <cassert>
-#include <chrono>
 #include <iostream>
-#include <thread>
 
-int main() {
-    using namespace pc;
+static std::string opened_url;
+extern "C" bool SDL_OpenURL(const char* url) {
+    opened_url = url;
+    return true;
+}
 
-    std::cout << "Testing Melee-PC Updater...\n";
-    std::cout << "Current App Version: " << get_app_version() << "\n";
-
-    // Test async check
-    updater::check_for_updates_async(true);
-
-    // Wait up to 5 seconds for network check
-    for (int i = 0; i < 50; ++i) {
-        auto state = updater::get_state();
-        if (state.status != updater::Status::Checking) {
-            std::cout << "Check finished with status " << static_cast<int>(state.status) << ": "
-                      << state.message << "\n";
-            if (!state.latest_release.tag_name.empty()) {
-                std::cout << "Latest release found: " << state.latest_release.tag_name << " ("
-                          << state.latest_release.name << ")\n";
-                std::cout << "Target asset: " << state.target_asset_name
-                          << " (size: " << state.download_total_bytes << " bytes)\n";
-            }
-            break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+int main(int argc, char**) {
+    using namespace pc::updater;
+    if (argc > 1) {
+        g_updater_state.status = Status::UpdateAvailable;
+        g_updater_state.latest_release.html_url = "https://example.com/release";
+        start_download_async();
+        assert(opened_url == "https://example.com/release");
+        assert(get_state().status == Status::UpdateAvailable);
+        std::cout << "PASS: asset-free release opens browser without deadlocking\n";
+        return 0;
     }
-
-    auto final_state = updater::get_state();
-    assert(final_state.status == updater::Status::UpToDate ||
-           final_state.status == updater::Status::UpdateAvailable ||
-           final_state.status == updater::Status::Failed);
-
-    // Test cancellation
-    updater::check_for_updates_async(true);
-    updater::cancel();
-    auto canceled_state = updater::get_state();
-    assert(canceled_state.status != updater::Status::Checking);
-
-    // Version comparisons against the version this binary actually reports.
-    // Deliberately not spelled as "the next release": pinning a literal like
-    // v0.1.8-beta here means the test fails the moment the app reaches it,
-    // which is every release.
-    assert(is_update_available(get_app_version(), "v99.0.0"));
-    assert(!is_update_available(get_app_version(), get_app_version()));
-    assert(!is_update_available(get_app_version(), "v0.0.1-beta"));
-
-    // A release strictly derived from the running version, so this keeps
-    // testing the real comparison after any bump.
-    const SemVer self = SemVer::parse(get_app_version());
-    assert(self.valid);
-    const std::string newer =
-        "v" + std::to_string(self.major) + "." + std::to_string(self.minor + 1) + ".0";
-    const std::string older = "v" + std::to_string(self.major) + "." + std::to_string(self.minor) +
-                              "." + std::to_string(self.patch) + "-alpha";
-    assert(is_update_available(get_app_version(), newer));
-    assert(!is_update_available(get_app_version(), older));
-
-    std::cout << "PASS: Updater async check, cancellation, and state transitions\n";
-    return 0;
+    std::string url = "stale URL";
+    size_t size = 123;
+    assert(select_best_asset({}, url, size).empty());
+    assert(url.empty() && size == 0);
+#if defined(__linux__) && defined(__x86_64__)
+    std::vector<Asset> incompatible{{"Melee-aarch64.AppImage", "arm", 1}};
+    assert(select_best_asset(incompatible, url, size).empty());
+#endif
+    const std::vector<Asset> releases{
+        {"Melee-aarch64.AppImage", "linux-arm", 10},
+        {"Melee-Windows-arm64.zip", "windows-arm", 20},
+        {"Melee-macOS-arm64.zip", "mac-arm", 30},
+        {"Melee-x86_64.AppImage", "linux-x86", 40},
+        {"Melee-Windows-x86_64.zip", "windows-x86", 50},
+        {"Melee-macOS-x86_64.zip", "mac-x86", 60},
+        {"Melee-Android-arm64.apk", "android", 70},
+        {"Melee-iOS-arm64.ipa", "ios", 80},
+        {"melee-linux-x86_64.tar.gz", "tar", 90},
+    };
+    struct Case {
+        const char* platform;
+        const char* arch;
+        const char* url;
+        size_t size;
+    };
+    for (const auto& c : std::vector<Case>{{"Linux", "arm64", "linux-arm", 10},
+             {"Windows", "arm64", "windows-arm", 20}, {"macOS", "arm64", "mac-arm", 30},
+             {"Linux", "x86_64", "linux-x86", 40}, {"Windows", "x86_64", "windows-x86", 50},
+             {"macOS", "x86_64", "mac-x86", 60}, {"Android", "arm64", "android", 70},
+             {"iOS", "arm64", "ios", 80}})
+    {
+        assert(!select_best_asset(releases, url, size, c.platform, c.arch).empty());
+        assert(url == c.url && size == c.size);
+    }
+    assert(select_best_asset(releases, url, size, "Linux", "riscv64").empty());
+    assert(url.empty() && size == 0);
+    assert(select_best_asset(
+        {{"Melee-x86_64.AppImage.sha256", "checksum", 1}}, url, size, "Linux", "x86_64")
+            .empty());
+    assert(select_best_asset({{"melee-linux-x86_64.tar.gz", "tar", 90}}, url, size, "Linux",
+               "x86_64") == "melee-linux-x86_64.tar.gz");
+    assert(select_best_asset({{"Melee-x86_64.AppImage", "", 40}}, url, size, "Linux", "x86_64")
+            .empty());
+    assert(pc::is_update_available(pc::get_app_version(), "v99.0.0"));
+    assert(!pc::is_update_available(pc::get_app_version(), pc::get_app_version()));
+    std::cout << "PASS: asset selection rejects incompatible releases\n";
 }

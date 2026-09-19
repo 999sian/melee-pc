@@ -2,8 +2,10 @@
 
 ## Unit tests
 
-Launcher settings, version parsing and the updater have unit tests, the same
-job CI runs:
+Launcher settings, version parsing, endian helpers, THP decoding and the updater
+have unit tests. On Linux the suite also covers netplay recovery, handshakes,
+LAN start fencing, reliable messages, controller remapping and adapter snapshot
+publication. The same suite runs in CI:
 
 ```sh
 ninja -C build unit_tests && ctest --test-dir build -L melee --output-on-failure

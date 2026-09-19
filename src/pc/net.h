@@ -35,6 +35,10 @@ int pc_net_local_player(void);
 /* Frame of the tick being simulated (-1 before the first); identical on both
  * peers, so a scene change scheduled for a given frame lands in sync. */
 int32_t pc_net_frame(void);
+/* Scheduled lobby exit, including a still-pending host handshake. */
+int32_t pc_net_start_frame(void);
+/* Service transport without advancing simulation (lobby start fence). */
+void pc_net_poll(void);
 
 /* RNG seed agreed for the session (pc_net_connect / match handshake). */
 uint32_t pc_net_seed(void);

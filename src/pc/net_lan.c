@@ -1093,6 +1093,14 @@ static void poll_connecting(uint64_t now) {
         }
         return;
     }
+    if (!pc_net_active()) {
+        int why = pc_net_peer_status();
+        fail(why == PC_NET_PEER_INCOMPATIBLE ? "incompatible version" :
+             why == PC_NET_PEER_RESUME       ? "could not resume" :
+             why == PC_NET_PEER_LEFT         ? "peer left" :
+                                               "connection lost");
+        return;
+    }
     if (s_barrier_ns == 0) {
         bool ok = s_hosting ? pc_net_host_match(s_seed, &s_start_frame) :
                               pc_net_guest_wait_match(&s_seed, &s_start_frame);
@@ -1109,6 +1117,10 @@ static void poll_connecting(uint64_t now) {
         int n;
         while ((n = pc_net_recv_reliable(&type, buf, sizeof buf)) >= 0) {
             if (type == REL_READY_BARRIER) {
+                if (pc_net_frame() > s_start_frame) {
+                    fail("ready barrier arrived after the start frame");
+                    return;
+                }
                 timer_stop();
                 s_state = 2;
                 pc_log_line("lan: match start seed=%08x start_frame=%d as P%d", s_seed,
@@ -1118,13 +1130,7 @@ static void poll_connecting(uint64_t now) {
             pc_log_line("lan: dropped reliable type %02x (%d bytes) before the match", type, n);
         }
     }
-    if (!pc_net_active()) {
-        int why = pc_net_peer_status();
-        fail(why == PC_NET_PEER_INCOMPATIBLE ? "incompatible version" :
-             why == PC_NET_PEER_RESUME       ? "could not resume" :
-             why == PC_NET_PEER_LEFT         ? "peer left" :
-                                               "connection lost");
-    } else if (pc_net_handshake_state() == 3) {
+    if (pc_net_handshake_state() == 3) {
         fail("handshake failed");
     } else if (s_barrier_ns != 0 && now - s_barrier_ns > TIMEOUT_NS) {
         fail("peer never became ready");
@@ -1187,6 +1193,23 @@ void pc_lan_poll(void) {
         }
     } else if (s_state == 1) {
         poll_connecting(now);
+        /* Keep the lobby's scheduled OnFrame on this frame until the peer
+         * is ready. Pump the transport here: advancing another game tick
+         * would let the two lobbies leave on different frames. The host's
+         * schedule is known even while it is still waiting for READY. */
+        while (s_state == 1 && !s_offer_pending && pc_net_start_frame() >= 0 &&
+               pc_net_frame() >= pc_net_start_frame())
+        {
+            if (pc_net_frame() > pc_net_start_frame()) {
+                fail("match start frame already passed");
+                break;
+            }
+            pc_net_poll();
+            poll_connecting(SDL_GetTicksNS());
+            if (s_state == 1) {
+                SDL_DelayNS(1000000);
+            }
+        }
     }
 }
 

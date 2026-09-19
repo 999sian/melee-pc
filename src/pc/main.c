@@ -423,7 +423,7 @@ static void pc_env_file_bootstrap(void) {
             while (n > 0 && (val[n - 1] == '\n' || val[n - 1] == '\r' || val[n - 1] == ' ')) {
                 val[--n] = '\0';
             }
-            setenv(s, val, 0); /* 0: never clobber a real environment value */
+            SDL_setenv_unsafe(s, val, 0); /* 0: never clobber a real environment value */
         }
         fclose(f);
 #if defined(__ANDROID__)
