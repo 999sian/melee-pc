@@ -1498,8 +1498,17 @@ into a submenu; the way back to a known state is three B presses to the title
 `MELEE_NET_EXIT_AFTER_FRAMES` ends both sides: the instance that reaches the
 frame first sends BYE, and its peer — a frame or two behind on the synced
 clock — takes that BYE within 16 frames of its own target as the same end
-(`exit_if_test_done`, `net.c:997-1003`), which is what lets a passing run exit
+(`exit_if_test_done`, `net.c:1048-1054`), which is what lets a passing run exit
 0 on both sides instead of being killed at the title.
+
+There are two paths that notice a BYE, and until now only one of them honoured
+that: `recv_inputs()` inside `fresh_tick` (`net.c:1678-1681`), and the bail-out
+when the game thread is parked in `wait_remote()` (`net.c:906-907`, handled at
+`net.c:1695-1711`). Once one-way delay is high enough to stall nearly every
+frame, the BYE almost always lands in the stall loop, so the stalling side ran
+past its own target, never printed `net: test done`, and was SIGKILLed — which
+the harness reports identically to a netplay failure. That is what the
+`--delay 100` row was measuring. Both paths now call `exit_if_test_done()`.
 
 **Row status.** Two things have to be read together here, because the batch
 fixed two defects mid-flight: the 19-row matrix below was run on the rebuilt
@@ -1719,6 +1728,18 @@ to the objdump gate allowlist in `tools/package_windows.sh`).
   DESYNC, `pad slips 0` — where they had failed in every previous run. The
   destructive precondition still occurred 751 times in a passing run and no
   longer costs an input.
+
+  *Re-measured after the BYE fix above.* `--delay 100` was NOT a desync: it
+  ran 15 600 frames, 1834/1854 rollbacks at max depth 8, zero lost, zero
+  DESYNC on either side, and failed only because the stalling peer was killed
+  at shutdown. It passes now. `--delay 200` is a real desync and still is:
+  11 400 frames, 2250/2258 rollbacks, zero lost, then DESYNC at frame 11377
+  (a) / 11378 (b) at ~405 ms ping. So the defect is real but was over-scoped:
+  it needs roughly twice the latency and four times the frames that were
+  previously attributed to it, which also means every run that "reproduced" it
+  quickly was probably reproducing the shutdown race instead. Re-confirm the
+  one-unit `dmg.x1830_percent` signature against a 200 ms capture before
+  trusting it.
 
   *What is left, precisely:* `--delay 100`, `--delay 200`, `reorder` and the
   clean row under heavy load still desync, always with `pad slips 0`, and six
