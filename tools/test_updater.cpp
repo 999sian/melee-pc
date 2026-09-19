@@ -57,13 +57,12 @@ int main(int argc, char**) {
     }
     assert(select_best_asset(releases, url, size, "Linux", "riscv64").empty());
     assert(url.empty() && size == 0);
-    assert(select_best_asset(
-        {{"Melee-x86_64.AppImage.sha256", "checksum", 1}}, url, size, "Linux", "x86_64")
-            .empty());
-    assert(select_best_asset({{"melee-linux-x86_64.tar.gz", "tar", 90}}, url, size, "Linux",
-               "x86_64") == "melee-linux-x86_64.tar.gz");
-    assert(select_best_asset({{"Melee-x86_64.AppImage", "", 40}}, url, size, "Linux", "x86_64")
-            .empty());
+    const std::vector<Asset> checksums{{"Melee-x86_64.AppImage.sha256", "checksum", 1}};
+    const std::vector<Asset> tarball{{"melee-linux-x86_64.tar.gz", "tar", 90}};
+    const std::vector<Asset> missing_url{{"Melee-x86_64.AppImage", "", 40}};
+    assert(select_best_asset(checksums, url, size, "Linux", "x86_64").empty());
+    assert(select_best_asset(tarball, url, size, "Linux", "x86_64") == tarball[0].name);
+    assert(select_best_asset(missing_url, url, size, "Linux", "x86_64").empty());
     assert(pc::is_update_available(pc::get_app_version(), "v99.0.0"));
     assert(!pc::is_update_available(pc::get_app_version(), pc::get_app_version()));
     std::cout << "PASS: asset selection rejects incompatible releases\n";
