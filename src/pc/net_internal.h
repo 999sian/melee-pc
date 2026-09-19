@@ -223,7 +223,8 @@ typedef struct DelayMsg {
  * costs one peer more ticks than the other cannot put the next scene on
  * different frames (docs/netcode-plan.md section 5.2). */
 typedef struct SceneMsg {
-    uint32_t frame;
+    uint32_t seq;   /* exits the sender has completed: pairs the two halves */
+    uint32_t frame; /* the frame its scene asked to end on */
 } __attribute__((packed)) SceneMsg;
 
 _Static_assert(sizeof(WirePad) == 8, "wire layout");
@@ -236,7 +237,7 @@ _Static_assert(sizeof(Rules) == 16 + sizeof(GameRules) + 22, "wire layout");
 _Static_assert(sizeof(Ready) == 24, "wire layout");
 _Static_assert(sizeof(Resume) == 20 && sizeof(Resume) % 4 == 0, "wire layout");
 _Static_assert(sizeof(DelayMsg) == 8, "wire layout");
-_Static_assert(sizeof(SceneMsg) == 4, "wire layout");
+_Static_assert(sizeof(SceneMsg) == 8, "wire layout");
 
 /* Datagrams parked by the simulator; release_ns 0 marks a free slot. Sent in
  * release order, so plain delay stays FIFO and jitter reorders. */

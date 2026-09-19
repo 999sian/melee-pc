@@ -400,11 +400,17 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
         for (i = 0; i < pad_queue_count; i++) {
             HSD_PerfSetStartTime();
 #ifdef TARGET_PC
+            /* A scene that has asked to end does not get its frame function
+             * again: it would re-run the exit path once per held frame
+             * (measured: seven "lobby: entering CSS" lines and seven re-seeds
+             * from one hand-off). The tick still runs, so pads are consumed
+             * and GObjs animate, but the decision is made once. */
+            void (*frame_fn)(void) = s_scene_end_held != 0 ? NULL : on_frame;
             pc_net_sync();
-            gm_RunSimTick(on_frame, temp_r25);
+            gm_RunSimTick(frame_fn, temp_r25);
             /* Rollback / sync test: re-run this tick from a restored snapshot. */
             while (pc_net_after_tick()) {
-                gm_RunSimTick(on_frame, temp_r25);
+                gm_RunSimTick(frame_fn, temp_r25);
             }
             /* Per TICK, not per pad batch: a batch is however many pad
              * periods the last load let pile up, so checking once per batch

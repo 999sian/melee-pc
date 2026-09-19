@@ -1017,10 +1017,19 @@ int pc_net_local_player(void) {
  * plus a lead that covers the reliable round trip. This is the pattern the
  * lobby already uses to hand over to the CSS (pc_lan_start_frame). */
 #define SCENE_HANDOFF 20 /* frames of lead: ~330 ms, menus are lockstep */
+#define SCENE_SLOTS 8    /* announcements kept: the peer may be a scene ahead */
 
-static int32_t s_scene_exit_local = -1;  /* frame our scene asked to end on */
-static int32_t s_scene_exit_remote = -1; /* the peer's, from REL_SCENE */
-static int32_t s_scene_exit_at = -1;     /* agreed frame, once both are in */
+/* Every hand-off carries the count of scene exits the sender has made, and a
+ * peer's frame is only ever paired with the exit of the same number. Without
+ * it a late retransmit or an early announcement is indistinguishable from
+ * this scene's answer: one peer then agrees a frame from the PREVIOUS scene,
+ * releases immediately while the other is still waiting, and the sims part
+ * on the frame that peer enters the next scene (measured tablet<->PC, "peer
+ * 121" against an exit asked at 5775). */
+static uint32_t s_scene_seq;                     /* exits we have completed */
+static int32_t s_scene_exit_local = -1;          /* frame our scene asked to end on */
+static int32_t s_scene_exit_at = -1;             /* agreed frame, once both are in */
+static int32_t s_scene_exit_remote[SCENE_SLOTS]; /* the peer's, by its own seq */
 
 void net_scene_rel(const void* payload, int len) {
     SceneMsg m;
@@ -1029,11 +1038,15 @@ void net_scene_rel(const void* payload, int len) {
         return;
     }
     memcpy(&m, payload, sizeof m);
-    s_scene_exit_remote = (int32_t)ntohl(m.frame);
+    s_scene_exit_remote[ntohl(m.seq) % SCENE_SLOTS] = (int32_t)ntohl(m.frame);
 }
 
 static void scene_handoff_reset(void) {
-    s_scene_exit_local = s_scene_exit_remote = s_scene_exit_at = -1;
+    s_scene_seq = 0;
+    s_scene_exit_local = s_scene_exit_at = -1;
+    for (int i = 0; i < SCENE_SLOTS; i++) {
+        s_scene_exit_remote[i] = -1;
+    }
 }
 
 /* True while the caller must keep ticking the scene it has asked to leave.
@@ -1042,25 +1055,27 @@ bool pc_net_scene_hold(void) {
     if (!net.active) {
         return false;
     }
+    int32_t* remote = &s_scene_exit_remote[s_scene_seq % SCENE_SLOTS];
     if (s_scene_exit_local < 0) {
-        SceneMsg m = {htonl((uint32_t)net.frame)};
+        SceneMsg m = {htonl(s_scene_seq), htonl((uint32_t)net.frame)};
         s_scene_exit_local = net.frame;
         pc_net_send_reliable(REL_SCENE, &m, sizeof m);
     }
-    if (s_scene_exit_remote < 0) {
+    if (*remote < 0) {
         return true; /* the peer is still in the scene: wait for its frame */
     }
     if (s_scene_exit_at < 0) {
-        int32_t later =
-            s_scene_exit_remote > s_scene_exit_local ? s_scene_exit_remote : s_scene_exit_local;
+        int32_t later = *remote > s_scene_exit_local ? *remote : s_scene_exit_local;
         s_scene_exit_at = later + SCENE_HANDOFF;
-        pc_log_line("net: scene ends at frame %d (asked %d, peer %d)", s_scene_exit_at,
-            s_scene_exit_local, s_scene_exit_remote);
+        pc_log_line("net: scene %u ends at frame %d (asked %d, peer %d)", s_scene_seq,
+            s_scene_exit_at, s_scene_exit_local, *remote);
     }
     if (net.frame < s_scene_exit_at) {
         return true;
     }
-    scene_handoff_reset();
+    *remote = -1;
+    s_scene_exit_local = s_scene_exit_at = -1;
+    s_scene_seq++;
     return false;
 }
 
