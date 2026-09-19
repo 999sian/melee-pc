@@ -90,6 +90,12 @@ void SDL_DelayNS(Uint64 ns) {
     }
 }
 
+/* The load-stall fixture's sleep; never armed here (no MELEE_NET_STALL_TEST),
+ * but net.c references it. */
+void SDL_Delay(Uint32 ms) {
+    s_now += (Uint64)ms * 1000000ull;
+}
+
 SDL_Mutex* SDL_CreateMutex(void) {
     return NULL;
 }
@@ -348,6 +354,10 @@ static void setup(void) {
     s_remote_have = HAVE;
     s_last_acked = ACKED;
     s_heard = true;
+    /* wait_remote() times silence from the last datagram, not from the start
+     * of the wait, so an established session has to carry both halves of
+     * "we have heard from this peer" -- rx_dispatch() sets them together. */
+    s_last_rx_ns = s_now;
     s_rc_window_ms = RECONNECT_MS;
     for (int32_t f = 0; f <= WROTE; f++) {
         s_local_ring[f & (RING - 1)].button = (uint16_t)(0x1000 + f);
@@ -362,10 +372,19 @@ static void setup(void) {
     memset(s_resume_raw, 0, sizeof s_resume_raw);
 }
 
+/* Both helpers below stand in for a datagram off the socket, so they carry
+ * rx_dispatch()'s tail: the peer has been heard from, now. wait_remote()
+ * reads that clock to tell a loading peer from a lost one. */
+static void peer_heard(void) {
+    s_heard = true;
+    s_last_rx_ns = s_now;
+}
+
 /* The peer's half of the exchange. */
 static void peer_resume(uint32_t session, uint32_t seed, int32_t newest, int32_t have) {
     Resume r = {session, seed, newest, have, newest - 2};
     wire_resume(&r);
+    peer_heard();
     net_resume_rel(&r, (int)sizeof r);
 }
 
@@ -383,6 +402,7 @@ static void peer_pads(int32_t first, int32_t last) {
     for (int i = 0; i < pk.count; i++) {
         pk.pads[i].button = (uint16_t)(0x2000 + first + i);
     }
+    peer_heard();
     on_inputs(&pk, (int)(offsetof(Packet, pads) + (size_t)pk.count * sizeof(WirePad)));
 }
 
@@ -591,6 +611,34 @@ static void case_connect_timeout(void) {
     assert(!logged("reconnecting"));
 }
 
+/* A peer whose game thread is inside a load keeps its sender running (net.c
+ * tx_timer, every 7 ms) while no new frame is ever written. That is not a
+ * lost peer and must not open a reconnect phase, however long it lasts:
+ * timing it from the start of the wait instead of from the last datagram is
+ * what dropped phone<->PC sessions at the CSS->match hand-off, after a 7 s
+ * freeze and a resume window that could not be answered. */
+static void step_peer_talks_without_advancing(void) {
+    /* Re-deliver a frame we already hold: liveness, no progress. */
+    peer_pads(HAVE, HAVE);
+    if ((s_now - s_t0) / 1000000ull >= 40000) {
+        peer_pads(HAVE + 1, 199); /* the load finished; the wait can end */
+    }
+}
+
+static void case_loading_peer_is_not_silent(void) {
+    printf("case: a peer that talks but does not advance is not silent\n");
+    setup();
+    s_t0 = s_now;
+    s_step = step_peer_talks_without_advancing;
+    assert(wait_remote(199)); /* the session survives a 40 s load */
+    assert((s_now - s_t0) / 1000000ull >= 40000);
+    assert(s_rc == RSM_NONE);
+    assert(s_resume_sends == 0);
+    assert(!logged("reconnecting"));
+    assert(!logged("peer silent"));
+    assert(s_status == PC_NET_PEER_OK);
+}
+
 /* A session whose handshake never finished must fail fast: the lobby reports
  * the failure from the very thread parked here, so a phase would turn a 7 s
  * "connect failed" into a 22 s hang (tools/net_lan_test.py host_dies). */
@@ -731,6 +779,7 @@ int main(void) {
     case_disabled();
     case_queue_full_retries();
     case_connect_timeout();
+    case_loading_peer_is_not_silent();
     case_handshake_pending_fails_fast();
     case_young_session_fails_fast();
     case_handshake_done_resumes_young();

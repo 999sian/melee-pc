@@ -608,11 +608,12 @@ connect time rather than a desync at the first in-fight frame.
 | State | Limit | Where | On expiry |
 |---|---|---|---|
 | Connected, no packet from the peer yet | 60 s (`CONNECT_TIMEOUT_MS`) | `net_internal.h:101`, `wait_remote` `net.c:863` | `PEER_TIMEOUT`, `net: peer silent for 60000 ms`, disconnect. Never resumed: there is nothing to resume to |
-| Stall on an established session (remote more than the window behind, or lockstep waiting) | 7 s (`STALL_TIMEOUT_MS`) | `net_internal.h:100`, `net.c:863-868` | opens the reconnect phase (§6.5); if that is disabled or the session is not established, `PEER_TIMEOUT` and `net: peer silent for 7000 ms at frame N, leaving netplay` |
+| Stall on an established session (remote more than the window behind, or lockstep waiting) | 7 s (`STALL_TIMEOUT_MS`) **of silence, counted from the last datagram** (`s_last_rx_ns`, stamped in `rx_dispatch`) | `net_internal.h:100`, `wait_remote` | opens the reconnect phase (§6.5); if that is disabled or the session is not established, `PEER_TIMEOUT` and `net: peer silent for 7000 ms at frame N, leaving netplay` |
+| Peer that keeps sending but never advances (it is loading) | 120 s (`NO_PROGRESS_TIMEOUT_MS`) | `wait_remote` | `PEER_TIMEOUT` and `net: peer still sending but stuck at frame N for 120000 ms, leaving netplay`. No reconnect phase: nothing was ever interrupted |
 | Reconnect phase | 15 s (`RECONNECT_MS`, `MELEE_NET_RECONNECT_MS`) | `net.c:80`, `resume_poll` | `net: resume window of 15000 ms expired at frame N`, then the unchanged silence lines and `PEER_TIMEOUT` |
 | While stalled: resend our inputs | every 16 ms | `net.c:869-872` | — |
 | Stall longer than 500 ms | marks `s_stall_frame` | `net.c:882-884` | `pc_net_quality()` reports 2 for the next 120 frames (`net.c:1016`) |
-| Keepalive while the game thread is not ticking | empty input packet every 500 ms | `tx_timer`, `net.c:283-292` | keeps the peer's silence timer and NAT mapping fresh |
+| Liveness while the game thread is not ticking (a load) | the newest input packet again every 7 ms | `tx_timer`, `net.c:286-293` | keeps the peer's silence clock and the NAT mapping fresh, which is what makes a load distinguishable from a lost peer. (A separate 500 ms empty-packet keepalive used to sit here; the 7 ms resend refreshes the same timestamp, so it could never fire and is gone) |
 | Reliable message unacked | resend every 250 ms (`REL_RESEND_NS`) | `net_reliable.c:24`, `rel_service` `:66` | resends until acked or disconnect; no separate give-up |
 | Match handshake (RULES → READY) | 15 s (`HS_TIMEOUT_MS`) | `net_handshake.c:100`, `:344` | `pc_net_handshake_state()` = 3, lobby fails with "handshake failed" (`net_lan.c:982`) |
 | Handshake lead | 120 frames (`HS_LEAD_FRAMES`) | `net_handshake.c:101`, `:372` | `start_frame` = host frame + 120 so READY has 2 s to arrive |
@@ -750,6 +751,25 @@ window still sets `PC_NET_PEER_TIMEOUT` and still logs `net: peer silent for
 7000 ms at frame N, leaving netplay` then `net: disconnected at frame N
 (status 2)`, and `MELEE_NET_RECONNECT_MS=0` restores the old behaviour bit for
 bit.
+
+What counts as silence is the other half of this, and it was wrong for
+longer: the stall clock used to run from the start of the wait, so a peer
+that was talking the whole time but not *advancing* looked identical to one
+that had vanished. A game thread inside a load is exactly that peer — it
+cannot tick, so no new frame is ever written, while `tx_timer` keeps the
+newest input packet going out every 7 ms. Every load longer than 7 s
+therefore opened a reconnect phase that the loading peer could not answer
+(its reliable rx also runs on the parked thread), and every load longer
+than `STALL_TIMEOUT_MS + RECONNECT_MS` ended the match. Measured on
+phone↔PC: both peers froze on "NOW LOADING" at the CSS→match hand-off, the
+host logged `peer silent 7000 ms` in the same window it reported
+`loss 0% (2938 tx 2936 rx)`, and the session died 22 s later.
+`wait_remote()` now times silence from `s_last_rx_ns` — stamped in
+`rx_dispatch()` for every accepted datagram — and bounds the alive-but-stuck
+case separately with `NO_PROGRESS_TIMEOUT_MS`. `tools/net_test.py
+--load-stall SECONDS` is the regression: it parks B's game thread with
+`MELEE_NET_STALL_TEST=frame:ms` while its sender runs, and fails the row if
+either peer so much as opens a reconnect phase.
 
 `s_rc` has three states and only ever moves on the stall path: `RSM_NONE` →
 `RSM_ACTIVE` (`resume_begin`, from `wait_remote` when we have heard the peer,
@@ -1463,7 +1483,7 @@ injection: `echo "Return 150" > fifo`).
 
 | Harness | What it covers | Last state |
 |---|---|---|
-| `tools/net_test.py` | two instances through a real match on this machine, asserting on both logs (both reach `net: test done`, exit 0, no DESYNC, no `peer silent`, no lost rollback), link simulator standing in for `tc`; `--lan` walks the real menus, `--scenes` the flow to the SSS, `--oom FRAME` the snapshot-failure path, `--disconnect [a\|b]` the hard drop (with `a` as its own injection), `--stall SECONDS` and `--reconnect-ms` the resume phase | clean and OOM rows pass on the rebuilt binary; the flow row is bounded by a game-side defect, below |
+| `tools/net_test.py` | two instances through a real match on this machine, asserting on both logs (both reach `net: test done`, exit 0, no DESYNC, no `peer silent`, no lost rollback), link simulator standing in for `tc`; `--lan` walks the real menus, `--scenes` the flow to the SSS, `--oom FRAME` the snapshot-failure path, `--disconnect [a\|b]` the hard drop (with `a` as its own injection), `--stall SECONDS` and `--reconnect-ms` the resume phase, `--load-stall SECONDS` a peer whose game thread is parked while its sender runs (a load: must not interrupt at all) | clean, OOM, disconnect, stall and load-stall rows pass on the rebuilt binary; the flow row is bounded by a game-side defect, below |
 | `tools/net_acceptance.py` | the same over the link matrix (loss 0/1/5/20 %, one-way 50/100/200 ms, burst, reorder, jitter, dup, asymmetric rx) plus the flow, OOM, disconnect, resume and soak rows; `--only "name,name"`, `--table` to print without running, per-row persistence in `<work>/rows.json`, and every row stamped with the binary's md5 | rows inherit the match precondition; the full matrix and the 60-minute soak were still running when this was written |
 | `tools/net_lan_test.py` | lobby paths a match run never reaches, on the menu-less fixtures: simultaneous Start (exactly one host), direct connect with no discovery, a peer SIGKILLed mid-lobby (`lan: lost` inside the 5 s TTL), the elected host SIGKILLed while the guest connects (`lan: failed:` in ~7 s, which is the `session_established()` gate of §6.5) | all four pass |
 | `tools/net_determinism.py` | M0: one canonical recording replayed per platform, plus a `linux-record` row so a recording defect cannot pass as a platform divergence; two independent verdicts per row, a mandatory byte-flip sensitivity check, and `--state-log` for field-level localisation (§5.1) | linux-record and linux identical, linux-flip caught at exactly the injected frame, **windows diverges at frame 479**, Android/macOS SKIPPED |

@@ -49,6 +49,7 @@ import time
 # boot seen and check_match() fails a row whose match did not get its minutes.
 BOOT_FRAMES = 9000
 CACHE_ROOT = "/tmp/melee_net_cache"  # kept between runs; keyed by port, never shared
+LOAD_STALL_FRAME = 900  # --load-stall: session up, menus lockstep, every frame waits
 SIM_ENV = {  # CLI flag -> (env knob, value) in src/pc/net.c's link simulator
     "jitter": ("MELEE_NET_SIM_JITTER_MS", "20"),
     "reorder": ("MELEE_NET_SIM_REORDER", "10"),
@@ -760,6 +761,29 @@ def check_scenes(a, b):
     return fails
 
 
+def check_load_stall(a, b):
+    """--load-stall: B's game thread parks mid-run while its tx timer keeps
+    sending (MELEE_NET_STALL_TEST, net.c). That is a load -- a stage, a
+    character, a first-time shader compile on a phone -- not a lost peer, so
+    the link must carry it with no reconnect phase at all. "peer silent" is
+    already a failure pattern for every row; what this adds is that the
+    session must not even be *interrupted*, because a reconnect that is
+    entered on a talking peer is the bug that dropped phone<->PC sessions at
+    the CSS->match hand-off (silence was timed from the start of the wait
+    rather than from the last datagram).
+
+    The stall must also actually have happened: an injection that silently
+    did nothing would pass every other assertion in the row."""
+    fails = []
+    if "net: stall test:" not in b.text():
+        fails.append("b never ran the stall injection (MELEE_NET_STALL_TEST did not fire)")
+    for inst in (a, b):
+        if "interrupted at frame" in inst.text():
+            fails.append(f"{inst.name} opened a reconnect phase for a peer that never "
+                         "stopped sending")
+    return fails
+
+
 def check_oom(inst, oom_frame):
     """--oom: the counters, not just the log line. A snapshot that cannot be
     taken pins the barrier at INT32_MAX (net.c:961-964), which stops every
@@ -1133,6 +1157,10 @@ def parse_args(argv=None):
     ap.add_argument("--stall", type=float, default=0, metavar="SECONDS",
                     help="SIGSTOP B mid-match for SECONDS, then SIGCONT: inside the reconnect "
                          "window the session must survive, past it it must expire with status 2")
+    ap.add_argument("--load-stall", type=float, default=0, metavar="SECONDS",
+                    help="park B's game thread for SECONDS mid-run while its sender keeps "
+                         "running (a load, not a lost peer): the session must carry it with no "
+                         "reconnect phase, however long it is")
     ap.add_argument("--reconnect-ms", type=int, default=15000,
                     help="MELEE_NET_RECONNECT_MS for --stall (net.c's own default is 15000)")
     ap.add_argument("--fuzz", action="store_true", help="run tools/net_fuzz.py against A")
@@ -1168,6 +1196,10 @@ def run(args):
     sim_a = dict(sim)
     if args.oom:
         sim_a["MELEE_NET_SIM_OOM_FRAME"] = str(args.oom)
+    if args.load_stall:
+        # B only, and well past boot so the session is established: the wait
+        # this exercises is the one a scene hand-off makes, not the connect.
+        sim["MELEE_NET_STALL_TEST"] = f"{LOAD_STALL_FRAME}:{int(args.load_stall * 1000)}"
     shutil.rmtree(args.work, ignore_errors=True)
     os.makedirs(args.work)
     a = Instance("a", args.exe, args.disc, args.work, args.port, args.port + 1, sim_a, args.lan)
@@ -1218,6 +1250,9 @@ def run(args):
         # a 7 s hiccup on a loaded machine must not end a 60-minute soak.
         term = (r"net: DESYNC", r"peer silent for \d+ ms at frame \d+, leaving netplay",
                 r"net: disconnected", r"cannot roll back")
+        # A deliberate load stall is exactly "no frame progress", so the
+        # watchdog has to outlast it or the row kills the run it is measuring.
+        quiet_budget = 25 + args.load_stall
         last_frame, last_progress = -1, time.time()
         while time.time() < deadline and (a.proc.poll() is None or b.proc.poll() is None):
             time.sleep(1)
@@ -1227,8 +1262,9 @@ def run(args):
             fr = max([int(x) for x in re.findall(r"net: frame (\d+)", texts)] or [-1])
             if fr > last_frame:
                 last_frame, last_progress = fr, time.time()
-            elif time.time() - last_progress > 25 and last_frame >= 0:
-                print("net_test: no frame progress for 25 s, giving up", flush=True)
+            elif time.time() - last_progress > quiet_budget and last_frame >= 0:
+                print(f"net_test: no frame progress for {quiet_budget:.0f} s, giving up",
+                      flush=True)
                 break
     finally:
         if work is not None:
@@ -1247,6 +1283,8 @@ def run(args):
     # identical `lobby: entering CSS at frame N, seed S` on both peers.
     extra = [] if args.scenes else check_entry(a, b)
     extra += check_scenes(a, b) if args.scenes else check_oom(a, args.oom) if args.oom else []
+    if args.load_stall:
+        extra += check_load_stall(a, b)
     results = []
     for inst in (a, b):
         fails, line, st = summarize(inst, need_match=not args.scenes)

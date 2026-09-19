@@ -9,6 +9,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,69 @@ int melee_main(void);
 
 #if defined(__ANDROID__)
 #include <android/log.h>
+#endif
+
+#if defined(__ANDROID__)
+/* Android writes crash backtraces to a protobuf tombstone under /data, which
+ * an unrooted device only surfaces through `adb bugreport` -- two minutes per
+ * iteration, and the rotation drops them faster than that when the app is
+ * crash-looping. So unwind in-process and put the frames straight in logcat.
+ * dladdr gives the library and the nearest exported symbol; the offsets are
+ * what `addr2line -f -C -e libmelee.so` wants. */
+#include <dlfcn.h>
+#include <signal.h>
+#include <unistd.h>
+#include <unwind.h>
+
+typedef struct {
+    int n;
+} MeleeUnwindState;
+
+static _Unwind_Reason_Code melee_unwind_frame(struct _Unwind_Context* ctx, void* arg) {
+    MeleeUnwindState* st = (MeleeUnwindState*)arg;
+    uintptr_t pc = _Unwind_GetIP(ctx);
+    if (pc == 0 || st->n >= 32) {
+        return _URC_END_OF_STACK;
+    }
+    Dl_info info;
+    memset(&info, 0, sizeof info);
+    if (dladdr((void*)pc, &info) != 0 && info.dli_fname != NULL) {
+        const char* base = strrchr(info.dli_fname, '/');
+        __android_log_print(ANDROID_LOG_FATAL, "melee", "  #%02d pc %012zx  %s (%s+%zu)", st->n,
+            (size_t)(pc - (uintptr_t)info.dli_fbase), base ? base + 1 : info.dli_fname,
+            info.dli_sname ? info.dli_sname : "?",
+            info.dli_saddr ? (size_t)(pc - (uintptr_t)info.dli_saddr) : (size_t)0);
+    } else {
+        __android_log_print(ANDROID_LOG_FATAL, "melee", "  #%02d pc %016zx  ?", st->n, (size_t)pc);
+    }
+    st->n++;
+    return _URC_NO_REASON;
+}
+
+static void melee_fatal_signal(int sig, siginfo_t* si, void* uc) {
+    (void)uc;
+    __android_log_print(ANDROID_LOG_FATAL, "melee", "FATAL signal %d at %p (tid %d)", sig,
+        si ? si->si_addr : NULL, (int)gettid());
+    MeleeUnwindState st = {0};
+    _Unwind_Backtrace(melee_unwind_frame, &st);
+    /* Hand back to the default handler so a real tombstone is still written. */
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void melee_install_crash_handler(void) {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_sigaction = melee_fatal_signal;
+    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&sa.sa_mask);
+    const int sigs[] = {SIGSEGV, SIGABRT, SIGBUS, SIGILL, SIGFPE};
+    for (size_t i = 0; i < sizeof sigs / sizeof sigs[0]; i++) {
+        sigaction(sigs[i], &sa, NULL);
+    }
+}
+#else
+static void melee_install_crash_handler(void) {}
 #endif
 
 /* A log file sink, so a double-clicked build still leaves a diagnosable
@@ -301,7 +365,65 @@ static AuroraBackend backend_from_env(void) {
     return BACKEND_AUTO;
 }
 
+/* Android has no way to hand a process an environment: `am start` passes
+ * extras, not env, so every MELEE_* knob -- the netplay fixtures, the heap
+ * check, the log file -- is unreachable on a phone, which is exactly where
+ * they are hardest to do without. Read them from a file next to the disc
+ * instead, one NAME=VALUE per line, '#' comments ignored, existing
+ * environment always winning so a shell-set value is never overridden.
+ * Harmless on desktop: no file, no effect. */
+static void pc_env_file_bootstrap(void) {
+    const char* paths[] = {
+#if defined(__ANDROID__)
+        "/sdcard/Android/data/dev.melee.game/files/melee-env.txt",
+#endif
+        "melee-env.txt",
+    };
+    for (size_t i = 0; i < sizeof paths / sizeof paths[0]; i++) {
+        FILE* f = fopen(paths[i], "r");
+        if (f == NULL) {
+#if defined(__ANDROID__)
+            /* Straight to logcat: this runs before the aurora log callback is
+             * installed, so pc_log_line() would be dropped and the knobs would
+             * look silently inert. */
+            __android_log_print(
+                ANDROID_LOG_INFO, "melee", "env: no %s (errno %d)", paths[i], errno);
+#endif
+            continue;
+        }
+        char line[512];
+        while (fgets(line, sizeof line, f) != NULL) {
+            char* s = line;
+            while (*s == ' ' || *s == '\t') {
+                s++;
+            }
+            if (*s == '#' || *s == '\n' || *s == '\0') {
+                continue;
+            }
+            char* eq = strchr(s, '=');
+            if (eq == NULL) {
+                continue;
+            }
+            *eq = '\0';
+            char* val = eq + 1;
+            size_t n = strlen(val);
+            while (n > 0 && (val[n - 1] == '\n' || val[n - 1] == '\r' || val[n - 1] == ' ')) {
+                val[--n] = '\0';
+            }
+            setenv(s, val, 0); /* 0: never clobber a real environment value */
+        }
+        fclose(f);
+#if defined(__ANDROID__)
+        __android_log_print(ANDROID_LOG_INFO, "melee", "env: applied %s", paths[i]);
+#endif
+        pc_log_line("env: applied %s", paths[i]);
+        return;
+    }
+}
+
 MELEE_EXPORT int main(int argc, char* argv[]) {
+    melee_install_crash_handler(); /* before anything can crash */
+    pc_env_file_bootstrap();       /* before anything calls getenv() */
 #if defined(_WIN32)
     SetUnhandledExceptionFilter(crash_handler);
 #endif

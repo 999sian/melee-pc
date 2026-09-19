@@ -59,6 +59,8 @@ static int32_t s_remote_ck_frame = -1;
 static uint32_t s_remote_ck;
 static uint32_t s_ck_ring[RING]; /* our checksum entering each frame */
 static bool s_heard;             /* any packet from the peer yet */
+static uint64_t s_last_rx_ns;    /* when the last accepted datagram arrived */
+static bool s_no_progress;       /* the wait ended on a talking peer that never advanced */
 static PADStatus s_raw_last;     /* newest physical sample (port 0) */
 static int s_status;             /* pc_net_peer_status(); kept until the next connect */
 static bool s_peer_left;         /* BYE received or version mismatch: stop waiting */
@@ -281,16 +283,12 @@ static Uint32 SDLCALL tx_timer(void* ud, SDL_TimerID id, Uint32 interval) {
     tx_flush();
     rel_service();
     uint64_t now = SDL_GetTicksNS();
+    /* Slippi's mid-frame resend, and the only liveness the peer gets while
+     * this side's game thread is inside a load: it keeps going at 7 ms even
+     * when no new frame is ever written, which is what wait_remote's silence
+     * clock reads. */
     if (s_last_valid && now - s_last_send_ns >= 7000000ull) {
         send_packet(&s_last_pkt);
-        s_last_send_ns = now;
-    }
-    if (s_last_valid && now - s_last_send_ns >= 500000000ull) {
-        /* Keepalive while the game thread is not ticking (a load): an empty
-         * input packet keeps the peer's silence timer and NAT mapping fresh. */
-        Packet ka = s_last_pkt;
-        ka.count = 0;
-        send_packet(&ka);
         s_last_send_ns = now;
     }
     SDL_UnlockMutex(net.tx_lock);
@@ -558,6 +556,7 @@ static void rx_dispatch(void* buf, int n) {
         return;
     }
     s_heard = true;
+    s_last_rx_ns = SDL_GetTicksNS();
 }
 
 /* Drain the socket. A datagram is dropped, with one log line per session
@@ -890,7 +889,18 @@ static void resume_end(uint64_t now) {
  *
  * An established session that falls silent past the stall timeout enters the
  * reconnect phase above rather than ending; before the peer's first packet
- * there is nothing to resume, so that wait keeps its own timeout. */
+ * there is nothing to resume, so that wait keeps its own timeout.
+ *
+ * "Silent" is measured from the last datagram the peer sent, NOT from the
+ * start of this wait. A peer whose game thread is inside a load -- a stage,
+ * a character, a first-time shader compile on a phone -- stops advancing for
+ * seconds while tx_timer keeps its input window flowing every 7 ms. Timing
+ * that out as silence killed the session on every slow load and froze the
+ * transition screen ("NOW LOADING") until the reconnect window expired.
+ * A peer that talks but never advances still has to end somewhere, so a
+ * no-progress cap bounds the wait; it is minutes, not seconds, because a
+ * cold-cache load on a phone is legitimately tens of seconds. */
+#define NO_PROGRESS_TIMEOUT_MS 120000
 static bool wait_remote(int32_t need) {
     if (s_remote_have >= need) {
         return true;
@@ -911,10 +921,18 @@ static bool wait_remote(int32_t need) {
             if (!resume_poll(now)) {
                 return false;
             }
-        } else if (now - t0 > (s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS) * 1000000ull) {
-            if (!s_heard || !resume_begin(now)) {
-                s_status = PC_NET_PEER_TIMEOUT;
-                return false;
+        } else {
+            /* Before the first packet there is no rx clock, so the connect
+             * wait is still measured from t0. */
+            uint64_t quiet = s_heard ? now - s_last_rx_ns : now - t0;
+            uint64_t limit = (s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS) * 1000000ull;
+            bool stuck = now - t0 > NO_PROGRESS_TIMEOUT_MS * 1000000ull;
+            if (quiet > limit || stuck) {
+                s_no_progress = stuck && quiet <= limit;
+                if (!s_heard || s_no_progress || !resume_begin(now)) {
+                    s_status = PC_NET_PEER_TIMEOUT;
+                    return false;
+                }
             }
         }
         if (now - last_send > 16000000ull) {
@@ -962,7 +980,8 @@ static void session_reset(void) {
     net.resim = false;
     s_remote_have = s_remote_newest = s_last_acked = s_rb_frame = s_remote_ck_frame = -1;
     s_remote_ck = 0;
-    net.desync_reported = s_heard = s_peer_left = false;
+    net.desync_reported = s_heard = s_peer_left = s_no_progress = false;
+    s_last_rx_ns = 0;
     s_warn_src = s_warn_sess = s_warn_bad = false;
     s_status = PC_NET_PEER_OK;
     s_rc = RSM_NONE;
@@ -1659,11 +1678,39 @@ static void seed_out_of_tick_check(void) {
     }
 }
 
+/* MELEE_NET_STALL_TEST=frame[:ms] (fixture): park the game thread mid-match,
+ * standing in for a load the netcode cannot shorten -- a stage, a character,
+ * a first-time shader compile. Only the guest does it, so one exported value
+ * stalls exactly one side of a two-process run. tx_timer keeps sending
+ * throughout, which is the condition wait_remote() has to tell apart from a
+ * peer that is actually gone. */
+static void stall_test(void) {
+    static bool parsed;
+    static int32_t at = -1;
+    static int ms = 10000;
+    if (!parsed) {
+        parsed = true;
+        const char* s = getenv("MELEE_NET_STALL_TEST");
+        if (s != NULL) {
+            const char* colon = strchr(s, ':');
+            at = (int32_t)atoi(s);
+            if (colon != NULL) {
+                ms = atoi(colon + 1);
+            }
+        }
+    }
+    if (at >= 0 && net.frame == at && net.local == 1) {
+        pc_log_line("net: stall test: game thread asleep %d ms at frame %d", ms, at);
+        SDL_Delay((Uint32)ms);
+    }
+}
+
 /* A fresh frame: capture the local sample, exchange inputs, predict or
  * stall, and feed the queue head. `raw` is false for the extra tick a
  * time-sync advance adds, which reuses the last physical sample. */
 static void fresh_tick(PADStatus* head, bool raw) {
     if (net.active) {
+        stall_test();
         if (raw) {
             s_raw_last = head[0];
         }
@@ -1696,8 +1743,14 @@ static void fresh_tick(PADStatus* head, bool raw) {
             /* A refused resume logged its own reason, and the peer was not
              * silent at all: its answer was simply unusable. */
             if (!s_peer_left && s_rc != RSM_FAILED) {
-                pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
-                    s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
+                if (s_no_progress) {
+                    pc_log_line(
+                        "net: peer still sending but stuck at frame %d for %d ms, leaving netplay",
+                        s_remote_newest, NO_PROGRESS_TIMEOUT_MS);
+                } else {
+                    pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
+                        s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
+                }
             }
             /* The BYE can arrive while the game thread is parked in
              * wait_remote() rather than in recv_inputs() above, and that is the

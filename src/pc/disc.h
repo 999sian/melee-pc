@@ -154,6 +154,27 @@ struct DiscMtx {
 #else
 #define DISC_STRUCT __attribute__((scalar_storage_order("big-endian")))
 #endif
+/* MELEE_DP_STRICT: audit build only, never shipped. A disc pointer slot is
+ * 32 bits, which is lossless only while every address fits in 32 bits -- true
+ * on Linux and Windows because the image is linked low on purpose
+ * (-no-pie -Ttext-segment=0x10000000, --image-base 0x10000000), and false on
+ * Android and Apple, where PIE puts the library and the malloc heap above
+ * 4 GB. Any store that bypasses pc_encode_dp() therefore truncates silently
+ * there. Wrapping the slot in a struct makes the compiler enumerate every
+ * such site instead of leaving it to a grep: a raw `slot = ptr` stops
+ * compiling, while DP()/DP_SET() keep working unchanged. */
+#ifdef MELEE_DP_STRICT
+typedef struct DISC_STRUCT {
+    uint32_t v;
+} DiscSlot;
+#define DISC_PTR(T) DiscSlot
+#define DP(T, slot) ((T*)pc_resolve_dp((slot).v))
+#define DP_ARR(T, slot, i) DP(T, DP(DiscU32, slot)[i].v)
+#define DP_SET(slot, p)                                                                            \
+    do {                                                                                           \
+        (slot).v = pc_encode_dp((const void*)(p));                                                 \
+    } while (0)
+#else
 #define DISC_PTR(T) uint32_t
 #define DP(T, slot) ((T*)pc_resolve_dp((uint32_t)(uintptr_t)(slot)))
 #define DP_ARR(T, slot, i) DP(T, DP(DiscU32, slot)[i].v)
@@ -161,6 +182,7 @@ struct DiscMtx {
     do {                                                                                           \
         (slot) = pc_encode_dp((const void*)(p));                                                   \
     } while (0)
+#endif
 
 #define DISC_ASSERT_SIZE(T, size) _Static_assert(sizeof(T) == (size), #T " disc size")
 
