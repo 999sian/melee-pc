@@ -231,6 +231,12 @@ u32 DVDLowGetCoverStatus(void);
 // DVD QUEUE
 void DVDDumpWaitingQueue(void);
 
+// melee-pc: commands enqueued and not yet completed, callback included. The
+// netplay snapshot refuses to roll back across an in-flight read, and the
+// tick drains on this so a load costs both peers the same number of ticks
+// (src/pc/net.c).
+int aurora_dvd_inflight(void);
+
 #ifdef __cplusplus
 }
 #endif

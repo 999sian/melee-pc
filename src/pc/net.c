@@ -30,6 +30,7 @@
 #include "compat.h"
 #include "pc/net_internal.h"
 
+#include <dolphin/ar.h>
 #include <dolphin/os.h>
 #include <dolphin/vi.h>
 #include <melee/lb/lb_0195.h>
@@ -1760,6 +1761,40 @@ static void seed_out_of_tick_check(void) {
     }
 }
 
+/* How many TICKS a load costs must not depend on this machine's disc speed.
+ * The game polls a read's completion once per tick, so a peer whose file
+ * cache is warm finishes in one tick while the other spends hundreds --
+ * measured tablet<->PC on a real match: the tablet entered the fight at
+ * frame 39470 and this PC at 40353, 883 frames (~15 s) later, with an
+ * identical seed and identical pads, and the session desynced on the first
+ * frame `frame_checksum` folded fighter fields for (it folds them only while
+ * in_fight()). Draining the queue before the tick makes the read complete
+ * inside the tick that issued it, so the poll succeeds on the same tick for
+ * both peers.
+ *
+ * Netplay only, and bounded: a wedged read must not hang the game, and while
+ * this blocks, the peer simply sees the stall that wait_remote() is built to
+ * ride out. */
+static void dvd_settle(void) {
+    if (aurora_dvd_inflight() <= 0 && aurora_arq_inflight() <= 0) {
+        return;
+    }
+    const uint64_t t0 = SDL_GetTicksNS();
+    static bool warned;
+    while (aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0) {
+        if (SDL_GetTicksNS() - t0 > 5000000000ull) {
+            if (!warned) {
+                warned = true;
+                pc_log_line("net: disc/ARAM transfer still in flight after 5 s at frame %d; "
+                            "letting the tick run (loads may cost different tick counts)",
+                    net.frame);
+            }
+            return;
+        }
+        SDL_DelayNS(200000);
+    }
+}
+
 /* MELEE_NET_STALL_TEST=frame[:ms] (fixture): park the game thread mid-match,
  * standing in for a load the netcode cannot shorten -- a stage, a character,
  * a first-time shader compile. Only the guest does it, so one exported value
@@ -1993,6 +2028,7 @@ void pc_net_sync(void) {
     }
     if (net.active) {
         pad_qtype_hold(); /* HSD_PadInit wipes it; the tick depends on it */
+        dvd_settle();
     }
     if (net.active || record_active()) {
         /* Also on the record/replay legs: a recording made with a seed that

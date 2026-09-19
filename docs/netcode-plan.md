@@ -553,14 +553,40 @@ the checksum is *only* the pads and the seed).
    different frames on machines of different speed. `seed_out_of_tick_check`
    restores the seed a tick starts from, netplay only.
 
-**Still open.** A slow device can still leave the fast one's scene entirely:
-an SM-T505 drifted into the attract demo while this PC sat in the LAN lobby,
-after which their sims are simply running different code. Related, a Linux
-recording replays bit-identically on the Pixel but not on the SM-T505,
-because scene progress depends on load time — the same "file-cache hit vs
-miss changes load frame counts" gap listed in §5. And the residual
-single-field desync around frame 3200 of the `--lan` row reproduces on the
-PRE-fix binary and on two identical PCs, so it is not cross-architecture.
+**Scene entry is not frame-aligned; mostly fixed, not closed.** A load spans
+a device-dependent number of SIMULATED frames, because the game polls a
+read's completion once per tick: a peer whose file cache is warm finishes in
+one tick while the other spends hundreds. Both peers then enter the same
+scene on different `net.frame` values and their sims run different code with
+nothing wrong in the arithmetic.
+
+Caught end to end on a real tablet<->PC match (SM-T505 P1 vs this PC P2,
+driven through the genuine online flow: lobby -> CSS -> SSS -> match, with
+`sss: picks P1=14 P2=14 -> 14` on both). The tablet was in the fight at
+frame 39470 and the PC was not — identical seed `cc8a2134`, identical pads —
+and `net: DESYNC` followed at once, because `frame_checksum` folds fighter
+fields only while `in_fight()`. The two logs realigned 883 frames (~15 s)
+later, which is how far apart the peers entered the scene. The tablet
+prewarms 42 archives at boot; this PC read them cold.
+
+`dvd_settle()` (src/pc/net.c) now drains `aurora_dvd_inflight()` and
+`aurora_arq_inflight()` at the top of every netplay tick, so a read
+completes inside the tick that issued it and the poll succeeds on the same
+tick for both peers. Measured on the same pairing: the scene-entry gap fell
+from **883 frames to about 30** (fight entered at 4412 on the PC, 4442 on
+the tablet), which is a 30x improvement but still a desync.
+
+The residual is the remaining deliverable. Draining what the port owns is
+not enough, because some of the per-tick polling waits on work the drain
+does not cover. The robust fix is to stop inferring the transition frame
+from load progress at all and agree it explicitly, the way the lobby already
+hands over to the CSS: each peer announces "ready to enter scene X at frame
+N" over the reliable channel and both enter at `max(Na, Nb)`
+(`gm_Scene_OnlineLobby_OnFrame` + `pc_lan_start_frame` is the pattern).
+
+Separately, the residual single-field desync around frame 3200 of the
+`--lan` row reproduces on the PRE-fix binary and on two identical PCs, so it
+is not cross-architecture either.
 
 ## 6. Transport and protocol
 

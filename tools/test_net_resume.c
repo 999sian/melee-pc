@@ -153,6 +153,13 @@ bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b)
     (void)b;
     return true;
 }
+/* The tick's disc drain; no disc in this harness, so always idle. */
+int aurora_dvd_inflight(void) {
+    return 0;
+}
+int aurora_arq_inflight(void) {
+    return 0;
+}
 void net_addr_text(const struct sockaddr* sa, char* out, size_t cap) {
     (void)sa;
     snprintf(out, cap, "peer");
