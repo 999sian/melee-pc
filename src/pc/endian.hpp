@@ -3,6 +3,8 @@
 
 #include <bit>
 #include <cstdint>
+#include <cstring>
+#include <type_traits>
 
 #include "dolphin/types.h"
 #include "dolphin/mtx.h"
@@ -50,88 +52,141 @@ static inline float RES_F32(float v) {
 }
 
 /*
- * Declares a big-endian type with operator conversions, modeled off Dusklight.
+ * Declares a big-endian type with operator conversions, supporting
+ * arbitrary 1, 2, 4, and 8-byte types, floats, and enums via C++20 if constexpr.
  */
-template <class T>
+template <typename T>
 struct BE {
-    T inner;
-    BE() = default;
-    BE(const T& from) { inner = swap(from); }
+    T inner{};
 
-    T operator--(int) {
-        T orig = inner;
-        *this -= 1;
-        return swap(orig);
+    constexpr BE() = default;
+    constexpr BE(const T& val) { set(val); }
+
+    static constexpr T swap(T val) noexcept {
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        return val;
+#else
+        if constexpr (sizeof(T) == 1) {
+            return val;
+        } else if constexpr (sizeof(T) == 2) {
+            uint16_t u;
+            std::memcpy(&u, &val, 2);
+            u = __builtin_bswap16(u);
+            T out;
+            std::memcpy(&out, &u, 2);
+            return out;
+        } else if constexpr (sizeof(T) == 4) {
+            uint32_t u;
+            std::memcpy(&u, &val, 4);
+            u = __builtin_bswap32(u);
+            T out;
+            std::memcpy(&out, &u, 4);
+            return out;
+        } else if constexpr (sizeof(T) == 8) {
+            uint64_t u;
+            std::memcpy(&u, &val, 8);
+            u = __builtin_bswap64(u);
+            T out;
+            std::memcpy(&out, &u, 8);
+            return out;
+        } else {
+            static_assert(sizeof(T) <= 8, "Unsupported type size for big-endian wrapper");
+            return val;
+        }
+#endif
     }
 
-    T operator++(int) {
-        T orig = inner;
-        *this += 1;
-        return swap(orig);
+    constexpr void set(T val) noexcept {
+        inner = swap(val);
     }
 
-    operator T() const { return swap(inner); }
+    constexpr T host() const noexcept {
+        return swap(inner);
+    }
 
-    T host() const { return swap(inner); }
+    constexpr operator T() const noexcept {
+        return host();
+    }
 
-    static T swap(T val);
+    constexpr BE& operator=(T val) noexcept {
+        set(val);
+        return *this;
+    }
+
+    constexpr BE& operator++() noexcept { *this = static_cast<T>(host() + 1); return *this; }
+    constexpr T operator++(int) noexcept { T orig = host(); *this = static_cast<T>(orig + 1); return orig; }
+    constexpr BE& operator--() noexcept { *this = static_cast<T>(host() - 1); return *this; }
+    constexpr T operator--(int) noexcept { T orig = host(); *this = static_cast<T>(orig - 1); return orig; }
+
+    constexpr BE& operator+=(T val) noexcept { *this = static_cast<T>(host() + val); return *this; }
+    constexpr BE& operator-=(T val) noexcept { *this = static_cast<T>(host() - val); return *this; }
+    constexpr BE& operator*=(T val) noexcept { *this = static_cast<T>(host() * val); return *this; }
+    constexpr BE& operator/=(T val) noexcept { *this = static_cast<T>(host() / val); return *this; }
+
+    template <typename U = T>
+    constexpr auto operator%=(U val) noexcept -> decltype(std::declval<U>() % val, *this) {
+        *this = static_cast<T>(host() % val);
+        return *this;
+    }
+
+    template <typename U = T>
+    constexpr auto operator&=(U val) noexcept -> decltype(std::declval<U>() & val, *this) {
+        *this = static_cast<T>(host() & val);
+        return *this;
+    }
+
+    template <typename U = T>
+    constexpr auto operator|=(U val) noexcept -> decltype(std::declval<U>() | val, *this) {
+        *this = static_cast<T>(host() | val);
+        return *this;
+    }
+
+    template <typename U = T>
+    constexpr auto operator^=(U val) noexcept -> decltype(std::declval<U>() ^ val, *this) {
+        *this = static_cast<T>(host() ^ val);
+        return *this;
+    }
+
+    template <typename U = T>
+    constexpr auto operator<<=(int shift) noexcept -> decltype(std::declval<U>() << shift, *this) {
+        *this = static_cast<T>(host() << shift);
+        return *this;
+    }
+
+    template <typename U = T>
+    constexpr auto operator>>=(int shift) noexcept -> decltype(std::declval<U>() >> shift, *this) {
+        *this = static_cast<T>(host() >> shift);
+        return *this;
+    }
+
+    constexpr T raw() const noexcept { return inner; }
+    constexpr const void* raw_data() const noexcept { return &inner; }
 };
 
-#define BE_ASSIGN_OP(op)                                                                           \
-    template <typename TA, typename TB>                                                            \
-    constexpr BE<TA>& operator op(BE<TA>& a, TB b) {                                               \
-        TA aCopy = a;                                                                              \
-        aCopy op b;                                                                                \
-        a = aCopy;                                                                                 \
-        return a;                                                                                  \
+template <typename T>
+using be_val = BE<T>;
+
+
+template <>
+struct BE<S16Vec> {
+    BE<int16_t> x;
+    BE<int16_t> y;
+    BE<int16_t> z;
+
+    BE() = default;
+    BE(int16_t x, int16_t y, int16_t z) : x(x), y(y), z(z) {}
+    BE(const S16Vec& from) : x(from.x), y(from.y), z(from.z) {}
+
+    operator S16Vec() const { return {x, y, z}; }
+
+    static S16Vec swap(S16Vec val) noexcept {
+        return {
+            BE<int16_t>::swap(val.x),
+            BE<int16_t>::swap(val.y),
+            BE<int16_t>::swap(val.z),
+        };
     }
-
-BE_ASSIGN_OP(&=);
-BE_ASSIGN_OP(|=);
-BE_ASSIGN_OP(+=);
-BE_ASSIGN_OP(-=);
-BE_ASSIGN_OP(/=);
-BE_ASSIGN_OP(^=);
-
-#undef BE_ASSIGN_OP
-
-template <>
-inline uint16_t BE<uint16_t>::swap(uint16_t val) {
-    return RES_U16(val);
-}
-template <>
-inline int16_t BE<int16_t>::swap(int16_t val) {
-    return RES_S16(val);
-}
-template <>
-inline uint32_t BE<uint32_t>::swap(uint32_t val) {
-    return RES_U32(val);
-}
-template <>
-inline int32_t BE<int32_t>::swap(int32_t val) {
-    return RES_S32(val);
-}
-template <>
-inline uint64_t BE<uint64_t>::swap(uint64_t val) {
-    return RES_U64(val);
-}
-template <>
-inline int64_t BE<int64_t>::swap(int64_t val) {
-    return RES_S64(val);
-}
-template <>
-inline float BE<float>::swap(float val) {
-    return RES_F32(val);
-}
-
-template <>
-inline S16Vec BE<S16Vec>::swap(S16Vec val) {
-    return {
-        BE<int16_t>::swap(val.x),
-        BE<int16_t>::swap(val.y),
-        BE<int16_t>::swap(val.z),
-    };
-}
+};
 
 template <>
 struct BE<Vec> {
