@@ -408,8 +408,10 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
             void (*frame_fn)(void) = s_scene_end_held != 0 ? NULL : on_frame;
             pc_net_sync();
             gm_RunSimTick(frame_fn, temp_r25);
-            /* Rollback / sync test: re-run this tick from a restored snapshot. */
-            while (pc_net_after_tick()) {
+            /* Finish rollback / sync-test re-simulation before gating the exit,
+             * but never insert
+             * a fresh tick past an exit request or its agreed boundary. */
+            while (pc_net_after_tick(temp_r25->unk_C != 0 || s_scene_end_held != 0)) {
                 gm_RunSimTick(frame_fn, temp_r25);
             }
             /* Per TICK, not per pad batch: a batch is however many pad

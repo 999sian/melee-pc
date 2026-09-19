@@ -17,7 +17,8 @@ extern "C" {
 /* Wire protocol version; a peer with another one is refused (both sides
  * report PEER_INCOMPATIBLE). Bump on any change to the packet layouts,
  * Rules or the handshake. */
-#define PC_NET_PROTO_VERSION 5
+/* Version 6 requires sequenced scene exits and acknowledged LAN election. */
+#define PC_NET_PROTO_VERSION 6
 void pc_net_init(void);
 bool pc_net_active(void);
 /* True when the simulation must be reproducible elsewhere: netplay,
@@ -58,7 +59,8 @@ void pc_net_sync(void);
 
 /* Called after each tick. Returns true when the tick must be run again
  * (rollback re-simulation or the MELEE_NET_SYNCTEST self-check). */
-bool pc_net_after_tick(void);
+/* Finish rollback/bookkeeping, but defer fresh advances during scene exit. */
+bool pc_net_after_tick(bool scene_ending);
 
 /* Called by the frame boundary (src/pc/vi.c) after the pad alarm ran; the
  * returned ns are added to the next pacing wait. Time-sync skips are paid

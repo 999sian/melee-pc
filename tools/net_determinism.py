@@ -67,15 +67,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import net_test  # fifo_write(): one key line into a MELEE_KEY_FIFO
 
-# src/pc/net_snapshot.c's on-disk format: "MRC1", u32 seed (host order), then
-# one FrameRecord per frame = PADStatus pads[4] then u32 ck. PADStatus is 16
-# bytes on TARGET_PC, not 12: extern/aurora/include/dolphin/pad.h:112-126 adds
-# `u32 extButton` under TARGET_PC. Verified against real recordings (every
-# recorded size is 8 + 68*n) and by compiling the real headers with the
-# project's own flags from build/compile_commands.json.
-REC_MAGIC = b"MRC1"
+# src/pc/net_snapshot.c's on-disk format: "MRC2", u32 seed (host order), then
+# one FrameRecord per frame = PADStatus pads[4], u32 ck, u32 tick-start seed.
+# PADStatus is 16 bytes on TARGET_PC, not 12: dolphin/pad.h adds extButton.
+# tools/test_net_replay_seed.py compiles the real header and recording code
+# and checks the 8 + 72*n layout and checksum/seed offsets independently.
+REC_MAGIC = b"MRC2"
 REC_HDR = 8
-REC_STRIDE = 68
+REC_STRIDE = 72
 PAD_STRIDE = 16
 CK_OFF = 64
 FLIP_OFF = 2  # PADStatus.stickX of pad 0, inside the hashed pad block

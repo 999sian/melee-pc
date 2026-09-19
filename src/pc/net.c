@@ -62,9 +62,13 @@ static uint32_t s_ck_ring[RING]; /* our checksum entering each frame */
 static bool s_heard;             /* any packet from the peer yet */
 static uint64_t s_last_rx_ns;    /* when the last accepted datagram arrived */
 static bool s_no_progress;       /* the wait ended on a talking peer that never advanced */
-static PADStatus s_raw_last;     /* newest physical sample (port 0) */
-static int s_status;             /* pc_net_peer_status(); kept until the next connect */
-static bool s_peer_left;         /* BYE received or version mismatch: stop waiting */
+/* Session-local seed history must not survive a reconnect. */
+static uint32_t s_seed_after_tick;
+static bool s_seed_have;
+static bool s_lockstep;      /* snapshot failure: stop predicting, retain older corrections */
+static PADStatus s_raw_last; /* newest physical sample (port 0) */
+static int s_status;         /* pc_net_peer_status(); kept until the next connect */
+static bool s_peer_left;     /* BYE received or version mismatch: stop waiting */
 static bool s_warn_src, s_warn_sess, s_warn_bad; /* one reject line each per session */
 
 static unsigned s_stalls, s_advances, s_rollbacks, s_rb_lost;
@@ -151,9 +155,10 @@ static bool s_timer_tried;      /* SDL_AddTimer attempted this session */
  *     some frames later, and the match's own loads trail into its first
  *     frames. aurora's in-flight counters cannot narrow that window: the
  *     audio thread streams music through the same path all match;
- *   - a lost rollback (rb_lost) or a snapshot that could not be taken, to
- *     the newest simulated frame;
- *   - INT32_MAX when snapshot memory ran out (lockstep for the session). */
+ *   - a lost rollback (rb_lost), to the newest simulated frame.
+ *
+ * Snapshot failure uses s_lockstep instead: earlier predicted frames must
+ * remain eligible for correction. */
 static int s_scene_last = -1; /* scene_kind() at the last fresh tick */
 static bool s_rb_lost_logged; /* rb_lost: one log per session */
 
@@ -564,6 +569,32 @@ static void rx_dispatch(void* buf, int n) {
     s_last_rx_ns = SDL_GetTicksNS();
 }
 
+/* Reject unknown/truncated datagrams before they can select a peer or fail
+ * compatibility. Body fields remain in wire order here. */
+static bool packet_shape(const void* buf, int n) {
+    const Hdr* h = buf;
+    switch (h->magic) {
+    case 'M': {
+        const Packet* p = buf;
+        return n >= (int)offsetof(Packet, pads) && p->count <= REDUNDANCY &&
+               n == (int)(offsetof(Packet, pads) + p->count * sizeof(WirePad));
+    }
+    case 'A':
+        return n == (int)sizeof(Ack);
+    case 'R': {
+        const Rel* r = buf;
+        return n >= (int)offsetof(Rel, payload) && ntohs(r->len) <= REL_MAX &&
+               n == (int)(offsetof(Rel, payload) + ntohs(r->len));
+    }
+    case 'K':
+        return n == (int)sizeof(RelAck);
+    case 'B':
+        return n == (int)sizeof(Bye);
+    default:
+        return false;
+    }
+}
+
 /* Drain the socket. A datagram is dropped, with one log line per session
  * and reason, unless it comes from the peer's address, carries our protocol
  * version and session id (the guest learns the id from the host's first
@@ -595,36 +626,30 @@ void recv_inputs(void) {
         if (n < (int)sizeof(Hdr)) {
             continue;
         }
-        /* Header first, address second. A peer routinely answers from a
-         * different address than the one we dialled: the lobby may hand us
-         * its IPv6 link-local while its socket replies over IPv4 (measured
-         * phone<->PC: `dropped a datagram from 192.168.1.129 (the peer is
-         * fe80::c0ef:34ff:fe21:910b%3)`, then a 60 s connect timeout), and a
-         * NAT can remap the port. Until the peer has been heard, its
-         * identity is the session id and player number, not its address; it
-         * is pinned from the first accepted datagram onwards. */
+        if (!packet_shape(&u, n)) {
+            continue;
+        }
         wire_hdr(&u.h);
-        if (u.h.version != WIRE_VERSION) {
-            if (!s_peer_left) {
-                s_peer_left = true;
-                s_status = PC_NET_PEER_INCOMPATIBLE;
-                pc_log_line("net: peer speaks protocol %u, we speak %u", u.h.version, WIRE_VERSION);
+        bool same_addr = addr_eq(&from, &net.peer);
+        /* Once pinned, unrelated traffic cannot change any session state.
+         * Before pinning, permit the existing alternate-address discovery,
+         * but never treat another address's version as the peer's version. */
+        if (s_heard && !same_addr) {
+            if (!s_warn_src) {
+                char got[80] = "?", want[80] = "?";
+                net_addr_text((const struct sockaddr*)&from, got, sizeof got);
+                net_addr_text((const struct sockaddr*)&net.peer, want, sizeof want);
+                s_warn_src = true;
+                pc_log_line("net: dropped a datagram from %s (the peer is %s)", got, want);
             }
             continue;
         }
-        if (net.session == 0 && net.local == 1 && u.h.session != 0) {
-            net.session = u.h.session; /* the host picked it */
+        if (u.h.player != net.remote) {
+            continue;
         }
-        /* The guest stamps session 0 until it has seen one of our packets.
-         * If we dialled an address it never answers on -- the lobby handed
-         * us its IPv6 link-local, its socket replies over IPv4 -- our
-         * packets never reach it, so it can never learn the id and every
-         * packet of its own is rejected here: both sides then time out with
-         * a peer that was talking the whole time. Take that one unlearned
-         * datagram; the address block below follows it, and our next packet
-         * teaches the guest the id. */
-        const bool guest_preamble = !s_heard && net.local == 0 && u.h.session == 0;
-        if ((u.h.session != net.session && !guest_preamble) || u.h.player != net.remote) {
+        bool learn_session = net.session == 0 && net.local == 1 && u.h.session != 0;
+        bool guest_preamble = !s_heard && net.local == 0 && u.h.session == 0;
+        if (u.h.session != net.session && !learn_session && !guest_preamble) {
             if (!s_warn_sess) {
                 s_warn_sess = true;
                 pc_log_line(
@@ -633,20 +658,28 @@ void recv_inputs(void) {
             }
             continue;
         }
+        if (u.h.version != WIRE_VERSION) {
+            if (same_addr && !s_peer_left) {
+                s_peer_left = true;
+                s_status = PC_NET_PEER_INCOMPATIBLE;
+                pc_log_line("net: peer speaks protocol %u, we speak %u", u.h.version, WIRE_VERSION);
+            }
+            continue;
+        }
+        if (learn_session) {
+            SDL_LockMutex(net.tx_lock);
+            net.session = u.h.session;
+            SDL_UnlockMutex(net.tx_lock);
+        }
         if (!addr_eq(&from, &net.peer)) {
             char got[80] = "?", want[80] = "?";
             net_addr_text((const struct sockaddr*)&from, got, sizeof got);
             net_addr_text((const struct sockaddr*)&net.peer, want, sizeof want);
-            if (s_heard) {
-                if (!s_warn_src) {
-                    s_warn_src = true;
-                    pc_log_line("net: dropped a datagram from %s (the peer is %s)", got, want);
-                }
-                continue;
-            }
             pc_log_line("net: peer answers from %s, not %s; following it", got, want);
+            SDL_LockMutex(net.tx_lock);
             memcpy(&net.peer, &from, sizeof net.peer);
             net.peer_len = from_len;
+            SDL_UnlockMutex(net.tx_lock);
         }
         if (net.sim_rx_delay_ns == 0) {
             rx_dispatch(&u, n);
@@ -1085,6 +1118,8 @@ static bool s_seen_remote;
 
 static void session_reset(void) {
     scene_handoff_reset();
+    s_seed_have = false;
+    s_lockstep = snapshot_state_region_missing() != NULL;
     s_seen_remote = false;
     memset(s_local_ring, 0, sizeof s_local_ring);
     memset(s_remote_ring, 0, sizeof s_remote_ring);
@@ -1164,6 +1199,7 @@ void pc_net_disconnect(void) {
         send_bye(why);
     }
     net.active = false;
+    net.resim = false;
     sock_close(net.sock);
     net.sock = SOCK_INVALID;
     net.hs = HS_IDLE;
@@ -1504,6 +1540,35 @@ bool pc_net_resim(void) {
     return choke != 0 && (net.resim || net.synctest);
 }
 
+/* Every input wait, including a failed snapshot, has the same disconnect
+ * handling. A failed snapshot must not allow a speculative tick to run. */
+static bool wait_input(int32_t need) {
+    if (wait_remote(need)) {
+        return true;
+    }
+    /* A refused resume logged its own reason, and the peer was not
+     * silent at all: its answer was simply unusable. */
+    if (!s_peer_left && s_rc != RSM_FAILED) {
+        if (s_no_progress) {
+            pc_log_line("net: peer still sending but stuck at frame %d for %d ms, leaving netplay",
+                s_remote_newest, NO_PROGRESS_TIMEOUT_MS);
+        } else {
+            pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
+                s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
+        }
+    }
+    /* The BYE can arrive while the game thread is parked in
+     * wait_remote() rather than in recv_inputs() above, and that is the
+     * usual case once one-way delay is high enough to stall every
+     * frame. Without this the stalling side never ends the test and the
+     * harness kills it, which reads as a netplay failure. */
+    if (s_peer_left) {
+        exit_if_test_done();
+    }
+    pc_net_disconnect();
+    return false;
+}
+
 /* ---- rollback ---------------------------------------------------------
  * One snapshot per predicted frame (Slippi cadence), taken right before the
  * tick that consumes the prediction. When the real input for such a frame
@@ -1518,22 +1583,23 @@ static void predict(int32_t f) {
 
 /* Snapshot before a predicted frame. Behind the barrier nothing is taken
  * (the frame cannot be rolled back to anyway); when the buffer cannot be
- * grown the session drops to lockstep for good rather than mispredicting
- * into a desync. */
-static void snap_predicted(int32_t f) {
+ * grown, disable further prediction without invalidating older snapshots.
+ * The caller must wait for real input before running this frame. */
+static bool snap_predicted(int32_t f) {
     Snapshot* s = snap_slot(f);
-    if (f <= net.rb_barrier) {
-        s->frame = -1;
-        return;
+    if (s_lockstep || f <= net.rb_barrier) {
+        return false;
     }
     if (!snapshot_take(s, f)) {
         /* Out of memory, or a platform whose linker cannot bracket the
          * decomp's statics at all (net_snapshot.c). */
         const char* why = snapshot_state_region_missing();
-        barrier_raise(INT32_MAX);
+        s_lockstep = true;
         pc_log_line("net: %s at frame %d, lockstep from here",
             why != NULL ? why : "out of memory for snapshots", f);
+        return false;
     }
+    return true;
 }
 
 /* MELEE_NET_RESIM_AUDIT_POISON=1: the audit's discarded pass runs with a
@@ -1692,10 +1758,14 @@ static PADStatus* unconsume(void) {
 
 /* Set up the re-run of frame f: refresh its snapshot if it is still
  * predicted (the old one holds the discarded timeline), then feed it. */
-static void resim_prepare(int32_t f) {
+static bool resim_prepare(int32_t f) {
     if (f > s_remote_have) {
-        predict(f);
-        snap_predicted(f);
+        if (!snap_predicted(f) && !wait_input(f)) {
+            return false;
+        }
+        if (f > s_remote_have) {
+            predict(f);
+        }
     }
     PADStatus* head = unconsume();
     if (head == NULL) {
@@ -1726,6 +1796,7 @@ static void resim_prepare(int32_t f) {
     }
     net.tick_frame = f;
     audio_journal_begin(f); /* the re-run replays this frame's audio answers */
+    return true;
 }
 
 static bool rollback_to(int32_t f) {
@@ -1757,6 +1828,9 @@ static bool rollback_to(int32_t f) {
     memcpy(queue, pad.queue, qn * sizeof *queue);
     snapshot_restore(s);
     memcpy(pad.queue, queue, qn * sizeof *queue);
+    /* Rumble nodes and active heads were rewound: their free-list head must
+     * come from that same snapshot, not the discarded live timeline. */
+    pad.rumble_info = HSD_PadLibData.rumble_info;
     HSD_PadLibData = pad;
     OSRestoreInterrupts(intr);
     s_rollbacks++;
@@ -1768,8 +1842,7 @@ static bool rollback_to(int32_t f) {
         s_rb_depth_cur = depth;
     }
     net.resim = true;
-    resim_prepare(f);
-    return true;
+    return resim_prepare(f);
 }
 
 /* ---- per-tick entry --------------------------------------------------- */
@@ -1791,8 +1864,6 @@ static int seed_steps(uint32_t from, uint32_t to) {
  * by the start of the next one: everything between those two points is
  * outside every tick (the render phase, the audio thread), so a draw there
  * is state the rollback re-run can never reproduce. */
-static uint32_t s_seed_after_tick;
-static bool s_seed_have;
 static unsigned s_seed_out_draws, s_seed_out_frames;
 
 /* Called at the top of a tick. The seed is folded into the netplay checksum
@@ -1941,38 +2012,21 @@ static void fresh_tick(PADStatus* head, bool raw) {
         /* Predict at most WINDOW frames past the remote, and only in a
          * fight past the barrier (plan §10.4: menus lockstep, rollback
          * armed in GS_VS once the match's own loads have gone quiet). */
-        bool lockstep = !in_fight() || net.frame <= net.rb_barrier;
+        bool lockstep = s_lockstep || !in_fight() || net.frame <= net.rb_barrier;
         int32_t need = lockstep ? net.frame : net.frame - WINDOW;
-        if (!wait_remote(need)) {
-            /* A refused resume logged its own reason, and the peer was not
-             * silent at all: its answer was simply unusable. */
-            if (!s_peer_left && s_rc != RSM_FAILED) {
-                if (s_no_progress) {
-                    pc_log_line(
-                        "net: peer still sending but stuck at frame %d for %d ms, leaving netplay",
-                        s_remote_newest, NO_PROGRESS_TIMEOUT_MS);
-                } else {
-                    pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
-                        s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
-                }
-            }
-            /* The BYE can arrive while the game thread is parked in
-             * wait_remote() rather than in recv_inputs() above, and that is the
-             * usual case once one-way delay is high enough to stall every
-             * frame. Without this the stalling side never ends the test and the
-             * harness kills it, which reads as a netplay failure. */
-            if (s_peer_left) {
-                exit_if_test_done();
-            }
-            pc_net_disconnect();
+        if (!wait_input(need)) {
             return;
         }
         if ((net.frame % SYNC_INTERVAL) == 0 && net.frame > 0) {
             time_sync();
         }
         if (s_remote_have < net.frame) {
-            predict(net.frame);
-            snap_predicted(net.frame);
+            if (!snap_predicted(net.frame) && !wait_input(net.frame)) {
+                return;
+            }
+            if (s_remote_have < net.frame) {
+                predict(net.frame);
+            }
         }
         /* Re-resolve the slot the next HSD_PadRenewMasterStatus will read.
          * The pointer this tick started with was taken before wait_remote
@@ -2275,7 +2329,7 @@ static void audit_after_run2(void) {
         s_audit_from, s_audit_k, s_audit_ck_bad, s_audit_pure_bad, s_audit_runs);
 }
 
-bool pc_net_after_tick(void) {
+bool pc_net_after_tick(bool scene_ending) {
     s_aj_on = false; /* the tick is over: later audio queries are not its own */
     head_check();    /* did this tick consume the inputs write_head wrote? */
     if (net.synctest) {
@@ -2303,8 +2357,7 @@ bool pc_net_after_tick(void) {
     }
     if (net.resim) {
         if (net.tick_frame + 1 < net.frame) {
-            resim_prepare(net.tick_frame + 1);
-            return true;
+            return resim_prepare(net.tick_frame + 1);
         }
         net.resim = false;
         if (s_audit_running) {
@@ -2346,7 +2399,7 @@ bool pc_net_after_tick(void) {
     }
     check_desync();
     handshake_test();
-    if (net.advance_left > 0 && (net.frame % 5) == 0) {
+    if (!scene_ending && net.advance_left > 0 && (net.frame % 5) == 0) {
         /* Behind the peer: one extra tick this present, once per 5 frames. */
         PADStatus* head = unconsume();
         if (head != NULL) {

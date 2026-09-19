@@ -54,8 +54,9 @@ const char* pc_lan_local_name(void);
 
 /* Local player pressed Start: we advertise state=ready. If a ready peer with
  * a lower install id exists it hosts and we join; otherwise we host the
- * first eligible peer (100 ms after pressing, so a simultaneous Start on the
- * other side is seen first). Returns false if there is no peer yet. */
+ * first eligible peer. Host proposals are acknowledged before opening the
+ * game connection; simultaneous proposals converge on the lower install id.
+ * Returns false if there is no peer yet. */
 bool pc_lan_start_match(void);
 
 /* Skip discovery: session with a known ip + game port, both sides call this

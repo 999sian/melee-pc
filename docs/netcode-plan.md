@@ -5,7 +5,7 @@ Expands ROADMAP.md Phase 4. Everything below is grounded in the current tree
 flow, re-implemented natively; matchmaking and ranked replace Slippi's central
 server with the BitTorrent Mainline DHT and signed, on-device rating records.
 
-**Where this stands.** The wire is v5 (`PC_NET_PROTO_VERSION`, `src/pc/net.h:20`).
+**Where this stands.** The wire is v6 (`PC_NET_PROTO_VERSION`, `src/pc/net.h:20`).
 Netplay plays real matches on Linux x86-64 with rollback, and **M0 is met
 between Linux and Windows**: one 2400-frame recording now replays
 bit-identical on both, with the harness's byte-flip sensitivity row still
@@ -151,10 +151,9 @@ unconditionally and they were the only undefined symbols on the Windows link,
 so netplay could never have run on Windows or macOS at all. Those platforms
 now define the four as an empty span and refuse to snapshot rather than
 copying the heaps while silently omitting every static, which would roll back
-into a desync. `snapshot_state_region_missing()` returns the reason, the
-first predicted frame raises the barrier to `INT32_MAX` and logs
-`net: this platform's linker cannot bracket the decomp's statics at frame N,
-lockstep from here`. The session then plays at lockstep latency — input delay
+into a desync. `snapshot_state_region_missing()` returns the reason, and
+session initialization selects lockstep before any frame can be predicted.
+The session plays at lockstep latency — input delay
 must cover the whole round trip — with no prediction and no desync risk from
 prediction. `ponytail:` the ceiling is named in `net_snapshot.c`; the upgrade
 path is per-object section renaming with `objcopy` at archive level, or a PE
@@ -177,7 +176,13 @@ rises (`barrier_raise`) and is reset per session.
 | Scene change (`scene_kind()` differs from the last fresh tick) | `frame + 120` (`IO_QUIET`, `net_internal.h:104`) | heaps are torn down and rebuilt around it and its loads trail into the next frames; a snapshot also records its scene and cannot be taken back in another (`snapshot_unusable`) |
 | Game-thread disc request (`pc_net_note_io` from `HSD_DevComRequest`, `devcom.c:417`) | `frame + 120` | the tick that issued it cannot be re-run: a restore either double-issues the read (crash in `HSD_DevComDVDMemCallback`) or erases a completion the re-run then waits for forever; the completion lands on a worker thread some frames later |
 | Lost rollback: no snapshot for the frame, behind the barrier, or scene changed (`rollback_to`) | newest simulated frame | the misprediction stays in the timeline, so a desync is expected; one `net: cannot roll back` line per session |
-| Snapshot refused — buffer could not be grown, `MELEE_NET_SIM_OOM_FRAME` fired, or this platform has no state region (`snap_predicted`) | `INT32_MAX` | lockstep for the rest of the session (`net: out of memory for snapshots` / the linker message above) |
+
+Snapshot failure does **not** raise this barrier. It sets a separate lockstep
+flag, waits for the current frame's real input, and preserves earlier snapshots
+until outstanding predictions have been corrected. This also applies during
+re-simulation. Platforms without a snapshot region select lockstep at connect;
+`MELEE_NET_ROLLBACK=off` may still pin the barrier at `INT32_MAX` at connect,
+when no speculative frames exist.
 
 Aurora still exports `aurora_dvd_inflight()`/`aurora_arq_inflight()`
 (`dvd.cpp:687`, `AR.cpp:174`) but the engine no longer consults them: the
@@ -654,7 +659,7 @@ pinned by `_Static_assert` (`net_internal.h:211-219`).
 
 | Struct | Magic | Layout (bytes) | Size | Notes |
 |---|---|---|---|---|
-| `Hdr` | — | `u8 magic, u8 version, u32 session, u8 player` | 7 | prefixes every datagram (`net_internal.h:121-126`). `version` = `PC_NET_PROTO_VERSION` (`net.h:20`, currently **5**). `session` is picked by the host at connect (`net.c:1121`), 0 on the guest until the host's first packet (`net.c:603`). `player` is the sender's port (0/1) |
+| `Hdr` | — | `u8 magic, u8 version, u32 session, u8 player` | 7 | prefixes every datagram (`net_internal.h:121-126`). `version` = `PC_NET_PROTO_VERSION` (`net.h:20`, currently **6**). `session` is picked by the host at connect (`net.c:1121`), 0 on the guest until the host's first packet (`net.c:603`). `player` is the sender's port (0/1) |
 | `WirePad` | — | `u16 button, s8 stickX, stickY, substickX, substickY, u8 triggerLeft, triggerRight` | 8 | Slippi's fields; sticks clamped to 0 within ±2 before sending (`at_rest`, `net_wire.c:10-24`) |
 | `Packet` | `'M'` | `Hdr, u16 seq, s32 newest, s32 first, s32 ck_frame, u32 ck, u8 count, WirePad pads[count]` | 26 + 8·count, count ≤ 16 (`REDUNDANCY`) | `pads[i]` is frame `first+i`; everything since the last ack is repeated, the repeat width scaled by measured loss and rollback depth, with a floor that the resume phase raises (`net_internal.h:128-138`, `send_inputs` `net.c:295-318`). `seq` is the per-session send counter: an exact duplicate is dropped and an out-of-order one still processed (`seq_check`, `net.c:373`), and the ack echoing it is the RTT sample. Sent every tick and again from the 4 ms timer; an empty one every 500 ms is the keepalive while the game thread is loading |
 | `Ack` | `'A'` | `Hdr, u16 seq, s32 frame` | 13 | `frame` = newest contiguous remote frame the sender holds, ignored unless `≤ s_wrote` (a frame we actually sent: a higher one would leave `send_inputs` shipping nothing at all, `on_ack` `net.c:454-460`); `seq` echoes the acked packet, consumed once from a 64-slot ring so a late duplicate cannot skew the RTT (`net.c:462-474`) |
@@ -1082,8 +1087,9 @@ separate sockets on 5353 for IPv4 and IPv6, whichever open (`pc_lan_start`,
 `net_lan.c:816-827`). Every instance announces once a second
 (`ANNOUNCE_NS`) with PTR + SRV + TXT + A/AAAA and answers PTR queries; TXT
 carries `v=<proto> rev=<build> disc=<game image id> id=<install id>
-name=<host> port=<game udp port> state=lobby|ready|starting gen=<start
-attempt>` plus `host=<ip:port> peer=<guest id>` while starting
+name=<host> port=<game udp port> state=lobby|ready|starting|joining gen=<start
+attempt>` plus `host=<ip:port> peer=<chosen peer id>` while starting or joining,
+and `offer=<host generation>` while joining
 (`net_lan.c:5-13`, `announce_on` `:199-243`).
 Peers are keyed by id and connected to at the datagram's source address,
 IPv4 preferred when seen on both families (`:16-18`); our own looped-back
@@ -1102,12 +1108,16 @@ record to `state=ready` and bumps `gen` (`pc_lan_start_match`, `:1075-1085`).
 lower id is visible, it hosts and we wait for its `starting` record to name
 us (`:930-934`, `:1022-1029`); otherwise we host, picking the lowest ready id,
 else the lowest compatible id (`:934-938`), flip to `state=starting
-peer=<their id>`, bump `gen` and open the netplay session as P1
-(`connect_as_host`, `:889-906`). While the host's game thread blocks in the
-first lockstep wait that record is repeated from a 500 ms SDL timer
-(`:254-257`, `:900`). A guest only follows a `starting` record whose `gen`
-is newer than the last one it joined on, so a stale record from an earlier
-attempt cannot re-trigger a connect (`:1024-1026`). The id is
+peer=<their id>` and bump `gen`. With protocol 6, this is a proposal, not yet
+an open P1 session. The guest acknowledges with `state=joining`, the host's ID
+in `peer`, and the proposal's generation in `offer`, then opens P2. A 500 ms
+timer repeats that acknowledgement while P2 waits for P1. The host opens P1
+only after the matching acknowledgement and starts a fresh handshake timeout.
+Two simultaneous proposals converge on the lower install ID while both peers
+can still poll discovery; a stale acknowledgement cannot open a new proposal.
+A guest only follows a `starting` record whose `gen` is newer than the last one
+it joined on. Announcement timers are stopped and drained before state changes.
+The id is
 `pc_install_id() ^ (game_port << 48)` (`:830-832`): the install id is a
 random 64-bit value written to `launcher.cfg` as `install_id` on first run
 (`launcher.cpp:885-886`, `launcher_data.cpp:379-380`, `405-406`), so the
@@ -1119,7 +1129,9 @@ state 2 only once the peer's arrived (`poll_connecting`, `:945-972`), so
 we host as P1, guest …` / `… hosts, joining as P2` (`:896`, `:909`), then
 `lan: match start seed=… start_frame=… as P<n>` (`:966`).
 
-**Compatibility.** A peer is `compatible` only if its TXT `v` equals our
+**Compatibility.** Protocol 6 is required for sequenced scene exits and the
+acknowledged election. Protocol-5 builds must not connect as compatible peers.
+A peer is `compatible` only if its TXT `v` equals our
 `PC_NET_PROTO_VERSION`, its `rev` equals `pc_app_rev()` (the app version,
 `pc.h:66-67`) **and its `disc` equals ours** (`net_lan.c:513-514`).
 Incompatible peers are listed (`PcLanPeer.compatible` →
