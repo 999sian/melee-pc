@@ -1530,7 +1530,9 @@ typedef struct itWhiteBea_ItemVars {
     /* +18 ip+DEC */ s32 x18;
     /* +1C ip+DF0 */ char pad_1C[0x4];
     /* +20 ip+DF4 */ Item_GObj* x20;
+#if !defined(__LP64__)
     /* +24 ip+DF8 */ char pad_24[0x4];
+#endif
     /* +28 ip+DFC */ s32 x28;
     /* +2C ip+E00 */ char pad_2C[0x10];
     /* +3C ip+E10 */ s32 x3C;
