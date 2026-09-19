@@ -32,8 +32,13 @@ Rows:
               nothing looks identical on every platform.
   windows     build-win/melee.exe (tools/package_windows.sh) under Proton
               (tools/run_proton.sh).
-  android /   SKIPPED here, no device and no macOS host; the invocation each
-  macos       would use is printed so the row can be filled on real hardware.
+  android     the APK from dist/ on a device over adb (not in the default
+              --only: it installs and launches on whatever is attached).
+              SKIPPED only when nothing is attached; with a device present
+              every way it can fail - no env file, an unreadable disc, a
+              crash - is a BLOCKED row naming the logcat line that said so.
+  macos       SKIPPED here, no macOS host; the invocation it would use is
+              printed so the row can be filled on real hardware.
 
 Exit 0 when every platform that actually ran was identical (and the flip row
 was caught), 1 otherwise. A platform that never reached the replay is reported
@@ -442,36 +447,243 @@ def replay_windows(args, rec, port):
     return r
 
 
+# ---- android ----------------------------------------------------------------
+#
+# src/pc/main.c:391 hardcodes the one path the app reads its knobs from, so
+# melee-env.txt has to be exactly there; everything else lives beside it
+# because that is the only directory the app can both read and write.
+ANDROID_PKG = "dev.melee.game"
+ANDROID_ACT = "dev.melee.MeleeActivity"
+ANDROID_DIR = f"/sdcard/Android/data/{ANDROID_PKG}/files"
+# adb push must never CREATE a directory under /sdcard/Android/data: the ones
+# it makes are shell:ext_data_rw 0770 and the app then gets EACCES on every
+# file in its own directory, the disc included, which reads as a startup crash
+# (docs/building.md:179-186). Stage here and copy across on the device.
+ANDROID_STAGE = "/sdcard/Download"
+# logcat is the only channel: pc_log_line goes there through main.c:156 and
+# the env bootstrap reports itself there directly (main.c:402) because it runs
+# before any log sink exists. Aurora's own level is LOG_DEBUG on Android
+# (main.c:521), so take the tags we read and silence the rest.
+ANDROID_TAGS = ["melee:V", "Melee:V", "OSReport:I", "AndroidRuntime:E", "DEBUG:V",
+                "libc:F", "*:S"]
+
+ENV_MISSING = re.compile(r"env: no (/sdcard/\S+) \(errno (\d+)\)")
+DISC_FAIL = re.compile(r"disc: (?:cannot open|nod_disc_open|\S+ opened but nod rejected)[^\n]*")
+CRASHED = re.compile(r"(?:Fatal signal \d+[^\n]*|FATAL signal \d+[^\n]*|FATAL EXCEPTION[^\n]*)")
+
+
+def adb(*cmd, timeout=180, check=True):
+    p = subprocess.run(["adb", *cmd], capture_output=True, text=True, timeout=timeout)
+    if check and p.returncode != 0:
+        raise RuntimeError(f"`adb {' '.join(cmd)}` failed ({p.returncode}): "
+                           f"{(p.stderr or p.stdout).strip()[:300]}")
+    return p.stdout
+
+
+def adb_devices():
+    """None when adb is missing at all, so "no tool" and "no device" stay
+    different answers."""
+    if shutil.which("adb") is None:
+        return None
+    out = subprocess.run(["adb", "devices"], capture_output=True, text=True).stdout
+    return [f[0] for f in (line.split() for line in out.splitlines()[1:])
+            if len(f) == 2 and f[1] == "device"]
+
+
+def adb_exists(path):
+    return adb("shell", f"test -e '{path}' && echo yes || echo no").strip() == "yes"
+
+
+def adb_put(local, remote, timeout=600):
+    stage = f"{ANDROID_STAGE}/{os.path.basename(remote)}"
+    adb("push", local, stage, timeout=timeout)
+    adb("shell", "cp", stage, remote, timeout=timeout)
+    adb("shell", "chmod", "666", remote)
+
+
+def android_prepare(args):
+    """Install the APK, make a directory the app can actually use, and put the
+    disc in it. Returns the on-device disc path."""
+    apk = args.android_apk
+    if not os.path.exists(apk):
+        print(f"determinism: [android] {apk} missing, running tools/build_android.sh",
+              flush=True)
+        subprocess.run(["bash", os.path.join(HERE, "build_android.sh")],
+                       cwd=os.path.dirname(HERE), check=True)
+        if not os.path.exists(apk):
+            raise RuntimeError(f"tools/build_android.sh produced no {apk}")
+    print(f"determinism: [android] installing {apk}", flush=True)
+    out = adb("install", "-r", apk, timeout=900)
+    if "Success" not in out:
+        raise RuntimeError(f"adb install said: {out.strip()[:200]}")
+    # Nothing on the app side ever calls getExternalFilesDir(), so this
+    # directory does not exist until something makes it and adb is the only
+    # thing that can. 2777 is the whole fix, setgid bit included: without it
+    # the app's own uid owns the state log it writes, group and all, and
+    # `adb pull` then fails with EACCES; with it new files land in
+    # ext_data_rw, which shell is a member of.
+    adb("shell", "mkdir", "-p", ANDROID_DIR)
+    adb("shell", "chmod", "2777", os.path.dirname(ANDROID_DIR), ANDROID_DIR)
+    mode = adb("shell", "ls", "-ld", ANDROID_DIR).split()[0]
+    if not mode.startswith("drwxrwsrwx"):
+        raise RuntimeError(f"{ANDROID_DIR} is {mode}, not drwxrwsrwx: the app would get "
+                           "EACCES on its own files (docs/building.md:179)")
+    disc = f"{ANDROID_DIR}/melee.ciso"
+    if not adb_exists(disc):
+        # A plain path, not the file picker's content:// URI: the app has no
+        # storage permission on Android 13+ (MeleeActivity.java:58), so this
+        # directory is the only place a path it can fopen() can live.
+        src = f"{ANDROID_STAGE}/melee.ciso"
+        if not adb_exists(src):
+            print(f"determinism: [android] pushing {args.disc} (this takes a while)", flush=True)
+            adb("push", os.path.realpath(args.disc), src, timeout=3600)
+        adb("shell", "cp", src, disc, timeout=3600)
+        adb("shell", "chmod", "666", disc)
+    return disc
+
+
+def android_watch(log, timeout):
+    """Every way this row can fail silently gets its own verdict: no env file
+    means the knobs never reached the app, a disc it cannot open leaves it
+    sitting in the launcher, and a native crash just stops the log."""
+    deadline = time.time() + timeout
+    div = None
+    opened = False
+    text = ""
+    i = 0
+    while time.time() < deadline:
+        try:
+            with open(log, "rb") as f:
+                text = f.read().decode("utf-8", "replace")
+        except FileNotFoundError:
+            text = ""
+        m = ENV_MISSING.search(text)
+        if m:
+            return Result("android", blocked=(
+                f"melee-env.txt was not applied ({m.group(0)}): errno 13 means the directory "
+                "is adb-owned 0770 (docs/building.md:179), errno 2 means the push never "
+                "landed - either way none of the MELEE_* knobs reached the app"))
+        d = DISC_FAIL.search(text)
+        if d:
+            return Result("android", blocked=f"the disc could not be opened: {d.group(0)}")
+        c = CRASHED.search(text)
+        if c:
+            return Result("android", blocked=f"the app crashed: {c.group(0)[:200]}")
+        if not opened and OPENED.search(text):
+            opened = True
+            if "net: cannot open" in text:
+                return Result("android", blocked="the app could not open the recording it was "
+                                                 "pointed at (check the pushed .rec)")
+        dv = DIVERGED.search(text)
+        if dv and div is None:
+            div = Result("android", frames=int(dv.group(1)), diverged=int(dv.group(1)),
+                         detail=f"recorded {dv.group(2)} now {dv.group(3)}")
+        fin = FINISHED.search(text)
+        if fin:
+            # The state log's tail only reaches the card on net_snapshot.c's
+            # every-8-frames flush, and the force-stop below is a SIGKILL.
+            time.sleep(2.0)
+            return div if div is not None else Result("android", frames=int(fin.group(1)))
+        i += 1
+        if i % 6 == 0 and not adb("shell", "pidof", ANDROID_PKG, check=False).strip():
+            tail = " | ".join(text.strip().splitlines()[-3:])[:300]
+            return div or Result("android", blocked=f"the app is gone (last log: {tail})")
+        time.sleep(0.5)
+    tail = " | ".join(text.strip().splitlines()[-3:])[:300]
+    if div is not None:
+        return div
+    return Result("android", blocked=(f"never {'finished' if opened else 'reached'} the replay "
+                                      f"after {timeout:.0f} s (last log: {tail})"))
+
+
+def replay_android(args, rec):
+    devs = adb_devices()
+    if devs is None:
+        return Result("android", blocked="SKIPPED: adb is not on PATH")
+    if not devs:
+        return Result("android", blocked="SKIPPED: no device attached (adb devices is empty)")
+    if len(devs) > 1 and not os.environ.get("ANDROID_SERIAL"):
+        return Result("android", blocked=f"{len(devs)} devices attached ({', '.join(devs)}); "
+                                         "set ANDROID_SERIAL to pick one")
+    own = os.path.join(args.work, "android.rec")
+    state = os.path.join(args.work, "android.state")
+    rec_dev, own_dev = f"{ANDROID_DIR}/reference.rec", f"{ANDROID_DIR}/android.rec"
+    state_dev = f"{ANDROID_DIR}/android.state"
+    fed = rec
+    try:
+        disc = android_prepare(args)
+        adb("shell", "am", "force-stop", ANDROID_PKG)
+        adb("shell", "rm", "-f", own_dev, state_dev)
+        if args.android_flip is not None:
+            fed = os.path.join(args.work, "android-flip.rec")
+            off = corrupt(rec, fed, args.android_flip)
+            print(f"determinism: [android] INJECTION: byte {off} flipped (frame "
+                  f"{args.android_flip}, pad 0 stickX); the row must report that frame",
+                  flush=True)
+        adb_put(fed, rec_dev)
+        env = {"MELEE_SEED": str(args.seed), "MELEE_DEBUG_VS": "cpu", "MELEE_VSYNC": "0",
+               "MELEE_NET_REPLAY": rec_dev, "MELEE_NET_RECORD": own_dev,
+               # net.c:1927 only honours this while netplay is active, so it
+               # does nothing for a solo replay and the force-stop below is
+               # what ends the run; written anyway so the device carries the
+               # same knobs as every other leg.
+               "MELEE_NET_EXIT_AFTER_FRAMES": str(args.frames)}
+        if args.state_log:
+            env["MELEE_NET_STATE_LOG"] = state_dev
+        envfile = os.path.join(args.work, "melee-env.txt")
+        with open(envfile, "w") as f:
+            f.write("".join(f"{k}={v}\n" for k, v in env.items()))
+        adb_put(envfile, f"{ANDROID_DIR}/melee-env.txt")
+    except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+        return Result("android", blocked=f"device setup failed: {e}")
+
+    log = os.path.join(args.work, "android.log")
+    out = open(log, "wb")
+    adb("logcat", "-c")
+    tail = subprocess.Popen(["adb", "logcat", "-v", "time", *ANDROID_TAGS],
+                            stdout=out, stderr=subprocess.STDOUT)
+    try:
+        adb("shell", "am", "start", "-W", "-n", f"{ANDROID_PKG}/{ANDROID_ACT}",
+            "--esa", "args", f"--no-card,{disc}")
+        print(f"determinism: [android] {devs[0]} replaying {args.frames} frames", flush=True)
+        # A phone boots the disc slower than this machine does, and the first
+        # run after an install compiles every pipeline from cold.
+        r = android_watch(log, args.frames / 4.0 + 900)
+    except (RuntimeError, subprocess.SubprocessError) as e:
+        r = Result("android", blocked=f"launch failed: {e}")
+    finally:
+        tail.terminate()
+        tail.wait()
+        out.close()
+        subprocess.run(["adb", "shell", "am", "force-stop", ANDROID_PKG],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if r.blocked:
+        return r
+    for remote, local in [(own_dev, own)] + ([(state_dev, state)] if args.state_log else []):
+        p = subprocess.run(["adb", "pull", remote, local], capture_output=True, text=True)
+        if p.returncode != 0:
+            r.fault = f"android: could not pull {remote}: {(p.stderr or p.stdout).strip()[:200]}"
+            return r
+    print(f"determinism: [android] pulled {own}"
+          f"{' and ' + state if args.state_log else ''}", flush=True)
+    r.cross_check(fed, own)
+    return r
+
+
 # ---- platforms with no hardware here ----------------------------------------
 
 def skipped(args, rec):
-    """Real invocations, reported as SKIPPED with the missing prerequisite
-    named. Neither is faked: no result is better than a made-up one."""
-    apk = os.path.join(os.path.dirname(HERE), "dist", "Melee-Android-arm64.apk")
-    rows = [
-        ("android",
-         "no Android device or emulator attached (adb devices is empty)",
-         [f"adb install -r {apk}",
-          f"adb push {rec} /sdcard/Android/data/com.melee.pc/files/reference.rec",
-          "adb shell am start -n com.melee.pc/.MainActivity "
-          f"--es args '--no-card /sdcard/melee.ciso' --ei seed {args.seed} "
-          "--es env 'MELEE_NET_REPLAY=/sdcard/Android/data/com.melee.pc/files/reference.rec "
-          f"MELEE_SEED={args.seed} MELEE_DEBUG_VS=cpu'",
-          "adb logcat -s melee:V | grep -m1 'net: \\(REPLAY DIVERGED\\|replay finished\\)'"]),
-        ("macos",
-         "no macOS host and no osxcross toolchain; note CMakeLists.txt:197 does not "
-         "apply src/pc/melee_state.ld on APPLE either, so the link fails as on Windows",
-         ["cmake -B build-mac -G Ninja -DCMAKE_BUILD_TYPE=Release && ninja -C build-mac melee",
-          f"MELEE_SEED={args.seed} MELEE_DEBUG_VS=cpu MELEE_NET_REPLAY={rec} "
-          f"MELEE_CACHE_DIR=/tmp/det-mac ./build-mac/melee --no-card {args.disc}"]),
-    ]
-    out = []
-    for platform, why, cmds in rows:
-        print(f"determinism: [{platform}] SKIPPED: {why}", flush=True)
-        for c in cmds:
-            print(f"determinism: [{platform}]   would run: {c}", flush=True)
-        out.append(Result(platform, blocked=f"SKIPPED: {why}"))
-    return out
+    """A real invocation, reported as SKIPPED with the missing prerequisite
+    named. It is not faked: no result is better than a made-up one."""
+    why = ("no macOS host and no osxcross toolchain; note CMakeLists.txt:197 does not "
+           "apply src/pc/melee_state.ld on APPLE either, so the link fails as on Windows")
+    cmds = ["cmake -B build-mac -G Ninja -DCMAKE_BUILD_TYPE=Release && ninja -C build-mac melee",
+            f"MELEE_SEED={args.seed} MELEE_DEBUG_VS=cpu MELEE_NET_REPLAY={rec} "
+            f"MELEE_CACHE_DIR=/tmp/det-mac ./build-mac/melee --no-card {args.disc}"]
+    print(f"determinism: [macos] SKIPPED: {why}", flush=True)
+    for c in cmds:
+        print(f"determinism: [macos]   would run: {c}", flush=True)
+    return [Result("macos", blocked=f"SKIPPED: {why}")]
 
 
 # ---- driver -----------------------------------------------------------------
@@ -495,6 +707,13 @@ def parse_args(argv=None):
     ap.add_argument("--state-log", action="store_true",
                     help="MELEE_NET_STATE_LOG=1 on the replay legs: per-frame state and "
                          "exact-bits lines, so a divergence can be diffed field by field")
+    ap.add_argument("--android-apk",
+                    default=os.path.join(root, "dist", "Melee-Android-arm64.apk"),
+                    help="APK the android row installs; built with tools/build_android.sh "
+                         "if it is missing")
+    ap.add_argument("--android-flip", type=int, metavar="FRAME",
+                    help="injection check for the android row: flip one byte of the file the "
+                         "device replays at FRAME; the row must report exactly FRAME")
     return ap.parse_args(argv)
 
 
@@ -566,6 +785,8 @@ def main():
         results.append(flip)
     if "windows" in only:
         results.append(replay_windows(args, canon, args.port + 3))
+    if "android" in only:
+        results.append(replay_android(args, canon))
     results.extend(skipped(args, canon))
 
     print()
@@ -587,11 +808,20 @@ def main():
             fails.append("harness fault: " + r.fault)
         if r.platform == "linux-flip":
             continue
+        if r.platform == "android" and args.android_flip is not None:
+            # --android-flip is the device's own sensitivity check: that row is
+            # judged against the planted frame below, not against "identical".
+            continue
         if r.blocked:
             # A platform with no hardware here is a SKIP, not a failure; the
-            # reference platform failing to run means the harness proved nothing.
+            # reference platform failing to run means the harness proved
+            # nothing, and a device that IS attached and still produced no
+            # result is a failure too - a row that quietly says nothing on
+            # real hardware is exactly what the android stub used to do.
             if r.platform == "linux":
                 fails.append(f"linux never ran: {r.blocked}")
+            elif not r.blocked.startswith("SKIPPED"):
+                fails.append(f"{r.platform} never produced a result: {r.blocked}")
             continue
         if r.diverged is not None:
             if r.platform == "linux-record":
@@ -609,6 +839,15 @@ def main():
         else:
             print(f"\nsensitivity check: byte flip at frame {flip_frame} caught at frame "
                   f"{flip.diverged} ({flip.detail})")
+    android = next((r for r in results if r.platform == "android"), None)
+    if args.android_flip is not None and android is not None and not android.blocked:
+        if android.diverged != args.android_flip:
+            fails.append(f"android injection check FAILED: byte flipped at frame "
+                         f"{args.android_flip}, the device reported {android.state} - the row "
+                         "cannot be trusted to see a real divergence")
+        else:
+            print(f"\nandroid injection check: byte flip at frame {args.android_flip} caught "
+                  f"at frame {android.diverged} ({android.detail})")
     print()
     for f in fails:
         print(f"determinism: FAIL: {f}")

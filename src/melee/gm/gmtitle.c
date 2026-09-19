@@ -8,6 +8,10 @@
 #include "gmmain_lib.h"
 #include "gmopening.h"
 #include "types.h"
+
+#ifdef TARGET_PC
+#include "pc/net.h"
+#endif
 #include <melee/db/db.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbaudio_ax.h>
@@ -163,6 +167,19 @@ HSD_GObj* gmTitle_801A165C(void)
         int second;
         gm_801692E8(lbTime_GetTimeInSeconds(), &time);
         second = time.second;
+#ifdef TARGET_PC
+        /* Retail stirs the shared RNG by the wall-clock seconds-of-minute so
+         * the attract demo differs between boots. That makes the seed a
+         * function of WHEN this machine reached the title, and the seed is
+         * folded into the netplay checksum (src/pc/net_snapshot.c:148):
+         * measured phone<->PC, two machines eight wall-seconds apart stirred
+         * 41 times against 49 and desynced on the spot, and it is equally
+         * fatal to a recording replayed on another device. Offline play is
+         * untouched and still gets a different demo every boot. */
+        if (pc_net_deterministic()) {
+            second = 0;
+        }
+#endif
         while (second != 0) {
             HSD_Rand();
             second--;

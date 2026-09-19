@@ -20,6 +20,9 @@ extern "C" {
 #define PC_NET_PROTO_VERSION 5
 void pc_net_init(void);
 bool pc_net_active(void);
+/* True when the simulation must be reproducible elsewhere: netplay,
+ * record, replay or sync test. Guards machine-seeded retail behaviour. */
+bool pc_net_deterministic(void);
 /* Controller port the local player drives (0 = P1/host, 1 = P2/guest). */
 int pc_net_local_player(void);
 

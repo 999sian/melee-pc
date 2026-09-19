@@ -985,6 +985,15 @@ bool pc_net_active(void) {
     return net.active;
 }
 
+/* True when this run's simulation has to be reproducible on another machine:
+ * a netplay session, a recording, a replay, or a sync test. Game code uses
+ * it to suppress the handful of retail behaviours that are deliberately
+ * seeded from the local machine (see gmTitle_801A165C). Offline play keeps
+ * every one of them. */
+bool pc_net_deterministic(void) {
+    return net.active || record_active() || net.synctest;
+}
+
 int pc_net_local_player(void) {
     return net.local;
 }
@@ -1245,6 +1254,24 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
         net.session, WIRE_VERSION, net.sim_loss, (int)(net.sim_delay_ns / 1000000),
         (int)(net.sim_rx_delay_ns / 1000000), net.sim_jitter_ms, net.sim_reorder, net.sim_dup,
         net.sim_burst);
+    /* The FP control word, from inside the shipped process. Flush-to-zero or
+     * a non-default rounding mode on one peer and not the other silently
+     * changes every result; it was measured IEEE-default on both targets,
+     * but only ever in a shell process, because a release APK cannot be
+     * ptraced. Two peers' logs now answer it directly. */
+    {
+        uint64_t fp = 0;
+#if defined(__aarch64__)
+        __asm__ volatile("mrs %0, fpcr" : "=r"(fp));
+#elif defined(__x86_64__) || defined(__i386__)
+        uint32_t mxcsr = 0;
+        __asm__ volatile("stmxcsr %0" : "=m"(mxcsr));
+        fp = mxcsr;
+#endif
+        pc_log_line("net: fp control word %08" PRIx64 " (0 = IEEE default on aarch64; "
+                    "x86 default 1f80)",
+            fp);
+    }
     return true;
 }
 
@@ -1686,6 +1713,33 @@ static uint32_t s_seed_after_tick;
 static bool s_seed_have;
 static unsigned s_seed_out_draws, s_seed_out_frames;
 
+/* Called at the top of a tick. The seed is folded into the netplay checksum
+ * (net_snapshot.c:148) and outside a fight the checksum is ONLY the pads and
+ * this seed, so a draw between two ticks that happens on one peer and not
+ * the other is by itself a desync.
+ *
+ * Two separate causes, both measured, both fixed:
+ *
+ * 1. The wall clock. gmtitle.c:161-170 stirred the RNG once per
+ *    seconds-of-minute, so two machines that reached the title eight
+ *    wall-seconds apart stirred 41 times against 49 (phone<->PC). Fixed at
+ *    the source, because no repair here can invent the draws the other peer
+ *    made.
+ *
+ * 2. Scene timing. The rest are scene-enter draws -- stage init, CPU AI init
+ *    inside Fighter_Create -- backtraced across three 9900-frame sessions
+ *    and never paced by rendering. Two peers of similar speed make them on
+ *    the same frame, but a slow device does not: an SM-T505 against this PC
+ *    drew at frame 232 where the PC drew later, and desynced there. The seed
+ *    a tick starts from must therefore be the seed the last tick ended with,
+ *    whatever the gap between them contained.
+ *
+ * Netplay only (`net.active`). A recording leg must NOT do this: whether a
+ * draw falls inside or outside a tick depends on load timing, so rewriting
+ * the seed makes a recording that only replays on a machine of the same
+ * speed -- measured, it moved the replay divergence to frame 1. Netplay is
+ * the opposite case: both peers run one frame stream and the repair is
+ * applied identically on each, which is what makes them agree. */
 static void seed_out_of_tick_check(void) {
     if (!s_seed_have) {
         return;
@@ -1698,8 +1752,11 @@ static void seed_out_of_tick_check(void) {
     s_seed_out_frames++;
     s_seed_out_draws += steps > 0 ? (unsigned)steps : 0;
     if (s_seed_out_frames <= 3) {
-        pc_log_line("net: seed moved outside the tick at frame %d: %08x -> %08x (%d draws)",
-            net.frame, s_seed_after_tick, now, steps);
+        pc_log_line("net: seed moved outside the tick at frame %d: %08x -> %08x (%d draws)%s",
+            net.frame, s_seed_after_tick, now, steps, net.active ? ", restoring" : "");
+    }
+    if (net.active) {
+        *HSD_RandSeedPtr = s_seed_after_tick;
     }
 }
 
@@ -1936,6 +1993,11 @@ void pc_net_sync(void) {
     }
     if (net.active) {
         pad_qtype_hold(); /* HSD_PadInit wipes it; the tick depends on it */
+    }
+    if (net.active || record_active()) {
+        /* Also on the record/replay legs: a recording made with a seed that
+         * drifts with the frame rate cannot replay identically anywhere,
+         * which is the M0 claim (docs/netcode-plan.md section 5). */
         seed_out_of_tick_check();
     }
     if (net.synctest) {
@@ -2096,6 +2158,15 @@ bool pc_net_after_tick(void) {
         return synctest_after_tick();
     }
     if (!net.active) {
+        /* The record/replay leg never reaches the arming at the bottom, so
+         * without this s_seed_have stays false and the check above is a
+         * permanent no-op there -- a recording whose seed was stirred by the
+         * wall clock could never replay identically anywhere, which is the
+         * whole M0 claim (docs/netcode-plan.md section 5). */
+        if (record_active()) {
+            s_seed_after_tick = *HSD_RandSeedPtr;
+            s_seed_have = true;
+        }
         return false;
     }
     recv_inputs();
