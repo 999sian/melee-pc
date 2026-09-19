@@ -849,22 +849,21 @@ u32 PADRead(PADStatus* status) {
       const auto ylNeg = _get_axis_value(controller, PAD_AXIS_LEFT_Y_NEG);
 
       auto xl = static_cast<Sint16>((xlPos + -xlNeg) / 2);
-      // SDL's gamepad y-axis is inverted from GC's
-      auto yl = static_cast<Sint16>((-ylPos + ylNeg) / 2);
+      auto yl = static_cast<Sint16>((ylPos + -ylNeg) / 2);
       if (controller->m_deadZones.useDeadzones) {
         if (std::abs(xl) > controller->m_deadZones.stickDeadZone) {
-          xl /= 256;
+          xl = std::clamp((xl * 80) / 32768, -80, 80);
         } else {
           xl = 0;
         }
         if (std::abs(yl) > controller->m_deadZones.stickDeadZone) {
-          yl = static_cast<Sint16>(-(yl + 1u) / 256u);
+          yl = std::clamp((yl * 80) / 32768, -80, 80);
         } else {
           yl = 0;
         }
       } else {
-        xl /= 256;
-        yl = static_cast<Sint16>(-(yl + 1u) / 256u);
+        xl = std::clamp((xl * 80) / 32768, -80, 80);
+        yl = std::clamp((yl * 80) / 32768, -80, 80);
       }
 
       status[i].stickX = static_cast<int8_t>(xl);
@@ -876,23 +875,22 @@ u32 PADRead(PADStatus* status) {
       const auto yrNeg = _get_axis_value(controller, PAD_AXIS_RIGHT_Y_NEG);
 
       auto xr = static_cast<Sint16>((xrPos + -xrNeg) / 2);
-      // SDL's gamepad y-axis is inverted from GC's
-      auto yr = static_cast<Sint16>((-yrPos + yrNeg) / 2);
+      auto yr = static_cast<Sint16>((yrPos + -yrNeg) / 2);
       if (controller->m_deadZones.useDeadzones) {
         if (std::abs(xr) > controller->m_deadZones.substickDeadZone) {
-          xr /= 256;
+          xr = std::clamp((xr * 72) / 32768, -72, 72);
         } else {
           xr = 0;
         }
 
         if (std::abs(yr) > controller->m_deadZones.substickDeadZone) {
-          yr = static_cast<Sint16>(-(yr + 1u) / 256u);
+          yr = std::clamp((yr * 72) / 32768, -72, 72);
         } else {
           yr = 0;
         }
       } else {
-        xr /= 256;
-        yr = static_cast<Sint16>(-(yr + 1u) / 256u);
+        xr = std::clamp((xr * 72) / 32768, -72, 72);
+        yr = std::clamp((yr * 72) / 32768, -72, 72);
       }
 
       status[i].substickX = static_cast<int8_t>(xr);
