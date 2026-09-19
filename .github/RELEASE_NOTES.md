@@ -16,7 +16,16 @@ English (UK) text.
 
 ## Highlights
 
-- **Hitlag, SDI and DI are fixed.** Every build before this one gave *every*
+- **Rollback Netplay & LAN Play Prototype (#72):**
+  - Native in-game Online menu (`VS Mode > ONLINE`) featuring LAN Play and Direct IP connect, complete with an interactive *Mario Kart: Double Dash*-style LAN lobby counter.
+  - Native rollback netplay engine with state snapshotting, deterministic simulation rollbacks, reliable UDP messaging, and live in-game network HUD showing ping, delay, and rollback frame count.
+  - Cross-platform floating-point determinism (`-ffp-contract=off`, unified musl trigonometry) guaranteeing simulation parity across Linux, Windows, and Android.
+- **Native macOS Support (Apple Silicon & Intel) (#65):**
+  - Native macOS `.app` bundle packages (`Melee-macOS-arm64.zip` and `Melee-macOS-x86_64.zip`) using the Apple Metal graphics backend via WebGPU/Dawn.
+  - Built with Homebrew GCC big-endian scalar storage order translation and automatic dylib staging.
+- **Experimental PAL Disc Support (#65):**
+  - Boot European / PAL disc images (GALP01) using USA game code with automatic string index remapping, PAL kerning tables, and single-byte SIS font decoding.
+- **Hitlag, SDI and DI are fixed:** Every build before this one gave *every*
   hit in the game exactly 3 frames of hitlag regardless of damage, instead of
   4-20. Hits had almost no freeze, SDI was effectively impossible (one input at
   best, usually none), and because DI is established from the stick at the
@@ -33,6 +42,8 @@ English (UK) text.
 
 ## Fixes
 
+- **Adventure Mode Topi / ReDead Crash Fix (fixes #68, #71):** Resolved an LP64 64-bit struct alignment bug in `itZako_ItemVars` that caused Topi's icicle back-reference to be overwritten, crashing the game with `SIGSEGV` when attacking or KO'ing enemies on Icicle Mountain and Underground Maze.
+- **Android Handshake Compatibility:** Gated `getrandom()` behind API 28+ check with `/dev/urandom` fallback for older Android releases (API 26/27).
 - **First-use shader pipeline compiles no longer freeze the game (#46):** a draw whose pipeline is still compiling is skipped for a few frames, compiles run on a low-priority worker pool (`MELEE_PIPELINE_JOBS`), and the bundled seed is queued at the session's MSAA level. `MELEE_PIPELINE_SYNC=1` restores the old blocking behaviour.
 
 ## Known issues
@@ -42,7 +53,7 @@ the numbers below link there.
 
 **All platforms**
 
-- Online play with rollback netcode is **not implemented**.
+- Online play is a prototype: LAN Play and Direct Connect are supported, but Ranked, Unranked, and global matchmaking lobbies are not yet implemented.
 - Widescreen applies to fights (VS, Sudden Death, Training); menus, results and
   cutscenes stay at the original aspect. The wide HUD is a separate toggle and
   only moves the timer and the 2-4 player HUD groups.

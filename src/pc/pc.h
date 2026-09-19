@@ -84,7 +84,7 @@ bool pc_is_ucf_enabled(void);
 int pc_get_hud_mode(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);
-/* Build version string ("v0.1.7-beta"), src/pc/version.cpp. */
+/* Build version string ("v0.1.8-beta"), src/pc/version.cpp. */
 const char* pc_app_version(void);
 
 /* The whole unlock surface the RNG-visible unlock predicates read, packed
