@@ -1157,6 +1157,12 @@ def parse_args(argv=None):
     ap.add_argument("--stall", type=float, default=0, metavar="SECONDS",
                     help="SIGSTOP B mid-match for SECONDS, then SIGCONT: inside the reconnect "
                          "window the session must survive, past it it must expire with status 2")
+    ap.add_argument("--state-log", action="store_true",
+                    help="write per-frame state dumps to <work>/a.state and b.state")
+    ap.add_argument("--cold-cache", action="store_true",
+                    help="boot A with MELEE_PREWARM=0 and B with the prewarm on: the two peers "
+                         "then pay different frame counts for the same load, which is the "
+                         "phone-vs-PC scene-alignment condition on one machine")
     ap.add_argument("--load-stall", type=float, default=0, metavar="SECONDS",
                     help="park B's game thread for SECONDS mid-run while its sender keeps "
                          "running (a load, not a lost peer): the session must carry it with no "
@@ -1196,12 +1202,28 @@ def run(args):
     sim_a = dict(sim)
     if args.oom:
         sim_a["MELEE_NET_SIM_OOM_FRAME"] = str(args.oom)
+    if args.cold_cache:
+        # A boots with no background prewarm and B with one, so the two
+        # instances reach every archive with different cache warmth. That is
+        # the phone-vs-PC condition reproduced on one machine: a load costs
+        # each peer a different number of SIMULATED frames, so they enter the
+        # next scene on different frames (docs/netcode-plan.md section 5.2).
+        sim_a["MELEE_PREWARM"] = "0"
+        # Page cache warmth is not controllable from here (a second run of the
+        # same disc is hot however cold the game's own cache is), so A also
+        # pays a fixed 1.5 ms per disc read: a slow device, reproducibly.
+        sim_a["MELEE_DISC_READ_DELAY_US"] = "1500"
     if args.load_stall:
         # B only, and well past boot so the session is established: the wait
         # this exercises is the one a scene hand-off makes, not the connect.
         sim["MELEE_NET_STALL_TEST"] = f"{LOAD_STALL_FRAME}:{int(args.load_stall * 1000)}"
     shutil.rmtree(args.work, ignore_errors=True)
     os.makedirs(args.work)
+    if args.state_log:
+        # Per-frame state dumps beside the logs, so a DESYNC can be diffed
+        # field by field (src/pc/net_snapshot.c).
+        sim_a["MELEE_NET_STATE_LOG"] = os.path.join(args.work, "a.state")
+        sim["MELEE_NET_STATE_LOG"] = os.path.join(args.work, "b.state")
     a = Instance("a", args.exe, args.disc, args.work, args.port, args.port + 1, sim_a, args.lan)
     b = Instance("b", args.exe, args.disc, args.work, args.port + 1, args.port, sim, args.lan)
     print(f"net_test: {'lan' if args.lan else 'direct'} loss={args.loss}% delay={args.delay}ms "

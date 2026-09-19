@@ -576,13 +576,50 @@ tick for both peers. Measured on the same pairing: the scene-entry gap fell
 from **883 frames to about 30** (fight entered at 4412 on the PC, 4442 on
 the tablet), which is a 30x improvement but still a desync.
 
-The residual is the remaining deliverable. Draining what the port owns is
-not enough, because some of the per-tick polling waits on work the drain
-does not cover. The robust fix is to stop inferring the transition frame
-from load progress at all and agree it explicitly, the way the lobby already
-hands over to the CSS: each peer announces "ready to enter scene X at frame
-N" over the reliable channel and both enter at `max(Na, Nb)`
-(`gm_Scene_OnlineLobby_OnFrame` + `pc_lan_start_frame` is the pattern).
+The residual is the remaining deliverable, and it now reproduces on this one
+machine in about five minutes, with no phone:
+
+```sh
+python3 tools/net_test.py --lan --state-log --minutes 1   # add --cold-cache
+```
+
+What differs between the peers is not speed, it is *where in the tick* a
+read completes. A warm/warm pair on one machine hits it: measured on
+`b445723b7`, A left the SSS for the match at frame **3169** and B at
+**3168**, and `net: DESYNC` fired on the frame the first peer started
+folding fighter fields. The same pairing with A slowed to 1.5 ms per disc
+read (`--cold-cache`, which also disables its prewarm) entered every scene
+on the same frame and passed - a uniformly slow peer is *more* aligned than
+a peer that is merely different, because every one of its reads then spans
+a tick boundary instead of racing it.
+
+`net: scene N -> M at frame F` (src/pc/net.c) is the line to diff, and
+`--state-log` writes `<work>/a.state` and `b.state` for the field-by-field
+comparison.
+
+Two fixes at the I/O layer were tried and both are dead, each for a reason
+worth keeping:
+
+1. **Deliver a completion only at a tick boundary** (worker parks until the
+   game thread opens a gate in `dvd_settle`). Wedges the CSS load: the game
+   polls a block's status inside a tick, so a completion that waits for the
+   next tick is never reached.
+2. **Run disc commands inline on the caller's thread** so a read costs zero
+   ticks everywhere. Wedges in the same place for the opposite reason:
+   `HSD_DevComDVDWakeUp` (src/sysdolphin/baselib/devcom.c:346-389) sets its
+   busy flag `HSD_DevCom_804D77F5 = 1` *after* `DVDReadAsyncPrio` returns.
+   On hardware interrupts are off there so the callback cannot run first; an
+   inline callback clears the flag and the outer call then re-sets it, and
+   the queue never wakes again.
+
+What both attempts prove is that the load's tick cost cannot be equalised
+from underneath. The transition frame has to be agreed instead, the way the
+lobby already hands over to the CSS: each peer announces "ready to leave
+scene X at frame N" and both leave at `max(Na, Nb)`
+(`gm_Scene_OnlineLobby_OnFrame` + `pc_lan_start_frame` is the pattern). The
+hook is the break path of `gm_801A4D34` (src/melee/gm/gmscene.c:379-390):
+scene loads run inside that tick loop, which is why their cost is counted in
+frames at all, and it is the one place every scene exit passes through.
 
 Separately, the residual single-field desync around frame 3200 of the
 `--lan` row reproduces on the PRE-fix binary and on two identical PCs, so it
