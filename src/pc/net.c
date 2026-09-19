@@ -1699,6 +1699,14 @@ static void fresh_tick(PADStatus* head, bool raw) {
                 pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
                     s_heard ? STALL_TIMEOUT_MS : CONNECT_TIMEOUT_MS, net.frame);
             }
+            /* The BYE can arrive while the game thread is parked in
+             * wait_remote() rather than in recv_inputs() above, and that is the
+             * usual case once one-way delay is high enough to stall every
+             * frame. Without this the stalling side never ends the test and the
+             * harness kills it, which reads as a netplay failure. */
+            if (s_peer_left) {
+                exit_if_test_done();
+            }
             pc_net_disconnect();
             return;
         }
