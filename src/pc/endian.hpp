@@ -96,32 +96,52 @@ struct BE {
 #endif
     }
 
-    constexpr void set(T val) noexcept {
-        inner = swap(val);
-    }
+    constexpr void set(T val) noexcept { inner = swap(val); }
 
-    constexpr T host() const noexcept {
-        return swap(inner);
-    }
+    constexpr T host() const noexcept { return swap(inner); }
 
-    constexpr operator T() const noexcept {
-        return host();
-    }
+    constexpr operator T() const noexcept { return host(); }
 
     constexpr BE& operator=(T val) noexcept {
         set(val);
         return *this;
     }
 
-    constexpr BE& operator++() noexcept { *this = static_cast<T>(host() + 1); return *this; }
-    constexpr T operator++(int) noexcept { T orig = host(); *this = static_cast<T>(orig + 1); return orig; }
-    constexpr BE& operator--() noexcept { *this = static_cast<T>(host() - 1); return *this; }
-    constexpr T operator--(int) noexcept { T orig = host(); *this = static_cast<T>(orig - 1); return orig; }
+    constexpr BE& operator++() noexcept {
+        *this = static_cast<T>(host() + 1);
+        return *this;
+    }
+    constexpr T operator++(int) noexcept {
+        T orig = host();
+        *this = static_cast<T>(orig + 1);
+        return orig;
+    }
+    constexpr BE& operator--() noexcept {
+        *this = static_cast<T>(host() - 1);
+        return *this;
+    }
+    constexpr T operator--(int) noexcept {
+        T orig = host();
+        *this = static_cast<T>(orig - 1);
+        return orig;
+    }
 
-    constexpr BE& operator+=(T val) noexcept { *this = static_cast<T>(host() + val); return *this; }
-    constexpr BE& operator-=(T val) noexcept { *this = static_cast<T>(host() - val); return *this; }
-    constexpr BE& operator*=(T val) noexcept { *this = static_cast<T>(host() * val); return *this; }
-    constexpr BE& operator/=(T val) noexcept { *this = static_cast<T>(host() / val); return *this; }
+    constexpr BE& operator+=(T val) noexcept {
+        *this = static_cast<T>(host() + val);
+        return *this;
+    }
+    constexpr BE& operator-=(T val) noexcept {
+        *this = static_cast<T>(host() - val);
+        return *this;
+    }
+    constexpr BE& operator*=(T val) noexcept {
+        *this = static_cast<T>(host() * val);
+        return *this;
+    }
+    constexpr BE& operator/=(T val) noexcept {
+        *this = static_cast<T>(host() / val);
+        return *this;
+    }
 
     template <typename U = T>
     constexpr auto operator%=(U val) noexcept -> decltype(std::declval<U>() % val, *this) {
@@ -165,7 +185,6 @@ struct BE {
 
 template <typename T>
 using be_val = BE<T>;
-
 
 template <>
 struct BE<S16Vec> {

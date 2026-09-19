@@ -18,11 +18,11 @@ static void test_jpeg_reinflation() {
     // Entropy data with unstuffed 0xFF bytes: [10, 20, FF, 30, 40, FF, 50]
     // EOI (FF D9)
     std::vector<uint8_t> input = {
-        0xFF, 0xD8,                         // SOI
-        0xFF, 0xE0, 0x00, 0x04, 0x11, 0x22, // APP0
-        0xFF, 0xDA, 0x00, 0x03, 0xAA,       // SOS (len=3)
-        0x10, 0x20, 0xFF, 0x30, 0x40, 0xFF, 0x50, // Entropy scan with unstuffed FF
-        0xFF, 0xD9                          // EOI
+        0xFF, 0xD8,                                // SOI
+        0xFF, 0xE0, 0x00, 0x04, 0x11, 0x22,        // APP0
+        0xFF, 0xDA, 0x00, 0x03, 0xAA,              // SOS (len=3)
+        0x10, 0x20, 0xFF, 0x30, 0x40, 0xFF, 0x50,  // Entropy scan with unstuffed FF
+        0xFF, 0xD9                                 // EOI
     };
 
     std::vector<uint8_t> reinflated;
@@ -64,14 +64,14 @@ static void test_adpcm_decoding() {
     // Header byte: pred_idx = 0, scale_exp = 1 (scale = 2)
     // 14 nibbles: +1, -1, +2, -2, +3, -3, +4, -4, +5, -5, +6, -6, +7, -7
     uint8_t block[8] = {
-        0x01,                   // byte 0: pred=0, scale=1 (scale = 2)
-        0x1F,                   // nibbles: +1 (1), -1 (F)
-        0x2E,                   // nibbles: +2 (2), -2 (E)
-        0x3D,                   // nibbles: +3 (3), -3 (D)
-        0x4C,                   // nibbles: +4 (4), -4 (C)
-        0x5B,                   // nibbles: +5 (5), -5 (B)
-        0x6A,                   // nibbles: +6 (6), -6 (A)
-        0x79                    // nibbles: +7 (7), -7 (9)
+        0x01,  // byte 0: pred=0, scale=1 (scale = 2)
+        0x1F,  // nibbles: +1 (1), -1 (F)
+        0x2E,  // nibbles: +2 (2), -2 (E)
+        0x3D,  // nibbles: +3 (3), -3 (D)
+        0x4C,  // nibbles: +4 (4), -4 (C)
+        0x5B,  // nibbles: +5 (5), -5 (B)
+        0x6A,  // nibbles: +6 (6), -6 (A)
+        0x79   // nibbles: +7 (7), -7 (9)
     };
 
     std::vector<int16_t> out_pcm;
@@ -105,25 +105,25 @@ static void test_container_parsing() {
 
     // 0x00: Magic "THP\0"
     std::memcpy(thp_bytes.data() + 0x00, "THP\0", 4);
-    write_be32(thp_bytes.data() + 0x04, 0x00011000); // Version
-    write_be32(thp_bytes.data() + 0x08, 1024);       // Max buffer size
-    write_be32(thp_bytes.data() + 0x0C, 100);        // Max audio samples
-    write_bef32(thp_bytes.data() + 0x10, 60.0f);     // FPS
-    write_be32(thp_bytes.data() + 0x14, 1);          // Num frames = 1
-    write_be32(thp_bytes.data() + 0x18, 16);         // First frame size
-    write_be32(thp_bytes.data() + 0x1C, 256);        // Data size
-    write_be32(thp_bytes.data() + 0x20, 0x30);       // Comp info offset = 0x30
-    write_be32(thp_bytes.data() + 0x24, 0x60);       // Offsets offset
-    write_be32(thp_bytes.data() + 0x28, 0x70);       // First frame offset = 0x70
-    write_be32(thp_bytes.data() + 0x2C, 0x70);       // Last frame offset
+    write_be32(thp_bytes.data() + 0x04, 0x00011000);  // Version
+    write_be32(thp_bytes.data() + 0x08, 1024);        // Max buffer size
+    write_be32(thp_bytes.data() + 0x0C, 100);         // Max audio samples
+    write_bef32(thp_bytes.data() + 0x10, 60.0f);      // FPS
+    write_be32(thp_bytes.data() + 0x14, 1);           // Num frames = 1
+    write_be32(thp_bytes.data() + 0x18, 16);          // First frame size
+    write_be32(thp_bytes.data() + 0x1C, 256);         // Data size
+    write_be32(thp_bytes.data() + 0x20, 0x30);        // Comp info offset = 0x30
+    write_be32(thp_bytes.data() + 0x24, 0x60);        // Offsets offset
+    write_be32(thp_bytes.data() + 0x28, 0x70);        // First frame offset = 0x70
+    write_be32(thp_bytes.data() + 0x2C, 0x70);        // Last frame offset
 
     // Component info at 0x30:
-    write_be32(thp_bytes.data() + 0x30, 1);          // 1 component
-    thp_bytes[0x34] = 0;                             // Component 0 is Video
+    write_be32(thp_bytes.data() + 0x30, 1);  // 1 component
+    thp_bytes[0x34] = 0;                     // Component 0 is Video
     // Video descriptor at 0x30 + 20 = 0x44:
-    write_be32(thp_bytes.data() + 0x44, 640);        // Width = 640
-    write_be32(thp_bytes.data() + 0x48, 480);        // Height = 480
-    write_be32(thp_bytes.data() + 0x4C, 0);          // Format = 0
+    write_be32(thp_bytes.data() + 0x44, 640);  // Width = 640
+    write_be32(thp_bytes.data() + 0x48, 480);  // Height = 480
+    write_be32(thp_bytes.data() + 0x4C, 0);    // Format = 0
 
     // Write to file
     {

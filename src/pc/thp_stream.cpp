@@ -79,17 +79,17 @@ bool THPStream::read_headers() {
     };
 
     std::memcpy(m_header.magic, hdr_raw.data(), 4);
-    m_header.version            = read_u32(hdr_raw.data() + 0x04);
-    m_header.max_buf_size       = read_u32(hdr_raw.data() + 0x08);
-    m_header.max_audio_samples  = read_u32(hdr_raw.data() + 0x0C);
-    m_header.fps                = read_f32(hdr_raw.data() + 0x10);
-    m_header.total_frames       = read_u32(hdr_raw.data() + 0x14);
-    m_header.first_frame_size   = read_u32(hdr_raw.data() + 0x18);
-    m_header.data_size          = read_u32(hdr_raw.data() + 0x1C);
-    m_header.comp_info_offset   = read_u32(hdr_raw.data() + 0x20);
-    m_header.offsets_offset     = read_u32(hdr_raw.data() + 0x24);
+    m_header.version = read_u32(hdr_raw.data() + 0x04);
+    m_header.max_buf_size = read_u32(hdr_raw.data() + 0x08);
+    m_header.max_audio_samples = read_u32(hdr_raw.data() + 0x0C);
+    m_header.fps = read_f32(hdr_raw.data() + 0x10);
+    m_header.total_frames = read_u32(hdr_raw.data() + 0x14);
+    m_header.first_frame_size = read_u32(hdr_raw.data() + 0x18);
+    m_header.data_size = read_u32(hdr_raw.data() + 0x1C);
+    m_header.comp_info_offset = read_u32(hdr_raw.data() + 0x20);
+    m_header.offsets_offset = read_u32(hdr_raw.data() + 0x24);
     m_header.first_frame_offset = read_u32(hdr_raw.data() + 0x28);
-    m_header.last_frame_offset  = read_u32(hdr_raw.data() + 0x2C);
+    m_header.last_frame_offset = read_u32(hdr_raw.data() + 0x2C);
 
     if (m_header.fps <= 0.0f || m_header.fps > 240.0f) {
         m_header.fps = 29.97f;
@@ -116,7 +116,8 @@ bool THPStream::read_headers() {
             // Video component
             std::array<uint8_t, 12> vinfo{};
             m_file.read(reinterpret_cast<char*>(vinfo.data()), vinfo.size());
-            if (!m_file) return false;
+            if (!m_file)
+                return false;
             m_video_info.width = read_u32(vinfo.data() + 0);
             m_video_info.height = read_u32(vinfo.data() + 4);
             m_video_info.video_format = read_u32(vinfo.data() + 8);
@@ -125,7 +126,8 @@ bool THPStream::read_headers() {
             // Audio component
             std::array<uint8_t, 16> ainfo{};
             m_file.read(reinterpret_cast<char*>(ainfo.data()), ainfo.size());
-            if (!m_file) return false;
+            if (!m_file)
+                return false;
             m_audio_info.channels = read_u32(ainfo.data() + 0);
             m_audio_info.sample_rate = read_u32(ainfo.data() + 4);
             m_audio_info.num_samples = read_u32(ainfo.data() + 8);
@@ -155,7 +157,7 @@ bool THPStream::rewind() {
 }
 
 void THPStream::decode_adpcm_channel(THPAdpcmChannel& state, const uint8_t* block_data,
-                                     uint32_t num_samples, std::vector<int16_t>& out_channel) {
+    uint32_t num_samples, std::vector<int16_t>& out_channel) {
     uint32_t samples_decoded = 0;
     size_t block_offset = 0;
 
@@ -226,8 +228,8 @@ bool THPStream::read_next_frame(std::vector<uint32_t>& out_rgba, std::vector<int
     }
 
     uint32_t next_packet_size = read_u32(ptr + 0);
-    uint32_t image_size       = read_u32(ptr + 8);
-    uint32_t audio_size       = m_has_audio ? read_u32(ptr + 12) : 0;
+    uint32_t image_size = read_u32(ptr + 8);
+    uint32_t audio_size = m_has_audio ? read_u32(ptr + 12) : 0;
 
     // Decode video
     if (image_size > 0 && frame_hdr_size + image_size <= m_current_packet_size) {
@@ -245,7 +247,7 @@ bool THPStream::read_next_frame(std::vector<uint32_t>& out_rgba, std::vector<int
     {
         const uint8_t* aptr = ptr + frame_hdr_size + image_size;
         uint32_t channel_stride = read_u32(aptr + 0);
-        uint32_t sample_count   = read_u32(aptr + 4);
+        uint32_t sample_count = read_u32(aptr + 4);
 
         // Load coefficients
         for (int i = 0; i < 8; ++i) {
@@ -256,8 +258,8 @@ bool THPStream::read_next_frame(std::vector<uint32_t>& out_rgba, std::vector<int
                 m_right_adpcm.coef[i][1] = read_s16(aptr + 0x28 + i * 4 + 2);
             }
         }
-        m_left_adpcm.yn1  = read_s16(aptr + 0x48);
-        m_left_adpcm.yn2  = read_s16(aptr + 0x4A);
+        m_left_adpcm.yn1 = read_s16(aptr + 0x48);
+        m_left_adpcm.yn2 = read_s16(aptr + 0x4A);
         if (m_audio_info.channels > 1) {
             m_right_adpcm.yn1 = read_s16(aptr + 0x4C);
             m_right_adpcm.yn2 = read_s16(aptr + 0x4E);
@@ -271,7 +273,8 @@ bool THPStream::read_next_frame(std::vector<uint32_t>& out_rgba, std::vector<int
         if (m_audio_info.channels > 1) {
             std::vector<int16_t> right_samples;
             right_samples.reserve(sample_count);
-            decode_adpcm_channel(m_right_adpcm, audio_payload + channel_stride, sample_count, right_samples);
+            decode_adpcm_channel(
+                m_right_adpcm, audio_payload + channel_stride, sample_count, right_samples);
 
             out_pcm.resize(sample_count * 2);
             for (size_t i = 0; i < sample_count; ++i) {
@@ -294,4 +297,4 @@ bool THPStream::read_next_frame(std::vector<uint32_t>& out_rgba, std::vector<int
     return true;
 }
 
-} // namespace pc::thp
+}  // namespace pc::thp

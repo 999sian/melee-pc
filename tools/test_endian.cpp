@@ -9,11 +9,11 @@
 
 enum class TestEnum16 : uint16_t {
     Alpha = 0x1234,
-    Beta  = 0x5678,
+    Beta = 0x5678,
 };
 
 enum class TestEnum32 : uint32_t {
-    First  = 0xDEADBEEF,
+    First = 0xDEADBEEF,
     Second = 0xCAFEBABE,
 };
 

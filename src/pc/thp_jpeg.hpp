@@ -22,7 +22,7 @@ bool reinflate_thp_jpeg(std::span<const uint8_t> src, std::vector<uint8_t>& dst)
  * @param out_rgba Output buffer receiving 32-bit packed RGBA pixels
  * @return true on successful decode
  */
-bool decode_frame_rgba(std::span<const uint8_t> src, int& out_width, int& out_height,
-                       std::vector<uint32_t>& out_rgba);
+bool decode_frame_rgba(
+    std::span<const uint8_t> src, int& out_width, int& out_height, std::vector<uint32_t>& out_rgba);
 
-} // namespace pc::thp
+}  // namespace pc::thp

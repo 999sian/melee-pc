@@ -91,15 +91,15 @@ bool reinflate_thp_jpeg(std::span<const uint8_t> src, std::vector<uint8_t>& dst)
 }
 
 bool decode_frame_rgba(std::span<const uint8_t> src, int& out_width, int& out_height,
-                       std::vector<uint32_t>& out_rgba) {
+    std::vector<uint32_t>& out_rgba) {
     std::vector<uint8_t> reinflated;
     if (!reinflate_thp_jpeg(src, reinflated)) {
         return false;
     }
 
     int w = 0, h = 0, channels = 0;
-    uint8_t* pixels = stbi_load_from_memory(reinflated.data(), static_cast<int>(reinflated.size()),
-                                            &w, &h, &channels, 4);
+    uint8_t* pixels = stbi_load_from_memory(
+        reinflated.data(), static_cast<int>(reinflated.size()), &w, &h, &channels, 4);
     if (!pixels) {
         return false;
     }
@@ -113,4 +113,4 @@ bool decode_frame_rgba(std::span<const uint8_t> src, int& out_width, int& out_he
     return true;
 }
 
-} // namespace pc::thp
+}  // namespace pc::thp

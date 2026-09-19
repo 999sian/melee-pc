@@ -85,7 +85,7 @@ public:
      * Decodes a single GameCube DSP ADPCM channel buffer.
      */
     static void decode_adpcm_channel(THPAdpcmChannel& state, const uint8_t* block_data,
-                                     uint32_t num_samples, std::vector<int16_t>& out_channel);
+        uint32_t num_samples, std::vector<int16_t>& out_channel);
 
 private:
     bool read_headers();
@@ -109,4 +109,4 @@ private:
     THPAdpcmChannel m_right_adpcm{};
 };
 
-} // namespace pc::thp
+}  // namespace pc::thp
