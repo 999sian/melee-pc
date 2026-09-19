@@ -7,10 +7,14 @@
 #include <melee/ft/ftcommon.h>
 #include <melee/ft/ftdata.h>
 #include <melee/ft/types.h>
+#include "pc/mex/mex_c_api.h"
 
 bool ftCo_SpecialAir_CheckInput(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
+    if (pc_mex_is_custom_fighter(fp->kind) || fp->kind >= Ft_Kind_Max) {
+        return false;
+    }
     if (fp->input.pressed_buttons & HSD_PAD_B) {
         if (fp->input.lstick[0].y >= p_ftCommonData->x21C) {
             if (ftData_SpecialAirHi[fp->kind] == NULL) {

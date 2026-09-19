@@ -1,5 +1,7 @@
 #include "player.h"
 
+#include "pc/mex/mex_c_api.h"
+
 #include <melee/ft/forward.h>
 
 #include "forward.h"
@@ -207,6 +209,24 @@ void Player_80031AD0(int slot)
     Player_CheckSlot(slot);
     player = &player_slots[slot];
 
+    if (player->ckind >= ChKind_Max) {
+        first_struct.internal_id = player->ckind;
+        first_struct.slot = slot;
+        first_struct.b0 = false;
+        first_struct.has_transformation = false;
+        first_struct.x5 = -1;
+
+        player->player_entity[0] = Fighter_Create(&first_struct);
+        player->player_state = 2;
+
+        if (player->player_state == 2) {
+            if (player->struct_func != NULL) {
+                player->struct_func(slot);
+            }
+        }
+        return;
+    }
+
     // the commented line below makes more sense, but is off by one byte.
     // temp_vec = unused_ptr = ftMapping_list;
     offset_arr = (&ftMapping_list[0].extra_internal_id);
@@ -256,6 +276,13 @@ void Player_80031AD0(int slot)
 
 void Player_80031CB0(CharacterKind kind, u8 color)
 {
+    if (kind >= ChKind_Max) {
+        if (pc_mex_is_active()) {
+            ftData_800855C8(kind, color);
+        }
+        return;
+    }
+
     if (ftMapping_list[kind].internal_id != -1) {
         ftData_800855C8(ftMapping_list[kind].internal_id, color);
     }
@@ -267,6 +294,13 @@ void Player_80031CB0(CharacterKind kind, u8 color)
 
 void Player_80031D2C(CharacterKind kind, u8 color)
 {
+    if (kind >= ChKind_Max) {
+        if (pc_mex_is_active()) {
+            ftData_8008578C(kind, color);
+        }
+        return;
+    }
+
     if (ftMapping_list[kind].internal_id != -1) {
         ftData_8008578C(ftMapping_list[kind].internal_id, color);
     }
@@ -288,10 +322,17 @@ void Player_80031DC8(void func_arg(s32, s32))
         Player_CheckSlot(slot);
 
         if (player_slots[slot].player_state) {
-            func_arg(ftMapping_list[player_slots[slot].ckind].internal_id, 0);
-            if (hasExtraFighterId(&ftMapping_list[player_slots[slot].ckind])) {
+            CharacterKind ck = player_slots[slot].ckind;
+            if (ck >= ChKind_Max) {
+                if (pc_mex_is_active()) {
+                    func_arg(ck, 0);
+                }
+                continue;
+            }
+            func_arg(ftMapping_list[ck].internal_id, 0);
+            if (hasExtraFighterId(&ftMapping_list[ck])) {
                 func_arg(
-                    ftMapping_list[player_slots[slot].ckind].extra_internal_id,
+                    ftMapping_list[ck].extra_internal_id,
                     0);
             }
         }
@@ -342,7 +383,8 @@ void Player_80032070(int slot, bool bool_arg)
     if (bool_arg == 0) {
         ftCo_800D4FF4(player->player_entity[player->transformed[0]]);
 
-        if (player->flags.b2 && ftMapping_list[player->ckind].has_transformation == 0 &&
+        if (player->flags.b2 && player->ckind < ChKind_Max &&
+            ftMapping_list[player->ckind].has_transformation == 0 &&
             ftLib_8008701C(player->player_entity[player->transformed[1]]))
         {
             ftCo_800D4FF4(player->player_entity[player->transformed[1]]);
@@ -429,7 +471,7 @@ Gm_PKind Player_8003248C(s32 slot, bool arg1)
     player = &player_slots[slot];
 
     if (arg1 == 1) {
-        if (ftMapping_list[player->ckind].has_transformation == 0) {
+        if (player->ckind >= ChKind_Max || ftMapping_list[player->ckind].has_transformation == 0) {
             if (player->pkind == Gm_PKind_Human ||
                 player->pkind == Gm_PKind_Cpu)
             {
@@ -452,6 +494,12 @@ void Player_SetSlottype(s32 slot, Gm_PKind value)
 
 s8 Player_800325C8(CharacterKind kind, bool b)
 {
+    if (kind >= ChKind_Max) {
+        if (!b) {
+            return (s8) kind;
+        }
+        return -1;
+    }
     if (!b) {
         return ftMapping_list[kind].internal_id;
     } else if (b == 1) {
@@ -469,6 +517,12 @@ s8 Player_80032610(s32 slot, bool arg1)
     Player_CheckSlot(slot);
     player = &player_slots[slot];
 
+    if (player->ckind >= ChKind_Max) {
+        if (arg1 == 0) {
+            return (s8) player->ckind;
+        }
+        return error_value;
+    }
     if (arg1 == 0) {
         return ftMapping_list[player->ckind].internal_id;
     }
@@ -1270,7 +1324,8 @@ s32 Player_GetFalls(s32 slot)
     Player_CheckSlot(slot);
     player = &player_slots[slot];
 
-    if (ftMapping_list[player->ckind].extra_internal_id != -1 &&
+    if (player->ckind < ChKind_Max &&
+        ftMapping_list[player->ckind].extra_internal_id != -1 &&
         ftMapping_list[player->ckind].has_transformation != 0)
     {
         return player->falls[player->transformed[0]] +
@@ -2024,6 +2079,10 @@ void Player_80036DD8(void)
 
 void Player_80036E20(CharacterKind ckind, HSD_Archive* archive, s32 arg2)
 {
+    if (ckind >= ChKind_Max) {
+        ftDemo_SetArchiveData(ckind, archive, arg2);
+        return;
+    }
     ftDemo_SetArchiveData(ftMapping_list[ckind].internal_id, archive, arg2);
     if ((ftMapping_list[ckind].extra_internal_id != -1) &&
         (ftMapping_list[ckind].has_transformation == 0))
@@ -2056,6 +2115,19 @@ void Player_80036F34(s32 slot, s32 arg1)
 
     Player_CheckSlot(slot);
     player = &player_slots[slot];
+
+    if (player->ckind >= ChKind_Max) {
+        some_struct.internal_id = player->ckind;
+        some_struct.slot = slot;
+        some_struct.has_transformation = 0;
+        some_struct.unk8 = arg1;
+        some_struct.b0 = 0;
+
+        player->pkind = Gm_PKind_Demo;
+        player->player_entity[0] = ftDemo_CreateFighter(&some_struct);
+        return;
+    }
+
     some_struct.internal_id = ftMapping_list[player->ckind].internal_id;
     some_struct.slot = slot;
     some_struct.has_transformation = 0;
@@ -2082,6 +2154,19 @@ void Player_80037054(s32 slot, s32 arg1)
 
     Player_CheckSlot(slot);
     player = &player_slots[slot];
+
+    if (player->ckind >= ChKind_Max) {
+        some_struct.internal_id = player->ckind;
+        some_struct.slot = slot;
+        some_struct.has_transformation = 0;
+        some_struct.unk8 = arg1;
+        some_struct.b0 = 1;
+
+        player->pkind = Gm_PKind_Demo;
+        player->player_entity[0] = ftDemo_CreateFighter(&some_struct);
+        return;
+    }
+
     some_struct.internal_id = ftMapping_list[player->ckind].internal_id;
     some_struct.slot = slot;
     some_struct.has_transformation = 0;

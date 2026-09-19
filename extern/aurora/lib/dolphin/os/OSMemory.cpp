@@ -318,10 +318,10 @@ static void* AllocMEM1(u32 size) {
     if (res != MAP_FAILED) {
       const uintptr_t lo = reinterpret_cast<uintptr_t>(res) & 0xFFFFFFFFULL;
       // All MEM1 pointers must share the same upper 32 bits, and their low halves must not
-      // look like NULL, an ARAM offset (< 16MB) or the 0x02000000 external pointer tag.
+      // look like NULL, an ARAM offset (< 64MB) or the 0x0E000000 external pointer tag.
       if ((reinterpret_cast<uintptr_t>(res) >> 32) ==
               ((reinterpret_cast<uintptr_t>(res) + size - 1) >> 32) &&
-          lo >= 0x01000000u && (lo & 0xFF000000u) != 0x02000000u) {
+          lo >= 0x08000000u && (lo & 0xFF000000u) != 0x0E000000u) {
         p = res;
       } else {
         munmap(res, size);

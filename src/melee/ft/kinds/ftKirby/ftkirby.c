@@ -3140,7 +3140,7 @@ void ftKb_SpecialN_800EF69C(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
     if (fp->u.kb.hat.x14.data != NULL) {
         int i;
         for (i = 0;
-             i < DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num;
+             i < ftParts_GetPartsTable(fp->kind)->parts_num;
              i++) {
             FighterBone* bone = &fp->parts[i];
             HSD_JObj* jobj;

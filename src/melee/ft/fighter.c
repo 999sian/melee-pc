@@ -3,6 +3,8 @@
 #include <math.h>
 #include <placeholder.h>
 
+#include "pc/mex/mex_c_api.h"
+
 #include "ft_07C1.h"
 #include "ft_07C6.h"
 #include "ft_0819.h"
@@ -92,6 +94,7 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/mtx.h>
 #include <sysdolphin/baselib/random.h>
+#include <string.h>
 
 extern MotionState* ftData_CharacterStateTables[Ft_Kind_Max];
 
@@ -553,7 +556,7 @@ void Fighter_UnkProcessDeath_80068354(Fighter_GObj* gobj)
     ftColl_8007AFF8(gobj);
     ftColl_8007B0C0(gobj, HurtCapsule_Enabled);
 
-    if (ftData_OnDeath[fp->kind]) {
+    if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_OnDeath[fp->kind]) {
         ftData_OnDeath[fp->kind](gobj);
     }
 
@@ -570,32 +573,48 @@ void Fighter_UnkUpdateCostumeJoint_800686E4(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj;
 
-    fp->x108_costume_joint = CostumeListsForeachCharacter[fp->kind]
-                                 .costume_list[fp->x619_costume_id]
-                                 .joint;
-    ftPartsPObjSetDefaultClass();
-    jobj = HSD_JObjLoadJoint(fp->x108_costume_joint);
-    ftPartsPObjClearDefaultClass();
-    ftParts_80073758(jobj);
-
-    HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
+    if (fp->kind < MAX_FT_DATA_SLOTS &&
+        CostumeListsForeachCharacter[fp->kind].costume_list != NULL)
+    {
+        fp->x108_costume_joint = CostumeListsForeachCharacter[fp->kind]
+                                     .costume_list[fp->x619_costume_id]
+                                     .joint;
+    } else {
+        fp->x108_costume_joint = NULL;
+    }
+    if (fp->x108_costume_joint != NULL) {
+        ftPartsPObjSetDefaultClass();
+        jobj = HSD_JObjLoadJoint(fp->x108_costume_joint);
+        ftPartsPObjClearDefaultClass();
+        ftParts_80073758(jobj);
+        HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
+    }
 }
 
 void Fighter_UnkUpdateVecFromBones_8006876C(Fighter* fp)
 {
     Vec3 vec;
     Vec3 vec2;
-    HSD_JObj* jobj = fp->parts[ftParts_GetBoneIndex(fp, 2)].joint;
+    Fighter_Part b2 = ftParts_GetBoneIndex(fp, 2);
+    Fighter_Part b1 = ftParts_GetBoneIndex(fp, 1);
 
-    HSD_JObjGetTranslation(jobj, &vec);
-
-    fp->x1A6C = (vec.y / 8.55f);
-
-    lb_8000B1CC(jobj, 0, &vec);
-    lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, 1)].joint, 0, &vec2);
-    fp->x1A70.x = vec2.x - vec.x;
-    fp->x1A70.y = vec2.y - vec.y;
-    fp->x1A70.z = vec2.z - vec.z;
+    if ((u8) b2 < MAX_FT_PARTS && (u8) b1 < MAX_FT_PARTS &&
+        fp->parts[(u8) b2].joint != NULL && fp->parts[(u8) b1].joint != NULL)
+    {
+        HSD_JObj* jobj = fp->parts[(u8) b2].joint;
+        HSD_JObjGetTranslation(jobj, &vec);
+        fp->x1A6C = (vec.y / 8.55f);
+        lb_8000B1CC(jobj, 0, &vec);
+        lb_8000B1CC(fp->parts[(u8) b1].joint, 0, &vec2);
+        fp->x1A70.x = vec2.x - vec.x;
+        fp->x1A70.y = vec2.y - vec.y;
+        fp->x1A70.z = vec2.z - vec.z;
+    } else {
+        fp->x1A6C = 0.0f;
+        fp->x1A70.x = 0.0f;
+        fp->x1A70.y = 0.0f;
+        fp->x1A70.z = 0.0f;
+    }
 }
 
 void Fighter_ResetInputData_80068854(Fighter_GObj* gobj)
@@ -724,7 +743,9 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
     }
 
     costume_id = Player_GetCostumeId(fp->player_id);
-    if (costume_id >= CostumeListsForeachCharacter[fp->kind].numCostumes) {
+    if (fp->kind < MAX_FT_DATA_SLOTS &&
+        costume_id >= CostumeListsForeachCharacter[fp->kind].numCostumes)
+    {
         costume_id = 0;
     }
 
@@ -737,7 +758,7 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
     fp->x2D0 = 0;
     fp->x18 = 0x155;
     fp->x1C_actionStateList = ftData_MotionStateList;
-    fp->x20_actionStateList = ftData_CharacterStateTables[fp->kind];
+    fp->x20_actionStateList = (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max) ? ftData_CharacterStateTables[fp->kind] : NULL;
     fp->x24 = DP(struct Fighter_WaitAnimData, fp->ft_data->xC);
     fp->x28 = DP(void, fp->ft_data->x10);
 
@@ -868,7 +889,9 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
     GObj_InitUserData(gobj, 4U, &Fighter_Unload_8006DABC, fp);
     ftData_8008572C(input->internal_id);
     Fighter_UnkInitLoad_80068914(gobj, input);
-    efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
+    if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max) {
+        efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
+    }
     ftData_80085820(fp->kind, fp->x619_costume_id);
 
     Fighter_UnkUpdateCostumeJoint_800686E4(gobj);
@@ -890,8 +913,14 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
 
     ftCo_8009F578(fp);
 
-    if (ftData_OnLoad[fp->kind]) {
+    if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_OnLoad[fp->kind]) {
         ftData_OnLoad[fp->kind](gobj);
+    } else if (pc_mex_is_custom_fighter(fp->kind)) {
+        fp->can_walljump = true;
+        fp->dat_attrs = fp->dat_attrs_backup;
+        if (fp->ft_data && fp->ft_data->ext_attr && fp->dat_attrs) {
+            memcpy(fp->dat_attrs, DP(void, fp->ft_data->ext_attr), 0x424);
+        }
     }
 
     Fighter_Create_Inline2(gobj);
@@ -1182,7 +1211,11 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
     ftPartSetRotZ(fp, 0, 0.0F);
 
     if (msid >= fp->x18) {
-        new_motion_state = &fp->x20_actionStateList[(msid - fp->x18)];
+        if (fp->x20_actionStateList != NULL) {
+            new_motion_state = &fp->x20_actionStateList[(msid - fp->x18)];
+        } else {
+            new_motion_state = &fp->x1C_actionStateList[0];
+        }
     } else {
         new_motion_state = &fp->x1C_actionStateList[msid];
     }
@@ -1303,12 +1336,11 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
                 }
 
                 ftAnim_8006E9B4(gobj);
-                {
-                    FighterPartsTable* parts =
-                        DP(FighterPartsTable, ftPartsTable[fp->kind].v);
-                    if ((bone_index != 0) &&
-                        (u32) bone_index < parts->parts_num &&
-                        (*unk_byte_ptr)[0] != 0U)
+                FighterPartsTable* parts = ftParts_GetPartsTable(fp->kind);
+                if (parts != NULL &&
+                    (bone_index != 0) &&
+                    (u32) bone_index < parts->parts_num &&
+                    (*unk_byte_ptr)[0] != 0U)
                     {
                         HSD_JObj* temp_joint = fp->parts[bone_index].x4_jobj2;
 
@@ -1319,7 +1351,6 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
                         ftParts_JObjSetRotation(fp->parts[bone_index].joint,
                                                 &quat);
                     }
-                }
 
                 if (fp->x594_b0 != 0U) {
                     if (!anim_start) {
@@ -1663,7 +1694,7 @@ void Fighter_8006A360(Fighter_GObj* gobj)
             }
         }
 
-        if (ftData_UnkMotionStates3[fp->kind]) {
+        if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkMotionStates3[fp->kind]) {
             ftData_UnkMotionStates3[fp->kind](gobj);
         }
 
@@ -2964,7 +2995,7 @@ void Fighter_ProcessHit_8006D1EC(Fighter_GObj* gobj)
                     fp->reflect_hit_cb(gobj);
                 }
             } else if (fp->AbsorbAttr.x1A40_absorbHitDirection) {
-                if (ftData_OnAbsorb[fp->kind]) {
+                if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_OnAbsorb[fp->kind]) {
                     ftData_OnAbsorb[fp->kind](gobj);
                 }
             } else if (fp->unk_gobj != NULL) {
@@ -3109,7 +3140,7 @@ void Fighter_Unload_8006DABC(void* user_data)
     Fighter* fp = (Fighter*) user_data;
     int kind = fp->kind;
 
-    if (ftData_OnUserDataRemove[kind]) {
+    if (!pc_mex_is_custom_fighter(kind) && kind < Ft_Kind_Max && ftData_OnUserDataRemove[kind]) {
         ftData_OnUserDataRemove[kind](fp->gobj);
     }
 

@@ -6,6 +6,7 @@
 #include "discfont.h"
 #include "version.hpp"
 #include "updater.hpp"
+#include "mod_manager.hpp"
 #include <aurora/dvd.h>
 #include <aurora/event.h>
 #include <aurora/gfx.h>
@@ -66,9 +67,11 @@ int backend_next(int mode) {
 #endif
 }
 
-constexpr const char* tab_ids[] = {"tab-graphics", "tab-audio", "tab-cheats", "tab-controls"};
-constexpr const char* page_ids[] = {"page-graphics", "page-audio", "page-cheats", "page-controls"};
-constexpr int tab_count = 4;
+constexpr const char* tab_ids[] = {
+    "tab-graphics", "tab-audio", "tab-cheats", "tab-controls", "tab-mods"};
+constexpr const char* page_ids[] = {
+    "page-graphics", "page-audio", "page-cheats", "page-controls", "page-mods"};
+constexpr int tab_count = 5;
 int tab_index(const Rml::String& id) {
     for (int i = 0; i < tab_count; ++i)
         if (id == tab_ids[i])
@@ -191,6 +194,8 @@ class Launcher final : public Rml::EventListener {
                 "check-now", "settings-discord"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
+        case 4:
+            return {"mod-scan", "mod-open-dir", "mod-profile"};
         default:
             return {};
         }
@@ -199,11 +204,12 @@ class Launcher final : public Rml::EventListener {
         enabled("play", supported && !busy());
         enabled("choose", !busy());
         enabled("verify", verification.valid() || (supported && !busy()));
+        enabled("mods-btn", !busy());
         enabled("settings", !busy());
         enabled("discord", !busy());
         text("verify", verification.valid() ? "Cancel verification" : "Verify disc");
         if (!settings) {
-            focus_ids = {"play", "choose", "verify", "settings", "discord", "quit"};
+            focus_ids = {"play", "choose", "verify", "mods-btn", "settings", "discord", "quit"};
             auto ustate = pc::updater::get_state();
             if ((ustate.status == pc::updater::Status::UpdateAvailable ||
                     ustate.status == pc::updater::Status::Downloaded) &&
@@ -318,6 +324,31 @@ class Launcher final : public Rml::EventListener {
             text("check-status", ustate.message);
         } else {
             text("check-status", "Melee-PC is up to date (" + pc::get_app_version() + ").");
+        }
+
+        const auto& mods = pc::mod::ModManager::instance().get_mods();
+        size_t active_count = pc::mod::ModManager::instance().get_active_count();
+        text("mods-summary",
+            std::to_string(active_count) + " / " + std::to_string(mods.size()) + " mods active");
+        auto primary_path = pc::mod::ModManager::instance().get_primary_mods_dir();
+        text("mods-folder-label", primary_path.string());
+        if (mods.empty()) {
+            text("mods-list-text", "No external mods detected in mods folder (" +
+                                       primary_path.string() +
+                                       "). Place mods or m-ex builds here.");
+        } else {
+            std::string list_str;
+            for (const auto& m : mods) {
+                list_str += (m.enabled ? "[ON] " : "[OFF] ") + m.name + " (" + m.version + ") by " +
+                            m.author;
+                if (!m.conflict_warnings.empty()) {
+                    list_str += " [CONFLICT]";
+                }
+                list_str += "<br/>";
+            }
+            if (auto* e = element("mods-list-text")) {
+                e->SetInnerRML(list_str);
+            }
         }
         notice();
         quiet = false;
@@ -435,9 +466,49 @@ class Launcher final : public Rml::EventListener {
                 [this, path] { return launcher::verify_disc(path, cancel, progress); });
             controls();
             element("verify")->Focus();
-        } else if (id == "settings" || id == "back")
+        } else if (id == "settings" || id == "back") {
             show_settings(id == "settings");
-        else if (id == "display" || id == "fullscreen") {
+        } else if (id == "mods-btn") {
+            show_settings(true);
+            show_tab(4);
+        } else if (id == "mod-scan") {
+            pc::mod::ModManager::instance().scan_mods();
+            pc::mod::ModManager::instance().apply_active_mods();
+            refresh_settings();
+            status("Scanned mods. " +
+                   std::to_string(pc::mod::ModManager::instance().get_mods().size()) +
+                   " mod(s) detected.");
+            element("mod-scan")->Focus();
+        } else if (id == "mod-open-dir") {
+            auto path = pc::mod::ModManager::instance().get_primary_mods_dir();
+            std::string url = "file://" + path.string();
+            SDL_OpenURL(url.c_str());
+            status("Opened mods directory: " + path.string());
+            element("mod-open-dir")->Focus();
+        } else if (id == "mod-profile") {
+            static int s_prof = 0;
+            s_prof = (s_prof + 1) % 3;
+            if (s_prof == 0) {
+                for (const auto& m : pc::mod::ModManager::instance().get_mods()) {
+                    pc::mod::ModManager::instance().set_mod_enabled(m.id, true);
+                }
+                text("mod-profile", "All Enabled");
+            } else if (s_prof == 1) {
+                for (const auto& m : pc::mod::ModManager::instance().get_mods()) {
+                    pc::mod::ModManager::instance().set_mod_enabled(m.id, false);
+                }
+                text("mod-profile", "Vanilla Only");
+            } else {
+                for (const auto& m : pc::mod::ModManager::instance().get_mods()) {
+                    pc::mod::ModManager::instance().set_mod_enabled(
+                        m.id, m.type == pc::mod::ModType::Standard ||
+                                  m.type == pc::mod::ModType::Texture);
+                }
+                text("mod-profile", "Cosmetics Only");
+            }
+            refresh_settings();
+            element("mod-profile")->Focus();
+        } else if (id == "display" || id == "fullscreen") {
             if (SDL_SetWindowFullscreen(window, !prefs.fullscreen))
                 prefs.fullscreen = !prefs.fullscreen;
             else
@@ -1111,7 +1182,7 @@ public:
                 "port-check-update"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
-        default: {
+        case 3: {
             std::vector<std::string> ids{"pad-port"};
             for (int i = 0; i < PAD_BUTTON_COUNT; ++i)
                 ids.push_back("bind-" + std::to_string(i));
@@ -1120,6 +1191,11 @@ public:
             ids.push_back("bind-reset");
             return ids;
         }
+        case 4:
+            return {
+                "port-reload-mods", "port-custom-textures", "port-custom-music", "port-open-mods"};
+        default:
+            return {};
         }
     }
     void show_tab(int next) {
@@ -1242,6 +1318,13 @@ public:
             label("port-update-status", "Up to date (" + pc::get_app_version() + ")");
         }
         refresh_bindings();
+        const auto& mods = pc::mod::ModManager::instance().get_mods();
+        size_t active_count = pc::mod::ModManager::instance().get_active_count();
+        label("port-mods-status",
+            std::to_string(active_count) + " / " + std::to_string(mods.size()) + " mod(s) active");
+        label("port-custom-textures", prefs.custom_textures ? "Enabled" : "Disabled");
+        label("port-custom-music", "Enabled");
+        label("port-mods-path", pc::mod::ModManager::instance().get_primary_mods_dir().string());
         quiet = false;
     }
     void saved() {
@@ -1390,7 +1473,7 @@ public:
         else if (id == "filter-mode") {
             prefs.filter_mode = (prefs.filter_mode + 1) % 4;
             aurora_set_resampler(static_cast<AuroraSampler>(prefs.filter_mode));
-        } else if (id == "custom-textures") {
+        } else if (id == "custom-textures" || id == "port-custom-textures") {
             prefs.custom_textures = !prefs.custom_textures;
             pc_textures_reload();
         } else if (id == "hud-mode") {
@@ -1435,6 +1518,26 @@ public:
             pc::updater::check_for_updates_async(true);
             label("port-update-status", "Checking for updates...");
             label("menu-status", "Checking for updates...");
+            lbAudioAx_80024030(SFX_CONFIRM);
+            return;
+        } else if (id == "port-reload-mods") {
+            pc::mod::ModManager::instance().scan_mods();
+            pc::mod::ModManager::instance().apply_active_mods();
+            pc_textures_reload();
+            label("menu-status", "Mods reloaded.");
+            lbAudioAx_80024030(SFX_CONFIRM);
+            refresh();
+            return;
+        } else if (id == "port-custom-music") {
+            label("menu-status", "Custom music active in ./music or mods/");
+            lbAudioAx_80024030(SFX_CONFIRM);
+            refresh();
+            return;
+        } else if (id == "port-open-mods") {
+            auto path = pc::mod::ModManager::instance().get_primary_mods_dir();
+            std::string url = "file://" + path.string();
+            SDL_OpenURL(url.c_str());
+            label("menu-status", "Opened mods directory: " + path.string());
             lbAudioAx_80024030(SFX_CONFIRM);
             return;
         } else

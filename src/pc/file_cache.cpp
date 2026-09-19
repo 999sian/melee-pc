@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "file_cache.h"
+#include "vfs/vfs.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -151,6 +152,12 @@ void evict_lru_locked(size_t required_bytes) {
 std::string resolve_loose_path(const char* filename) {
     if (filename == nullptr)
         return "";
+
+    char vfs_buf[1024];
+    if (pc_vfs_resolve(filename, vfs_buf, sizeof(vfs_buf))) {
+        return std::string(vfs_buf);
+    }
+
     std::string dir;
     const char* env = getenv("MELEE_FILES_DIR");
     if (env != nullptr && env[0] != '\0') {
@@ -230,8 +237,9 @@ bool preload_single_file(const char* name, int entryNum) {
     return success;
 }
 
+#include "pc/pc.h"
 #ifndef PC_IS_ARAM_ADDR
-#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < 0x01000000u)
+#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < PC_ARAM_SIZE)
 #endif
 
 uint8_t* resolve_host_dst(void* dst, size_t size) {
@@ -244,7 +252,7 @@ uint8_t* resolve_host_dst(void* dst, size_t size) {
             return nullptr;
         }
         uintptr_t offset = reinterpret_cast<uintptr_t>(dst);
-        if (offset + size > 0x01000000u) {
+        if (offset + size > PC_ARAM_SIZE) {
             return nullptr;
         }
         return aram + offset;
@@ -262,7 +270,7 @@ const uint8_t* resolve_host_src(const void* src, size_t size) {
             return nullptr;
         }
         uintptr_t offset = reinterpret_cast<uintptr_t>(src);
-        if (offset + size > 0x01000000u) {
+        if (offset + size > PC_ARAM_SIZE) {
             return nullptr;
         }
         return aram + offset;

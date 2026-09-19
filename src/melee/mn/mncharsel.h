@@ -28,5 +28,6 @@
 /* 26688C */ void mnCharSel_Scene_OnEnter(void*);
 /* 2669F4 */ void mnCharSel_Scene_OnFrame(void);
 /* 266D70 */ void mnCharSel_Scene_OnExit(void*);
+int mnCharSel_GetIconCount(void);
 
 #endif

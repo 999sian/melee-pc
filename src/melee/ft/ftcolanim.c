@@ -4,6 +4,7 @@
 #include "ft_0D4D.h"
 #include "ftaction.h"
 #include "ftdata.h"
+#include "pc/mex/mex_c_api.h"
 #include "kinds/ftCommon/ftCo_HammerWait.h"
 #include <melee/gm/gm_1601.h>
 #include <melee/lb/lb_013B.h>
@@ -155,7 +156,7 @@ void ft_800C0098(Fighter* fp)
 void ftCo_800C0134(Fighter* fp)
 {
     lb_80014498(&fp->x488);
-    if (ftData_UnkMotionStates4[fp->kind] != NULL) {
+    if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkMotionStates4[fp->kind] != NULL) {
         ftData_UnkMotionStates4[fp->kind](fp->gobj);
     }
     if (ftCo_800C53E4(fp) != 0) {
@@ -187,7 +188,7 @@ void ftCo_800C0200(Fighter* fp, int arg1)
     }
     if (Fighter_804D653C[arg1].unk5 != 0) {
         lb_80014498(&fp->x488);
-        if (ftData_UnkMotionStates4[fp->kind] != NULL) {
+        if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkMotionStates4[fp->kind] != NULL) {
             ftData_UnkMotionStates4[fp->kind](fp->gobj);
         }
         if (ftCo_800C53E4(fp) != 0) {
@@ -251,7 +252,7 @@ void ftCo_800C0408(Fighter_GObj* gobj)
     if (fp->x408.x28_colanim.i == 0) {
         while (lb_80014258(gobj, &fp->x488, ft_800BFF34)) {
             lb_80014498(&fp->x488);
-            if (ftData_UnkMotionStates4[fp->kind] != NULL) {
+            if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkMotionStates4[fp->kind] != NULL) {
                 ftData_UnkMotionStates4[fp->kind](fp->gobj);
             }
             if (ftCo_800C53E4(fp)) {
@@ -261,7 +262,7 @@ void ftCo_800C0408(Fighter_GObj* gobj)
     } else {
         while (lb_80014258(gobj, &fp->x488, ft_800BFF70)) {
             lb_80014498(&fp->x488);
-            if (ftData_UnkMotionStates4[fp->kind] != NULL) {
+            if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkMotionStates4[fp->kind] != NULL) {
                 ftData_UnkMotionStates4[fp->kind](fp->gobj);
             }
             if (ftCo_800C53E4(fp)) {

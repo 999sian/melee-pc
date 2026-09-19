@@ -1,5 +1,7 @@
 #include "ftdata.h"
 
+#include "pc/mex/mex_c_api.h"
+
 #include <Runtime/platform.h>
 
 #include <sysdolphin/baselib/forward.h>
@@ -128,6 +130,7 @@
 #include <melee/lb/lbdvd.h>
 #include <melee/lb/lbfile.h>
 #include <melee/pl/player.h>
+#include <stdlib.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
@@ -140,9 +143,9 @@ typedef struct ft_8045993C_t {
     /* +6:1-2 */ u16 x6_b1_b2 : 2;
 } ft_8045993C_t;
 
-/* 4598B8 */ ftData* gFtDataList[Ft_Kind_Max];
+/* 4598B8 */ ftData* gFtDataList[MAX_FT_DATA_SLOTS];
 /* 45993C */ ft_8045993C_t ft_8045993C[6];
-/* 45996C */ int ft_8045996C[Ft_Kind_Max];
+/* 45996C */ int ft_8045996C[MAX_FT_DATA_SLOTS];
 
 /// @todo All one struct maybe?
 #ifdef MUST_MATCH
@@ -185,18 +188,20 @@ void ft_800852B0(void)
     int i;
     int new_var = 0;
 
-    for (i = 0; i < Ft_Kind_Max; ++i) {
-        int costume_idx = new_var;
+    for (i = 0; i < MAX_FT_DATA_SLOTS; ++i) {
         list = gFtDataList;
         list[i] = NULL;
-        for (costume_idx = new_var;
-             costume_idx < (s32) CostumeListsForeachCharacter[i].numCostumes;
-             ++costume_idx)
-        {
-            CostumeListsForeachCharacter[i].costume_list[costume_idx].joint =
-                NULL;
-            CostumeListsForeachCharacter[i].costume_list[costume_idx].pad_x8 =
-                0;
+        if (CostumeListsForeachCharacter[i].costume_list != NULL) {
+            int costume_idx = new_var;
+            for (costume_idx = new_var;
+                 costume_idx < (s32) CostumeListsForeachCharacter[i].numCostumes;
+                 ++costume_idx)
+            {
+                CostumeListsForeachCharacter[i].costume_list[costume_idx].joint =
+                    NULL;
+                CostumeListsForeachCharacter[i].costume_list[costume_idx].pad_x8 =
+                    0;
+            }
         }
         unk0[i].data = NULL;
         pairs[i].data = NULL;
@@ -212,13 +217,13 @@ void ft_800852B0(void)
 void ft_8008549C(void)
 {
     int i;
-    for (i = 0; i < Ft_Kind_Max; i++) {
+    for (i = 0; i < MAX_FT_DATA_SLOTS; i++) {
         ft_8045996C[i] = 0;
     }
 }
 
 /* 3C0EC0 */ struct UnkCostumeList
-    CostumeListsForeachCharacter[Ft_Kind_Max] = {
+    CostumeListsForeachCharacter[MAX_FT_DATA_SLOTS] = {
         { ftMr_CostumeList, ARRAY_SIZE(ftMr_CostumeList) },
         { ftFx_CostumeList, ARRAY_SIZE(ftFx_CostumeList) },
         { ftCa_CostumeList, ARRAY_SIZE(ftCa_CostumeList) },
@@ -254,7 +259,7 @@ void ft_8008549C(void)
         { ftSb_CostumeList, ARRAY_SIZE(ftSb_CostumeList) }
     };
 
-ftData_UnkCountStruct ftData_Table_Unk0[Ft_Kind_Max] = {
+ftData_UnkCountStruct ftData_Table_Unk0[MAX_FT_DATA_SLOTS] = {
     { 0, 303 }, { 0, 327 }, { 0, 318 }, { 0, 337 }, { 0, 479 }, { 0, 316 },
     { 0, 314 }, { 0, 317 }, { 0, 326 }, { 0, 318 }, { 0, 321 }, { 0, 321 },
     { 0, 320 }, { 0, 313 }, { 0, 314 }, { 0, 327 }, { 0, 314 }, { 0, 312 },
@@ -1504,7 +1509,7 @@ Fighter_UnkPtrEvent ftData_UnkDemoCallbacks0[Ft_Kind_Max] = {
     NULL,
 };
 
-ftData_UnkCountStruct ftData_UnkIntPairs[Ft_Kind_Max] = {
+ftData_UnkCountStruct ftData_UnkIntPairs[MAX_FT_DATA_SLOTS] = {
     { 0, 16 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 18 }, { 0, 14 },
     { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 },
     { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 16 },
@@ -1520,10 +1525,12 @@ u8 ftData_UnkBytePerCharacter[Ft_Kind_Max] = {
 
 void ftData_80085560(int idx, int increment)
 {
-    ft_8045996C[idx] += increment;
-    if (ft_8045996C[idx] < 0) {
-        OSReport("fighter reference counter error!\n");
-        HSD_ASSERT(1944, 0);
+    if (idx >= 0 && idx < MAX_FT_DATA_SLOTS) {
+        ft_8045996C[idx] += increment;
+        if (ft_8045996C[idx] < 0) {
+            OSReport("fighter reference counter error!\n");
+            HSD_ASSERT(1944, 0);
+        }
     }
 }
 
@@ -1535,6 +1542,31 @@ void ftData_800855C8(FighterKind kind, u8 color)
     int i;
     int lo;
     int hi;
+
+    if (pc_mex_is_custom_fighter(kind)) {
+        const char* fighter_file = pc_mex_get_fighter_filename((int) kind);
+        if (fighter_file && fighter_file[0] != '\0') {
+            lbDvd_800178E8(2, (char*) fighter_file, 4, 4, 0, 1, 4, 2, 0);
+        }
+        int num_costumes = pc_mex_get_fighter_costume_count((int) kind);
+        if (color != 0xFF && color >= num_costumes) {
+            color = 0;
+        }
+        if (color == 0xFF) {
+            lo = 0;
+            hi = num_costumes;
+        } else {
+            lo = color;
+            hi = color + 1;
+        }
+        for (i = lo; i < hi; i++) {
+            const char* costume_file = pc_mex_get_fighter_costume_file((int) kind, i);
+            if (costume_file && costume_file[0] != '\0') {
+                lbDvd_800178E8(2, (char*) costume_file, 4, 4, 0, 1, 3, 1, 0);
+            }
+        }
+        return;
+    }
 
     if (color != 0xFF &&
         color >= CostumeListsForeachCharacter[kind].numCostumes)
@@ -1567,6 +1599,18 @@ void ftData_800855C8(FighterKind kind, u8 color)
 
 void ftData_8008572C(FighterKind kind)
 {
+    if (pc_mex_is_custom_fighter(kind)) {
+        if (kind < MAX_FT_DATA_SLOTS && gFtDataList[kind] == NULL) {
+            const char* fighter_file = pc_mex_get_fighter_filename((int) kind);
+            const char* symbol_name = pc_mex_get_fighter_data_symbol((int) kind);
+            if (fighter_file && fighter_file[0] != '\0') {
+                lbArchive_80017040(NULL, (char*) fighter_file, &gFtDataList[kind],
+                                   symbol_name && symbol_name[0] != '\0' ? (char*) symbol_name : NULL,
+                                   NULL);
+            }
+        }
+        return;
+    }
     if (gFtDataList[kind] == NULL) {
         lbArchive_80017040(NULL, ftData_803C1F40[kind].a, &gFtDataList[kind],
                            ftData_803C1F40[kind].b, NULL);
@@ -1586,6 +1630,9 @@ void ftData_8008578C(int arg0, u8 color)
 
 void ftData_800857E0(FighterKind kind)
 {
+    if (pc_mex_is_custom_fighter(kind) || kind >= Ft_Kind_Max) {
+        return;
+    }
     if (ftData_UnkMotionStates5[kind] != NULL) {
         ftData_UnkMotionStates5[kind]();
     }
@@ -1593,6 +1640,53 @@ void ftData_800857E0(FighterKind kind)
 
 void ftData_80085820(FighterKind kind, int costume_id)
 {
+    if (pc_mex_is_custom_fighter(kind)) {
+        if (kind >= MAX_FT_DATA_SLOTS) {
+            return;
+        }
+        int num_costumes = pc_mex_get_fighter_costume_count((int) kind);
+        if (num_costumes <= 0) {
+            return;
+        }
+        if (CostumeListsForeachCharacter[kind].costume_list == NULL) {
+            CostumeListsForeachCharacter[kind].costume_list =
+                calloc((size_t) num_costumes, sizeof(UnkCostumeStruct));
+            CostumeListsForeachCharacter[kind].numCostumes = num_costumes;
+        }
+        if (costume_id >= num_costumes || costume_id < 0) {
+            costume_id = 0;
+        }
+        UnkCostumeStruct* temp_r5 =
+            &CostumeListsForeachCharacter[kind].costume_list[costume_id];
+        if (temp_r5->joint == NULL) {
+            const char* costume_file =
+                pc_mex_get_fighter_costume_file((int) kind, costume_id);
+            if (costume_file && costume_file[0] != '\0') {
+                lbArchive_80017040(&temp_r5->x14_archive, (char*) costume_file, NULL);
+                if (temp_r5->x14_archive != NULL &&
+                    temp_r5->x14_archive->header.nb_public > 0)
+                {
+                    temp_r5->joint = (HSD_Joint*) (temp_r5->x14_archive->data +
+                                                   temp_r5->x14_archive
+                                                       ->public_info[0]
+                                                       .offset);
+                    if (temp_r5->x14_archive->header.nb_public > 1) {
+                        temp_r5->x4 =
+                            (HSD_MatAnimJoint*) (temp_r5->x14_archive->data +
+                                                 temp_r5->x14_archive
+                                                     ->public_info[1]
+                                                     .offset);
+                    } else {
+                        temp_r5->x4 = NULL;
+                    }
+                }
+            }
+        }
+        return;
+    }
+    if (pc_mex_is_custom_fighter(kind) || kind >= Ft_Kind_Max) {
+        return;
+    }
     UnkCostumeStruct* temp_r5 =
         &CostumeListsForeachCharacter[kind].costume_list[costume_id];
     if (temp_r5->joint == NULL) {
@@ -1615,24 +1709,7 @@ void ftData_80085820(FighterKind kind, int costume_id)
 
 void ftData_800858E4(FighterKind kind, int costume_id)
 {
-    UnkCostumeStruct* temp_r5 =
-        &CostumeListsForeachCharacter[kind].costume_list[costume_id];
-    if (temp_r5->joint == NULL) {
-        if (ftData_803C2360[kind][costume_id].matanim_joint_name != NULL) {
-            lbArchive_80017040(
-                &temp_r5->x14_archive,
-                ftData_803C2360[kind][costume_id].dat_filename, temp_r5,
-                ftData_803C2360[kind][costume_id].joint_name, &temp_r5->x4,
-                ftData_803C2360[kind][costume_id].matanim_joint_name, NULL);
-        } else {
-            lbArchive_80017040(
-                &temp_r5->x14_archive,
-                ftData_803C2360[kind][costume_id].dat_filename, temp_r5,
-                ftData_803C2360[kind][costume_id].joint_name, NULL);
-            CostumeListsForeachCharacter[kind].costume_list[costume_id].x4 =
-                NULL;
-        }
-    }
+    ftData_80085820(kind, costume_id);
 }
 
 void ftData_800859A8(Fighter* fp)
@@ -1657,13 +1734,53 @@ void ftData_80085A14(FighterKind kind)
 {
     void* sp18;
     void* a_head;
-    ftData* temp_r27 = gFtDataList[kind];
+    ftData* temp_r27;
     u32 temp_r0;
     int i;
     u8 _[4];
     size_t sp10;
 
     PAD_STACK(4);
+
+    if (pc_mex_is_custom_fighter(kind)) {
+        if (kind >= MAX_FT_DATA_SLOTS) {
+            return;
+        }
+        temp_r27 = gFtDataList[kind];
+        if (ftData_Table_Unk0[kind].data == NULL) {
+            const char* aj_file = pc_mex_get_fighter_anim_file((int) kind);
+            int aj_count = pc_mex_get_fighter_anim_count((int) kind);
+            if (aj_count > 0) {
+                ftData_Table_Unk0[kind].count = aj_count;
+            }
+            if (aj_file && aj_file[0] != '\0') {
+                lbFile_800168A0(1, (char*) aj_file, &sp18, &sp10);
+                a_head = sp18;
+                if (a_head != NULL && temp_r27 != NULL) {
+                    struct Fighter_WaitAnimData* anims =
+                        DP(struct Fighter_WaitAnimData, temp_r27->xC);
+                    for (i = 0; i < (u32) ftData_Table_Unk0[kind].count; i++) {
+                        temp_r0 = anims[i].x8;
+                        if (temp_r0 != 0) {
+                            if (temp_r0 > 0x8000) {
+                                HSD_ASSERTREPORT(0x9AF, 0, "fighter figatree over! %x\n",
+                                                 temp_r0);
+                            }
+                            anims[i].x14 =
+                                (uintptr_t) ((u8*) a_head + anims[i].x4);
+                        }
+                    }
+                    ftData_Table_Unk0[kind].data = a_head;
+                }
+            }
+        }
+        return;
+    }
+
+    if (pc_mex_is_custom_fighter(kind) || kind >= Ft_Kind_Max) {
+        return;
+    }
+    temp_r27 = gFtDataList[kind];
 
     if (ftData_Table_Unk0[kind].data == NULL) {
         lbFile_800168A0(1, ftData_803C23E4[kind], &sp18, &sp10);
@@ -1692,8 +1809,8 @@ void ftData_80085B10(Fighter* fp)
     fp->x5A0 = HSD_ObjAlloc(&fighter_x59C_alloc_data);
     fp->x5A4 = NULL;
     fp->x5A8 = NULL;
-    fp->x58C = ftData_Table_Unk0[kind].count;
     ftData_80085A14(kind);
+    fp->x58C = kind < MAX_FT_DATA_SLOTS ? ftData_Table_Unk0[kind].count : 0;
 }
 
 void ftData_80085B98(Fighter* fp, int arg1, int arg2)
@@ -1702,6 +1819,10 @@ void ftData_80085B98(Fighter* fp, int arg1, int arg2)
     int i;
     u32 temp_r0;
     struct Fighter_WaitAnimData* temp_r3;
+
+    if (fp->kind >= Ft_Kind_Max) {
+        return;
+    }
 
     temp_r30 = (u32) ftData_UnkIntPairs[fp->kind].data;
     fp->x59C = HSD_ObjAlloc(&fighter_x59C_alloc_data);

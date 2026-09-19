@@ -5,6 +5,8 @@
 #include "fighter.h"
 #include "inlines.h"
 #include <sysdolphin/baselib/debug.h>
+#include "pc/mex/mex_c_api.h"
+#include <string.h>
 
 float ftCo_CalcYScaledKnockback(float arg0, float scale, float arg2)
 {
@@ -233,9 +235,17 @@ void ftCo_800D105C(Fighter_GObj* fgp)
         fp->co_attrs.weight *= Fighter_804D6518->x4;
     }
 
-    HSD_ASSERTREPORT(0x10d, ftKindCalcIndiviParamTable[fp->kind] != NULL,
-                     "don\'t set ftKindCalcIndiviParamTable!!\n");
-    ftKindCalcIndiviParamTable[fp->kind](fgp);
+    if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max) {
+        HSD_ASSERTREPORT(0x10d, ftKindCalcIndiviParamTable[fp->kind] != NULL,
+                         "don\'t set ftKindCalcIndiviParamTable!!\n");
+        if (ftKindCalcIndiviParamTable[fp->kind] != NULL) {
+            ftKindCalcIndiviParamTable[fp->kind](fgp);
+        }
+    } else {
+        if (fp->ft_data && fp->ft_data->ext_attr && fp->dat_attrs) {
+            memcpy(fp->dat_attrs, DP(void, fp->ft_data->ext_attr), 0x424);
+        }
+    }
 
     if (fp->x2D0 != NULL) {
         ftCo_800D0CBC(fgp);

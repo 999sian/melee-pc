@@ -21,6 +21,7 @@
 #include <melee/ft/kinds/ftGameWatch/ftgamewatchattack100.h>
 #include <melee/ft/kinds/ftKirby/ftkirby.h>
 #include <melee/ft/types.h>
+#include "pc/mex/mex_c_api.h"
 #include <melee/it/item.h>
 #include <melee/pl/plbonuslib.h>
 #include <sysdolphin/baselib/jobj.h>
@@ -36,7 +37,7 @@ extern f64 ftCo_804D90D8; // Increment value (Double)
 bool ftCo_800D6824(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (ftData_SpecialN[fp->kind] == NULL) {
+    if (pc_mex_is_custom_fighter(fp->kind) || fp->kind >= Ft_Kind_Max || ftData_SpecialN[fp->kind] == NULL) {
         return false;
     }
     if (fp->x689 == 0) {
@@ -59,7 +60,7 @@ bool ftCo_800D688C(Fighter* fp)
 bool ftCo_800D68C0(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (ftData_SpecialLw[fp->kind] == NULL) {
+    if (pc_mex_is_custom_fighter(fp->kind) || fp->kind >= Ft_Kind_Max || ftData_SpecialLw[fp->kind] == NULL) {
         return false;
     }
     if (fp->x687 == 0) {
@@ -82,7 +83,7 @@ bool ftCo_800D6928(Fighter* fp)
 bool ftCo_Attack100_CheckInput(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (ftData_SpecialHi[fp->kind] == NULL) {
+    if (pc_mex_is_custom_fighter(fp->kind) || fp->kind >= Ft_Kind_Max || ftData_SpecialHi[fp->kind] == NULL) {
         return false;
     }
     if (fp->x686 == 0) {
@@ -95,7 +96,7 @@ bool ftCo_Attack100_CheckInput(Fighter_GObj* gobj)
 bool ftCo_800D69C4(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    if (ftData_SpecialHi[fp->kind] == NULL) {
+    if (pc_mex_is_custom_fighter(fp->kind) || fp->kind >= Ft_Kind_Max || ftData_SpecialHi[fp->kind] == NULL || ftData_SpecialAirHi[fp->kind] == NULL) {
         return false;
     }
     if (fp->x686 == 0 && fp->x68B >= p_ftCommonData->x1C) {

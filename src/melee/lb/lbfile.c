@@ -99,9 +99,18 @@ size_t lbFile_8001634C(int fileno)
     size_t length;
     bool intr = OSDisableInterrupts();
 
+    if (fileno < 0) {
+        OSRestoreInterrupts(intr);
+        return 0;
+    }
+
     if (!DVDFastOpen(fileno, &info)) {
-        OSReport("Cannot open file no=%d.", fileno);
+        OSReport("Cannot open file no=%d.\n", fileno);
+#ifndef TARGET_PC
         HSD_ASSERT(0xD8, 0);
+#endif
+        OSRestoreInterrupts(intr);
+        return 0;
     }
 
     length = info.length;
@@ -121,8 +130,14 @@ size_t lbFileGetSize(const char* basename)
 #endif
     int entry_num;
     entry_num = DVDConvertPathToEntrynum(filename);
+#ifdef TARGET_PC
+    if (entry_num < 0) {
+        return 0;
+    }
+#else
     HSD_ASSERTREPORT(0xEE, entry_num != -1, "file isn't exist %s = %d\n",
                      filename, entry_num);
+#endif
     return lbFile_8001634C(entry_num);
 }
 
@@ -132,7 +147,23 @@ void lbFile_800164A4(int file, uintptr_t dst, size_t* size, int pri,
                      HSD_DevComCallback callback, void* args)
 {
     int type;
+#ifdef TARGET_PC
+    if (file < 0) {
+        if (callback != NULL) {
+            callback(-1, (uintptr_t) args, NULL, false);
+        }
+        return;
+    }
+#endif
     *size = lbFile_8001634C(file);
+#ifdef TARGET_PC
+    if (*size == 0) {
+        if (callback != NULL) {
+            callback(-1, (uintptr_t) args, NULL, false);
+        }
+        return;
+    }
+#endif
     type = !PC_IS_ARAM_ADDR(dst) ? 0x21 : 0x23;
     HSD_DevComRequest(file, 0, dst, ROUND_UP_32(*size), type, pri, callback,
                       args);
@@ -153,8 +184,17 @@ void lbFile_80016580(const char* basename, void* dst, size_t* size,
     int entry_num = DVDConvertPathToEntrynum(filename);
     PAD_STACK(4);
 
+#ifdef TARGET_PC
+    if (entry_num < 0) {
+        if (callback != NULL) {
+            callback(-1, (uintptr_t) args, NULL, false);
+        }
+        return;
+    }
+#else
     HSD_ASSERTREPORT(0x11A, entry_num != -1, "file isn't exist %s = %d\n",
                      filename, entry_num);
+#endif
 
     lbFile_800164A4(entry_num, (uintptr_t) dst, size, 1, callback, args);
 }

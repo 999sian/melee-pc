@@ -200,7 +200,7 @@ void* lbHeap_80015BD0(int heap_id, size_t size)
             HSD_SetHeap(cur_heap);
         } else {
             result = lbMemory_80014FC8(p->handle, size);
-            if (p->type == 3) {
+            if (p->type == 3 && result != NULL) {
                 result = result->x4_lo;
             }
         }
@@ -317,9 +317,11 @@ void lbHeap_80015F3C(void)
         curr_heap->type = desc->type;
         curr_heap->size = desc->size;
 #ifdef TARGET_PC
-        /* PAL files outgrow the NTSC-U RAM heaps; the PC arena has the room. */
-        if (pc_region_pal && (curr_idx == 3 || curr_idx == 4)) {
-            curr_heap->size *= 2;
+        /* RAM heaps are sized for retail GC (24 MB). On PC (96 MB MEM1), expand
+         * heaps 3 and 4 by 4x to accommodate custom mod files, m-ex newcomers,
+         * expanded CSS icons, and PAL archives. */
+        if (curr_idx == 3 || curr_idx == 4) {
+            curr_heap->size *= 4;
         }
 #endif
         prev_idx = desc->prev_idx;

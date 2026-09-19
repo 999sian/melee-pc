@@ -11,6 +11,7 @@
 #include "ftlib.h"
 #include "ftparts.h"
 #include "inlines.h"
+#include "pc/mex/mex_c_api.h"
 #include "kinds/ftCommon/ftCo_09F4.h"
 #include "kinds/ftCommon/ftCo_0A01.h"
 #include <dolphin/mtx.h>
@@ -248,7 +249,7 @@ void ftDrawCommon_800805C8(HSD_GObj* gobj, s32 arg1, bool arg2)
         mtx = ftDrawCommon_8008051C_inline(gobj, &sp54, &v, sp18, sp78);
 
         HSD_JObjDispAll(GET_JOBJ(gobj), mtx, HSD_GObj_80390EB8(arg1), 0);
-        if (ftData_UnkMtxFunc0[fighter->kind] != NULL) {
+        if (!pc_mex_is_custom_fighter(fighter->kind) && fighter->kind < Ft_Kind_Max && ftData_UnkMtxFunc0[fighter->kind] != NULL) {
             ftData_UnkMtxFunc0[fighter->kind](gobj, arg1, mtx);
         }
         ftCo_800C8AF0(fighter);
@@ -294,7 +295,7 @@ void ftDrawCommon_80080C28(HSD_GObj* gobj, int flag_index)
 
             jobj = GET_JOBJ(gobj);
             HSD_JObjDispAll(jobj, vmtx, HSD_GObj_80390EB8(flag_index), 0);
-            if (ftData_UnkMtxFunc0[fighter->kind] != NULL) {
+            if (!pc_mex_is_custom_fighter(fighter->kind) && fighter->kind < Ft_Kind_Max && ftData_UnkMtxFunc0[fighter->kind] != NULL) {
                 ftData_UnkMtxFunc0[fighter->kind](gobj, flag_index, vmtx);
             }
             ftCo_800C8AF0(fighter);

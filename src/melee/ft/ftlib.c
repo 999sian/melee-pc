@@ -1,6 +1,8 @@
 #include "ftlib.h"
 #include <stdlib.h>
 
+#include "pc/mex/mex_c_api.h"
+
 #include <melee/it/forward.h>
 
 #include "fighter.h"
@@ -393,7 +395,7 @@ void ftLib_800866DC(HSD_GObj* gobj, Vec3* v)
                      "out=(%g,%g,%g) cur_pos=(%g,%g,%g) box=%p dst=%p\n",
                      (int) fp->player_id, (int) fp->kind, (int) fp->motion_id,
                      fp->x34_scale.y, (int) i,
-                     (DP(struct FighterPartsTable, ftPartsTable[fp->kind].v))->parts_num,
+                     ftParts_GetPartsTable(fp->kind)->parts_num,
                      (void*) bone, bone_world.x,
                      bone_world.y, bone_world.z, offset.x, offset.y, offset.z,
                      v->x, v->y, v->z, fp->cur_pos.x, fp->cur_pos.y,
@@ -1023,7 +1025,9 @@ void ftLib_80087508(s8 ft_kind, u8 arg1)
 /// void ftLib_80087508(FighterKind ft_kind, u8 arg1)
 {
     ftData_8008572C(ft_kind);
-    efAsync_LoadSync(ftData_UnkBytePerCharacter[ft_kind]);
+    if (!pc_mex_is_custom_fighter(ft_kind) && ft_kind >= 0 && ft_kind < Ft_Kind_Max) {
+        efAsync_LoadSync(ftData_UnkBytePerCharacter[ft_kind]);
+    }
     ftData_80085820(ft_kind, arg1);
     ftData_80085A14(ft_kind);
     ftData_800857E0(ft_kind);
@@ -1034,7 +1038,9 @@ void ftLib_80087574(s8 ft_kind)
 {
     u8 i;
     ftData_8008572C(ft_kind);
-    efAsync_LoadSync(ftData_UnkBytePerCharacter[ft_kind]);
+    if (!pc_mex_is_custom_fighter(ft_kind) && ft_kind >= 0 && ft_kind < Ft_Kind_Max) {
+        efAsync_LoadSync(ftData_UnkBytePerCharacter[ft_kind]);
+    }
 
     for (i = 0; i < CostumeListsForeachCharacter[ft_kind].numCostumes; i++) {
         ftData_80085820(ft_kind, i);

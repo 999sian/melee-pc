@@ -12,7 +12,8 @@ extern "C" {
 /* Game-visible memory. Runtime structs carry 64-bit pointers, so give the
  * game's heaps more room than the GameCube's 24MB. */
 #define PC_MEM1_SIZE (96u * 1024 * 1024)
-#define PC_ARAM_SIZE (16u * 1024 * 1024)
+#define PC_ARAM_SIZE (64u * 1024 * 1024)
+#define PC_EXT_PTR_TAG 0x0E000000u
 
 void pc_platform_init(void);
 
@@ -115,6 +116,14 @@ void pc_textures_reload(void);
 void pc_textures_shutdown(void);
 const char* pc_textures_get_path(void);
 
+/* Mod loader (src/pc/mod_manager.cpp) */
+void pc_mod_manager_init(const char* pref_path);
+void pc_mod_manager_apply(void);
+int pc_mod_manager_get_count(void);
+const char* pc_mod_manager_get_name(int index);
+int pc_mod_manager_is_enabled(int index);
+void pc_mod_manager_set_enabled(int index, int enabled);
+
 /* Pipeline prewarm (src/pc/vi.c): blocks up to max_wait_ms while background
  * shader-pipeline compiles drain, returns how many are still pending. Call
  * from a load screen; 0 only polls. */
@@ -123,5 +132,7 @@ uint32_t pc_gfx_prewarm(uint32_t max_wait_ms);
 #ifdef __cplusplus
 }
 #endif
+
+#include "mex/mex_c_api.h"
 
 #endif

@@ -121,6 +121,10 @@ void* lbDvd_80017740(int type, int entry_num, int transient_heap, int heap,
     int free_index = -1;
     int i;
 
+    if (entry_num < 0) {
+        return NULL;
+    }
+
     for (i = 0; i < (signed) ARRAY_SIZE(preloadCache.entries); i++) {
         entry = &preloadCache.entries[i];
         if (entry->state == 0) {
@@ -170,6 +174,9 @@ void lbDvd_800178E8(int arg0, const char* name, int arg2, int arg3, int arg4,
 {
     u8 _[8];
     int entry = DVDConvertPathToEntrynum(lbFileGetFullName(name));
+    if (entry < 0) {
+        return;
+    }
     lbDvd_80017740(arg0, entry, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 
@@ -269,6 +276,10 @@ void lbDvd_CachePreloadedFile(s32 index)
     }
 
     if (heap == 0) {
+        if (preloadEntry->entry_num < 0) {
+            lbDvd_80017E64(0, index, 0, 1);
+            return;
+        }
         if (preloadEntry->size == 0) {
             preloadEntry->size = lbFile_8001634C(preloadEntry->entry_num);
         }
@@ -349,6 +360,10 @@ void* lbDvd_GetPreloadedArchive(ssize_t entry_num)
     ssize_t i;
     s32 interrupt;
     PreloadEntry* entry;
+
+    if (entry_num < 0) {
+        return 0;
+    }
 
     interrupt = OSDisableInterrupts();
 
@@ -462,7 +477,11 @@ HSD_Archive* lbDvd_8001819C(const char* basename)
 {
     HSD_Archive* archive;
     char* filename = lbFileGetFullName(basename);
-    archive = lbDvd_GetPreloadedArchive(DVDConvertPathToEntrynum(filename));
+    int entry_num = DVDConvertPathToEntrynum(filename);
+    if (entry_num < 0) {
+        return NULL;
+    }
+    archive = lbDvd_GetPreloadedArchive(entry_num);
     if (DbLevel != DbLKind_Master && preloadCache.preloaded && archive == NULL)
     {
         HSD_ASSERTREPORT(948, 0, "[LbDvd] %s is not PRELOADed.\n", filename);
@@ -592,6 +611,10 @@ int lbDvd_800187F4(int entry_num)
     PreloadEntry* entry;
     int i;
 
+    if (entry_num < 0) {
+        return 0;
+    }
+
     bool enabled = OSDisableInterrupts();
     bool var_r9;
     bool var_r10;
@@ -645,6 +668,9 @@ int lbDvd_800187F4(int entry_num)
 
 void lbDvd_800189EC(int entry_num)
 {
+    if (entry_num < 0) {
+        return;
+    }
     while (lbDvd_800187F4(entry_num) == 1) {
         lb_800195D0();
     }

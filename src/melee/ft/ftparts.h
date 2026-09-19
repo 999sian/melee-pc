@@ -47,6 +47,7 @@ struct Fighter_804D6540_x0_t;
 
 /// Fighter_BonePersonalToCommon
 /* 07500C */ Fighter_Part ftParts_GetBoneIndex(Fighter*, Fighter_Part);
+FighterPartsTable* ftParts_GetPartsTable(int kind);
 FighterBone* ftParts_GetBone(Fighter*, Fighter_Part);
 HSD_JObj* ftParts_GetPartJoint(Fighter*, Fighter_Part);
 

@@ -39,3 +39,11 @@ local/
 # MELEE_LOG_FILE defaults to this beside the executable on Windows, so a run
 # started from the repo root writes it here.
 melee-pc.log
+
+# User installed mods
+mods/*
+!mods/.gitkeep
+
+# CTest temporary files
+Testing/
+

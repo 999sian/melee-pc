@@ -30,13 +30,20 @@
 /* 085FD4 */ struct ftData_80085FD4_ret* ftData_80085FD4(Fighter* fp,
                                                          FtMotionId msid);
 /* 086060 */ Fighter* ftData_80086060(Fighter* arg0);
+
+#ifdef TARGET_PC
+#define MAX_FT_DATA_SLOTS 64
+#else
+#define MAX_FT_DATA_SLOTS Ft_Kind_Max
+#endif
+
 /* 3C0EC0 */ extern struct UnkCostumeList
-    CostumeListsForeachCharacter[Ft_Kind_Max];
+    CostumeListsForeachCharacter[MAX_FT_DATA_SLOTS];
 /* 3C0FC8 */ extern struct ftData_UnkCountStruct
-    ftData_Table_Unk0[Ft_Kind_Max];
+    ftData_Table_Unk0[MAX_FT_DATA_SLOTS];
 /* 3C10D0 */ extern Event ftData_Table_Unk1[Ft_Kind_Max];
 /* 3C10D0 */ extern struct ftData_UnkCountStruct
-    ftData_UnkIntPairs[Ft_Kind_Max];
+    ftData_UnkIntPairs[MAX_FT_DATA_SLOTS];
 
 /// One load  callback for every character.
 /* 3C1154 */ extern HSD_GObjEvent ftData_OnLoad[Ft_Kind_Max];
@@ -69,6 +76,6 @@
 /* 3C26FC */ extern u8 ftData_UnkBytePerCharacter[Ft_Kind_Max];
 /* 3C2800 */ extern MotionState ftData_MotionStateList[ftCo_MS_Count];
 /* 3C52A0 */ extern MotionState ftData_803C52A0[14];
-/* 4598B8 */ extern ftData* gFtDataList[Ft_Kind_Max];
+/* 4598B8 */ extern ftData* gFtDataList[MAX_FT_DATA_SLOTS];
 
 #endif

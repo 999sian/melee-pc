@@ -3,7 +3,7 @@
 <div id="toolbar"><span class="wordmark">MELEE <span class="muted">/ PC</span></span><span class="toolbar-tab">SETTINGS</span><span class="toolbar-note">F1 TO CLOSE</span></div>
 <div id="window">
 <div id="heading"><h1>PC settings</h1><span class="version"><span id="menu-version">v0.1.8-beta</span> · NTSC-U 1.02</span></div>
-<div id="tabstrip"><button id="tab-graphics" class="tab">Graphics</button><button id="tab-audio" class="tab">Audio &amp; interface</button><button id="tab-cheats" class="tab">Cheats</button><button id="tab-controls" class="tab">Controls</button></div>
+<div id="tabstrip"><button id="tab-graphics" class="tab">Graphics</button><button id="tab-audio" class="tab">Audio &amp; interface</button><button id="tab-cheats" class="tab">Cheats</button><button id="tab-controls" class="tab">Controls</button><button id="tab-mods" class="tab">Mods</button></div>
 <div id="content">
 <div id="page-graphics" class="page">
 <div class="setting"><div class="description"><h3>Display mode</h3></div><button id="display">Display</button></div>
@@ -59,6 +59,12 @@
 <div class="setting"><div class="description"><h3 id="axis-name-9">-</h3></div><button id="axis-9">-</button></div>
 <div class="setting"><div class="description"><h3>Restore defaults</h3><p>Put this port back on its default mapping.</p></div><button id="bind-reset">Restore</button></div>
 <div class="section controls"><h2>Keyboard</h2><p>WASD / arrows Move · X Attack · Z Special · C / V Jump · Q / E Shield<br/>Tab Grab · Enter Start · IJKL C-stick</p></div>
+</div>
+<div id="page-mods" class="page">
+<div class="setting"><div class="description"><h3>Active mods</h3><p id="port-mods-status">All installed mods active</p></div><button id="port-reload-mods">Reload mods</button></div>
+<div class="setting"><div class="description"><h3>Custom HD textures</h3><p>Load replacement textures from textures directory.</p></div><button id="port-custom-textures">Enabled</button></div>
+<div class="setting"><div class="description"><h3>Custom soundtrack</h3><p>Play user .ogg / .wav tracks from music directory.</p></div><button id="port-custom-music">Enabled</button></div>
+<div class="setting"><div class="description"><h3>Open mods folder</h3><p id="port-mods-path">Open mods directory in file manager.</p></div><button id="port-open-mods">Open folder</button></div>
 </div>
 </div>
 <div id="bottom"><p id="menu-status">Saved automatically.</p><button id="resume">Return to game</button></div>

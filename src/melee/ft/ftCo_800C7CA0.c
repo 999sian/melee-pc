@@ -7,6 +7,7 @@
 #include "ftanim.h"
 #include "ftcoll.h"
 #include "ftcommon.h"
+#include "ftparts.h"
 #include "kinds/ftCommon/forward.h"
 #include "kinds/ftCommon/ftCo_DamageFall.h"
 #include "kinds/ftCommon/ftCo_DownBound.h"
@@ -161,7 +162,7 @@ void ft_800C80A4(Fighter* fp)
 {
     size_t i;
     int idx;
-    FighterPartsTable* parts = DP(FighterPartsTable, ftPartsTable[fp->kind].v);
+    FighterPartsTable* parts = ftParts_GetPartsTable(fp->kind);
     for (i = idx = 0; i < parts->parts_num; idx++, i++) {
         FighterBone* bone = &fp->parts[idx];
         if (bone->flags_b1) {

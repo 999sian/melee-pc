@@ -114,6 +114,8 @@ endif ()
 # ---- Game code (decomp, compiled as C) -------------------------------------
 include(cmake/GameSources.cmake)
 
+add_compile_definitions(TARGET_PC=1 MELEE_PC=1)
+
 add_library(melee_game STATIC ${GAME_SOURCES})
 target_include_directories(melee_game PUBLIC extern/aurora/include src src/sdk_include)
 target_compile_definitions(melee_game PUBLIC TARGET_PC=1 MELEE_PC=1)
@@ -185,6 +187,10 @@ set(PC_SOURCES
         src/pc/textures.cpp
         src/pc/updater.cpp
         src/pc/version.cpp
+        src/pc/vfs/vfs.cpp
+        src/pc/mod_manager.cpp
+        src/pc/mex/mex_runtime.cpp
+        src/pc/gecko/gecko_engine.cpp
         # Netplay (docs/netcode-plan.md). net.c is the session and rollback
         # loop; the rest are its modules behind src/pc/net_internal.h.
         src/pc/net.c
@@ -400,6 +406,36 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     add_test(NAME version COMMAND version_test)
     set_tests_properties(version PROPERTIES LABELS melee)
     add_dependencies(unit_tests version_test)
+    add_executable(vfs_test EXCLUDE_FROM_ALL tools/test_vfs.cpp src/pc/vfs/vfs.cpp tools/test_stubs.cpp)
+    target_include_directories(vfs_test PRIVATE src extern/aurora/include)
+    target_link_libraries(vfs_test PRIVATE aurora::dvd)
+    target_compile_options(vfs_test PRIVATE -UNDEBUG)
+    add_test(NAME vfs COMMAND vfs_test)
+    set_tests_properties(vfs PROPERTIES LABELS melee)
+    add_dependencies(unit_tests vfs_test)
+
+    add_executable(mod_manager_test EXCLUDE_FROM_ALL tools/test_mod_manager.cpp src/pc/mod_manager.cpp src/pc/vfs/vfs.cpp src/pc/mex/mex_runtime.cpp src/pc/gecko/gecko_engine.cpp tools/test_stubs.cpp)
+    target_include_directories(mod_manager_test PRIVATE src src/sdk_include extern/aurora/include)
+    target_link_libraries(mod_manager_test PRIVATE aurora::dvd)
+    target_compile_options(mod_manager_test PRIVATE -UNDEBUG)
+    add_test(NAME mod_manager COMMAND mod_manager_test)
+    set_tests_properties(mod_manager PROPERTIES LABELS melee)
+    add_dependencies(unit_tests mod_manager_test)
+
+    add_executable(mex_gecko_test EXCLUDE_FROM_ALL tools/test_mex_and_gecko.cpp src/pc/mex/mex_runtime.cpp src/pc/gecko/gecko_engine.cpp tools/test_stubs.cpp)
+    target_include_directories(mex_gecko_test PRIVATE src src/sdk_include extern/aurora/include)
+    target_compile_options(mex_gecko_test PRIVATE -UNDEBUG)
+    add_test(NAME mex_gecko COMMAND mex_gecko_test)
+    set_tests_properties(mex_gecko PROPERTIES LABELS melee)
+    add_dependencies(unit_tests mex_gecko_test)
+
+    add_executable(real_ace_test EXCLUDE_FROM_ALL tools/test_real_ace.cpp src/pc/mod_manager.cpp src/pc/mex/mex_runtime.cpp src/pc/gecko/gecko_engine.cpp src/pc/vfs/vfs.cpp tools/test_stubs.cpp)
+    target_include_directories(real_ace_test PRIVATE src src/sdk_include extern/aurora/include)
+    target_link_libraries(real_ace_test PRIVATE aurora::dvd)
+    target_compile_options(real_ace_test PRIVATE -UNDEBUG)
+    add_test(NAME real_ace COMMAND real_ace_test WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    set_tests_properties(real_ace PROPERTIES LABELS melee)
+    add_dependencies(unit_tests real_ace_test)
 
     if (NOT WIN32)
         add_executable(updater_test EXCLUDE_FROM_ALL tools/test_updater.cpp src/pc/updater.cpp src/pc/version.cpp)

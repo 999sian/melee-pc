@@ -8,6 +8,7 @@
 #include <melee/ft/ftcommon.h>
 #include <melee/ft/ftdata.h>
 #include <melee/ft/types.h>
+#include "pc/mex/mex_c_api.h"
 
 /* 0960CC */ static void doEnter(Fighter_GObj* gobj);
 
@@ -25,7 +26,7 @@ bool ftCo_SpecialS_HasInput(Fighter* fp)
 bool ftCo_SpecialS_CheckInput(Fighter_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    if (ftData_SpecialS[fp->kind] == NULL) {
+    if (pc_mex_is_custom_fighter(fp->kind) || fp->kind >= Ft_Kind_Max || ftData_SpecialS[fp->kind] == NULL) {
         return false;
     }
     if (fp->x688 == 0) {

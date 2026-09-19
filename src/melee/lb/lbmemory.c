@@ -152,9 +152,11 @@ Handle* lbMemory_80014FC8(Handle* arg0, size_t size)
                  (unsigned) size, arg0->x4_lo, arg0->x8_hi,
                  lbMemory_80014F7C(arg0),
                  PC_IS_ARAM_ADDR(arg0->x4_lo) ? "ARAM" : "RAM");
+        return NULL;
     }
-#endif
+#else
     HSD_ASSERT(0xE9, memp_kouho);
+#endif
     {
         Handle* result;
         POP_HANDLE(&_p(free_mem), result);
@@ -339,8 +341,7 @@ void lbMemory_8001564C(void)
 
     _p(a_arenaLo) = (void*) (uintptr_t) ARAlloc(0x20);
     ARFree(&freed_size);
-    _p(a_arenaHi) =
-        (void*) (uintptr_t) ((ARGetSize() > 0x01000000U) ? 0x01000000U : ARGetSize());
+    _p(a_arenaHi) = (void*) (uintptr_t) ARGetSize();
 
     _p(free_mem) = (Handle*) &_p(x8_mem)[0];
     for (i = 0; i < (int) ARRAY_SIZE(_p(x8_mem)) - 1; i++) {

@@ -23,6 +23,7 @@
 #include <melee/ft/ftanim.h>
 #include <melee/ft/ftchangeparam.h>
 #include <melee/ft/ftcommon.h>
+#include "pc/mex/mex_c_api.h"
 #include <melee/ft/ftdata.h>
 #include <melee/ft/ftlib.h>
 #include <melee/ft/kinds/ftDonkey/ftdonkeyheavywait0.h>
@@ -258,7 +259,7 @@ void ftpickupitem_80094818(Fighter_GObj* gobj, bool arg1)
     if (fp->x1978 != NULL) {
         pl_8003E17C(fp->player_id, fp->is_sub_fighter, fp->x1978);
     } else if (fp->item_gobj != NULL) {
-        if (ftData_OnItemPickupExt[fp->kind] != NULL) {
+        if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_OnItemPickupExt[fp->kind] != NULL) {
             ftData_OnItemPickupExt[fp->kind](gobj, arg1);
         }
         pl_8003E17C(fp->player_id, fp->is_sub_fighter, fp->item_gobj);

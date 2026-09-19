@@ -45,6 +45,13 @@
 extern "C" {
 #endif
 
+#ifndef PC_ARAM_SIZE
+#define PC_ARAM_SIZE (64u * 1024 * 1024)
+#endif
+#ifndef PC_EXT_PTR_TAG
+#define PC_EXT_PTR_TAG 0x0E000000u
+#endif
+
 extern uintptr_t OSBaseAddress;
 uint32_t pc_register_ext_ptr(const void* p);
 void* pc_resolve_ext_ptr(uint32_t id);
@@ -61,20 +68,20 @@ static inline uint32_t pc_encode_dp(const void* p) {
     {
         return (uint32_t)(uintptr_t)p;
     }
-    return 0x02000000u | pc_register_ext_ptr(p);
+    return PC_EXT_PTR_TAG | pc_register_ext_ptr(p);
 }
 
 static inline void* pc_resolve_dp(uint32_t slot) {
     if (!slot)
         return (void*)0;
-    if ((slot & 0xFF000000u) == 0x02000000u) {
+    if ((slot & 0xFF000000u) == PC_EXT_PTR_TAG) {
         void* ext = pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
         if (ext)
             return ext;
     }
     /* Slots that double as ARAM offsets (see PC_IS_ARAM_ADDR) stay raw:
      * MEM1's low half never lands in that range (OSMemory.cpp). */
-    if (slot < 0x01000000u)
+    if (slot < PC_ARAM_SIZE)
         return (void*)(uintptr_t)slot;
     if (OSBaseAddress >> 32) {
         return (void*)((uintptr_t)slot | (OSBaseAddress & ~0xFFFFFFFFULL));
@@ -99,7 +106,7 @@ static inline void* pc_resolve_dp(uint32_t slot) {
 
 #define DISC_ASSERT_SIZE(T, size) static_assert(sizeof(T) == (size), #T " disc size")
 
-#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < 0x01000000u)
+#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < PC_ARAM_SIZE)
 
 struct DiscF32 {
     BE<float> v;
@@ -167,7 +174,7 @@ struct DiscMtx {
 /* The game tells ARAM offsets from main-RAM pointers with `addr < 0x80000000`.
  * On PC, MEM1 is mapped at 0x80000000 and the executable is linked at
  * 0x10000000, so anything below the 16MB ARAM size is an ARAM offset. */
-#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < 0x01000000u)
+#define PC_IS_ARAM_ADDR(a) ((uintptr_t)(a) < PC_ARAM_SIZE)
 
 typedef struct DISC_STRUCT {
     float v;

@@ -31,6 +31,7 @@
           <button id="play" class="primary">Play Melee</button>
           <button id="choose">Choose disc</button>
           <button id="verify">Verify disc</button>
+          <button id="mods-btn">Mods</button>
           <button id="settings">Settings</button>
           <button id="discord" class="discord-btn"><img class="discord-icon" src="discord.png" /> Discord</button>
           <button id="quit" class="quiet">Quit</button>
@@ -56,6 +57,7 @@
           <button id="tab-audio" class="tab">Audio &amp; interface</button>
           <button id="tab-cheats" class="tab">Cheats</button>
           <button id="tab-controls" class="tab">Controls</button>
+          <button id="tab-mods" class="tab">Mods</button>
         </div>
         <div id="settings-content">
           <div id="page-graphics" class="page">
@@ -179,6 +181,24 @@
             <div class="section controls">
               <div class="section-heading"><h2>Controller</h2></div>
               <p>Remap a gamepad from the in-game menu: press BACK on the pad, or F1, then open Controls. Controllers are only detected once the game is running.</p>
+            </div>
+          </div>
+          <div id="page-mods" class="page">
+            <div class="setting">
+              <div class="description"><h3>Installed mods</h3><p id="mods-summary">Scan your mods directory for packages and m-ex builds.</p></div>
+              <button id="mod-scan">Scan for mods</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Open mods folder</h3><p id="mods-folder-label">Open the user mods directory in your file manager.</p></div>
+              <button id="mod-open-dir">Open folder</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Active profile</h3><p id="profile-desc">All discovered mods enabled by default.</p></div>
+              <button id="mod-profile">Default</button>
+            </div>
+            <div class="section controls">
+              <div class="section-heading"><h2>Active Mods &amp; Status</h2></div>
+              <p id="mods-list-text">Place mods (or m-ex projects like ACE-BUILD) into your mods folder.</p>
             </div>
           </div>
         </div>

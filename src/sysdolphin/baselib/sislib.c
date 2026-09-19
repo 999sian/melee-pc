@@ -651,9 +651,9 @@ void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
          * archives live in MEM1, so anything else is not a string. */
         {
             u32 slot = sis_table[sis_idx].v;
-            /* 0x02xxxxxx slots name registered host pointers (statics the
+            /* PC_EXT_PTR_TAG slots name registered host pointers (statics the
              * game linked in with DP_SET) and are valid by construction. */
-            bool ext = (slot & 0xFF000000u) == 0x02000000u;
+            bool ext = (slot & 0xFF000000u) == PC_EXT_PTR_TAG;
             uintptr_t addr = (uintptr_t) text->sis_buffer;
             bool in_mem1 = addr - OSBaseAddress < PC_MEM1_SIZE;
             if (text->sis_buffer != NULL && !ext && !in_mem1) {

@@ -2,9 +2,12 @@
 
 #include <Runtime/platform.h>
 
+#include "pc/mex/mex_c_api.h"
+
 #include <melee/pl/forward.h>
 
 #include <math.h>
+#include <string.h>
 
 #include "fighter.h"
 #include "ft_0BEC.h"
@@ -67,10 +70,16 @@ Fighter_GObj* ftDemo_CreateFighter(plAllocInfo2* alloc_info)
         initFighter(gobj, alloc_info);
         fp->x18 = 14;
         fp->x1C_actionStateList = ftData_803C52A0;
-        fp->x20_actionStateList = ftData_UnkMotionStates0[fp->kind];
+        if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max) {
+            fp->x20_actionStateList = ftData_UnkMotionStates0[fp->kind];
+        } else {
+            fp->x20_actionStateList = NULL;
+        }
         fp->x24 = DP(struct Fighter_WaitAnimData, fp->ft_data->x14);
         fp->x28 = DP(void, fp->ft_data->x18);
-        efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
+        if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max) {
+            efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
+        }
         if (!alloc_info->b0) {
             ftData_80085820(fp->kind, fp->x619_costume_id);
         } else {
@@ -80,7 +89,11 @@ Fighter_GObj* ftDemo_CreateFighter(plAllocInfo2* alloc_info)
         {
             enum_t a, b;
             if (alloc_info->unk8 >= 9) {
-                ftData_UnkDemoCallbacks0[fp->kind](alloc_info->unk8, &a, &b);
+                if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkDemoCallbacks0[fp->kind]) {
+                    ftData_UnkDemoCallbacks0[fp->kind](alloc_info->unk8, &a, &b);
+                } else {
+                    b = 13;
+                }
             } else if (alloc_info->unk8 >= 8) {
                 b = 13;
                 a = 13;
@@ -107,8 +120,14 @@ Fighter_GObj* ftDemo_CreateFighter(plAllocInfo2* alloc_info)
         ftAnim_8006FE48(gobj);
         Fighter_UnkUpdateVecFromBones_8006876C(fp);
         ftCo_8009F578(fp);
-        if (ftData_OnLoad[fp->kind] != NULL) {
+        if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_OnLoad[fp->kind] != NULL) {
             ftData_OnLoad[fp->kind](gobj);
+        } else if (pc_mex_is_custom_fighter(fp->kind)) {
+            fp->can_walljump = true;
+            fp->dat_attrs = fp->dat_attrs_backup;
+            if (fp->ft_data && fp->ft_data->ext_attr && fp->dat_attrs) {
+                memcpy(fp->dat_attrs, DP(void, fp->ft_data->ext_attr), 0x424);
+            }
         }
         ftColl_8007B320(gobj);
         fp->x890_cameraBox = Camera_80029020();

@@ -57,7 +57,8 @@ jobs:
             libxfixes-dev libxss-dev libxkbcommon-dev libxtst-dev \
             libwayland-dev wayland-protocols libdecor-0-dev \
             libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
-            libgl1-mesa-dev libegl1-mesa-dev libgbm-dev
+            libgl1-mesa-dev libegl1-mesa-dev libgbm-dev \
+            libusb-1.0-0-dev
 
       - name: Configure
         # Same dependency providers as tools/package_linux.sh: prebuilt Dawn
@@ -102,7 +103,8 @@ jobs:
             libxfixes-dev libxss-dev libxkbcommon-dev libxtst-dev \
             libwayland-dev wayland-protocols libdecor-0-dev \
             libasound2-dev libpulse-dev libdbus-1-dev libudev-dev \
-            libgl1-mesa-dev libegl1-mesa-dev libgbm-dev
+            libgl1-mesa-dev libegl1-mesa-dev libgbm-dev \
+            libusb-1.0-0-dev
 
       - name: Build and package
         run: tools/package_linux.sh

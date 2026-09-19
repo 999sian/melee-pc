@@ -10,6 +10,7 @@
 #include "inlines.h"
 #include "kinds/ftCommon/ftCo_Attack100.h"
 #include "types.h"
+#include "pc/mex/mex_c_api.h"
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbanim.h>
 #include <melee/lb/lbvector.h>
@@ -523,7 +524,7 @@ bool ftAnim_IsFramesRemaining(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
 
-    FighterPartsTable* parts = DP(FighterPartsTable, ftPartsTable[fp->kind].v);
+    FighterPartsTable* parts = ftParts_GetPartsTable(fp->kind);
     if (fp->x8A4_animBlendFrames == 0.0F) {
         for (i = 0; i < parts->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
@@ -562,7 +563,7 @@ float ftAnim_8006F3DC(Fighter_GObj* fighter_gobj)
 
     if (fp->x8A4_animBlendFrames == 0.0F) {
         int i;
-        for (i = 0; i < DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num; i++) {
+        for (i = 0; i < ftParts_GetPartsTable(fp->kind)->parts_num; i++) {
             if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
                 !fp->parts[i].flags_b5)
             {
@@ -937,7 +938,7 @@ void ftAnim_8006FE48(Fighter_GObj* fighter_gobj)
 void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 {
     int i;
-    for (i = start; i < DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num; i++) {
+    for (i = start; i < ftParts_GetPartsTable(fp->kind)->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {
@@ -954,7 +955,7 @@ void ftAnim_8006FE9C(Fighter* fp, Fighter_Part start, float t, float t_inv)
 void ftAnim_8006FF74(Fighter* fp, Fighter_Part start)
 {
     int i;
-    for (i = start; i < DP(FighterPartsTable, ftPartsTable[fp->kind].v)->parts_num; i++) {
+    for (i = start; i < ftParts_GetPartsTable(fp->kind)->parts_num; i++) {
         if (fp->parts[i].flags_b1 && !fp->parts[i].flags_b0 &&
             !fp->parts[i].flags_b5)
         {
@@ -1038,13 +1039,23 @@ void ftAnim_80070308(Fighter_GObj* fighter_gobj)
     Fighter* fp = GET_FIGHTER(fighter_gobj);
     HSD_JObj* jobj = GET_JOBJ(fighter_gobj);
 
-    HSD_JObjAddAnimAll(jobj, NULL,
-                       CostumeListsForeachCharacter[fp->kind]
-                           .costume_list[fp->x619_costume_id]
-                           .x4,
-                       NULL);
-    HSD_JObjReqAnimAll(jobj, 0.0F);
-    ftAnim_80070200(fp, &DP(struct ftData_x8, fp->ft_data->x8)->x8, &fp->tobj_list, &fp->dobj_list);
+    HSD_MatAnimJoint* matanim = NULL;
+
+    if (fp->kind < MAX_FT_DATA_SLOTS &&
+        CostumeListsForeachCharacter[fp->kind].costume_list != NULL)
+    {
+        matanim = CostumeListsForeachCharacter[fp->kind]
+                      .costume_list[fp->x619_costume_id]
+                      .x4;
+    }
+
+    if (jobj != NULL) {
+        HSD_JObjAddAnimAll(jobj, NULL, matanim, NULL);
+        HSD_JObjReqAnimAll(jobj, 0.0F);
+    }
+    if (fp->ft_data != NULL && fp->ft_data->x8 != 0) {
+        ftAnim_80070200(fp, &DP(struct ftData_x8, fp->ft_data->x8)->x8, &fp->tobj_list, &fp->dobj_list);
+    }
 }
 
 extern struct {
@@ -1075,7 +1086,7 @@ void ftAnim_800704F0(Fighter_GObj* gobj, int tobj_idx, float frame)
 
     fp = gobj->user_data;
     ftAnim_80070458(fp, &fp->tobj_list, tobj_idx, frame);
-    if (ftData_UnkCallbackPairs0[fp->kind].x4 != NULL) {
+    if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkCallbackPairs0[fp->kind].x4 != NULL) {
         ftData_UnkCallbackPairs0[fp->kind].x4(gobj, tobj_idx, frame);
     }
     fp->x221E_b7 = true;
@@ -1097,7 +1108,7 @@ void ftAnim_80070654(Fighter_GObj* fighter_gobj)
 
     ftAnim_800705E0(&fp->tobj_list);
 
-    if (ftData_UnkCallbackPairs0[fp->kind].x0 != NULL) {
+    if (!pc_mex_is_custom_fighter(fp->kind) && fp->kind < Ft_Kind_Max && ftData_UnkCallbackPairs0[fp->kind].x0 != NULL) {
         ftData_UnkCallbackPairs0[fp->kind].x0(fighter_gobj);
     }
     fp->x221E_b7 = false;

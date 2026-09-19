@@ -48,9 +48,53 @@ extern HSD_RumbleData HSD_Rumble_804C22E0[GC_SLOTS];
 
 static bool s_enabled;
 static SDL_hid_device* s_dev;
-static int s_retry_ms;
+static int s_retry_ms = 999;
 static bool s_warned_open;
 static uint8_t s_rumble[1 + GC_SLOTS] = {0x11};
+
+#if !defined(_WIN32) && !defined(__APPLE__)
+#include <dirent.h>
+#include <stdio.h>
+static bool check_usb_device_attached(uint16_t vid, uint16_t pid) {
+    DIR* dir = opendir("/sys/bus/usb/devices");
+    if (dir == NULL) {
+        return false;
+    }
+    struct dirent* ent;
+    char path[256];
+    char buf[16];
+    char target_vid[8], target_pid[8];
+    snprintf(target_vid, sizeof(target_vid), "%04x", vid);
+    snprintf(target_pid, sizeof(target_pid), "%04x", pid);
+    bool found = false;
+
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_name[0] == '.') {
+            continue;
+        }
+        snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/idVendor", ent->d_name);
+        FILE* f = fopen(path, "r");
+        if (f == NULL) {
+            continue;
+        }
+        if (fgets(buf, sizeof(buf), f) && strncmp(buf, target_vid, 4) == 0) {
+            fclose(f);
+            snprintf(path, sizeof(path), "/sys/bus/usb/devices/%s/idProduct", ent->d_name);
+            f = fopen(path, "r");
+            if (f != NULL && fgets(buf, sizeof(buf), f) && strncmp(buf, target_pid, 4) == 0) {
+                found = true;
+                fclose(f);
+                break;
+            }
+        }
+        if (f != NULL) {
+            fclose(f);
+        }
+    }
+    closedir(dir);
+    return found;
+}
+#endif
 
 /* Poll-thread state. */
 static PADStatus s_status[GC_SLOTS];
@@ -101,6 +145,16 @@ static void try_open(void) {
                 ,
                 SDL_GetError());
         }
+#if !defined(_WIN32) && !defined(__APPLE__)
+        else if (info == NULL && !s_warned_open && check_usb_device_attached(GC_VID, GC_PID))
+        {
+            s_warned_open = true;
+            pc_log_line(
+                "GC adapter: WUP-028 detected on USB bus, but not accessible through hidapi (%s)"
+                " (ensure libusb-1.0 is installed and udev rules grant access)",
+                SDL_GetError());
+        }
+#endif
         SDL_hid_free_enumeration(info);
         return;
     }
