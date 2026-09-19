@@ -403,6 +403,11 @@ void net_delay_rel(const void* payload, int len);
 /* A REL_SCENE payload from the peer (on_rel dispatches it here, like
  * REL_DELAY): the frame its scene asked to end on. */
 void net_scene_rel(const void* payload, int len);
+
+/* A silent freeze: the transmit timer notices the game thread has stopped
+ * ticking and asks it for a stack (src/pc/net_watchdog.c). */
+void net_watchdog_arm(void);
+void net_watchdog_tick(int32_t frame);
 void sync_reset(void);
 
 /* ---- net_snapshot.c --------------------------------------------------- */

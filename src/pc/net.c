@@ -292,7 +292,11 @@ static Uint32 SDLCALL tx_timer(void* ud, SDL_TimerID id, Uint32 interval) {
         send_packet(&s_last_pkt);
         s_last_send_ns = now;
     }
+    int32_t seen = net.frame;
     SDL_UnlockMutex(net.tx_lock);
+    /* Outside the lock: the log write must not hold up the sender, and the
+     * stuck thread it signals may itself be waiting on this mutex. */
+    net_watchdog_tick(seen);
     return interval;
 }
 
@@ -2095,7 +2099,8 @@ void pc_net_sync(void) {
         SDL_UnlockMutex(net.tx_lock);
     }
     if (net.active) {
-        pad_qtype_hold(); /* HSD_PadInit wipes it; the tick depends on it */
+        net_watchdog_arm(); /* this is the thread that must keep moving */
+        pad_qtype_hold();   /* HSD_PadInit wipes it; the tick depends on it */
         dvd_settle();
     }
     if (net.active || record_active()) {

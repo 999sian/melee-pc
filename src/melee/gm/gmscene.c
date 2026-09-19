@@ -343,6 +343,27 @@ static bool gm_RunSimTick(void (*on_frame)(void), struct gm_80479D58_t* temp_r25
 /* The scene-end request while the netcode agrees a frame for it; 0 = none.
  * One scene loop runs at a time, so one slot is the whole state. */
 static int s_scene_end_held;
+
+/* True when the scene may end on this tick. A scene ends when its own code
+ * asks to, and how many ticks that takes depends on how fast the machine
+ * loaded, so under netplay the request is latched here and released on the
+ * frame both peers agreed (src/pc/net.c pc_net_scene_hold). */
+static bool scene_end_gate(struct gm_80479D58_t* st)
+{
+    if (st->unk_C != 0) {
+        if (!pc_net_scene_hold()) {
+            s_scene_end_held = 0;
+            return true;
+        }
+        s_scene_end_held = st->unk_C;
+        st->unk_C = 0;
+    } else if (s_scene_end_held != 0 && !pc_net_scene_hold()) {
+        st->unk_C = s_scene_end_held;
+        s_scene_end_held = 0;
+        return true;
+    }
+    return false;
+}
 #endif
 
 void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
@@ -380,12 +401,17 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
             HSD_PerfSetStartTime();
 #ifdef TARGET_PC
             pc_net_sync();
-            if (gm_RunSimTick(on_frame, temp_r25)) {
-                break;
-            }
+            gm_RunSimTick(on_frame, temp_r25);
             /* Rollback / sync test: re-run this tick from a restored snapshot. */
             while (pc_net_after_tick()) {
                 gm_RunSimTick(on_frame, temp_r25);
+            }
+            /* Per TICK, not per pad batch: a batch is however many pad
+             * periods the last load let pile up, so checking once per batch
+             * ends the scene a whole batch late on the peer that loaded
+             * slower -- the very gap this is here to close. */
+            if (scene_end_gate(temp_r25)) {
+                break;
             }
 #else
             if (gm_RunSimTick(on_frame, temp_r25)) {
@@ -393,23 +419,6 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
             }
 #endif
         }
-#ifdef TARGET_PC
-        /* The scene has asked to end, but a load costs each machine a
-         * different number of ticks, so "now" is a different frame on each
-         * peer. Keep ticking until the netcode has agreed one (net.c
-         * pc_net_scene_hold); the request is latched, not lost. */
-        if (temp_r25->unk_C != 0) {
-            if (pc_net_scene_hold()) {
-                s_scene_end_held = temp_r25->unk_C;
-                temp_r25->unk_C = 0;
-            } else if (s_scene_end_held != 0) {
-                s_scene_end_held = 0;
-            }
-        } else if (s_scene_end_held != 0 && !pc_net_scene_hold()) {
-            temp_r25->unk_C = s_scene_end_held;
-            s_scene_end_held = 0;
-        }
-#endif
         if (temp_r25->unk_C == 2) {
             break;
         }

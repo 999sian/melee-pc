@@ -194,6 +194,7 @@ set(PC_SOURCES
         src/pc/net_sim.c
         src/pc/net_snapshot.c
         src/pc/net_sync.c
+        src/pc/net_watchdog.c
         src/pc/net_wire.c
         # Vendored musl trig: platform libm differs by an ULP between targets,
         # which is a cross-platform desync (docs/netcode-plan.md section 5).

@@ -154,6 +154,11 @@ bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b)
     return true;
 }
 /* The tick's disc drain; no disc in this harness, so always idle. */
+/* The freeze watchdog; no timer thread in this harness. */
+void net_watchdog_arm(void) {}
+void net_watchdog_tick(int32_t frame) {
+    (void)frame;
+}
 int aurora_dvd_inflight(void) {
     return 0;
 }
