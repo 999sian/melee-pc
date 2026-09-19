@@ -214,6 +214,16 @@ void mnStageSel_80259C28(void)
         if (mnStageSel_804D6CAE < 0x1E &&
             mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 >= 2)
         {
+#ifdef TARGET_PC
+            /* A cell that needs no roll still has to be sent online: the
+             * net send below is only reached from the RANDOM cases, so
+             * confirming an ordinary stage left the peer waiting for a pick
+             * that never came and both sat on "NOW LOADING" until one of
+             * them was killed. */
+            if (netStageSel_Active()) {
+                netStageSel_SendPick(mnStageSel_804D6CAE);
+            }
+#endif
             goto skip_randomize;
         }
         lbAudioAx_80024030(3);
