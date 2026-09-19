@@ -13,6 +13,9 @@
 #include <melee/mn/mnsnap.h>
 #include <melee/mn/types.h>
 #include <sysdolphin/baselib/memory.h>
+#ifdef TARGET_PC
+#include "gmonlinemode.h"
+#endif
 
 struct DebugSoundTestData {
     struct SoundTestData* x0;
@@ -177,6 +180,14 @@ void onEnter(GameModeState* scene)
         data->menu_kind = MENU_KIND_VS;
         data->hovered_selection = SEL_VS_TOURNAMENT;
         return;
+#ifdef TARGET_PC
+    case GM_ONLINE:
+        data->menu_kind = MENU_KIND_ONLINE;
+        data->hovered_selection = gmOnline_GetKind() == ONLINE_KIND_DIRECT
+                                      ? SEL_ONLINE_DIRECT
+                                      : SEL_ONLINE_LAN;
+        return;
+#endif
     case GM_CAMERA_MODE:
         data->menu_kind = MENU_KIND_SPECIAL;
         data->hovered_selection = SEL_SPECIAL_VS_CAMERA;

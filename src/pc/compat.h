@@ -9,5 +9,6 @@
 #include <math.h>
 
 #include "pc/disc.h"
+#include "pc/libm/pc_trig.h"
 
 #endif

@@ -42,6 +42,7 @@
 #include "gmtrainingmode.h"
 #include "gmvsmelee.h"
 #include "gmvsmode.h"
+#include "gmonlinemode.h"
 #include "types.h"
 #include <melee/if/ifprize.h>
 #include <melee/mn/mncharsel.h>
@@ -369,6 +370,13 @@ static GameScene scenes[] = {
         gm_Scene_CameraVs_OnFrame,
         gm_Scene_CameraVs_OnEnter,
         gm_Scene_CameraVs_OnExit,
+        NULL,
+    },
+    {
+        GS_ONLINE_LOBBY,
+        gm_Scene_OnlineLobby_OnFrame,
+        gm_Scene_OnlineLobby_OnEnter,
+        gm_Scene_OnlineLobby_OnExit,
         NULL,
     },
     {
@@ -740,6 +748,14 @@ static GameMode modes[] = {
         NULL,
         gm_Mode_SingleButtonVs_OnInit,
         gm_Mode_SingleButtonVs_States,
+    },
+    {
+        false,
+        GM_ONLINE,
+        NULL,
+        NULL,
+        NULL,
+        gm_Mode_Online_States,
     },
     {
         false,

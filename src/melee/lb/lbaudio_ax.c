@@ -9,6 +9,7 @@
 #include "lbaudio_ax.static.h"
 #include "lblanguage.h"
 #include "pc/music_stream.h"
+#include "pc/net.h"
 #include <dolphin/ai.h>
 #include <dolphin/ar.h>
 #include <dolphin/ax.h>
@@ -445,7 +446,7 @@ int lbAudioAx_80023F28(int arg0)
 {
     const char* filename;
 
-    if (arg0 < 0 || arg0 >= 0x62) {
+    if (arg0 < 0 || arg0 >= 0x62 || pc_net_resim()) {
         return true;
     }
     if (!(filename = getHPSFile(arg0))) {

@@ -2,6 +2,7 @@
 #include "../internal.hpp"
 #include "dolphin/os.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -111,6 +112,7 @@ std::condition_variable sArqCv;
 std::deque<ArqJob> sArqQueue;
 std::thread sArqThread;
 bool sArqStop = false;
+std::atomic<int> sArqInflight{0};
 
 void arq_transfer(const ArqJob& job) {
   // type 0 = MRAM -> ARAM, type 1 = ARAM -> MRAM
@@ -143,6 +145,7 @@ void arq_worker() {
     if (job.callback) {
       job.callback(job.request);
     }
+    sArqInflight.fetch_sub(1, std::memory_order_release);
     lock.lock();
   }
 }
@@ -162,10 +165,13 @@ void ARQPostRequest(ARQRequest* request, uintptr_t owner, u32 type, u32 priority
   request->callback = callback;
   {
     std::lock_guard lock{sArqMutex};
+    sArqInflight.fetch_add(1, std::memory_order_relaxed);
     sArqQueue.push_back(ArqJob{request, type, source, dest, length, callback});
   }
   sArqCv.notify_one();
 }
+
+extern "C" int aurora_arq_inflight() { return sArqInflight.load(std::memory_order_acquire); }
 
 void ARQInit() {
   std::lock_guard lock{sArqMutex};

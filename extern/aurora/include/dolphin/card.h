@@ -254,6 +254,9 @@ void CARDSetBasePath(const char*, s32 chan);
 void CARDSetLoadType(CARDFileType type);
 /* melee-pc: when false, CARDProbe/CARDProbeEx/CARDMount report no card inserted. */
 void aurora_card_set_present(bool present);
+/* melee-pc: the flag above, for game code that must distinguish "the player
+ * has no memory card at all" from "the card has no save file yet". */
+bool aurora_card_is_present(void);
 /* melee-pc: route every CARD*Async completion through `dispatch` instead of
  * calling it inline. */
 void aurora_card_set_callback_dispatch(void (*dispatch)(CARDCallback callback, s32 chan, s32 result));

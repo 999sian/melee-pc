@@ -187,6 +187,17 @@ for dll in VCRUNTIME140.dll VCRUNTIME140_1.dll MSVCP140.dll MSVCP140_ATOMIC_WAIT
     cp "${VCREDIST_DIR}/${dll}" "${STAGE_DIR}/"
 done
 
+echo "=== Refusing a determinism test build ==="
+# A build configured with -DMELEE_FP_PERTURB=<fn> (CMakeLists.txt) returns that
+# trig function one ULP off on purpose, so it desyncs against every other
+# build. The marker is the banner src/pc/net.c logs on every run of such a
+# build, which only exists in the image when the option was on.
+if grep -qa "FP PERTURB" "${STAGE_DIR}/melee.exe"; then
+    echo "error: melee.exe was built with MELEE_FP_PERTURB; it desyncs by design" >&2
+    exit 1
+fi
+echo "  clean (no MELEE_FP_PERTURB marker)"
+
 echo "=== Verifying the package resolves on a clean Windows ==="
 python3 - "${STAGE_DIR}" "${OBJDUMP_BIN}" <<'PY'
 import pathlib, re, subprocess, sys
@@ -201,7 +212,10 @@ OS_DLLS = {
     'dxgi.dll', 'd3d11.dll', 'd3d12.dll', 'ucrtbase.dll', 'ws2_32.dll',
     'crypt32.dll', 'shlwapi.dll', 'msvcrt.dll', 'rpcrt4.dll', 'userenv.dll',
     'cfgmgr32.dll', 'dwmapi.dll', 'uxtheme.dll', 'powrprof.dll', 'dbghelp.dll',
-    'winhttp.dll',
+    # iphlpapi: GetAdaptersAddresses (src/pc/net_lan.c). Ships with Windows
+    # since 2000; it appeared in our import table when LAN discovery landed,
+    # which is why the gate started failing on a package that is in fact fine.
+    'winhttp.dll', 'iphlpapi.dll',
 }
 
 def is_os(name):

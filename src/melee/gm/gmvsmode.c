@@ -1,5 +1,7 @@
 #include "gmvsmode.h"
 
+#include <stdlib.h>
+#include <string.h>
 #include <melee/lb/forward.h>
 
 #include "forward.h"
@@ -184,6 +186,11 @@ void onEnterDebugVs(GameModeState* state)
     start->players[1].slot_type = Gm_PKind_Human;
     start->players[2].slot_type = Gm_PKind_NA;
     start->players[3].slot_type = Gm_PKind_NA;
+#ifdef TARGET_PC
+    if (getenv("MELEE_DEBUG_VS") != NULL && strcmp(getenv("MELEE_DEBUG_VS"), "cpu") == 0) {
+        start->players[1].slot_type = Gm_PKind_Cpu;
+    }
+#endif
 
     start->players[0].rumble_enabled = false;
     start->players[1].rumble_enabled = false;

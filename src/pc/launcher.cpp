@@ -23,6 +23,7 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <chrono>
+#include <random>
 #include <cstdlib>
 #include <future>
 #include <memory>
@@ -907,6 +908,12 @@ public:
 extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config_path = std::filesystem::path(config->userPath ? config->userPath : ".") / "launcher.cfg";
     prefs = launcher::load_preferences(config_path);
+    if (prefs.install_id == 0) {
+        prefs.install_id = std::random_device{}() | uint64_t(std::random_device{}()) << 32 | 1;
+        std::string error;
+        if (!launcher::save_preferences(config_path, prefs, error))
+            SDL_Log("%s", error.c_str());
+    }
 #if defined(__APPLE__) || defined(TARGET_OS_IPHONE)
     auto file_accessible = [](const std::filesystem::path& path) -> bool {
         std::error_code ec;
@@ -1654,14 +1661,23 @@ extern "C" void pc_menu_update(void) {
 extern "C" bool pc_is_custom_textures_enabled(void) {
     return prefs.custom_textures;
 }
+extern "C" bool pc_net_rules(bool* unlock_all, bool* frozen_stadium);
 extern "C" bool pc_is_unlock_all_enabled(void) {
-    return prefs.unlock_all;
+    bool unlock_all, frozen;
+    return pc_net_rules(&unlock_all, &frozen) ? unlock_all : prefs.unlock_all;
 }
 extern "C" bool pc_is_frozen_stadium_enabled(void) {
-    return prefs.frozen_stadium;
+    bool unlock_all, frozen;
+    return pc_net_rules(&unlock_all, &frozen) ? frozen : prefs.frozen_stadium;
 }
 extern "C" bool pc_is_free_camera_enabled(void) {
     return prefs.free_camera;
+}
+extern "C" uint64_t pc_install_id(void) {
+    return prefs.install_id;
+}
+extern "C" const char* pc_app_rev(void) {
+    return pc::get_app_version().c_str();
 }
 extern "C" bool pc_is_ucf_enabled(void) {
     static const char* env = std::getenv("MELEE_UCF");

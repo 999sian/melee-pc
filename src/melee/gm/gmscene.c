@@ -1,5 +1,6 @@
 #include "gmscene.h"
 #ifdef TARGET_PC
+#include "pc/net.h"
 #include "pc/widescreen.h"
 #endif
 
@@ -278,6 +279,66 @@ static inline u64 maybe_gm_801A48A4(u8 i)
     }
 }
 
+/// One simulation tick. Returns true when the scene asked to end.
+static bool gm_RunSimTick(void (*on_frame)(void), struct gm_80479D58_t* temp_r25)
+{
+    lb_800198E0();
+    if (DbLevel >= DbLKind_DebugRom) {
+        gm_801A4970(&temp_r25->unk_10.db_input);
+    }
+    if (gm_801A46B8(0) || !gm_GetDbPauseFlag(0)) {
+        temp_r25->unk_10.unk_38_0 = true;
+    } else {
+        temp_r25->unk_10.unk_38_0 = false;
+    }
+    if (gm_80479D58.unk_10.unk_38_0) {
+        lb_80019900();
+        if (lb_80019A30(0)) {
+            gm_EvaluateAllControllerInputs();
+        }
+        if (lb_80019A30(0) && on_frame != NULL) {
+            on_frame();
+        }
+    }
+    if (gm_80479D58.unk_10.x0 != gm_80479D58.unk_10.x1 ||
+        temp_r25->unk_10.x2 != temp_r25->unk_10.x3)
+    {
+        temp_r25->unk_10.unk_20 = maybe_gm_801A48A4(temp_r25->unk_10.x0);
+        temp_r25->unk_10.x1 = temp_r25->unk_10.x0;
+        temp_r25->unk_10.x3 = temp_r25->unk_10.x2;
+        temp_r25->unk_10.x2 = 0;
+    }
+    temp_r25->unk_10.unk_28 = temp_r25->unk_10.unk_20;
+    if (!lb_80019A30(0)) {
+        temp_r25->unk_10.unk_28 |= gm_803DA8C8[temp_r25->unk_10.unk_34];
+    }
+    if (!lb_80019A30(1)) {
+        temp_r25->unk_10.unk_28 |= ~gm_803DA8C8[temp_r25->unk_10.unk_34];
+    }
+    if (DbLevel >= DbLKind_DebugRom) {
+        db_CheckScreenshot();
+    }
+    lbAudioAx_80027DF8();
+    if (temp_r25->unk_10.pre_gobj_proc != NULL) {
+        temp_r25->unk_10.pre_gobj_proc();
+    }
+    HSD_GObj_RunProcs();
+    if (temp_r25->unk_0 != -2) {
+        temp_r25->unk_0++;
+    }
+    if (gm_80479D58.unk_10.unk_38_0 && lb_80019A30(0)) {
+        if (temp_r25->unk_8 != -2) {
+            temp_r25->unk_8++;
+        }
+    }
+    HSD_PerfSetCPUTime();
+    if (DbLevel >= DbLKind_DebugRom) {
+        OSCheckActiveThreads();
+    }
+    gmMainLib_8046B0F0.xC = false;
+    return temp_r25->unk_C != 0;
+}
+
 void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
 {
     int pad_queue_count;
@@ -311,66 +372,20 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
 
         for (i = 0; i < pad_queue_count; i++) {
             HSD_PerfSetStartTime();
-            lb_800198E0();
-            if (DbLevel >= DbLKind_DebugRom) {
-                gm_801A4970(&temp_r25->unk_10.db_input);
-            }
-            if (gm_801A46B8(0) || !gm_GetDbPauseFlag(0)) {
-                temp_r25->unk_10.unk_38_0 = true;
-            } else {
-                temp_r25->unk_10.unk_38_0 = false;
-            }
-            if (gm_80479D58.unk_10.unk_38_0) {
-                lb_80019900();
-                if (lb_80019A30(0)) {
-                    gm_EvaluateAllControllerInputs();
-                }
-                if (lb_80019A30(0) && on_frame != NULL) {
-                    on_frame();
-                }
-            }
-            if (gm_80479D58.unk_10.x0 != gm_80479D58.unk_10.x1 ||
-                temp_r25->unk_10.x2 != temp_r25->unk_10.x3)
-            {
-                temp_r25->unk_10.unk_20 =
-                    maybe_gm_801A48A4(temp_r25->unk_10.x0);
-                temp_r25->unk_10.x1 = temp_r25->unk_10.x0;
-                temp_r25->unk_10.x3 = temp_r25->unk_10.x2;
-                temp_r25->unk_10.x2 = 0;
-            }
-            temp_r25->unk_10.unk_28 = temp_r25->unk_10.unk_20;
-            if (!lb_80019A30(0)) {
-                temp_r25->unk_10.unk_28 |=
-                    gm_803DA8C8[temp_r25->unk_10.unk_34];
-            }
-            if (!lb_80019A30(1)) {
-                temp_r25->unk_10.unk_28 |=
-                    ~gm_803DA8C8[temp_r25->unk_10.unk_34];
-            }
-            if (DbLevel >= DbLKind_DebugRom) {
-                db_CheckScreenshot();
-            }
-            lbAudioAx_80027DF8();
-            if (temp_r25->unk_10.pre_gobj_proc != NULL) {
-                temp_r25->unk_10.pre_gobj_proc();
-            }
-            HSD_GObj_RunProcs();
-            if (temp_r25->unk_0 != -2) {
-                temp_r25->unk_0++;
-            }
-            if (gm_80479D58.unk_10.unk_38_0 && lb_80019A30(0)) {
-                if (temp_r25->unk_8 != -2) {
-                    temp_r25->unk_8++;
-                }
-            }
-            HSD_PerfSetCPUTime();
-            if (DbLevel >= DbLKind_DebugRom) {
-                OSCheckActiveThreads();
-            }
-            gmMainLib_8046B0F0.xC = false;
-            if (temp_r25->unk_C != 0) {
+#ifdef TARGET_PC
+            pc_net_sync();
+            if (gm_RunSimTick(on_frame, temp_r25)) {
                 break;
             }
+            /* Rollback / sync test: re-run this tick from a restored snapshot. */
+            while (pc_net_after_tick()) {
+                gm_RunSimTick(on_frame, temp_r25);
+            }
+#else
+            if (gm_RunSimTick(on_frame, temp_r25)) {
+                break;
+            }
+#endif
         }
         if (temp_r25->unk_C == 2) {
             break;

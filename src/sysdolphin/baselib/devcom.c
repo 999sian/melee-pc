@@ -7,6 +7,7 @@
 #include "synth.h"
 
 #ifdef TARGET_PC
+#include "pc/net.h"
 /* DVD and ARQ completions arrive on aurora worker threads. On GameCube they
  * ran in interrupt context, i.e. atomically against every
  * OSDisableInterrupts section and against each other; without that, e.g. an
@@ -412,6 +413,9 @@ int HSD_DevComRequest(int file, uintptr_t src, uintptr_t dest, size_t size,
     int result;
 
     enabled = OSDisableInterrupts();
+#ifdef TARGET_PC
+    pc_net_note_io();
+#endif
 
     if ((dc = HSD_DevCom_804D77F0)) {
         HSD_DevCom_804D77F0 = dc->next;

@@ -17,6 +17,10 @@ typedef struct _MainMenuData {
     /* 0x0003 */ u8 pad_3;
     /* 0x0004 */ HSD_JObj* tree[42]; // 42 * 4 = 0xA8 bytes
     /* 0x00AC */ HSD_Text* description;
+#ifdef TARGET_PC
+    /* SIS text over slots whose matanim label is hidden (mnonline.h) */
+    HSD_Text* pc_label[6];
+#endif
 } MainMenuData;
 
 typedef struct _MainMenuPanelData {

@@ -508,6 +508,7 @@ src/melee/gm/gmmenumode.c
 src/melee/gm/gmmovieend.c
 src/melee/gm/gmmultiman.c
 src/melee/gm/gmomake15.c
+src/melee/gm/gmonlinemode.c
 src/melee/gm/gmopening.c
 src/melee/gm/gmopeningmode.c
 src/melee/gm/gmpause.c
@@ -628,6 +629,7 @@ src/melee/if/ifcoget.c
 src/melee/if/ifhazard.c
 src/melee/if/ifmagnify.c
 src/melee/if/ifnametag.c
+src/melee/if/ifnet.c
 src/melee/if/ifprize.c
 src/melee/if/ifstatus.c
 src/melee/if/ifstock.c
@@ -871,6 +873,8 @@ src/melee/mn/mnmain.c
 src/melee/mn/mnmainrule.c
 src/melee/mn/mnname.c
 src/melee/mn/mnnamenew.c
+src/melee/mn/mnonline.c
+src/melee/mn/mnonlinelobby.c
 src/melee/mn/mnruleplus.c
 src/melee/mn/mnsnap.c
 src/melee/mn/mnsound.c

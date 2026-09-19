@@ -41,8 +41,15 @@ static int SDLCALL input_poll_worker(void* data) {
          * are thread-safe (SDL_joystick.h). Returns early before SDL_Init. */
         SDL_UpdateGamepads();
         pc_gcadapter_poll();
-        /* Apply keyboard and touch virtual controller states every 1 ms */
-        pc_keyboard_apply();
+        /* No pc_keyboard_apply() here on purpose. SDL's keyboard array only
+         * changes when the main thread pumps events, and the frame boundary
+         * that pumps them is where pc_keyboard_apply now runs, so polling it
+         * at 1 kHz observed nothing the frame boundary could not - it just
+         * republished identical bytes 16x per frame into the pad state
+         * PADRead merges unlocked, i.e. an asynchronous writer into state the
+         * netcode snapshots and re-simulates. The adapter and gamepad polls
+         * above DO see new data every millisecond, which is why the thread
+         * still exists. See the focus/fifo comment in src/pc/keyboard.c. */
         atomic_fetch_add_explicit(&s_poll_count, 1, memory_order_relaxed);
 
         next_tick += interval_ns;
