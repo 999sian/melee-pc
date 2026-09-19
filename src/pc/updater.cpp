@@ -347,6 +347,43 @@ std::string select_best_asset(
     }
 #else
     // Linux
+#if defined(__x86_64__) || defined(_M_X64)
+    constexpr std::string_view target_arch = "x86_64";
+    constexpr std::string_view alt_arch = "x86-64";
+#elif defined(__aarch64__) || defined(_M_ARM64)
+    constexpr std::string_view target_arch = "aarch64";
+    constexpr std::string_view alt_arch = "arm64";
+#else
+    constexpr std::string_view target_arch = "";
+    constexpr std::string_view alt_arch = "";
+#endif
+
+    auto matches_arch = [&](const std::string& name) {
+        if (target_arch.empty()) {
+            return true;
+        }
+        return name.find(target_arch) != std::string::npos ||
+               name.find(alt_arch) != std::string::npos;
+    };
+
+    for (const auto& a : assets) {
+        if (a.name.find(".AppImage") != std::string::npos && matches_arch(a.name)) {
+            out_url = a.download_url;
+            out_size = a.size;
+            return a.name;
+        }
+    }
+    for (const auto& a : assets) {
+        if (a.name.find("linux") != std::string::npos &&
+            a.name.find(".tar.gz") != std::string::npos &&
+            matches_arch(a.name))
+        {
+            out_url = a.download_url;
+            out_size = a.size;
+            return a.name;
+        }
+    }
+    // Fallback if no architecture-specific asset matches
     for (const auto& a : assets) {
         if (a.name.find(".AppImage") != std::string::npos) {
             out_url = a.download_url;
