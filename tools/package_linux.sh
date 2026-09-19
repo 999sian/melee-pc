@@ -45,11 +45,26 @@ echo "=== Staging AppDir ==="
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}"
 
+# Locate libusb-1.0.so.0 for bundling (dlopened at runtime by SDL3's hidapi)
+LIBUSB_PATH="$(ldconfig -p 2>/dev/null | grep -E 'libusb-1\.0\.so\.0' | head -n1 | awk '{print $NF}' || true)"
+if [[ -z "${LIBUSB_PATH}" || ! -f "${LIBUSB_PATH}" ]]; then
+    LIBUSB_PATH="$(find /usr/lib* /lib* -name "libusb-1.0.so.0" 2>/dev/null | head -n1 || true)"
+fi
+
+EXTRA_LINUXDEPLOY_ARGS=()
+if [[ -n "${LIBUSB_PATH}" && -f "${LIBUSB_PATH}" ]]; then
+    echo "Found libusb for bundling: ${LIBUSB_PATH}"
+    EXTRA_LINUXDEPLOY_ARGS+=("-l" "${LIBUSB_PATH}")
+else
+    echo "Warning: libusb-1.0.so.0 not found on host; AppImage will rely on host library"
+fi
+
 "${TOOLS_DIR}/linuxdeploy" \
     --appdir "${APPDIR}" \
     -e "${BUILD_DIR}/melee" \
     -i "${ROOT_DIR}/platforms/linux/melee.png" \
-    -d "${ROOT_DIR}/platforms/linux/melee.desktop"
+    -d "${ROOT_DIR}/platforms/linux/melee.desktop" \
+    "${EXTRA_LINUXDEPLOY_ARGS[@]}"
 
 # Copy resources beside the binary
 cp -r "${ROOT_DIR}/resources" "${APPDIR}/usr/bin/resources"
@@ -71,9 +86,16 @@ gzip -dc "${ROOT_DIR}/tools/initial_pipeline_cache.db.gz" \
     > "${TAR_STAGE}/initial_pipeline_cache.db"
 cp "${ROOT_DIR}/platforms/linux/melee.png" "${TAR_STAGE}/"
 cp "${ROOT_DIR}/platforms/linux/melee.desktop" "${TAR_STAGE}/"
+if [[ -n "${LIBUSB_PATH}" && -f "${LIBUSB_PATH}" ]]; then
+    mkdir -p "${TAR_STAGE}/lib"
+    cp -L "${LIBUSB_PATH}" "${TAR_STAGE}/lib/libusb-1.0.so.0"
+fi
 cat << 'APP_RUN' > "${TAR_STAGE}/run.sh"
 #!/bin/bash
 HERE="$(dirname "$(readlink -f "$0")")"
+if [[ -d "${HERE}/lib" ]]; then
+    export LD_LIBRARY_PATH="${HERE}/lib:${LD_LIBRARY_PATH:-}"
+fi
 exec "${HERE}/melee" "$@"
 APP_RUN
 chmod +x "${TAR_STAGE}/run.sh"
