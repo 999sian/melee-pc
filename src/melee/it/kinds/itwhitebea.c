@@ -314,6 +314,7 @@ void it_802E37BC(Item_GObj* gobj)
     it_80274740(gobj);
     ip->xDC8_word.flags.x19 = 1;
     ip->xDD4_itemVar.whitebea.x3C = 1;
+    ip->xDD4_itemVar.whitebea.x20 = NULL;
     ip->xDD4_itemVar.whitebea.x40 = 0;
     it_802E3DA0(gobj);
 }
