@@ -16,35 +16,30 @@ English (UK) text.
 
 ## Highlights
 
-- **Rollback Netplay & LAN Play Prototype (#72):**
-  - Native in-game Online menu (`VS Mode > ONLINE`) featuring LAN Play and Direct IP connect, complete with an interactive *Mario Kart: Double Dash*-style LAN lobby counter.
-  - Native rollback netplay engine with state snapshotting, deterministic simulation rollbacks, reliable UDP messaging, and live in-game network HUD showing ping, delay, and rollback frame count.
-  - Cross-platform floating-point determinism (`-ffp-contract=off`, unified musl trigonometry) guaranteeing simulation parity across Linux, Windows, and Android.
-- **Native macOS Support (Apple Silicon & Intel) (#65):**
-  - Native macOS `.app` bundle packages (`Melee-macOS-arm64.zip` and `Melee-macOS-x86_64.zip`) using the Apple Metal graphics backend via WebGPU/Dawn.
-  - Built with Homebrew GCC big-endian scalar storage order translation and automatic dylib staging.
-- **Experimental PAL Disc Support (#65):**
-  - Boot European / PAL disc images (GALP01) using USA game code with automatic string index remapping, PAL kerning tables, and single-byte SIS font decoding.
-- **Hitlag, SDI and DI are fixed:** Every build before this one gave *every*
-  hit in the game exactly 3 frames of hitlag regardless of damage, instead of
-  4-20. Hits had almost no freeze, SDI was effectively impossible (one input at
-  best, usually none), and because DI is established from the stick at the
-  moment hitlag ends, the DI window was 3 frames too, so launches landed at
-  their raw undirected endpoint. That reads in play as "no hitlag, no SDI, and
-  everybody gets sent way further than usual" — thanks to Syrox for the report
-  that identified it. Hitlag is now `floor(floor(floor(d/3 + 3) * e) * c)`
-  capped at 20, with the 1.5x electric multiplier on the victim and the
-  0.666667x crouch-cancel multiplier, verified against 1634 measured hits.
-  Knockback *magnitude* was never affected: 259 measured launches match the
-  vanilla formula exactly.
-- **Direct3D 11 backend (Windows):** a Direct3D 11 path is now built and ordered after D3D12, ahead of Vulkan, for the GPUs Dawn refuses on D3D12 (Intel Gen7 / Haswell-era iGPUs); it is also selectable in the launcher's *Graphics backend* setting and as `MELEE_BACKEND=d3d11`. **Untested on real Windows hardware**: the adapter enumerates and the fall-back to D3D12 works, but nobody has yet seen a D3D11 device created. Reports with a log are wanted. The log records each skipped backend and why, plus the adapter and driver chosen.
-- **Universal Controller Fix (UCF 0.8x):** dashback and shield-drop rules, off by default; toggle on the launcher's Gameplay page or the F1 port menu ("Universal Controller Fix"), or force with `MELEE_UCF=1`.
+This maintenance release improves controller input, LAN session startup and
+safe update selection. It also includes the fixes merged since v0.1.8-beta.
 
 ## Fixes
 
-- **Adventure Mode Topi / ReDead Crash Fix (fixes #68, #71):** Resolved an LP64 64-bit struct alignment bug in `itZako_ItemVars` that caused Topi's icicle back-reference to be overwritten, crashing the game with `SIGSEGV` when attacking or KO'ing enemies on Icicle Mountain and Underground Maze.
-- **Android Handshake Compatibility:** Gated `getrandom()` behind API 28+ check with `/dev/urandom` fallback for older Android releases (API 26/27).
-- **First-use shader pipeline compiles no longer freeze the game (#46):** a draw whose pipeline is still compiling is skipped for a few frames, compiles run on a low-priority worker pool (`MELEE_PIPELINE_JOBS`), and the bundled seed is queued at the session's MSAA level. `MELEE_PIPELINE_SYNC=1` restores the old blocking behaviour.
+- Correct GameCube-range analog scaling and full-strength button-to-stick bindings.
+- Publish GameCube adapter input safely between the polling and game threads,
+  including disconnects and rumble commands.
+- Keep held adapter and touch buttons suppressed when closing the settings
+  overlay until those controls are released.
+- Prevent the updater from freezing when a release has no compatible asset.
+  Downloads now require the correct operating system and CPU architecture;
+  incomplete releases open in the browser instead of replacing the application
+  with an incompatible executable.
+- Preserve rollback corrections when snapshot allocation fails, and use lockstep
+  from the start on platforms without snapshot support.
+- Keep LAN peers at the agreed start frame while waiting for readiness, avoiding
+  different scene start times after delayed packets.
+- Restore Windows builds by using SDL for environment-file settings.
+- Include the recent Polar Bear Adventure Mode crash fix, Linux GameCube
+  adapter detection improvements, and bundled controller database.
+- Include the upstream scene timing, asynchronous disc transfer and deterministic
+  replay fixes. Netplay remains a prototype; this release does not claim universal
+  cross-platform determinism.
 
 ## Known issues
 
@@ -53,6 +48,8 @@ the numbers below link there.
 
 **All platforms**
 
+- Windows and macOS currently use lockstep netplay because rollback snapshots
+  are not supported on those platforms.
 - Online play is a prototype: LAN Play and Direct Connect are supported, but Ranked, Unranked, and global matchmaking lobbies are not yet implemented.
 - Widescreen applies to fights (VS, Sudden Death, Training); menus, results and
   cutscenes stay at the original aspect. The wide HUD is a separate toggle and
@@ -136,6 +133,41 @@ image path directly:
 ```
 
 ## Previous releases
+
+### Changes in v0.1.8-beta
+
+#### Highlights
+
+- **Rollback Netplay & LAN Play Prototype (#72):**
+  - Native in-game Online menu (`VS Mode > ONLINE`) featuring LAN Play and Direct IP connect, complete with an interactive *Mario Kart: Double Dash*-style LAN lobby counter.
+  - Native rollback netplay engine with state snapshotting, deterministic simulation rollbacks, reliable UDP messaging, and live in-game network HUD showing ping, delay, and rollback frame count.
+  - Cross-platform floating-point determinism (`-ffp-contract=off`, unified musl trigonometry) guaranteeing simulation parity across Linux, Windows, and Android.
+- **Native macOS Support (Apple Silicon & Intel) (#65):**
+  - Native macOS `.app` bundle packages (`Melee-macOS-arm64.zip` and `Melee-macOS-x86_64.zip`) using the Apple Metal graphics backend via WebGPU/Dawn.
+  - Built with Homebrew GCC big-endian scalar storage order translation and automatic dylib staging.
+- **Experimental PAL Disc Support (#65):**
+  - Boot European / PAL disc images (GALP01) using USA game code with automatic string index remapping, PAL kerning tables, and single-byte SIS font decoding.
+- **Hitlag, SDI and DI are fixed:** Every build before this one gave *every*
+  hit in the game exactly 3 frames of hitlag regardless of damage, instead of
+  4-20. Hits had almost no freeze, SDI was effectively impossible (one input at
+  best, usually none), and because DI is established from the stick at the
+  moment hitlag ends, the DI window was 3 frames too, so launches landed at
+  their raw undirected endpoint. That reads in play as "no hitlag, no SDI, and
+  everybody gets sent way further than usual" — thanks to Syrox for the report
+  that identified it. Hitlag is now `floor(floor(floor(d/3 + 3) * e) * c)`
+  capped at 20, with the 1.5x electric multiplier on the victim and the
+  0.666667x crouch-cancel multiplier, verified against 1634 measured hits.
+  Knockback *magnitude* was never affected: 259 measured launches match the
+  vanilla formula exactly.
+- **Direct3D 11 backend (Windows):** a Direct3D 11 path is now built and ordered after D3D12, ahead of Vulkan, for the GPUs Dawn refuses on D3D12 (Intel Gen7 / Haswell-era iGPUs); it is also selectable in the launcher's *Graphics backend* setting and as `MELEE_BACKEND=d3d11`. **Untested on real Windows hardware**: the adapter enumerates and the fall-back to D3D12 works, but nobody has yet seen a D3D11 device created. Reports with a log are wanted. The log records each skipped backend and why, plus the adapter and driver chosen.
+- **Universal Controller Fix (UCF 0.8x):** dashback and shield-drop rules, off by default; toggle on the launcher's Gameplay page or the F1 port menu ("Universal Controller Fix"), or force with `MELEE_UCF=1`.
+
+#### Fixes
+
+- **Adventure Mode Topi / ReDead Crash Fix (fixes #68, #71):** Resolved an LP64 64-bit struct alignment bug in `itZako_ItemVars` that caused Topi's icicle back-reference to be overwritten, crashing the game with `SIGSEGV` when attacking or KO'ing enemies on Icicle Mountain and Underground Maze.
+- **Android Handshake Compatibility:** Gated `getrandom()` behind API 28+ check with `/dev/urandom` fallback for older Android releases (API 26/27).
+- **First-use shader pipeline compiles no longer freeze the game (#46):** a draw whose pipeline is still compiling is skipped for a few frames, compiles run on a low-priority worker pool (`MELEE_PIPELINE_JOBS`), and the bundled seed is queued at the session's MSAA level. `MELEE_PIPELINE_SYNC=1` restores the old blocking behaviour.
+
 
 ### Changes in v0.1.7-beta
 

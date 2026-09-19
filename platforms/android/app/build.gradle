@@ -14,8 +14,8 @@ android {
         applicationId 'dev.melee.game'
         minSdk 26
         targetSdk 34
-        versionCode 8
-        versionName System.getenv('MELEE_VERSION') ?: '0.1.8'
+        versionCode 9
+        versionName System.getenv('MELEE_VERSION') ?: '0.1.9'
 
         ndk {
             abiFilters 'arm64-v8a'

@@ -96,7 +96,7 @@ table is right and the other one is stale.
 | High-refresh interpolation | planned | |
 | Training tools (hitboxes, savestates, frame advance) | planned | |
 | Replay recording (`.slp`) | planned | `src/pc/slp.h` defines the hook points; nothing implements them. |
-| Online play (rollback, DHT matchmaking) | planned | Not implemented. |
+| Online play (LAN / direct IP) | partial | Prototype LAN and direct-IP sessions; Linux/Android rollback, Windows/macOS lockstep. Ranked, Unranked and internet matchmaking are not implemented. See the platform matrix below. |
 | RetroAchievements | planned | |
 
 The phases behind the planned rows, and why they are ordered that way, are in
