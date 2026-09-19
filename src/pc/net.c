@@ -1848,6 +1848,12 @@ static void fresh_tick(PADStatus* head, bool raw) {
          * it can be restored, and its loads trail into the next frames. */
         int scene = scene_kind();
         if (scene != s_scene_last) {
+            /* Both peers must enter a scene on the SAME frame; when they do
+             * not, the sims are running different code and the checksum
+             * says so a frame later (docs/netcode-plan.md section 5.2). Two
+             * peers' logs diffed on this line give the gap directly, which
+             * is the measurement any fix for it has to move. */
+            pc_log_line("net: scene %d -> %d at frame %d", s_scene_last, scene, net.frame);
             s_scene_last = scene;
             barrier_raise(net.frame + IO_QUIET);
         }
