@@ -524,6 +524,44 @@ Reproduce: `python3 tools/net_determinism.py --frames 2400` (all rows, ~12 min),
 Work directory `/tmp/net_determinism`; Android and macOS print the exact
 invocation they would use next to the missing prerequisite.
 
+### 5.2 Android (aarch64) against Linux (x86-64): what actually diverges
+
+Measured on real hardware — a Pixel 8 Pro (Tensor G3) and an SM-T505
+(Snapdragon), both against this x86-64 Linux box. Nearly every candidate is
+dead, and the two that were real are not arithmetic at all.
+
+**Ruled out, each by measurement, not argument:**
+
+| Class | How it was killed |
+|---|---|
+| FMA contraction | `llvm-objdump` of the shipped `libmelee.so`: 1571 `fmadd` in the binary, **0** in any of its 9392 game symbols. `-ffp-contract=off` reaches every sim TU on both targets |
+| Platform libm | `atan2f`/`asinf`/`acosf` are decomp code (`src/melee/lb/lbtrigf.c:22,45,61`), defined inside the binary, so the PLT binds locally. Linking the REAL build objects from each target into one probe and running 200k inputs on each machine gives identical hashes for `atan2f`/`asinf`/`acosf`/`pc_sinf`/`pc_cosf`/`pc_atanf`. (glibc and bionic *do* differ on those functions — 22334/200000 inputs for `atan2f` — which is why the vendored trig exists, but the game never calls them) |
+| float→int UB | All 986 melee_game TUs rebuilt with `-fsanitize=float-cast-overflow,float-divide-by-zero`: **zero** reports over 3526 match frames, against an injected control that fires every run. The shapes genuinely differ per ISA (aarch64 `fcvtzs` saturates, x86 `cvttss2si` yields INT_MIN) but the simulation never feeds one an out-of-range value |
+| `long double` | Zero uses in the tree |
+| NaN sign/payload, min/max, signed zero, denormals | Identical on both; and the state log over 4001 frames contains no NaN, inf or denormal in any checksummed field |
+| Runtime FP mode | FPCR on the device is `0x0` (FZ and DN off) after Vulkan init; MXCSR `0x1f80`. Zero `msr fpcr` in the shipped library |
+| Compile flags | Identical on both targets for every sim TU, including `-fexec-charset=CP932`, which `tools/gcc_launcher.py:108` adds unconditionally even though CMake records Android's compiler as Clang and omits it from `build.ninja` |
+
+**The two real causes, both fixed.** Neither is a floating-point problem:
+they are the seed itself (`net_snapshot.c:148` folds it, and outside a fight
+the checksum is *only* the pads and the seed).
+
+1. `gmTitle_801A165C` stirred the RNG once per wall-clock second-of-minute.
+   Two machines reaching the title eight seconds apart stirred 41 times
+   against 49. Suppressed under `pc_net_deterministic()`.
+2. Scene-enter draws (stage init, CPU AI init in `Fighter_Create`) land on
+   different frames on machines of different speed. `seed_out_of_tick_check`
+   restores the seed a tick starts from, netplay only.
+
+**Still open.** A slow device can still leave the fast one's scene entirely:
+an SM-T505 drifted into the attract demo while this PC sat in the LAN lobby,
+after which their sims are simply running different code. Related, a Linux
+recording replays bit-identically on the Pixel but not on the SM-T505,
+because scene progress depends on load time — the same "file-cache hit vs
+miss changes load frame counts" gap listed in §5. And the residual
+single-field desync around frame 3200 of the `--lan` row reproduces on the
+PRE-fix binary and on two identical PCs, so it is not cross-architecture.
+
 ## 6. Transport and protocol
 
 UDP only, one socket shared by DHT, game and lobby traffic (keeps the NAT
