@@ -999,11 +999,73 @@ int pc_net_local_player(void) {
     return net.local;
 }
 
+/* ---- scene hand-off -------------------------------------------------
+ *
+ * A scene ends when its own code asks to, and how many TICKS it takes to
+ * get there depends on the machine: the loads a scene waits on are polled
+ * once per tick and the pad queue turns the wait into simulated frames, so
+ * the peer that reads an archive faster leaves the scene earlier. Both then
+ * run the next scene from different frames, which is a real divergence and
+ * not an arithmetic one (docs/netcode-plan.md section 5.2).
+ *
+ * So the exit frame is agreed instead of inferred: each peer announces the
+ * frame its scene asked to end on, and both leave on the later of the two
+ * plus a lead that covers the reliable round trip. This is the pattern the
+ * lobby already uses to hand over to the CSS (pc_lan_start_frame). */
+#define SCENE_HANDOFF 20 /* frames of lead: ~330 ms, menus are lockstep */
+
+static int32_t s_scene_exit_local = -1;  /* frame our scene asked to end on */
+static int32_t s_scene_exit_remote = -1; /* the peer's, from REL_SCENE */
+static int32_t s_scene_exit_at = -1;     /* agreed frame, once both are in */
+
+void net_scene_rel(const void* payload, int len) {
+    SceneMsg m;
+    if (len != (int)sizeof m) {
+        pc_log_line("net: REL_SCENE of %d bytes ignored", len);
+        return;
+    }
+    memcpy(&m, payload, sizeof m);
+    s_scene_exit_remote = (int32_t)ntohl(m.frame);
+}
+
+static void scene_handoff_reset(void) {
+    s_scene_exit_local = s_scene_exit_remote = s_scene_exit_at = -1;
+}
+
+/* True while the caller must keep ticking the scene it has asked to leave.
+ * Offline, and once the peer is gone, it never holds. */
+bool pc_net_scene_hold(void) {
+    if (!net.active) {
+        return false;
+    }
+    if (s_scene_exit_local < 0) {
+        SceneMsg m = {htonl((uint32_t)net.frame)};
+        s_scene_exit_local = net.frame;
+        pc_net_send_reliable(REL_SCENE, &m, sizeof m);
+    }
+    if (s_scene_exit_remote < 0) {
+        return true; /* the peer is still in the scene: wait for its frame */
+    }
+    if (s_scene_exit_at < 0) {
+        int32_t later =
+            s_scene_exit_remote > s_scene_exit_local ? s_scene_exit_remote : s_scene_exit_local;
+        s_scene_exit_at = later + SCENE_HANDOFF;
+        pc_log_line("net: scene ends at frame %d (asked %d, peer %d)", s_scene_exit_at,
+            s_scene_exit_local, s_scene_exit_remote);
+    }
+    if (net.frame < s_scene_exit_at) {
+        return true;
+    }
+    scene_handoff_reset();
+    return false;
+}
+
 /* Back to frame 0 with empty rings; called with the timer parked (net.active
  * false), so only the game thread is looking. */
 static bool s_seen_remote;
 
 static void session_reset(void) {
+    scene_handoff_reset();
     s_seen_remote = false;
     memset(s_local_ring, 0, sizeof s_local_ring);
     memset(s_remote_ring, 0, sizeof s_remote_ring);

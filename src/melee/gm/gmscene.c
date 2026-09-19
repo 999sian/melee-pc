@@ -339,6 +339,12 @@ static bool gm_RunSimTick(void (*on_frame)(void), struct gm_80479D58_t* temp_r25
     return temp_r25->unk_C != 0;
 }
 
+#ifdef TARGET_PC
+/* The scene-end request while the netcode agrees a frame for it; 0 = none.
+ * One scene loop runs at a time, so one slot is the whole state. */
+static int s_scene_end_held;
+#endif
+
 void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
 {
     int pad_queue_count;
@@ -387,6 +393,23 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
             }
 #endif
         }
+#ifdef TARGET_PC
+        /* The scene has asked to end, but a load costs each machine a
+         * different number of ticks, so "now" is a different frame on each
+         * peer. Keep ticking until the netcode has agreed one (net.c
+         * pc_net_scene_hold); the request is latched, not lost. */
+        if (temp_r25->unk_C != 0) {
+            if (pc_net_scene_hold()) {
+                s_scene_end_held = temp_r25->unk_C;
+                temp_r25->unk_C = 0;
+            } else if (s_scene_end_held != 0) {
+                s_scene_end_held = 0;
+            }
+        } else if (s_scene_end_held != 0 && !pc_net_scene_hold()) {
+            temp_r25->unk_C = s_scene_end_held;
+            s_scene_end_held = 0;
+        }
+#endif
         if (temp_r25->unk_C == 2) {
             break;
         }

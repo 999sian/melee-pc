@@ -23,6 +23,11 @@ bool pc_net_active(void);
 /* True when the simulation must be reproducible elsewhere: netplay,
  * record, replay or sync test. Guards machine-seeded retail behaviour. */
 bool pc_net_deterministic(void);
+
+/* Netplay scene hand-off: true while the scene that asked to end must keep
+ * ticking, so both peers leave it on the same frame however long their loads
+ * took (src/melee/gm/gmscene.c, docs/netcode-plan.md section 5.2). */
+bool pc_net_scene_hold(void);
 /* Controller port the local player drives (0 = P1/host, 1 = P2/guest). */
 int pc_net_local_player(void);
 
