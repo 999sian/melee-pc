@@ -1,4 +1,6 @@
 #include "frame.hpp"
+#include <aurora/gfx.h>
+#include <cstdlib>
 
 #include "depth_peek.hpp"
 #include "pipeline_cache.hpp"
@@ -118,7 +120,7 @@ std::atomic_int64_t g_lastPresentNs = 0;
 std::atomic_int64_t g_presentPeriodNs = 0;
 std::atomic_int64_t g_cpuFrameTimeNs = 0;
 PresentClock::time_point g_cpuFrameStart;
-constexpr auto FrameStartSafetyMargin = std::chrono::milliseconds{2};
+constexpr auto FrameStartSafetyMargin = std::chrono::milliseconds{1};
 constexpr auto MaxPacingSample = std::chrono::milliseconds{250};
 constexpr uint32_t PacingEmaWeight = 8;
 
@@ -614,7 +616,13 @@ std::optional<size_t> acquire_mapped_staging_buffer() {
 
 bool begin_frame() {
   ZoneScoped;
-  // pace_frame_start();
+  // Opt-in until display-specific button-to-photon measurements validate it.
+  // The simulation retains its independent 60 Hz pacing in pc/vi.c.
+  static const bool jit = [] {
+    const char* value = std::getenv("MELEE_NET_JIT");
+    return value && value[0] == '1';
+  }();
+  if (jit && aurora_vsync_enabled()) pace_frame_start();
   const size_t frameSlot = acquire_frame_slot();
   const auto stagingSlot = acquire_mapped_staging_buffer();
   if (!stagingSlot) {

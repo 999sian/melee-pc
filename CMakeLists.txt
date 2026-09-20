@@ -189,6 +189,20 @@ set(PC_SOURCES
         # Netplay (docs/netcode-plan.md). net.c is the session and rollback
         # loop; the rest are its modules behind src/pc/net_internal.h.
         src/pc/net.c
+        src/pc/net_chat.c
+        src/pc/net_dht.c
+        src/pc/net_dht_item.c
+        src/pc/net_identity.c
+        src/pc/net_match.c
+        src/pc/net_rank.c
+        src/pc/net_rank_store.c
+        src/pc/net_rank_session.c
+        src/pc/libm/pc_rank_exp.c
+        src/pc/libm/pc_rank_sqrt.c
+        extern/dht/dht.c
+        extern/dht/sha1.c
+        extern/monocypher/monocypher.c
+        extern/monocypher/monocypher-ed25519.c
         src/pc/net_handshake.c
         src/pc/net_lan.c
         src/pc/net_reliable.c
@@ -219,6 +233,8 @@ if (ANDROID)
 else ()
     add_executable(melee ${PC_SOURCES})
 endif ()
+
+target_include_directories(melee PRIVATE extern/monocypher)
 
 target_compile_options(melee PRIVATE
         ${MELEE_FP_FLAGS}
@@ -324,10 +340,10 @@ else ()
     set_property(TARGET melee APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/melee_state.ld)
     set(MELEE_STATE_SECTIONS ON)
 endif ()
-# Only those links bracket the decomp's statics with melee_state.ld, so only
-# they can snapshot them; elsewhere net_snapshot.c refuses to snapshot and the
-# session runs lockstep (see the comment there). PE/COFF and ld64 have no
-# INSERT AFTER, which is why this is a platform split and not an oversight.
+include(cmake/WindowsSnapshot.cmake)
+melee_enable_windows_snapshots(melee melee_game)
+# ELF linker ranges and verified GNU MinGW x86-64 sections capture game
+# statics. Unsupported link formats/toolchains retain the lockstep fallback.
 if (MELEE_STATE_SECTIONS)
     target_compile_definitions(melee PRIVATE MELEE_STATE_SECTIONS=1)
 endif ()
@@ -419,12 +435,93 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         find_package(Python3 REQUIRED COMPONENTS Interpreter)
         foreach(case IN ITEMS net_resume net_handshake net_lan_txt net_reliable)
-            add_executable(${case}_test EXCLUDE_FROM_ALL tools/test_${case}.c)
+            if (case STREQUAL "net_reliable")
+                add_executable(${case}_test EXCLUDE_FROM_ALL tools/test_net_chat_transport.c src/pc/net_chat.c)
+            else()
+                add_executable(${case}_test EXCLUDE_FROM_ALL tools/test_${case}.c)
+            endif()
             target_include_directories(${case}_test PRIVATE extern/aurora/include src src/sdk_include)
             target_compile_definitions(${case}_test PRIVATE TARGET_PC=1 MELEE_PC=1 AURORA NDEBUG XXH_INLINE_ALL)
             target_link_libraries(${case}_test PRIVATE ${AURORA_SDL3_TARGET} xxhash)
             add_test(NAME ${case} COMMAND ${case}_test)
             set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 30)
+            add_dependencies(unit_tests ${case}_test)
+        endforeach()
+        add_executable(net_chat_ui_test EXCLUDE_FROM_ALL tools/test_net_chat_ui.c)
+        target_include_directories(net_chat_ui_test PRIVATE src extern/aurora/include src/sdk_include)
+        target_compile_definitions(net_chat_ui_test PRIVATE TARGET_PC=1 MELEE_PC=1 AURORA)
+        target_compile_options(net_chat_ui_test PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/src/pc/compat.h)
+        add_test(NAME net_chat_ui COMMAND net_chat_ui_test)
+        set_tests_properties(net_chat_ui PROPERTIES LABELS melee TIMEOUT 30)
+        add_dependencies(unit_tests net_chat_ui_test)
+        add_executable(net_chat_test EXCLUDE_FROM_ALL tools/test_net_chat.c src/pc/net_chat.c)
+        target_include_directories(net_chat_test PRIVATE src extern/aurora/include)
+        target_link_libraries(net_chat_test PRIVATE ${AURORA_SDL3_TARGET})
+        target_compile_options(net_chat_test PRIVATE -UNDEBUG)
+        add_test(NAME net_chat COMMAND net_chat_test)
+        set_tests_properties(net_chat PROPERTIES LABELS melee TIMEOUT 30)
+        add_dependencies(unit_tests net_chat_test)
+        add_executable(net_dht_bootstrap_test EXCLUDE_FROM_ALL tools/test_net_dht_bootstrap.c)
+        target_compile_options(net_dht_bootstrap_test PRIVATE -UNDEBUG)
+        add_test(NAME net_dht_bootstrap COMMAND net_dht_bootstrap_test)
+        set_tests_properties(net_dht_bootstrap PROPERTIES LABELS melee TIMEOUT 30)
+        add_dependencies(unit_tests net_dht_bootstrap_test)
+        set(NET_IDENTITY_SOURCES src/pc/net_identity.c src/pc/net_dht.c src/pc/net_dht_item.c
+            extern/dht/dht.c extern/dht/sha1.c extern/monocypher/monocypher.c
+            extern/monocypher/monocypher-ed25519.c)
+        foreach(case IN ITEMS net_identity net_dht net_rank net_rank_store)
+            add_executable(${case}_test EXCLUDE_FROM_ALL tools/test_${case}.c ${NET_IDENTITY_SOURCES})
+            if (case STREQUAL "net_rank" OR case STREQUAL "net_rank_store")
+                target_sources(${case}_test PRIVATE src/pc/net_rank.c src/pc/libm/pc_rank_exp.c src/pc/libm/pc_rank_sqrt.c)
+            endif()
+            if (case STREQUAL "net_rank_store")
+                target_sources(${case}_test PRIVATE src/pc/net_rank_store.c)
+            endif()
+            target_include_directories(${case}_test PRIVATE src src/pc extern/monocypher)
+            target_compile_definitions(${case}_test PRIVATE PC_DHT_TEST_NO_BOOTSTRAP)
+            target_compile_options(${case}_test PRIVATE -UNDEBUG ${MELEE_FP_FLAGS})
+            target_link_libraries(${case}_test PRIVATE ${AURORA_SDL3_TARGET} m)
+            add_test(NAME ${case} COMMAND ${case}_test)
+            set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
+            add_dependencies(unit_tests ${case}_test)
+        endforeach()
+        foreach(case IN ITEMS net_snapshot net_stage net_set_flow net_replay_seed net_scene_timing net_fixture_env net_rank_rules net_match net_magnify net_late_poll)
+            add_test(NAME ${case} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_${case}.py)
+            set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
+        endforeach()
+        foreach(mode IN ITEMS ranked proof_timeout proof_mismatch complete recover)
+            add_test(NAME net_match_${mode} COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_net_match.py)
+            set_tests_properties(net_match_${mode} PROPERTIES LABELS melee TIMEOUT 90
+                ENVIRONMENT "MATCH_RANKED=1")
+            if (mode STREQUAL "proof_timeout")
+                set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_PROOF_TIMEOUT=1")
+            elseif (mode STREQUAL "proof_mismatch")
+                set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_PROOF_MISMATCH=1")
+            elseif (mode STREQUAL "complete" OR mode STREQUAL "recover")
+                set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_COMPLETE=1")
+                if (mode STREQUAL "recover")
+                    set_property(TEST net_match_${mode} APPEND PROPERTY ENVIRONMENT "MATCH_RECOVER=1")
+                endif()
+            endif()
+        endforeach()
+        add_executable(net_dht_observation_test EXCLUDE_FROM_ALL tools/test_net_dht_observation.c
+            src/pc/net_dht_item.c src/pc/net_identity.c extern/dht/dht.c extern/dht/sha1.c
+            extern/monocypher/monocypher.c extern/monocypher/monocypher-ed25519.c)
+        add_executable(net_dht_item_test EXCLUDE_FROM_ALL tools/test_net_dht_item.c
+            src/pc/net_identity.c extern/dht/sha1.c extern/monocypher/monocypher.c
+            extern/monocypher/monocypher-ed25519.c)
+        add_executable(net_rank_session_test EXCLUDE_FROM_ALL tools/test_net_rank_session.c
+            extern/dht/sha1.c src/pc/net_rank.c src/pc/net_rank_store.c src/pc/net_identity.c
+            src/pc/libm/pc_rank_exp.c src/pc/libm/pc_rank_sqrt.c
+            extern/monocypher/monocypher.c extern/monocypher/monocypher-ed25519.c)
+        foreach(case IN ITEMS net_dht_observation net_dht_item net_rank_session)
+            target_include_directories(${case}_test PRIVATE src src/pc extern/monocypher)
+            target_compile_options(${case}_test PRIVATE -UNDEBUG ${MELEE_FP_FLAGS} -ffunction-sections -fdata-sections)
+            target_link_options(${case}_test PRIVATE -Wl,--gc-sections)
+            target_link_libraries(${case}_test PRIVATE ${AURORA_SDL3_TARGET} m)
+            add_test(NAME ${case} COMMAND ${case}_test)
+            set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
             add_dependencies(unit_tests ${case}_test)
         endforeach()
         add_test(NAME pad_regressions COMMAND ${Python3_EXECUTABLE}

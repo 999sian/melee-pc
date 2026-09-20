@@ -22,7 +22,12 @@
 #include "pc/touch.h"
 #include "pc/widescreen.h"
 #include "pc/net.h"
+#include "pc/net_chat.h"
+#include <melee/if/ifnetchat.h>
+#include <dolphin/pad.h>
 #include "pc/net_lan.h"
+#include "pc/net_match.h"
+#include "pc/net_rank_session.h"
 
 bool pc_exit_requested;
 
@@ -39,6 +44,10 @@ void aurora_heap_check(void);
 
 uint32_t pc_gfx_prewarm(uint32_t max_wait_ms) {
     return aurora_wait_pipelines(max_wait_ms);
+}
+
+uint64_t pc_monotonic_ns(void) {
+    return SDL_GetTicksNS();
 }
 
 void pc_frame_boundary(void) {
@@ -59,6 +68,10 @@ void pc_frame_boundary(void) {
         aurora_end_frame();
         s_in_frame = false;
     }
+    /* Session messages are host-side work, never rollback simulation. The
+     * matcher owns them until both peers cross its READY barrier. */
+    if (pc_net_match_state(NULL) == PC_MATCH_READY)
+        pc_rank_session_poll();
     aurora_heap_check();    /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
     /* MELEE_LAN_TEST=1|host: the LAN lobby without the menu; "host" starts
@@ -215,6 +228,15 @@ void pc_frame_boundary(void) {
         SDL_Delay(16);
     }
     s_in_frame = true;
+
+    /* Presentation-only chat reads the physical local controller, never a
+     * rewound/synchronized pad. It cannot change the game simulation. */
+    bool chat_eligible = pc_net_chat_available();
+    PADStatus chat_pads[4] = {0};
+    if (chat_eligible)
+        PADRead(chat_pads);
+    pc_net_chat_poll(chat_pads[0].button, chat_eligible, SDL_GetTicks());
+    ifNetChat_Update(chat_eligible);
 
     s_retrace_count++;
     /* Age of the 1000 Hz sample the sim is about to consume, before the pad

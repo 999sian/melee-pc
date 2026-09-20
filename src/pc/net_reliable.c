@@ -17,6 +17,7 @@
  * only. */
 #include "compat.h"
 #include "pc/net_internal.h"
+#include "pc/net_chat.h"
 
 #include <SDL3/SDL_timer.h>
 #include <string.h>
@@ -138,6 +139,8 @@ void on_rel(const Rel* r, int n) {
             net_delay_rel(r->payload, r->len);
         } else if (r->type == REL_SCENE) {
             net_scene_rel(r->payload, r->len);
+        } else if (r->type == REL_CHAT) {
+            pc_net_chat_receive(r->payload, r->len);
         } else if (s_rel_rx_n < REL_QUEUE) {
             RelMsg* m = &s_rel_rx[(s_rel_rx_head + s_rel_rx_n++) % REL_QUEUE];
             m->type = r->type;
@@ -177,6 +180,7 @@ void on_rel_ack(const RelAck* k) {
 
 /* Session start: every queue empty, sequence numbers from 0 (timer parked). */
 void rel_reset(void) {
+    pc_net_chat_reset();
     for (int lane = 0; lane < REL_LANES; lane++) {
         s_rel_tx[lane].head = s_rel_tx[lane].n = s_rel_tx[lane].resends = 0;
         s_rel_tx[lane].seq = s_rel_expect[lane] = 0;

@@ -1,9 +1,9 @@
 # melee-pc
 
 **Beta, for testing only.** "melee-pc" is a working name. Online play with
-rollback netcode is in development: on this branch two copies play over a
-LAN or a direct IP (see [Netplay](#netplay-lan-and-direct-ip-prototype));
-internet matchmaking is **not implemented yet**.
+rollback netcode is in development. This branch includes LAN, internet friend
+codes, Unranked matchmaking and ranked best-of-three sets. See
+[Netplay](#netplay-lan-and-direct-ip-prototype) for setup and verification limits.
 
 A native PC port of Super Smash Bros. Melee (NTSC-U 1.02), built from
 [doldecomp/melee](https://github.com/doldecomp/melee) on top of
@@ -96,7 +96,7 @@ table is right and the other one is stale.
 | High-refresh interpolation | planned | |
 | Training tools (hitboxes, savestates, frame advance) | planned | |
 | Replay recording (`.slp`) | planned | `src/pc/slp.h` defines the hook points; nothing implements them. |
-| Online play (LAN / direct IP) | partial | Prototype LAN and direct-IP sessions; Linux/Android rollback, Windows/macOS lockstep. Ranked, Unranked and internet matchmaking are not implemented. See the platform matrix below. |
+| Online play (LAN / direct IP) | partial | LAN/direct-IP plus signed internet Direct, Unranked and Ranked implemented. Public DHT storage verified; two-NAT and live ranked acceptance remain pending. See platform matrix below. |
 | RetroAchievements | planned | |
 
 The phases behind the planned rows, and why they are ordered that way, are in
@@ -233,14 +233,18 @@ Both must run the same build **and the same game image**, with no memory card
 (`--no-card`). The LAN lobby announces a 32-bit id of the disc it booted
 (region, revision, file-table shape and the DOL, so a code mod counts), and a
 peer on a different image is listed as incompatible before a single game
-packet is exchanged — same as a different build version. Direct connect does
-not check either: there is no lobby record to read them from.
+packet is exchanged — same as a different build version. Internet friend-code
+pairing also binds build and disc identity; the legacy direct-IP environment
+path retains its older protocol-version-only check.
 
 In the menus: VS Mode → ONLINE → LAN PLAY finds other
 copies on the local network by mDNS and the first Start elects a host
-(lowest install id wins a tie); DIRECT CONNECT takes the other machine's
-`ip:port` and needs no discovery, which is also the way past Wi-Fi client
-isolation. The game port is UDP 41000 by default and discovery uses UDP
+(lowest install id wins a tie). In the launcher or F1 Online tab, set your name
+and your friend's `NAME#XXXX` code, then choose DIRECT CONNECT. UNRANKED searches
+for an opponent; RANKED runs a rated best-of-three set. PROFILE shows your code
+and locally verified rating. Internet discovery may take about 30 seconds to
+bootstrap and some NATs cannot support a direct peer connection. Legacy
+`MELEE_LAN_DIRECT=ip:port` remains available for direct-IP sessions. The game port is UDP 41000 by default and discovery uses UDP
 5353 multicast; allow both through the firewall (Windows asks on first
 launch). The install id used for the election is `install_id` in
 `launcher.cfg`.
@@ -267,7 +271,7 @@ same game.
 | Platform | Netplay | Rollback | Notes |
 |---|---|---|---|
 | Linux x86-64 | yes | yes | the configuration everything below was measured on; longest run 36 minutes and 126k frames of match |
-| Windows | yes, but lockstep | **no** | the snapshot region is named by an ELF linker script, which PE/COFF cannot use, so the session never predicts and input delay has to cover the whole round trip. Determinism against Linux is proven by replay; two machines actually playing has not been tried |
+| Windows GNU MinGW x86-64 | implemented | PE snapshot ranges implemented | Wine fixtures verify restore, pointer relocations, BSS and audio exclusions. Full Windows gameplay rollback is not yet verified. Other Windows toolchains/ARM64 retain lockstep |
 | macOS / iOS | builds, never run | no | same linker limitation; no macOS hardware here to try it on |
 | Android | runs on a device; found and joined a PC over LAN | untested | Measured on a Pixel 8 Pro against Linux x86-64: mDNS discovery, election, handshake and 1800+ frames of synced menus at 10-16 ms ping and 0 % loss, both peers entering the CSS on the same frame. No match has been played to the end yet, and no snapshot was ever taken in that session, so rollback is unproven on the platform. The lobby holds the Wi-Fi multicast lock while it is open |
 

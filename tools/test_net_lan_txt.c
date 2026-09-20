@@ -506,14 +506,14 @@ int main(int argc, char** argv) {
     snprintf(s_proto, sizeof s_proto, "%d", PC_NET_PROTO_VERSION);
     snprintf(s_name, sizeof s_name, "self");
 
-    const char* id = disc_id();
+    const char* id = pc_lan_disc_id();
     printf("image %s: disc id %s, rev %s, proto %s\n", s_image == 0 ? "a" : "b", id, pc_app_rev(),
         s_proto);
     assert(strlen(id) == 8);
     for (const char* p = id; *p != '\0'; p++) {
         assert((*p >= '0' && *p <= '9') || (*p >= 'a' && *p <= 'f'));
     }
-    assert(strcmp(disc_id(), id) == 0); /* cached, stable within a run */
+    assert(strcmp(pc_lan_disc_id(), id) == 0); /* cached, stable within a run */
 
     /* `good` is written for proto 4 and disc 00000000; retarget it at this
      * build's version and this process's image so the suite is self-consistent. */

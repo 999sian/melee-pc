@@ -183,6 +183,11 @@ int scene_kind(void) {
     return gm_804D6720 != NULL ? gm_804D6720->scene_kind : -1;
 }
 
+bool pc_net_chat_available(void) {
+    int scene = scene_kind();
+    return net.active && (scene == GS_CSS || scene == GS_RESULTS || scene == GS_ONLINE_LOBBY);
+}
+
 bool in_fight(void) {
     int k = scene_kind();
     return k == GS_VS || k == GS_SUDDEN_DEATH;
@@ -599,11 +604,42 @@ static bool packet_shape(const void* buf, int n) {
  * and reason, unless it comes from the peer's address, carries our protocol
  * version and session id (the guest learns the id from the host's first
  * packet) and names the remote player. */
+/* Hardware output is deliberately outside game snapshots. Compare against
+ * the last command actually emitted, not the interpreter's rewound status. */
+void pc_net_rumble_command(unsigned port, unsigned command) {
+    static int motor[4] = {-1, -1, -1, -1};
+    if (port >= 4 || net.resim || motor[port] == (int)command)
+        return;
+    PADControlMotor(port, command);
+    motor[port] = (int)command;
+}
+
+static PcNetDatagramHandler s_datagram_handler;
+void pc_net_set_datagram_handler(PcNetDatagramHandler handler) {
+    s_datagram_handler = handler;
+}
+
+bool pc_net_send_datagram(const void* data, size_t size, uint32_t address, uint16_t port) {
+    if (!net.tx_lock || !data || size > 512)
+        return false;
+    struct sockaddr_in to;
+    memset(&to, 0, sizeof to);
+    to.sin_family = AF_INET;
+    to.sin_addr.s_addr = address;
+    to.sin_port = htons(port);
+    SDL_LockMutex(net.tx_lock);
+    int n = net.active ? (int)sendto(net.sock, (const char*)data, (int)size, 0,
+                             (struct sockaddr*)&to, sizeof to) :
+                         -1;
+    SDL_UnlockMutex(net.tx_lock);
+    return n == (int)size;
+}
+
 void recv_inputs(void) {
     for (;;) {
         union {
             Hdr h;
-            uint8_t raw[sizeof(Rel)];
+            uint8_t raw[512];
         } u;
         struct sockaddr_storage from;
         socklen_t from_len = sizeof from;
@@ -621,6 +657,11 @@ void recv_inputs(void) {
         }
         if (n == 0) {
             continue; /* empty datagram: nothing to parse */
+        }
+        if (s_datagram_handler && from.ss_family == AF_INET) {
+            const struct sockaddr_in* a = (const struct sockaddr_in*)&from;
+            if (s_datagram_handler(&u, (size_t)n, a->sin_addr.s_addr, ntohs(a->sin_port)))
+                continue;
         }
         s_rx_pkts++;
         if (n < (int)sizeof(Hdr)) {
@@ -1244,7 +1285,13 @@ int pc_net_quality(void) {
     return 0;
 }
 
-bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
+static int s_configured_delay = -1;
+void pc_net_set_input_delay(int frames) {
+    s_configured_delay = frames >= 0 && frames <= 4 ? frames : -1;
+}
+
+static bool connect_impl(
+    sock_t supplied, const char* ip, uint16_t port, int player, uint32_t seed) {
     if (net.tx_lock == NULL) {
         net.tx_lock = SDL_CreateMutex();
         sock_startup();
@@ -1254,7 +1301,7 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
     snprintf(portstr, sizeof portstr, "%u", port);
     struct addrinfo hints, *res = NULL;
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = supplied == SOCK_INVALID ? AF_UNSPEC : AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
     if (getaddrinfo(ip, portstr, &hints, &res) != 0 || res == NULL) {
         pc_log_line("net: cannot resolve %s:%u", ip, port);
@@ -1265,7 +1312,7 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
     int family = res->ai_family;
     freeaddrinfo(res);
 
-    sock_t sock = socket(family, SOCK_DGRAM, 0);
+    sock_t sock = supplied == SOCK_INVALID ? socket(family, SOCK_DGRAM, 0) : supplied;
     if (sock == SOCK_INVALID) {
         pc_log_line("net: socket() failed");
         return false;
@@ -1286,15 +1333,22 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
         a->sin_port = htons(bind_port);
         local_len = sizeof *a;
     }
-    if (bind(sock, (struct sockaddr*)&local, local_len) != 0) {
+    if (supplied == SOCK_INVALID && bind(sock, (struct sockaddr*)&local, local_len) != 0) {
         pc_log_line("net: bind(%u) failed", bind_port);
         sock_close(sock);
         return false;
     }
     if (!sock_nonblock(sock)) {
         pc_log_line("net: could not put the socket in non-blocking mode");
-        sock_close(sock);
+        if (supplied == SOCK_INVALID)
+            sock_close(sock);
         return false;
+    }
+    if (supplied != SOCK_INVALID) {
+        struct sockaddr_in bound;
+        socklen_t length = sizeof bound;
+        if (getsockname(sock, (struct sockaddr*)&bound, &length) == 0)
+            bind_port = ntohs(bound.sin_port);
     }
     /* Ask the network for expedited forwarding (DSCP EF / 46): low-latency
      * queueing where the path honours it, harmless where it does not. */
@@ -1322,8 +1376,8 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
     net.local = player ? 1 : 0;
     net.remote = 1 - net.local;
     const char* delay = getenv("MELEE_NET_DELAY");
-    net.delay_auto = delay == NULL || strcmp(delay, "auto") == 0;
-    net.delay = net.delay_auto ? 2 : atoi(delay);
+    net.delay_auto = delay ? strcmp(delay, "auto") == 0 : s_configured_delay < 0;
+    net.delay = net.delay_auto ? 2 : delay ? atoi(delay) : s_configured_delay;
     if (net.delay < 0 || net.delay >= RING / 2) {
         net.delay = 2;
     }
@@ -1391,6 +1445,16 @@ bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
             fp);
     }
     return true;
+}
+
+bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed) {
+    return connect_impl(SOCK_INVALID, ip, port, player, seed);
+}
+bool pc_net_connect_socket(
+    intptr_t socket, const char* ip, uint16_t port, int player, uint32_t seed) {
+    if (socket == -1)
+        return false;
+    return connect_impl((sock_t)socket, ip, port, player, seed);
 }
 
 void pc_net_init(void) {
@@ -1989,15 +2053,31 @@ static void stall_test(void) {
     }
 }
 
+/* Read the latest published hardware state immediately before input is
+ * sent. Extra time-sync ticks and rollback must reuse their recorded sample;
+ * they must never sample hardware a second time. Physical port zero is the
+ * local controller even when matchmaking assigned this peer player two. */
+static void capture_local_sample(bool fresh) {
+    if (fresh) {
+        PADStatus pads[4];
+        PADRead(pads);
+        s_raw_last = pads[0];
+    }
+}
+
 /* A fresh frame: capture the local sample, exchange inputs, predict or
  * stall, and feed the queue head. `raw` is false for the extra tick a
  * time-sync advance adds, which reuses the last physical sample. */
 static void fresh_tick(PADStatus* head, bool raw) {
     if (net.active) {
         stall_test();
-        if (raw) {
-            s_raw_last = head[0];
-        }
+        static int timing_debug = -1;
+        static uint64_t sample_send_total, sample_send_max;
+        static unsigned sample_send_count;
+        if (timing_debug < 0)
+            timing_debug = getenv("MELEE_NET_DEBUG") != NULL;
+        uint64_t sampled_at = timing_debug && raw ? SDL_GetTicksNS() : 0;
+        capture_local_sample(raw);
         /* One slot per tick; a delay change (delay_auto) leaves a gap to fill
          * with the same sample, or already-sent frames that must not move. */
         for (int32_t w = s_wrote + 1; w <= net.frame + net.delay; w++) {
@@ -2005,6 +2085,18 @@ static void fresh_tick(PADStatus* head, bool raw) {
             s_wrote = w;
         }
         send_inputs();
+        if (sampled_at) {
+            uint64_t elapsed = SDL_GetTicksNS() - sampled_at;
+            sample_send_total += elapsed;
+            if (elapsed > sample_send_max)
+                sample_send_max = elapsed;
+            if (++sample_send_count == 600) {
+                pc_log_line("net timing: input poll-to-send mean %.3f max %.3f ms at frame %d",
+                    sample_send_total / 600000000.0, sample_send_max / 1000000.0, net.frame);
+                sample_send_count = 0;
+                sample_send_total = sample_send_max = 0;
+            }
+        }
         recv_inputs();
         if (s_peer_left) {
             exit_if_test_done();

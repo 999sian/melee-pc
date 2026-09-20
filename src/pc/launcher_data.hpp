@@ -16,6 +16,11 @@ struct Verification {
 };
 struct Preferences {
     std::string disc;
+    std::string net_name = "PLAYER";
+    std::string net_target;  // empty hosts our own connect code
+    int net_delay = -1;      // auto; otherwise 0..4 frames
+    int net_port = 0;        // operating-system allocated
+
     bool vsync = true;
     bool fullscreen = false;
     float scale = 1.0f;

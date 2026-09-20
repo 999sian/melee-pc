@@ -155,6 +155,7 @@ typedef struct Ack {
 #define REL_MAX 256
 #define REL_RESUME 0x12 /* net.c's resume exchange, dispatched by on_rel */
 #define REL_DELAY 0x13  /* the host's input-delay pick, dispatched by on_rel */
+#define REL_CHAT 0x15   /* fixed quick-chat phrase, consumed before caller queue */
 #define REL_SCENE 0x14  /* the scene-exit hand-off, dispatched by on_rel */
 typedef struct Rel {
     Hdr h; /* 'R' */

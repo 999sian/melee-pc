@@ -5,6 +5,9 @@
 #include <dolphin/gx.h>
 #include <dolphin/vi.h>
 #include <pc/pc.h>
+#ifdef TARGET_PC
+#include <stdlib.h>
+#endif
 
 HSD_VIInfo HSD_VIData;
 static u8 garbage[HSD_ANTIALIAS_GARBAGE_SIZE] ATTRIBUTE_ALIGN(32);
@@ -298,7 +301,28 @@ void HSD_VICopyXFBAsync(HSD_RenderPass rpass)
         return;
     }
 
+#ifdef TARGET_PC
+    static int debug = -1;
+    static u64 total_ns, max_ns;
+    static unsigned samples;
+    if (debug < 0) debug = getenv("MELEE_NET_DEBUG") != NULL;
+    u64 began_ns = debug ? pc_monotonic_ns() : 0;
+#endif
     idx = HSD_VIWaitXFBDrawEnable();
+#ifdef TARGET_PC
+    if (debug) {
+        u64 waited_ns = pc_monotonic_ns() - began_ns;
+        total_ns += waited_ns;
+        if (waited_ns > max_ns) max_ns = waited_ns;
+        if (++samples == 600) {
+            pc_log_line("net timing: XFB free wait mean %.3f max %.3f ms at %llu ns",
+                        total_ns / 600000000.0, max_ns / 1000000.0,
+                        (unsigned long long) pc_monotonic_ns());
+            samples = 0;
+            total_ns = max_ns = 0;
+        }
+    }
+#endif
     HSD_VICopyEFB2XFBPtr(HSD_VIGetVIStatus(), HSD_VIGetXFBPtr(idx), rpass);
     HSD_VISetXFBWaitDone(idx);
 

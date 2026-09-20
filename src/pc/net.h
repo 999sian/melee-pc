@@ -3,6 +3,7 @@
 #define PC_NET_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -20,7 +21,10 @@ extern "C" {
 /* Version 6 requires sequenced scene exits and acknowledged LAN election. */
 #define PC_NET_PROTO_VERSION 6
 void pc_net_init(void);
+void pc_net_set_input_delay(int frames);
 bool pc_net_active(void);
+/* Presentation-only quick chat is available in connected noncombat scenes. */
+bool pc_net_chat_available(void);
 /* True when the simulation must be reproducible elsewhere: netplay,
  * record, replay or sync test. Guards machine-seeded retail behaviour. */
 bool pc_net_deterministic(void);
@@ -39,6 +43,13 @@ int32_t pc_net_frame(void);
 int32_t pc_net_start_frame(void);
 /* Service transport without advancing simulation (lobby start fence). */
 void pc_net_poll(void);
+/* Internet rendezvous transfers its already-bound IPv4 socket. Ownership
+ * transfers on success only; no new NAT mapping is created. */
+bool pc_net_connect_socket(
+    intptr_t socket, const char* ip, uint16_t port, int player, uint32_t seed);
+typedef bool (*PcNetDatagramHandler)(const void*, size_t, uint32_t, uint16_t);
+void pc_net_set_datagram_handler(PcNetDatagramHandler handler);
+bool pc_net_send_datagram(const void* data, size_t size, uint32_t address, uint16_t port);
 
 /* RNG seed agreed for the session (pc_net_connect / match handshake). */
 uint32_t pc_net_seed(void);
@@ -73,6 +84,8 @@ uint64_t pc_net_pace_adjust_ns(void);
 
 /* True while re-simulating: sound/music/rumble starts must be suppressed. */
 bool pc_net_resim(void);
+/* Reconcile physical motors after rollback; hardware state is not snapshotted. */
+void pc_net_rumble_command(unsigned port, unsigned command);
 
 /* The simulation asks the audio engine two questions whose answers live
  * outside every snapshot and move in real time: "did this sound start, and

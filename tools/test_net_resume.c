@@ -330,6 +330,11 @@ BOOL OSRestoreInterrupts(BOOL level) {
     return level;
 }
 
+u32 PADRead(PADStatus* pads) {
+    memset(pads, 0, 4 * sizeof(*pads));
+    return 0;
+}
+
 void PADControlMotor(u32 chan, u32 cmd) {
     (void)chan;
     (void)cmd;

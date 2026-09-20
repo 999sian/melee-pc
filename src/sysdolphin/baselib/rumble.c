@@ -6,6 +6,9 @@
 #include "controller.h" // IWYU pragma: keep
 #include <dolphin/os.h>
 #include <dolphin/pad.h>
+#ifdef TARGET_PC
+#include <pc/net.h>
+#endif
 
 HSD_RumbleData HSD_Rumble_804C22E0[4];
 
@@ -236,20 +239,25 @@ void HSD_PadRumbleInterpret(void)
                 r29 = r28;
             }
         }
+#ifdef TARGET_PC
+        /* The logical state still advances on every re-run. On the first
+         * live tick, reconcile the motor against the corrected timeline. */
+        switch (r30->status) {
+        case 0: pc_net_rumble_command(i, 2); break;
+        case 1: pc_net_rumble_command(i, 0); break;
+        case 2: pc_net_rumble_command(i, 1); break;
+        }
+        r30->last_status = r30->status;
+#else
         if (r30->status != r30->last_status) {
             switch (r30->status) {
-            case 0:
-                PADControlMotor(i, 2);
-                break;
-            case 1:
-                PADControlMotor(i, 0);
-                break;
-            case 2:
-                PADControlMotor(i, 1);
-                break;
+            case 0: PADControlMotor(i, 2); break;
+            case 1: PADControlMotor(i, 0); break;
+            case 2: PADControlMotor(i, 1); break;
             }
             r30->last_status = r30->status;
         }
+#endif
     }
 }
 

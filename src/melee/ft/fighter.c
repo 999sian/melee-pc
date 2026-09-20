@@ -1608,7 +1608,7 @@ void Fighter_8006A360(Fighter_GObj* gobj)
 
         if (!fp->is_sub_fighter && Camera_80031144() == 1.0f) {
             if (fp->dmg.x1830_percent < p_ftCommonData->x7B0) {
-                if (ifMagnify_802FC998(fp->player_id) &&
+                if (ifMagnify_IsOffscreenForDamage(fp->player_id) &&
                     (Player_GetMoreFlagsBit3(fp->player_id) != 0))
                 {
                     fp->dmg.x1910++;

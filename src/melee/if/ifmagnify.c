@@ -32,6 +32,7 @@
 #include <sysdolphin/baselib/wobj.h>
 #ifdef TARGET_PC
 #include "pc/widescreen.h"
+#include "pc/net.h"
 #endif
 
 static HSD_WObjDesc ifMagnify_803F97C0 = { 0, { 0.0F, 0.0F, 300.0F }, 0 };
@@ -639,4 +640,35 @@ void ifMagnify_802FC940(void)
 bool ifMagnify_802FC998(s32 ply_slot)
 {
     return ifMagnify_804A1DE0.player[ply_slot].state.is_offscreen;
+}
+
+/* The magnifier's is_offscreen bit is written by a GX callback, so it is
+ * stale during rollback and can describe a speculative future render after
+ * restoring a snapshot. It must not decide the once-per-second damage tick.
+ * Refresh the camera from its simulation transform, then perform the same
+ * subject visibility test without consulting either render-populated flag.
+ * Camera_80030CD8 builds its matrix from the camera's eye/interest directly;
+ * no current GX camera or render pass is required. */
+bool ifMagnify_IsOffscreenForDamage(s32 ply_slot)
+{
+#ifdef TARGET_PC
+    if (pc_net_active()) {
+        HSD_GObj* fighter_gobj;
+        HSD_GObj* camera_gobj;
+        CmSubject* subject;
+        if (ply_slot < 0 || ply_slot >= 6 || !ifMagnify_IsHUDVisible() ||
+            ifMagnify_804A1DE0.player[ply_slot].state.ignore_offscreen)
+        {
+            return false;
+        }
+        fighter_gobj = Player_GetEntity(ply_slot);
+        if (fighter_gobj == NULL || !ftLib_80086ED0(fighter_gobj)) return false;
+        subject = ftLib_80086B74(fighter_gobj);
+        camera_gobj = Camera_80030A50();
+        if (subject == NULL || camera_gobj == NULL) return false;
+        Camera_8002A4AC(camera_gobj);
+        return !Camera_80030CD8(subject, NULL);
+    }
+#endif
+    return ifMagnify_802FC998(ply_slot);
 }

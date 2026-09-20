@@ -14,6 +14,42 @@ ninja -C build unit_tests && ctest --test-dir build -L melee --output-on-failure
 CI also runs `python3 tools/check_style.py` and `python3 tools/compile_check.py`
 on every push (see [CODING_STYLE.md](../CODING_STYLE.md)).
 
+## Netplay implementation checks
+
+The Linux unit target includes rollback/RNG/rumble/magnifier regressions,
+ranked rules and durable history, DHT protocol/crypto vectors, quick chat,
+controller sampling, pairing and reliable transport. Standalone fixtures use
+SDL paths from `build/CMakeCache.txt`; set `MELEE_TEST_BUILD` for another build.
+Local UDP tests need loopback socket access.
+
+```sh
+MATCH_RANKED=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_PROOF_TIMEOUT=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_PROOF_MISMATCH=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_COMPLETE=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_COMPLETE=1 MATCH_RECOVER=1 python3 tools/test_net_match.py
+python3 tools/test_pe_snapshot.py --wine
+```
+
+Ranked fixtures use an isolated responder with real BEP44 parsing, signatures
+and loopback UDP. They do not establish two-home-NAT connectivity. PE fixtures
+verify Windows section ranges and restores, not a complete Windows match.
+
+For live gameplay (requires your own disc and display):
+
+```sh
+SDL_VIDEO_DRIVER=wayland python3 tools/net_test.py --delay 50 --loss 2 --minutes 1
+SDL_VIDEO_DRIVER=wayland python3 tools/net_test.py --scenes --minutes 2
+```
+
+Use the display backend appropriate to your session. Run live tests sequentially;
+competing game instances and builds affect pacing. The scene test requires both
+peers to enter CSS, SSS, VS, Results, CSS, SSS and VS at matching frame numbers.
+`MELEE_NET_DEBUG=1` adds XFB wait timing and rollback HUD detail;
+`MELEE_NET_JIT=1` enables experimental presentation-informed frame scheduling
+when VSync is enabled. It does not change the 60 Hz simulation cadence.
+Physical button-to-photon comparison still requires hardware measurement.
+
 ## Smoke tests
 
 `tools/smoke_test.py` is the automated end-to-end pass: a table of cases, each

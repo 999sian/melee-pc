@@ -1,0 +1,76 @@
+# Netplay implementation verification
+
+Branch: `netplay-finish`, based on `c9d769f9e`. Verified on Linux x86-64,
+2026-09-20. This is implementation and test evidence, not a declaration that
+all hardware/network acceptance in `netcode-plan.md` has passed.
+
+## Delivered
+
+- Corrected RNG restoration, rumble replay/output reconciliation and
+  render-dependent offscreen damage during rollback.
+- Shared stage selection and complete two-player scene flow through rematch.
+- Persistent signing identity, friend codes, internet Direct/Unranked/Ranked
+  pairing, DHT bootstrap/rendezvous and mutable/immutable BEP44 storage.
+- Ranked best-of-three rules, stage bans/picks, tiebreaks, deterministic rating
+  math, dual-signed records, durable-save confirmation and retriable publication.
+- Rejection of known-opponent history rollback/forks, with bounded authenticated
+  ancestry lookup before gameplay. Format 2 explicitly rejects old format 1.
+- Launcher/F1 Online settings, profile/rating display, opponent HUD, 16-phrase
+  noncombat quick chat, late local input polling, XFB timing diagnostics and
+  optional just-in-time presentation pacing.
+- GNU MinGW x86-64 snapshot sections with post-link boundary verification.
+
+## Checks completed
+
+| Check | Result |
+| --- | --- |
+| `cmake --build build -j 8 --target melee unit_tests` | Passed |
+| `ctest --test-dir build -L melee --output-on-failure` | 37/37 passed |
+| `python3 tools/check_style.py` | 114 files passed |
+| Changed game-source syntax checks and `git diff --check` | Passed |
+| Delayed local match, 50 ms outgoing delay and 2% loss | Passed; over 12,200 in-match frames per peer, 902/1,155 rollbacks, no desync or lost rollback |
+| Full lobby → CSS → SSS → VS → Results → CSS → SSS → VS | Passed; matching transition frames and 16,200-frame budget completed |
+| Public DHT bootstrap | Ready in approximately 30 seconds |
+| Public mutable BEP44 PUT/GET | Five acknowledgements; authenticated exact 36-byte readback at sequence 1 |
+| Public immutable BEP44 PUT/GET | Six acknowledgements; exact 69-byte readback by target |
+| `python3 tools/test_pe_snapshot.py --wine` | Both data/BSS layouts restored; pointer relocation and engine/audio exclusion checks passed |
+| Linux versus MinGW/Wine format-2 oracle | 4,096 rating updates, 32 signed records and 32 immutable heads byte-identical |
+
+The rating oracle's normalized output is 488,000 bytes; SHA-256:
+`0c8818916c2198f9688e153d72f28df18f1aefe641f593e491fb01be71ada489`.
+
+The first two live gameplay rows cover the magnifier/scene correction checkpoint.
+The final combined build also passed the full 16,200-frame scene/rematch run
+(`/tmp/netplay-finish-scenes-fixed`), including late polling and native chat/HUD.
+It recorded 580/101 rollbacks at the final periodic sample, maximum depth 8,
+and no desync or lost rollback. The final binary also passed a 10,800-frame
+run with 50 ms outgoing delay and 2% injected loss
+(`/tmp/netplay-finish-delay-final`): 741/756 rollbacks, maximum depth 8,
+no desync or lost rollback. An earlier combined run exposed a stale chat
+text pointer at Results; live-list ownership checks and a text-pool lifecycle
+regression now cover that failure.
+
+Unit coverage includes malformed/conflicting DHT replies, official signature
+vectors, signed pairing and cancellation, proof mismatch/timeout refusal,
+durable history corruption, known-history ancestry, withheld save confirmations,
+failed publication/restart recovery, quick-chat delivery and rate limits, and
+rollback input/scene timing, and chat text-pool resets/address reuse.
+Public probes used fresh temporary identities and harmless values with the user's explicit permission.
+
+## Remaining acceptance and limitations
+
+- Two different home NATs and a complete live ranked gameplay set remain
+  unverified. The ranked fixtures use real UDP and crypto with an isolated
+  DHT responder; public storage tests separately use real internet nodes.
+- Full Windows gameplay rollback, further Android device coverage and Apple
+  targets have not been verified in this batch. Apple and unsupported Windows
+  toolchains/ARM64 retain lockstep.
+- No physical button-to-photon comparison or hour-long soak was performed.
+  `MELEE_NET_JIT=1` remains opt-in; automatic delay remains jitter-aware 1–4
+  frames, with manual 0–4 available.
+- Ratings are community ratings. Previously unknown histories remain
+  self-attested; collusion/new identities remain possible. Four-character
+  friend-code suffixes are compact rendezvous identifiers, not independent
+  cryptographic contact verification. Public DHT retention is not guaranteed.
+- Native chat/menu visuals need broader resolution/device checks. Text labels
+  are used instead of separate texture assets.
