@@ -464,6 +464,13 @@ s32 fn_8001F13C(THPDecComp* streamPlayer)
 #endif
 s32 fn_8001F294(void)
 {
+#ifdef __EMSCRIPTEN__
+    /* The browser delivers DVD interrupts cooperatively on this thread. */
+    extern void browser_disc_deliver(void);
+    extern void browser_yield(void);
+    browser_disc_deliver();
+    if (MoviePlayer.unk_110) browser_yield();
+#endif
     return *(volatile s32*) &MoviePlayer.unk_110; /* cleared by the DVD completion */
 }
 #ifdef __MWERKS__

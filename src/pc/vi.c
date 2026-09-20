@@ -13,6 +13,16 @@
 
 #include <SDL3/SDL_timer.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+extern void browser_yield(void);
+// clang-format off
+EM_JS(void, browser_frame_phases, (double game, double render, double services, double wait, double begin), {
+ const p = Module.framePhases ||= {};
+ Object.assign(p, {gameMs:game, renderMs:render, servicesMs:services, waitMs:wait, beginMs:begin});
+});
+// clang-format on
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +51,23 @@ uint32_t pc_gfx_prewarm(uint32_t max_wait_ms) {
     return aurora_wait_pipelines(max_wait_ms);
 }
 
+#ifdef __EMSCRIPTEN__
+/* A precise native sleep would block the browser event loop; the frame
+ * boundary is also the only place the page gets control back. */
+#define PC_PACE_ALWAYS 1
+static bool s_pace_waited;
+static void pc_pace_wait(u64 ns) {
+    s_pace_waited = true;
+    if (ns >= 1000000ull)
+        emscripten_sleep((unsigned)(ns / 1000000ull));
+    else
+        browser_yield();
+}
+#else
+#define PC_PACE_ALWAYS 0
+#define pc_pace_wait SDL_DelayPrecise
+#endif
+
 void pc_frame_boundary(void) {
     static int fps_log = -1;
     static u64 fps_t0;
@@ -55,10 +82,19 @@ void pc_frame_boundary(void) {
     static u32 frame_late_33;
     static u64 sleep_worst_over_ns;
 
+#ifdef __EMSCRIPTEN__
+    static double previous_boundary;
+    const double phase_game = emscripten_get_now();
+#endif
     if (s_in_frame) {
         aurora_end_frame();
         s_in_frame = false;
     }
+#ifdef __EMSCRIPTEN__
+    const double phase_render = emscripten_get_now();
+    extern void pc_audio_pump(void);
+    pc_audio_pump();
+#endif
     aurora_heap_check();    /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
     /* MELEE_LAN_TEST=1|host: the LAN lobby without the menu; "host" starts
@@ -139,6 +175,7 @@ void pc_frame_boundary(void) {
     }
 
     const AuroraEvent* event = aurora_update();
+
     while (event != NULL && event->type != AURORA_NONE) {
         if (event->type == AURORA_EXIT) {
             pc_exit_requested = true;
@@ -175,6 +212,10 @@ void pc_frame_boundary(void) {
         exit(0);
     }
 
+#ifdef __EMSCRIPTEN__
+    const double phase_services = emscripten_get_now();
+    s_pace_waited = false;
+#endif
     /* Enforce deterministic 60 Hz simulation pacing regardless of display refresh rate
      * (e.g. 120 Hz, 144 Hz, 240 Hz high-refresh monitors). When VSync is enabled on high-refresh
      * displays, aurora_begin_frame() unblocks at monitor refresh rate. Without this check,
@@ -189,8 +230,8 @@ void pc_frame_boundary(void) {
         const u64 want = next_sim_ns - now;
         /* On standard 60 Hz VSync, aurora_begin_frame already waited for VBlank. On high-refresh
          * (120/144/240 Hz) or VSync-off, this throttles simulation to exact 60 Hz. */
-        if (!aurora_vsync_enabled() || want > 2000000ull) {
-            SDL_DelayPrecise(want);
+        if (PC_PACE_ALWAYS || !aurora_vsync_enabled() || want > 2000000ull) {
+            pc_pace_wait(want);
             if (fps_log > 0) {
                 const u64 slept = SDL_GetTicksNS() - now;
                 if (slept > want && slept - want > sleep_worst_over_ns) {
@@ -200,6 +241,11 @@ void pc_frame_boundary(void) {
         }
     }
     next_sim_ns += sim_period;
+#ifdef __EMSCRIPTEN__
+    if (!s_pace_waited)
+        browser_yield(); /* every frame returns to the event loop at least once */
+    const double phase_wait = emscripten_get_now();
+#endif
 
     /* aurora_begin_frame returns false while minimized/paused; keep pumping.
      * Sleep a frame between attempts: without it a minimized window spins a
@@ -212,11 +258,26 @@ void pc_frame_boundary(void) {
             }
             ++event;
         }
+#ifdef __EMSCRIPTEN__
+        emscripten_sleep(16);
+#else
         SDL_Delay(16);
+#endif
     }
+
     s_in_frame = true;
 
     s_retrace_count++;
+#ifdef __EMSCRIPTEN__
+    const double phase_begin = emscripten_get_now();
+    browser_frame_phases(previous_boundary ? phase_game - previous_boundary : 0,
+        phase_render - phase_game, phase_services - phase_render, phase_wait - phase_services,
+        phase_begin - phase_wait);
+    previous_boundary = phase_begin;
+    // clang-format off
+    EM_ASM({if(Module.onFrame)Module.onFrame($0);},s_retrace_count);
+    // clang-format on
+#endif
     /* Age of the 1000 Hz sample the sim is about to consume, before the pad
      * alarms (fn_800195FC -> PADRead) fire from pc_os_run_alarms. */
     pc_input_latency_record();

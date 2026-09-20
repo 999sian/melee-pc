@@ -8,10 +8,11 @@
 # Android, Apple and Windows-ARM64 keep Clang for the C++ and route the game's
 # C through GCC (tools/gcc_launcher.py, tools/gcc_ios_launcher.py,
 # tools/gcc_windows_arm64_launcher.py), so CMAKE_C_COMPILER_ID is Clang there
-# on purpose and the gate does not apply.
+# on purpose and the gate does not apply. Emscripten has no GCC at all: its
+# game C goes through the lowering pass in tools/browser instead.
 include_guard(GLOBAL)
 
-if (ANDROID OR APPLE OR (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
+if (EMSCRIPTEN OR ANDROID OR APPLE OR (WIN32 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$"))
     return()
 endif ()
 

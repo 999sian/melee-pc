@@ -26,6 +26,15 @@
 #include <dolphin/os.h>
 
 #include <SDL3/SDL.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+static int s_browser_audio;
+// clang-format off
+EM_JS(int,browser_audio_requested,(),{return Module.audioRequested ? Module.audioRequested() : 0;});
+// clang-format on
+EM_JS(void, browser_audio_submit, (float* data, unsigned count),
+    { Module.onAudio(HEAPF32.subarray(data >>> 2, (data >>> 2) + count), 32000); });
+#endif
 
 #include <math.h>
 #include <pthread.h>
@@ -730,6 +739,31 @@ static void SDLCALL audio_pull(void* userdata, SDL_AudioStream* stream, int addi
     }
 }
 
+#ifdef __EMSCRIPTEN__
+void pc_audio_pump(void) {
+    static int pumping;
+    if (pumping || (!s_stream && !s_browser_audio))
+        return;
+    pumping = 1;
+    float frame[AX_FRAME * 2];
+    if (s_browser_audio) {
+        for (unsigned i = 0; i < 32 && browser_audio_requested(); i++) {
+            render_frame(frame);
+            browser_audio_submit(frame, AX_FRAME * 2);
+        }
+        pumping = 0;
+        return;
+    }
+    // Keep the browser consumer fed without re-entering game callbacks from JS.
+    while (SDL_GetAudioStreamQueued(s_stream) < AX_RATE * 2 * sizeof(float) / 20) {
+        render_frame(frame);
+        if (!SDL_PutAudioStreamData(s_stream, frame, sizeof(frame)))
+            break;
+    }
+    pumping = 0;
+}
+#endif
+
 /* ---- AX API ------------------------------------------------------------ */
 
 void AXInit(void) {
@@ -742,14 +776,25 @@ void AXInit(void) {
     if (s_dump == NULL && getenv("MELEE_AUDIO_DUMP") != NULL) {
         s_dump = fopen(getenv("MELEE_AUDIO_DUMP"), "wb");
     }
+#ifdef __EMSCRIPTEN__
+    // clang-format off
+    s_browser_audio=EM_ASM_INT({return typeof Module.onAudio==='function';});
+    // clang-format on
+    if (s_browser_audio)
+        return;
+#endif
     if (s_stream == NULL) {
         const SDL_AudioSpec spec = {SDL_AUDIO_F32, 2, AX_RATE};
         if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
             fprintf(stderr, "audio: SDL_InitSubSystem failed: %s\n", SDL_GetError());
             return;
         }
+#ifdef __EMSCRIPTEN__
+        s_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+#else
         s_stream =
             SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_pull, NULL);
+#endif
         if (s_stream)
             SDL_SetAudioStreamGain(s_stream, s_master_volume);
         if (s_stream == NULL) {
