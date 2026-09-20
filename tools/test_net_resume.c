@@ -466,7 +466,7 @@ static void step_resume_ok(void) {
         /* Nor does a repeat of it produce one. */
         peer_resume(SESSION, SEED, 203, 195);
         assert(s_resume_sends == 1);
-    } else if (s_did_exchange && !s_did_pads && (s_now - s_t0) / 1000000ull >= 7100) {
+    } else if (s_did_exchange && !s_did_pads && (s_now - s_t0) / 1000000ull >= (STALL_TIMEOUT_MS + 1000)) {
         s_did_pads = true;
         peer_pads(HAVE + 1, 199);
     }
@@ -497,7 +497,7 @@ static void case_resume_inside_ring(void) {
     for (int i = 0; i < s_tx_pkt.count; i++) {
         assert(s_tx_pkt.pads[i].button == (uint16_t)(0x1000 + 196 + i));
     }
-    assert(logged("net: interrupted at frame 200 (peer silent 7000 ms), reconnecting"));
+    assert(logged("net: interrupted at frame 200 (peer silent 3000 ms), reconnecting"));
     assert(logged("net: resumed at frame 200"));
     assert(!logged("cannot resume"));
 }
@@ -591,7 +591,7 @@ static void case_window_expires(void) {
     assert(s_status == PC_NET_PEER_TIMEOUT);
     assert(waited >= STALL_TIMEOUT_MS + RECONNECT_MS);
     assert(waited <= STALL_TIMEOUT_MS + RECONNECT_MS + 10);
-    assert(logged("net: resume window of 15000 ms expired at frame 200"));
+    assert(logged("net: resume window of 3000 ms expired at frame 200"));
     assert(s_resume_sends == 1);
 }
 
@@ -721,7 +721,7 @@ static void case_handshake_done_resumes_young(void) {
     assert(s_rc == RSM_ACTIVE);
     assert(s_resume_sends == 1);
     assert(logged("net: interrupted at frame 3"));
-    assert(logged("net: resume window of 15000 ms expired at frame 3"));
+    assert(logged("net: resume window of 3000 ms expired at frame 3"));
 }
 
 /* A RESUME that arrives before the session is established is ignored, not
@@ -749,7 +749,7 @@ static void case_tick_window_expiry_disconnects(void) {
     fresh_tick(head, true);
     assert(!net.active && net.sock == SOCK_INVALID);
     assert(pc_net_peer_status() == PC_NET_PEER_TIMEOUT);
-    assert(logged("net: peer silent for 7000 ms at frame 200, leaving netplay"));
+    assert(logged("net: peer silent for 3000 ms at frame 200, leaving netplay"));
     assert(logged("net: disconnected at frame"));
     assert(net.frame == FRAME); /* the frame did not advance */
 }

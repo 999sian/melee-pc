@@ -3,6 +3,9 @@
  * Every outgoing datagram is captured; no socket or network calls are made. */
 #include "../extern/dht/dht.c"
 #include <assert.h>
+void pc_log_line(const char* fmt, ...) {
+    (void)fmt;
+}
 static unsigned sent;
 int dht_random_bytes(void* out, size_t n) {
     memset(out, 0x55, n);
