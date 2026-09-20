@@ -416,7 +416,10 @@ static int resolve(void* arg) {
 }
 static void values(void* ctx, int event, const unsigned char* hash, const void* data, size_t len) {
     (void)ctx;
-    (void)hash;
+    if (event == DHT_EVENT_SEARCH_DONE && hash) {
+        pc_log_line("dht: search completed for topic %02x%02x%02x%02x...", hash[0], hash[1], hash[2], hash[3]);
+        return;
+    }
     if (event != DHT_EVENT_VALUES || len % 6)
         return;
     const unsigned char* p = data;
@@ -583,7 +586,7 @@ void pc_dht_poll(void) {
                 if (pc_dht_topic(mode, direct_code, rating_band + offset, minute - age, hash))
                     dht_search(hash, age == 0 ? bound_port : 0, AF_INET, values, NULL);
             }
-        next_search = now + 15000;
+        next_search = now + 5000;
     }
 }
 bool pc_dht_next_candidate(struct pc_dht_endpoint* out) {

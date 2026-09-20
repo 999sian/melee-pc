@@ -1770,6 +1770,11 @@ extern "C" const char* pc_get_net_target(void) {
     return prefs.net_target.c_str();
 }
 extern "C" int pc_get_net_port(void) {
+    const char* env_port = getenv("MELEE_NET_PORT");
+    if (env_port && *env_port) {
+        int p = std::atoi(env_port);
+        if (p > 0 && p < 65536) return p;
+    }
     return prefs.net_port;
 }
 extern "C" int pc_get_net_delay(void) {

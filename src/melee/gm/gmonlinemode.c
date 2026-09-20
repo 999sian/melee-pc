@@ -385,7 +385,7 @@ void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
                                   pc_net_match_publication(NULL) == 0)) {
         pc_net_match_start(online_kind == ONLINE_KIND_UNRANKED ? PC_MATCH_UNRANKED :
                            online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED : PC_MATCH_DIRECT,
-                           pc_get_net_target());
+                           online_kind == ONLINE_KIND_DIRECT ? pc_get_net_target() : NULL);
     } else if (!internetLobby()) pc_lan_start();
 #endif
 }

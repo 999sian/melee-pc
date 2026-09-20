@@ -320,7 +320,9 @@ static bool after_handoff(const void* data, size_t n, uint32_t address, uint16_t
             !memcmp(o->guest_key, identity.public_key, 32) && !memcmp(hash, offer_hash, 20) &&
             signed_ok(peer_key, o->signature, o, sizeof *o))
         {
-            pc_net_send_datagram(&ack, sizeof ack, address, port);
+            for (int p = 0; p < 3; p++) {
+                pc_net_send_datagram(&ack, sizeof ack, address, port);
+            }
             return true;
         }
     }
@@ -353,8 +355,11 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
         pc_log_line("match: recv valid MatchHello from %u.%u.%u.%u:%u (peer=%s host=%d fresh=%d)",
                     rip >> 24, (rip >> 16) & 0xFF, (rip >> 8) & 0xFF, rip & 0xFF, ep->port,
                     h->code, host, fresh);
-        if (fresh)
-            send_packet(&hello, sizeof hello, ep); /* answer one-sided discovery */
+        if (fresh) {
+            for (int p = 0; p < 3; p++) {
+                send_packet(&hello, sizeof hello, ep); /* answer one-sided discovery burst */
+            }
+        }
         if (fresh)
             deadline = SDL_GetTicks() + (mode == PC_MATCH_RANKED ? 90000 : TIMEOUT_MS);
         if (host) {
@@ -416,7 +421,9 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
         }
         if (mode == PC_MATCH_RANKED && !proofs_ready)
             return;
-        send_packet(&ack, sizeof ack, ep);
+        for (int p = 0; p < 3; p++) {
+            send_packet(&ack, sizeof ack, ep);
+        }
         intptr_t fd = pc_dht_take_socket();
         char ip[INET_ADDRSTRLEN];
         struct in_addr addr = {ep->address};

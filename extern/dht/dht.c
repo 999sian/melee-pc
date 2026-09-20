@@ -62,6 +62,8 @@ THE SOFTWARE.
 
 #include "dht.h"
 
+extern void pc_log_line(const char* fmt, ...);
+
 #ifndef HAVE_MEMMEM
 #ifdef __GLIBC__
 #define HAVE_MEMMEM
@@ -210,7 +212,7 @@ struct peer {
 
 /* The retransmit timeout when performing searches. */
 #ifndef DHT_SEARCH_RETRANSMIT
-#define DHT_SEARCH_RETRANSMIT 10
+#define DHT_SEARCH_RETRANSMIT 2
 #endif
 
 struct storage {
@@ -1202,6 +1204,27 @@ search_step(struct search *sr, dht_callback_t *callback, void *closure)
         j++;
     }
 
+    if(sr->port > 0) {
+        for(i = 0; i < sr->numnodes && i < 8; i++) {
+            struct search_node *n = &sr->nodes[i];
+            struct node *node;
+            unsigned char tid[4];
+            if(n->pinged >= 3 || n->acked || n->token_len == 0)
+                continue;
+            debugf("Sending announce_peer.\n");
+            make_tid(tid, "ap", sr->tid);
+            send_announce_peer((struct sockaddr*)&n->ss,
+                               sizeof(struct sockaddr_storage),
+                               tid, 4, sr->id, sr->port,
+                               n->token, n->token_len,
+                               n->reply_time >= now.tv_sec - 15);
+            n->pinged++;
+            n->request_time = now.tv_sec;
+            node = find_node(n->id, n->ss.ss_family);
+            if(node) pinged(node, NULL);
+        }
+    }
+
     if(all_done) {
         if(sr->port == 0) {
             goto done;
@@ -1210,30 +1233,12 @@ search_step(struct search *sr, dht_callback_t *callback, void *closure)
             j = 0;
             for(i = 0; i < sr->numnodes && j < 8; i++) {
                 struct search_node *n = &sr->nodes[i];
-                struct node *node;
-                unsigned char tid[4];
                 if(n->pinged >= 3)
                     continue;
-                /* A proposed extension to the protocol consists in
-                   omitting the token when storage tables are full.  While
-                   I don't think this makes a lot of sense -- just sending
-                   a positive reply is just as good --, let's deal with it. */
                 if(n->token_len == 0)
                     n->acked = 1;
-                if(!n->acked) {
+                if(!n->acked)
                     all_acked = 0;
-                    debugf("Sending announce_peer.\n");
-                    make_tid(tid, "ap", sr->tid);
-                    send_announce_peer((struct sockaddr*)&n->ss,
-                                       sizeof(struct sockaddr_storage),
-                                       tid, 4, sr->id, sr->port,
-                                       n->token, n->token_len,
-                                       n->reply_time >= now.tv_sec - 15);
-                    n->pinged++;
-                    n->request_time = now.tv_sec;
-                    node = find_node(n->id, n->ss.ss_family);
-                    if(node) pinged(node, NULL);
-                }
                 j++;
             }
             if(all_acked)
@@ -1370,10 +1375,6 @@ dht_search(const unsigned char *id, int port, int af,
     int sr_duplicate = sr && !sr->done;
 
     if(sr) {
-        if(!sr->done) {
-            search_step(sr, callback, closure);
-            return 0;
-        }
         /* We're reusing data from an old search.  Reusing the same tid
            means that we can merge replies for both searches. */
         int i;
@@ -2174,6 +2175,7 @@ dht_periodic(const void *buf, size_t buflen,
                                             (void*)m.values6, m.values6_len);
                         }
                     }
+                    search_step(sr, callback, closure);
                 }
             } else if(tid_match(m.tid, "ap", &ttid)) {
                 struct search *sr;
@@ -2195,6 +2197,7 @@ dht_periodic(const void *buf, size_t buflen,
                         }
                     /* See comment for gp above. */
                     search_send_get_peers(sr, NULL);
+                    search_step(sr, callback, closure);
                 }
             } else {
                 debugf("Unexpected reply: ");
@@ -2796,6 +2799,14 @@ send_announce_peer(const struct sockaddr *sa, int salen,
 {
     char buf[512];
     int i = 0, rc;
+
+    if(sa->sa_family == AF_INET) {
+        struct sockaddr_in *sin = (struct sockaddr_in*)sa;
+        uint32_t ip = ntohl(sin->sin_addr.s_addr);
+        pc_log_line("dht: announcing to node %u.%u.%u.%u:%u (port=%u)",
+                    ip >> 24, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF,
+                    ntohs(sin->sin_port), (unsigned)port);
+    }
 
     rc = snprintf(buf + i, 512 - i, "d1:ad2:id20:"); INC(i, rc, 512);
     COPY(buf, i, myid, 20, 512);
