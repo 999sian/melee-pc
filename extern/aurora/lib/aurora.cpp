@@ -304,7 +304,9 @@ bool begin_frame() noexcept {
     }
   }
 
+#ifndef __EMSCRIPTEN__
   imgui::new_frame(window::get_window_size());
+#endif
   if (!gfx::begin_frame()) {
     return false;
   }
@@ -320,7 +322,11 @@ void end_frame() noexcept {
   gx::fifo::end_frame();
   gx::texture::end_frame();
   gfx::finish();
+#ifdef __EMSCRIPTEN__
+  imgui::DrawData imguiDrawData; // Browser controls live in the launcher.
+#else
   auto imguiDrawData = imgui::freeze();
+#endif
 
   const auto& presentSource = webgpu::present_source();
   const auto viewport = webgpu::calculate_present_viewport(webgpu::g_graphicsConfig.surfaceConfiguration.width,
@@ -445,7 +451,12 @@ void end_frame() noexcept {
       {
         window::SurfaceLock surfaceLock;
         if (window::is_presentable()) {
+#ifdef __EMSCRIPTEN__
+          // The browser presents the canvas when control returns to its event loop.
+          status = wgpu::Status::Success;
+#else
           status = g_surface.Present();
+#endif
         }
       }
       if (status) {

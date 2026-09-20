@@ -67,7 +67,7 @@ if(AURORA_ENABLE_RMLUI)
 endif ()
 
 if (AURORA_ENABLE_GX)
-    target_compile_definitions(aurora_core PUBLIC AURORA_ENABLE_GX WEBGPU_DAWN)
+    target_compile_definitions(aurora_core PUBLIC AURORA_ENABLE_GX $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:WEBGPU_DAWN>)
     target_sources(aurora_core PRIVATE
             lib/webgpu/gpu.cpp
             lib/webgpu/gpu_cache.cpp

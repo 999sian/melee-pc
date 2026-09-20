@@ -8,7 +8,11 @@
 namespace aurora::gfx::detail {
 
 inline constexpr size_t FrameSlotCount = 2;
-#if defined(__ANDROID__)
+#ifdef __EMSCRIPTEN__
+// The browser renderer submits inline and yields between VI ticks. One mapped
+// staging set bounds GPU work in flight and avoids five 87 MiB allocations.
+inline constexpr size_t StagingBufferCount = 1;
+#elif defined(__ANDROID__)
 inline constexpr size_t StagingBufferCount = FrameSlotCount + 1; // 3 staging buffers on mobile
 #else
 inline constexpr size_t StagingBufferCount = FrameSlotCount + 3; // 5 staging buffers on desktop
@@ -16,7 +20,7 @@ inline constexpr size_t StagingBufferCount = FrameSlotCount + 3; // 5 staging bu
 inline constexpr uint64_t StagingBufferSize = UniformBufferSize + VertexBufferSize + IndexBufferSize +
                                               StorageBufferSize + (UseTextureBuffer ? TextureUploadSize : 0);
 
-const wgpu::Buffer& staging_buffer(size_t slot);
+const wgpu::Buffer& staging_buffer(size_t slot, size_t pool = 0);
 
 struct RegisteredDrawType {
   DrawCallback draw = nullptr;
