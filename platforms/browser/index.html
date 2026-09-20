@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Melee Web</title>
+<style>
+  body { margin: 0 auto; max-width: 960px; padding: 16px; background: #111; color: #eee; font: 15px/1.4 system-ui, sans-serif; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; background: #000; }
+  #bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  #stats { margin-left: auto; font-variant-numeric: tabular-nums; color: #9c9; }
+  #status { color: #fc6; }
+  pre { white-space: pre-wrap; color: #999; font-size: 12px; max-height: 14em; overflow: auto; }
+  kbd { background: #333; border-radius: 3px; padding: 0 4px; }
+</style>
+<h1>Melee Web</h1>
+<div id="bar">
+  <input id="disc" type="file" accept=".iso,.gcm">
+  <button id="start" disabled>Start</button>
+  <span id="status">Loading engine…</span>
+  <span id="stats"></span>
+</div>
+<canvas id="canvas" width="960" height="720" tabindex="0"></canvas>
+<p><kbd>Arrows</kbd> stick · <kbd>X</kbd> A · <kbd>Z</kbd> B · <kbd>C</kbd> X · <kbd>V</kbd> Y · <kbd>Q</kbd> L · <kbd>E</kbd> R · <kbd>Tab</kbd> Z · <kbd>Enter</kbd> Start · <kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> C-stick</p>
+<pre id="log"></pre>
+<script type="module" src="./shell.mjs"></script>
+</html>
