@@ -1370,6 +1370,10 @@ dht_search(const unsigned char *id, int port, int af,
     int sr_duplicate = sr && !sr->done;
 
     if(sr) {
+        if(!sr->done) {
+            search_step(sr, callback, closure);
+            return 0;
+        }
         /* We're reusing data from an old search.  Reusing the same tid
            means that we can merge replies for both searches. */
         int i;

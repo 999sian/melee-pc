@@ -208,6 +208,12 @@ bool pc_dht_external_endpoint(struct pc_dht_endpoint* out) {
     }
     return false;
 }
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak)) void pc_log_line(const char* fmt, ...) { (void)fmt; }
+#else
+void pc_log_line(const char* fmt, ...);
+#endif
+
 static void node_cache(bool save) {
 #ifndef PC_DHT_TEST_NO_BOOTSTRAP
     char* root = SDL_GetPrefPath(NULL, "melee-pc");
@@ -233,19 +239,66 @@ static void node_cache(bool save) {
                 fwrite(&nodes[i].sin_port, 1, 2, f);
             }
         fclose(f);
+        pc_log_line("dht: saved %d nodes to cache", count);
     } else {
         FILE* f = fopen(path, "rb");
-        if (!f)
-            return;
-        for (int i = 0; i < 64; i++) {
+        if (!f) {
+            const char* base = SDL_GetBasePath();
+            if (base) {
+                snprintf(path, sizeof(path), "%sresources/dht-nodes-v1", base);
+                f = fopen(path, "rb");
+                if (!f) {
+                    snprintf(path, sizeof(path), "%sdht-nodes-v1", base);
+                    f = fopen(path, "rb");
+                }
+            }
+        }
+        int loaded = 0;
+        if (f) {
+            for (int i = 0; i < 64; i++) {
+                struct sockaddr_in addr = {0};
+                addr.sin_family = AF_INET;
+                if (fread(&addr.sin_addr.s_addr, 1, 4, f) != 4 || fread(&addr.sin_port, 1, 2, f) != 2)
+                    break;
+                if (public_ip(addr.sin_addr.s_addr) && addr.sin_port) {
+                    dht_ping_node((struct sockaddr*)&addr, sizeof(addr));
+                    loaded++;
+                }
+            }
+            fclose(f);
+        }
+        static const struct {
+            uint8_t ip[4];
+            uint16_t port;
+        } static_seeds[] = {
+            {{95, 173, 217, 205}, 52440},
+            {{185, 203, 56, 20}, 59754},
+            {{95, 168, 168, 13}, 30151},
+            {{175, 199, 150, 139}, 51413},
+            {{193, 8, 1, 69}, 56671},
+            {{109, 158, 210, 147}, 6881},
+            {{212, 104, 214, 232}, 42048},
+            {{185, 98, 168, 86}, 37865},
+            {{147, 135, 7, 63}, 20627},
+            {{73, 71, 206, 84}, 24545},
+            {{173, 183, 141, 218}, 4360},
+            {{146, 70, 195, 99}, 46628},
+            {{38, 96, 254, 73}, 13366},
+            {{209, 141, 59, 76}, 6881},
+            {{212, 32, 48, 15}, 26184},
+            {{46, 166, 191, 26}, 37602},
+            {{212, 129, 33, 59}, 6881},
+            {{185, 157, 221, 247}, 25401},
+        };
+        for (size_t i = 0; i < sizeof(static_seeds) / sizeof(static_seeds[0]); i++) {
             struct sockaddr_in addr = {0};
             addr.sin_family = AF_INET;
-            if (fread(&addr.sin_addr.s_addr, 1, 4, f) != 4 || fread(&addr.sin_port, 1, 2, f) != 2)
-                break;
-            if (public_ip(addr.sin_addr.s_addr) && addr.sin_port)
-                dht_ping_node((struct sockaddr*)&addr, sizeof(addr));
+            memcpy(&addr.sin_addr.s_addr, static_seeds[i].ip, 4);
+            addr.sin_port = htons(static_seeds[i].port);
+            dht_ping_node((struct sockaddr*)&addr, sizeof(addr));
         }
-        fclose(f);
+        pc_log_line("dht: primed cache: %d loaded from file, %zu static seeds pinged",
+                    loaded, sizeof(static_seeds) / sizeof(static_seeds[0]));
     }
 #else
     (void)save;
@@ -253,7 +306,7 @@ static void node_cache(bool save) {
 }
 struct resolver {
     SDL_AtomicInt done;
-    struct sockaddr_in nodes[12];
+    struct sockaddr_in nodes[16];
     int count;
 };
 static struct resolver* resolver;
@@ -339,14 +392,21 @@ int dht_sendto(
 }
 static int resolve(void* arg) {
     struct resolver* job = arg;
-    const char* hosts[] = {
-        "router.bittorrent.com", "dht.transmissionbt.com", "router.utorrent.com"};
-    for (unsigned i = 0; i < 3; i++) {
+    static const struct {
+        const char* host;
+        const char* port;
+    } bootstraps[] = {
+        {"dht.transmissionbt.com", "6881"},
+        {"dht.libtorrent.org", "25401"},
+        {"router.bittorrent.com", "6881"},
+        {"router.utorrent.com", "6881"},
+    };
+    for (unsigned i = 0; i < sizeof(bootstraps) / sizeof(bootstraps[0]); i++) {
         struct addrinfo hints = {0}, *list = NULL;
         hints.ai_family = AF_INET;
         hints.ai_socktype = SOCK_DGRAM;
-        if (!getaddrinfo(hosts[i], "6881", &hints, &list)) {
-            for (struct addrinfo* p = list; p && job->count < 12; p = p->ai_next)
+        if (!getaddrinfo(bootstraps[i].host, bootstraps[i].port, &hints, &list)) {
+            for (struct addrinfo* p = list; p && job->count < 16; p = p->ai_next)
                 memcpy(&job->nodes[job->count++], p->ai_addr, sizeof(struct sockaddr_in));
             freeaddrinfo(list);
         }
@@ -371,8 +431,12 @@ static void values(void* ctx, int event, const unsigned char* hash, const void* 
         for (j = 0; j < queue_count; j++)
             if (queue[j].address == ep.address && queue[j].port == ep.port)
                 break;
-        if (j == queue_count && queue_count < 64)
+        if (j == queue_count && queue_count < 64) {
             queue[queue_count++] = ep;
+            pc_log_line("dht: candidate discovered %u.%u.%u.%u:%u (queue=%u)",
+                        ip >> 24, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF,
+                        ep.port, queue_count);
+        }
     }
 }
 bool pc_dht_start(enum pc_dht_mode m, const char* code, int band, uint16_t port) {
@@ -451,7 +515,7 @@ bool pc_dht_ready(void) {
     if (fd < 0)
         return false;
     dht_nodes(AF_INET, &good, &dubious, NULL, NULL);
-    return good >= 4 && good + dubious >= 30;
+    return good >= 2 && good + dubious >= 4;
 }
 void pc_dht_poll(void) {
     if (fd < 0)
@@ -459,10 +523,18 @@ void pc_dht_poll(void) {
     if (resolver && SDL_GetAtomicInt(&resolver->done)) {
         for (int i = 0; i < resolver->count; i++)
             dht_ping_node((struct sockaddr*)&resolver->nodes[i], sizeof(struct sockaddr_in));
+        pc_log_line("dht: bootstrap resolved %d nodes", resolver->count);
         free(resolver);
         resolver = NULL;
     }
     uint64_t now = SDL_GetTicks();
+    static uint64_t last_dht_log = 0;
+    if (now - last_dht_log >= 5000) {
+        int good = 0, dubious = 0;
+        dht_nodes(AF_INET, &good, &dubious, NULL, NULL);
+        pc_log_line("dht: status: good=%d dubious=%d (ready=%d)", good, dubious, pc_dht_ready());
+        last_dht_log = now;
+    }
     time_t sleep = 1;
     for (unsigned i = 0; i < 64; i++) {
         unsigned char packet[4097];

@@ -27,6 +27,9 @@ typedef int MatchSocket;
 extern const char* pc_get_net_name(void);
 extern int pc_get_net_port(void);
 extern const char* pc_lan_disc_id(void);
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak)) void pc_log_line(const char* fmt, ...) { (void)fmt; }
+#endif
 
 #define MATCH_MAGIC 0x4d504d31u /* MPM1 */
 #define MATCH_VERSION 2
@@ -292,6 +295,7 @@ static bool accept_ack(const MatchAck* a) {
     char ip[INET_ADDRSTRLEN];
     struct in_addr addr = {peer.address};
     inet_ntop(AF_INET, &addr, ip, sizeof ip);
+    pc_log_line("match: accept_ack -> connecting socket as host to %s:%u (seed=%u)", ip, peer.port, seed);
     if (!pc_net_connect_socket(fd, ip, peer.port, 0, seed)) {
 #ifdef _WIN32
         closesocket((SOCKET)fd);
@@ -345,6 +349,10 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
         failure = NULL;
         memcpy(opponent, h->code, sizeof opponent);
         host = memcmp(identity.public_key, peer_key, 32) < 0;
+        uint32_t rip = ntohl(ep->address);
+        pc_log_line("match: recv valid MatchHello from %u.%u.%u.%u:%u (peer=%s host=%d fresh=%d)",
+                    rip >> 24, (rip >> 16) & 0xFF, (rip >> 8) & 0xFF, rip & 0xFF, ep->port,
+                    h->code, host, fresh);
         if (fresh)
             send_packet(&hello, sizeof hello, ep); /* answer one-sided discovery */
         if (fresh)
@@ -372,6 +380,7 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
                 fail("rank history unavailable");
                 return;
             }
+            pc_log_line("match: sending MatchOffer to peer (seed=%u)", seed);
             send_packet(&offer, sizeof offer, &peer);
             next_send = SDL_GetTicks() + RETRY_MS;
         }
@@ -412,6 +421,8 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
         char ip[INET_ADDRSTRLEN];
         struct in_addr addr = {ep->address};
         inet_ntop(AF_INET, &addr, ip, sizeof ip);
+        pc_log_line("match: recv valid MatchOffer -> sending MatchAck and connecting socket as guest to %s:%u (seed=%u)",
+                    ip, ep->port, seed);
         if (!pc_net_connect_socket(fd, ip, ep->port, 1, seed)) {
 #ifdef _WIN32
             closesocket((SOCKET)fd);
@@ -502,8 +513,14 @@ void pc_net_match_poll(void) {
             }
         }
         struct pc_dht_endpoint ep;
-        while (pc_dht_next_candidate(&ep))
-            send_packet(&hello, sizeof hello, &ep);
+        while (pc_dht_next_candidate(&ep)) {
+            uint32_t cip = ntohl(ep.address);
+            pc_log_line("match: sending MatchHello to %u.%u.%u.%u:%u (target=%s)",
+                        cip >> 24, (cip >> 16) & 0xFF, (cip >> 8) & 0xFF, cip & 0xFF, ep.port, target);
+            for (int p = 0; p < 3; p++) {
+                send_packet(&hello, sizeof hello, &ep);
+            }
+        }
         if (have_peer && now >= next_send) {
             send_packet(
                 host ? (void*)&offer : (void*)&hello, host ? sizeof offer : sizeof hello, &peer);
