@@ -432,15 +432,29 @@ public class TouchOverlayView extends View {
                 }
             }
 
-            // Check buttons
+            // Check buttons: assign pointer to the nearest matching button
+            TouchBtn bestBtn = null;
+            float bestDist = Float.MAX_VALUE;
             for (TouchBtn btn : mAllButtons) {
-                if (isPointerOverBtn(btn, px, py)) {
-                    if (!btn.pressed && btn.pointerId != pId) {
-                        hadNewPress = true;
+                if (btn.rect != null) {
+                    if (isPointerOverBtn(btn, px, py)) {
+                        bestBtn = btn;
+                        break;
                     }
-                    btn.pressed = true;
-                    btn.pointerId = pId;
+                } else {
+                    float dist = (float) Math.hypot(px - btn.x, py - btn.y);
+                    if (dist <= btn.radius * 1.25f && dist < bestDist) {
+                        bestDist = dist;
+                        bestBtn = btn;
+                    }
                 }
+            }
+            if (bestBtn != null) {
+                if (!bestBtn.pressed && bestBtn.pointerId != pId) {
+                    hadNewPress = true;
+                }
+                bestBtn.pressed = true;
+                bestBtn.pointerId = pId;
             }
         }
 

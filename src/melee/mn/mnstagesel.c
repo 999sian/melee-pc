@@ -93,20 +93,72 @@ static void rankStageFrame(void)
     rankStageDraw();
 }
 
-/* Online uses the vanilla shared cursor over synchronized pad inputs.
- * Reliable message arrival must never decide a scene transition frame. */
+/* Online: each player picks a stage on their own port (the SSS otherwise
+ * merges every port into one cursor), picks are exchanged over the reliable
+ * channel, and the stage is one of the two chosen by a coin flip from the
+ * shared seed, so both peers agree without another message. Values are
+ * table indices (mnStageSel_803F06D0), 30 = random. */
+#define NET_MSG_STAGE_PICK 0x20
+static int net_local_pick = -1;
+static int net_remote_pick = -1;
+
 static bool netStageSel_Active(void)
 {
     return pc_net_active();
 }
 
-static u32 netStageSel_Mix(void)
+static void netStageSel_Reset(void)
 {
-    return pc_net_seed() * 2654435761u + (u32) mnStageSel_804D6CAE;
+    net_local_pick = net_remote_pick = -1;
 }
 
-/* Random online ignores the per-machine offline cooldown table. Draw from
- * the shared session seed and cell over the synchronized stage switches. */
+static void netStageSel_Poll(void)
+{
+    u8 type;
+    u8 buf[4];
+    while (pc_net_recv_reliable(&type, buf, sizeof buf) >= 0) {
+        if (type == NET_MSG_STAGE_PICK) {
+            net_remote_pick = buf[0];
+            pc_log_line("sss: opponent picked %d", net_remote_pick);
+        }
+    }
+}
+
+static void netStageSel_SendPick(int idx)
+{
+    u8 b = (u8) idx;
+    net_local_pick = idx;
+    pc_net_send_reliable(NET_MSG_STAGE_PICK, &b, 1);
+    pc_log_line("sss: we picked %d", idx);
+}
+
+/* Both peers have picked: order the picks by port so the expression is the
+ * same on both sides, then let the shared seed flip the coin. */
+static u32 netStageSel_Mix(void)
+{
+    int local = pc_net_local_player();
+    int p0 = local == 0 ? net_local_pick : net_remote_pick;
+    int p1 = local == 0 ? net_remote_pick : net_local_pick;
+    if (p0 < 0 || p1 < 0) {
+        return pc_net_seed() * 2654435761u + (u32) mnStageSel_804D6CAE;
+    }
+    return pc_net_seed() * 2654435761u + (u32) (p0 * 31 + p1);
+}
+
+static int netStageSel_Resolve(void)
+{
+    int local = pc_net_local_player();
+    int p0 = local == 0 ? net_local_pick : net_remote_pick;
+    int p1 = local == 0 ? net_remote_pick : net_local_pick;
+    int pick = (netStageSel_Mix() >> 16) & 1 ? p1 : p0;
+    pc_log_line("sss: picks P1=%d P2=%d -> %d", p0, p1, pick);
+    return pick;
+}
+
+/* "Random" online: the offline roll uses the live RNG and a per-machine
+ * cooldown table, neither of which is in sync at this point (the peer's
+ * pick lands on a different frame on each side). Draw from the seed
+ * instead, over the stages the synced random-stage switches allow. */
 static int netStageSel_Random(void)
 {
     int allowed[NUM_STAGES];
@@ -230,15 +282,21 @@ void mnStageSel_80259C28(void)
         if (mnStageSel_804D6CAE < 0x1E &&
             mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 >= 2)
         {
+#ifdef TARGET_PC
+            if (netStageSel_Active() && !pc_rank_session_active()) {
+                netStageSel_SendPick(mnStageSel_804D6CAE);
+            }
+#endif
             goto skip_randomize;
         }
         lbAudioAx_80024030(3);
         return;
     }
 #ifdef TARGET_PC
-    if (netStageSel_Active()) {
-        /* Defer random selection until the shared confirmation completes. */
-        /* Resolve random after the shared confirmation animation. */
+    if (netStageSel_Active() && !pc_rank_session_active()) {
+        /* Send the cell (30 = random) and defer the roll to the resolve so
+         * both peers roll from the same RNG state. */
+        netStageSel_SendPick(mnStageSel_804D6CAE);
         goto skip_randomize;
     }
 #endif
@@ -603,7 +661,12 @@ void mnStageSel_Scene_OnEnter(void* arg0)
         mnStageSel_804D50A0 = sss_data->unk_stage - 1;
 #ifdef TARGET_PC
         if (netStageSel_Active()) {
-            mnStageSel_804D50A0 = -1;
+            if (!pc_rank_session_active()) {
+                mnStageSel_804D50A0 = pc_net_local_player();
+                netStageSel_Reset();
+            } else {
+                mnStageSel_804D50A0 = -1;
+            }
         }
 #endif
         mnStageSel_804D6CA4 = 0x14;
@@ -960,12 +1023,14 @@ void mnStageSel_Scene_OnFrame(void)
         gm_801A4B60();
         return;
     }
+    bool b_pressed = false;
     if (mnStageSel_804D50A0 < 0) {
         mnStageSel_804D6CA0 = 0;
         mnStageSel_804D6CA0 |= HSD_PadCopyStatus[0].trigger;
         mnStageSel_804D6CA0 |= HSD_PadCopyStatus[1].trigger;
         mnStageSel_804D6CA0 |= HSD_PadCopyStatus[2].trigger;
         mnStageSel_804D6CA0 |= HSD_PadCopyStatus[3].trigger;
+        b_pressed = (mnStageSel_804D6CA0 & 0x200) != 0;
         {
             int i;
             for (i = 0; i < 4; i++) {
@@ -982,6 +1047,15 @@ void mnStageSel_Scene_OnFrame(void)
         mnStageSel_804D6CA0 = get_pad(mnStageSel_804D50A0)->trigger;
         mnStageSel_804D6CAC = get_pad(mnStageSel_804D50A0)->stickX;
         mnStageSel_804D6CAD = get_pad(mnStageSel_804D50A0)->stickY;
+#ifdef TARGET_PC
+        if (netStageSel_Active() && !pc_rank_session_active()) {
+            b_pressed = (HSD_PadCopyStatus[0].trigger & 0x200) ||
+                        (HSD_PadCopyStatus[1].trigger & 0x200);
+        } else
+#endif
+        {
+            b_pressed = (mnStageSel_804D6CA0 & 0x200) != 0;
+        }
     }
     if (mnStageSel_804D6CAC < -0x1E) {
         mnStageSel_804D6CAC += 0x1E;
@@ -1001,18 +1075,23 @@ void mnStageSel_Scene_OnFrame(void)
         mnStageSel_804D6CA4 -= 1;
         return;
     }
-    if (sss_data->x1 == 0 && (mnStageSel_804D6CA0 & 0x200) &&
-        mnStageSel_804D6CAF == 0)
+    if (sss_data->x1 == 0 && b_pressed && mnStageSel_804D6CAF == 0)
     {
         sfxBack();
         gm_801A4B60();
     }
     if (mnStageSel_804D6CAF == 2) {
 #ifdef TARGET_PC
-        if (netStageSel_Active()) {
-            pc_log_line("sss: we picked %d", mnStageSel_804D6CAE);
-            pc_log_line("sss: picks P1=%d P2=%d -> %d", mnStageSel_804D6CAE,
-                        mnStageSel_804D6CAE, mnStageSel_804D6CAE);
+        if (netStageSel_Active() && !pc_rank_session_active()) {
+            netStageSel_Poll();
+            if (pc_net_peer_status() != 0) {
+                gm_801A4B60();
+                return;
+            }
+            if (net_remote_pick < 0) {
+                return; /* opponent still choosing; keep showing our pick */
+            }
+            mnStageSel_804D6CAE = netStageSel_Resolve();
             if (mnStageSel_804D6CAE >= NUM_STAGES) {
                 mnStageSel_804D6CAE = netStageSel_Random();
             }

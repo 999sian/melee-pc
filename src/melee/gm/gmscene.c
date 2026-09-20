@@ -399,7 +399,8 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         }
 
 #ifdef TARGET_PC
-        if (pc_net_peer_status() != PC_NET_PEER_OK &&
+        if (gm_GetCurrentGameMode() == GM_ONLINE &&
+            pc_net_peer_status() != PC_NET_PEER_OK &&
             info != NULL && info->scene_kind != GS_ONLINE_LOBBY) {
             s_scene_end_held = 0;
             temp_r25->unk_C = 1;

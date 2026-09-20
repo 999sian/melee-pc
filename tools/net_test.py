@@ -467,7 +467,7 @@ PICKED_RX = re.compile(r"sss: we picked (\d+)")
 
 def drive_sss(a, b, want=1):
     return press_until((a, b), "Return", 9, r"sss: we picked", want=want,
-                       tries=8, each=6.0, on=(a,))
+                       tries=8, each=6.0)
 
 
 # L+R+A+Start on the pauser's own pad ends a paused VS match as NO CONTEST

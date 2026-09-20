@@ -9,6 +9,9 @@ static int enabled = -1;
 uint32_t pc_net_seed(void) {
     return seed;
 }
+int pc_net_local_player(void) {
+    return 0;
+}
 bool gm_80164330(s32 stage) {
     return enabled == -1 || stage == enabled;
 }

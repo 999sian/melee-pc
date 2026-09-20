@@ -624,8 +624,9 @@ void gm_Scene_OnlineLobby_OnFrame(void)
             }
         }
         mnOnlineLobby_Update(&view);
-        if (input & HSD_PAD_B) {
+        if (input & (HSD_PAD_B | PAD_CANCEL)) {
             sfxBack();
+            pc_net_peer_status_clear();
             pc_net_match_stop();
             gm_ChangeGameModeAfterCurrentScene(GM_MENU);
             gm_801A4B60();
@@ -649,8 +650,9 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         }
         return;
     }
-    if (input & HSD_PAD_B) {
+    if (input & (HSD_PAD_B | PAD_CANCEL)) {
         sfxBack();
+        pc_net_peer_status_clear();
         pc_lan_stop();
         gm_ChangeGameModeAfterCurrentScene(GM_MENU);
         gm_801A4B60();

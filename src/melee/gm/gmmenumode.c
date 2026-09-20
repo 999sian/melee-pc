@@ -79,6 +79,12 @@ void onEnter(GameModeState* scene)
     GameModeKind previous_mode;
 
     data = scene->info.enter_data;
+    {
+        MenuExitData* exit_d = scene->info.exit_data;
+        if (exit_d != NULL) {
+            exit_d->pending_mode = GM_COUNT;
+        }
+    }
     lbCardNew_AllocWorkArea();
     lbCardGame_LoadArchive(0);
     lbSnap_8001E218(HSD_MemAlloc(lbSnap_8001E204()),
@@ -255,6 +261,8 @@ void onExit(GameModeState* arg0)
 {
     MenuExitData* data = arg0->info.exit_data;
 
-    gm_SetPendingGameMode(data->pending_mode);
-    gm_SetNewGameModePending();
+    if (data != NULL && data->pending_mode < GM_COUNT) {
+        gm_SetPendingGameMode(data->pending_mode);
+        gm_SetNewGameModePending();
+    }
 }
