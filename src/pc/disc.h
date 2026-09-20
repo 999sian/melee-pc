@@ -53,6 +53,10 @@ void pc_disc_ptr_overflow(const void* p, const char* file, int line) __attribute
 static inline uint32_t pc_encode_dp(const void* p) {
     if (!p)
         return 0;
+#if UINTPTR_MAX <= UINT32_MAX
+    /* 32-bit hosts (wasm32): every address already fits a slot. */
+    return (uint32_t)(uintptr_t)p;
+#else
     if (!((uintptr_t)p >> 32)) {
         return (uint32_t)(uintptr_t)p;
     }
@@ -62,11 +66,15 @@ static inline uint32_t pc_encode_dp(const void* p) {
         return (uint32_t)(uintptr_t)p;
     }
     return 0x02000000u | pc_register_ext_ptr(p);
+#endif
 }
 
 static inline void* pc_resolve_dp(uint32_t slot) {
     if (!slot)
         return (void*)0;
+#if UINTPTR_MAX <= UINT32_MAX
+    return (void*)(uintptr_t)slot;
+#else
     if ((slot & 0xFF000000u) == 0x02000000u) {
         void* ext = pc_resolve_ext_ptr(slot & 0x00FFFFFFu);
         if (ext)
@@ -80,6 +88,7 @@ static inline void* pc_resolve_dp(uint32_t slot) {
         return (void*)((uintptr_t)slot | (OSBaseAddress & ~0xFFFFFFFFULL));
     }
     return (void*)(uintptr_t)slot;
+#endif
 }
 
 #ifdef __cplusplus
@@ -149,7 +158,10 @@ struct DiscMtx {
 
 #else
 
-#if defined(__clang__)
+#if defined(MELEE_DISC_LOWERING)
+/* tools/browser/disc_lower.cpp rewrites accesses to annotated structs. */
+#define DISC_STRUCT __attribute__((annotate("melee_disc")))
+#elif defined(__clang__)
 #define DISC_STRUCT
 #else
 #define DISC_STRUCT __attribute__((scalar_storage_order("big-endian")))
