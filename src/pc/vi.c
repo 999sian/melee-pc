@@ -185,6 +185,9 @@ void pc_frame_boundary(void) {
         pc_exit_requested = true;
     }
     if (pc_exit_requested) {
+        pc_net_match_stop();
+        pc_net_disconnect();
+        pc_lan_stop();
         exit(0);
     }
 

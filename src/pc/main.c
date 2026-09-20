@@ -289,6 +289,10 @@ static void usage(const char* argv0) {
 }
 
 #include "pc/input_poll.h"
+#include "pc/net.h"
+#include "pc/net_match.h"
+#include "pc/net_lan.h"
+#include <signal.h>
 
 static void pc_shutdown_once(void) {
     static bool done;
@@ -296,6 +300,9 @@ static void pc_shutdown_once(void) {
         return;
     }
     done = true;
+    pc_net_match_stop();
+    pc_net_disconnect();
+    pc_lan_stop();
     /* Stop producers before joining DMA and destroying platform resources.
      * An unjoined ARQ worker aborts in std::thread's static destructor. */
     pc_input_poll_shutdown();
@@ -304,6 +311,12 @@ static void pc_shutdown_once(void) {
     pc_textures_shutdown();
     ARQReset();
     aurora_shutdown();
+}
+
+static void pc_on_signal_exit(int sig) {
+    (void)sig;
+    pc_exit_requested = true;
+    exit(0);
 }
 
 static const struct {
@@ -634,6 +647,8 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
      * live, its device-lost callback reports FATAL and log_callback aborts.
      * Run the shutdown from atexit so every exit path goes through it. */
     atexit(pc_shutdown_once);
+    signal(SIGINT, pc_on_signal_exit);
+    signal(SIGTERM, pc_on_signal_exit);
 
     const int launched = pc_launcher_run(disc, info.window);
     if (launched != 1)

@@ -67,6 +67,26 @@ public class MeleeActivity extends SDLActivity {
         }
     }
 
+    public static native void nativeDisconnect();
+
+    @Override
+    protected void onStop() {
+        if (isFinishing()) {
+            try {
+                nativeDisconnect();
+            } catch (Throwable ignored) {}
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        try {
+            nativeDisconnect();
+        } catch (Throwable ignored) {}
+        super.onDestroy();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();

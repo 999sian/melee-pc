@@ -107,6 +107,7 @@ bool pc_net_active(void) {
 int pc_net_peer_status(void) {
     return 0;
 }
+void pc_net_peer_status_clear(void) {}
 int pc_net_handshake_state(void) {
     return 0;
 }

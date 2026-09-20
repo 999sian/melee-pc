@@ -5,6 +5,7 @@
 #endif
 
 #include "gm_1A36.h"
+#include "gm_1A3F.h"
 #include "gm_unsplit.h"
 #include "gmmain_lib.h"
 #include "gmscdata.h"
@@ -366,7 +367,7 @@ static bool scene_end_gate(struct gm_80479D58_t* st)
 }
 #endif
 
-void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
+void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
 {
     int pad_queue_count;
     int i;
@@ -396,6 +397,15 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
             gmMainLib_8046B0F0.resetting = true;
             break;
         }
+
+#ifdef TARGET_PC
+        if (pc_net_peer_status() != PC_NET_PEER_OK &&
+            info != NULL && info->scene_kind != GS_ONLINE_LOBBY) {
+            s_scene_end_held = 0;
+            temp_r25->unk_C = 1;
+            break;
+        }
+#endif
 
         for (i = 0; i < pad_queue_count; i++) {
             HSD_PerfSetStartTime();

@@ -219,6 +219,12 @@ void onEnterCss(GameModeState* state)
 
 void onExitCss(GameModeState* state)
 {
+#ifdef TARGET_PC
+    if (pc_net_peer_status() != PC_NET_PEER_OK) {
+        gm_SetNextGameModeStateId(state_lobby);
+        return;
+    }
+#endif
     CSSData* css = gm_GetGameModeStateExitData(state);
     if (css->pending_scene_change == CSSPendingSceneChange_2) {
         gm_SetNextGameModeStateId(state_lobby);
@@ -251,6 +257,12 @@ void onEnterSss(GameModeState* state)
 
 void onExitSss(GameModeState* state)
 {
+#ifdef TARGET_PC
+    if (pc_net_peer_status() != PC_NET_PEER_OK) {
+        gm_SetNextGameModeStateId(state_lobby);
+        return;
+    }
+#endif
     gmVsMelee_ExitSss(state, &online_vs, state_css);
 #ifdef TARGET_PC
     if (rankedMode() && !((SSSData*) gm_GetGameModeStateExitData(state))->start_game) {
@@ -274,6 +286,15 @@ void onEnterVs(GameModeState* state)
 
 void onExitVs(GameModeState* state)
 {
+#ifdef TARGET_PC
+    if (pc_net_peer_status() != PC_NET_PEER_OK) {
+        if (rankedMode()) {
+            pc_rank_session_abort("peer disconnected");
+        }
+        gm_SetNextGameModeStateId(state_lobby);
+        return;
+    }
+#endif
     MatchExitInfo* mei;
     ssize_t i;
 
@@ -315,6 +336,12 @@ void onEnterSuddenDeath(GameModeState* state)
 
 void onExitSuddenDeath(GameModeState* state)
 {
+#ifdef TARGET_PC
+    if (pc_net_peer_status() != PC_NET_PEER_OK) {
+        gm_SetNextGameModeStateId(state_lobby);
+        return;
+    }
+#endif
     gmVsMelee_ExitSuddenDeath(state);
 }
 
@@ -328,6 +355,12 @@ void onEnterResults(GameModeState* state)
 
 void onExitResults(GameModeState* state)
 {
+#ifdef TARGET_PC
+    if (pc_net_peer_status() != PC_NET_PEER_OK) {
+        gm_SetNextGameModeStateId(state_lobby);
+        return;
+    }
+#endif
     gmVsMelee_ExitResults(state, &online_vs, state_css);
 #ifdef TARGET_PC
     if (rankedMode()) {
@@ -383,9 +416,11 @@ void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
     } else if (internetLobby() && !awaiting_rank_result &&
                (online_kind != ONLINE_KIND_RANKED ||
                                   pc_net_match_publication(NULL) == 0)) {
-        pc_net_match_start(online_kind == ONLINE_KIND_UNRANKED ? PC_MATCH_UNRANKED :
-                           online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED : PC_MATCH_DIRECT,
-                           online_kind == ONLINE_KIND_DIRECT ? pc_get_net_target() : NULL);
+        if (pc_net_peer_status() == PC_NET_PEER_OK) {
+            pc_net_match_start(online_kind == ONLINE_KIND_UNRANKED ? PC_MATCH_UNRANKED :
+                               online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED : PC_MATCH_DIRECT,
+                               online_kind == ONLINE_KIND_DIRECT ? pc_get_net_target() : NULL);
+        }
     } else if (!internetLobby()) pc_lan_start();
 #endif
 }
@@ -396,6 +431,11 @@ void gm_Scene_OnlineLobby_OnExit(UNUSED void* unused)
 }
 
 #ifdef TARGET_PC
+static const char* const peer_word[] = { "", "Peer left",
+                                         "Connection timed out", "Desync",
+                                         "Incompatible version",
+                                         "Could not resume" };
+
 static void lobbyCopyName(char* dst, const char* src)
 {
     snprintf(dst, ONLINE_LOBBY_NAME_LEN, "%s", src);
@@ -419,10 +459,6 @@ static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
      * anything outside stays blank. */
     static const char* const link_word[] = { "stable", "warning", "stalling",
                                              "reconnecting" };
-    static const char* const peer_word[] = { "", "Peer left",
-                                             "Connection timed out", "Desync",
-                                             "Incompatible version",
-                                             "Could not resume" };
     static char last_status[ONLINE_LOBBY_MSG_LEN];
     char status[ONLINE_LOBBY_MSG_LEN];
     bool connected = state == 1 || state == 2;
@@ -562,10 +598,15 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         } else {
             pc_net_match_poll();
             state = pc_net_match_state(&why);
+            int reason = pc_net_peer_status();
             view.phase = state == PC_MATCH_READY ? LOBBY_PHASE_STARTING :
-                         state == PC_MATCH_FAIL ? LOBBY_PHASE_ERROR :
+                         (state == PC_MATCH_FAIL || reason != PC_NET_PEER_OK) ? LOBBY_PHASE_ERROR :
                          state == PC_MATCH_CONNECT ? LOBBY_PHASE_CONNECTING : LOBBY_PHASE_SEARCHING;
-            snprintf(view.message, sizeof view.message, "%s", why ? why : "Searching for an opponent...");
+            if (reason != PC_NET_PEER_OK && reason < (int) ARRAY_SIZE(peer_word)) {
+                snprintf(view.message, sizeof view.message, "%s - START: search", peer_word[reason]);
+            } else {
+                snprintf(view.message, sizeof view.message, "%s", why ? why : "Searching for an opponent...");
+            }
             const char* peer = pc_net_match_opponent_code();
             if (peer && peer[0]) {
                 view.player_count = 2;
@@ -576,6 +617,10 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                 *HSD_RandSeedPtr = pc_net_match_seed();
                 pc_log_line("lobby: entering CSS at frame %d, seed %u", pc_net_frame(), pc_net_match_seed());
                 gm_801A4B60();
+            }
+            if ((input & HSD_PAD_START) && (state == PC_MATCH_FAIL || reason != PC_NET_PEER_OK)) {
+                pc_net_peer_status_clear();
+                pc_net_match_start(online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED : PC_MATCH_UNRANKED, NULL);
             }
         }
         mnOnlineLobby_Update(&view);

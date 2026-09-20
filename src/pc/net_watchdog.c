@@ -105,10 +105,16 @@ void net_watchdog_tick(int32_t frame) {
         WATCHDOG_MS, frame);
     pthread_kill(s_game_thread, SIGPROF);
 }
+
+void net_watchdog_heartbeat(void) {
+    s_last_move_ns = SDL_GetTicksNS();
+}
 #else
 void net_watchdog_arm(void) {}
 
 void net_watchdog_tick(int32_t frame) {
     (void)frame;
 }
+
+void net_watchdog_heartbeat(void) {}
 #endif

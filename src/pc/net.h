@@ -149,6 +149,7 @@ enum {
     PC_NET_PEER_RESUME
 };
 int pc_net_peer_status(void);
+void pc_net_peer_status_clear(void);
 
 #ifdef __cplusplus
 }

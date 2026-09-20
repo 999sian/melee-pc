@@ -86,7 +86,7 @@ static int32_t s_stall_frame = -1000;         /* frame that ended a stall > 500 
 /* Reconnect phase; the machine and the numbers are down in "resume after an
  * interruption", these live here because send_inputs and fresh_tick read
  * them. MELEE_NET_RECONNECT_MS overrides the window at connect. */
-#define RECONNECT_MS 15000
+#define RECONNECT_MS 3000
 /* RSM_, not RC_: mingw-w64's wingdi.h defines RC_NONE as an empty macro
  * (raster capabilities), so RC_NONE broke the whole enum on Windows. */
 enum { RSM_NONE, RSM_ACTIVE, RSM_FAILED };
@@ -1020,6 +1020,7 @@ static bool wait_remote(int32_t need) {
         if (s_peer_left) {
             return false;
         }
+        net_watchdog_heartbeat();
         uint64_t now = SDL_GetTicksNS();
         if (s_rc != RSM_NONE) {
             if (!resume_poll(now)) {
@@ -1232,12 +1233,17 @@ void pc_net_disconnect(void) {
     }
     SDL_LockMutex(net.tx_lock);
     if (!s_peer_left) {
-        /* Tell the peer why so it need not wait out the 7 s silence; sent
-         * twice, unacked (the timeout is the fallback). */
+        /* Tell the peer why so it need not wait out the silence; sent
+         * as a 5-packet burst so NAT/firewall drops are tolerated. */
         uint8_t why = s_status == PC_NET_PEER_OK ? PC_NET_PEER_LEFT : (uint8_t)s_status;
         net.sim_hold = false; /* straight out: the held queue dies with the socket */
-        send_bye(why);
-        send_bye(why);
+        for (int i = 0; i < 5; i++) {
+            send_bye(why);
+        }
+        if (s_status == PC_NET_PEER_OK) {
+            s_status = PC_NET_PEER_LEFT;
+        }
+        SDL_Delay(20);
     }
     net.active = false;
     net.resim = false;
@@ -1267,6 +1273,10 @@ static void exit_if_test_done(void) {
 
 int pc_net_peer_status(void) {
     return s_status;
+}
+
+void pc_net_peer_status_clear(void) {
+    s_status = PC_NET_PEER_OK;
 }
 
 int pc_net_quality(void) {

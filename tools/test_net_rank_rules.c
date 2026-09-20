@@ -32,6 +32,10 @@ s32 gm_801623A4(MatchEnd* match) {
 bool pc_rank_session_active(void) {
     return true;
 }
+int pc_net_peer_status(void) {
+    return 0;
+}
+void pc_net_peer_status_clear(void) {}
 unsigned pc_rank_session_stocks(void) {
     return tiebreak ? 1 : 4;
 }

@@ -106,7 +106,7 @@ static inline void sock_startup(void) {}
 #define WINDOW 7      /* predicted frames allowed before a hard stall */
 #define SNAPS 8       /* snapshot ring, one per predicted frame; > WINDOW */
 #define FRAME_US ((int32_t)(pc_sim_period_ns() / 1000)) /* the boundary's pacing target */
-#define STALL_TIMEOUT_MS 7000
+#define STALL_TIMEOUT_MS 3000
 #define CONNECT_TIMEOUT_MS 60000
 #define SYNC_INTERVAL 30 /* frames between time-sync decisions (Slippi) */
 #define SYNC_HOLDOFF 120 /* frames between skip/advance bursts */
@@ -410,6 +410,7 @@ void net_scene_rel(const void* payload, int len);
  * ticking and asks it for a stack (src/pc/net_watchdog.c). */
 void net_watchdog_arm(void);
 void net_watchdog_tick(int32_t frame);
+void net_watchdog_heartbeat(void);
 void sync_reset(void);
 
 /* ---- net_snapshot.c --------------------------------------------------- */

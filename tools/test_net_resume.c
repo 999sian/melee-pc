@@ -132,6 +132,7 @@ void net_watchdog_arm(void) {}
 void net_watchdog_tick(int32_t frame) {
     (void)frame;
 }
+void net_watchdog_heartbeat(void) {}
 int aurora_dvd_inflight(void) {
     return 0;
 }
