@@ -271,9 +271,16 @@ same game.
 | Platform | Netplay | Rollback | Notes |
 |---|---|---|---|
 | Linux x86-64 | yes | yes | the configuration everything below was measured on; longest run 36 minutes and 126k frames of match |
-| Windows GNU MinGW x86-64 | implemented | PE snapshot ranges implemented | Wine fixtures verify restore, pointer relocations, BSS and audio exclusions. Full Windows gameplay rollback is not yet verified. Other Windows toolchains/ARM64 retain lockstep |
-| macOS / iOS | builds, never run | no | same linker limitation; no macOS hardware here to try it on |
-| Android | runs on a device; found and joined a PC over LAN | untested | Measured on a Pixel 8 Pro against Linux x86-64: mDNS discovery, election, handshake and 1800+ frames of synced menus at 10-16 ms ping and 0 % loss, both peers entering the CSS on the same frame. No match has been played to the end yet, and no snapshot was ever taken in that session, so rollback is unproven on the platform. The lobby holds the Wi-Fi multicast lock while it is open |
+| Windows x86-64 / ARM64 | implemented | enabled | PE ranges cover both supported toolchains. x86-64 restore runs under Wine; ARM64 compiler-bridge and linked-range checks pass. Full Windows rollback gameplay remains unverified |
+| macOS / iOS | builds; online gameplay unverified | enabled | Mach-O simulation sections support Intel/Apple Silicon macOS and ARM64 iOS. Cross-link/bridge checks pass; native restore is a macOS CI check. Device gameplay remains unverified |
+| Android | runs on a device; found and joined a PC over LAN | enabled; gameplay unverified | Measured on a Pixel 8 Pro against Linux x86-64: mDNS discovery, election, handshake and 1800+ frames of synced menus at 10-16 ms ping and 0 % loss, both peers entering the CSS on the same frame. No match has been played to the end yet. New ARM64/x86-64 NDK-linked restore fixtures pass (ARM64 under QEMU), but device rollback gameplay is still unproven. The lobby holds the Wi-Fi multicast lock while it is open |
+
+All supported builds require simulation snapshot sections and verify their
+boundaries after linking. Audio/worker state remains excluded. Menus and scene
+loading still synchronize without prediction; matches use rollback by default.
+Allocation failure and the explicit debugging switch can still fall back to
+lockstep. Unsupported compilers are rejected rather than producing a silently
+lockstep-only platform build.
 
 | Variable | Effect |
 |---|---|

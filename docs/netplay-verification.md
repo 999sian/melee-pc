@@ -18,15 +18,17 @@ all hardware/network acceptance in `netcode-plan.md` has passed.
 - Launcher/F1 Online settings, profile/rating display, opponent HUD, 16-phrase
   noncombat quick chat, late local input polling, XFB timing diagnostics and
   optional just-in-time presentation pacing.
-- GNU MinGW x86-64 snapshot sections with post-link boundary verification.
+- Snapshot sections for every supported platform: ELF on Linux/Android, PE on
+  Windows x86-64/ARM64 and Mach-O on macOS/iOS. All final images verify game
+  inclusion and engine/audio exclusion; missing support is a build error.
 
 ## Checks completed
 
 | Check | Result |
 | --- | --- |
 | `cmake --build build -j 8 --target melee unit_tests` | Passed |
-| `ctest --test-dir build -L melee --output-on-failure` | 37/37 passed |
-| `python3 tools/check_style.py` | 114 files passed |
+| `ctest --test-dir build -L melee --output-on-failure` | 38/38 passed |
+| `python3 tools/check_style.py` | 117 files passed |
 | Changed game-source syntax checks and `git diff --check` | Passed |
 | Delayed local match, 50 ms outgoing delay and 2% loss | Passed; over 12,200 in-match frames per peer, 902/1,155 rollbacks, no desync or lost rollback |
 | Full lobby → CSS → SSS → VS → Results → CSS → SSS → VS | Passed; matching transition frames and 16,200-frame budget completed |
@@ -34,6 +36,8 @@ all hardware/network acceptance in `netcode-plan.md` has passed.
 | Public mutable BEP44 PUT/GET | Five acknowledgements; authenticated exact 36-byte readback at sequence 1 |
 | Public immutable BEP44 PUT/GET | Six acknowledgements; exact 69-byte readback by target |
 | `python3 tools/test_pe_snapshot.py --wine` | Both data/BSS layouts restored; pointer relocation and engine/audio exclusion checks passed |
+| Real game-object compiler checks | Fighter, controller, rumble, online mode, stage select and audio compile/section correctly through iOS and Windows ARM64 bridges with release flags |
+| Platform snapshot suite | 12 passed, native macOS runtime skipped on Linux; includes Apple/Windows ARM64 compiler and CMake checks, universal-object preservation, and Android ARM64/x86-64 restore |
 | Linux versus MinGW/Wine format-2 oracle | 4,096 rating updates, 32 signed records and 32 immutable heads byte-identical |
 
 The rating oracle's normalized output is 488,000 bytes; SHA-256:
@@ -63,8 +67,11 @@ Public probes used fresh temporary identities and harmless values with the user'
   unverified. The ranked fixtures use real UDP and crypto with an isolated
   DHT responder; public storage tests separately use real internet nodes.
 - Full Windows gameplay rollback, further Android device coverage and Apple
-  targets have not been verified in this batch. Apple and unsupported Windows
-  toolchains/ARM64 retain lockstep.
+  gameplay have not been verified in this batch. All supported builds enable
+  rollback; Apple/Windows ARM64 cross-link checks are not runtime match evidence.
+  Native macOS restore is now required by the macOS build workflow, but that
+  remote workflow has not been run from this session. No Android device was
+  attached when checked with ADB.
 - No physical button-to-photon comparison or hour-long soak was performed.
   `MELEE_NET_JIT=1` remains opt-in; automatic delay remains jitter-aware 1–4
   frames, with manual 0–4 available.

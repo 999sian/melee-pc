@@ -1,10 +1,12 @@
-# Verified PE rollback sections for GNU MinGW x86-64. The fixture in
+# PE rollback sections for GNU MinGW x86-64 and Windows ARM64. The fixture in
 # tools/test_pe_snapshot.py exercises the same launcher/markers under Wine.
-# Call only after melee and melee_game exist. Other toolchains remain lockstep.
+# Call only after melee and melee_game exist; keep the GCC ARM64 bridge.
 function(melee_enable_windows_snapshots executable game_library)
-    if (NOT WIN32 OR NOT CMAKE_C_COMPILER_ID STREQUAL "GNU" OR
-        NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64)$")
+    if (NOT WIN32)
         return()
+    endif()
+    if (NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64|ARM64|arm64|aarch64)$")
+        message(FATAL_ERROR "Windows rollback requires an x86-64 or ARM64 target")
     endif()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     if (NOT CMAKE_OBJCOPY OR NOT CMAKE_OBJDUMP OR NOT CMAKE_NM)
@@ -38,5 +40,5 @@ function(melee_enable_windows_snapshots executable game_library)
         VERBATIM
         COMMENT "Verifying Windows rollback data ranges and engine exclusions")
     set(MELEE_STATE_SECTIONS ON PARENT_SCOPE)
-    message(STATUS "melee: verified GNU MinGW x86-64 rollback sections enabled")
+    message(STATUS "melee: Windows x86-64/ARM64 rollback sections enabled")
 endfunction()

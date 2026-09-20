@@ -342,11 +342,24 @@ else ()
 endif ()
 include(cmake/WindowsSnapshot.cmake)
 melee_enable_windows_snapshots(melee melee_game)
-# ELF linker ranges and verified GNU MinGW x86-64 sections capture game
-# statics. Unsupported link formats/toolchains retain the lockstep fallback.
-if (MELEE_STATE_SECTIONS)
-    target_compile_definitions(melee PRIVATE MELEE_STATE_SECTIONS=1)
+include(cmake/AppleSnapshot.cmake)
+melee_enable_apple_snapshots(melee melee_game)
+# Every shipped platform must supply complete simulation ranges. Do not ship
+# a platform that silently drops every online session to lockstep.
+if (NOT MELEE_STATE_SECTIONS)
+    message(FATAL_ERROR "Rollback snapshot sections are required on this platform")
 endif ()
+target_compile_definitions(melee PRIVATE MELEE_STATE_SECTIONS=1)
+if (NOT WIN32 AND NOT APPLE)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_custom_command(TARGET melee POST_BUILD
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/pe_snapshot_verify.py"
+            --nm "${CMAKE_NM}" "$<TARGET_FILE:melee>"
+            --tracked HSD_PadLibData HSD_Rumble_804C22E0 gmVsMelee_StartData
+            --excluded net HSD_Synth_804D6018
+        VERBATIM
+        COMMENT "Verifying ELF rollback data ranges and engine exclusions")
+endif()
 
 set_target_properties(melee PROPERTIES OUTPUT_NAME melee)
 if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
@@ -485,7 +498,7 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
             set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
             add_dependencies(unit_tests ${case}_test)
         endforeach()
-        foreach(case IN ITEMS net_snapshot net_stage net_set_flow net_replay_seed net_scene_timing net_fixture_env net_rank_rules net_match net_magnify net_late_poll)
+        foreach(case IN ITEMS net_snapshot net_stage net_set_flow net_replay_seed net_scene_timing net_fixture_env net_rank_rules net_match net_magnify net_late_poll snapshot_platforms)
             add_test(NAME ${case} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_${case}.py)
             set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
         endforeach()

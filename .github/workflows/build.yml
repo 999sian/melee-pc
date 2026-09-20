@@ -240,6 +240,9 @@ jobs:
           # into the .app with the other dylibs by package_macos.sh.
           brew install gcc cmake ninja sdl3 zstd libpng freetype
 
+      - name: Verify native rollback snapshot restore
+        run: python3 tools/test_snapshot_platforms.py SnapshotPlatforms.test_native_mac_restore
+
       - name: Build and package
         env:
           MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.1.9' }}

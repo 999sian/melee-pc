@@ -33,9 +33,9 @@ the current implementation.
 |---|---|---|
 | Linux x86-64 | ELF game-state ranges | Live delayed and scene-flow tests; latest acceptance results below |
 | Windows x86-64 GNU MinGW | PE object section rewriting and post-link range verification | Wine restore/pointer/BSS/exclusion fixtures; full Windows game rollback remains unverified |
-| Other Windows toolchains / ARM64 | lockstep fallback | No partial snapshots accepted |
-| macOS / iOS | lockstep fallback | No current hardware verification |
-| Android | ELF game-state ranges | Earlier LAN evidence remains historical; no new device acceptance in this batch |
+| Windows ARM64 | PE section relabeling after the GCC-to-COFF bridge | Linked range/relocation/exclusion and CMake integration fixtures pass; hardware gameplay remains unverified |
+| macOS / iOS | Mach-O simulation data/zerofill sections with linker boundaries | Intel/ARM64 cross-link, iOS GCC bridge, universal-object preservation and CMake integration checks pass; native restore added to macOS CI, device gameplay unverified |
+| Android ARM64 / x86-64 | ELF game-state ranges | NDK-linked save/mutate/restore fixtures pass, ARM64 under QEMU; no new device gameplay acceptance |
 
 Numbers below are labelled with the harness that produced them, and with the
 build, because two defects were fixed mid-batch and several acceptance rows
@@ -155,12 +155,13 @@ so idle noise does not cause rollbacks.
 Measured on a live Link vs Mario match: 5.6 MB, 0.6 ms per snapshot (plain
 memcpy). No dirty tracking needed.
 
-**Historical platform limitation (superseded for GNU MinGW x86-64).**
-`cmake/WindowsSnapshot.cmake` now rewrites game object sections, uses ordered
-PE boundary markers, and verifies tracked/excluded symbols after linking.
-Wine fixtures cover both normal and per-symbol sections, initialized data,
-BSS and relocations. Other Windows toolchains, Windows ARM64, macOS and iOS
-still use the lockstep fallback described below.
+**Historical platform limitation (superseded on all supported platforms).**
+`cmake/WindowsSnapshot.cmake` supplies ordered PE ranges for x86-64 and ARM64;
+`cmake/AppleSnapshot.cmake` supplies Mach-O ranges for macOS and iOS. Both
+preserve game-object relocations and verify tracked/excluded symbols after
+linking. Linux/Android retain ELF ranges and now verify them after linking too.
+See §16 for implementation and platform-specific evidence. The fallback
+investigation below records the earlier state of the port.
 
 **Original investigation.** `melee_state.ld`
 is a GNU ld script built on `INSERT AFTER`; PE/COFF's GNU ld and ld64 have no
@@ -1528,7 +1529,7 @@ Ordered by expected gain per line of code:
 | M | Deliverable | Acceptance (all runnable, no project-wide suites) | State |
 |---|---|---|---|
 | M0 Determinism | §5 items 1–4, record/replay harness | Same recording replays bit-identical on Linux x86-64, Windows (native), Android; injected 1-ULP libm change is caught | **met between Linux and Windows.** One canonical 2400-frame recording replays identical on both, with a `linux-record` row so a recording defect cannot pass as a platform result, and the injected 1-ULP change is caught at exactly the injected frame (§5, §5.1). Android and macOS could not be run here at all — no device, no host |
-| M1 Local rollback | `gm_RunSimTick`, snapshot ring, resim flag, SFX/music/rumble gates, frame index | "Sync test" mode (`MELEE_NET_SYNCTEST=k`): every frame restore k frames back and re-sim with identical inputs; per-frame checksum equals the straight run for a 5-minute 4-player CPU match; resim cost logged (< 8 ms for 7 frames) | Implemented RNG, rumble and render-independent magnifier corrections. Linux regressions pass; Windows GNU x86-64 PE fixture passes under Wine. Apple/other Windows toolchains retain lockstep. Full platform acceptance remains separate. |
+| M1 Local rollback | `gm_RunSimTick`, snapshot ring, resim flag, SFX/music/rumble gates, frame index | "Sync test" mode (`MELEE_NET_SYNCTEST=k`): every frame restore k frames back and re-sim with identical inputs; per-frame checksum equals the straight run for a 5-minute 4-player CPU match; resim cost logged (< 8 ms for 7 frames) | Implemented RNG, rumble and render-independent magnifier corrections. Linux regressions pass; Windows GNU x86-64 PE fixture passes under Wine. Apple and Windows ARM64 snapshot sections are implemented and cross-link verified; Android restore fixtures pass. Full platform gameplay acceptance remains separate. |
 | M2 Two-player direct | UDP transport, input sync, time sync, desync checksum, `GM_ONLINE` lobby via `MELEE_NET=ip:port` | Two processes on one machine finish a full set (lobby→CSS→SSS→VS→results→CSS) with `tc netem delay 60ms loss 2%` and zero desyncs; HUD shows ping/delay | Shared SSS and two-player setup implemented. Full scene sequence observed on both peers; final corrected-build live verdict recorded in the checkpoint below. |
 | M3 LAN | mDNS lobby, counter screen, host-owns-rules, barriers, halt-together | Two machines on Wi-Fi find each other without typing anything; unplugging one shows the halt screen on the other within 10 s | **done between two instances on this one machine**, including the lobby-failure paths. *Two physically separate machines have never been tried* — there is only one here — so the Wi-Fi half of the acceptance is unproven |
 | M4 Internet | DHT (jech/dht + BEP 42/44), topics, simultaneous open, Direct + Unranked queues, connect codes | Two home NATs (different ISPs) connect via Direct code with no port forwarding; unranked queue pairs two clients within 60 s; symmetric-NAT failure re-queues with a message | Implemented. Real public bootstrap and authenticated BEP44 PUT/GET passed; signed local UDP pairing passes. Two-home-NAT acceptance remains unverified. |
@@ -2000,7 +2001,7 @@ to the objdump gate allowlist in `tools/package_windows.sh`).
   the synctest is comparing state the engine is not supposed to restore. It
   should be excluded from that comparison or documented there, because as it
   stands it makes the sync test look permanently broken.
-- **No rollback on Windows or Apple** (§4): `melee_state.ld` is ELF-only, so
+- **Historical finding, superseded by the cross-platform implementation above: no rollback on Windows or Apple** (§4): `melee_state.ld` is ELF-only, so
   those sessions are lockstep for their whole life. That is a linker
   limitation with a named upgrade path, not a design decision, and it is the
   first thing a Windows player will notice as extra input delay.
@@ -2094,3 +2095,37 @@ manual 0–4 is available. Optional `MELEE_NET_JIT=1` uses presentation period a
 CPU-frame estimates with a 1 ms margin; it is not enabled by default without
 physical latency evidence. `MELEE_NET_DEBUG=1` reports XFB wait time rather than
 bypassing the queue. Native text supplies menu labels and chat instructions.
+
+
+## 16. All-platform rollback follow-up, 2026-09-20
+
+Supported Linux, Windows x86-64/ARM64, macOS Intel/Apple Silicon, iOS ARM64,
+and Android ARM64/x86-64 builds now provide simulation snapshot ranges. The
+build requires this support and checks representative included game globals
+and excluded audio/engine globals in every final image. Runtime allocation
+failure and the explicit rollback-off debug switch retain their safe fallback;
+menus and scene transitions still deliberately wait for synchronized inputs.
+
+Apple compiler output is relabeled in place into `__DATA,__melee_data` and
+`__DATA,__melee_bss`; no object contents, offsets, relocation records or symbol
+ordinals change. Linker section boundaries automatically follow ASLR. Both
+thin and universal 64-bit objects are supported. Common allocations and
+unhandled writable/thread-local sections fail the compile. The existing GCC
+bridge remains responsible for on-disc scalar storage order.
+
+Windows ARM64 uses the same sorted PE ranges as x86-64. Its compiler bridge now
+preserves `.local` + `.comm` as local allocated BSS rather than accidentally
+creating global common symbols. The LLVM COFF adapter changes only section
+header names, since LLVM objcopy cannot perform COFF section renaming.
+
+Android already enabled rollback through ELF ranges. Its compiler launcher now
+selects the x86-64 GCC/sysroot for the x86-64 preset instead of always emitting
+ARM64 objects. NDK-linked restore fixtures exercise both architectures, with
+QEMU used only for the ARM64 fixture. This is not device gameplay evidence.
+
+`tools/test_snapshot_platforms.py` checks real objects, compiler bridges,
+CMake integration, link-time boundaries, exclusions, universal-object byte
+preservation and Android restore. Native macOS restore is added to the macOS
+build workflow and requires that runner; Windows x86-64 restore still passes
+under Wine. Full matches on Apple, Windows ARM64 and Android devices remain
+acceptance work requiring those platforms.

@@ -5,7 +5,7 @@ The decomp relies on __attribute__((scalar_storage_order)), which Clang does
 not implement, so melee_game's sources go through GCC. Everything else keeps
 using Clang.
 
-Android: an aarch64 GCC cross compiler pointed at the NDK sysroot.
+Android: an AArch64 or x86-64 GCC pointed at the matching NDK sysroot.
 macOS:   Homebrew's GCC (gcc-NN), which emits Mach-O objects that link with
          Apple's clang/ld. Set GCC_BIN to pick a specific binary.
 """
@@ -64,14 +64,23 @@ if sys.platform == 'darwin':
     ] + filtered_args
     os.execv(gcc_bin, gcc_cmd)
 
-# Setup GCC paths
-gcc_bin = os.environ.get('GCC_AARCH64_BIN') or shutil.which(
-    'aarch64-linux-gnu-gcc')
+# Select the target ABI, not the build host. The x86-64 Android preset must
+# not accidentally place AArch64 objects in its otherwise x86-64 ELF image.
+android_target = next((arg.split('=', 1)[1] for arg in cmd_args
+                       if arg.startswith('--target=')), os.path.basename(compiler))
+if android_target.startswith('aarch64'):
+    android_triple = 'aarch64-linux-android'
+    gcc_bin = os.environ.get('GCC_AARCH64_BIN') or shutil.which('aarch64-linux-gnu-gcc')
+    architecture_flags = ['-march=armv8-a+crc+crypto', '-mtune=cortex-a73']
+elif android_target.startswith('x86_64'):
+    android_triple = 'x86_64-linux-android'
+    gcc_bin = os.environ.get('GCC_X86_64_BIN') or shutil.which('x86_64-linux-gnu-gcc')
+    architecture_flags = ['-m64', '-march=x86-64', '-mtune=generic']
+else:
+    sys.exit(f'gcc_launcher: unsupported Android target {android_target}')
 if not gcc_bin or not os.path.exists(gcc_bin):
-    sys.exit(
-        'gcc_launcher: no aarch64 GCC found. Install gcc-aarch64-linux-gnu '
-        'or set GCC_AARCH64_BIN. Clang cannot build the decomp because it '
-        'lacks scalar_storage_order.')
+    sys.exit(f'gcc_launcher: no GCC for {android_triple}; install the matching '
+             'cross compiler or set GCC_AARCH64_BIN/GCC_X86_64_BIN')
 gcc_dir = os.path.dirname(gcc_bin)
 if gcc_dir:
     os.environ['PATH'] = gcc_dir + ':' + os.environ.get('PATH', '')
@@ -100,15 +109,13 @@ for i, arg in enumerate(cmd_args):
 gcc_cmd = [
     gcc_bin,
     '-isystem', f'{sysroot}/usr/include',
-    '-isystem', f'{sysroot}/usr/include/aarch64-linux-android',
+    '-isystem', f'{sysroot}/usr/include/{android_triple}',
     '-D_Nonnull=', '-D_Nullable=', '-D_Null_unspecified=',
     '-D__BIONIC_VERSIONER',
     '-U_FORTIFY_SOURCE', '-D_FORTIFY_SOURCE=0',
     '-D__ANDROID_API__=26',
     '-fexec-charset=CP932',
     '-Wno-scalar-storage-order',
-    '-march=armv8-a+crc+crypto',
-    '-mtune=cortex-a73',
-] + filtered_args
+] + architecture_flags + filtered_args
 
 os.execv(gcc_bin, gcc_cmd)

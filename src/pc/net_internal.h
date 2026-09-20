@@ -417,8 +417,8 @@ void sync_reset(void);
 bool snapshot_take(Snapshot* s, int32_t frame);
 const char* snapshot_unusable(const Snapshot* s);
 void snapshot_restore(const Snapshot* s);
-/* Non-NULL when this platform's linker cannot bracket the decomp's statics
- * (Windows, Apple): snapshot_take refuses and the session runs lockstep. */
+/* Non-NULL for missing/invalid simulation ranges. Normal builds provide
+ * validated ELF, PE or Mach-O sections; fixtures can exercise the fallback. */
 const char* snapshot_state_region_missing(void);
 Snapshot* snap_slot(int32_t f); /* rollback ring entry for frame f */
 void snaps_free(void);

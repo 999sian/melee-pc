@@ -3,9 +3,9 @@
  * tools/pe_snapshot_compile.py assigns eligible game objects the M suffix;
  * A/Z markers bracket them without including ordinary engine/audio data.
  * BSS markers explicitly retain COFF uninitialized-data characteristics.
- * Built only for the independently verified MinGW x86-64 configuration. */
-#if !defined(_WIN32) || !defined(__x86_64__)
-#error "PE snapshot section markers are verified only for MinGW x86-64"
+ * Used by MinGW x86-64 and the GCC-to-COFF Windows ARM64 bridge. */
+#if !defined(_WIN32) || (!defined(__x86_64__) && !defined(__aarch64__))
+#error "PE snapshot section markers require Windows x86-64 or ARM64"
 #endif
 __asm__(".section .mld$A,\"dw\"\n"
         ".globl __melee_data_start\n"

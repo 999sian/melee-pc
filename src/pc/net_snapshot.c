@@ -272,13 +272,11 @@ const char* state_line(int32_t frame) {
  *   3. the RNG seed pointer (aurora-side static the game redirects).
  * ponytail: plain memcpy each time; dirty tracking only if the measured cost
  * breaks the rollback budget. */
-/* ELF links use melee_state.ld; GNU MinGW x86-64 uses verified PE sections
- * produced by WindowsSnapshot.cmake. Other toolchains have no complete
- * static-state ranges. Refuse partial snapshots there and use lockstep.
- * Apple and Windows ARM64 still need a verified section implementation. */
+/* ELF, PE and Mach-O builds all provide simulation-only static ranges.
+ * Keep the missing-region guard for isolated fixtures/invalid images; normal
+ * project builds require section support and validate their boundaries. */
 #ifdef MELEE_STATE_SECTIONS
-extern char __melee_data_start[], __melee_data_end[];
-extern char __melee_bss_start[], __melee_bss_end[];
+#include "melee_state.h"
 #else
 static char s_no_state_region;
 #define __melee_data_start (&s_no_state_region)

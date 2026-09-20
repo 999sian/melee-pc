@@ -183,3 +183,28 @@ For "does this union view still alias on LP64", build one probe TU of the real
 headers twice with the project's flags, native and `-m32`, then diff member
 offsets and sizes out of DWARF (`gdb -batch -ex 'ptype /o T'`). Compare byte-range
 intersections, not start offsets.
+
+
+## Platform rollback snapshot checks
+
+Run `python3 tools/test_snapshot_platforms.py -v` for cross-link and restore
+fixtures. Missing cross compilers are reported as skipped, not passes. On
+Linux, the available LLVM tools check macOS Intel, iOS ARM64 and Windows ARM64
+objects and actual CMake adapters, including GCC compiler bridges. Android NDK
+fixtures link with the production ELF script and execute save/mutate/restore;
+ARM64 uses `qemu-aarch64`, x86-64 executes directly. Set `ANDROID_NDK_HOME`,
+`GCC_AARCH64_BIN`, `GCC_X86_64_BIN`, and `LLVM_MINGW` for nondefault toolchains.
+
+On macOS, run `python3 tools/test_snapshot_platforms.py
+SnapshotPlatforms.test_native_mac_restore` on one line. It compiles game
+fixtures through Homebrew GCC, links with native Apple tools, and executes
+snapshot restoration; both macOS CI architectures run it before packaging.
+Windows x86-64 additionally uses `python3 tools/test_pe_snapshot.py --wine`.
+These isolated fixtures do not replace full rollback gameplay on each device.
+
+The platform snapshot compiler wrappers share the audio/worker exclusion list
+in `src/pc/melee_state.ld`. Changes to that ownership list affect every format.
+Mach-O and ARM64 COFF relabeling must preserve all relocation/symbol ordinals
+and zero-fill characteristics. Unknown writable sections and common symbols
+fail the build rather than escaping snapshots. Verification runs before
+packaging strips symbols.
