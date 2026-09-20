@@ -224,6 +224,9 @@ void pc_frame_boundary(void) {
         event = aurora_update();
         while (event != NULL && event->type != AURORA_NONE) {
             if (event->type == AURORA_EXIT) {
+                pc_net_match_stop();
+                pc_net_disconnect();
+                pc_lan_stop();
                 exit(0);
             }
             ++event;

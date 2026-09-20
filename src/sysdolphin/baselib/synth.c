@@ -164,12 +164,24 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t length,
     if (HSD_Synth_804D7738 == 0) {
         int bankID = HSD_Synth_804C2A60[0].bankID;
 
+#ifdef TARGET_PC
+        static int warned_bank = -1;
+        if (hsd_SynthSFXBankHead[bankID + 1] - hsd_SynthSFXBank[bankID] <
+            hsd_SynthSFXLoadBuf[1].v)
+        {
+            if (warned_bank != bankID) {
+                warned_bank = bankID;
+                OSReport("Can't load SFX file; bank(id=%d) buffer overflow.\n", bankID);
+            }
+        }
+#else
         HSD_ASSERTREPORT(0xCD,
                          hsd_SynthSFXBankHead[bankID + 1] -
                                  hsd_SynthSFXBank[bankID] >=
                              hsd_SynthSFXLoadBuf[1].v,
                          "Can't load SFX file; bank(id=%d) buffer overflow.\n",
                          HSD_Synth_804C2A60[0].bankID);
+#endif
 
         if (hsd_SynthSFXBankHead[bankID + 1] - hsd_SynthSFXBank[bankID] <
             hsd_SynthSFXLoadBuf[1].v)

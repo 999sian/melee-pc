@@ -66,7 +66,7 @@ static void onExitResults(GameModeState*);
 GameModeState gm_Mode_Online_States[] = {
     {
         state_lobby,
-        lbDvdPreload_2,
+        lbDvdPreload_3,
         0,
         onEnterLobby,
         NULL,

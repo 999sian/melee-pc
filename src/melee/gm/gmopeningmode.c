@@ -9,6 +9,9 @@
 #include "gmevent.h"
 #include "gmmain_lib.h"
 #include "gmtitlemode.h"
+#ifdef TARGET_PC
+#include "gmboot.h"
+#endif
 #include "types.h"
 #include <melee/db/db.h>
 #include <melee/lb/lbaudio_ax.h>
@@ -304,6 +307,11 @@ void onExitTitle(GameModeState* arg0)
             gm_SetPendingGameMode(GM_MENU);
         }
         gm_SetNewGameModePending();
+#ifdef TARGET_PC
+    } else if (getenv("MELEE_NO_ATTRACT") != NULL || pc_boot_scene() == GM_ONLINE) {
+        gm_SetPendingGameMode(GM_TITLE);
+        gm_SetNewGameModePending();
+#endif
     }
 }
 
@@ -473,6 +481,14 @@ void onEnterVs(GameModeState* arg0)
     StartMeleeData* md;
     VsModeData* temp_r30;
     int i;
+
+#ifdef TARGET_PC
+    /* Ensure the attract demo match characters and stage are preloaded in Heap 5
+     * so Pl*AJ.dat does not overflow the 432 KB transient ARAM heap if entered
+     * without the title screen or opening movie having preloaded them. */
+    gm_SetupTitleDemo();
+    gm_PreloadTitleDemo();
+#endif
 
     temp_r30 = &gmMainLib_804D3EE0->modes.table[GmVsMode_Opening];
     md = gm_GetGameModeStateEnterData(arg0);
