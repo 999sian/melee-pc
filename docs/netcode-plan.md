@@ -1809,8 +1809,9 @@ retracted here or labelled with what it actually measured.
   and they are unchanged by removing the asynchronous pad writer. Note when
   quoting any of them that a synctest count is only comparable against a run
   with the same fifo state.
-- `MELEE_DEBUG_VS=1|cpu`: Start at the title jumps into the debug VS match
-  (Link vs Mario), the fixture for all of the above.
+- `MELEE_DEBUG_VS=1|cpu|cpu4`: Start at the title jumps into the debug VS match
+  (Link vs Mario), the fixture for all of the above. `cpu4` is four CPUs
+  instead, the worst-case scene for frame-time gates.
 - `MELEE_CACHE_DIR`: per-instance pipeline cache for two local instances.
 
 **M3 LAN (done)** — `src/pc/net_lan.c` (mDNS `_meleepc._udp.local.` via
