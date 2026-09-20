@@ -175,36 +175,24 @@ void GXSetChanAmbColor(GXChannelID id, GXColor color) {
   u32 colIdx;
 
   switch (id) {
-  case GX_COLOR0: {
-    u32 alpha = __gx->ambColor[0] & 0xFF;
+  case GX_COLOR0:
+  case GX_COLOR0A0:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | alpha;
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 0;
     break;
-  }
-  case GX_COLOR1: {
-    u32 alpha = __gx->ambColor[1] & 0xFF;
+  case GX_COLOR1:
+  case GX_COLOR1A1:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | alpha;
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 1;
     break;
-  }
   case GX_ALPHA0:
     reg = (__gx->ambColor[0] & 0xFFFFFF00) | static_cast<u32>(color.a);
     colIdx = 0;
     break;
   case GX_ALPHA1:
     reg = (__gx->ambColor[1] & 0xFFFFFF00) | static_cast<u32>(color.a);
-    colIdx = 1;
-    break;
-  case GX_COLOR0A0:
-    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
-    colIdx = 0;
-    break;
-  case GX_COLOR1A1:
-    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 1;
     break;
   default:
@@ -221,36 +209,24 @@ void GXSetChanMatColor(GXChannelID id, GXColor color) {
   u32 colIdx;
 
   switch (id) {
-  case GX_COLOR0: {
-    u32 alpha = __gx->matColor[0] & 0xFF;
+  case GX_COLOR0:
+  case GX_COLOR0A0:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | alpha;
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 0;
     break;
-  }
-  case GX_COLOR1: {
-    u32 alpha = __gx->matColor[1] & 0xFF;
+  case GX_COLOR1:
+  case GX_COLOR1A1:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | alpha;
+          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 1;
     break;
-  }
   case GX_ALPHA0:
     reg = (__gx->matColor[0] & 0xFFFFFF00) | static_cast<u32>(color.a);
     colIdx = 0;
     break;
   case GX_ALPHA1:
     reg = (__gx->matColor[1] & 0xFFFFFF00) | static_cast<u32>(color.a);
-    colIdx = 1;
-    break;
-  case GX_COLOR0A0:
-    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
-    colIdx = 0;
-    break;
-  case GX_COLOR1A1:
-    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
-          (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 1;
     break;
   default:
