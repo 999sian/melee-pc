@@ -26,7 +26,6 @@
 #include <dolphin/os.h>
 
 #include <SDL3/SDL.h>
-
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -780,6 +779,23 @@ static void SDLCALL audio_pull(void* userdata, SDL_AudioStream* stream, int addi
     }
 }
 
+#ifdef __EMSCRIPTEN__
+void pc_audio_pump(void) {
+    static int pumping;
+    if (pumping || !s_stream)
+        return;
+    pumping = 1;
+    float frame[AX_FRAME * 2];
+    // Keep the browser consumer fed without re-entering game callbacks from JS.
+    while (SDL_GetAudioStreamQueued(s_stream) < AX_RATE * 2 * sizeof(float) / 20) {
+        render_frame(frame);
+        if (!SDL_PutAudioStreamData(s_stream, frame, sizeof(frame)))
+            break;
+    }
+    pumping = 0;
+}
+#endif
+
 /* ---- AX API ------------------------------------------------------------ */
 
 void AXInit(void) {
@@ -798,8 +814,12 @@ void AXInit(void) {
             fprintf(stderr, "audio: SDL_InitSubSystem failed: %s\n", SDL_GetError());
             return;
         }
+#ifdef __EMSCRIPTEN__
+        s_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+#else
         s_stream =
             SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_pull, NULL);
+#endif
         if (s_stream)
             SDL_SetAudioStreamGain(s_stream, s_master_volume);
         if (s_stream == NULL) {

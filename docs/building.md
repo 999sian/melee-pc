@@ -229,3 +229,15 @@ MEM1 is placed instead.
 
 `Melee.app` is ad-hoc signed, so the first launch of a downloaded copy needs
 right-click > Open, or `xattr -d com.apple.quarantine Melee.app`.
+
+### Browser (Emscripten + WebGPU)
+
+Not a release target yet. It has its own toolchain (pinned Emscripten, LLVM with
+LibTooling, and a host GCC as a test oracle) and build driver; see
+`platforms/browser/README.md`.
+
+```
+python3 tools/browser/setup_sdk.py
+python3 tools/browser/build.py --jobs 8
+python3 tools/browser/serve.py
+```

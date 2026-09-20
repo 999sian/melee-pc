@@ -25,6 +25,12 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_COLOR_DIAGNOSTICS ON)
 
+# The browser target has its own platform layer and link; see platforms/browser.
+if (EMSCRIPTEN)
+    add_subdirectory(platforms/browser)
+    return()
+endif ()
+
 set(AURORA_ENABLE_DVD ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_CARD ON CACHE BOOL "" FORCE)
 set(AURORA_ENABLE_THP ON CACHE BOOL "" FORCE)
