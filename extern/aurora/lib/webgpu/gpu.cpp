@@ -79,6 +79,7 @@ static std::atomic_bool g_vsyncEnabled = true;
 
 namespace {
 
+#ifndef __EMSCRIPTEN__
 AuroraLogLevel wgpu_log_level(wgpu::LoggingType type) {
   switch (type) {
   case wgpu::LoggingType::Verbose:
@@ -97,6 +98,7 @@ AuroraLogLevel wgpu_log_level(wgpu::LoggingType type) {
 void wgpu_log(wgpu::LoggingType type, wgpu::StringView message) {
   Log.report(wgpu_log_level(type), "WebGPU message: {}", message);
 }
+#endif
 
 struct ResampleUniformBlock {
   uint32_t samplerMode = 0;
@@ -936,7 +938,12 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
   if (description.IsUndefined()) {
     description = wgpu::StringView("Unknown");
   }
+#ifdef __EMSCRIPTEN__
+  // Browsers deliberately omit the native backend from adapter information.
+  g_backendType = wgpu::BackendType::WebGPU;
+#else
   g_backendType = g_adapterInfo.backendType;
+#endif
   g_adapterName = std::string_view{adapterName};
   g_adapterDriver = std::string_view{description};
   const auto backendName = magic_enum::enum_name(g_backendType);
@@ -967,7 +974,9 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
             supportedLimits.minUniformBufferOffsetAlignment < 64 ? 64 : supportedLimits.minUniformBufferOffsetAlignment,
         .minStorageBufferOffsetAlignment =
             supportedLimits.minStorageBufferOffsetAlignment < 16 ? 16 : supportedLimits.minStorageBufferOffsetAlignment,
+#ifndef __EMSCRIPTEN__
         .maxImmediateSize = sizeof(gx::DrawImmediateData),
+#endif
     };
     Log.info(
         "Using limits:"
@@ -982,7 +991,12 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
         requiredLimits.maxTextureDimension1D, requiredLimits.maxTextureDimension2D,
         requiredLimits.maxTextureDimension3D, requiredLimits.maxTextureArrayLayers,
         requiredLimits.maxStorageBuffersPerShaderStage, requiredLimits.minUniformBufferOffsetAlignment,
-        requiredLimits.minStorageBufferOffsetAlignment, requiredLimits.maxImmediateSize);
+        requiredLimits.minStorageBufferOffsetAlignment,
+#ifdef __EMSCRIPTEN__
+        0);
+#else
+        requiredLimits.maxImmediateSize);
+#endif
     std::vector<wgpu::FeatureName> requiredFeatures;
     g_hasCoreFeatures = false;
     g_bcTexturesSupported = false;
@@ -1104,7 +1118,9 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
     if (!g_device) {
       return false;
     }
+#ifndef __EMSCRIPTEN__
     g_device.SetLoggingCallback(wgpu_log);
+#endif
   }
   g_queue = g_device.GetQueue();
 

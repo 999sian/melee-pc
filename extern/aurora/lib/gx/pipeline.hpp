@@ -10,6 +10,9 @@ struct DrawData {
   gfx::Range idxRange;
   gfx::Range uniformRange;
   DrawImmediateData immediateData;
+#ifdef __EMSCRIPTEN__
+  gfx::Range immediateRange;
+#endif
   uint32_t vtxCount;
   uint32_t indexCount;
   uint32_t instanceCount;
@@ -21,7 +24,11 @@ struct DrawData {
   uint32_t tag;
 };
 
+#ifdef __EMSCRIPTEN__
+constexpr uint32_t GXPipelineConfigVersion = 10013;
+#else
 constexpr uint32_t GXPipelineConfigVersion = 13;
+#endif
 struct PipelineConfig {
   uint32_t version = GXPipelineConfigVersion;
   uint32_t msaaSamples = 1; // deprecated

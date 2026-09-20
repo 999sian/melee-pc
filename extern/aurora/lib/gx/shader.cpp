@@ -10,6 +10,7 @@
 #include <dolphin/gx/GXEnum.h>
 
 #include <absl/container/flat_hash_set.h>
+#include <absl/container/flat_hash_map.h>
 #include <mutex>
 #include <string_view>
 #include <utility>
@@ -1739,7 +1740,7 @@ std::string build_shader_source(const ShaderConfig& config, uint32_t normalAttac
   const std::string_view gxBitsBody = webgpu::g_adapterInfo.vendorID == 0x1010 /* Imagination */
                                           ? "(v >> off) & ((1u << n) - 1u)"
                                           : "extractBits(v, off, n)";
-  const auto shaderSource = fmt::format(R"""(
+  auto shaderSource = fmt::format(R"""(
 fn bswap32(v: u32, le: bool) -> u32 {{
   if (le) {{
     return v;
@@ -2118,6 +2119,11 @@ fn fs_main(in: VertexOutput) -> {10} {{{6}{5}{11}
     Log.info("Generated shader (hash {:x}): {}", hash, shaderSource);
   }
 
+#ifdef __EMSCRIPTEN__
+  const std::string needle="var<immediate> imm: Immediate;";
+  if(auto at=shaderSource.find(needle);at!=std::string::npos)
+    shaderSource.replace(at,needle.size(),"@group(3) @binding(0) var<uniform> imm: Immediate;");
+#endif
   return shaderSource;
 }
 
@@ -2129,8 +2135,16 @@ wgpu::ShaderModule build_shader(const ShaderConfig& config, const gfx::RenderTar
       normalAttachment = i;
     }
   }
-  const auto shaderSource = build_shader_source(config, normalAttachment);
   const auto hash = xxh3_hash(normalAttachment, xxh3_hash(config));
+#ifdef __EMSCRIPTEN__
+  // Blend/depth variants share shader code. Browser rendering is single-threaded;
+  // retain modules for this device rather than compiling them for each pipeline.
+  static absl::flat_hash_map<HashType, wgpu::ShaderModule> modules;
+  static WGPUDevice device = nullptr;
+  if (device != webgpu::g_device.Get()) { modules.clear(); device = webgpu::g_device.Get(); }
+  if (auto it = modules.find(hash); it != modules.end()) return it->second;
+#endif
+  const auto shaderSource = build_shader_source(config, normalAttachment);
   wgpu::ShaderSourceWGSL wgslDescriptor{};
   wgslDescriptor.code = shaderSource.c_str();
   const auto label = fmt::format("GX Shader {:x}", hash);
@@ -2138,6 +2152,10 @@ wgpu::ShaderModule build_shader(const ShaderConfig& config, const gfx::RenderTar
       .nextInChain = &wgslDescriptor,
       .label = label.c_str(),
   };
-  return webgpu::g_device.CreateShaderModule(&shaderDescriptor);
+  auto module = webgpu::g_device.CreateShaderModule(&shaderDescriptor);
+#ifdef __EMSCRIPTEN__
+  modules.emplace(hash, module);
+#endif
+  return module;
 }
 } // namespace aurora::gx

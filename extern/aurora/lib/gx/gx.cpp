@@ -1,4 +1,9 @@
 #include "gx.hpp"
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <memory>
+#include "../gfx/pipeline_cache.hpp"
+#endif
 
 #include "pipeline.hpp"
 #include "texture.hpp"
@@ -41,6 +46,11 @@ absl::flat_hash_map<u32, std::pair<wgpu::BindGroupLayout, wgpu::BindGroupLayout>
 wgpu::BindGroupLayout sTextureBindGroupLayout;
 wgpu::BindGroupLayout sSamplerBindGroupLayout;
 wgpu::PipelineLayout sPipelineLayout;
+#ifdef __EMSCRIPTEN__
+// Browser rendering and these callbacks share one realm. Keep pending results
+// separate until the pipeline cache can bind a fully compiled pipeline.
+absl::flat_hash_map<gfx::PipelineRef, std::shared_ptr<wgpu::RenderPipeline>> sBrowserPipelines;
+#endif
 
 std::atomic<int> sPendingViewportPolicy{-1};
 std::atomic<float> sPendingPresentationAspect{-1.f};
@@ -376,8 +386,35 @@ wgpu::RenderPipeline build_pipeline(const PipelineConfig& config, const gfx::Ren
       .multisample = wgpu::MultisampleState{.count = layout.sampleCount},
       .fragment = &fragmentState,
   };
+#ifdef __EMSCRIPTEN__
+  // Same key as the pipeline cache's runtime ref (resolve_pipeline).
+  const auto ref = xxh3_hash(layout.key, xxh3_hash(config, static_cast<HashType>(gfx::ShaderType::GX)));
+  auto pending = std::make_shared<wgpu::RenderPipeline>();
+  sBrowserPipelines[ref] = pending;
+  g_device.CreateRenderPipelineAsync(&descriptor, wgpu::CallbackMode::AllowSpontaneous,
+      [pending](wgpu::CreatePipelineAsyncStatus status, wgpu::RenderPipeline pipeline, wgpu::StringView) {
+        if (status == wgpu::CreatePipelineAsyncStatus::Success) {
+          *pending = std::move(pipeline);
+        } else {
+          Log.error("Browser GPU pipeline compilation failed");
+          EM_ASM({ Module.onAbort?.('GPU pipeline compilation failed'); });
+        }
+      });
+  return {};
+#else
   return g_device.CreateRenderPipeline(&descriptor);
+#endif
 }
+
+#ifdef __EMSCRIPTEN__
+bool take_browser_pipeline(gfx::PipelineRef ref, wgpu::RenderPipeline& pipeline) {
+  const auto it = sBrowserPipelines.find(ref);
+  if (it == sBrowserPipelines.end() || !*it->second) return false;
+  pipeline = std::move(*it->second);
+  sBrowserPipelines.erase(it);
+  return true;
+}
+#endif
 
 void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXVtxFmt fmt) noexcept {
   ZoneScoped;
@@ -588,18 +625,26 @@ void initialize() noexcept {
         gfx::detail::resources().staticBindGroupLayout,
         gfx::detail::resources().uniformBindGroupLayout,
         sTextureBindGroupLayout,
+#ifdef __EMSCRIPTEN__
+        gfx::detail::resources().uniformBindGroupLayout,
+#endif
     };
     const wgpu::PipelineLayoutDescriptor desc{
         .label = "GX Pipeline Layout",
         .bindGroupLayoutCount = layouts.size(),
         .bindGroupLayouts = layouts.data(),
+#ifndef __EMSCRIPTEN__
         .immediateSize = sizeof(DrawImmediateData),
+#endif
     };
     sPipelineLayout = g_device.CreatePipelineLayout(&desc);
   }
 }
 
 void shutdown() noexcept {
+#ifdef __EMSCRIPTEN__
+  sBrowserPipelines.clear();
+#endif
   // TODO we should probably store this all in g_state.gx instead
   sSamplerBindGroupLayout = {};
   sTextureBindGroupLayout = {};

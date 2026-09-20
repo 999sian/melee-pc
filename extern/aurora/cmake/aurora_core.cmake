@@ -68,7 +68,10 @@ if(AURORA_ENABLE_RMLUI)
 endif ()
 
 if (AURORA_ENABLE_GX)
-    target_compile_definitions(aurora_core PUBLIC AURORA_ENABLE_GX WEBGPU_DAWN)
+    target_compile_definitions(aurora_core PUBLIC AURORA_ENABLE_GX $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:WEBGPU_DAWN>)
+    if (EMSCRIPTEN)
+        target_link_options(aurora_core PUBLIC --js-library=${CMAKE_CURRENT_SOURCE_DIR}/lib/gfx/browser_upload.js)
+    endif ()
     target_sources(aurora_core PRIVATE
             lib/webgpu/gpu.cpp
             lib/webgpu/gpu_cache.cpp

@@ -173,7 +173,24 @@ void ARQPostRequest(ARQRequest* request, uintptr_t owner, u32 type, u32 priority
 
 extern "C" int aurora_arq_inflight() { return sArqInflight.load(std::memory_order_acquire); }
 
+#ifdef __EMSCRIPTEN__
+extern "C" void browser_arq_deliver() {
+  static bool delivering=false;
+  if(delivering)return;
+  delivering=true;
+  size_t count=sArqQueue.size();
+  while(count-- && !sArqQueue.empty()) {
+    ArqJob job=sArqQueue.front();sArqQueue.pop_front();
+    arq_transfer(job);
+    if(job.callback)job.callback(job.request);
+  }
+  delivering=false;
+}
+#endif
 void ARQInit() {
+#ifdef __EMSCRIPTEN__
+  return;
+#endif
   std::lock_guard lock{sArqMutex};
   if (!sArqThread.joinable()) {
     sArqStop = false;
