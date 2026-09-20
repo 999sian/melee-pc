@@ -1,3 +1,10 @@
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+extern "C" void browser_yield(void);
+EM_JS(void, browser_graphics_progress, (unsigned done, unsigned total), {
+  Module.onGraphicsPreparation?.(done, total);
+});
+#endif
 #include "pipeline_cache.hpp"
 
 #include "clear.hpp"
@@ -81,6 +88,10 @@ static std::deque<PendingPipeline> g_pipelineQueue;
 static std::deque<PendingPipeline> g_backgroundPipelineQueue;
 static absl::flat_hash_set<PipelineRef> g_pendingPipelines;
 static std::atomic_bool g_gpuCachePrunePending = false;
+// Thread-less platforms leave cached/seeded pipelines in the background queue
+// untouched at frame end. A caller that owns a loading screen sets this to
+// compile them there instead (browser_prepare_graphics).
+static bool g_drainBackgroundQueue = false;
 
 static bool env_flag(const char* name) {
   const char* v = std::getenv(name);
@@ -769,7 +780,13 @@ static bool prepare_pipeline_cache_db() {
     return false;
   }
 
+#ifdef __EMSCRIPTEN__
+  // MEMFS has no shared memory for the WAL index and the page is torn down
+  // without a checkpoint, so WAL commits never reached the persisted database.
+  ret = sqlite::exec(g_pipelineCacheDb, "PRAGMA journal_mode=MEMORY; PRAGMA synchronous=OFF;");
+#else
   ret = sqlite::exec(g_pipelineCacheDb, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+#endif
   if (ret != SQLITE_OK) {
     Log.error("Failed to set pipeline cache pragmas: {}", sqlite3_errmsg(g_pipelineCacheDb));
     pipeline_cache_abort();
@@ -1015,7 +1032,7 @@ static void pipeline_worker() {
         g_pipelineQueueCv.wait(lock, [] {
           return !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty() || g_pipelineThreadEnd;
         });
-      } else if (g_pipelineQueue.empty()) {
+      } else if (g_pipelineQueue.empty() && (!g_drainBackgroundQueue || g_backgroundPipelineQueue.empty())) {
         // On platforms without a background compilation thread (e.g. mobile/Android),
         // only process pipelines actively queued by the current frame (g_pipelineQueue).
         // Never stall the presentation loop compiling unneeded background pipelines.
@@ -1024,7 +1041,7 @@ static void pipeline_worker() {
       if (g_pipelineThreadEnd) {
         break;
       }
-      auto& source = (!g_hasPipelineThread || !g_pipelineQueue.empty()) ? g_pipelineQueue : g_backgroundPipelineQueue;
+      auto& source = !g_pipelineQueue.empty() ? g_pipelineQueue : g_backgroundPipelineQueue;
       pending = std::move(source.front());
       source.pop_front();
     }
@@ -1186,7 +1203,7 @@ void initialize_pipeline_cache() {
   if (webgpu::g_backendType == wgpu::BackendType::WebGPU) {
     g_hasPipelineThread = false;
   } else {
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
     // On Android, background worker thread floods mobile GPU drivers (e.g. Adreno
     // libllvm-qglc.so) during asset extraction and menu initialization with unthrottled
     // vkCreateGraphicsPipelines, leading to driver crashes or memory exhaustion.
@@ -1244,6 +1261,25 @@ void begin_pipeline_frame() {
   }
 }
 
+#ifdef __EMSCRIPTEN__
+// Restore the cache before simulation begins. Compiling five historical
+// pipelines at each frame end otherwise turns returning visits into slow motion.
+extern "C" void browser_prepare_graphics() {
+  const size_t total = g_pipelineQueue.size() + g_backgroundPipelineQueue.size();
+  if (!total) return;
+  browser_graphics_progress(0, total);
+  g_drainBackgroundQueue = true;
+  while (!g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty()) {
+    g_pipelinesPerFrame = 0;
+    pipeline_worker();
+    browser_graphics_progress(total - g_pipelineQueue.size() - g_backgroundPipelineQueue.size(), total);
+    browser_yield();
+  }
+  g_drainBackgroundQueue = false;
+  Log.info("Prepared {} cached browser pipelines before simulation", total);
+}
+#endif
+
 void end_pipeline_frame() {
   if (!g_hasPipelineThread) {
     pipeline_worker();
@@ -1256,6 +1292,11 @@ bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline) {
   if (it == g_pipelines.end()) {
     return false;
   }
+#ifdef __EMSCRIPTEN__
+  // Newly encountered effects compile off the GPU submission path. Skip only
+  // their unready draws; startup waits for all initial pipelines before reveal.
+  if (!it->second.pipeline && !gx::take_browser_pipeline(ref, it->second.pipeline)) return false;
+#endif
   pipeline = it->second.pipeline;
   return true;
 }
