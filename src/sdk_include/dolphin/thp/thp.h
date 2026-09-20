@@ -90,7 +90,11 @@ u8 THPDec_80330158(THPFileInfo* info);
 void THPDec_80331340(uintptr_t, void*, void*, void*);
 void THPDec_803313D0(uintptr_t, void*, void*, void*, u32);
 void THPDec_803300E0(u32* data);
+#ifdef TARGET_PC
+BOOL THPInit(void);
+#else
 void THPInit(void);
+#endif
 
 #ifdef __cplusplus
 }

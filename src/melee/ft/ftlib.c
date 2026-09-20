@@ -1057,9 +1057,9 @@ void ftLib_80087610(u8 arg0)
     }
 }
 
-void ftLib_800876B4(HSD_GObj* gobj)
+s32 ftLib_800876B4(HSD_GObj* gobj)
 {
-    ftAnim_IsFramesRemaining(gobj);
+    return ftAnim_IsFramesRemaining(gobj);
 }
 
 bool ftLib_800876D4(HSD_GObj* gobj)
