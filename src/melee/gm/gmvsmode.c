@@ -189,6 +189,16 @@ void onEnterDebugVs(GameModeState* state)
 #ifdef TARGET_PC
     if (getenv("MELEE_DEBUG_VS") != NULL && strcmp(getenv("MELEE_DEBUG_VS"), "cpu") == 0) {
         start->players[1].slot_type = Gm_PKind_Cpu;
+    } else if (getenv("MELEE_DEBUG_VS") != NULL && strcmp(getenv("MELEE_DEBUG_VS"), "cpu4") == 0) {
+        /* Four CPUs fighting each other: the worst-case scene for a
+         * frame-time gate, with no input needed to keep it busy. */
+        static const CharacterKind kinds[4] = {
+            CKind_Link, CKind_Mario, CKind_Fox, CKind_Donkey,
+        };
+        for (i = 0; i < 4; i++) {
+            start->players[i].ckind = kinds[i];
+            start->players[i].slot_type = Gm_PKind_Cpu;
+        }
     }
 #endif
 
