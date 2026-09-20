@@ -5,6 +5,9 @@
 #include "gm_unsplit.h"
 #include "types.h"
 #include <melee/db/db.h>
+#ifdef TARGET_PC
+#include "gmboot.h"
+#endif
 #include <melee/lb/lbdvd.h>
 #include <sysdolphin/baselib/controller.h>
 
@@ -71,6 +74,13 @@ void onExit(GameModeState* scene)
             gm_SetPendingGameMode(GM_MENU);
         }
     } else {
+#ifdef TARGET_PC
+        if (getenv("MELEE_NO_ATTRACT") != NULL || pc_boot_scene() == GM_ONLINE) {
+            gm_SetPendingGameMode(GM_TITLE);
+            gm_SetNewGameModePending();
+            return;
+        }
+#endif
         gm_801BF708(1);
         gm_SetPendingGameMode(GM_OPENING_MV);
     }

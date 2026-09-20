@@ -630,6 +630,7 @@ src/melee/if/ifhazard.c
 src/melee/if/ifmagnify.c
 src/melee/if/ifnametag.c
 src/melee/if/ifnet.c
+src/melee/if/ifnetchat.c
 src/melee/if/ifprize.c
 src/melee/if/ifstatus.c
 src/melee/if/ifstock.c

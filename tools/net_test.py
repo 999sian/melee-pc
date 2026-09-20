@@ -104,7 +104,7 @@ class Instance:
         for key in ("MELEE_DEBUG_VS", "MELEE_NET", "MELEE_NET_PLAYER", "MELEE_NET_REPLAY"):
             e.pop(key, None)
         e.update({
-            "SDL_VIDEO_DRIVER": "x11",
+            "SDL_VIDEO_DRIVER": os.environ.get("SDL_VIDEO_DRIVER", os.environ.get("SDL_VIDEODRIVER", "x11")),
             "MELEE_VSYNC": "0",
             "MELEE_NET_PORT": str(port),
             "MELEE_CACHE_DIR": cache,
@@ -461,60 +461,13 @@ def drive_css(a, b, want=1):
     return False
 
 
-# SSS anchors. The scene opens with mnStageSel_804D6CAE = 30, "the cursor is
-# over no cell" (mnstagesel.c:581), and 30 is confirmed by START alone
-# (:193-198) - A cannot commit it. Measured on this build the cursor never
-# leaves 30 at all: /tmp/sf_scenes4 swept the whole clamped cursor range
-# (x [-27,27], y [-19,19], :387-399) with 60 A presses over 6 rows and got not
-# one `sss:` line on either peer, so the cell hit test (:403-417) never
-# matched. Driving the cursor is therefore not a way to pick a stage here, and
-# the row confirms cell 30 instead: online that sends the cell rather than a
-# stage (netStageSel_SendPick, :216-222), both peers exchange picks and the
-# resolve rolls the stage from the shared seed (netStageSel_Random, :97-111,
-# :980-995), so both sides agree without another message.
+# Confirm through just one port: the other peer must see the synchronized input.
 PICKED_RX = re.compile(r"sss: we picked (\d+)")
 
 
 def drive_sss(a, b, want=1):
-    """SSS: one Start on each instance, then let the scene resolve the stage
-    and leave on its own.
-
-    Both instances have to be pressed, unlike every other scene in the flow:
-    online the SSS reads ONLY the local player's port
-    (mnStageSel_804D50A0 = pc_net_local_player(), :585, used at :952-954)
-    because each player picks a stage of their own, so a Start on the host's
-    pad is invisible to the guest's scene. Measured: /tmp/sf_scenes2 pressed
-    only A and got `sss: we picked 30` on a alone, then timed out waiting for
-    b.
-
-    A pick of 30 is only safe to confirm because the resolve re-rolls it
-    through netStageSel_Random; that roll used to be able to land on the
-    RANDOM button itself (entry 29, stkind 0), which starts a match with no
-    stage - measured in /tmp/sf_scenes3 as `sss: picks P1=30 P2=30 -> 30`
-    followed by GmRst/SdRst loads and not one Gr* archive. The stage-archive
-    wait below is what holds that down, and it names the picked cells when it
-    fails so the next reader does not have to re-derive it."""
-    insts = (a, b)
-
-    if not press_until(insts, "Return", 9, r"sss: we picked", want=want, tries=8, each=6.0):
-        print("net_test: no 'sss: we picked' on both after Start on the SSS", flush=True)
-        return False
-    cells = [int(PICKED_RX.findall(i.text())[want - 1]) for i in insts]
-    print(f"net_test: SSS picks a={cells[0]} b={cells[1]}", flush=True)
-    for inst in insts:
-        if not inst.wait_log(r"sss: picks P1=", 30):
-            print(f"net_test: [{inst.name}] the two SSS picks never resolved", flush=True)
-            return False
-    # Nothing else to press: once both picks are in, mnStageSel_804D6CAF
-    # reaches 2 and the scene resolves the stage and leaves on its own
-    # (:980-995). A Start here would land in the loading match and pause it.
-    # Archive logging is only supporting evidence: the printed pick is the
-    # cell before the random-stage fallback, not the final stage id.
-    for inst in insts:
-        note = ("entered a match" if inst.wait_log(SCENE_FILE["match"], 30)
-                else "no stage archive HIT observed; match validity checked separately")
-        print(f"net_test: [{inst.name}] after picks {cells}: {note}", flush=True)
-    return True
+    return press_until((a, b), "Return", 9, r"sss: we picked", want=want,
+                       tries=8, each=6.0)
 
 
 # L+R+A+Start on the pauser's own pad ends a paused VS match as NO CONTEST
@@ -679,15 +632,18 @@ def check_match(inst):
 
 
 def drive_scenes(a, b):
-    """The online set as far as it goes on this build: LAN lobby -> CSS ->
-    SSS -> both picks resolved. Every hop waits for its own evidence (the
-    scene's own archive load, `lobby: entering CSS`, `sss: we picked`,
-    `sss: picks`), and check_scenes() then asserts the two logs agree.
-    It stops at the resolved pick because the match hand-off is broken
-    game-side on this build - see check_scenes' docstring for the measurement
-    - so there is no match to play, quit with L+R+A+Start, or come back round
-    from through the results screen."""
-    return drive_lan(a, b)
+    """Play, leave a match through results, then start a rematch."""
+    if not drive_lan(a, b) or not wait_match((a, b)):
+        return False
+    settle((a, b), 2100)  # require sustained gameplay before ending the game
+    press((a,), "Return", 9, 1.0)
+    if not press_until((a, b), LRAS, 9, r"online: enter RESULTS", tries=4,
+                       each=8.0, on=(a,)):
+        return False
+    if not press_until((a, b), "Return", 9, r"online: enter CSS", want=2,
+                       tries=12, each=5.0):
+        return False
+    return drive_css(a, b, want=2) and drive_sss(a, b, want=2)
 
 
 def check_entry(a, b):
@@ -723,29 +679,7 @@ SNAP_RX = re.compile(r"net:\s+snapshot take [\d.]+ ms \(max [\d.]+, n (\d+)\)")
 
 
 def check_scenes(a, b):
-    """--scenes: what a single log cannot show. Both peers must have elected
-    each other (not a third lobby on the LAN), left the lobby for the CSS on
-    the same frame from the same seed - the one hand-off the flow itself
-    frame-stamps - and resolved their two SSS picks to the same stage. What
-    happens between those anchors is covered by the checksum stream: net.c
-    compares a per-frame checksum with the peer on almost every frame, so "no
-    DESYNC" over the run is the frame-by-frame agreement.
-
-    The set deliberately stops at the resolved stage pick, and this row does
-    NOT assert a match: on this build the online SSS hands the match a stkind
-    of 0 and the stage loader then asks for the file "Gr.dat" - the empty
-    stage name - which is what a stkind of 0 spells. Measured in
-    /tmp/sf_scenes5 on build 0f24e508: `sss: picks P1=30 P2=30 -> 30`, then 20
-    requests for Gr.dat, no real stage archive, and `net: DESYNC at frame
-    4992` on the frame the fighters first appear (both peers dumped
-    p0=(-60,25) p1=(-30,50) m322 s3 at f4993, so the fighters and the 3-stock
-    rules were right and only the stage was not). That is game-side and not
-    this file's to fix; asserting a match here would either fail forever or,
-    worse, be relaxed until it passed on a stageless match.
-
-    The rollback barrier is deliberately NOT compared: it is raised to
-    frame+120 by any game-thread disc request (net.c:1091-1097) and the two
-    sides issue those 1-2 frames apart, measured, so it is not an assertion."""
+    """Require both peers to complete the same frame-exact set flow."""
     fails = []
     for inst, peer in ((a, b), (b, a)):
         got = CONNECT_RX.findall(inst.text())
@@ -764,11 +698,23 @@ def check_scenes(a, b):
         if min(got) < 1:
             fails.append(f"{scene.upper()} loaded {got[0]}/{got[1]} times (want 1 each)")
     picks = [PICKS_RX.findall(inst.text()) for inst in (a, b)]
-    if not all(picks):
-        fails.append(f"{len(picks[0])}/{len(picks[1])} 'sss: picks' lines (want 1 each: both "
+    if min(map(len, picks)) < 2:
+        fails.append(f"{len(picks[0])}/{len(picks[1])} 'sss: picks' lines (want 2 each: both "
                      "peers' picks have to resolve to one stage)")
-    elif picks[0][0] != picks[1][0]:
-        fails.append(f"SSS picks differ: a {picks[0][0]} b {picks[1][0]}")
+    elif picks[0] != picks[1]:
+        fails.append(f"SSS picks differ: a {picks[0]} b {picks[1]}")
+    transitions = [re.findall(r"online: enter (CSS|SSS|VS|RESULTS) at frame (\d+)",
+                              inst.text()) for inst in (a, b)]
+    expected = ["CSS", "SSS", "VS", "RESULTS", "CSS", "SSS", "VS"]
+    for inst, events in zip((a, b), transitions):
+        if [scene for scene, frame in events][:len(expected)] != expected:
+            fails.append(f"{inst.name}: incomplete set flow: {events}")
+        resolved = re.findall(r"sss: resolved cell (\d+) stage (\d+)", inst.text())
+        if not STAGE_RX.search(inst.text()) and not (len(resolved) >= 2 and
+                all(0 <= int(cell) < 29 and 2 <= int(stage) <= 32 for cell, stage in resolved)):
+            fails.append(f"{inst.name}: no valid resolved stage or stage archive loaded")
+    if transitions[0] != transitions[1]:
+        fails.append(f"scene transition frames differ: {transitions}")
     return fails
 
 
@@ -1306,16 +1252,13 @@ def run(args):
             print("net_test: killed a run that would not exit (per-instance FAIL below)",
                   flush=True)
     # Cross-instance assertions belong to neither log; they ride on A's row.
-    # --scenes stops before any match, so the frame-exact match-entry check
-    # has nothing to compare; its frame-exactness is covered there by the
-    # identical `lobby: entering CSS at frame N, seed S` on both peers.
-    extra = [] if args.scenes else check_entry(a, b)
+    extra = check_entry(a, b)
     extra += check_scenes(a, b) if args.scenes else check_oom(a, args.oom) if args.oom else []
     if args.load_stall:
         extra += check_load_stall(a, b)
     results = []
     for inst in (a, b):
-        fails, line, st = summarize(inst, need_match=not args.scenes)
+        fails, line, st = summarize(inst, need_match=True)
         if inst is a:
             fails = fails + extra
         print(line)

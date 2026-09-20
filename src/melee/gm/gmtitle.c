@@ -10,6 +10,8 @@
 #include "types.h"
 
 #ifdef TARGET_PC
+#include <stdlib.h>
+#include "gmboot.h"
 #include "pc/net.h"
 #endif
 #include <melee/db/db.h>
@@ -289,11 +291,21 @@ void gm_Scene_Title_OnFrame(void)
         return;
     }
     frame_count++;
+#ifdef TARGET_PC
+    if (getenv("MELEE_NO_ATTRACT") != NULL || pc_boot_scene() == GM_ONLINE) {
+        if (frame_count > 600) {
+            frame_count = 0;
+        }
+    } else
+#endif
     if (frame_count > 600) {
         tmp = gm_GetCurrentSceneExitData();
         *tmp = 0;
         gm_801A4B60();
-    } else if (input & HSD_PAD_START) {
+        return;
+    }
+
+    if (input & HSD_PAD_START) {
         lbAudioAx_80026F2C(0x1C);
         lbAudioAx_8002702C(0xC, 0);
         lbAudioAx_80027168();

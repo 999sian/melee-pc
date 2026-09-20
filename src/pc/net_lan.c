@@ -182,7 +182,7 @@ static const char* state_txt(void) {
  * so a data-only mod that leaves the FST shape alone (a swapped Pl*.dat of
  * the same size) still matches. Fold in every base FST entry's name and
  * size when that shows up. */
-static const char* disc_id(void) {
+const char* pc_lan_disc_id(void) {
     static char id[9];
     if (id[0] != '\0') {
         return id;
@@ -234,7 +234,7 @@ static void announce_on(int sock, void* buf, size_t cap, bool goodbye) {
             .data.srv = {0, 0, s_port, MSTR(s_hostname)}},
         TXT("v", s_proto),
         TXT("rev", pc_app_rev()),
-        TXT("disc", disc_id()),
+        TXT("disc", pc_lan_disc_id()),
         TXT("id", id),
         TXT("name", s_name),
         TXT("port", port),
@@ -595,7 +595,8 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
     } else if (seen & KBIT(K_OFFER)) {
         return reject(RJ_STRAY);
     }
-    out->e.p.compatible = strcmp(out->rev, pc_app_rev()) == 0 && strcmp(out->disc, disc_id()) == 0;
+    out->e.p.compatible =
+        strcmp(out->rev, pc_app_rev()) == 0 && strcmp(out->disc, pc_lan_disc_id()) == 0;
     return true;
 }
 
@@ -686,7 +687,7 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
             e.p.compatible ? "" : " (incompatible build, not eligible)");
         if (!e.p.compatible) {
             pc_log_line("lan:   theirs: proto %s rev %s disc %s, ours: proto %s rev %s disc %s",
-                t.v, t.rev, t.disc, s_proto, pc_app_rev(), disc_id());
+                t.v, t.rev, t.disc, s_proto, pc_app_rev(), pc_lan_disc_id());
         }
     } else {
         e.last_gen = s_peers[i].last_gen;
@@ -957,7 +958,7 @@ void pc_lan_start(void) {
     s_start_ns = s_announce_ns = SDL_GetTicksNS();
     pc_log_line("lan: %s %s id %016llx proto %s rev %s disc %s game port %u",
         s_no_mcast ? "lobby without mDNS:" : "announcing", s_name, (unsigned long long)s_id,
-        s_proto, pc_app_rev(), disc_id(), s_port);
+        s_proto, pc_app_rev(), pc_lan_disc_id(), s_port);
 }
 
 void pc_lan_stop(void) {

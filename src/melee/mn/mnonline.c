@@ -10,9 +10,7 @@
 #include <melee/lb/lbaudio_ax.h>
 #include <sysdolphin/baselib/gobj.h>
 
-/* VS Mode > Online. LAN Play and Direct Connect enter GM_ONLINE
- * (gmonlinemode.c); the rest are stubs until the DHT rendezvous lands
- * (docs/netcode-plan.md §12). */
+/* VS Mode > Online. Each entry selects its GM_ONLINE lobby mode. */
 
 static const char* const online_labels[] = {
     "LAN PLAY", "DIRECT CONNECT", "RANKED", "UNRANKED", "PROFILE",
@@ -21,10 +19,10 @@ static const char* const online_labels[] = {
 /* <= 44 chars: that is what fits the bottom bar at mnmain.c's font size */
 static const char* const online_descriptions[] = {
     "Play another player on your local network.",
-    "Connect to a friend by address.",
-    "Ranked matchmaking - coming soon.",
-    "Unranked matchmaking - coming soon.",
-    "Your name, code and rating - coming soon.",
+    "Connect to a friend using a connect code.",
+    "Play a rated best-of-three set.",
+    "Find an opponent over the internet.",
+    "View your player identity and connect code.",
 };
 
 static const char* notice;
@@ -86,9 +84,16 @@ void mnOnline_Think(HSD_GObj* gp)
         case SEL_ONLINE_DIRECT:
             enterOnline(ONLINE_KIND_DIRECT);
             break;
+        case SEL_ONLINE_UNRANKED:
+            enterOnline(ONLINE_KIND_UNRANKED);
+            break;
+        case SEL_ONLINE_RANKED:
+            enterOnline(ONLINE_KIND_RANKED);
+            break;
+        case SEL_ONLINE_PROFILE:
+            enterOnline(ONLINE_KIND_PROFILE);
+            break;
         default:
-            lbAudioAx_80024030(3);
-            notice = "Coming soon.";
             break;
         }
     } else if (buttons & MenuInput_Back) {

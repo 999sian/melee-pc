@@ -13,6 +13,9 @@ extern GameModeState gm_Mode_Online_States[];
 typedef enum OnlineKind {
     ONLINE_KIND_LAN = 0,
     ONLINE_KIND_DIRECT = 1,
+    ONLINE_KIND_UNRANKED = 2,
+    ONLINE_KIND_RANKED = 3,
+    ONLINE_KIND_PROFILE = 4,
 } OnlineKind;
 
 void gmOnline_SetKind(OnlineKind kind);

@@ -14,6 +14,42 @@ ninja -C build unit_tests && ctest --test-dir build -L melee --output-on-failure
 CI also runs `python3 tools/check_style.py` and `python3 tools/compile_check.py`
 on every push (see [CODING_STYLE.md](../CODING_STYLE.md)).
 
+## Netplay implementation checks
+
+The Linux unit target includes rollback/RNG/rumble/magnifier regressions,
+ranked rules and durable history, DHT protocol/crypto vectors, quick chat,
+controller sampling, pairing and reliable transport. Standalone fixtures use
+SDL paths from `build/CMakeCache.txt`; set `MELEE_TEST_BUILD` for another build.
+Local UDP tests need loopback socket access.
+
+```sh
+MATCH_RANKED=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_PROOF_TIMEOUT=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_PROOF_MISMATCH=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_COMPLETE=1 python3 tools/test_net_match.py
+MATCH_RANKED=1 MATCH_COMPLETE=1 MATCH_RECOVER=1 python3 tools/test_net_match.py
+python3 tools/test_pe_snapshot.py --wine
+```
+
+Ranked fixtures use an isolated responder with real BEP44 parsing, signatures
+and loopback UDP. They do not establish two-home-NAT connectivity. PE fixtures
+verify Windows section ranges and restores, not a complete Windows match.
+
+For live gameplay (requires your own disc and display):
+
+```sh
+SDL_VIDEO_DRIVER=wayland python3 tools/net_test.py --delay 50 --loss 2 --minutes 1
+SDL_VIDEO_DRIVER=wayland python3 tools/net_test.py --scenes --minutes 2
+```
+
+Use the display backend appropriate to your session. Run live tests sequentially;
+competing game instances and builds affect pacing. The scene test requires both
+peers to enter CSS, SSS, VS, Results, CSS, SSS and VS at matching frame numbers.
+`MELEE_NET_DEBUG=1` adds XFB wait timing and rollback HUD detail;
+`MELEE_NET_JIT=1` enables experimental presentation-informed frame scheduling
+when VSync is enabled. It does not change the 60 Hz simulation cadence.
+Physical button-to-photon comparison still requires hardware measurement.
+
 ## Smoke tests
 
 `tools/smoke_test.py` is the automated end-to-end pass: a table of cases, each
@@ -147,3 +183,28 @@ For "does this union view still alias on LP64", build one probe TU of the real
 headers twice with the project's flags, native and `-m32`, then diff member
 offsets and sizes out of DWARF (`gdb -batch -ex 'ptype /o T'`). Compare byte-range
 intersections, not start offsets.
+
+
+## Platform rollback snapshot checks
+
+Run `python3 tools/test_snapshot_platforms.py -v` for cross-link and restore
+fixtures. Missing cross compilers are reported as skipped, not passes. On
+Linux, the available LLVM tools check macOS Intel, iOS ARM64 and Windows ARM64
+objects and actual CMake adapters, including GCC compiler bridges. Android NDK
+fixtures link with the production ELF script and execute save/mutate/restore;
+ARM64 uses `qemu-aarch64`, x86-64 executes directly. Set `ANDROID_NDK_HOME`,
+`GCC_AARCH64_BIN`, `GCC_X86_64_BIN`, and `LLVM_MINGW` for nondefault toolchains.
+
+On macOS, run `python3 tools/test_snapshot_platforms.py
+SnapshotPlatforms.test_native_mac_restore` on one line. It compiles game
+fixtures through Homebrew GCC, links with native Apple tools, and executes
+snapshot restoration; both macOS CI architectures run it before packaging.
+Windows x86-64 additionally uses `python3 tools/test_pe_snapshot.py --wine`.
+These isolated fixtures do not replace full rollback gameplay on each device.
+
+The platform snapshot compiler wrappers share the audio/worker exclusion list
+in `src/pc/melee_state.ld`. Changes to that ownership list affect every format.
+Mach-O and ARM64 COFF relabeling must preserve all relocation/symbol ordinals
+and zero-fill characteristics. Unknown writable sections and common symbols
+fail the build rather than escaping snapshots. Verification runs before
+packaging strips symbols.

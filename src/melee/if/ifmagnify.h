@@ -20,6 +20,8 @@
 /* 2FC8E8 */ void ifMagnify_802FC8E8(void);
 /* 2FC940 */ void ifMagnify_802FC940(void);
 /* 2FC998 */ bool ifMagnify_802FC998(s32 ply_slot);
+/* Gameplay query: online damage must not depend on the last render pass. */
+bool ifMagnify_IsOffscreenForDamage(s32 ply_slot);
 /* 4A1DE0 */ extern ifMagnify ifMagnify_804A1DE0;
 
 #endif

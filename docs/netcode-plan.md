@@ -5,22 +5,37 @@ Expands ROADMAP.md Phase 4. Everything below is grounded in the current tree
 flow, re-implemented natively; matchmaking and ranked replace Slippi's central
 server with the BitTorrent Mainline DHT and signed, on-device rating records.
 
-**Where this stands.** The wire is v6 (`PC_NET_PROTO_VERSION`, `src/pc/net.h:20`).
-Netplay plays real matches on Linux x86-64 with rollback, and **M0 is met
-between Linux and Windows**: one 2400-frame recording now replays
-bit-identical on both, with the harness's byte-flip sensitivity row still
-firing at exactly the corrupted frame. Windows and the Apple targets still run
-**without** rollback — lockstep for the whole session — and nothing has ever
-run on an Android device. Detail in §4 ("Platforms with no snapshot region"),
-§5.1 (the determinism gate and the divergence that is now closed), §8
-(Android) and §12; the summary:
+**Current implementation checkpoint (2026-09-20, `netplay-finish`).**
+The existing LAN/direct-IP wire remains v6. This branch adds signed internet
+pairing, DHT discovery and BEP44 storage, persistent Ed25519 identities, ranked
+best-of-three sets and signed durable rating history. Older dated findings
+below are retained as investigation history; this checkpoint and §12 describe
+the current implementation.
 
-| Target | Links | Netplay | Rollback | What has actually been run |
-|---|---|---|---|---|
-| Linux x86-64 | yes, with `melee_state.ld` (`CMakeLists.txt:274-278`) | yes | yes | two instances through real matches, 126k in-match frames and 9k rollbacks in the longest run; the M0 reference recording replays bit-identical |
-| Windows x86-64 (MinGW) | yes — **since this batch**; the link used to fail outright on four undefined symbols, and before that the build did not even compile (§4) | yes, lockstep only | no: no snapshot region | the 2400-frame replay is **identical** to the Linux recording (§5.1). Play itself is untested: no two-machine session has been run |
-| macOS / iOS | same as Windows: links, no snapshot region | never run | no | nothing — no macOS host and no osxcross toolchain on this machine |
-| Android arm64 | yes, with `melee_state.ld` (`CMakeLists.txt:279-284`) | code complete, LAN included | yes | nothing on a device or emulator: none attached. Compile-only, reviewed against the API reference (§8) |
+- Rollback now restores the pointed RNG value, advances logical rumble while
+  suppressing/reconciling physical motors, and derives online offscreen damage
+  from simulation camera geometry rather than the last render. Shared stage
+  selection and explicit two-player initialization fix scene-flow defects.
+- Internet Direct uses a friend code; Unranked and Ranked use queue topics.
+  Signed pairing binds compatibility, keys, nonces and endpoints. Public DHT
+  bootstrap reached readiness in about 30 seconds. A separate live BEP44 probe
+  received five PUT acknowledgements and authenticated the exact value on GET.
+  Two different home NATs have not been tested.
+- Ranked uses verified public state before pairing, winner bans/loser picks,
+  dual-signed records and durable append before publication. Both peers confirm
+  saving. Failed publication is retriable, including after restart when the
+  public sequence is older. Timeout is never treated as an empty history.
+- Portable rating math produced identical bits for 4096 updates and 32 signed
+  records on Linux and MinGW/Wine. Full ranked gameplay acceptance is separate
+  from the transport/session fixtures.
+
+| Target | Snapshot implementation | Current evidence |
+|---|---|---|
+| Linux x86-64 | ELF game-state ranges | Live delayed and scene-flow tests; latest acceptance results below |
+| Windows x86-64 GNU MinGW | PE object section rewriting and post-link range verification | Wine restore/pointer/BSS/exclusion fixtures; full Windows game rollback remains unverified |
+| Windows ARM64 | PE section relabeling after the GCC-to-COFF bridge | Linked range/relocation/exclusion and CMake integration fixtures pass; hardware gameplay remains unverified |
+| macOS / iOS | Mach-O simulation data/zerofill sections with linker boundaries | Intel/ARM64 cross-link, iOS GCC bridge, universal-object preservation and CMake integration checks pass; native restore added to macOS CI, device gameplay unverified |
+| Android ARM64 / x86-64 | ELF game-state ranges | NDK-linked save/mutate/restore fixtures pass, ARM64 under QEMU; no new device gameplay acceptance |
 
 Numbers below are labelled with the harness that produced them, and with the
 build, because two defects were fixed mid-batch and several acceptance rows
@@ -140,7 +155,15 @@ so idle noise does not cause rollbacks.
 Measured on a live Link vs Mario match: 5.6 MB, 0.6 ms per snapshot (plain
 memcpy). No dirty tracking needed.
 
-**Platforms with no snapshot region (Windows, macOS, iOS).** `melee_state.ld`
+**Historical platform limitation (superseded on all supported platforms).**
+`cmake/WindowsSnapshot.cmake` supplies ordered PE ranges for x86-64 and ARM64;
+`cmake/AppleSnapshot.cmake` supplies Mach-O ranges for macOS and iOS. Both
+preserve game-object relocations and verify tracked/excluded symbols after
+linking. Linux/Android retain ELF ranges and now verify them after linking too.
+See §16 for implementation and platform-specific evidence. The fallback
+investigation below records the earlier state of the port.
+
+**Original investigation.** `melee_state.ld`
 is a GNU ld script built on `INSERT AFTER`; PE/COFF's GNU ld and ld64 have no
 equivalent, so only the Linux and Android links define the four bracket
 symbols (`CMakeLists.txt:274-292`, which is also where `MELEE_STATE_SECTIONS`
@@ -1506,12 +1529,12 @@ Ordered by expected gain per line of code:
 | M | Deliverable | Acceptance (all runnable, no project-wide suites) | State |
 |---|---|---|---|
 | M0 Determinism | §5 items 1–4, record/replay harness | Same recording replays bit-identical on Linux x86-64, Windows (native), Android; injected 1-ULP libm change is caught | **met between Linux and Windows.** One canonical 2400-frame recording replays identical on both, with a `linux-record` row so a recording defect cannot pass as a platform result, and the injected 1-ULP change is caught at exactly the injected frame (§5, §5.1). Android and macOS could not be run here at all — no device, no host |
-| M1 Local rollback | `gm_RunSimTick`, snapshot ring, resim flag, SFX/music/rumble gates, frame index | "Sync test" mode (`MELEE_NET_SYNCTEST=k`): every frame restore k frames back and re-sim with identical inputs; per-frame checksum equals the straight run for a 5-minute 4-player CPU match; resim cost logged (< 8 ms for 7 frames) | **done on Linux**, and re-simulation fidelity is now audited directly: 32 forced re-runs, 0 checksum mismatches, including ten with a deliberately mispredicted pass first (§13). The sync test's remaining residue is pad bookkeeping the rollback path deliberately does not rewind. Rumble gate still missing; no rollback at all on Windows/Apple, by construction (§4) |
-| M2 Two-player direct | UDP transport, input sync, time sync, desync checksum, `GM_ONLINE` lobby via `MELEE_NET=ip:port` | Two processes on one machine finish a full set (lobby→CSS→SSS→VS→results→CSS) with `tc netem delay 60ms loss 2%` and zero desyncs; HUD shows ping/delay | **most of the way.** Matches at 50 ms constant delay and at 100 ms asymmetric delay now run ~18 700 frames with 1600–2600 rollbacks at depth 8 and no desync, after the two defects of §13; 100/200 ms and long runs still hit a narrower residual defect. The full *set* is blocked separately, game-side, at the SSS (below) |
+| M1 Local rollback | `gm_RunSimTick`, snapshot ring, resim flag, SFX/music/rumble gates, frame index | "Sync test" mode (`MELEE_NET_SYNCTEST=k`): every frame restore k frames back and re-sim with identical inputs; per-frame checksum equals the straight run for a 5-minute 4-player CPU match; resim cost logged (< 8 ms for 7 frames) | Implemented RNG, rumble and render-independent magnifier corrections. Linux regressions pass; Windows GNU x86-64 PE fixture passes under Wine. Apple and Windows ARM64 snapshot sections are implemented and cross-link verified; Android restore fixtures pass. Full platform gameplay acceptance remains separate. |
+| M2 Two-player direct | UDP transport, input sync, time sync, desync checksum, `GM_ONLINE` lobby via `MELEE_NET=ip:port` | Two processes on one machine finish a full set (lobby→CSS→SSS→VS→results→CSS) with `tc netem delay 60ms loss 2%` and zero desyncs; HUD shows ping/delay | Shared SSS and two-player setup implemented. Full scene sequence observed on both peers; final corrected-build live verdict recorded in the checkpoint below. |
 | M3 LAN | mDNS lobby, counter screen, host-owns-rules, barriers, halt-together | Two machines on Wi-Fi find each other without typing anything; unplugging one shows the halt screen on the other within 10 s | **done between two instances on this one machine**, including the lobby-failure paths. *Two physically separate machines have never been tried* — there is only one here — so the Wi-Fi half of the acceptance is unproven |
-| M4 Internet | DHT (jech/dht + BEP 42/44), topics, simultaneous open, Direct + Unranked queues, connect codes | Two home NATs (different ISPs) connect via Direct code with no port forwarding; unranked queue pairs two clients within 60 s; symmetric-NAT failure re-queues with a message | not started |
-| M5 Ranked | identity, Weng-Lin, signed records, BEP 44 publish/verify, ranked set flow, tiers UI | After a Bo3 both clients hold identical rating bits; opponent's published item verifies; a tampered local history is rejected by the peer | not started; §6.4's nonces are freshness, not identity |
-| M6 Latency polish | §11 items 2–4, 7; SFX log dedupe; quick chat; label textures | Measured button→photon latency (LED + high-speed camera or photodiode) at delay 1 ≤ Slippi at delay 2 on the same hardware | not started |
+| M4 Internet | DHT (jech/dht + BEP 42/44), topics, simultaneous open, Direct + Unranked queues, connect codes | Two home NATs (different ISPs) connect via Direct code with no port forwarding; unranked queue pairs two clients within 60 s; symmetric-NAT failure re-queues with a message | Implemented. Real public bootstrap and authenticated BEP44 PUT/GET passed; signed local UDP pairing passes. Two-home-NAT acceptance remains unverified. |
+| M5 Ranked | identity, Weng-Lin, signed records, BEP 44 publish/verify, ranked set flow, tiers UI | After a Bo3 both clients hold identical rating bits; opponent's published item verifies; a tampered local history is rejected by the peer | Implemented with proof-gated pairing, deterministic rules, dual signatures, durable-save confirmation and retriable publication. Session/transport fixtures and Linux/Windows rating bit comparison pass; full live ranked set remains unverified. |
+| M6 Latency polish | §11 items 2–4, 7; SFX log dedupe; quick chat; label textures | Measured button→photon latency (LED + high-speed camera or photodiode) at delay 1 ≤ Slippi at delay 2 on the same hardware | Late local polling implemented; early/repeated sends and audio journal already exist. Quick chat/native display and opponent HUD implemented. Optional just-in-time pacing and XFB wait diagnostics added; physical button-to-photon comparison remains unmeasured. |
 
 ### 12.1 Retracted numbers
 
@@ -1978,7 +2001,7 @@ to the objdump gate allowlist in `tools/package_windows.sh`).
   the synctest is comparing state the engine is not supposed to restore. It
   should be excluded from that comparison or documented there, because as it
   stands it makes the sync test look permanently broken.
-- **No rollback on Windows or Apple** (§4): `melee_state.ld` is ELF-only, so
+- **Historical finding, superseded by the cross-platform implementation above: no rollback on Windows or Apple** (§4): `melee_state.ld` is ELF-only, so
   those sessions are lockstep for their whole life. That is a linker
   limitation with a named upgrade path, not a design decision, and it is the
   first thing a Windows player will notice as extra input delay.
@@ -2019,7 +2042,7 @@ to the objdump gate allowlist in `tools/package_windows.sh`).
 - **Android**: PC layer is clang, game code is GCC; the audio/mtx FP fixes in §5 cover it, and the LAN path now compiles for `aarch64-none-linux-android26`, but nothing has run on a device (§8) and M0's cross-platform replay is still the gate before promising Android↔desktop play. Local Network Protections (Android 17 / SDK 37) will require `ACCESS_LOCAL_NETWORK` or a different discovery UX.
 - **DHT dependence on public bootstrap routers** — mitigated by persisted nodes + shipped seed list; LAN peers also seed.
 - **Rating honesty** — §9 is explicit: verifiable, not cheat-proof. Don't market it as anti-cheat.
-- **Handshake identity** — §6.4 is freshness only. An on-path attacker can still forge either side until the M5 signed handshake exists.
+- **Handshake identity** — internet pairing now verifies Ed25519 signatures and pins the selected full key/endpoint/nonce. Compact friend codes contain only 20 key bits; they are rendezvous identifiers, not independently verified contact identities. Legacy LAN/IP retains its original trust model.
 - **Menu lockstep feel** at high RTT (CSS at ~6 frames delay). Slippi's lock-in UI is the fallback if it feels bad.
 - **Memory-card/unlock state** must not diverge mid-match; only results-time writes are allowed while synced.
 - **Long-run behaviour is unmeasured**: the 60-minute soak has never been run (§12.2), so nothing is known about drift, leaks or snapshot cost over an hour.
@@ -2032,3 +2055,77 @@ to the objdump gate allowlist in `tools/package_windows.sh`).
 - Double Dash: `doldecomp/mkdd` `configure.py` L571-574, L620-646, L1245-1269; `src/Osako/NetGateApp.cpp`, `LANSelectMode.cpp`; `include/Osako/NetGameMgr.h`; Nintendo MKDD LAN guide (nintendo.ca PDF).
 - Rating: Weng & Lin, "A Bayesian Approximation Method for Online Ranking", JMLR 2011 (OpenSkill). TrueSkill patent US7050868 (expired 2025-01-24).
 - Libraries: libjuice README (MPL-2.0, MinGW/Android), ENet `CMakeLists.txt`, Monocypher `LICENCE.md`, mjansson/mdns README, Android `WifiManager.MulticastLock`.
+
+## 15. Implementation verification, 2026-09-20
+
+The magnifier correction addresses both earlier observed failures: offscreen
+1% damage depended on a render-written flag while rollback skips rendering.
+The regression fails with that old predicate and passes with simulation-camera
+geometry. The corrected game completed these sequential local tests:
+
+| Test | Evidence | Result |
+|---|---|---|
+|50ms outgoing delay,2% loss | `/tmp/netplay-finish-delay3`: over 12,200 in-match frames on both peers; 902/1,155 rollbacks; no lost rollback or desync | PASS |
+|Full scene flow and rematch | `/tmp/netplay-finish-scenes3`: both peers CSS 140, SSS 873, VS 1265, RESULTS 4600, CSS 5057, SSS 5827, VS 6264; completes 16,200-frame budget | PASS |
+|Public mutable storage | `/tmp/melee-dht-item-probe.log`: five PUT acknowledgements; independent authenticated GET of exact 36-byte value,sequence 1 | PASS |
+|Public immutable storage | Random temporary value, six PUT acknowledgements; independent exact 69-byte GET by target | PASS |
+|Windows section restore | `tools/test_pe_snapshot.py --wine`: normal/per-symbol data/BSS, relocated pointers and excluded engine/audio state | PASS |
+
+The final combined build, including late input polling, quick chat and
+ranked-history changes, also passed the full 16,200-frame scene/rematch run
+(`/tmp/netplay-finish-scenes-fixed`). A Results-transition crash exposed by an
+earlier combined run was fixed by validating chat text ownership after SIS
+pool resets, with a dedicated lifecycle regression. The final binary also passed
+a 10,800-frame run with 50 ms delay and 2% injected loss
+(`/tmp/netplay-finish-delay-final`), with 741/756 rollbacks and no desync or lost
+rollback. Original acceptance still requires
+two home NATs, complete Windows/Android/Apple platform runs where applicable,
+a long soak, and physical button-to-photon measurement. A successful public
+DHT probe is not evidence of NAT traversal or a complete ranked game.
+
+Ranked remains a community rating. Public state authenticity does not prove
+all historical claims from a previously unknown identity, and collusion and
+new identities remain possible. Known double-signed results are used to reject
+rollback or forked peer history. New unreleased record/history format 2 uses a
+BEP44 immutable target padded to 32 bytes as its chain locator; incompatible
+older files are rejected rather than silently migrated or reset.
+
+Automatic delay remains the conservative jitter-aware 1–4-frame policy;
+manual 0–4 is available. Optional `MELEE_NET_JIT=1` uses presentation period and
+CPU-frame estimates with a 1 ms margin; it is not enabled by default without
+physical latency evidence. `MELEE_NET_DEBUG=1` reports XFB wait time rather than
+bypassing the queue. Native text supplies menu labels and chat instructions.
+
+
+## 16. All-platform rollback follow-up, 2026-09-20
+
+Supported Linux, Windows x86-64/ARM64, macOS Intel/Apple Silicon, iOS ARM64,
+and Android ARM64/x86-64 builds now provide simulation snapshot ranges. The
+build requires this support and checks representative included game globals
+and excluded audio/engine globals in every final image. Runtime allocation
+failure and the explicit rollback-off debug switch retain their safe fallback;
+menus and scene transitions still deliberately wait for synchronized inputs.
+
+Apple compiler output is relabeled in place into `__DATA,__melee_data` and
+`__DATA,__melee_bss`; no object contents, offsets, relocation records or symbol
+ordinals change. Linker section boundaries automatically follow ASLR. Both
+thin and universal 64-bit objects are supported. Common allocations and
+unhandled writable/thread-local sections fail the compile. The existing GCC
+bridge remains responsible for on-disc scalar storage order.
+
+Windows ARM64 uses the same sorted PE ranges as x86-64. Its compiler bridge now
+preserves `.local` + `.comm` as local allocated BSS rather than accidentally
+creating global common symbols. The LLVM COFF adapter changes only section
+header names, since LLVM objcopy cannot perform COFF section renaming.
+
+Android already enabled rollback through ELF ranges. Its compiler launcher now
+selects the x86-64 GCC/sysroot for the x86-64 preset instead of always emitting
+ARM64 objects. NDK-linked restore fixtures exercise both architectures, with
+QEMU used only for the ARM64 fixture. This is not device gameplay evidence.
+
+`tools/test_snapshot_platforms.py` checks real objects, compiler bridges,
+CMake integration, link-time boundaries, exclusions, universal-object byte
+preservation and Android restore. Native macOS restore is added to the macOS
+build workflow and requires that runner; Windows x86-64 restore still passes
+under Wine. Full matches on Apple, Windows ARM64 and Android devices remain
+acceptance work requiring those platforms.

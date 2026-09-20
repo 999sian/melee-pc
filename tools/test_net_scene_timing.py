@@ -14,6 +14,7 @@ test_net_resume.c. Its lb_80019A30 stub returns false, causing an expected
 is the timing observation. Production sources remain unchanged by mutation.
 """
 from pathlib import Path
+from net_test_support import sdl_includes
 import subprocess
 import tempfile
 
@@ -139,8 +140,7 @@ int main(void) {
 '''.replace("HARNESS", str(ROOT / "tools/test_net_resume.c")).replace("GATE", gate).replace("DISPATCH", dispatch)
 
 includes = [ROOT / "extern/aurora/include", ROOT / "src", ROOT / "src/sdk_include",
-            ROOT / "build/_deps/sdl-build/include-revision",
-            ROOT.parent / "melee-pc/build/_deps/sdl-src/include"]
+            *sdl_includes(ROOT)]
 with tempfile.TemporaryDirectory(prefix="net_scene_timing_") as work:
     work = Path(work)
     harness = (ROOT / "tools/test_net_resume.c").read_text()

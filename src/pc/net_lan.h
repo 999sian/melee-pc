@@ -51,6 +51,7 @@ bool pc_lan_discovery_unavailable(void);
 
 /* Our own display name, the same one the announce carries (hostname). */
 const char* pc_lan_local_name(void);
+const char* pc_lan_disc_id(void);
 
 /* Local player pressed Start: we advertise state=ready. If a ready peer with
  * a lower install id exists it hosts and we join; otherwise we host the

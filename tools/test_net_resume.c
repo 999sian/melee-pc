@@ -132,6 +132,7 @@ void net_watchdog_arm(void) {}
 void net_watchdog_tick(int32_t frame) {
     (void)frame;
 }
+void net_watchdog_heartbeat(void) {}
 int aurora_dvd_inflight(void) {
     return 0;
 }
@@ -328,6 +329,11 @@ BOOL OSDisableInterrupts(void) {
 }
 BOOL OSRestoreInterrupts(BOOL level) {
     return level;
+}
+
+u32 PADRead(PADStatus* pads) {
+    memset(pads, 0, 4 * sizeof(*pads));
+    return 0;
 }
 
 void PADControlMotor(u32 chan, u32 cmd) {

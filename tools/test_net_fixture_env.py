@@ -6,9 +6,18 @@ import unittest
 from unittest.mock import patch
 
 import net_test
+from net_test_support import standalone_compile_args
 
 
 class FixtureEnvironmentTest(unittest.TestCase):
+    def test_standalone_compiler_cannot_write_build_dependencies(self):
+        entry = {"file": "/source/game.c", "arguments": [
+            "cc", "-I/source include", "-DTARGET_PC=1", "-MD", "-MMD", "-MP",
+            "-MF", "build/game.d", "-MTbuild/game.o", "-MQ", "build/game.o",
+            "-DNDEBUG", "-o", "build/game.o", "-c", "/source/game.c"]}
+        self.assertEqual(standalone_compile_args(entry),
+                         ["cc", "-I/source include", "-DTARGET_PC=1"])
+
     def test_inherited_mode_settings_cannot_override_selected_mode(self):
         polluted = {
             "MELEE_DEBUG_VS": "cpu",

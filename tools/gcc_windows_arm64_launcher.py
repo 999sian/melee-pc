@@ -131,6 +131,14 @@ try:
     with open(temp_s, 'r', encoding='utf-8', errors='replace') as f:
         lines = f.readlines()
 
+    # ELF .local + .comm is allocated BSS, even with -fno-common. COFF
+    # must retain that allocation instead of turning it into a global COMMON
+    # symbol (which lives outside the rollback sections and changes linkage).
+    local_symbols = set()
+    for line in lines:
+        match = re.match(r'\s*\.local\s+(\S+)', line)
+        if match:
+            local_symbols.add(match.group(1))
     new_lines = []
     for line in lines:
         s = line.strip()
@@ -138,6 +146,15 @@ try:
             continue
         if '.note.GNU-stack' in s:
             continue
+
+        common = re.match(r'\s*\.comm\s+([^,\s]+)\s*,\s*(\d+)\s*,\s*(\d+)', line)
+        if common and common.group(1) in local_symbols:
+            symbol, size, alignment = common.groups()
+            alignment = int(alignment)
+            if alignment < 1 or alignment & (alignment-1):
+                sys.exit('gcc_windows_arm64_launcher: invalid local common alignment')
+            line = (f'\t.pushsection .bss,"bw"\n\t.p2align {alignment.bit_length()-1}\n'
+                    f'{symbol}:\n\t.space {size}\n\t.popsection\n')
 
         if s.startswith('.section'):
             if '.rodata' in s:

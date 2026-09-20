@@ -55,11 +55,17 @@ int main(int argc, char** argv) {
     assert(prefs.disc.empty() && prefs.vsync && !prefs.fullscreen && prefs.scale == 1.0f &&
            !prefs.free_camera);
     prefs.disc = (dir / "quoted \"disc\".iso").string();
+    prefs.net_name = "ALICE";
+    prefs.net_target = "BOB#ABCD";
+    prefs.net_delay = 3;
+    prefs.net_port = 42123;
     prefs.fullscreen = true;
     prefs.scale = 1.25f;
     std::string error;
     assert(save_preferences(config, prefs, error));
     auto loaded = load_preferences(config);
+    assert(loaded.net_name == "ALICE" && loaded.net_target == "BOB#ABCD");
+    assert(loaded.net_delay == 3 && loaded.net_port == 42123);
     assert(loaded.disc == prefs.disc && loaded.fullscreen && loaded.scale == 1.25f &&
            !loaded.free_camera);
     {

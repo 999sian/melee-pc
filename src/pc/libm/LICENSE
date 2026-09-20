@@ -30,3 +30,7 @@ The math library code (src/math/*) is Copyright © 1993,2004 Sun
 Microsystems or Copyright © 2003-2009 Bruce D. Evans and labelled as
 such in comments in the individual source files; all have been licensed
 under extremely permissive terms (the notices are preserved in each file).
+
+The pc_rank_exp.c and pc_rank_sqrt.c additions are from musl v1.1.15
+(src/math/exp.c and sqrt.c), with exported symbols renamed and an unsigned
+exponent shift used in sqrt to avoid shifting a negative signed value.

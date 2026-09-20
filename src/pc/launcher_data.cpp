@@ -309,7 +309,26 @@ Preferences load_preferences(const std::filesystem::path& path) {
         std::istringstream row(line);
         std::string key;
         row >> key;
-        if (key == "disc") {
+        if (key == "net_name" || key == "net_target") {
+            std::string value;
+            if (row >> std::quoted(value)) {
+                bool valid = value.size() <= (key == "net_name" ? 8u : 13u);
+                for (char& c : value) {
+                    if (c >= 'a' && c <= 'z')
+                        c -= 'a' - 'A';
+                    if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                            (key == "net_target" && c == '#')))
+                        valid = false;
+                }
+                if (valid && (key != "net_name" || !value.empty()))
+                    (key == "net_name" ? prefs.net_name : prefs.net_target) = value;
+            }
+        } else if (key == "net_delay" || key == "net_port") {
+            int value;
+            if (row >> value && value >= (key == "net_delay" ? -1 : 0) &&
+                value <= (key == "net_delay" ? 4 : 65535))
+                (key == "net_delay" ? prefs.net_delay : prefs.net_port) = value;
+        } else if (key == "disc") {
             std::string value;
             if (row >> std::quoted(value))
                 prefs.disc = value;
@@ -395,6 +414,9 @@ bool save_preferences(
         return false;
     }
     std::ostringstream text;
+    text << "net_name " << std::quoted(prefs.net_name) << "\nnet_target "
+         << std::quoted(prefs.net_target) << "\nnet_delay " << prefs.net_delay << "\nnet_port "
+         << prefs.net_port << "\n";
     text << "disc " << std::quoted(prefs.disc) << "\nvsync " << prefs.vsync << "\nfullscreen "
          << prefs.fullscreen << "\nscale " << prefs.scale << '\n'
          << "render_scale " << prefs.render_scale << "\nvolume " << prefs.volume << "\nmsaa "

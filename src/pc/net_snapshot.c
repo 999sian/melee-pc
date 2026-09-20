@@ -272,22 +272,11 @@ const char* state_line(int32_t frame) {
  *   3. the RNG seed pointer (aurora-side static the game redirects).
  * ponytail: plain memcpy each time; dirty tracking only if the measured cost
  * breaks the rollback budget. */
-/* src/pc/melee_state.ld brackets the decomp's statics, but only the ELF links
- * take it (CMakeLists.txt: Linux and Android). GNU ld for PE/COFF and ld64
- * have no INSERT AFTER, so on Windows and Apple the four symbols have no
- * definition: without them the link fails outright, and defining them as an
- * empty span would be worse — snapshot_take would happily copy the heaps and
- * silently omit every static, i.e. rollback into a desync. So they are
- * defined here as an empty span on those platforms and snapshot_take refuses,
- * which drops the session to lockstep for good (net.c snap_predicted raises
- * the barrier to INT32_MAX). Netplay works there, at lockstep latency.
- * ponytail: no rollback on Windows/Apple until the region is named another
- * way; the upgrade path is per-object section renaming with objcopy at
- * archive level, or a PE linker script if GNU ld accepts SECTIONS/INSERT for
- * that target. */
+/* ELF, PE and Mach-O builds all provide simulation-only static ranges.
+ * Keep the missing-region guard for isolated fixtures/invalid images; normal
+ * project builds require section support and validate their boundaries. */
 #ifdef MELEE_STATE_SECTIONS
-extern char __melee_data_start[], __melee_data_end[];
-extern char __melee_bss_start[], __melee_bss_end[];
+#include "melee_state.h"
 #else
 static char s_no_state_region;
 #define __melee_data_start (&s_no_state_region)
@@ -430,6 +419,7 @@ void snapshot_restore(const Snapshot* s) {
         p += s->regions[i].len;
     }
     HSD_RandSeedPtr = s->seed_ptr;
+    *HSD_RandSeedPtr = s->seed_val;
     OSRestoreInterrupts(intr);
     uint64_t dt = SDL_GetTicksNS() - t0;
     s_restore_ns += dt;
@@ -477,14 +467,83 @@ void snap_stats_report(void) {
     s_resim_n_max = 0;
 }
 
+/* rollback_to carries the live PadLibData bookkeeping and raw queue across a
+ * restore, but rewinds rumble ownership from the snapshot. Ignore exactly
+ * those carried bytes; controller-derived statuses and rumble remain part of
+ * the deterministic state checked by the sync test. */
+typedef struct SynctestIgnoredSpan {
+    const void* ptr;
+    size_t len;
+} SynctestIgnoredSpan;
+
+static int synctest_ignored_spans(SynctestIgnoredSpan spans[3]) {
+    size_t rumble = offsetof(PadLibData, rumble_info);
+    spans[0] = (SynctestIgnoredSpan){&HSD_PadLibData, rumble};
+    size_t after_rumble = rumble + sizeof HSD_PadLibData.rumble_info;
+    spans[1] = (SynctestIgnoredSpan){
+        (uint8_t*)&HSD_PadLibData + after_rumble, sizeof HSD_PadLibData - after_rumble};
+    int qn = HSD_PadLibData.qnum > 8 ? 8 : HSD_PadLibData.qnum;
+    spans[2] = (SynctestIgnoredSpan){HSD_PadLibData.queue,
+        HSD_PadLibData.queue != NULL ? (size_t)qn * sizeof *HSD_PadLibData.queue : 0};
+    return 3;
+}
+
+static bool synctest_ignored_byte(const void* ptr) {
+    uintptr_t p = (uintptr_t)ptr;
+    SynctestIgnoredSpan spans[3];
+    int nspans = synctest_ignored_spans(spans);
+    for (int i = 0; i < nspans; i++) {
+        uintptr_t lo = (uintptr_t)spans[i].ptr;
+        if (p >= lo && p - lo < spans[i].len) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static int synctest_memcmp(const void* current, const void* saved, size_t len) {
+    const uint8_t* a = current;
+    const uint8_t* b = saved;
+    for (size_t i = 0; i < len; i++) {
+        if (!synctest_ignored_byte(a + i) && a[i] != b[i]) {
+            return a[i] < b[i] ? -1 : 1;
+        }
+    }
+    return 0;
+}
+
 /* Hash of the same regions a snapshot covers, taken fresh from memory. */
 static uint64_t state_hash(void) {
     Region r[MAX_REGIONS];
     int n = regions_now(r);
+    SynctestIgnoredSpan ignored[3];
+    int nignored = synctest_ignored_spans(ignored);
     XXH3_state_t* st = XXH3_createState();
     XXH3_64bits_reset(st);
     for (int i = 0; i < n; i++) {
-        XXH3_64bits_update(st, r[i].ptr, r[i].len);
+        uintptr_t cursor = (uintptr_t)r[i].ptr;
+        uintptr_t end = cursor + r[i].len;
+        while (cursor < end) {
+            uintptr_t next = end;
+            uintptr_t skip_end = cursor;
+            for (int j = 0; j < nignored; j++) {
+                uintptr_t lo = (uintptr_t)ignored[j].ptr;
+                uintptr_t hi = lo + ignored[j].len;
+                if (cursor >= lo && cursor < hi) {
+                    if (hi > skip_end) {
+                        skip_end = hi;
+                    }
+                } else if (lo > cursor && lo < next) {
+                    next = lo;
+                }
+            }
+            if (skip_end > cursor) {
+                cursor = skip_end < end ? skip_end : end;
+            } else {
+                XXH3_64bits_update(st, (const void*)cursor, next - cursor);
+                cursor = next;
+            }
+        }
     }
     XXH3_64bits_update(st, HSD_RandSeedPtr, sizeof(u32));
     uint64_t h = XXH3_64bits_digest(st);
@@ -539,7 +598,7 @@ static void snapshot_diff(const Snapshot* s) {
         const Region* r = &s->regions[i];
         for (size_t off = 0; off < r->len; off += 64) {
             size_t n = r->len - off < 64 ? r->len - off : 64;
-            if (memcmp((uint8_t*)r->ptr + off, p + off, n) != 0) {
+            if (synctest_memcmp((uint8_t*)r->ptr + off, p + off, n) != 0) {
                 tally_add(r->name, (uint8_t*)r->ptr + off);
             }
         }

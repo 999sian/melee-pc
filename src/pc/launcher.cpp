@@ -6,6 +6,9 @@
 #include "discfont.h"
 #include "version.hpp"
 #include "updater.hpp"
+#include "net_match.h"
+#include "net.h"
+#include <RmlUi/Core/Elements/ElementFormControl.h>
 #include <aurora/dvd.h>
 #include <aurora/event.h>
 #include <aurora/gfx.h>
@@ -34,6 +37,44 @@
 namespace {
 launcher::Preferences prefs;
 std::filesystem::path config_path;
+
+void refresh_online(Rml::ElementDocument* doc) {
+    pc_net_set_input_delay(prefs.net_delay);
+    for (const auto& pair :
+        {std::pair{"net-name", prefs.net_name}, std::pair{"net-target", prefs.net_target}})
+    {
+        if (auto* e = dynamic_cast<Rml::ElementFormControl*>(doc->GetElementById(pair.first)))
+            e->SetValue(pair.second);
+    }
+    if (auto* e = doc->GetElementById("net-delay"))
+        e->SetInnerRML(prefs.net_delay < 0 ? "Auto" : std::to_string(prefs.net_delay) + " frames");
+    if (auto* e = doc->GetElementById("net-code"))
+        e->SetInnerRML(pc_net_match_local_code());
+}
+bool change_online(Rml::Event& event) {
+    auto* target = event.GetTargetElement();
+    if (!target)
+        return false;
+    auto id = target->GetId();
+    if (id != "net-name" && id != "net-target")
+        return false;
+    auto value = event.GetParameter<Rml::String>("value", "");
+    const size_t limit = id == "net-name" ? 8 : 13;
+    if (value.size() > limit)
+        return true;
+    for (char& c : value) {
+        if (c >= 'a' && c <= 'z')
+            c -= 'a' - 'A';
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (id == "net-target" && c == '#')))
+            return true;
+    }
+    if (id == "net-name") {
+        if (!value.empty())
+            prefs.net_name = value;
+    } else
+        prefs.net_target = value;
+    return true;
+}
 
 const char* filter_name(int mode) {
     // Mode 0 is the plain present blit -- no effect at all, so it is the
@@ -66,9 +107,11 @@ int backend_next(int mode) {
 #endif
 }
 
-constexpr const char* tab_ids[] = {"tab-graphics", "tab-audio", "tab-cheats", "tab-controls"};
-constexpr const char* page_ids[] = {"page-graphics", "page-audio", "page-cheats", "page-controls"};
-constexpr int tab_count = 4;
+constexpr const char* tab_ids[] = {
+    "tab-graphics", "tab-audio", "tab-cheats", "tab-controls", "tab-online"};
+constexpr const char* page_ids[] = {
+    "page-graphics", "page-audio", "page-cheats", "page-controls", "page-online"};
+constexpr int tab_count = 5;
 int tab_index(const Rml::String& id) {
     for (int i = 0; i < tab_count; ++i)
         if (id == tab_ids[i])
@@ -191,6 +234,8 @@ class Launcher final : public Rml::EventListener {
                 "check-now", "settings-discord"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
+        case 4:
+            return {"net-name", "net-target", "net-delay"};
         default:
             return {};
         }
@@ -278,6 +323,7 @@ class Launcher final : public Rml::EventListener {
         if (!settings)
             return;
         quiet = true;
+        refresh_online(document);
         text("display", prefs.fullscreen ? "Fullscreen" : "Windowed");
         const char* override = std::getenv("MELEE_VSYNC");
         const bool effective_vsync = override ? override[0] != '0' : prefs.vsync;
@@ -376,6 +422,12 @@ class Launcher final : public Rml::EventListener {
         controls();
     }
     void action(const std::string& id) {
+        if (id == "net-delay") {
+            prefs.net_delay = prefs.net_delay == 4 ? -1 : prefs.net_delay + 1;
+            save();
+            refresh_settings();
+            return;
+        }
         if (id == "quit") {
             result = 0;
             cancel = true;
@@ -636,6 +688,10 @@ public:
             auto* target = event.GetTargetElement();
             if (!target || quiet)
                 return;
+            if (change_online(event)) {
+                save();
+                return;
+            }
             auto id = target->GetId();
             if (id == "volume") {
                 prefs.volume =
@@ -908,6 +964,7 @@ public:
 extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config_path = std::filesystem::path(config->userPath ? config->userPath : ".") / "launcher.cfg";
     prefs = launcher::load_preferences(config_path);
+    pc_net_set_input_delay(prefs.net_delay);
     if (prefs.install_id == 0) {
         prefs.install_id = std::random_device{}() | uint64_t(std::random_device{}()) << 32 | 1;
         std::string error;
@@ -1111,6 +1168,8 @@ public:
                 "port-check-update"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
+        case 4:
+            return {"net-name", "net-target", "net-delay"};
         default: {
             std::vector<std::string> ids{"pad-port"};
             for (int i = 0; i < PAD_BUTTON_COUNT; ++i)
@@ -1201,6 +1260,7 @@ public:
     }
     void refresh() {
         quiet = true;
+        refresh_online(document);
         label("display", VIGetWindowFullscreen() ? "Fullscreen" : "Windowed");
         label("sync", std::getenv("MELEE_VSYNC") ? "Environment override" :
                       prefs.vsync                ? "On" :
@@ -1338,6 +1398,12 @@ public:
         refresh_bindings();
     }
     void apply(const Rml::String& id) {
+        if (id == "net-delay") {
+            prefs.net_delay = prefs.net_delay == 4 ? -1 : prefs.net_delay + 1;
+            saved();
+            refresh();
+            return;
+        }
         if (id == "resume") {
             toggle();
             return;
@@ -1587,6 +1653,10 @@ public:
         }
         if (event.GetId() == Rml::EventId::Change) {
             auto* target = event.GetTargetElement();
+            if (target && !quiet && change_online(event)) {
+                saved();
+                return;
+            }
             if (target && !quiet)
                 drag(target->GetId(), event.GetParameter<float>("value", 0.0f));
             return;
@@ -1691,4 +1761,22 @@ extern "C" float pc_get_music_volume(void) {
 }
 extern "C" float pc_get_sfx_volume(void) {
     return prefs.sfx_volume;
+}
+
+extern "C" const char* pc_get_net_name(void) {
+    return prefs.net_name.c_str();
+}
+extern "C" const char* pc_get_net_target(void) {
+    return prefs.net_target.c_str();
+}
+extern "C" int pc_get_net_port(void) {
+    const char* env_port = getenv("MELEE_NET_PORT");
+    if (env_port && *env_port) {
+        int p = std::atoi(env_port);
+        if (p > 0 && p < 65536) return p;
+    }
+    return prefs.net_port;
+}
+extern "C" int pc_get_net_delay(void) {
+    return prefs.net_delay;
 }
