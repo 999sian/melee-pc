@@ -6,11 +6,11 @@ import subprocess
 import re
 import signal
 
-EXE = "./build/melee"
-DISC = "melee.ciso"
+EXE = os.environ.get("MELEE_EXE", "./build/melee")
+DISC = os.environ.get("MELEE_DISC", "../melee.ciso")
 FIFO = "/tmp/pc_lan.keys"
 LOG = "/tmp/pc_lan.log"
-SERIAL = "R9TR20NR6YJ"
+SERIAL = os.environ.get("ANDROID_SERIAL", "R9TR20NR6YJ")
 
 def logcat_melee():
     res = subprocess.run(["adb", "-s", SERIAL, "logcat", "-d", "-s", "Melee:V"],

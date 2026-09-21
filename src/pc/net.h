@@ -18,8 +18,11 @@ extern "C" {
 /* Wire protocol version; a peer with another one is refused (both sides
  * report PEER_INCOMPATIBLE). Bump on any change to the packet layouts,
  * Rules or the handshake. */
-/* Version 6 requires sequenced scene exits and acknowledged LAN election. */
-#define PC_NET_PROTO_VERSION 6
+/* Version 6 requires sequenced scene exits and acknowledged LAN election.
+ * Version 7 adds the sender's frame advantage to every input packet; the
+ * phase controller acts on the difference of the two, so a peer that does
+ * not send one cannot be synchronised against. */
+#define PC_NET_PROTO_VERSION 7
 void pc_net_init(void);
 void pc_net_set_input_delay(int frames);
 bool pc_net_active(void);
@@ -78,9 +81,10 @@ void pc_net_sync(void);
 bool pc_net_after_tick(bool scene_ending);
 
 /* Called by the frame boundary (src/pc/vi.c) after the pad alarm ran; the
- * returned ns are added to the next pacing wait. Continuous micro-nudging
- * (±0.75%) gently eliminates clock drift without dropped frames or stalls. */
-int64_t pc_net_pace_adjust_ns(void);
+ * returned ns are added to the next pacing wait. Time-sync corrections are
+ * paid here rather than by sleeping inside a tick, and only ever lengthen a
+ * frame: the peer that is behind is caught by the one ahead slowing down. */
+uint64_t pc_net_pace_adjust_ns(void);
 
 /* True while re-simulating: sound/music/rumble starts must be suppressed. */
 bool pc_net_resim(void);

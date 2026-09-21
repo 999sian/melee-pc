@@ -89,6 +89,27 @@ def fifo_write(path, line, tries=100):
         f.write(line + "\n")
 
 
+def wait_port_free(port, timeout=30):
+    """Block until `port` can be bound, or give up. The previous run's
+    instances hold their UDP port through aurora's GPU teardown, which takes
+    seconds; starting on top of that makes the new instances fail to bind and
+    play unconnected offline games that look like a desync."""
+    import socket
+    deadline = time.time() + timeout
+    while True:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.bind(("", port))
+            return True
+        except OSError:
+            if time.time() > deadline:
+                print(f"net_test: UDP {port} still in use after {timeout}s", flush=True)
+                return False
+            time.sleep(0.5)
+        finally:
+            s.close()
+
+
 class Instance:
     def __init__(self, name, exe, disc, work, port, peer_port, env, lan):
         self.name = name
@@ -646,6 +667,19 @@ def drive_scenes(a, b):
     return drive_css(a, b, want=2) and drive_sss(a, b, want=2)
 
 
+def check_delay(a, b):
+    """Auto delay is decided by one side and applied by frame number, so both
+    peers must land every change on the same frame (net_sync.c delay_apply).
+    A peer that applies one early or late writes its local sample into a
+    different ring slot than the other expects, which is the fairness half of
+    a desync and the half a checksum never sees. The menu/fight split makes
+    this fire several times a match instead of never, so it is worth pinning."""
+    applied = [re.findall(r"net: delay (\d+) -> (\d+) at frame (\d+)", i.text()) for i in (a, b)]
+    if applied[0] != applied[1]:
+        return [f"peers applied different delays: a {applied[0]} b {applied[1]}"]
+    return []
+
+
 def check_entry(a, b):
     """Both peers must have entered the match on the same frame. Inputs are
     synced and the clocks are locked together, so the scene hand-off is
@@ -822,6 +856,16 @@ def summarize(inst, need_match=True):
     fails = []
     if not re.search(r"net: test done at frame (\d+)", text):
         fails.append("no 'net: test done'")
+    # A session that never came up makes every other number in this row
+    # meaningless: the instance plays a normal offline game, its checksum
+    # stream moves, check_match() sees a match, and the row reads like a
+    # netplay result. The usual cause is the previous run's processes still
+    # holding the UDP port, which looks from the outside exactly like two
+    # peers that went out of sync.
+    if re.search(r"net: bind\(\d+\) failed", text):
+        fails.append("netplay never started: bind failed (port still in use?)")
+    elif not re.search(r"net: rollback with ", text):
+        fails.append("netplay never started: no session line")
     if inst.proc.returncode != 0:
         fails.append(f"exit code {inst.proc.returncode}")
     # "peer silent" has to be the whole leaving-netplay line, not a substring:
@@ -1176,6 +1220,8 @@ def run(args):
         # field by field (src/pc/net_snapshot.c).
         sim_a["MELEE_NET_STATE_LOG"] = os.path.join(args.work, "a.state")
         sim["MELEE_NET_STATE_LOG"] = os.path.join(args.work, "b.state")
+    wait_port_free(args.port)
+    wait_port_free(args.port + 1)
     a = Instance("a", args.exe, args.disc, args.work, args.port, args.port + 1, sim_a, args.lan)
     b = Instance("b", args.exe, args.disc, args.work, args.port + 1, args.port, sim, args.lan)
     print(f"net_test: {'lan' if args.lan else 'direct'} loss={args.loss}% delay={args.delay}ms "
@@ -1252,7 +1298,7 @@ def run(args):
             print("net_test: killed a run that would not exit (per-instance FAIL below)",
                   flush=True)
     # Cross-instance assertions belong to neither log; they ride on A's row.
-    extra = check_entry(a, b)
+    extra = check_entry(a, b) + check_delay(a, b)
     extra += check_scenes(a, b) if args.scenes else check_oom(a, args.oom) if args.oom else []
     if args.load_stall:
         extra += check_load_stall(a, b)

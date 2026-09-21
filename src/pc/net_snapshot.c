@@ -295,13 +295,34 @@ const char* snapshot_state_region_missing(void) {
 #endif
 }
 
+/* The first regions are fixed; the rest are one per live heap. Only the
+ * fixed ones have a length a snapshot may compare, because a heap grows. */
+#define FIXED_REGIONS 4
+
 /* Everything a snapshot covers, as it stands right now. */
 static int regions_now(Region* r) {
     int n = 0;
     void* lo;
     size_t len;
     aurora_heap_descs(&lo, &len);
-    r[n++] = (Region){"heapdescs", lo, len};
+    /* The audio heap's BODY is excluded below, because the audio thread
+     * allocates in it while the game thread is inside a rollback. Its
+     * descriptor has to be excluded for the same reason and was not: a
+     * restore rewound the free and allocated list heads while the cell
+     * headers they point at stayed as the audio thread left them, which
+     * hands the next HSD_AudioMalloc a cell that is already live. It never
+     * shows up as a desync -- the checksum does not cover the audio heap --
+     * only as lost sound effects or a crash inside OSAlloc. So the array is
+     * snapshotted as the two halves either side of that one descriptor. */
+    void* alo;
+    size_t alen;
+    if (!aurora_heap_desc(HSD_Synth_804D6018, &alo, &alen)) {
+        alo = (char*)lo + len; /* no audio heap: the second half is empty */
+        alen = 0;
+    }
+    size_t below = (size_t)((char*)alo - (char*)lo);
+    r[n++] = (Region){"heapdescs", lo, below};
+    r[n++] = (Region){"heapdescs2", (char*)alo + alen, len - below - alen};
     r[n++] = (Region){"data", __melee_data_start, (size_t)(__melee_data_end - __melee_data_start)};
     r[n++] = (Region){"bss", __melee_bss_start, (size_t)(__melee_bss_end - __melee_bss_start)};
     for (int h = 0; h < MAX_HEAPS; h++) {
@@ -321,8 +342,7 @@ static int regions_now(Region* r) {
 static uint64_t s_take_ns, s_take_ns_max, s_restore_ns, s_restore_ns_max;
 static uint64_t s_take_ns_worst, s_restore_ns_worst;
 static unsigned s_takes, s_restores;
-static int s_resim_n_max;       /* re-run ticks per present, worst */
-static unsigned s_resim_splits; /* rollbacks that spilled into the next present */
+static int s_resim_n_max; /* re-run ticks per present, worst */
 
 /* MELEE_NET_SIM_OOM_FRAME=n: the first take at frame >= n fails the way a
  * realloc failure does, to exercise the lockstep fallback. */
@@ -403,7 +423,9 @@ const char* snapshot_unusable(const Snapshot* s) {
         return "heap set changed";
     }
     for (int i = 0; i < n; i++) {
-        if (now[i].ptr != s->regions[i].ptr || (i < 3 && now[i].len != s->regions[i].len)) {
+        if (now[i].ptr != s->regions[i].ptr ||
+            (i < FIXED_REGIONS && now[i].len != s->regions[i].len))
+        {
             return "region moved";
         }
     }
@@ -432,25 +454,26 @@ void snapshot_restore(const Snapshot* s) {
     }
 }
 
-/* Re-simulation load of one present (net.c pc_net_after_tick). */
-void resim_note(int ticks, bool split) {
+/* Re-simulation load of one present (net.c pc_net_after_tick): how many
+ * re-run ticks the deepest rollback in that present cost. This is the one
+ * number that shows a rollback turning into a dropped frame, so it has to
+ * be fed from the re-run loop rather than left at its initial value. */
+void resim_note(int ticks) {
     if (ticks > s_resim_n_max) {
         s_resim_n_max = ticks;
-    }
-    if (split) {
-        s_resim_splits++;
     }
 }
 
 /* One line of what a snapshot holds, for the "cannot roll back" log. */
 const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
     size_t heap_bytes = 0;
-    for (int i = 3; i < s->nregions; i++) {
+    for (int i = FIXED_REGIONS; i < s->nregions; i++) {
         heap_bytes += s->regions[i].len;
     }
     snprintf(buf, n, "frame %d scene %d barrier %d seed %08x %d heaps %.2f MB of %.2f MB", s->frame,
-        s->scene, s->barrier, s->seed_val, s->nregions > 3 ? s->nregions - 3 : 0,
-        heap_bytes / 1048576.0, s->used / 1048576.0);
+        s->scene, s->barrier, s->seed_val,
+        s->nregions > FIXED_REGIONS ? s->nregions - FIXED_REGIONS : 0, heap_bytes / 1048576.0,
+        s->used / 1048576.0);
     return buf;
 }
 
@@ -458,10 +481,10 @@ const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
  * the max pair is per window, the worst pair per process. */
 void snap_stats_report(void) {
     pc_log_line("net:   snapshot take %.2f ms (max %.2f, n %u), restore %.2f ms (max %.2f, n %u), "
-                "worst ever %.2f/%.2f, resim/present max %d, split %u",
+                "worst ever %.2f/%.2f, resim/present max %d",
         s_takes ? s_take_ns / 1e6 / s_takes : 0.0, s_take_ns_max / 1e6, s_takes,
         s_restores ? s_restore_ns / 1e6 / s_restores : 0.0, s_restore_ns_max / 1e6, s_restores,
-        s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max, s_resim_splits);
+        s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max);
     s_take_ns = s_take_ns_max = s_restore_ns = s_restore_ns_max = 0;
     s_takes = s_restores = 0;
     s_resim_n_max = 0;

@@ -249,15 +249,9 @@ void pc_frame_boundary(void) {
      * alarms (fn_800195FC -> PADRead) fire from pc_os_run_alarms. */
     pc_input_latency_record();
     pc_os_run_alarms();
-    int64_t pace_adj = pc_net_pace_adjust_ns(); /* continuous micro-nudge or emergency skip */
-    if (pace_adj > 0) {
-        next_sim_ns += (u64)pace_adj;
-    } else if (pace_adj < 0) {
-        u64 sub = (u64)(-pace_adj);
-        if (next_sim_ns > sub) {
-            next_sim_ns -= sub;
-        }
-    }
+    /* Time sync spreads its correction here: a per-frame lengthening of the
+     * next wait, plus a whole frame when a gap is too big to nudge away. */
+    next_sim_ns += pc_net_pace_adjust_ns();
     if (s_pre_cb) {
         s_pre_cb(s_retrace_count);
     }

@@ -205,8 +205,9 @@ void rel_reset(void) {}
 /* net_handshake.c / net_sync.c */
 void rules_restore(void) {}
 void handshake_test(void) {}
-void offset_note(int32_t off) {
-    (void)off;
+void adv_note(int remote_adv, int local_adv) {
+    (void)remote_adv;
+    (void)local_adv;
 }
 void jitter_note(uint32_t rtt) {
     (void)rtt;
@@ -309,9 +310,8 @@ void synctest_before_tick(void) {}
 bool synctest_after_tick(void) {
     return false;
 }
-void resim_note(int ticks, bool split) {
+void resim_note(int ticks) {
     (void)ticks;
-    (void)split;
 }
 const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
     (void)s;
@@ -321,6 +321,10 @@ const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
 
 /* the game */
 struct GameSceneInfo* gm_804D6720;
+/* net.c reads rules.game_speed to decide whether rollback is sound; the
+ * harness never runs a match, so a default-constructed one at speed 1.0 is
+ * what the tests want. */
+StartMeleeData gmVsMelee_StartData = {.rules = {.game_speed = 1.0F}};
 PadLibData HSD_PadLibData;
 static u32 s_seed_val;
 u32* HSD_RandSeedPtr = &s_seed_val;

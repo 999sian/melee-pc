@@ -625,6 +625,12 @@ void net_addr_text(const struct sockaddr* sa, char* out, size_t cap) {
     }
 }
 
+/* Two printed addresses from the same family: a ':' means IPv6, and
+ * net_addr_text() prints a v4-mapped v6 source as plain IPv4. */
+static bool ip_same_family(const char* a, const char* b) {
+    return (strchr(a, ':') != NULL) == (strchr(b, ':') != NULL);
+}
+
 static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns_entry_type_t entry,
     uint16_t query_id, uint16_t rtype, uint16_t rclass, uint32_t ttl, const void* data, size_t size,
     size_t name_offset, size_t name_length, size_t record_offset, size_t record_length, void* ud) {
@@ -669,6 +675,19 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
     int i = 0;
     while (i < s_n && s_peers[i].id != e.id) {
         i++;
+    }
+    /* The id is whatever the announcer claims, so once an id has been seen
+     * from an address, records for it arriving from a DIFFERENT address of
+     * the same family are someone else using that name: they would otherwise
+     * repoint the address the lobby is about to dial, or (as a goodbye) evict
+     * a peer mid-handshake. A second address family is the same machine
+     * announcing twice and is still accepted. */
+    if (i < s_n && !ip_same_family(s_peers[i].p.ip, e.p.ip)) {
+        /* other family: handled below, the IPv4 address stays preferred */
+    } else if (i < s_n && strcmp(s_peers[i].p.ip, e.p.ip) != 0) {
+        pc_log_line(
+            "lan: ignoring a record for %s from %s (it is %s)", e.p.name, e.p.ip, s_peers[i].p.ip);
+        return 0;
     }
     if (ttl == 0) { /* goodbye */
         if (i < s_n) {

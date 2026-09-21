@@ -30,6 +30,8 @@ void OSVisitAllocated(void (*visitor)(void*, u32));
 bool aurora_heap_extent(OSHeapHandle heap, void** lo, void** hi);
 /* melee-pc: the heap descriptor array (list heads) at the arena start. */
 void aurora_heap_descs(void** lo, size_t* len);
+/* melee-pc: the bytes of one heap's descriptor; false if the handle is unused. */
+bool aurora_heap_desc(OSHeapHandle heap, void** lo, size_t* len);
 
 #define OSAlloc(size) OSAllocFromHeap(__OSCurrHeap, (size))
 #define OSFree(ptr) OSFreeToHeap(__OSCurrHeap, (ptr))

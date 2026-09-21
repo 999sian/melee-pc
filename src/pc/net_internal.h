@@ -142,6 +142,13 @@ typedef struct Packet {
     int32_t ck_frame; /* frame the checksum was taken before */
     uint32_t ck;
     uint8_t count;
+    /* GGPO's frame advantage: how many frames the sender's simulation is
+     * ahead of the newest input it has from us. Both peers send it, and the
+     * phase controller acts on the DIFFERENCE, which is the one form of the
+     * measurement with no clock, no round trip and no symmetric-path
+     * assumption in it (net_sync.c time_sync). Clamped to a byte; the window
+     * it can legitimately reach is WINDOW + delay. */
+    int8_t adv;
     WirePad pads[REDUNDANCY];
 } __attribute__((packed)) Packet;
 
@@ -230,7 +237,7 @@ typedef struct SceneMsg {
 
 _Static_assert(sizeof(WirePad) == 8, "wire layout");
 _Static_assert(sizeof(Hdr) == 7, "wire layout");
-_Static_assert(sizeof(Packet) == 26 + REDUNDANCY * 8, "wire layout");
+_Static_assert(sizeof(Packet) == 27 + REDUNDANCY * 8, "wire layout");
 _Static_assert(sizeof(Ack) == 13, "wire layout");
 _Static_assert(sizeof(Rel) == 11 + REL_MAX, "wire layout");
 _Static_assert(sizeof(RelAck) == 8 && sizeof(Bye) == 8, "wire layout");
@@ -252,7 +259,8 @@ typedef struct Held {
 /* ---- snapshot ----------------------------------------------------------- */
 
 #define MAX_HEAPS 8
-#define MAX_REGIONS (3 + MAX_HEAPS)
+/* Two halves of the heap-descriptor array, data, bss, then one per heap. */
+#define MAX_REGIONS (4 + MAX_HEAPS)
 
 typedef struct Region {
     const char* name;
@@ -394,8 +402,9 @@ void handshake_test(void);
 
 /* ---- net_sync.c ------------------------------------------------------- */
 
-void offset_note(int32_t off);
-void jitter_note(uint32_t rtt);
+/* One phase sample: the peer's frame advantage and ours (net.c on_inputs). */
+void adv_note(int remote_adv, int local_adv);
+void jitter_note(uint32_t rtt); /* one RTT sample, for the |dRTT| mean */
 uint32_t jitter_us(void);
 void time_sync(void);
 /* The host's REL_DELAY announcement (on_rel dispatches it here, like
@@ -438,6 +447,6 @@ bool synctest_after_tick(void);
 /* ---- Snapshot ---- */
 const char* snapshot_describe(
     const Snapshot* s, char* buf, size_t n); /* one log line of metadata */
-void resim_note(int ticks, bool split);      /* re-run ticks this present; spilled into the next */
+void resim_note(int ticks); /* re-run ticks the deepest rollback of a present cost */
 
 #endif

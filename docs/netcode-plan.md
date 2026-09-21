@@ -2090,11 +2090,14 @@ rollback or forked peer history. New unreleased record/history format 2 uses a
 BEP44 immutable target padded to 32 bytes as its chain locator; incompatible
 older files are rejected rather than silently migrated or reset.
 
-Automatic delay remains the conservative jitter-aware 1–4-frame policy;
-manual 0–4 is available. Optional `MELEE_NET_JIT=1` uses presentation period and
-CPU-frame estimates with a 1 ms margin; it is not enabled by default without
-physical latency evidence. `MELEE_NET_DEBUG=1` reports XFB wait time rather than
-bypassing the queue. Native text supplies menu labels and chat instructions.
+Automatic delay is sized per scene, 1–4 frames, with manual 0–4 available: a
+lockstep menu gets `ceil((rtt/2 + jitter) / frame)`, which is what it needs to
+run at 60 Hz, and a fight gets two frames less, because the rollback window
+pays that part of the trip instead of the player's hands. The change is
+announced by one side on the reliable lane and applied by frame number, so
+both peers switch on the same frame. `MELEE_NET_DEBUG=1` reports XFB wait time
+rather than bypassing the queue. Native text supplies menu labels and chat
+instructions.
 
 
 ## 16. All-platform rollback follow-up, 2026-09-20

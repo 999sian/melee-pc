@@ -791,4 +791,16 @@ void aurora_heap_descs(void** lo, size_t* len) {
   *len = static_cast<size_t>(sNumHeaps) * sizeof(HeapDesc);
 }
 
+// melee-pc: the bytes of one heap's descriptor, so a snapshot that excludes a
+// heap's body can exclude its list heads too. Restoring the heads without the
+// cell headers they point at is what corrupts the heap.
+bool aurora_heap_desc(OSHeapHandle heap, void** lo, size_t* len) {
+  if (heap < 0 || heap >= sNumHeaps) {
+    return false;
+  }
+  *lo = &sHeapArray[heap];
+  *len = sizeof(HeapDesc);
+  return true;
+}
+
 } // extern "C"

@@ -73,8 +73,8 @@ Public probes used fresh temporary identities and harmless values with the user'
   remote workflow has not been run from this session. No Android device was
   attached when checked with ADB.
 - No physical button-to-photon comparison or hour-long soak was performed.
-  `MELEE_NET_JIT=1` remains opt-in; automatic delay remains jitter-aware 1–4
-  frames, with manual 0–4 available.
+  Automatic delay is jitter-aware 1–4 frames, sized for lockstep in menus and
+  two frames lower in a fight, with manual 0–4 available.
 - Ratings are community ratings. Previously unknown histories remain
   self-attested; collusion/new identities remain possible. Four-character
   friend-code suffixes are compact rendezvous identifiers, not independent
