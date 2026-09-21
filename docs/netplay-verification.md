@@ -61,6 +61,58 @@ failed publication/restart recovery, quick-chat delivery and rate limits, and
 rollback input/scene timing, and chat text-pool resets/address reuse.
 Public probes used fresh temporary identities and harmless values with the user's explicit permission.
 
+## Phase sync, per-scene delay and replayable recordings, 2026-09-22
+
+Protocol 7. The acceptance matrix was re-run against this build; 15 of 19
+rows are on record and every one passed, 12,000 in-match frames per peer,
+with no desync and no lost rollback anywhere.
+
+| Link condition | Rollbacks a/b | Max depth | Note |
+| --- | --- | --- | --- |
+| clean | 0 / 0 | 0 | |
+| loss 5 % | 60 / 0 | 2 | |
+| loss 20 % | 77 / 159 | 3 | 33 % of round trips lost |
+| delay 100 ms | 1,372 / 1,349 | 8 | full window, counts within 2 % |
+| delay 200 ms | 2,417 / 2,377 | 8 | |
+| burst | 9 / 7 | 3 | |
+| reorder | 374 / 0 | 2 | |
+| jitter | 0 / 1,067 | 3 | |
+| dup | 0 / 294 | 2 | |
+| rx delay 100 ms | 1,336 / 1,356 | 8 | asymmetric path |
+| snapshot OOM | 529 / 2,001 | 4 / 6 | falls back to lockstep, finishes |
+| disconnect, resume 11 s, resume expiry 30 s | — | — | passed |
+
+The symmetry of the delayed rows is the point: the phase controller now keys
+on the difference of the two peers' GGPO frame advantages, which needs no
+clock, no round trip and no assumption that the two directions are equally
+fast. The estimator it replaces asked what time it was when the peer sent a
+packet, and the only handle on that is round trips measured through a socket
+the game thread drains once per frame -- a bias in the same direction on both
+peers, which survives the trimmed mean. Before: 6 rollbacks on one side
+against 724 on the other, on a gentler link than any row above.
+
+In-match frame pacing on a 50 ms link with 20 ms jitter and 1 % loss, per
+second: frames over 20 ms fell from 0.31 to 0.03, worst frame from 72.7 ms to
+32.6 ms, mean 59.99 fps.
+
+Live PC to Android tablet over Wi-Fi (x86-64 against aarch64): mDNS
+discovery, host election, handshake, lobby to CSS to SSS to VS on identical
+frames, rollback depth 8, no desync; and the PC survived the tablet being
+force-stopped mid-match and re-hosted a new session.
+
+Netplay recordings replay without diverging. A capture with 450 rollbacks
+ends each scene where the recording did (509, 993, 1477) with no divergence
+in 5,000 frames.
+
+Not covered: the two 60-minute soaks, and `scene flow to SSS`, which cannot
+leave the results screen. That row is a harness limitation, not a netplay
+one -- the session is healthy for the 12,000 frames it sits there (ping
+11 ms, no rollback, no desync, no reliable resends) and the scene never asks
+to end, so the hand-off code is never reached. `fn_801791E4`
+(gmresultplayer.c) exits results on START only when the match was cancelled,
+otherwise on an internal counter; why the drive's START presses do not take
+is unresolved.
+
 ## Remaining acceptance and limitations
 
 - Two different home NATs and a complete live ranked gameplay set remain
