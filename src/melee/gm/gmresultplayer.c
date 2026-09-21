@@ -2,6 +2,12 @@
 
 #include <placeholder.h>
 
+#ifdef TARGET_PC
+#include "pc/pc.h"
+
+#include <stdlib.h>
+#endif
+
 #include "forward.h"
 #include "gm_1601.h"
 #include "gm_1798.h"
@@ -1214,6 +1220,23 @@ bool fn_801791E4(void)
 
     PAD_STACK(8);
 
+#ifdef TARGET_PC
+    /* MELEE_NET_DEBUG: why the results screen is not letting go. The exit
+     * takes START only on a cancelled match, and otherwise waits for x8 to
+     * reach 0xA0; a drive that presses START and sees nothing needs to know
+     * which of those three facts is not holding. Once a second. */
+    {
+        static int dbg = -1;
+        if (dbg < 0)
+            dbg = getenv("MELEE_NET_DEBUG") != NULL;
+        if (dbg && (data->x8 % 60) == 0)
+            pc_log_line("results: cancelled %d x8 %u pkind %d/%d err %d/%d trig %04x/%04x",
+                gm_WasMatchCanceled(end->outcome), (u32) data->x8,
+                end->player_standings[0].pkind, end->player_standings[1].pkind,
+                HSD_PadMasterStatus[0].err, HSD_PadMasterStatus[1].err,
+                HSD_PadCopyStatus[0].trigger, HSD_PadCopyStatus[1].trigger);
+    }
+#endif
     if (gm_WasMatchCanceled(end->outcome) != 0) {
         for (i = 0; i < 4; i++) {
             if (end->player_standings[i].pkind == Gm_PKind_Human &&
