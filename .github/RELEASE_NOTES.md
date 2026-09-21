@@ -159,6 +159,11 @@ safe update selection, and included the fixes merged since v0.1.8-beta.
   from the start on platforms without snapshot support.
 - Keep LAN peers at the agreed start frame while waiting for readiness.
 - Restore Windows builds by using SDL for environment-file settings.
+- Include the recent Polar Bear Adventure Mode crash fix, Linux GameCube
+  adapter detection improvements, and bundled controller database.
+- Include the upstream scene timing, asynchronous disc transfer and deterministic
+  replay fixes. Netplay remains a prototype; this release does not claim universal
+  cross-platform determinism.
 
 ### Changes in v0.1.8-beta
 
