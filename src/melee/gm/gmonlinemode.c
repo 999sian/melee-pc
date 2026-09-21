@@ -24,9 +24,11 @@
 #ifdef TARGET_PC
 #include "pc/net.h"
 #include "pc/net_lan.h"
+#include "pc/net_identity.h"
 #include "pc/net_match.h"
 #include "pc/net_rank_session.h"
 extern const char* pc_get_net_target(void);
+extern void pc_set_net_target(const char* code);
 #include "pc/pc.h"
 #endif
 
@@ -405,21 +407,78 @@ static bool internetLobby(void) {
     return online_kind != ONLINE_KIND_LAN && online_kind != ONLINE_KIND_PROFILE &&
            !(online_kind == ONLINE_KIND_DIRECT && getenv("MELEE_LAN_DIRECT"));
 }
+
+/* Direct Connect code entry. The friend's code is the one piece of online
+ * state the player has to type, and the F1 field is only editable before the
+ * lobby consumes it, so the lobby edits it in place: stick or D-pad
+ * left/right picks a slot, up/down cycles the character, Start connects. An
+ * empty code hosts our own code, which is what a friend types.
+ * ponytail: 13 fixed slots instead of a keyboard; codes are 13 chars max. */
+#define DIRECT_CODE_SLOTS 13
+static const char direct_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#";
+static char direct_entry[DIRECT_CODE_SLOTS + 1];
+static int direct_cursor;
+static bool direct_editing;
+static char direct_error[ONLINE_LOBBY_MSG_LEN];
+
+static void directEntryBegin(void)
+{
+    snprintf(direct_entry, sizeof direct_entry, "%s", pc_get_net_target());
+    direct_cursor = (int) strlen(direct_entry);
+    if (direct_cursor >= DIRECT_CODE_SLOTS) {
+        direct_cursor = DIRECT_CODE_SLOTS - 1;
+    }
+    direct_editing = true;
+    direct_error[0] = '\0';
+    pc_log_line("lobby: direct connect code entry, prefilled '%s'", direct_entry);
+}
+
+/* Slots past the first blank stay blank, so the code is always contiguous. */
+static void directEntrySet(int slot, char c)
+{
+    size_t len = strlen(direct_entry);
+    if (c == '\0') {
+        memset(direct_entry + slot, 0, sizeof direct_entry - (size_t) slot);
+        return;
+    }
+    while (len < (size_t) slot) {
+        direct_entry[len++] = direct_alphabet[0];
+    }
+    direct_entry[slot] = c;
+    if ((size_t) slot >= len) {
+        direct_entry[slot + 1] = '\0';
+    }
+}
+
+static void directEntryCycle(int step)
+{
+    /* The wheel is the alphabet plus one blank, so a slot can be cleared. */
+    const int n = (int) sizeof direct_alphabet; /* includes the blank */
+    char current = direct_entry[direct_cursor];
+    const char* at = current ? strchr(direct_alphabet, current) : NULL;
+    int index = at ? (int) (at - direct_alphabet) : n - 1;
+    index = (index + step + n) % n;
+    directEntrySet(direct_cursor, index == n - 1 ? '\0' : direct_alphabet[index]);
+}
 #endif
 
 void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
 {
     mnOnlineLobby_Create();
 #ifdef TARGET_PC
+    direct_editing = false;
     if (online_kind == ONLINE_KIND_PROFILE) {
         profileRefresh();
+    } else if (internetLobby() && online_kind == ONLINE_KIND_DIRECT) {
+        /* Ask for the code first: starting on a stale launcher pref is how
+         * two players both ended up hosting their own codes forever. */
+        directEntryBegin();
     } else if (internetLobby() && !awaiting_rank_result &&
                (online_kind != ONLINE_KIND_RANKED ||
                                   pc_net_match_publication(NULL) == 0)) {
         if (pc_net_peer_status() == PC_NET_PEER_OK) {
             pc_net_match_start(online_kind == ONLINE_KIND_UNRANKED ? PC_MATCH_UNRANKED :
-                               online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED : PC_MATCH_DIRECT,
-                               online_kind == ONLINE_KIND_DIRECT ? pc_get_net_target() : NULL);
+                               PC_MATCH_RANKED, NULL);
         }
     } else if (!internetLobby()) pc_lan_start();
 #endif
@@ -562,6 +621,57 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         if (online_kind == ONLINE_KIND_PROFILE) {
             view.phase = LOBBY_PHASE_FOUND;
             snprintf(view.message, sizeof view.message, "%s", profile_message);
+        } else if (direct_editing) {
+            u64 repeat = gm_801A36C0(PAD_MAX_CONTROLLERS);
+            bool edited = false;
+            if (repeat & PAD_ANY_LEFT) {
+                direct_cursor = (direct_cursor + DIRECT_CODE_SLOTS - 1) % DIRECT_CODE_SLOTS;
+                edited = true;
+            } else if (repeat & PAD_ANY_RIGHT) {
+                direct_cursor = (direct_cursor + 1) % DIRECT_CODE_SLOTS;
+                edited = true;
+            } else if (repeat & PAD_ANY_UP) {
+                directEntryCycle(1);
+                edited = true;
+            } else if (repeat & PAD_ANY_DOWN) {
+                directEntryCycle(-1);
+                edited = true;
+            }
+            if (edited) {
+                sfxMove();
+                direct_error[0] = '\0'; /* the rejected code is being changed */
+            }
+            view.phase = LOBBY_PHASE_FOUND;
+            if (direct_error[0]) {
+                snprintf(view.message, sizeof view.message, "%s", direct_error);
+            } else {
+                snprintf(view.message, sizeof view.message,
+                         "Friend's code %-13s  slot %d  START: %s",
+                         direct_entry[0] ? direct_entry : "-", direct_cursor + 1,
+                         direct_entry[0] ? "connect" : "host your code");
+            }
+            if (input & HSD_PAD_START) {
+                if (direct_entry[0] && !pc_identity_code_valid(direct_entry)) {
+                    sfxBack();
+                    /* Held until the code changes: a one-frame message is
+                     * invisible, and the player needs to know why nothing
+                     * happened. */
+                    snprintf(direct_error, sizeof direct_error,
+                             "%s is not a connect code (NAME#AB2C)", direct_entry);
+                    snprintf(view.message, sizeof view.message, "%s", direct_error);
+                    pc_log_line("lobby: direct connect rejected '%s'", direct_entry);
+                } else {
+                    sfxForward();
+                    direct_editing = false;
+                    direct_error[0] = '\0';
+                    pc_set_net_target(direct_entry);
+                    pc_log_line("lobby: direct connect %s '%s'",
+                                direct_entry[0] ? "dialing" : "hosting as",
+                                direct_entry[0] ? direct_entry : pc_net_match_local_code());
+                    pc_net_match_start(PC_MATCH_DIRECT,
+                                       direct_entry[0] ? direct_entry : NULL);
+                }
+            }
         } else if (awaiting_rank_result && pc_net_match_publication(NULL) == 0) {
             pc_net_poll();
             pc_rank_session_poll();
@@ -620,7 +730,14 @@ void gm_Scene_OnlineLobby_OnFrame(void)
             }
             if ((input & HSD_PAD_START) && (state == PC_MATCH_FAIL || reason != PC_NET_PEER_OK)) {
                 pc_net_peer_status_clear();
-                pc_net_match_start(online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED : PC_MATCH_UNRANKED, NULL);
+                /* Retry the mode we are actually in: a direct session used to
+                 * restart as public matchmaking, dropping the friend's code. */
+                if (online_kind == ONLINE_KIND_DIRECT) {
+                    directEntryBegin();
+                } else {
+                    pc_net_match_start(online_kind == ONLINE_KIND_RANKED ? PC_MATCH_RANKED :
+                                       PC_MATCH_UNRANKED, NULL);
+                }
             }
         }
         mnOnlineLobby_Update(&view);

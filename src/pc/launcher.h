@@ -12,6 +12,9 @@ void pc_menu_update(void);
 void pc_menu_toggle(void);
 void pc_menu_event(const union SDL_Event* event);
 bool pc_menu_is_open(void);
+/* Friend's connect code, persisted; written by the in-game Direct Connect
+ * entry as well as the launcher and F1 menu fields. */
+void pc_set_net_target(const char* code);
 #ifdef __cplusplus
 }
 #endif

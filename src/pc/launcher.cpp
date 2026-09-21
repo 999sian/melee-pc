@@ -1769,6 +1769,18 @@ extern "C" const char* pc_get_net_name(void) {
 extern "C" const char* pc_get_net_target(void) {
     return prefs.net_target.c_str();
 }
+/* The lobby's own code entry (gmonlinemode.c) writes back here so the next
+ * session and the F1 menu field agree with what the player just typed. */
+extern "C" void pc_set_net_target(const char* code) {
+    prefs.net_target = code ? code : "";
+    std::string error;
+    launcher::save_preferences(config_path, prefs, error);
+    if (port_menu.document) {
+        if (auto* e = dynamic_cast<Rml::ElementFormControl*>(
+                port_menu.document->GetElementById("net-target")))
+            e->SetValue(prefs.net_target);
+    }
+}
 extern "C" int pc_get_net_port(void) {
     const char* env_port = getenv("MELEE_NET_PORT");
     if (env_port && *env_port) {
