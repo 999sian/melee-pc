@@ -18,6 +18,7 @@
 
 /* The same SHA-1 as the DHT infohash, not a password/secret hash. */
 extern void pc_dht_sha1(const void* data, size_t length, uint8_t out[20]);
+extern void pc_log_line(const char* fmt, ...);
 
 bool pc_identity_random(void* bytes, size_t length) {
 #ifdef _WIN32
@@ -83,19 +84,48 @@ bool pc_identity_load(PcNetIdentity* id, const char* directory, const char* name
     int n = snprintf(path, sizeof path, "%s/identity.key", directory);
     if (n < 0 || n >= (int)sizeof path)
         return false;
+    /* A key is exactly 32 bytes, so a file of any other length cannot hold one
+     * (a 0-byte file left by a crash or a full disk between create and write,
+     * or a truncated copy). Failing on those stranded the profile for good:
+     * every later run reported "identity unavailable" until the file was
+     * deleted by hand. A wrong-length file is replaced; a 32-byte file is
+     * never replaced, and a read error on one is still an error, because it
+     * may hold the identity this profile's rating history belongs to. */
+    bool loaded = false, replace = false;
     FILE* f = fopen(path, "rb");
-    if (!f) {
-        if (errno != ENOENT || !pc_identity_random(seed, sizeof seed))
+    if (f) {
+        int64_t size = fseek(f, 0, SEEK_END) == 0 ? (int64_t)ftell(f) : -1;
+        if (size == (int64_t)sizeof seed && fseek(f, 0, SEEK_SET) == 0) {
+            loaded = fread(seed, 1, sizeof seed, f) == sizeof seed && !ferror(f);
+        } else if (size >= 0) {
+            replace = true;
+            pc_log_line("net: %s is %lld bytes, not a 32-byte identity key;"
+                        " generating a new one",
+                path, (long long)size);
+        }
+        fclose(f);
+        if (!loaded && !replace) {
+            pc_log_line("net: cannot read %s (errno %d)", path, errno);
+            crypto_wipe(seed, sizeof seed);
+            return false;
+        }
+    } else if (errno != ENOENT) {
+        pc_log_line("net: cannot open %s (errno %d)", path, errno);
+        return false;
+    }
+    if (!loaded) {
+        if (!pc_identity_random(seed, sizeof seed))
             return false;
 #ifdef _WIN32
-        f = fopen(path, "wbx");
+        f = fopen(path, "wb");
 #else
-        int fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+        int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
         f = fd < 0 ? NULL : fdopen(fd, "wb");
         if (!f && fd >= 0)
             close(fd);
 #endif
         if (!f) {
+            pc_log_line("net: cannot write %s (errno %d)", path, errno);
             crypto_wipe(seed, sizeof seed);
             return false;
         }
@@ -109,13 +139,7 @@ bool pc_identity_load(PcNetIdentity* id, const char* directory, const char* name
         if (fclose(f) != 0)
             ok = false;
         if (!ok) {
-            crypto_wipe(seed, sizeof seed);
-            return false;
-        }
-    } else {
-        bool ok = fread(seed, 1, sizeof seed, f) == sizeof seed && fgetc(f) == EOF && !ferror(f);
-        fclose(f);
-        if (!ok) {
+            pc_log_line("net: failed to write %s", path);
             crypto_wipe(seed, sizeof seed);
             return false;
         }

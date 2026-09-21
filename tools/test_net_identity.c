@@ -23,15 +23,27 @@ int main(void) {
     assert(!pc_identity_load(&b, path, "too-long-name"));
     char file[512];
     snprintf(file, sizeof file, "%s/identity.key", path);
+    /* A 32-byte key is the identity a rating history belongs to: reloading
+     * must return the same one, byte for byte. */
+    PcNetIdentity reloaded;
+    assert(pc_identity_load(&reloaded, path, "alice"));
+    assert(memcmp(reloaded.public_key, a.public_key, 32) == 0);
+    /* A file that cannot hold a key (wrong length) is replaced instead of
+     * stranding the profile on "identity unavailable" forever. */
     FILE* f = fopen(file, "wb");
     assert(f);
     fputc(1, f);
     fclose(f);
-    assert(!pc_identity_load(&b, path, "ALICE")); /* never replace a damaged identity */
+    assert(pc_identity_load(&b, path, "ALICE"));
+    assert(strncmp(b.code, "ALICE#", 6) == 0);
+    assert(memcmp(b.public_key, a.public_key, 32) != 0);
+    /* and the replacement is itself persistent */
+    assert(pc_identity_load(&reloaded, path, "ALICE"));
+    assert(memcmp(reloaded.public_key, b.public_key, 32) == 0);
     pc_identity_clear(&a);
     for (size_t i = 0; i < sizeof a; ++i)
         assert(((unsigned char*)&a)[i] == 0);
     unlink(file);
     rmdir(path);
-    puts("identity persistence, signatures, name validation and corrupt-key rejection passed");
+    puts("identity persistence, signatures, name validation and wrong-length key recovery passed");
 }
