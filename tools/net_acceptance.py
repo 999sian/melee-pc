@@ -68,6 +68,12 @@ MATRIX = [
     ("resume 11 s", ["--stall", "11", "--minutes", "2"]),
     ("resume expiry 30 s", ["--stall", "30", "--minutes", "2"]),
 ]
+
+# --quick: one case per class of link fault -- a clean baseline, sustained
+# loss, a long trip and reordering -- rather than a sample of the whole
+# matrix. Named here because the flag has always referenced this set; without
+# it --quick raised NameError and could never have run.
+QUICK = ("clean", "loss 5%", "delay 100 ms", "jitter")
 # The specified soak is loss 1 % + delay 50 ms + jitter. The delay-free variant
 # is not a substitute for it: it is the longest run that CAN complete on this
 # build, because every delayed row desyncs within a minute of real play (see
