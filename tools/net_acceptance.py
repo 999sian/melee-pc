@@ -56,14 +56,21 @@ MATRIX = [
     ("dup", ["--dup"]),
     ("rx delay 100 ms", ["--rxdelay", "100"]),
     ("scene flow to SSS", ["--scenes", "--minutes", "4"]),
-    # 6000 rather than 2400, and loss 5 % rather than a clean link: the OOM
-    # knob only fires on a snapshot the engine really takes, snapshots are
-    # only taken off the prediction path, and prediction is sporadic on a
+    # 6000 rather than 2400, and a delayed link rather than a clean one: the
+    # OOM knob only fires on a snapshot the engine really takes, snapshots
+    # are only taken off the prediction path, and prediction is sporadic on a
     # clean local link - one re-run at --oom 6000 on a clean link predicted
     # exactly 0 times in 3 minutes and the row failed its own "0x out of
-    # memory (want exactly 1)" guard. 5 % loss predicts hundreds of times per
-    # run and is desync-free (see the `loss 5%` row).
-    ("snapshot oom", ["--oom", "6000", "--minutes", "3", "--loss", "5"]),
+    # memory (want exactly 1)" guard.
+    #
+    # 5 % loss alone is not enough either, for a reason the loss rows show:
+    # which peer predicts depends on which one is phase-ahead, and at 5 % the
+    # instance the knob is armed on can spend a whole run behind and take 0
+    # snapshots ("no snapshot was taken before the failure: nothing was there
+    # to lose"). A 100 ms trip makes BOTH peers predict continuously - the
+    # `delay 100 ms` row records 1372 and 1349 rollbacks - so the armed
+    # instance is certain to have one to lose.
+    ("snapshot oom", ["--oom", "6000", "--minutes", "3", "--loss", "5", "--delay", "100"]),
     ("disconnect", ["--disconnect", "--minutes", "2"]),
     ("resume 11 s", ["--stall", "11", "--minutes", "2"]),
     ("resume expiry 30 s", ["--stall", "30", "--minutes", "2"]),
