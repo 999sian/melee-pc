@@ -440,7 +440,8 @@ const char* state_line(int32_t frame); /* one frame's recorded state line, "" if
 void record_open(void);
 bool record_active(void);
 void replay_feed(PADStatus* head);
-void record_frame(const PADStatus* head, uint32_t ck);
+void record_frame(const PADStatus* head, uint32_t ck, int32_t f);
+void record_confirm(int32_t upto); /* write settled frames out in order */
 void synctest_before_tick(void);
 bool synctest_after_tick(void);
 

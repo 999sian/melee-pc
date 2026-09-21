@@ -28,6 +28,9 @@ PRELUDE = r'''
 static uint32_t seed_value;
 static uint32_t* HSD_RandSeedPtr = &seed_value;
 static struct { bool active; int frame; } net;
+/* The recorder stages a frame per ring slot so a rollback can replace it
+ * before it is written; mirror net_internal.h's ring size here. */
+#define RING 64
 static char messages[4096];
 static void pc_log_line(const char* fmt, ...) {
     va_list args;
@@ -47,11 +50,11 @@ int main(int argc, char** argv) {
     replay_feed(pads);
     /* The agreed seed can be assigned after replay_feed but before checksum. */
     seed_value = 11;
-    record_frame(pads, 0x11111111);
+    record_frame(pads, 0x11111111, net.frame);
     net.frame = 1;
     seed_value = 23;
     replay_feed(pads);
-    record_frame(pads, 0x22222222);
+    record_frame(pads, 0x22222222, net.frame);
     fclose(s_rec);
     s_rec = NULL;
     unsetenv("MELEE_NET_RECORD");
@@ -72,15 +75,15 @@ int main(int argc, char** argv) {
     memset(pads, 0, sizeof pads);
     replay_feed(pads);
     assert(seed_value == 11 && pads[0].button == 0x1234);
-    record_frame(pads, 0x11111111);
+    record_frame(pads, 0x11111111, net.frame);
     assert(!s_rep_reported);
     seed_value = 0xcafebabe; /* A different load-time seed before the next tick. */
     net.frame = 1;
     replay_feed(pads);
     assert(seed_value == 23);
-    record_frame(pads, 0x22222222);
+    record_frame(pads, 0x22222222, net.frame);
     assert(!s_rep_reported);
-    record_frame(pads, 0x22222223); /* Seed restoration must not hide bad state. */
+    record_frame(pads, 0x22222223, net.frame); /* Seed restoration must not hide bad state. */
     assert(s_rep_reported && strstr(messages, "REPLAY DIVERGED at frame 1"));
     replay_feed(pads);
     assert(s_rep == NULL);

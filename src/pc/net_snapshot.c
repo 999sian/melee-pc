@@ -124,22 +124,65 @@ void replay_feed(PADStatus* head) {
 
 /* Still at tick start, after the checksum and agreed-seed override but before
  * simulation: record the same seed the checksum used, not a prior tick's or
- * a pre-handshake seed. The intervening state/desync logging draws no RNG. */
-void record_frame(const PADStatus* head, uint32_t ck) {
+ * a pre-handshake seed. The intervening state/desync logging draws no RNG.
+ *
+ * During netplay a frame is simulated more than once: the first pass runs on
+ * a PREDICTED remote pad and a rollback re-runs it on the real one. Writing
+ * the first pass is what the file used to hold, and replaying it then
+ * diverges at the first rollback -- which reads exactly like the
+ * cross-platform determinism failure the recording exists to localise. So a
+ * frame is staged here (a later re-run overwrites its slot) and only written
+ * out once it can no longer be rolled back, which is what record_confirm()
+ * below does. Offline there is no rollback and staging is a straight
+ * write-through. */
+static FrameRecord s_rec_ring[RING];
+static int32_t s_rec_staged = -1;  /* newest frame staged */
+static int32_t s_rec_written = -1; /* newest frame on disk */
+
+static void record_write(const FrameRecord* r, int32_t f) {
+    if (f == 0) {
+        fwrite("MRC2", 4, 1, s_rec);
+        fwrite(&r->seed, 4, 1, s_rec);
+    }
+    fwrite(r, sizeof *r, 1, s_rec);
+    fflush(s_rec); /* runs usually end by SIGTERM; keep every frame */
+}
+
+void record_frame(const PADStatus* head, uint32_t ck, int32_t f) {
     if (s_rec != NULL) {
-        if (net.frame == 0) {
-            fwrite("MRC2", 4, 1, s_rec);
-            fwrite(HSD_RandSeedPtr, 4, 1, s_rec);
+        FrameRecord* r = &s_rec_ring[f & (RING - 1)];
+        memcpy(r->pads, head, sizeof r->pads);
+        r->ck = ck;
+        r->seed = *HSD_RandSeedPtr;
+        if (f > s_rec_staged) {
+            s_rec_staged = f;
         }
-        FrameRecord r;
-        memcpy(r.pads, head, sizeof r.pads);
-        r.ck = ck;
-        r.seed = *HSD_RandSeedPtr;
-        fwrite(&r, sizeof r, 1, s_rec);
-        fflush(s_rec); /* runs usually end by SIGTERM; keep every frame */
+        if (!net.active) {
+            record_write(r, f);
+            s_rec_written = f;
+        }
     }
     if (s_rep != NULL) {
         replay_compare(ck);
+    }
+}
+
+/* Frames up to and including `upto` are settled: write them out in order.
+ * A frame that aged out of the ring before it was confirmed cannot be
+ * recovered, so the file stops there rather than silently skipping it. */
+void record_confirm(int32_t upto) {
+    if (s_rec == NULL || !net.active) {
+        return;
+    }
+    if (upto > s_rec_staged) {
+        upto = s_rec_staged;
+    }
+    for (int32_t f = s_rec_written + 1; f <= upto; f++) {
+        if (f <= net.frame - RING) {
+            return; /* its slot has been reused: the record ends here */
+        }
+        record_write(&s_rec_ring[f & (RING - 1)], f);
+        s_rec_written = f;
     }
 }
 

@@ -2006,8 +2006,11 @@ static bool resim_prepare(int32_t f) {
     s_ck_ring[f & (RING - 1)] = frame_checksum(head);
     /* The state ring is the last simulation of each frame, which is the
      * confirmed timeline (the desync dump and the audit's field-level diff
-     * both read it); without this it held first-pass values only. */
+     * both read it); without this it held first-pass values only. The
+     * recording wants the same treatment: this re-run replaces the staged
+     * record for f, so what reaches the file is the pass that stood. */
     record_state(head, f);
+    record_frame(head, s_ck_ring[f & (RING - 1)], f);
     if (s_sim_n[f & (RING - 1)] < 255) {
         s_sim_n[f & (RING - 1)]++;
     }
@@ -2316,7 +2319,10 @@ static void fresh_tick(PADStatus* head, bool raw) {
     if (net.active) {
         check_desync(); /* reports and dumps both rings on the first mismatch */
     }
-    record_frame(head, ck);
+    record_frame(head, ck, net.frame);
+    /* Everything the peer has acknowledged can no longer be rolled back, so
+     * its staged record is final and can go to the file in frame order. */
+    record_confirm(confirmed_frame());
 
     if ((net.frame % 60) == 0) {
         s_rb_depth_recent = s_rb_depth_cur; /* pc_net_quality: deepest rollback last second */

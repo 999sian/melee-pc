@@ -302,9 +302,13 @@ bool record_active(void) {
 void replay_feed(PADStatus* head) {
     (void)head;
 }
-void record_frame(const PADStatus* head, uint32_t ck) {
+void record_frame(const PADStatus* head, uint32_t ck, int32_t f) {
     (void)head;
     (void)ck;
+    (void)f;
+}
+void record_confirm(int32_t upto) {
+    (void)upto;
 }
 void synctest_before_tick(void) {}
 bool synctest_after_tick(void) {
