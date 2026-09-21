@@ -71,7 +71,7 @@ static bool validate(PcNetRankStore* s, const PcNetRankRecord* r, PcNetRating* n
     *next = post[player];
     return true;
 }
-static void accept(PcNetRankStore* s, const PcNetRankRecord* r, const PcNetRating* next,
+static void accept_record(PcNetRankStore* s, const PcNetRankRecord* r, const PcNetRating* next,
     const uint8_t head[32], size_t pos) {
     memmove(s->ids + (pos + 1) * 16, s->ids + pos * 16, (s->count - pos) * 16);
     memcpy(s->ids + pos * 16, r->match_id, 16);
@@ -192,7 +192,7 @@ PcNetRankStore* pc_rank_store_open(
             status = PC_RANK_STORE_INVALID;
             goto fail;
         }
-        accept(s, &r, &next, head, pos);
+        accept_record(s, &r, &next, head, pos);
     }
     bool read_error = ferror(file) != 0;
     if (fclose(file))
@@ -273,7 +273,7 @@ PcNetRankStoreResult pc_rank_store_append(PcNetRankStore* s, const PcNetRankReco
     }
 #endif
     memcpy(s->records + s->count * PC_RANK_RECORD_BYTES, wire, sizeof wire);
-    accept(s, r, &next, head, pos);
+    accept_record(s, r, &next, head, pos);
     return PC_RANK_STORE_OK;
 }
 
