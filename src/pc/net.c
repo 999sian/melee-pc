@@ -2660,8 +2660,17 @@ bool pc_net_after_tick(bool scene_ending) {
         return false;
     }
     /* The scene's own code has now run for this tick, so the hand-off it
-     * agreed (if any) belongs to the frame just simulated. */
+     * agreed (if any) belongs to the frame just simulated -- and also to the
+     * frame the scene ASKED to end on, which is earlier: the agreement needs
+     * the peer's announcement, so it is not known yet on the asking frame.
+     * That asking frame is the one a replay consults (its scene asks to end
+     * there too), so leaving it at -1 makes the replay leave immediately and
+     * the hold never engage. Neither frame has been written out yet, because
+     * only acknowledged frames are. */
     record_scene_at(net.tick_frame, s_scene_exit_at);
+    if (s_scene_exit_at >= 0 && s_scene_exit_local >= 0) {
+        record_scene_at(s_scene_exit_local, s_scene_exit_at);
+    }
     recv_inputs();
     if (s_rb_frame >= 0) {
         int32_t f = s_rb_frame;

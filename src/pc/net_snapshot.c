@@ -206,9 +206,21 @@ void record_scene_at(int32_t f, int32_t at) {
 }
 
 /* Offline replay of a netplay recording: hold the scene to the frame the
- * recorded session agreed on, so the replay crosses where the pair did. */
+ * recorded session agreed on, so the replay crosses where the pair did.
+ * Logged once per hand-off: a replay that leaves a scene on its own frame
+ * diverges from there on, and between two menus the checksum (pads and RNG
+ * only) stays equal for a while afterwards, so the report lands frames
+ * later and on a different boundary than the one that actually slipped. */
 bool record_replay_scene_hold(int32_t frame) {
-    return s_rep != NULL && s_rep_cur.scene_at >= 0 && frame < s_rep_cur.scene_at;
+    if (s_rep == NULL || s_rep_cur.scene_at < 0) {
+        return false;
+    }
+    static int32_t logged = -1;
+    if (s_rep_cur.scene_at != logged) {
+        logged = s_rep_cur.scene_at;
+        pc_log_line("net: replay holds the scene at frame %d until %d", frame, s_rep_cur.scene_at);
+    }
+    return frame < s_rep_cur.scene_at;
 }
 
 /* ---- frame checksum --------------------------------------------------- */
