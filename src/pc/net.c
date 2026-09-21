@@ -1219,7 +1219,17 @@ bool pc_net_scene_hold(void) {
             s_scene_exit_local = net.frame;
         }
     }
+    /* A hand-off that never completes is otherwise silent: the scene simply
+     * never ends and the session stays healthy around it, which is
+     * indistinguishable from a scene that has not asked yet. Say so once a
+     * second while waiting, naming which half is missing. */
     if (s_scene_exit_local < 0 || *remote < 0) {
+        static int32_t said;
+        if (net.frame - said >= 60) {
+            said = net.frame;
+            pc_log_line("net: scene %u hand-off waiting at frame %d (ours %d, peer %d)",
+                s_scene_seq, net.frame, s_scene_exit_local, *remote);
+        }
         return true; /* the peer is still in the scene: wait for its frame */
     }
     if (s_scene_exit_at < 0) {
