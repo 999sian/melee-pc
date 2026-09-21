@@ -53,14 +53,23 @@ typedef struct FrameRecord {
     PADStatus pads[4];
     uint32_t ck;
     uint32_t seed;
-    /* The frame the scene running here was agreed to end on, or -1 outside a
-     * hand-off. A netplay scene does not end when its own code asks to: both
-     * peers hold it to a frame they agree on (net.c pc_net_scene_hold), so
-     * without this a replay leaves on its own frame -- measured, twenty
-     * frames early -- and every frame after it is a different scene. This is
-     * the whole difference between MRC2 and MRC3. */
-    int32_t scene_at;
+    /* The scene this frame was simulated in (scene_kind(), -1 before any).
+     *
+     * A netplay scene does not end when its own code asks to: both peers
+     * hold it to a frame they agree on (net.c pc_net_scene_hold). An earlier
+     * cut of MRC3 stored that agreed FRAME, which cannot work: gmscene.c's
+     * scene_end_gate() only consults the hold on the frame the scene ASKS to
+     * end, and that frame is a property of how long the machine took to
+     * load -- exactly what differs between a session and a replay of it, so
+     * the replay asks on a frame the recording has nothing for and leaves.
+     * Storing the scene instead removes the timing from the question: the
+     * replay ends a scene when the RECORDING's scene changed, whenever its
+     * own code happens to ask. */
+    int32_t scene;
 } FrameRecord;
+
+static FrameRecord s_rep_next; /* one record of lookahead: see the scene hold */
+static bool s_rep_next_ok;
 
 void record_open(void) {
     const char* rec = getenv("MELEE_NET_RECORD");
@@ -73,7 +82,7 @@ void record_open(void) {
         s_rep = fopen(rep, "rb");
         char magic[4];
         uint32_t seed;
-        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC3", 4) != 0 ||
+        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC4", 4) != 0 ||
                          fread(&seed, 4, 1, s_rep) != 1))
         {
             fclose(s_rep);
@@ -81,6 +90,7 @@ void record_open(void) {
         }
         if (s_rep) {
             *HSD_RandSeedPtr = seed;
+            s_rep_next_ok = fread(&s_rep_next, sizeof s_rep_next, 1, s_rep) == 1;
         }
         pc_log_line("net: %s %s", s_rep ? "replaying" : "cannot open", rep);
     }
@@ -101,11 +111,15 @@ bool record_active(void) {
 
 static FrameRecord s_rep_cur;
 
-/* Load the next record's pads for this frame; false at end of file. */
+/* Load the next record's pads for this frame; false at end of file. The file
+ * is read one record ahead so the scene hold can ask what the recording did
+ * on the frame AFTER this one, which is how it knows a scene ended. */
 static bool replay_load(PADStatus* head) {
-    if (fread(&s_rep_cur, sizeof s_rep_cur, 1, s_rep) != 1) {
+    if (!s_rep_next_ok) {
         return false;
     }
+    s_rep_cur = s_rep_next;
+    s_rep_next_ok = fread(&s_rep_next, sizeof s_rep_next, 1, s_rep) == 1;
     memcpy(head, s_rep_cur.pads, sizeof s_rep_cur.pads);
     *HSD_RandSeedPtr = s_rep_cur.seed;
     return true;
@@ -148,7 +162,7 @@ static int32_t s_rec_written = -1; /* newest frame on disk */
 
 static void record_write(const FrameRecord* r, int32_t f) {
     if (f == 0) {
-        fwrite("MRC3", 4, 1, s_rec);
+        fwrite("MRC4", 4, 1, s_rec);
         fwrite(&r->seed, 4, 1, s_rec);
     }
     fwrite(r, sizeof *r, 1, s_rec);
@@ -161,7 +175,7 @@ void record_frame(const PADStatus* head, uint32_t ck, int32_t f) {
         memcpy(r->pads, head, sizeof r->pads);
         r->ck = ck;
         r->seed = *HSD_RandSeedPtr;
-        r->scene_at = net_scene_exit_at();
+        r->scene = scene_kind();
         if (f > s_rec_staged) {
             s_rec_staged = f;
         }
@@ -194,33 +208,30 @@ void record_confirm(int32_t upto) {
     }
 }
 
-/* The hand-off is agreed by the scene's own code, which runs after the
- * record for that frame was staged, so the frame the scene ASKS to end on
- * would carry -1 and a replay would leave on it -- one tick early, which is
- * exactly where it used to diverge. Patch the slot once the tick is over;
- * it has not been written yet, because only acknowledged frames are. */
-void record_scene_at(int32_t f, int32_t at) {
-    if (s_rec != NULL && f >= 0 && f > s_rec_written && f > net.frame - RING) {
-        s_rec_ring[f & (RING - 1)].scene_at = at;
-    }
-}
-
-/* Offline replay of a netplay recording: hold the scene to the frame the
- * recorded session agreed on, so the replay crosses where the pair did.
- * Logged once per hand-off: a replay that leaves a scene on its own frame
- * diverges from there on, and between two menus the checksum (pads and RNG
- * only) stays equal for a while afterwards, so the report lands frames
- * later and on a different boundary than the one that actually slipped. */
+/* Offline replay of a netplay recording: end a scene where the RECORDING
+ * ended it. The gate asks "may this scene end now?" on whatever frame this
+ * run's code gets round to asking, which is not the frame the recorded
+ * session asked on -- it depends on how long each machine took to load. So
+ * the answer cannot come from a frame number. It comes from the record one
+ * frame ahead: while the recording was still in the same scene on the next
+ * frame, this scene has not ended yet.
+ *
+ * Logged once per hand-off. Between two menus the checksum covers only the
+ * pads and the RNG, so a scene left early still hashes equal for a while and
+ * the DIVERGED line lands frames later, on a different boundary than the one
+ * that slipped; the log is what makes the real boundary visible. */
 bool record_replay_scene_hold(int32_t frame) {
-    if (s_rep == NULL || s_rep_cur.scene_at < 0) {
+    if (s_rep == NULL || !s_rep_next_ok || s_rep_cur.scene < 0) {
         return false;
     }
+    bool hold = s_rep_next.scene == s_rep_cur.scene;
     static int32_t logged = -1;
-    if (s_rep_cur.scene_at != logged) {
-        logged = s_rep_cur.scene_at;
-        pc_log_line("net: replay holds the scene at frame %d until %d", frame, s_rep_cur.scene_at);
+    if (!hold && frame != logged) {
+        logged = frame;
+        pc_log_line("net: replay ends scene %d at frame %d (recording moves to %d)",
+            s_rep_cur.scene, frame, s_rep_next.scene);
     }
-    return frame < s_rep_cur.scene_at;
+    return hold;
 }
 
 /* ---- frame checksum --------------------------------------------------- */

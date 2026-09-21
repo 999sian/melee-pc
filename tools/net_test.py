@@ -513,7 +513,7 @@ LRAS = "Q+E+X+Return"
 # reading garbage checksums.
 REC = 76
 CK_OFF = 64
-REC_FORMATS = {b"MRC1": 68, b"MRC2": 72, b"MRC3": REC}  # earlier captures stay readable
+REC_FORMATS = {b"MRC1": 68, b"MRC2": 72, b"MRC3": 76, b"MRC4": REC}  # earlier captures stay readable
 MATCH_WINDOW = 600
 MATCH_RATIO = 0.5
 MATCH_MIN = 1800  # frames of moving state a row has to get, i.e. 30 s of match
