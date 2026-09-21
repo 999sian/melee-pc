@@ -76,6 +76,11 @@ jobs:
         run: ninja -C build-tests-${{ matrix.build_type }} unit_tests
 
       - name: Run unit tests
+        # The python-driven tests (tools/net_test_support.py) look for the
+        # build in ./build unless told otherwise, and this job builds into
+        # build-tests-<type>.
+        env:
+          MELEE_TEST_BUILD: ${{ github.workspace }}/build-tests-${{ matrix.build_type }}
         run: ctest --test-dir build-tests-${{ matrix.build_type }} -L melee --output-on-failure
 
   linux:
