@@ -16,30 +16,35 @@ English (UK) text.
 
 ## Highlights
 
-This maintenance release improves controller input, LAN session startup and
-safe update selection. It also includes the fixes merged since v0.1.8-beta.
+- **Internet play over the DHT (prototype):** signed Direct, Unranked and
+  Ranked best-of-three matchmaking, rendezvous through the public Mainline DHT
+  with no server of ours in the path, plus burst hole punching for cellular
+  and double-NAT links. Public DHT storage is verified; two-NAT pairing and
+  live ranked acceptance are still pending.
+- **Direct Connect asks for the code in game:** the lobby now prompts for your
+  friend's connect code instead of silently reusing whatever the launcher
+  field last held. Stick or D-pad left/right picks a slot, up/down cycles the
+  character, START connects, and a blank code hosts your own code for a friend
+  to dial. Previously two players who both opened Direct Connect each hosted
+  their own code and never met.
+- **Rollback snapshots on every supported platform**, so Windows and macOS no
+  longer fall back to lockstep from the first frame.
 
 ## Fixes
 
-- Correct GameCube-range analog scaling and full-strength button-to-stick bindings.
-- Publish GameCube adapter input safely between the polling and game threads,
-  including disconnects and rumble commands.
-- Keep held adapter and touch buttons suppressed when closing the settings
-  overlay until those controls are released.
-- Prevent the updater from freezing when a release has no compatible asset.
-  Downloads now require the correct operating system and CPU architecture;
-  incomplete releases open in the browser instead of replacing the application
-  with an incompatible executable.
-- Preserve rollback corrections when snapshot allocation fails, and use lockstep
-  from the start on platforms without snapshot support.
-- Keep LAN peers at the agreed start frame while waiting for readiness, avoiding
-  different scene start times after delayed packets.
-- Restore Windows builds by using SDL for environment-file settings.
-- Include the recent Polar Bear Adventure Mode crash fix, Linux GameCube
-  adapter detection improvements, and bundled controller database.
-- Include the upstream scene timing, asynchronous disc transfer and deterministic
-  replay fixes. Netplay remains a prototype; this release does not claim universal
-  cross-platform determinism.
+- Ask for the connect code before starting a Direct Connect session, and keep
+  the "not a connect code" message on screen until the code is edited.
+- Retry after a failed direct session re-opens code entry instead of dropping
+  the code and restarting as public matchmaking. Untested: forcing a direct
+  session to fail needs a second peer, so this path is reviewed but not
+  exercised by a run.
+- Handle a graceful peer disconnect and stop the lobby from exhausting memory
+  while it waits.
+- Restore unranked and LAN stage picking, and fix the LAN lobby menu exit.
+- Stop the idle attract loop from running under the online lobby, suppress SFX
+  overflow spam, and disconnect cleanly when the window closes.
+- Announce immediately on the DHT and improve bootstrapping so a search finds
+  peers without waiting for the next announce window.
 
 ## Known issues
 
@@ -48,9 +53,10 @@ the numbers below link there.
 
 **All platforms**
 
-- Windows and macOS currently use lockstep netplay because rollback snapshots
-  are not supported on those platforms.
-- Online play is a prototype: LAN Play and Direct Connect are supported, but Ranked, Unranked, and global matchmaking lobbies are not yet implemented.
+- Online play is a prototype. LAN Play, Direct Connect, Unranked and Ranked are
+  implemented and rendezvous through the public DHT, but pairing across two
+  NATs and live ranked acceptance are unproven, and cross-platform simulation
+  determinism is not claimed. Ratings are community-computed and unverified.
 - Widescreen applies to fights (VS, Sudden Death, Training); menus, results and
   cutscenes stay at the original aspect. The wide HUD is a separate toggle and
   only moves the timer and the 2-4 player HUD groups.
@@ -133,6 +139,26 @@ image path directly:
 ```
 
 ## Previous releases
+
+### Changes in v0.1.9-beta
+
+#### Highlights
+
+This maintenance release improved controller input, LAN session startup and
+safe update selection, and included the fixes merged since v0.1.8-beta.
+
+#### Fixes
+
+- Correct GameCube-range analog scaling and full-strength button-to-stick bindings.
+- Publish GameCube adapter input safely between the polling and game threads,
+  including disconnects and rumble commands.
+- Keep held adapter and touch buttons suppressed when closing the settings
+  overlay until those controls are released.
+- Prevent the updater from freezing when a release has no compatible asset.
+- Preserve rollback corrections when snapshot allocation fails, and use lockstep
+  from the start on platforms without snapshot support.
+- Keep LAN peers at the agreed start frame while waiting for readiness.
+- Restore Windows builds by using SDL for environment-file settings.
 
 ### Changes in v0.1.8-beta
 
