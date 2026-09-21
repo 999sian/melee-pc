@@ -60,6 +60,8 @@ THE SOFTWARE.
 #include <windows.h>
 #endif
 
+#include <stdint.h>
+
 #include "dht.h"
 
 extern void pc_log_line(const char* fmt, ...);

@@ -44,12 +44,15 @@ class MachO:
             position += length
         if position != 32+size:
             raise ValueError('inconsistent Mach-O load command size')
+        self.commons = []
         if symtab is None:
-            raise ValueError('missing Mach-O symbol table (verify before stripping)')
+            # An empty translation unit (e.g. ftCo_BuryWait.c) has no symbols,
+            # so clang emits no LC_SYMTAB. There is nothing to verify and
+            # nothing to relabel against; only sections matter here.
+            return
         symbol_offset, symbol_count, strings, string_size = symtab
         self.check(symbol_offset, symbol_count*16)
         self.check(strings, string_size)
-        self.commons = []
         for i in range(symbol_count):
             string, kind, section, _, value = self.unpack('<IBBHQ', symbol_offset+i*16)
             if string >= string_size:
