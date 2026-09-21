@@ -515,11 +515,25 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         }
     }
 
+    /* RmlUi resolves a document's relative assets (launcher.rml's discord.png)
+     * against this. Aurora otherwise defaults it to the executable's own
+     * directory, where those files are not: they ship under resources/. The
+     * trailing separator matters, the path is concatenated as-is. */
+    static char resources_path[4096];
+    const char* base_path = SDL_GetBasePath();
+#if defined(__ANDROID__)
+    resources_path[0] = '\0'; /* assets come from the APK, not a directory */
+#else
+    snprintf(resources_path, sizeof resources_path, "%sresources/",
+        base_path != NULL ? base_path : "");
+#endif
+
     AuroraConfig config = {
         /* appName doubles as the window title; the save/cache dirs stay
          * pinned so a renamed test window still uses the same memory card. */
         .appName = getenv("MELEE_WINDOW_TITLE") ? getenv("MELEE_WINDOW_TITLE") : "melee-pc",
         .userPath = SDL_GetPrefPath(NULL, "melee-pc"),
+        .resourcesPath = resources_path[0] != '\0' ? resources_path : NULL,
         /* MELEE_CACHE_DIR: two instances on one machine (netplay testing)
          * must not share the pipeline-cache SQLite file. */
         .cachePath = getenv("MELEE_CACHE_DIR") ? getenv("MELEE_CACHE_DIR") :
