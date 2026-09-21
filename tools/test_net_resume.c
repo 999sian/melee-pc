@@ -310,6 +310,14 @@ void record_frame(const PADStatus* head, uint32_t ck, int32_t f) {
 void record_confirm(int32_t upto) {
     (void)upto;
 }
+void record_scene_at(int32_t f, int32_t at) {
+    (void)f;
+    (void)at;
+}
+bool record_replay_scene_hold(int32_t frame) {
+    (void)frame;
+    return false;
+}
 void synctest_before_tick(void) {}
 bool synctest_after_tick(void) {
     return false;

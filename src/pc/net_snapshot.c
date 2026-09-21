@@ -53,6 +53,13 @@ typedef struct FrameRecord {
     PADStatus pads[4];
     uint32_t ck;
     uint32_t seed;
+    /* The frame the scene running here was agreed to end on, or -1 outside a
+     * hand-off. A netplay scene does not end when its own code asks to: both
+     * peers hold it to a frame they agree on (net.c pc_net_scene_hold), so
+     * without this a replay leaves on its own frame -- measured, twenty
+     * frames early -- and every frame after it is a different scene. This is
+     * the whole difference between MRC2 and MRC3. */
+    int32_t scene_at;
 } FrameRecord;
 
 void record_open(void) {
@@ -66,7 +73,7 @@ void record_open(void) {
         s_rep = fopen(rep, "rb");
         char magic[4];
         uint32_t seed;
-        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC2", 4) != 0 ||
+        if (s_rep && (fread(magic, 4, 1, s_rep) != 1 || memcmp(magic, "MRC3", 4) != 0 ||
                          fread(&seed, 4, 1, s_rep) != 1))
         {
             fclose(s_rep);
@@ -141,7 +148,7 @@ static int32_t s_rec_written = -1; /* newest frame on disk */
 
 static void record_write(const FrameRecord* r, int32_t f) {
     if (f == 0) {
-        fwrite("MRC2", 4, 1, s_rec);
+        fwrite("MRC3", 4, 1, s_rec);
         fwrite(&r->seed, 4, 1, s_rec);
     }
     fwrite(r, sizeof *r, 1, s_rec);
@@ -154,6 +161,7 @@ void record_frame(const PADStatus* head, uint32_t ck, int32_t f) {
         memcpy(r->pads, head, sizeof r->pads);
         r->ck = ck;
         r->seed = *HSD_RandSeedPtr;
+        r->scene_at = net_scene_exit_at();
         if (f > s_rec_staged) {
             s_rec_staged = f;
         }
@@ -184,6 +192,23 @@ void record_confirm(int32_t upto) {
         record_write(&s_rec_ring[f & (RING - 1)], f);
         s_rec_written = f;
     }
+}
+
+/* The hand-off is agreed by the scene's own code, which runs after the
+ * record for that frame was staged, so the frame the scene ASKS to end on
+ * would carry -1 and a replay would leave on it -- one tick early, which is
+ * exactly where it used to diverge. Patch the slot once the tick is over;
+ * it has not been written yet, because only acknowledged frames are. */
+void record_scene_at(int32_t f, int32_t at) {
+    if (s_rec != NULL && f >= 0 && f > s_rec_written && f > net.frame - RING) {
+        s_rec_ring[f & (RING - 1)].scene_at = at;
+    }
+}
+
+/* Offline replay of a netplay recording: hold the scene to the frame the
+ * recorded session agreed on, so the replay crosses where the pair did. */
+bool record_replay_scene_hold(int32_t frame) {
+    return s_rep != NULL && s_rep_cur.scene_at >= 0 && frame < s_rep_cur.scene_at;
 }
 
 /* ---- frame checksum --------------------------------------------------- */

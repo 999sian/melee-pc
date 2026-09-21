@@ -31,6 +31,9 @@ static struct { bool active; int frame; } net;
 /* The recorder stages a frame per ring slot so a rollback can replace it
  * before it is written; mirror net_internal.h's ring size here. */
 #define RING 64
+/* net.c owns the agreed scene-exit frame; this harness has no session, so
+ * every record it writes is outside a hand-off. */
+static int32_t net_scene_exit_at(void) { return -1; }
 static char messages[4096];
 static void pc_log_line(const char* fmt, ...) {
     va_list args;
@@ -59,13 +62,15 @@ int main(int argc, char** argv) {
     s_rec = NULL;
     unsetenv("MELEE_NET_RECORD");
     FILE* f = fopen(argv[1], "rb");
-    unsigned char bytes[152];
+    unsigned char bytes[160]; /* 8-byte header + two 76-byte records */
     assert(fread(bytes, 1, sizeof bytes, f) == sizeof bytes);
-    assert(fgetc(f) == EOF && memcmp(bytes, "MRC2", 4) == 0);
+    assert(fgetc(f) == EOF && memcmp(bytes, "MRC3", 4) == 0);
     uint32_t word;
+    int32_t at;
     memcpy(&word, bytes + 8 + 64, 4); assert(word == 0x11111111);
     memcpy(&word, bytes + 8 + 68, 4); assert(word == 11);
-    memcpy(&word, bytes + 8 + 72 + 68, 4); assert(word == 23);
+    memcpy(&at, bytes + 8 + 72, 4); assert(at == -1); /* no hand-off pending */
+    memcpy(&word, bytes + 8 + 76 + 68, 4); assert(word == 23);
     fclose(f);
     setenv("MELEE_NET_REPLAY", argv[1], 1);
     record_open();
@@ -122,19 +127,23 @@ class ReplaySeedTest(unittest.TestCase):
         self.assertIn("seed_value == 11", broken.stderr)
 
     def test_checksum_readers_preserve_old_captures_and_read_new_seed(self):
-        for magic, stride in ((b"MRC1", 68), (b"MRC2", 72)):
+        for magic, stride in ((b"MRC1", 68), (b"MRC2", 72), (b"MRC3", 76)):
             with self.subTest(magic=magic), tempfile.TemporaryDirectory() as work:
                 header = magic + struct.pack("<I", 7)
-                def row(ck):
-                    return bytes(64) + struct.pack("<I", ck) + (
-                        struct.pack("<I", 0xdeadbeef) if stride == 72 else b"")
+                def row(ck, stride=stride):
+                    tail = b""
+                    if stride >= 72:
+                        tail += struct.pack("<I", 0xdeadbeef)  # tick-start seed
+                    if stride >= 76:
+                        tail += struct.pack("<i", -1)  # agreed scene exit
+                    return bytes(64) + struct.pack("<I", ck) + tail
                 path = Path(work) / "test.rec"
                 path.write_bytes(header + row(99) + header + row(11) + row(22))
                 expected = [struct.pack("<I", 11), struct.pack("<I", 22)]
                 self.assertEqual(net_test.record_cks(path), expected)
                 self.assertEqual(net_test.record_cks(path, tail=1), expected[-1:])
                 self.assertEqual(net_test.record_cks(path, tail=10), expected)
-        data = b"MRC2" + struct.pack("<I", 7) + bytes(64) + struct.pack("<II", 11, 23)
+        data = b"MRC3" + struct.pack("<I", 7) + bytes(64) + struct.pack("<IIi", 11, 23, -1)
         self.assertEqual(net_determinism.rec_frames(data), 1)
         self.assertEqual(net_determinism.rec_ck(data, 0), 11)
 

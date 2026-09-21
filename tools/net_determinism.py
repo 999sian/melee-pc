@@ -67,14 +67,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import net_test  # fifo_write(): one key line into a MELEE_KEY_FIFO
 
-# src/pc/net_snapshot.c's on-disk format: "MRC2", u32 seed (host order), then
-# one FrameRecord per frame = PADStatus pads[4], u32 ck, u32 tick-start seed.
+# src/pc/net_snapshot.c's on-disk format: "MRC3", u32 seed (host order), then
+# one FrameRecord per frame = PADStatus pads[4], u32 ck, u32 tick-start seed,
+# i32 agreed scene-exit frame (-1 outside a hand-off).
 # PADStatus is 16 bytes on TARGET_PC, not 12: dolphin/pad.h adds extButton.
 # tools/test_net_replay_seed.py compiles the real header and recording code
-# and checks the 8 + 72*n layout and checksum/seed offsets independently.
-REC_MAGIC = b"MRC2"
+# and checks the 8 + 76*n layout and checksum/seed offsets independently.
+REC_MAGIC = b"MRC3"
 REC_HDR = 8
-REC_STRIDE = 72
+REC_STRIDE = 76
 PAD_STRIDE = 16
 CK_OFF = 64
 FLIP_OFF = 2  # PADStatus.stickX of pad 0, inside the hashed pad block

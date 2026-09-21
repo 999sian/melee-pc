@@ -1201,7 +1201,9 @@ static void scene_handoff_reset(void) {
  * Offline, and once the peer is gone, it never holds. */
 bool pc_net_scene_hold(void) {
     if (!net.active) {
-        return false;
+        /* Replaying a netplay recording: the scene has to end where the
+         * recorded pair agreed, not where this run's own code asks to. */
+        return record_replay_scene_hold(net.frame);
     }
     int32_t* remote = &s_scene_exit_remote[s_scene_seq % SCENE_SLOTS];
     if (s_scene_exit_local < 0) {
@@ -1242,6 +1244,12 @@ bool pc_net_scene_hold(void) {
     s_scene_exit_local = s_scene_exit_at = -1;
     s_scene_seq++;
     return false;
+}
+
+/* The frame the current scene was agreed to end on, -1 outside a hand-off;
+ * the recorder stores it so a replay can reproduce the same crossing. */
+int32_t net_scene_exit_at(void) {
+    return s_scene_exit_at;
 }
 
 static void audio_journal_reset(void);
@@ -2651,6 +2659,9 @@ bool pc_net_after_tick(bool scene_ending) {
         }
         return false;
     }
+    /* The scene's own code has now run for this tick, so the hand-off it
+     * agreed (if any) belongs to the frame just simulated. */
+    record_scene_at(net.tick_frame, s_scene_exit_at);
     recv_inputs();
     if (s_rb_frame >= 0) {
         int32_t f = s_rb_frame;

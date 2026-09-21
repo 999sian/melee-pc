@@ -441,7 +441,10 @@ void record_open(void);
 bool record_active(void);
 void replay_feed(PADStatus* head);
 void record_frame(const PADStatus* head, uint32_t ck, int32_t f);
-void record_confirm(int32_t upto); /* write settled frames out in order */
+void record_confirm(int32_t upto);            /* write settled frames out in order */
+bool record_replay_scene_hold(int32_t frame); /* replay: hold to the recorded exit */
+void record_scene_at(int32_t f, int32_t at);  /* patch a staged frame's agreed exit */
+int32_t net_scene_exit_at(void);              /* net.c; agreed scene exit, -1 if none */
 void synctest_before_tick(void);
 bool synctest_after_tick(void);
 
