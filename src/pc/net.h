@@ -78,9 +78,9 @@ void pc_net_sync(void);
 bool pc_net_after_tick(bool scene_ending);
 
 /* Called by the frame boundary (src/pc/vi.c) after the pad alarm ran; the
- * returned ns are added to the next pacing wait. Time-sync skips are paid
- * here rather than by sleeping inside a tick. */
-uint64_t pc_net_pace_adjust_ns(void);
+ * returned ns are added to the next pacing wait. Continuous micro-nudging
+ * (±0.75%) gently eliminates clock drift without dropped frames or stalls. */
+int64_t pc_net_pace_adjust_ns(void);
 
 /* True while re-simulating: sound/music/rumble starts must be suppressed. */
 bool pc_net_resim(void);

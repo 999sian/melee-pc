@@ -1747,6 +1747,10 @@ extern "C" uint64_t pc_install_id(void) {
     return prefs.install_id;
 }
 extern "C" const char* pc_app_rev(void) {
+    const char* env = std::getenv("MELEE_APP_REV");
+    if (env != nullptr && env[0] != '\0') {
+        return env;
+    }
     return pc::get_app_version().c_str();
 }
 extern "C" bool pc_is_ucf_enabled(void) {

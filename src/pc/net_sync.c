@@ -36,6 +36,7 @@ static uint32_t s_rtt_prev;            /* last RTT sample, for the jitter ring *
 static uint32_t s_jit[JITTER_SAMPLES]; /* |dRTT| ring; its mean scales the thresholds */
 static int s_jit_n, s_jit_i;
 static uint64_t s_jit_sum;
+static int64_t s_nudge_ns; /* continuous pacing adjustment: ±0.75% per frame */
 
 /* One offset sample (on_inputs, per newest remote frame). */
 void offset_note(int32_t off) {
@@ -121,7 +122,7 @@ static void delay_auto(void) {
     if ((net.frame % 600) != 0 || net.ping_us == 0 || in_fight()) {
         return;
     }
-    int d = (int)((net.ping_us / 2 + jitter_us() + FRAME_US / 2) / FRAME_US) - 1;
+    int d = (int)((net.ping_us / 2 + 2 * jitter_us() + FRAME_US - 1) / FRAME_US);
     d = d < 1 ? 1 : d > 4 ? 4 : d;
     if (d == net.delay) {
         return;
@@ -161,35 +162,49 @@ void net_delay_rel(const void* payload, int len) {
     delay_apply();
 }
 
-/* Every SYNC_INTERVAL frames. Acts only when two consecutive windows cross
- * the same threshold and at most once per SYNC_HOLDOFF frames; the
- * thresholds grow with the jitter so a noisy link cannot trigger skip/advance
- * ping-pong between the peers. */
+/* Every SYNC_INTERVAL frames. Evaluates clock offset and applies continuous
+ * micro-nudging to synchronize clocks without stutter. */
 void time_sync(void) {
     delay_auto();
     net.offset_last = offset_us();
-    int32_t skip_at = 10000 + (int32_t)jitter_us();
-    int32_t advance_at = FRAME_US + skip_at;
-    int over = net.offset_last > skip_at ? 1 : net.offset_last < -advance_at ? -1 : 0;
-    bool confirmed = over != 0 && over == s_sync_over;
-    s_sync_over = over;
-    if (!confirmed || net.frame - s_sync_acted < SYNC_HOLDOFF) {
-        return;
-    }
-    s_sync_acted = net.frame;
-    s_sync_over = 0;
     if (net.sync_mode == SYNC_OFF) {
+        s_nudge_ns = 0;
         return; /* measure the link, never act on it */
     }
-    if (over > 0) {
-        s_skip_left = (net.offset_last - skip_at) / FRAME_US + 1;
-        if (s_skip_left > 5) {
-            s_skip_left = 5;
+
+    int32_t off = net.offset_last;
+    int32_t deadband = 1500 + (int32_t)(jitter_us() / 4);
+
+    /* Proportional continuous micro-nudging:
+     * When clock offset exceeds deadband, calculate the per-frame pacing
+     * adjustment needed to eliminate the drift over the next SYNC_INTERVAL frames.
+     * Clamped to ±2.5 ms (~15% pacing max) so simulation remains butter-smooth
+     * without visual hitching, while dynamically matching peer speed even if
+     * a mobile or throttled peer dips to ~52 FPS. */
+    if (off > deadband) {
+        int64_t target_nudge = ((int64_t)(off - deadband) * 1000) / SYNC_INTERVAL;
+        if (target_nudge > 2500000) {
+            target_nudge = 2500000;
         }
+        s_nudge_ns = target_nudge;
+    } else if (off < -deadband) {
+        int64_t target_nudge = ((int64_t)(off + deadband) * 1000) / SYNC_INTERVAL;
+        if (target_nudge < -2500000) {
+            target_nudge = -2500000;
+        }
+        s_nudge_ns = target_nudge;
     } else {
-        net.advance_left = -net.offset_last / FRAME_US;
-        if (net.advance_left > 3) {
-            net.advance_left = 3;
+        s_nudge_ns = 0;
+    }
+
+    /* Emergency fallback only if clock drift is massive (> 100 ms) */
+    if (net.frame - s_sync_acted >= SYNC_HOLDOFF) {
+        if (off > 100000) {
+            s_sync_acted = net.frame;
+            s_skip_left = 1;
+        } else if (off < -100000) {
+            s_sync_acted = net.frame;
+            net.advance_left = 1;
         }
     }
 }
@@ -246,23 +261,23 @@ static uint64_t pace_adjust_legacy(void) {
     return (uint64_t)FRAME_US * 1000;
 }
 
-uint64_t pc_net_pace_adjust_ns(void) {
+int64_t pc_net_pace_adjust_ns(void) {
     if (!net.active) {
         return 0;
     }
     if (net.sync_mode == SYNC_LEGACY) {
-        return pace_adjust_legacy();
+        return (int64_t)pace_adjust_legacy();
     }
     pad_queue_pin();
-    if (s_skip_left == 0) {
-        return 0;
+
+    int64_t adj = s_nudge_ns;
+    if (s_skip_left > 0) {
+        /* Emergency skip for massive drift (> 80 ms) */
+        s_skip_left--;
+        net.skips++;
+        adj += (int64_t)FRAME_US * 1000;
     }
-    /* Ahead of the peer: wait one frame longer before the next present. No
-     * tick is added or removed and no sample is touched; the sim simply
-     * falls one frame further behind the wall clock. */
-    s_skip_left--;
-    net.skips++;
-    return (uint64_t)FRAME_US * 1000;
+    return adj;
 }
 
 /* Session start: empty rings, no burst pending, holdoff already elapsed. */
@@ -281,6 +296,7 @@ void sync_reset(void) {
     net.offset_last = 0;
     s_skip_left = net.advance_left = s_drop_left = s_sync_over = 0;
     s_sync_acted = -SYNC_HOLDOFF;
+    s_nudge_ns = 0;
     s_rtt_prev = 0;
     s_jit_n = s_jit_i = 0;
     s_jit_sum = 0;

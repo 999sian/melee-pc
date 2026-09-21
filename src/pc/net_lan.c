@@ -595,8 +595,13 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
     } else if (seen & KBIT(K_OFFER)) {
         return reject(RJ_STRAY);
     }
-    out->e.p.compatible =
-        strcmp(out->rev, pc_app_rev()) == 0 && strcmp(out->disc, pc_lan_disc_id()) == 0;
+    static int ignore_rev = -1;
+    if (ignore_rev < 0) {
+        const char* e = getenv("MELEE_LAN_IGNORE_REV");
+        ignore_rev = e != NULL && (e[0] == '1' || strcmp(e, "true") == 0);
+    }
+    bool rev_ok = (ignore_rev > 0) || (strcmp(out->rev, pc_app_rev()) == 0);
+    out->e.p.compatible = rev_ok && strcmp(out->disc, pc_lan_disc_id()) == 0;
     return true;
 }
 
