@@ -2,12 +2,12 @@
 """Compile the actual online stage selector; stub only shared seed and stage switches."""
 import json
 from pathlib import Path
-from net_test_support import standalone_compile_args
+from net_test_support import build_dir, standalone_compile_args
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-entries = json.loads((root / "build/compile_commands.json").read_text())
+entries = json.loads((build_dir(root) / "compile_commands.json").read_text())
 entry = next(e for e in entries if e["file"].endswith("/mn/mnstagesel.c"))
 args = standalone_compile_args(entry)
 with tempfile.TemporaryDirectory(prefix="melee-net-stage-test-") as directory:

@@ -2,12 +2,13 @@
 """Compile the actual widescreen aspect and viewport maths."""
 import json
 from pathlib import Path
+from net_test_support import build_dir
 import shlex
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-entries = json.loads((root / "build/compile_commands.json").read_text())
+entries = json.loads((build_dir(root) / "compile_commands.json").read_text())
 entry = next(e for e in entries if e["file"].endswith("/pc/vi.c"))
 args = shlex.split(entry["command"])
 for option in ("-o", "-c"):

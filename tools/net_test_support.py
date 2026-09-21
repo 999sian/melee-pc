@@ -3,8 +3,13 @@ import os
 from pathlib import Path
 
 
+def build_dir(root):
+    """The configured build, which CI puts outside ./build."""
+    return Path(os.environ.get("MELEE_TEST_BUILD", root / "build"))
+
+
 def sdl_includes(root):
-    build = Path(os.environ.get("MELEE_TEST_BUILD", root / "build"))
+    build = build_dir(root)
     candidates = [build / "_deps/sdl-src/include", Path("/usr/include/SDL3").parent]
     cache = build / "CMakeCache.txt"
     if cache.exists():

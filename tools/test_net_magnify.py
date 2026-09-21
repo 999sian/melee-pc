@@ -3,12 +3,12 @@
 import json
 import sys
 from pathlib import Path
-from net_test_support import standalone_compile_args
+from net_test_support import build_dir, standalone_compile_args
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-entries = json.loads((root / "build/compile_commands.json").read_text())
+entries = json.loads((build_dir(root) / "compile_commands.json").read_text())
 entry = next(e for e in entries if e["file"].endswith("/if/ifmagnify.c"))
 args = standalone_compile_args(entry)
 if "--old" in sys.argv: args.append("-DTEST_OLD_PREDICATE")

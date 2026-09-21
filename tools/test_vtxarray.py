@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 
 root = pathlib.Path(__file__).resolve().parent.parent
-entries = json.loads((root / "build/compile_commands.json").read_text())
+entries = json.loads((build_dir(root) / "compile_commands.json").read_text())
 entry = next(e for e in entries if e["file"].endswith("/pc/vtxarray.c"))
 args = shlex.split(entry["command"])
 for option in ("-o", "-c"):

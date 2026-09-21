@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 root = pathlib.Path(__file__).resolve().parent.parent
-entries = json.loads((root / "build/compile_commands.json").read_text())
+entries = json.loads((build_dir(root) / "compile_commands.json").read_text())
 entry = next(e for e in entries if e["file"].endswith("/pc/audio.c"))
 args = shlex.split(entry["command"])
 # Keep compile definitions/includes, but enable assertions and discard unused
