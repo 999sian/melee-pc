@@ -466,7 +466,9 @@ static void step_resume_ok(void) {
         /* Nor does a repeat of it produce one. */
         peer_resume(SESSION, SEED, 203, 195);
         assert(s_resume_sends == 1);
-    } else if (s_did_exchange && !s_did_pads && (s_now - s_t0) / 1000000ull >= (STALL_TIMEOUT_MS + 1000)) {
+    } else if (s_did_exchange && !s_did_pads &&
+               (s_now - s_t0) / 1000000ull >= (STALL_TIMEOUT_MS + 1000))
+    {
         s_did_pads = true;
         peer_pads(HAVE + 1, 199);
     }

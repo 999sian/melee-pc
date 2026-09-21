@@ -209,7 +209,9 @@ bool pc_dht_external_endpoint(struct pc_dht_endpoint* out) {
     return false;
 }
 #if defined(__GNUC__) || defined(__clang__)
-__attribute__((weak)) void pc_log_line(const char* fmt, ...) { (void)fmt; }
+__attribute__((weak)) void pc_log_line(const char* fmt, ...) {
+    (void)fmt;
+}
 #else
 void pc_log_line(const char* fmt, ...);
 #endif
@@ -258,7 +260,8 @@ static void node_cache(bool save) {
             for (int i = 0; i < 64; i++) {
                 struct sockaddr_in addr = {0};
                 addr.sin_family = AF_INET;
-                if (fread(&addr.sin_addr.s_addr, 1, 4, f) != 4 || fread(&addr.sin_port, 1, 2, f) != 2)
+                if (fread(&addr.sin_addr.s_addr, 1, 4, f) != 4 ||
+                    fread(&addr.sin_port, 1, 2, f) != 2)
                     break;
                 if (public_ip(addr.sin_addr.s_addr) && addr.sin_port) {
                     dht_ping_node((struct sockaddr*)&addr, sizeof(addr));
@@ -297,8 +300,8 @@ static void node_cache(bool save) {
             addr.sin_port = htons(static_seeds[i].port);
             dht_ping_node((struct sockaddr*)&addr, sizeof(addr));
         }
-        pc_log_line("dht: primed cache: %d loaded from file, %zu static seeds pinged",
-                    loaded, sizeof(static_seeds) / sizeof(static_seeds[0]));
+        pc_log_line("dht: primed cache: %d loaded from file, %zu static seeds pinged", loaded,
+            sizeof(static_seeds) / sizeof(static_seeds[0]));
     }
 #else
     (void)save;
@@ -417,7 +420,8 @@ static int resolve(void* arg) {
 static void values(void* ctx, int event, const unsigned char* hash, const void* data, size_t len) {
     (void)ctx;
     if (event == DHT_EVENT_SEARCH_DONE && hash) {
-        pc_log_line("dht: search completed for topic %02x%02x%02x%02x...", hash[0], hash[1], hash[2], hash[3]);
+        pc_log_line("dht: search completed for topic %02x%02x%02x%02x...", hash[0], hash[1],
+            hash[2], hash[3]);
         return;
     }
     if (event != DHT_EVENT_VALUES || len % 6)
@@ -436,9 +440,8 @@ static void values(void* ctx, int event, const unsigned char* hash, const void* 
                 break;
         if (j == queue_count && queue_count < 64) {
             queue[queue_count++] = ep;
-            pc_log_line("dht: candidate discovered %u.%u.%u.%u:%u (queue=%u)",
-                        ip >> 24, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF,
-                        ep.port, queue_count);
+            pc_log_line("dht: candidate discovered %u.%u.%u.%u:%u (queue=%u)", ip >> 24,
+                (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, ep.port, queue_count);
         }
     }
 }

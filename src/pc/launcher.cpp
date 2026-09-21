@@ -1785,7 +1785,8 @@ extern "C" int pc_get_net_port(void) {
     const char* env_port = getenv("MELEE_NET_PORT");
     if (env_port && *env_port) {
         int p = std::atoi(env_port);
-        if (p > 0 && p < 65536) return p;
+        if (p > 0 && p < 65536)
+            return p;
     }
     return prefs.net_port;
 }
