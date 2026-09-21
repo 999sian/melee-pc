@@ -524,8 +524,8 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
 #if defined(__ANDROID__)
     resources_path[0] = '\0'; /* assets come from the APK, not a directory */
 #else
-    snprintf(resources_path, sizeof resources_path, "%sresources/",
-        base_path != NULL ? base_path : "");
+    snprintf(
+        resources_path, sizeof resources_path, "%sresources/", base_path != NULL ? base_path : "");
 #endif
 
     AuroraConfig config = {
