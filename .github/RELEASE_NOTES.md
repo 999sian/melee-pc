@@ -16,35 +16,23 @@ English (UK) text.
 
 ## Highlights
 
-- **Internet play over the DHT (prototype):** signed Direct, Unranked and
-  Ranked best-of-three matchmaking, rendezvous through the public Mainline DHT
-  with no server of ours in the path, plus burst hole punching for cellular
-  and double-NAT links. Public DHT storage is verified; two-NAT pairing and
-  live ranked acceptance are still pending.
-- **Direct Connect asks for the code in game:** the lobby now prompts for your
-  friend's connect code instead of silently reusing whatever the launcher
-  field last held. Stick or D-pad left/right picks a slot, up/down cycles the
-  character, START connects, and a blank code hosts your own code for a friend
-  to dial. Previously two players who both opened Direct Connect each hosted
-  their own code and never met.
-- **Rollback snapshots on every supported platform**, so Windows and macOS no
-  longer fall back to lockstep from the first frame.
+A point release for two bugs reported against v0.1.10-beta, both hit on a
+first online visit.
 
 ## Fixes
 
-- Ask for the connect code before starting a Direct Connect session, and keep
-  the "not a connect code" message on screen until the code is edited.
-- Retry after a failed direct session re-opens code entry instead of dropping
-  the code and restarting as public matchmaking. Untested: forcing a direct
-  session to fail needs a second peer, so this path is reviewed but not
-  exercised by a run.
-- Handle a graceful peer disconnect and stop the lobby from exhausting memory
-  while it waits.
-- Restore unranked and LAN stage picking, and fix the LAN lobby menu exit.
-- Stop the idle attract loop from running under the online lobby, suppress SFX
-  overflow spam, and disconnect cleanly when the window closes.
-- Announce immediately on the DHT and improve bootstrapping so a search finds
-  peers without waiting for the next announce window.
+- **Online Profile said "Identity unavailable. Check your profile files"**, and
+  Direct Connect then hosted an empty code, so nobody could be dialed. An
+  `identity.key` whose length was not 32 bytes (a 0-byte file left by a crash
+  or a full disk between the create and the write, or a truncated copy) was
+  refused forever: every later run failed the same way until the file was
+  deleted by hand. A file that cannot hold a key is now replaced, and every
+  failure logs the path and errno. A readable 32-byte key is never touched.
+  If yours was damaged, your connect code changes: the old key was
+  unrecoverable either way.
+- **The launcher's Discord icon never loaded** (`Failed to open file
+  '<game dir>\discord.png'`). Relative assets in the launcher page were looked
+  up beside the executable instead of in `resources/`.
 
 ## Known issues
 
@@ -139,6 +127,43 @@ image path directly:
 ```
 
 ## Previous releases
+
+### Changes in v0.1.10-beta
+
+#### Highlights
+
+- **Internet play over the DHT (prototype):** signed Direct, Unranked and
+  Ranked best-of-three matchmaking, rendezvous through the public Mainline DHT
+  with no server of ours in the path, plus burst hole punching for cellular
+  and double-NAT links. Public DHT storage is verified; two-NAT pairing and
+  live ranked acceptance are still pending.
+- **Direct Connect asks for the code in game:** the lobby prompts for your
+  friend's connect code instead of silently reusing whatever the launcher
+  field last held. Stick or D-pad left/right picks a slot, up/down cycles the
+  character, START connects, and a blank code hosts your own code for a friend
+  to dial. Previously two players who both opened Direct Connect each hosted
+  their own code and never met.
+- **Rollback snapshots on every supported platform**, so Windows and macOS no
+  longer fall back to lockstep from the first frame.
+
+#### Fixes
+
+- Ask for the connect code before starting a Direct Connect session, and keep
+  the "not a connect code" message on screen until the code is edited.
+- Retry after a failed direct session re-opens code entry instead of dropping
+  the code and restarting as public matchmaking. Untested: forcing a direct
+  session to fail needs a second peer, so this path is reviewed but not
+  exercised by a run.
+- Handle a graceful peer disconnect and stop the lobby from exhausting memory
+  while it waits.
+- Restore unranked and LAN stage picking, and fix the LAN lobby menu exit.
+- Stop the idle attract loop from running under the online lobby, suppress SFX
+  overflow spam, and disconnect cleanly when the window closes.
+- Announce immediately on the DHT and improve bootstrapping so a search finds
+  peers without waiting for the next announce window.
+- Repair the Windows (MinGW `uint32_t`, winsock `accept` clash) and macOS
+  x86_64 (symbol-less object in the snapshot sectioner) builds, and point the
+  python netplay fixtures at the configured build directory in CI.
 
 ### Changes in v0.1.9-beta
 
