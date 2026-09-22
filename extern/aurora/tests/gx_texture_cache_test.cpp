@@ -306,6 +306,24 @@ TEST_F(GxTextureCacheTest, ObjectAgingKeepsContentEntry) {
   EXPECT_EQ(texture_stats().objectHits, 0);
 }
 
+TEST_F(GxTextureCacheTest, ObjectNeverReusedAgesOutBeforeReusedObject) {
+  std::array<uint8_t, 16> pixels{};
+  const auto once = make_texture(pixels.data(), 1);
+  const auto reused = make_texture(pixels.data(), 2);
+  texture::resolve_static_texture(once);
+  texture::resolve_static_texture(reused);
+  texture::end_frame();
+  texture::resolve_static_texture(reused);
+  for (uint64_t i = 0; i <= texture::UnreusedObjectIdleFrames; ++i) {
+    texture::end_frame();
+  }
+
+  texture::resolve_static_texture(once);
+  EXPECT_EQ(texture_stats().objectHits, 0);
+  texture::resolve_static_texture(reused);
+  EXPECT_EQ(texture_stats().objectHits, 1);
+}
+
 TEST_F(GxTextureCacheTest, BoundObjectIsNotAgedOut) {
   std::array<uint8_t, 16> pixels{};
   g_gxState.loadedTextures[0] = make_texture(pixels.data(), 1);
