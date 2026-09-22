@@ -304,8 +304,12 @@ static bool accept_ack(const MatchAck* a) {
         return true;
     intptr_t fd = pc_dht_take_socket();
     char ip[INET_ADDRSTRLEN];
-    struct in_addr addr = {peer.address};
-    inet_ntop(AF_INET, &addr, ip, sizeof ip);
+    /* peer.address is already in network byte order, so hand it to inet_ntop
+     * as-is. Wrapping it in `struct in_addr addr = {peer.address}` truncates
+     * to the first octet wherever in_addr is a union with a u_char[4] member
+     * first (MinGW), which dialled 74.0.0.0 for a peer at 74.244.47.247 and
+     * left the match stuck until the connect timeout (#87). */
+    inet_ntop(AF_INET, &peer.address, ip, sizeof ip);
     pc_log_line(
         "match: accept_ack -> connecting socket as host to %s:%u (seed=%u)", ip, peer.port, seed);
     if (!pc_net_connect_socket(fd, ip, peer.port, 0, seed)) {
@@ -438,8 +442,8 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
         }
         intptr_t fd = pc_dht_take_socket();
         char ip[INET_ADDRSTRLEN];
-        struct in_addr addr = {ep->address};
-        inet_ntop(AF_INET, &addr, ip, sizeof ip);
+        /* Network byte order already: see the host path above (#87). */
+        inet_ntop(AF_INET, &ep->address, ip, sizeof ip);
         pc_log_line("match: recv valid MatchOffer -> sending MatchAck and connecting socket as "
                     "guest to %s:%u (seed=%u)",
             ip, ep->port, seed);
