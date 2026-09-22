@@ -120,7 +120,14 @@ static unsigned pipeline_job_count() {
   if (const char* v = std::getenv("MELEE_PIPELINE_JOBS"); v != nullptr && *v != '\0') {
     return static_cast<unsigned>(std::clamp(std::strtoul(v, nullptr, 10), 1ul, 32ul));
   }
+#if defined(__ANDROID__)
+  /* One, not half the cores: several workers flooded mobile drivers (Adreno
+   * libllvm-qglc.so) with concurrent vkCreateGraphicsPipelines until they
+   * crashed or ran out of memory. */
+  return 1;
+#else
   return std::clamp(std::thread::hardware_concurrency() / 2, 1u, 8u);
+#endif
 }
 
 static sqlite3* g_pipelineCacheDb = nullptr;
@@ -1210,20 +1217,16 @@ void initialize_pipeline_cache() {
   if (webgpu::g_backendType == wgpu::BackendType::WebGPU) {
     g_hasPipelineThread = false;
   } else {
-#if defined(__ANDROID__)
-    // On Android, background worker thread floods mobile GPU drivers (e.g. Adreno
-    // libllvm-qglc.so) during asset extraction and menu initialization with unthrottled
-    // vkCreateGraphicsPipelines, leading to driver crashes or memory exhaustion.
-    // Pipelines are instead built smoothly on the main thread via BuildPipelinesPerFrame.
-    g_hasPipelineThread = false;
-#else
+    /* Android too: compiling on the draw path instead cost 7-30 ms a pipeline
+     * on a Mali-G715, ~100 of them in one Final Destination match, and in
+     * netplay each burst froze the frame long enough to stall the peer past
+     * the rollback window. A skipped draw for a frame is the lesser evil. */
     g_hasPipelineThread = true;
     const unsigned jobs = pipeline_job_count();
     Log.info("Compiling pipelines on {} thread(s){}", jobs, g_pipelineSync ? ", sync mode" : "");
     for (unsigned i = 0; i < jobs; ++i) {
       g_pipelineThreads.emplace_back(pipeline_worker);
     }
-#endif
   }
 
   const size_t loadedCount = load_pipeline_cache();
