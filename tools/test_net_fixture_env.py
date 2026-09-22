@@ -24,6 +24,10 @@ class FixtureEnvironmentTest(unittest.TestCase):
             "MELEE_NET": "192.0.2.1:1",
             "MELEE_NET_PLAYER": "3",
             "MELEE_NET_REPLAY": "/injected/replay.rec",
+            # A stale key is worse than none: a LAN fixture that kept it would
+            # pin a key its peer cannot derive, and every datagram between
+            # them would go unauthenticated instead (src/pc/net_wire.c).
+            "MELEE_NET_KEY": "stale",
         }
         for lan in (True, False):
             with self.subTest(lan=lan), tempfile.TemporaryDirectory() as work:
@@ -41,6 +45,7 @@ class FixtureEnvironmentTest(unittest.TestCase):
                 else:
                     self.assertEqual(env["MELEE_NET"], "127.0.0.1:42051")
                     self.assertEqual(env["MELEE_NET_PLAYER"], "0")
+                    self.assertEqual(env["MELEE_NET_KEY"], net_test.NET_KEY)
                     self.assertEqual(env["MELEE_DEBUG_VS"], "1")
 
 

@@ -50,6 +50,13 @@ import time
 BOOT_FRAMES = 9000
 CACHE_ROOT = "/tmp/melee_net_cache"  # kept between runs; keyed by port, never shared
 LOAD_STALL_FRAME = 900  # --load-stall: session up, menus lockstep, every frame waits
+# Direct sessions run no handshake, so they have no nonces to derive a
+# datagram key from and are unauthenticated unless the peers are started with
+# a shared secret (MELEE_NET_KEY, src/pc/net.c). Every fixture here sets one,
+# so the matrix exercises the authenticated path rather than the one branch
+# no player should ever be on; tools/net_fuzz.py reads this to tag its own
+# datagrams. A LAN fixture leaves it unset and keys off the handshake.
+NET_KEY = "melee-pc net fixture key"
 SIM_ENV = {  # CLI flag -> (env knob, value) in src/pc/net.c's link simulator
     "jitter": ("MELEE_NET_SIM_JITTER_MS", "20"),
     "reorder": ("MELEE_NET_SIM_REORDER", "10"),
@@ -122,7 +129,8 @@ class Instance:
         os.makedirs(cache, exist_ok=True)
         e = dict(os.environ)
         # A prior direct/replay run must not silently change a LAN fixture.
-        for key in ("MELEE_DEBUG_VS", "MELEE_NET", "MELEE_NET_PLAYER", "MELEE_NET_REPLAY"):
+        for key in ("MELEE_DEBUG_VS", "MELEE_NET", "MELEE_NET_PLAYER", "MELEE_NET_REPLAY",
+                    "MELEE_NET_KEY"):
             e.pop(key, None)
         e.update({
             "SDL_VIDEO_DRIVER": os.environ.get("SDL_VIDEO_DRIVER", os.environ.get("SDL_VIDEODRIVER", "x11")),
@@ -139,6 +147,7 @@ class Instance:
             e["MELEE_NET"] = f"127.0.0.1:{peer_port}"
             e["MELEE_NET_PLAYER"] = "0" if name == "a" else "1"
             e["MELEE_DEBUG_VS"] = "1"
+            e["MELEE_NET_KEY"] = NET_KEY
         e.update(env)
         e.pop("MELEE_LOG_FILE", None)  # stderr is captured below; avoid double lines
         self.log = open(self.log_path, "wb")

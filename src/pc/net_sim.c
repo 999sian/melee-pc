@@ -49,8 +49,19 @@ Held* held_due(Held* held, uint64_t now) {
     return due;
 }
 
-/* Every outgoing datagram passes here (caller holds tx_lock). */
-void tx(const void* buf, size_t len) {
+/* Every outgoing datagram passes here (caller holds tx_lock), which is also
+ * where it gets its authentication tag: one choke point covers the input
+ * packets, the acks, the reliable lane and the BYE, and the copy that makes
+ * room for the tag is the same copy the held queue would make anyway. */
+void tx(const void* body, size_t body_len) {
+    uint8_t stamped[sizeof(Rel) + NET_MAC_LEN];
+    if (body_len > sizeof(Rel)) {
+        return; /* no sender builds one: a truncated datagram would be worse */
+    }
+    memcpy(stamped, body, body_len);
+    net_mac_stamp(stamped, body_len);
+    const void* buf = stamped;
+    size_t len = body_len + NET_MAC_LEN;
     uint64_t now = SDL_GetTicksNS();
     net.tx_pkts++;
     if (*(const uint8_t*)buf == 'M') {

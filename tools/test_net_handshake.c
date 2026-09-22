@@ -73,6 +73,14 @@ uint64_t pc_unlock_state_all(void) {
 Uint64 SDL_GetTicksNS(void) {
     return s_now;
 }
+/* The handshake installs the session key under tx_lock (net_handshake.c); one
+ * thread here, so the lock itself is nothing. */
+void SDL_LockMutex(SDL_Mutex* m) {
+    (void)m;
+}
+void SDL_UnlockMutex(SDL_Mutex* m) {
+    (void)m;
+}
 void recv_inputs(void) {}
 GameRules* gmMainLib_GetGameRules(void) {
     return &s_game;
@@ -250,7 +258,7 @@ static void forge_ready(
 
 int main(void) {
     const uint32_t sess_a = 0xa1b2c3d4, sess_b = 0x0badf00d, sess_c = 0x77c0ffee;
-    uint8_t rules_a[sizeof(Rules)], ready_a[sizeof(Ready)];
+    uint8_t rules_a[sizeof(Rules)], ready_a[sizeof(Ready)], key_guest[32];
     uint64_t host_nonce, guest_nonce;
     int32_t sf = -1;
     Side host, guest;
@@ -308,6 +316,10 @@ int main(void) {
         assert(rd.hash == ready_hash(rd, sess_a));
         assert(rd.unlock_hash == unlock_hash_now());
     }
+    /* The guest has both nonces now, so it has the datagram key (net_wire.c)
+     * before the READY it just built has even gone out. */
+    assert(net_key_ready());
+    memcpy(key_guest, s_key, sizeof key_guest);
     /* both peers now hold the same unlock state, each with its own saved */
     assert(s_unlock_live == s_unlock_all && s_unlock_orig == 0x000000ff00000000ull);
     side_save(&guest);
@@ -315,6 +327,33 @@ int main(void) {
     side_load(&host);
     handshake_msg(REL_READY, ready_a, (int)sizeof ready_a);
     assert(net.hs == HS_DONE && s_nonce_peer == guest_nonce);
+    /* ...and the host derives the same 32 bytes from the same session id and
+     * the same two nonces, with nothing sent for the key itself. */
+    assert(net_key_ready() && memcmp(s_key, key_guest, sizeof key_guest) == 0);
+    {
+        /* A datagram tagged under it verifies, one bit of the tag or of the
+         * body does not, and a key for another session id does not either --
+         * so a recording of this session is inert in the next one, whose
+         * nonces differ anyway. */
+        uint8_t dg[40 + NET_MAC_LEN];
+        memset(dg, 0x5A, sizeof dg);
+        net_mac_stamp(dg, 40);
+        assert(net_mac_ok(dg, 40));
+        dg[40] ^= 1;
+        assert(!net_mac_ok(dg, 40));
+        dg[40] ^= 1;
+        dg[7] ^= 1;
+        assert(!net_mac_ok(dg, 40));
+        dg[7] ^= 1;
+        net.session = sess_c;
+        net_key_clear();
+        net_key_session(host_nonce, guest_nonce);
+        assert(memcmp(s_key, key_guest, sizeof key_guest) != 0 && !net_mac_ok(dg, 40));
+        net.session = sess_a;
+        net_key_clear();
+        net_key_session(host_nonce, guest_nonce);
+        assert(memcmp(s_key, key_guest, sizeof key_guest) == 0);
+    }
     side_save(&host);
     printf("ok 1: exchange completes, host %016llx / guest %016llx bound both ways\n",
         (unsigned long long)host_nonce, (unsigned long long)guest_nonce);

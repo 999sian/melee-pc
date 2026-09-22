@@ -140,7 +140,7 @@ int main(void) {
 '''.replace("HARNESS", str(ROOT / "tools/test_net_resume.c")).replace("GATE", gate).replace("DISPATCH", dispatch)
 
 includes = [ROOT / "extern/aurora/include", ROOT / "src", ROOT / "src/sdk_include",
-            *sdl_includes(ROOT)]
+            ROOT / "extern/monocypher", *sdl_includes(ROOT)]
 with tempfile.TemporaryDirectory(prefix="net_scene_timing_") as work:
     work = Path(work)
     harness = (ROOT / "tools/test_net_resume.c").read_text()
@@ -169,5 +169,7 @@ with tempfile.TemporaryDirectory(prefix="net_scene_timing_") as work:
         c.write_text(source.replace(str(ROOT / "tools/test_net_resume.c"), str(harness_copy)))
         subprocess.run(["cc", "-std=gnu11", "-DTARGET_PC=1", "-DMELEE_PC=1", "-DAURORA",
                         f"-DEXPECT_OLD={int(mutated)}", f"-I{ROOT / 'src/pc'}",
-                        *[f"-I{p}" for p in includes], str(c), "-o", str(binary)], check=True)
+                        *[f"-I{p}" for p in includes], str(c),
+                        str(ROOT / "extern/monocypher/monocypher.c"),  # net_wire.c keys the MAC
+                        "-o", str(binary)], check=True)
         subprocess.run([str(binary)], check=True, timeout=10)

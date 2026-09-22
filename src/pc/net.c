@@ -70,7 +70,14 @@ static bool s_lockstep;      /* snapshot failure: stop predicting, retain older 
 static PADStatus s_raw_last; /* newest physical sample (port 0) */
 static int s_status;         /* pc_net_peer_status(); kept until the next connect */
 static bool s_peer_left;     /* BYE received or version mismatch: stop waiting */
-static bool s_warn_src, s_warn_sess, s_warn_bad; /* one reject line each per session */
+static bool s_warn_src, s_warn_sess, s_warn_bad, s_warn_mac; /* one reject line each per session */
+/* One authenticated datagram has arrived, so the peer holds the session key
+ * and nothing unauthenticated is accepted from here on (recv_inputs). Until
+ * then s_mac_quiet counts what was let through for want of one, so a pair
+ * that never agrees on a key says so instead of looking protected. */
+static bool s_mac_seen;
+static int s_mac_quiet;
+#define MAC_QUIET_MAX 120 /* ~2 s of a peer's traffic at 60 Hz */
 
 static unsigned s_stalls, s_advances, s_rollbacks, s_rb_lost;
 static int s_rb_depth_max;
@@ -132,6 +139,7 @@ static unsigned s_rx_dups, s_rx_reorders; /* this stats window */
 static unsigned s_sock_err;
 static bool s_warn_sock;
 static unsigned s_rx_malformed, s_rx_bad_src, s_rx_bad_sess, s_rx_bad_player, s_tx_would_block;
+static unsigned s_rx_bad_mac; /* datagrams refused by the authentication gate */
 
 /* Adaptive redundancy: unacked frames repeated per input packet, clamped to
  * loss and rollback depth; the value in force is reported as `red`. The
@@ -728,13 +736,60 @@ void recv_inputs(void) {
                 continue;
         }
         s_rx_pkts++;
-        if (n < (int)sizeof(Hdr)) {
+        if (n < (int)(sizeof(Hdr) + NET_MAC_LEN)) {
             s_rx_malformed++;
             continue;
         }
-        if (!packet_shape(&u, n)) {
+        /* Everything downstream measures the message, not the datagram: the
+         * tag is checked here and then left behind, so every length test and
+         * every body parser below stays the one it was. */
+        int body = n - NET_MAC_LEN;
+        if (!packet_shape(&u, body)) {
             s_rx_malformed++;
             continue;
+        }
+        /* The authentication gate, ahead of every other check: a datagram
+         * that cannot prove it belongs to this session must not pin the peer
+         * address, teach us the session id, fail our protocol version or
+         * reach rx_dispatch.
+         *
+         * A handshake-derived key does not exist until the handshake, and
+         * the two peers get it one leg apart -- the guest when it accepts
+         * RULES, the host when it accepts the READY that answers it. Until a
+         * datagram has actually verified, one that does not is taken as a
+         * peer that has not keyed yet rather than as an attack; from the
+         * first tag that checks out, nothing unauthenticated is accepted
+         * again for the rest of the session. That upgrade is one round trip
+         * wide and it is never given back, so the window is the bootstrap
+         * one that already existed rather than a downgrade an attacker can
+         * reopen.
+         *
+         * A key pinned from MELEE_NET_KEY gets no such grace: both peers
+         * hold it from connect, so there is no leg to wait out and the first
+         * untagged datagram is already a forgery. Without this the knob
+         * would authenticate nothing at all -- an attacker who never sends a
+         * valid tag would simply keep the grace open forever. */
+        if (net_key_ready() && net_mac_ok(&u, (size_t)body)) {
+            s_mac_seen = true;
+        } else if (s_mac_seen || net_key_pinned()) {
+            s_rx_bad_mac++;
+            if (!s_warn_mac) {
+                s_warn_mac = true;
+                pc_log_line("net: dropped a datagram with a bad MAC (magic %c len %d) at frame %d",
+                    u.h.magic >= 32 && u.h.magic < 127 ? u.h.magic : '?', n, net.frame);
+            }
+            continue;
+        } else if (net_key_ready() && ++s_mac_quiet == MAC_QUIET_MAX) {
+            /* We hold a key and two seconds of the peer's traffic has gone by
+             * without one tag of it verifying. That is not the handshake leg
+             * the upgrade above allows for; it is two peers holding different
+             * keys -- a stale MELEE_NET_KEY on one side is how -- and the
+             * session is running unauthenticated. Said once, out loud,
+             * because the alternative is a session that looks protected in
+             * the log and is not. */
+            pc_log_line("net: %d datagrams from the peer and none of them authenticate; this "
+                        "session is UNAUTHENTICATED (the two sides hold different keys)",
+                MAC_QUIET_MAX);
         }
         wire_hdr(&u.h);
         bool same_addr = addr_eq(&from, &net.peer);
@@ -800,8 +855,10 @@ void recv_inputs(void) {
             SDL_UnlockMutex(net.tx_lock);
         }
         if (net.sim_rx_delay_ns == 0) {
-            rx_dispatch(&u, n);
-        } else if (held_put(s_rx_held, &u, (size_t)n, SDL_GetTicksNS() + net.sim_rx_delay_ns) < 0) {
+            rx_dispatch(&u, body);
+        } else if (held_put(s_rx_held, &u, (size_t)body, SDL_GetTicksNS() + net.sim_rx_delay_ns) <
+                   0)
+        {
             continue; /* simulator queue full: one more loss */
         }
     }
@@ -1325,7 +1382,12 @@ static void session_reset(void) {
     s_remote_ck = 0;
     net.desync_reported = s_heard = s_peer_left = s_no_progress = false;
     s_last_rx_ns = 0;
-    s_warn_src = s_warn_sess = s_warn_bad = false;
+    s_warn_src = s_warn_sess = s_warn_bad = s_warn_mac = false;
+    /* A fresh session starts with no key and trusting nothing it has not
+     * yet authenticated; the key arrives with the handshake. */
+    net_key_clear();
+    s_mac_seen = false;
+    s_mac_quiet = 0;
     s_status = PC_NET_PEER_OK;
     s_rc = RSM_NONE;
     s_rc_sent = false;
@@ -1347,6 +1409,7 @@ static void session_reset(void) {
     s_sock_err = 0;
     s_warn_sock = false;
     s_rx_malformed = s_rx_bad_src = s_rx_bad_sess = s_rx_bad_player = s_tx_would_block = 0;
+    s_rx_bad_mac = 0;
     s_red_target = REDUNDANCY;
     s_red_floor = REDUNDANCY_FLOOR;
     s_resim_run = 0;
@@ -1408,6 +1471,11 @@ void pc_net_disconnect(void) {
     sock_close(net.sock);
     net.sock = SOCK_INVALID;
     net.hs = HS_IDLE;
+    /* After the BYE burst above, which still needed the key to be accepted:
+     * the nonces it was derived from are dead with the session, so the key
+     * does not outlive it in this process's memory either. */
+    net_key_clear();
+    s_mac_seen = false;
     rules_restore();
     HSD_PadLibData.qtype = 0;
     SDL_UnlockMutex(net.tx_lock);
@@ -1587,6 +1655,18 @@ static bool connect_impl(
     if (seed != 0) {
         *HSD_RandSeedPtr = seed;
     }
+    /* MELEE_NET_KEY: one secret typed by whoever starts both instances, for
+     * the direct sessions that run no handshake and so have no nonces to
+     * derive a key from. It pins the key for the whole session -- a
+     * handshake later on will not replace it -- because rekeying in flight
+     * would drop every datagram that straddled the change, and the two
+     * peers cannot make that change on the same frame. */
+    const char* key = getenv("MELEE_NET_KEY");
+    if (key != NULL && key[0] != '\0') {
+        net_key_direct(key);
+        pc_log_line("net: datagrams authenticated from MELEE_NET_KEY (the handshake will not "
+                    "rekey this session)");
+    }
     SDL_LockMutex(net.tx_lock);
     net.sock = sock;
     net.active = true;
@@ -1651,6 +1731,17 @@ void pc_net_init(void) {
     }
     pc_net_connect(host, (uint16_t)atoi(colon + 1), player && player[0] == '1',
         seed ? (uint32_t)strtoul(seed, NULL, 0) : 0);
+    /* Said plainly rather than left to be inferred from a missing line: a
+     * MELEE_NET session runs no handshake, so it has no nonces, so with no
+     * secret supplied there is nothing to authenticate its datagrams with
+     * and anything that can reach this port can inject input, acks, a delay
+     * change or a BYE. The lobby and LAN paths derive a key from the
+     * handshake instead and never reach this. */
+    const char* key = getenv("MELEE_NET_KEY");
+    if (key == NULL || key[0] == '\0') {
+        pc_log_line("net: this MELEE_NET session is UNAUTHENTICATED and is for diagnostics only; "
+                    "set the same MELEE_NET_KEY on both peers to authenticate its datagrams");
+    }
 }
 
 int32_t pc_net_start_frame(void) {
@@ -2425,7 +2516,8 @@ static void fresh_tick(PADStatus* head, bool raw) {
                     "%.1f ms), skips %u, advances %u, ping %u ms (avg %.0f, min %u, max %u, "
                     "jitter %.1f), loss %d%% (%u tx %u rx), offset %+.1f ms, remote behind %d, "
                     "barrier %d, quality %d, dup %u reorder %u sock_err %u resim_eat %u red %d, "
-                    "drops (bad_src %u bad_sess %u bad_player %u malformed %u would_block %u), "
+                    "drops (bad_src %u bad_sess %u bad_player %u bad_mac %u malformed %u "
+                    "would_block %u), "
                     "pad reuse %u empty %u, audio replayed %u over %u, seed out-of-tick %u draws "
                     "in %u frames, pad slips %u (queue worst %u, full at write %u), idle ticks %u, "
                     "audio liveness asked %u (engine would say yes %u)",
@@ -2435,9 +2527,9 @@ static void fresh_tick(PADStatus* head, bool raw) {
             jitter_us() / 1000.0, s_loss_pct, net.tx_pkts, s_rx_pkts, net.offset_last / 1000.0,
             net.frame - 1 - s_remote_have, net.rb_barrier, pc_net_quality(), s_rx_dups,
             s_rx_reorders, s_sock_err, s_resim_eat, s_red_target, s_rx_bad_src, s_rx_bad_sess,
-            s_rx_bad_player, s_rx_malformed, s_tx_would_block, net.pad_reuse, net.pad_empty,
-            s_aj_replays, s_aj_over, s_seed_out_draws, s_seed_out_frames, s_pad_slips, s_qdepth_max,
-            s_pad_full, s_tick_idle, s_deaf_asks, s_deaf_true);
+            s_rx_bad_player, s_rx_bad_mac, s_rx_malformed, s_tx_would_block, net.pad_reuse,
+            net.pad_empty, s_aj_replays, s_aj_over, s_seed_out_draws, s_seed_out_frames,
+            s_pad_slips, s_qdepth_max, s_pad_full, s_tick_idle, s_deaf_asks, s_deaf_true);
         snap_stats_report();
         s_stall_ns_max = 0;
         s_ping_sum = 0;
@@ -2447,6 +2539,7 @@ static void fresh_tick(PADStatus* head, bool raw) {
         s_loss_tx_mark = s_loss_ack_mark = 0; /* the marks index those counters */
         s_rx_dups = s_rx_reorders = s_sock_err = s_resim_eat = 0;
         s_rx_bad_src = s_rx_bad_sess = s_rx_bad_player = s_rx_malformed = s_tx_would_block = 0;
+        s_rx_bad_mac = 0;
     }
 #ifdef MELEE_FP_PERTURB_NAME
     if ((net.frame % 600) == 0 && net.frame > 0) {

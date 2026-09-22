@@ -21,8 +21,11 @@ extern "C" {
 /* Version 6 requires sequenced scene exits and acknowledged LAN election.
  * Version 7 adds the sender's frame advantage to every input packet; the
  * phase controller acts on the difference of the two, so a peer that does
- * not send one cannot be synchronised against. */
-#define PC_NET_PROTO_VERSION 7
+ * not send one cannot be synchronised against.
+ * Version 8 appends a truncated keyed-BLAKE2b tag to every datagram, so a
+ * peer that does not authenticate what it sends cannot be talked to at all
+ * once the session key exists (src/pc/net_wire.c). */
+#define PC_NET_PROTO_VERSION 8
 void pc_net_init(void);
 void pc_net_set_input_delay(int frames);
 bool pc_net_active(void);

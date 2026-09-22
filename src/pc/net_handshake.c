@@ -439,6 +439,16 @@ static void on_rules(const uint8_t* payload, int len) {
     net.seed = ru.seed;
     net.start_frame = ru.start_frame;
     *HSD_RandSeedPtr = net.seed;
+    /* The earliest moment this side holds both nonces, so the earliest one
+     * at which its datagrams can be authenticated: before the READY that
+     * carries our nonce has even gone out. The host cannot check a tag until
+     * that READY lands, which is why the receiver treats an unverifiable
+     * datagram as a peer that has not keyed yet until the first one that
+     * does verify (recv_inputs). Under tx_lock because the 4 ms timer stamps
+     * its resends with this key on its own thread. */
+    SDL_LockMutex(net.tx_lock);
+    net_key_session(ru.nonce, rd.nonce);
+    SDL_UnlockMutex(net.tx_lock);
     rules_apply(&ru, true);
     wire_ready(&rd);
     if (!hs_send(REL_READY, &rd, sizeof rd)) {
@@ -490,6 +500,13 @@ static void on_ready(const uint8_t* payload, int len) {
         return;
     }
     s_nonce_peer = rd.nonce;
+    /* This side's turn: the READY just authenticated is what carries the
+     * guest's nonce, so from here both peers hold the same three values and
+     * derive the same key without another message. Under tx_lock, like the
+     * guest's install above. */
+    SDL_LockMutex(net.tx_lock);
+    net_key_session(s_nonce_local, rd.nonce);
+    SDL_UnlockMutex(net.tx_lock);
     hs_done();
 }
 

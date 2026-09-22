@@ -34,8 +34,18 @@ instance sends, send ONE ack for its newest frame + --ack-offset (default
 counting frames and keeps sending packets, with no pads in them, for the rest
 of the session. The mixed stream only catches that by luck, so this mode is
 its own pass/fail line.
+
+Every datagram carries the 8-byte authentication tag the receiver requires
+(src/pc/net_wire.c), computed with the session key: the fuzzer stands for a
+peer that holds the key and sends garbage anyway, which is the only attacker
+the body validators below the gate can still see. --key gives the secret
+(default: MELEE_NET_KEY from the environment, else the fixture key net_test.py
+starts its instances with); --key "" sends untagged datagrams, which an
+authenticated instance drops at the gate and an unauthenticated one -- one
+started without MELEE_NET_KEY -- still refuses as the wrong shape.
 """
 import argparse
+import hashlib
 import os
 import random
 import re
@@ -51,6 +61,23 @@ BAD = ("net: DESYNC", "peer silent", "peer left", "cannot roll back", "Segmentat
 # net_handshake.c) and the resume lane's length check.
 REJECT = ("net: dropped", "net: peer speaks protocol", "net: RULES rejected",
           "net: READY ignored", "net: RESUME of")
+
+# src/pc/net_internal.h NET_MAC_LEN, and the direct-mode key derivation of
+# net_key_direct() (src/pc/net_wire.c), which is BLAKE2b of a label and the
+# secret. Cross-checked against monocypher: same key, same tag.
+MAC_LEN = 8
+DIRECT_LABEL = b"melee-pc netplay direct key v1"
+KEY = None  # set from main(); None means "send untagged"
+
+
+def derive_key(secret):
+    return hashlib.blake2b(DIRECT_LABEL + secret.encode(), digest_size=32).digest()
+
+
+def send(sock, body, port):
+    """One datagram out, tagged the way tx() tags the real ones."""
+    mac = hashlib.blake2b(body, key=KEY, digest_size=MAC_LEN).digest() if KEY else bytes(MAC_LEN)
+    sock.sendto(body + mac, ("127.0.0.1", port))
 
 
 def datagram(rng):
@@ -202,7 +229,7 @@ def feed(sock, port, session, player, version, newest):
     count = newest - first + 1
     pk = struct.pack(PACKET_HDR, ord("M"), version, session, player, newest & 0xFFFF, newest,
                      first, -1, 0, count) + bytes(8 * count)
-    sock.sendto(pk, ("127.0.0.1", port))
+    send(sock, pk, port)
 
 
 def peer_newest(sock, our_player):
@@ -218,7 +245,7 @@ def peer_newest(sock, our_player):
             return best, pads
         except OSError:
             return best, pads  # ICMP unreachable
-        if len(d) >= 26 and d[0] == ord("M") and d[6] != our_player:
+        if len(d) >= 26 + MAC_LEN and d[0] == ord("M") and d[6] != our_player:
             best = max(best, struct.unpack_from(">i", d, 9)[0])  # past Hdr(7) + seq(2)
             pads += d[25]  # count: Hdr(7) seq(2) newest/first/ck_frame(12) ck(4)
 
@@ -253,8 +280,8 @@ class Peer:
 
     def ack(self, frame):
         """One Ack datagram for `frame` (src/pc/net_internal.h: Hdr 'A', seq, frame)."""
-        self.s.sendto(struct.pack(">BBIB", ord("A"), self.version, self.session, self.player) +
-                      struct.pack(ACK_BODY, self.base & 0xFFFF, frame), ("127.0.0.1", self.port))
+        send(self.s, struct.pack(">BBIB", ord("A"), self.version, self.session, self.player) +
+             struct.pack(ACK_BODY, self.base & 0xFFFF, frame), self.port)
 
     def window(self, seconds):
         """Play peer for `seconds`; returns the pads that arrived in that time."""
@@ -348,11 +375,10 @@ def run(port, pid, log_path, seconds=30, bind_port=None, seed=1, session=None, p
             mid = (peer.pads, peer.fed)
         try:
             if session is None:
-                s.sendto(datagram(rng), ("127.0.0.1", port))
+                send(s, datagram(rng), port)
             else:
                 peer.pump()
-                s.sendto(datagram_session(rng, session, player, version, peer.base, extremes),
-                         ("127.0.0.1", port))
+                send(s, datagram_session(rng, session, player, version, peer.base, extremes), port)
         except OSError:
             pass  # ICMP port unreachable surfaces here if the target died; alive() decides
         n += 1
@@ -381,6 +407,7 @@ def run(port, pid, log_path, seconds=30, bind_port=None, seed=1, session=None, p
 
 
 def main():
+    global KEY
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=42050)
@@ -407,10 +434,17 @@ def main():
                     help="ack-overshoot: frames past the instance's newest to ack")
     ap.add_argument("--expect", choices=["hold", "collapse"], default="hold",
                     help="ack-overshoot: what the pad rate must do (see --help of the mode)")
+    ap.add_argument("--key", default=None,
+                    help="shared secret the target was started with (default: MELEE_NET_KEY, "
+                         "else net_test.py's fixture key). Empty sends untagged datagrams.")
     args = ap.parse_args()
     session = None
     if args.session not in (None, "auto"):
         session = int(args.session, 16)
+    sys.path.insert(0, here)
+    from net_test import NET_KEY
+    secret = args.key if args.key is not None else os.environ.get("MELEE_NET_KEY", NET_KEY)
+    KEY = derive_key(secret) if secret else None
     window = min(args.seconds / 2.0, 5.0) if args.attack == "ack-overshoot" else 0
 
     def go(pid, log_path):
@@ -431,7 +465,6 @@ def main():
         sys.exit(0 if go(args.pid, args.log) else 1)
 
     import shutil
-    sys.path.insert(0, here)
     from net_test import Instance
     shutil.rmtree(args.work, ignore_errors=True)
     os.makedirs(args.work)

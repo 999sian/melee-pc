@@ -3,7 +3,8 @@
  * pc/net.h and pc/net_lan.h. Modules:
  *   net.c           session lifecycle, receive dispatch, input send/ack,
  *                   stall/barrier, rollback and the per-tick entry points
- *   net_wire.c      byte order, wire codecs, headers, pad conversion
+ *   net_wire.c      byte order, wire codecs, headers, pad conversion, and
+ *                   the session key and per-datagram MAC
  *   net_sim.c       link simulator (loss/delay/jitter/reorder/dup/burst);
  *                   every outgoing datagram goes through tx()
  *   net_reliable.c  stop-and-wait reliable channel ('R'/'K')
@@ -43,6 +44,10 @@
  *     is taken for such a frame; the barrier only rises within a session.
  *   - net.frame is the next fresh frame; net.tick_frame is the frame of the
  *     tick being run (frame - 1 outside a rollback, older during one).
+ *   - a datagram is authenticated before anything reads it: once one tag
+ *     has verified, recv_inputs accepts nothing that does not, so no state
+ *     below it (peer address, session id, rings, reliable lane) can be
+ *     moved by a datagram that is not the peer's.
  *   - net.tx_pkts/tx_inputs are counted under tx_lock and cleared by the
  *     game thread's report without it (a lost increment is a stat, not
  *     state). */
@@ -125,6 +130,15 @@ static inline void sock_startup(void) {}
 /* Multi-byte fields are big-endian on the wire (wire_* in net_wire.c); the
  * packed structs are the exact wire image with host-order fields. */
 #define WIRE_VERSION PC_NET_PROTO_VERSION
+
+/* Every datagram carries NET_MAC_LEN trailing bytes of keyed BLAKE2b over
+ * everything in front of them, header included (net_wire.c). Eight bytes is
+ * the tradeoff: a blind forgery costs 2^-64 per try against a receiver that
+ * answers nothing it rejects, while a wider tag would cost another 8 bytes
+ * on every one of the ~120 datagrams a second a session sends. The field is
+ * present from the first datagram -- zero-filled until the key exists -- so
+ * the length of each message type is one number rather than two. */
+#define NET_MAC_LEN 8
 
 /* 8-byte pad, same fields Slippi puts on the wire. */
 typedef struct WirePad {
@@ -260,7 +274,7 @@ _Static_assert(sizeof(SceneMsg) == 8, "wire layout");
 typedef struct Held {
     uint64_t release_ns;
     uint16_t len;
-    uint8_t buf[sizeof(Rel)];
+    uint8_t buf[sizeof(Rel) + NET_MAC_LEN];
 } Held;
 #define HELD_MAX 128
 
@@ -381,6 +395,31 @@ void wire_ready(Ready* rd);
  * the guest's nonce because it does not exist yet when RULES is sent. */
 uint32_t rules_hash(Rules ru, uint32_t session);
 uint32_t ready_hash(Ready rd, uint32_t session);
+
+/* Per-session datagram authentication. The key is BLAKE2b over the session
+ * id and both handshake nonces, which is the one thing in the session an
+ * off-path attacker cannot see: it can guess the session id, but not two
+ * 64-bit CSPRNG draws that only ever travel inside the RULES/READY pair.
+ * Both peers derive it from the same three values, so neither has to send
+ * anything extra for it. net_key_direct() pins a key from a user-supplied
+ * secret instead, for the direct MELEE_NET sessions that run no handshake;
+ * a pinned key is never replaced by a derived one, so a session cannot rekey
+ * mid-flight and lose the datagrams that straddle the change. */
+void net_key_session(uint64_t host_nonce, uint64_t guest_nonce);
+void net_key_direct(const char* secret);
+void net_key_clear(void);
+bool net_key_ready(void);
+/* True when the key came from MELEE_NET_KEY rather than the handshake. Both
+ * peers then hold it from connect, so there is no leg of a handshake to wait
+ * out and an unauthenticated datagram is a forgery from the first one. */
+bool net_key_pinned(void);
+/* Write the tag for the len bytes at buf into buf[len..len+NET_MAC_LEN); the
+ * caller owns that room. Zeros while no key exists. */
+void net_mac_stamp(void* buf, size_t len);
+/* True when the tag after the len bytes at buf is this session's. False
+ * whenever no key exists: the caller decides what an unauthenticated
+ * datagram means at that point in the session. */
+bool net_mac_ok(const void* buf, size_t len);
 Hdr hdr(uint8_t magic);
 bool addr_eq(const struct sockaddr_storage* a, const struct sockaddr_storage* b);
 /* net_lan.c; text form of a datagram source, for logs and getaddrinfo(). */

@@ -178,10 +178,11 @@ int main(void) {
             source.write_text(harness + main)
             exe = Path(work) / "test"
             includes = [ROOT / "extern/aurora/include", ROOT / "src", ROOT / "src/sdk_include",
-                        *sdl_includes(ROOT)]
+                        ROOT / "extern/monocypher", *sdl_includes(ROOT)]
             subprocess.run(["cc", "-std=gnu11", "-DTARGET_PC=1", "-DMELEE_PC=1", "-DAURORA",
-                            f"-I{ROOT / 'src/pc'}", *[f"-I{p}" for p in includes],
-                            str(source), "-o", str(exe)], check=True, capture_output=True)
+                            f"-I{ROOT / 'src/pc'}", *[f"-I{p}" for p in includes], str(source),
+                            str(ROOT / "extern/monocypher/monocypher.c"),  # net_wire.c keys the MAC
+                            "-o", str(exe)], check=True, capture_output=True)
             result = subprocess.run([str(exe)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
 

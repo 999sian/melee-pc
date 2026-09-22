@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Netplay wire codec: byte order, headers, pad conversion (net_internal.h). */
+/* Netplay wire codec: byte order, headers, pad conversion, and the
+ * per-datagram authentication tag (net_internal.h). */
 #include "compat.h"
+#include "monocypher.h"
 #include "pc/net_internal.h"
 
 #include <string.h>
@@ -131,6 +133,103 @@ uint32_t rules_hash(Rules ru, uint32_t session) {
 uint32_t ready_hash(Ready rd, uint32_t session) {
     wire_ready(&rd);
     return hs_hash(&rd, offsetof(Ready, hash), session);
+}
+
+/* ---- datagram authentication ------------------------------------------
+ * The key is a BLAKE2b of the session id and both handshake nonces, and the
+ * tag is a keyed BLAKE2b of the whole datagram truncated to NET_MAC_LEN. It
+ * covers the header as well as the body, so neither a forged input packet
+ * nor a bit flipped inside a reliable message -- which is a delay change or
+ * a scene exit, with no integrity of its own -- survives the trip.
+ *
+ * Binding the session id is not what makes a captured datagram useless in
+ * the next session; the nonces are. The host draws a fresh one per session
+ * and the guest answers with its own, so two runs between the same peers
+ * derive unrelated keys even in the (2^-32) case where the session id
+ * repeats, and a recording of one session verifies under no other key. */
+static const char KEY_LABEL[] = "melee-pc netplay session key v1";
+static const char KEY_LABEL_DIRECT[] = "melee-pc netplay direct key v1";
+static uint8_t s_key[32];
+static bool s_key_on;     /* s_key holds a key for the session in progress */
+static bool s_key_pinned; /* from MELEE_NET_KEY: the handshake must not rekey */
+
+static void put32(uint8_t* p, uint32_t v) {
+    p[0] = (uint8_t)(v >> 24);
+    p[1] = (uint8_t)(v >> 16);
+    p[2] = (uint8_t)(v >> 8);
+    p[3] = (uint8_t)v;
+}
+
+static void put64(uint8_t* p, uint64_t v) {
+    put32(p, (uint32_t)(v >> 32));
+    put32(p + 4, (uint32_t)v);
+}
+
+void net_key_session(uint64_t host_nonce, uint64_t guest_nonce) {
+    if (s_key_pinned) {
+        return;
+    }
+    /* Host first, guest second whichever side is deriving: the two peers
+     * must feed the same bytes in the same order, and local/remote is the
+     * one ordering they disagree about. */
+    uint8_t m[sizeof KEY_LABEL - 1 + 20], *p = m + sizeof KEY_LABEL - 1;
+    memcpy(m, KEY_LABEL, sizeof KEY_LABEL - 1);
+    put32(p, net.session);
+    put64(p + 4, host_nonce);
+    put64(p + 12, guest_nonce);
+    crypto_blake2b(s_key, sizeof s_key, m, sizeof m);
+    crypto_wipe(m, sizeof m);
+    s_key_on = true;
+}
+
+void net_key_direct(const char* secret) {
+    crypto_blake2b_ctx ctx;
+    crypto_blake2b_init(&ctx, sizeof s_key);
+    crypto_blake2b_update(&ctx, (const uint8_t*)KEY_LABEL_DIRECT, sizeof KEY_LABEL_DIRECT - 1);
+    crypto_blake2b_update(&ctx, (const uint8_t*)secret, strlen(secret));
+    crypto_blake2b_final(&ctx, s_key);
+    crypto_wipe(&ctx, sizeof ctx);
+    s_key_on = s_key_pinned = true;
+}
+
+void net_key_clear(void) {
+    crypto_wipe(s_key, sizeof s_key);
+    s_key_on = s_key_pinned = false;
+}
+
+bool net_key_ready(void) {
+    return s_key_on;
+}
+
+bool net_key_pinned(void) {
+    return s_key_pinned;
+}
+
+void net_mac_stamp(void* buf, size_t len) {
+    uint8_t* mac = (uint8_t*)buf + len;
+    if (!s_key_on) {
+        memset(mac, 0, NET_MAC_LEN);
+        return;
+    }
+    crypto_blake2b_keyed(mac, NET_MAC_LEN, s_key, sizeof s_key, buf, len);
+}
+
+bool net_mac_ok(const void* buf, size_t len) {
+    if (!s_key_on) {
+        return false;
+    }
+    uint8_t want[NET_MAC_LEN];
+    crypto_blake2b_keyed(want, NET_MAC_LEN, s_key, sizeof s_key, buf, len);
+    const uint8_t* got = (const uint8_t*)buf + len;
+    /* Compared without an early exit: a tag is rejected in the same time
+     * whichever byte of it is wrong, so resends cannot be timed into a
+     * byte-at-a-time search for one. */
+    unsigned diff = 0;
+    for (size_t i = 0; i < NET_MAC_LEN; i++) {
+        diff |= (unsigned)(want[i] ^ got[i]);
+    }
+    crypto_wipe(want, sizeof want);
+    return diff == 0;
 }
 
 /* A header in wire order, ready to send. */
