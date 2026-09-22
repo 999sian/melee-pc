@@ -2485,6 +2485,26 @@ static void stall_test(void) {
     }
 }
 
+/* MELEE_NET_HITCH_TEST=ms:every (fixture): park THIS peer's game thread for
+ * `ms` every `every` frames of a fight, standing in for the frame freezes a
+ * phone shows mid-match (100-450 ms each, measured in phone<->PC LAN logs).
+ * Unlike stall_test it is not gated on the player number: the harness sets
+ * it on one instance only. tx_timer keeps resending the newest input
+ * throughout, as it does on a real freeze. */
+static void hitch_test(void) {
+    static int ms = -1, every;
+    if (ms < 0) {
+        const char* s = getenv("MELEE_NET_HITCH_TEST");
+        const char* colon = s != NULL ? strchr(s, ':') : NULL;
+        ms = colon != NULL ? atoi(s) : 0;
+        every = colon != NULL ? atoi(colon + 1) : 0;
+    }
+    if (ms > 0 && every > 0 && net.frame % every == 0 && in_fight()) {
+        pc_log_line("net: hitch test: game thread asleep %d ms at frame %d", ms, net.frame);
+        SDL_Delay((Uint32)ms);
+    }
+}
+
 /* Read the latest published hardware state immediately before input is
  * sent. Extra time-sync ticks and rollback must reuse their recorded sample;
  * they must never sample hardware a second time. Physical port zero is the
@@ -2511,6 +2531,7 @@ static void fresh_tick(PADStatus* head, bool raw) {
             return;
         }
         stall_test();
+        hitch_test();
         static int timing_debug = -1;
         static uint64_t sample_send_total, sample_send_max;
         static unsigned sample_send_count;
