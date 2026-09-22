@@ -484,6 +484,9 @@ void sync_reset(void);
 /* ---- net_snapshot.c --------------------------------------------------- */
 
 bool snapshot_take(Snapshot* s, int32_t frame);
+/* True when the last snapshot_take failed only because a DVD/ARQ transfer
+ * was in flight: that frame cannot be predicted, the next one can. */
+bool snapshot_refused_io(void);
 const char* snapshot_unusable(const Snapshot* s);
 void snapshot_restore(const Snapshot* s);
 /* Non-NULL for missing/invalid simulation ranges. Normal builds provide

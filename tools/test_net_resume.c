@@ -237,6 +237,8 @@ const char* state_line(int32_t frame) {
 static Snapshot s_snaps[SNAPS];
 static uint8_t s_snap_storage[SNAPS];
 static int32_t s_snapshot_fail_at = -1;
+static int32_t s_snapshot_io_at = -1; /* refuse this frame's take over in-flight I/O */
+static bool s_snapshot_io;
 static int32_t s_restored = -1;
 static bool s_state_missing;
 static bool s_restore_rumble_fixture;
@@ -246,7 +248,8 @@ static HSD_RumbleData s_saved_rumble_heads[4];
 static RumbleInfo s_saved_rumble_info;
 bool snapshot_take(Snapshot* s, int32_t frame) {
     s->frame = -1;
-    if (s_state_missing || frame == s_snapshot_fail_at) {
+    s_snapshot_io = frame == s_snapshot_io_at;
+    if (s_state_missing || frame == s_snapshot_fail_at || s_snapshot_io) {
         return false;
     }
     if (s_restore_rumble_fixture) {
@@ -257,6 +260,9 @@ bool snapshot_take(Snapshot* s, int32_t frame) {
     s->buf = &s_snap_storage[frame % SNAPS];
     s->frame = frame;
     return true;
+}
+bool snapshot_refused_io(void) {
+    return s_snapshot_io;
 }
 const char* snapshot_unusable(const Snapshot* s) {
     (void)s;
@@ -368,7 +374,7 @@ static void setup(void) {
     a.sin_port = 0; /* ephemeral: no collision with a concurrent run */
     assert(bind(sock, (struct sockaddr*)&a, sizeof a) == 0);
     assert(sock_nonblock(sock));
-    s_snapshot_fail_at = s_restored = -1;
+    s_snapshot_fail_at = s_snapshot_io_at = s_restored = -1;
     s_state_missing = false;
     gm_804D6720 = NULL;
     session_reset();
@@ -1079,6 +1085,25 @@ static void case_snapshot_failure(void) {
     assert(s_rb_frame == FRAME - 1);
     assert(rollback_to(s_rb_frame));
     assert(s_restored == FRAME - 1 && s_rb_lost == 0);
+    assert(s_lockstep && logged("out of memory for snapshots at frame 200, lockstep from here"));
+    pc_net_disconnect();
+}
+
+static void case_snapshot_io_refusal(void) {
+    printf("case: a take refused over in-flight I/O costs one lockstep frame, not the session\n");
+    fight_setup();
+    s_remote_have = FRAME - 1;
+    s_snapshot_io_at = FRAME;
+    s_step = deliver_changed_input;
+    fresh_tick(s_test_queue[0].stat, true);
+    assert(net.active && net.frame == FRAME + 1);
+    assert(s_remote_have == FRAME); /* waited for the real input instead of predicting */
+    assert(s_test_queue[0].stat[1].button == 0x100);
+    assert(!s_lockstep && !logged("lockstep from here"));
+    s_snapshot_io_at = -1;
+    fresh_tick(s_test_queue[0].stat, true); /* the peer has not sent FRAME + 1 yet */
+    assert(net.active && net.frame == FRAME + 2 && s_remote_have == FRAME);
+    assert(snap_slot(FRAME + 1)->frame == FRAME + 1); /* predicted again */
     pc_net_disconnect();
 }
 
@@ -1221,6 +1246,7 @@ int main(int argc, char** argv) {
     case_connect_destination();
     case_old_protocol();
     case_snapshot_failure();
+    case_snapshot_io_refusal();
     case_snapshot_missing();
     case_resim_snapshot_failure();
     case_seed_reset();

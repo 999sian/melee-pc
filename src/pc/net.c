@@ -2069,6 +2069,14 @@ static bool snap_predicted(int32_t f) {
         return false;
     }
     if (!snapshot_take(s, f)) {
+        /* A DVD/ARQ transfer in flight: this frame waits for the real input
+         * and the next one predicts again. Taking the session to lockstep
+         * for that (and calling it out of memory) turned one refused take
+         * into a whole match of full-length stalls, in 2 of 4
+         * tools/net_test.py --hitch runs. */
+        if (snapshot_refused_io()) {
+            return false;
+        }
         /* Out of memory, or a platform whose linker cannot bracket the
          * decomp's statics at all (net_snapshot.c). */
         const char* why = snapshot_state_region_missing();
