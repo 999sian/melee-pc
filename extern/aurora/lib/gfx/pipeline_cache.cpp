@@ -24,6 +24,7 @@
 #include <thread>
 #include <vector>
 
+#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_thread.h>
 #include <absl/container/flat_hash_map.h>
@@ -612,6 +613,24 @@ static std::string pipeline_cache_seed_path() {
   return path;
 }
 
+/* The seed has always been packaged beside the executable, which is the
+ * directory aurora used before resourcesPath became configurable. A host that
+ * points resourcesPath at a directory holding no seed -- melee-pc does, for
+ * the launcher's own assets -- would otherwise find nothing and compile every
+ * pipeline on first use, which players hit as a multi-second stutter. */
+static std::string pipeline_cache_seed_beside_exe_path() {
+  const char* base = SDL_GetBasePath();
+  if (base == nullptr) {
+    return InitialPipelineCacheName;
+  }
+  std::string path{base};
+  if (path.empty() || (path.back() != '/' && path.back() != '\\')) {
+    path += '/';
+  }
+  path += InitialPipelineCacheName;
+  return path;
+}
+
 static sqlite3* open_pipeline_cache_seed_db(const std::string& path) {
   if (!register_sdl_vfs()) {
     Log.warn("Failed to register SDL pipeline cache seed VFS");
@@ -624,8 +643,7 @@ static sqlite3* open_pipeline_cache_seed_db(const std::string& path) {
     if (seedDb != nullptr) {
       sqlite3_close(seedDb);
     }
-    Log.info("No bundled initial pipeline cache found at '{}'", path);
-    return nullptr;
+    return nullptr; /* the caller names every path it tried */
   }
 
   bool schemaMatch = false;
@@ -660,8 +678,15 @@ static void seed_pipeline_cache() {
   }
 
   const auto seedPath = pipeline_cache_seed_path();
+  const auto besideExe = pipeline_cache_seed_beside_exe_path();
+  std::string usedPath = seedPath;
   sqlite3* seedDb = open_pipeline_cache_seed_db(seedPath);
+  if (seedDb == nullptr && besideExe != seedPath) {
+    seedDb = open_pipeline_cache_seed_db(besideExe);
+    usedPath = besideExe;
+  }
   if (seedDb == nullptr) {
+    Log.info("No bundled initial pipeline cache found at '{}' or '{}'", seedPath, besideExe);
     return;
   }
 
@@ -679,7 +704,7 @@ static void seed_pipeline_cache() {
                                 "FROM pipeline_cache",
                                 -1, 0, &seedStmt, nullptr);
   if (ret != SQLITE_OK) {
-    Log.warn("Failed to read bundled pipeline cache rows from '{}': {}", seedPath, sqlite3_errmsg(seedDb));
+    Log.warn("Failed to read bundled pipeline cache rows from '{}': {}", usedPath, sqlite3_errmsg(seedDb));
     closeSeed();
     return;
   }
@@ -732,7 +757,7 @@ static void seed_pipeline_cache() {
     }
 
     if (!writeFailed && ret != SQLITE_DONE) {
-      Log.warn("Failed while reading bundled pipeline cache rows from '{}': {}", seedPath, sqlite3_errmsg(seedDb));
+      Log.warn("Failed while reading bundled pipeline cache rows from '{}': {}", usedPath, sqlite3_errmsg(seedDb));
       readFailed = true;
     }
 
@@ -749,7 +774,7 @@ static void seed_pipeline_cache() {
   }
 
   if (!readFailed) {
-    Log.info("Seeded pipeline cache from '{}' ({} rows merged, {} rows skipped)", seedPath, mergedRows, skippedRows);
+    Log.info("Seeded pipeline cache from '{}' ({} rows merged, {} rows skipped)", usedPath, mergedRows, skippedRows);
   }
 }
 
