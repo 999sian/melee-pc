@@ -147,9 +147,15 @@ Dawn's per-backend floor:
 
 On Windows that means any Intel Gen8 (Broadwell, 2014) or newer, AMD GCN or
 newer, NVIDIA Fermi or newer runs on Direct3D 12. Direct3D 11 is a
-compatibility path, not a performance one (FXC shaders, no DXC). OpenGL is not
-built. The log records every backend that was skipped and why, then one summary
-line with the adapter and driver.
+compatibility path, not a performance one (FXC shaders, no DXC). OpenGL is
+never picked automatically: `MELEE_BACKEND=opengl` exists, but Dawn needs
+desktop GL 4.4 for it, it draws with wrong (washed-out) colours on X11 and
+cannot create a surface on Wayland. The log records every backend that was
+skipped and why, then one summary line with the adapter and driver.
+
+The CPU side is light: any x86-64 (SSE2) or arm64 CPU. A VS match holds a
+steady 60 fps with the whole game pinned to two 2.5 GHz Meteor Lake
+low-power E-cores, using about a third of one core in total.
 
 - Keep `resources/` (and on Windows the DLLs: `webgpu_dawn.dll`,
   `dxcompiler.dll`, `dxil.dll`, `SDL3.dll`, the VC++ runtime) beside the
