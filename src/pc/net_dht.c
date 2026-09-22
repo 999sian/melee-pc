@@ -373,9 +373,12 @@ void dht_hash(
     memcpy(out, hash, size < 20 ? size : 20);
 }
 int dht_blacklisted(const struct sockaddr* sa, int len) {
-    (void)sa;
-    (void)len;
-    return 0;
+    /* jech/dht calls this before ingesting a node into its routing table and
+     * before every send; public_ip() rejects private/loopback/broadcast/0.0.0.0
+     * and multicast/reserved, so reuse it. */
+    if (!sa || len < (int)sizeof(struct sockaddr_in) || sa->sa_family != AF_INET)
+        return 0;
+    return !public_ip(((const struct sockaddr_in*)sa)->sin_addr.s_addr);
 }
 int dht_sendto(
     int sock, const void* buf, int len, int flags, const struct sockaddr* to, int tolen) {
@@ -432,7 +435,7 @@ static void values(void* ctx, int event, const unsigned char* hash, const void* 
         memcpy(&ep.address, p + i, 4);
         ep.port = (p[i + 4] << 8) | p[i + 5];
         uint32_t ip = ntohl(ep.address);
-        if (!ep.port || !ip || (ip >> 24) == 127 || (ip >> 28) >= 14)
+        if (!ep.port || !public_ip(ep.address))
             continue;
         unsigned j;
         for (j = 0; j < queue_count; j++)

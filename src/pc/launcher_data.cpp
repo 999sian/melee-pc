@@ -312,7 +312,7 @@ Preferences load_preferences(const std::filesystem::path& path) {
         if (key == "net_name" || key == "net_target") {
             std::string value;
             if (row >> std::quoted(value)) {
-                bool valid = value.size() <= (key == "net_name" ? 8u : 13u);
+                bool valid = value.size() <= (key == "net_name" ? 8u : 17u);
                 for (char& c : value) {
                     if (c >= 'a' && c <= 'z')
                         c -= 'a' - 'A';

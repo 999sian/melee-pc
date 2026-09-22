@@ -363,6 +363,9 @@ static void election_setup(uint64_t local, uint64_t peer) {
     s_peers[0].id = peer;
     s_peers[0].gen = 6;
     s_peers[0].seen_ns = s_now;
+    /* The scenario is "this peer has been sitting in our lobby": it was
+     * observed in a non-starting state long enough ago to auto-join. */
+    s_peers[0].lobby_ns = s_now - 3000000000ull;
     s_peers[0].p.compatible = true;
     s_peers[0].p.port = 42100;
     strcpy(s_peers[0].p.ip, "10.0.0.7");
@@ -432,6 +435,16 @@ static void case_election(void) {
     election_record(200, 100, "starting", NULL);
     pc_lan_poll();
     assert(g_connections == 1 && g_player == 1);
+    timer_stop();
+
+    /* A starting record naming us from a peer never observed in the lobby
+     * (spoofed out of nowhere; LAN-SPOOF-AUTOJOIN) must not auto-dial. */
+    election_setup(100, 200);
+    s_state = 0;
+    s_peers[0].lobby_ns = 0;
+    election_record(200, 100, "starting", NULL);
+    pc_lan_poll();
+    assert(g_connections == 0 && g_player == -1 && pc_lan_state(NULL) == 0);
     timer_stop();
 
     election_setup(100, 200);

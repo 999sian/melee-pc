@@ -413,8 +413,8 @@ static bool internetLobby(void) {
  * lobby consumes it, so the lobby edits it in place: stick or D-pad
  * left/right picks a slot, up/down cycles the character, Start connects. An
  * empty code hosts our own code, which is what a friend types.
- * ponytail: 13 fixed slots instead of a keyboard; codes are 13 chars max. */
-#define DIRECT_CODE_SLOTS 13
+ * ponytail: 17 fixed slots instead of a keyboard; codes are 17 chars max. */
+#define DIRECT_CODE_SLOTS 17
 static const char direct_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#";
 static char direct_entry[DIRECT_CODE_SLOTS + 1];
 static int direct_cursor;
@@ -646,7 +646,7 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                 snprintf(view.message, sizeof view.message, "%s", direct_error);
             } else {
                 snprintf(view.message, sizeof view.message,
-                         "Friend's code %-13s  slot %d  START: %s",
+                         "Friend's code %-17s  slot %d  START: %s",
                          direct_entry[0] ? direct_entry : "-", direct_cursor + 1,
                          direct_entry[0] ? "connect" : "host your code");
             }
@@ -657,7 +657,7 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                      * invisible, and the player needs to know why nothing
                      * happened. */
                     snprintf(direct_error, sizeof direct_error,
-                             "%s is not a connect code (NAME#AB2C)", direct_entry);
+                             "%s is not a connect code (NAME#AB2CDE3F)", direct_entry);
                     snprintf(view.message, sizeof view.message, "%s", direct_error);
                     pc_log_line("lobby: direct connect rejected '%s'", direct_entry);
                 } else {

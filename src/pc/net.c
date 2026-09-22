@@ -833,13 +833,20 @@ void recv_inputs(void) {
          * check for the rest of the session (learn_session requires
          * net.session == 0, so there is no second chance) and the match died
          * on the handshake timeout. Only the message that carries the session
-         * in the first place -- a well-formed RULES -- may establish it. */
+         * in the first place -- a well-formed RULES -- may establish it.
+         * "Well-formed" here means the Rel frame declares a full Rules
+         * payload: the genuine host always sends sizeof(Rules) (on_rules
+         * drops anything else), so a one-packet forgery has to shape a
+         * payload that also survives the guest's validation, and the
+         * session is still only learned -- no address pin, no key. */
         bool is_rules;
         {
-            /* packet_shape has already proved this is a 'R' carrying at least
-             * a header, so the Rel view is in bounds here. */
+            /* packet_shape has already proved this is a 'R' whose declared
+             * length matches the datagram, so the Rel view is in bounds and
+             * r->len can be trusted here. */
             const Rel* rel = (const Rel*)&u;
-            is_rules = u.h.magic == 'R' && rel->type == REL_RULES;
+            is_rules = u.h.magic == 'R' && rel->type == REL_RULES &&
+                       ntohs(rel->len) == sizeof(Rules);
         }
         bool learn_session = net.session == 0 && net.local == 1 && u.h.session != 0 && is_rules;
         bool guest_preamble = !s_heard && net.local == 0 && u.h.session == 0;

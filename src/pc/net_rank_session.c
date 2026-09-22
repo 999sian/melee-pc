@@ -121,7 +121,10 @@ bool pc_rank_session_begin(const char* directory, const PcNetIdentity* id,
     }
     session.known_peer = pc_rank_store_peer_state(
         session.store, peer_key, &session.known_peer_rating, session.known_peer_head);
-    session.chain_verified = !session.known_peer;
+    /* Nothing is trusted until the peer's public state is verified: known peers
+     * via the ancestry chain to our locally held record, unknown peers via the
+     * genesis pin or a full hash-chain walk down to genesis. */
+    session.chain_verified = false;
     session.identity = id;
     session.local = local;
     session.seed = seed;
@@ -206,6 +209,40 @@ bool pc_rank_session_proof(unsigned player, const void* value, size_t size, int6
             session.chain_steps = 0;
         }
     }
+    if (player != session.local && !session.known_peer) {
+        PcNetRating initial;
+        pc_rank_initial(&initial);
+        if (rating.sets == 0) {
+            /* Genesis pin (RANK-CLAIMED-PRE): a claimed first-ever identity
+             * must carry exactly the initial Weng-Lin state. Both the proof
+             * and the signed hello are self-signed by the peer, so without
+             * this pin attacker-chosen pre-ratings would be laundered into
+             * both stores through the double-signed record. */
+            if (memcmp(&rating.mu, &initial.mu, 8) ||
+                memcmp(&rating.sigma, &initial.sigma, 8))
+            {
+                pc_rank_session_abort("peer claims a fresh identity with a fabricated rating");
+                return false;
+            }
+            session.chain_verified = true;
+        } else if (rating.sets > 64) {
+            /* Full genesis-anchored ancestry needs one immutable DHT record
+             * per claimed set; beyond this bound it cannot complete inside
+             * the WAIT deadline. // ponytail: raise or checkpoint when
+             * veteran strangers report denial; do not relax the pin. */
+            pc_rank_session_abort("peer ancestry exceeds bounded verification limit");
+            return false;
+        } else {
+            /* Unknown peer with real history: same hash-chain walk used for
+             * known peers, but anchored at the canonical genesis state
+             * instead of a locally held record. */
+            session.chain_verified = false;
+            session.chain_pending = true;
+            session.chain_rating = rating;
+            memcpy(session.chain_head, head, 32);
+            session.chain_steps = 0;
+        }
+    }
     if (session.got_proof[player] && memcmp(session.proof[player], value, 52)) {
         pc_rank_session_abort("conflicting public rank proofs");
         return false;
@@ -241,6 +278,22 @@ bool pc_rank_session_chain_record(const void* value, size_t size) {
         goto invalid;
     session.chain_rating = record.pre[player];
     memcpy(session.chain_head, record.previous[player], 32);
+    if (session.chain_rating.sets == 0) {
+        /* Genesis anchor for unknown peers (RANK-CLAIMED-PRE): the only
+         * trustworthy terminal state without a locally held record is the
+         * canonical initial rating over an all-zero head (the record's
+         * valid() already forces the zero head whenever sets == 0). */
+        PcNetRating initial;
+        pc_rank_initial(&initial);
+        if (session.known_peer ||
+            memcmp(&session.chain_rating.mu, &initial.mu, 8) ||
+            memcmp(&session.chain_rating.sigma, &initial.sigma, 8))
+            goto invalid;
+        session.chain_pending = false;
+        session.chain_verified = true;
+        check_ready();
+        return true;
+    }
     if (session.chain_rating.sets < session.known_peer_rating.sets)
         goto invalid;
     if (session.chain_rating.sets == session.known_peer_rating.sets) {

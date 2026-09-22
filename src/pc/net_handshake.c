@@ -142,6 +142,10 @@ enum {
     LOG_READY_LEN = 1 << 7,
     LOG_READY_HASH = 1 << 8,
     LOG_READY_NONCE = 1 << 9,
+    LOG_RULES_INVALID = 1 << 10,
+    LOG_RULES_LATE = 1 << 11,
+    LOG_RULES_UNLOCK = 1 << 12,
+    LOG_RULES_NONCE = 1 << 13,
 };
 static uint32_t s_hs_logged; /* LOG_* classes already logged this session */
 /* A RULES or READY the reliable lane had no room for, kept in wire order so
@@ -428,14 +432,16 @@ static void on_rules(const uint8_t* payload, int len) {
     }
     const char* bad = rules_invalid(&ru);
     if (bad != NULL) {
-        pc_log_line("net: RULES rejected: %s", bad);
-        net.hs = HS_FAILED;
+        /* Drop, never HS_FAILED: before the READY authenticates, anyone on
+         * the path can shape a RULES that fails these checks, and one forged
+         * datagram must not be able to kill the handshake. The genuine
+         * host's reliable lane retransmits (the dropped one is never acked),
+         * and a genuine persistent failure still ends in the 15 s timeout. */
+        hs_drop(LOG_RULES_INVALID, "RULES", bad);
         return;
     }
     if (ru.start_frame <= net.tick_frame) {
-        pc_log_line("net: RULES rejected: start_frame %d already reached (frame %d)",
-            ru.start_frame, net.tick_frame);
-        net.hs = HS_FAILED;
+        hs_drop(LOG_RULES_LATE, "RULES", "start_frame already reached");
         return;
     }
     /* Pin our unlock surface, then check the host's came out the same. Both
@@ -451,17 +457,14 @@ static void on_rules(const uint8_t* payload, int len) {
     unlock_force();
     uint32_t unlock_mine = unlock_hash_now();
     if (unlock_mine != ru.unlock_hash) {
-        pc_log_line("net: RULES rejected: unlock state mismatch (ours %08x/%016llx, host %08x)",
-            unlock_mine, (unsigned long long)pc_unlock_state_get(), ru.unlock_hash);
+        hs_drop(LOG_RULES_UNLOCK, "RULES", "unlock state mismatch");
         unlock_restore();
-        net.hs = HS_FAILED;
         return;
     }
     Ready rd = {nonce_local(), ru.nonce, unlock_mine, 0};
     if (rd.nonce == 0) {
-        pc_log_line("net: RULES rejected: no random source");
+        hs_drop(LOG_RULES_NONCE, "RULES", "no random source");
         unlock_restore();
-        net.hs = HS_FAILED;
         return;
     }
     rd.hash = ready_hash(rd, net.session);

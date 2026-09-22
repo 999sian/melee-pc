@@ -63,6 +63,18 @@ static bool validate(PcNetRankStore* s, const PcNetRankRecord* r, PcNetRating* n
         memcmp(&r->pre[player].sigma, &s->rating.sigma, 8) ||
         memcmp(r->previous[player], s->head, 32))
         return false;
+    /* Genesis pin (RANK-CLAIMED-PRE): a pre-rating claiming zero prior sets
+     * must be exactly the initial Weng-Lin state, or the record launders an
+     * attacker-chosen starting rating into this store. */
+    for (unsigned i = 0; i < 2; i++) {
+        if (r->pre[i].sets == 0) {
+            PcNetRating initial;
+            pc_rank_initial(&initial);
+            if (memcmp(&r->pre[i].mu, &initial.mu, 8) ||
+                memcmp(&r->pre[i].sigma, &initial.sigma, 8))
+                return false;
+        }
+    }
     bool duplicate;
     *position = id_position(s, r->match_id, &duplicate);
     PcNetRating post[2];

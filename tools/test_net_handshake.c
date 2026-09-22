@@ -358,15 +358,18 @@ int main(void) {
     printf("ok 1: exchange completes, host %016llx / guest %016llx bound both ways\n",
         (unsigned long long)host_nonce, (unsigned long long)guest_nonce);
 
-    /* ---- 2. that RULES replayed into the next session is refused ------- */
+    /* ---- 2. that RULES replayed into the next session is dropped ------- */
+    /* Drop-not-fail (a forged RULES must not kill the handshake); nothing is
+     * applied, the guest stays idle, and the genuine host's retransmit still
+     * completes the exchange below. */
     load_fresh(sess_b, 1);
     s_logn = 0;
     s_out_len = -1;
     handshake_msg(REL_RULES, rules_a, (int)sizeof rules_a);
-    assert(net.hs == HS_FAILED);
-    assert(log_count("net: RULES rejected: hash mismatch") == 1);
+    assert(net.hs == HS_IDLE);
+    assert(log_count("net: RULES ignored (hash mismatch)") == 1);
     assert(net.seed == 0 && net.start_frame == -1 && s_out_len == -1);
-    printf("ok 2: replayed RULES refused in a new session, nothing applied, no READY\n");
+    printf("ok 2: replayed RULES dropped in a new session, nothing applied, no READY\n");
 
     /* Positive control: the same rule values with this session's binding and
      * a fresh nonce are accepted, so it was the binding that refused above. */
@@ -404,7 +407,7 @@ int main(void) {
         assert(log_count("net: RULES ignored (already applied)") == 1 && s_logn == 1);
         printf("ok 5: re-arrival of the applied RULES logged as a duplicate, not a conflict\n");
 
-        /* ---- 4. a tampered hash is refused ------------------------------ */
+        /* ---- 4. a tampered hash is dropped ------------------------------ */
         uint8_t bad[sizeof(Rules)];
         memcpy(bad, rules_b, sizeof bad);
         bad[sizeof bad - 1] ^= 1u; /* last byte of .hash */
@@ -412,8 +415,8 @@ int main(void) {
         s_logn = 0;
         s_out_len = -1;
         handshake_msg(REL_RULES, bad, (int)sizeof bad);
-        assert(net.hs == HS_FAILED && net.seed == 0 && s_out_len == -1);
-        assert(log_count("net: RULES rejected: hash mismatch") == 1);
+        assert(net.hs == HS_IDLE && net.seed == 0 && s_out_len == -1);
+        assert(log_count("net: RULES ignored (hash mismatch)") == 1);
 
         /* the same, tampering a rule value instead of the hash */
         memcpy(bad, rules_b, sizeof bad);
@@ -421,15 +424,15 @@ int main(void) {
         load_fresh(sess_b, 1);
         s_logn = 0;
         handshake_msg(REL_RULES, bad, (int)sizeof bad);
-        assert(net.hs == HS_FAILED && log_count("net: RULES rejected: hash mismatch") == 1);
+        assert(net.hs == HS_IDLE && log_count("net: RULES ignored (hash mismatch)") == 1);
 
         /* a zero nonce never validates: an old peer or a stripped field */
         forge_rules(bad, rules_a, sess_b, 0, 777, 310);
         load_fresh(sess_b, 1);
         s_logn = 0;
         handshake_msg(REL_RULES, bad, (int)sizeof bad);
-        assert(net.hs == HS_FAILED && log_count("net: RULES rejected: no nonce") == 1);
-        printf("ok 6: tampered hash, tampered nonce and a zero nonce all refused\n");
+        assert(net.hs == HS_IDLE && log_count("net: RULES ignored (no nonce)") == 1);
+        printf("ok 6: tampered hash, tampered nonce and a zero nonce all dropped\n");
     }
 
     /* ---- 5. a forged or replayed READY cannot drive the host ----------- */
@@ -514,13 +517,13 @@ int main(void) {
         s_logn = 0;
         s_out_len = -1;
         handshake_msg(REL_RULES, ru_bad, (int)sizeof ru_bad);
-        assert(net.hs == HS_FAILED);
-        assert(log_count("net: RULES rejected: unlock state mismatch") == 1);
+        assert(net.hs == HS_IDLE);
+        assert(log_count("net: RULES ignored (unlock state mismatch)") == 1);
         assert(s_out_len == -1); /* no READY: nothing agreed */
         assert(net.seed == 0 && net.start_frame == -1);
-        /* and the refusal left the player's own progress alone */
+        /* the drop restored the player's own masks, leaving progress alone */
         assert(!s_unlock_saved && s_unlock_live == 0x0003000100000000ull);
-        printf("ok 11: RULES with a differing unlock state refused, own masks restored\n");
+        printf("ok 11: RULES with a differing unlock state dropped, own masks restored\n");
 
         /* the same set with the guest's own hash is accepted: it was the
          * unlock comparison that refused above, not anything else */
@@ -642,7 +645,7 @@ int main(void) {
     net.tick_frame = 300 + HS_LEAD_FRAMES;
     s_out_len = -1;
     handshake_msg(REL_RULES, rules_a, sizeof rules_a);
-    assert(net.hs == HS_FAILED);
+    assert(net.hs == HS_IDLE);
     assert(s_out_len == -1);
     assert(!s_unlock_saved);
 

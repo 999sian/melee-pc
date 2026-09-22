@@ -59,7 +59,7 @@ bool change_online(Rml::Event& event) {
     if (id != "net-name" && id != "net-target")
         return false;
     auto value = event.GetParameter<Rml::String>("value", "");
-    const size_t limit = id == "net-name" ? 8 : 13;
+    const size_t limit = id == "net-name" ? 8 : 17;
     if (value.size() > limit)
         return true;
     for (char& c : value) {

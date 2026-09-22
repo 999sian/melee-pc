@@ -64,6 +64,10 @@ int main(void) {
     assert(pc_rank_store_append(s, &bad) ==
            PC_RANK_STORE_INVALID); /* valid predecessor, duplicate id */
     bad = b;
+    bad.pre[1].mu = 1000, bad.pre[1].sigma = 0.0001; /* fabricated genesis pre-rating */
+    assert(pc_rank_sign(&bad, 0, &id[0]) && pc_rank_sign(&bad, 1, &id[1]));
+    assert(pc_rank_store_append(s, &bad) == PC_RANK_STORE_INVALID);
+    bad = b;
     bad.pre[0].mu += 1;
     assert(pc_rank_sign(&bad, 0, &id[0]) && pc_rank_sign(&bad, 1, &id[1]));
     assert(pc_rank_store_append(s, &bad) == PC_RANK_STORE_INVALID);

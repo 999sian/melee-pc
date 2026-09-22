@@ -10,7 +10,7 @@ extern "C" {
 typedef struct PcNetIdentity {
     uint8_t secret_key[64];
     uint8_t public_key[32];
-    char code[14]; /* 1..8 uppercase letters/digits, #, four base32 digits */
+    char code[18]; /* 1..8 uppercase letters/digits, #, eight base32 digits */
 } PcNetIdentity;
 bool pc_identity_random(void* bytes, size_t length);
 bool pc_identity_load(PcNetIdentity* identity, const char* directory, const char* name);

@@ -34,7 +34,7 @@ __attribute__((weak)) void pc_log_line(const char* fmt, ...) {
 #endif
 
 #define MATCH_MAGIC 0x4d504d31u /* MPM1 */
-#define MATCH_VERSION 2
+#define MATCH_VERSION 3 /* v3: hello.code grew 14 -> 18 (40-bit key suffix) */
 #define RETRY_MS 250
 #define TIMEOUT_MS 8000
 
@@ -44,7 +44,7 @@ typedef struct MatchHello {
     uint8_t version, type, mode, reserved;
     uint64_t nonce;
     uint8_t public_key[32], compatibility[20], topic[20];
-    char code[14];
+    char code[18];
     uint8_t signature[64];
 } MatchHello;
 typedef struct MatchOffer {
@@ -68,7 +68,7 @@ static PcNetIdentity identity;
 static enum PcNetMatchMode mode;
 static int state = PC_MATCH_FAIL;
 static const char* failure = "not started";
-static char target[14], opponent[14];
+static char target[18], opponent[18];
 static uint8_t peer_key[32], compatibility[20], topic[20], offer_hash[20];
 static uint64_t local_nonce, peer_nonce, deadline, next_send;
 static struct pc_dht_endpoint peer;
@@ -260,10 +260,11 @@ static bool key_code_matches(const uint8_t key[32], const char* code) {
     uint8_t h[20];
     pc_dht_sha1(key, 32, h);
     static const char a[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    unsigned bits = (unsigned)h[0] << 12 | (unsigned)h[1] << 4 | h[2] >> 4;
+    uint64_t bits = (uint64_t)h[0] << 32 | (uint64_t)h[1] << 24 | (uint64_t)h[2] << 16 |
+                    (uint64_t)h[3] << 8 | h[4];
     size_t n = strlen(code);
-    for (int i = 0; i < 4; i++)
-        if (code[n - 4 + i] != a[(bits >> (15 - 5 * i)) & 31])
+    for (int i = 0; i < 8; i++)
+        if (code[n - 8 + i] != a[(bits >> (35 - 5 * i)) & 31])
             return false;
     return true;
 }

@@ -902,9 +902,10 @@ static void case_session_learned_only_from_rules(void) {
     assert(net.session == 0);
 
     Rel r = {{'R', WIRE_VERSION, SESSION, 0}, 0, REL_RULES, 0, {0}};
+    r.len = (uint16_t) sizeof(Rules); /* learning requires a full RULES shape */
     wire_hdr(&r.h);
     wire_rel(&r);
-    send_dg(sender, &dst, &r, offsetof(Rel, payload));
+    send_dg(sender, &dst, &r, offsetof(Rel, payload) + sizeof(Rules));
     recv_inputs();
     assert(net.session == SESSION);
     sock_close(sender);

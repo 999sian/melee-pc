@@ -52,12 +52,12 @@ bool pc_identity_code_valid(const char* code) {
     if (!code)
         return false;
     size_t n = strlen(code);
-    if (n < 6 || n > 13 || code[n - 5] != '#')
+    if (n < 10 || n > 17 || code[n - 9] != '#')
         return false;
-    for (size_t i = 0; i < n - 5; ++i)
+    for (size_t i = 0; i < n - 9; ++i)
         if (!name_char(code[i]))
             return false;
-    for (size_t i = n - 4; i < n; ++i)
+    for (size_t i = n - 8; i < n; ++i)
         if (!((code[i] >= 'A' && code[i] <= 'Z') || (code[i] >= '2' && code[i] <= '7')))
             return false;
     return true;
@@ -149,11 +149,14 @@ bool pc_identity_load(PcNetIdentity* id, const char* directory, const char* name
     uint8_t digest[20];
     pc_dht_sha1(id->public_key, sizeof id->public_key, digest);
     static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    unsigned bits = (unsigned)digest[0] << 12 | (unsigned)digest[1] << 4 | digest[2] >> 4;
+    /* 40 digest bits (five bytes) packed big-endian: the same bit-packing as
+     * the DHT infohash, 8 base32 chars ~ 2^40 grind cost. */
+    uint64_t bits = (uint64_t)digest[0] << 32 | (uint64_t)digest[1] << 24 |
+                    (uint64_t)digest[2] << 16 | (uint64_t)digest[3] << 8 | digest[4];
     memcpy(id->code, label, len);
     id->code[len++] = '#';
-    for (int i = 0; i < 4; ++i)
-        id->code[len++] = alphabet[(bits >> (15 - 5 * i)) & 31];
+    for (int i = 0; i < 8; ++i)
+        id->code[len++] = alphabet[(bits >> (35 - 5 * i)) & 31];
     id->code[len] = 0;
     return true;
 }
