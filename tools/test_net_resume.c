@@ -204,7 +204,7 @@ void rel_reset(void) {}
 
 /* net_handshake.c / net_sync.c */
 void rules_restore(void) {}
-void handshake_test(void) {}
+void handshake_direct(void) {}
 void adv_note(int remote_adv, int local_adv) {
     (void)remote_adv;
     (void)local_adv;
@@ -378,6 +378,11 @@ static void setup(void) {
     net.remote = 1;
     net.session = SESSION;
     net.seed = SEED;
+    /* Mid-match means the match was agreed: session_established() is the
+     * handshake state alone now, for a direct session as much as a lobby
+     * one, and the resume phase only opens for an established session. */
+    net.hs = HS_DONE;
+    net.start_frame = 120;
     net.delay = net.delay_next = 2;
     net.frame = FRAME;
     net.tick_frame = FRAME - 1;
@@ -697,18 +702,19 @@ static void case_handshake_pending_fails_fast(void) {
     assert(!logged("reconnecting"));
 }
 
-/* The same for the host_dies shape itself: a lobby guest a few frames old,
- * which has adopted the host's session id but not yet been claimed by
- * pc_lan_poll(), so the handshake still reads HS_IDLE. */
+/* The same for the host_dies shape itself: a session a few frames old that
+ * has adopted the host's session id but agreed nothing yet -- a lobby guest
+ * before pc_lan_poll() claims the handshake, or a direct session still
+ * waiting for the game to fill its rules in. Both read HS_IDLE. */
 static void case_young_session_fails_fast(void) {
     printf("case: a session a few frames old fails fast\n");
     setup();
+    net.hs = HS_IDLE;
     net.frame = 3; /* the frame host_dies interrupted at */
     net.tick_frame = 2;
     s_wrote = 4;
     s_remote_have = 0;
     s_last_acked = -1;
-    assert(net.hs == HS_IDLE);
     s_t0 = s_now;
     assert(!wait_remote(2));
     uint64_t waited = (s_now - s_t0) / 1000000ull;

@@ -50,12 +50,14 @@ import time
 BOOT_FRAMES = 9000
 CACHE_ROOT = "/tmp/melee_net_cache"  # kept between runs; keyed by port, never shared
 LOAD_STALL_FRAME = 900  # --load-stall: session up, menus lockstep, every frame waits
-# Direct sessions run no handshake, so they have no nonces to derive a
-# datagram key from and are unauthenticated unless the peers are started with
-# a shared secret (MELEE_NET_KEY, src/pc/net.c). Every fixture here sets one,
-# so the matrix exercises the authenticated path rather than the one branch
-# no player should ever be on; tools/net_fuzz.py reads this to tag its own
-# datagrams. A LAN fixture leaves it unset and keys off the handshake.
+# A direct session derives a datagram key from its handshake nonces like any
+# other (src/pc/net_handshake.c), but only once that handshake completes a few
+# hundred frames into boot; before it there is nothing to authenticate with
+# unless the peers were started with a shared secret. Every fixture here sets
+# one, so the matrix exercises the authenticated path from the first datagram
+# rather than the window no player should be exposed to; tools/net_fuzz.py
+# reads this to tag its own datagrams. A LAN fixture leaves it unset and keys
+# off the handshake.
 NET_KEY = "melee-pc net fixture key"
 SIM_ENV = {  # CLI flag -> (env knob, value) in src/pc/net.c's link simulator
     "jitter": ("MELEE_NET_SIM_JITTER_MS", "20"),

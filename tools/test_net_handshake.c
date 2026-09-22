@@ -589,6 +589,54 @@ int main(void) {
         printf("ok 14: a refused RULES/READY is retried, never a completed handshake\n");
     }
 
+    /* ---- 15. a direct session agrees its own match: player 1 hosts, and
+     * neither side starts before the game has filled its own rules in --- */
+    {
+        const uint32_t sess_d = 0xd1123456;
+        GameRules game_was = s_game;
+        struct GamePrefs prefs_was = s_prefs;
+        net.tick_frame = 300;
+        net.direct = true;
+        /* Boot: pc_net_init() connects before gmMainLib installs its
+         * defaults, so the card data is still zeroed and there is nothing
+         * worth agreeing yet. */
+        memset(&s_game, 0, sizeof s_game);
+        memset(&s_prefs, 0, sizeof s_prefs);
+        load_fresh(sess_d, 0);
+        s_out_len = -1;
+        handshake_direct();
+        assert(net.hs == HS_IDLE && s_out_len == -1 && !s_unlock_saved);
+        load_fresh(sess_d, 1);
+        handshake_direct();
+        assert(net.hs == HS_IDLE && s_out_len == -1);
+        /* The game has filled them in. The guest still sends no RULES: it is
+         * not the host, and nothing had to be exchanged to decide that. */
+        s_game = game_was;
+        s_prefs = prefs_was;
+        handshake_direct();
+        assert(net.hs == HS_PENDING && !net.hs_host && s_out_len == -1);
+        /* The host does, carrying the seed the session was connected with --
+         * and without touching the RNG, which both peers only do entering
+         * start_frame (net.c) because they have simulated the same boot
+         * since frame 0. */
+        load_fresh(sess_d, 0);
+        net.seed = 4321;
+        s_seed_store = 99;
+        handshake_direct();
+        assert(net.hs == HS_PENDING && net.hs_host);
+        assert(s_out_type == REL_RULES && s_out_len == (int)sizeof(Rules));
+        assert(s_seed_store == 99);
+        {
+            Rules ru;
+            memcpy(&ru, s_out, sizeof ru);
+            wire_rules(&ru);
+            assert(ru.seed == 4321 && ru.start_frame == 300 + HS_LEAD_FRAMES);
+        }
+        rules_restore();
+        net.direct = false;
+        printf("ok 15: a direct session hosts on player 1 and waits for the game's own rules\n");
+    }
+
     net.tick_frame = 300;
     load_fresh(sess_a, 1);
     net.tick_frame = 300 + HS_LEAD_FRAMES;

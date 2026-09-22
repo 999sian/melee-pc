@@ -4,10 +4,10 @@
  * a remote input that has not arrived yet is predicted as "repeat last", a
  * snapshot is taken before every predicted tick, and when the real input
  * turns out different the state is restored and the frames since re-run.
- * Both peers must boot with the same disc and no memory card; the env path
- * below needs the same MELEE_SEED too, the lobby path agrees the seed in
- * the match handshake. Sessions can also be opened at runtime through
- * pc_net_connect() (src/pc/net_lan.h).
+ * Both peers must boot with the same disc and no memory card; every session
+ * agrees the rest -- seed, rules and unlock state -- in the match handshake,
+ * the env path below included (net_handshake.c's handshake_direct). Sessions
+ * can also be opened at runtime through pc_net_connect() (src/pc/net_lan.h).
  *
  *   MELEE_NET=host:port          peer address (enables netplay at boot)
  *   MELEE_NET_PORT=n             local UDP port (default 41000)
@@ -22,7 +22,6 @@
  *   MELEE_NET_SIM_DUP=pct        send that share of packets twice
  *   MELEE_NET_SIM_BURST=n        every 5 s drop n consecutive outgoing packets
  *   (the simulator's PRNG is seeded from MELEE_NET_PORT, so runs repeat)
- *   MELEE_NET_HANDSHAKE_TEST=1   run the lobby handshake at frame 300 without a lobby
  *
  * This file is the session, the socket and the rollback loop; the wire
  * codec, link simulator, reliable channel, handshake, time sync and
@@ -998,22 +997,15 @@ static void resume_fail(void) {
  * handshake there is also nothing to resume: no agreed seed, no agreed start
  * frame, and rings holding a couple of menu frames.
  *
- * HS_DONE is the lobby's own "established" (net_handshake.c's hs_done()
- * pins seed, start_frame and ck_from); HS_PENDING and HS_FAILED mean the
- * parameters are still unagreed, whether or not the guest has adopted the
- * host's session id. The MELEE_NET path runs no handshake at all and stays
- * HS_IDLE for the whole session, so there idleness cannot mean "not yet" --
- * except in a lobby session's first frames, before pc_lan_poll() has
- * claimed the handshake. The lobby claims it on its first poll, so a
- * session still idle RESUME_LOBBY_GRACE frames in has no lobby behind it.
- * session_reset() starts every session at frame 0, so net.frame is its age. */
-#define RESUME_LOBBY_GRACE 8 /* ~130 ms: the lobby polls every frame */
-
+ * HS_DONE is "established" everywhere now (net_handshake.c's hs_done() pins
+ * seed, start_frame and ck_from); HS_PENDING, HS_FAILED and HS_IDLE all mean
+ * the parameters are still unagreed, whether or not the guest has adopted
+ * the host's session id. This used to need a grace period, because a direct
+ * MELEE_NET session ran no handshake and stayed HS_IDLE for its whole life,
+ * so idleness could not be read as "not yet"; it runs the same handshake as
+ * the lobby now (handshake_direct), so the state means one thing again. */
 static bool session_established(void) {
-    if (net.hs != HS_IDLE) {
-        return net.hs == HS_DONE;
-    }
-    return net.frame > RESUME_LOBBY_GRACE;
+    return net.hs == HS_DONE;
 }
 
 /* The peer's RESUME (net_reliable.c dispatches it here; game thread).
@@ -1433,6 +1425,7 @@ static void session_reset(void) {
     rel_reset();
     net.hs = HS_IDLE;
     net.hs_host = false;
+    net.direct = false; /* pc_net_init() sets it back for a MELEE_NET session */
     net.seed = 0;
     net.start_frame = -1;
     net.ck_from = 0;
@@ -1655,12 +1648,14 @@ static bool connect_impl(
     if (seed != 0) {
         *HSD_RandSeedPtr = seed;
     }
-    /* MELEE_NET_KEY: one secret typed by whoever starts both instances, for
-     * the direct sessions that run no handshake and so have no nonces to
-     * derive a key from. It pins the key for the whole session -- a
-     * handshake later on will not replace it -- because rekeying in flight
-     * would drop every datagram that straddled the change, and the two
-     * peers cannot make that change on the same frame. */
+    /* MELEE_NET_KEY: one secret typed by whoever starts both instances. The
+     * handshake derives a key of its own from the two nonces, but only once
+     * it completes, so this is what covers the bootstrap window before that
+     * -- and it is all a peer has if the two never agree. It pins the key
+     * for the whole session -- a handshake later on will not replace it --
+     * because rekeying in flight would drop every datagram that straddled
+     * the change, and the two peers cannot make that change on the same
+     * frame. */
     const char* key = getenv("MELEE_NET_KEY");
     if (key != NULL && key[0] != '\0') {
         net_key_direct(key);
@@ -1726,21 +1721,29 @@ void pc_net_init(void) {
     host[colon - peer] = '\0';
     const char* player = getenv("MELEE_NET_PLAYER");
     const char* seed = getenv("MELEE_SEED");
-    if (seed == NULL) {
-        pc_log_line("net: MELEE_SEED not set; peers will diverge at the first random call");
+    if (!pc_net_connect(host, (uint16_t)atoi(colon + 1), player && player[0] == '1',
+            seed ? (uint32_t)strtoul(seed, NULL, 0) : 0))
+    {
+        return;
     }
-    pc_net_connect(host, (uint16_t)atoi(colon + 1), player && player[0] == '1',
-        seed ? (uint32_t)strtoul(seed, NULL, 0) : 0);
-    /* Said plainly rather than left to be inferred from a missing line: a
-     * MELEE_NET session runs no handshake, so it has no nonces, so with no
-     * secret supplied there is nothing to authenticate its datagrams with
-     * and anything that can reach this port can inject input, acks, a delay
-     * change or a BYE. The lobby and LAN paths derive a key from the
-     * handshake instead and never reach this. */
+    /* No lobby agreed this match, so the session agrees it itself: the same
+     * RULES/READY exchange a lobby session runs, hosted by player 1, fired
+     * from the frame loop once the game has filled its own rules in
+     * (handshake_direct, net_handshake.c). Everything match-affecting is
+     * therefore validated rather than assumed, including the seed -- the
+     * host's wins, so MELEE_SEED no longer has to be set, or set equal, on
+     * both peers. */
+    net.direct = true;
+    /* Said plainly rather than left to be inferred from a missing line: the
+     * key arrives with the handshake, so until it completes there is nothing
+     * to authenticate these datagrams with and anything that can reach this
+     * port can inject input, acks, a delay change or a BYE. A shared secret
+     * closes that window from the first packet. */
     const char* key = getenv("MELEE_NET_KEY");
     if (key == NULL || key[0] == '\0') {
-        pc_log_line("net: this MELEE_NET session is UNAUTHENTICATED and is for diagnostics only; "
-                    "set the same MELEE_NET_KEY on both peers to authenticate its datagrams");
+        pc_log_line("net: this MELEE_NET session is UNAUTHENTICATED until its handshake "
+                    "completes; set the same MELEE_NET_KEY on both peers to authenticate its "
+                    "datagrams from the first one");
     }
 }
 
@@ -2872,7 +2875,21 @@ bool pc_net_after_tick(bool scene_ending) {
         }
     }
     check_desync();
-    handshake_test();
+    handshake_direct();
+    if (net.direct && net.hs == HS_FAILED) {
+        /* A direct session has no lobby to report a refusal to, so it ends
+         * itself. Whichever check failed has already logged why; what this
+         * adds is that the session is over rather than about to play on and
+         * desync a minute later. INCOMPATIBLE rides the BYE, so the peer
+         * reports the same class even when its own side of the exchange was
+         * still waiting. */
+        s_status = PC_NET_PEER_INCOMPATIBLE;
+        pc_log_line("net: refusing this session at frame %d, the peers did not agree on the "
+                    "match parameters",
+            net.frame);
+        pc_net_disconnect();
+        return false;
+    }
     if (!scene_ending && net.advance_left > 0 && (net.frame % 5) == 0) {
         /* Behind the peer: one extra tick this present, once per 5 frames. */
         PADStatus* head = unconsume();

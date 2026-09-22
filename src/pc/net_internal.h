@@ -340,6 +340,7 @@ struct NetSession {
     /* match handshake (net_handshake.c) */
     int hs; /* HS_* */
     bool hs_host;
+    bool direct;   /* MELEE_NET: no lobby, so the session agrees its own match */
     uint32_t seed; /* agreed RNG seed (0: none) */
     int32_t start_frame;
     int32_t ck_from; /* checksums before this frame are not compared */
@@ -445,7 +446,7 @@ void rel_reset(void);
 
 void handshake_msg(uint8_t type, const uint8_t* payload, int len);
 void rules_restore(void);
-void handshake_test(void);
+void handshake_direct(void);
 
 /* ---- net_sync.c ------------------------------------------------------- */
 

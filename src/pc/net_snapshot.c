@@ -6,6 +6,8 @@
 #include "compat.h"
 #include "pc/net_internal.h"
 
+#include <dolphin/ar.h>
+#include <dolphin/dvd.h>
 #include <dolphin/os.h>
 #include <sysdolphin/baselib/random.h>
 #include <sysdolphin/baselib/synth.h>
@@ -513,7 +515,8 @@ static int regions_now(Region* r) {
 static uint64_t s_take_ns, s_take_ns_max, s_restore_ns, s_restore_ns_max;
 static uint64_t s_take_ns_worst, s_restore_ns_worst;
 static unsigned s_takes, s_restores;
-static int s_resim_n_max; /* re-run ticks per present, worst */
+static int s_resim_n_max;        /* re-run ticks per present, worst */
+static unsigned s_take_inflight; /* takes refused over in-flight transfers */
 
 /* MELEE_NET_SIM_OOM_FRAME=n: the first take at frame >= n fails the way a
  * realloc failure does, to exercise the lockstep fallback. */
@@ -523,6 +526,21 @@ static bool s_oom_fired;
 /* False when the state region is unavailable or the buffer could not be
  * grown; the snapshot is then invalid. */
 bool snapshot_take(Snapshot* s, int32_t frame) {
+    /* A transfer still in flight owns memory this copy is about to read, and
+     * it completes on a DVD or ARQ worker thread with no regard for frames.
+     * Restoring such a snapshot rewinds bytes the worker has since written,
+     * or worse rewinds them while it is still writing. The tick boundary
+     * drains transfers before each tick precisely so this is normally false
+     * (net.c dvd_settle), but the drain gives up after five seconds and runs
+     * on, and a request issued from a worker never went through it at all.
+     * Refuse rather than take one that may not be restorable: the caller
+     * already treats a failed take as "stay in lockstep for this frame",
+     * which is the correct answer here too. */
+    if (aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0) {
+        s_take_inflight++;
+        s->frame = -1;
+        return false;
+    }
     if (snapshot_state_region_missing() != NULL) {
         s->frame = -1;
         return false;
@@ -654,17 +672,18 @@ const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
  * be compared against, so it outlives the window its timings belong to. */
 void snap_stats_report(void) {
     pc_log_line("net:   snapshot take %.2f ms (max %.2f, n %u), restore %.2f ms (max %.2f, n %u), "
-                "worst ever %.2f/%.2f, resim/present max %d, full state hash %016llx at frame %d "
-                "(%.2f ms, max %.2f, n %u)",
+                "worst ever %.2f/%.2f, resim/present max %d, takes refused (io) %u, "
+                "full state hash %016llx at frame %d (%.2f ms, max %.2f, n %u)",
         s_takes ? s_take_ns / 1e6 / s_takes : 0.0, s_take_ns_max / 1e6, s_takes,
         s_restores ? s_restore_ns / 1e6 / s_restores : 0.0, s_restore_ns_max / 1e6, s_restores,
-        s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max,
+        s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max, s_take_inflight,
         (unsigned long long)s_full_hash, s_full_hash_frame,
         s_full_hashes ? s_full_hash_ns / 1e6 / s_full_hashes : 0.0, s_full_hash_ns_max / 1e6,
         s_full_hashes);
     s_take_ns = s_take_ns_max = s_restore_ns = s_restore_ns_max = 0;
     s_takes = s_restores = 0;
     s_resim_n_max = 0;
+    s_take_inflight = 0;
     s_full_hash_ns = s_full_hash_ns_max = 0;
     s_full_hashes = 0;
 }

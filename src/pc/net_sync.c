@@ -150,14 +150,15 @@ static void delay_apply(void) {
  * by frame number alone, so both land on the same frame. */
 static void delay_auto(void) {
     delay_apply();
-    /* Exactly one side announces. A lobby session has a host, and claims the
-     * handshake on the lobby's first poll (net.c's RESUME_LOBBY_GRACE), so it
-     * has left HS_IDLE long before the first decision at frame DELAY_EVERY; a
-     * session still idle by then is a direct MELEE_NET one, which runs no
-     * handshake at all and where the lower player index decides. Without that
-     * second case the documented MELEE_NET_DELAY=auto never moved off its
-     * initial guess in direct play. */
-    bool announcer = net.hs_host || (net.hs == HS_IDLE && net.local == 0);
+    /* Exactly one side announces, and it is the same side everywhere in the
+     * netcode: player 1, net.local 0. That peer names the session id
+     * (net.c), is the one a lobby connects as player 0 (net_lan.c,
+     * net_match.c) and hosts the match handshake, direct sessions included
+     * (net_handshake.c). Reading net.hs_host instead would miss the window
+     * before the handshake is claimed, which in a direct session used to be
+     * the whole session: the documented MELEE_NET_DELAY=auto then never
+     * moved off its initial guess in direct play. */
+    bool announcer = net.local == 0;
     if (!net.delay_auto || !announcer || net.delay_at != 0) {
         return;
     }
