@@ -13,6 +13,7 @@
 
 #ifdef TARGET_PC
 #include "pc/file_cache.h"
+#include "pc/net.h"
 #endif
 
 static bool cancel;
@@ -144,6 +145,13 @@ void lbFile_80016580(const char* basename, void* dst, size_t* size,
     char* filename = lbFileGetFullName(basename);
 #ifdef TARGET_PC
     if (pc_file_cache_get(filename, dst, size)) {
+        /* A cache hit is a load too. It returns early and never reaches
+         * HSD_DevComRequest, so without this it never raised the rollback
+         * barrier -- and cache warmth is per machine, so two peers could
+         * raise it on different frames for the same load, or one not at all.
+         * A tick that did I/O cannot be re-simulated, whichever way the bytes
+         * arrived. */
+        pc_net_note_io();
         if (callback != NULL) {
             callback(0, (uintptr_t) args, NULL, false);
         }
@@ -164,6 +172,7 @@ void lbFile_8001668C(const char* basename, void* dst, size_t* size)
 #ifdef TARGET_PC
     char* filename = lbFileGetFullName(basename);
     if (pc_file_cache_get(filename, dst, size)) {
+        pc_net_note_io(); /* a cache hit is still a load: see lbFile_80016580 */
         return;
     }
 #endif

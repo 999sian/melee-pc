@@ -353,6 +353,15 @@ static void state_hash_periodic(int32_t frame) {
     if ((frame % STATE_HASH_EVERY) != 0 || frame <= net.rb_barrier || !in_fight()) {
         return;
     }
+    /* rb_barrier is not enough on its own: it is raised only for a request the
+     * GAME thread issued (pc_net_note_io), and a worker-issued transfer never
+     * went through it. snapshot_take() refuses on exactly this condition; the
+     * hash must too, or it reads a heap a DVD/ARQ worker is writing and the
+     * peers differ over nothing. OSDisableInterrupts below only serialises the
+     * game thread and the audio callback. */
+    if (aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0) {
+        return;
+    }
     uint64_t t0 = SDL_GetTicksNS();
     /* Bracketed like snapshot_take's copy, and for its reason: a pad alarm
      * delivered in the middle of the read would write rumble state the walk
@@ -740,6 +749,12 @@ static uint64_t state_hash(void) {
     SynctestIgnoredSpan ignored[3];
     int nignored = synctest_ignored_spans(ignored);
     XXH3_state_t* st = XXH3_createState();
+    if (st == NULL) {
+        /* Allocation failure is a handled condition in this module
+         * (snapshot_take fails soft on realloc); the callers only compare the
+         * value, so a constant just makes this frame's hash non-informative. */
+        return 0;
+    }
     XXH3_64bits_reset(st);
     for (int i = 0; i < n; i++) {
         uintptr_t cursor = (uintptr_t)r[i].ptr;

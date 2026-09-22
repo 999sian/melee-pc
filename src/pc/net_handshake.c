@@ -113,12 +113,13 @@ static bool csprng(void* out, size_t n) {
 }
 #endif
 
-#define REL_RULES 0x01 /* host -> guest {seed, start_frame, nonce} */
-#define REL_READY 0x02 /* guest -> host {nonce, echo} */
 #define HS_TIMEOUT_MS 15000
 #define HS_LEAD_FRAMES 120 /* ponytail: 2 s for READY; a slower link misses the start */
 
 static uint64_t s_hs_t0;
+/* When a direct session was first seen waiting for the game's own rules to
+ * fill in. Bounded, or a run that never fills them plays on unagreed. */
+static uint64_t s_direct_idle_ns;
 static bool s_rules_on; /* a RULES set is in force (host or guest) */
 static bool s_rules_frozen;
 static bool s_rules_saved; /* guest: s_rules_orig holds its own values */
@@ -317,6 +318,7 @@ void rules_restore(void) {
     s_nonce_local = s_nonce_peer = 0;
     s_hs_tx.len = 0;
     s_hs_logged = 0;
+    s_direct_idle_ns = 0;
 }
 
 bool pc_net_rules(bool* unlock_all, bool* frozen_stadium) {
@@ -656,10 +658,31 @@ static bool rules_ready(void) {
 
 void handshake_direct(void) {
     if (!net.direct || !net.active || net.hs == HS_DONE || net.hs == HS_FAILED) {
+        s_direct_idle_ns = 0;
         return;
     }
-    if (net.hs == HS_IDLE && !rules_ready()) {
-        return; /* the game has not filled its own rules in yet */
+    if (net.hs == HS_IDLE) {
+        if (!rules_ready()) {
+            /* The game has not filled its own rules in yet. Waiting for the
+             * values rather than for a frame number is deliberate, but it has
+             * to be bounded: a run that never fills them (a headless build, a
+             * card-present prefs struct with stage_mask 0) used to sit here
+             * silently while the session ran with net.start_frame == -1 and
+             * each peer's own boot seed -- no agreement at all, and a desync
+             * the moment the two seeds differ. A direct session has no lobby
+             * to report that to, so it fails itself instead. */
+            uint64_t now = SDL_GetTicksNS();
+            if (s_direct_idle_ns == 0) {
+                s_direct_idle_ns = now;
+            } else if (now - s_direct_idle_ns > HS_TIMEOUT_MS * 1000000ull) {
+                net.hs = HS_FAILED;
+                pc_log_line("net: direct handshake never started; the local rules never "
+                            "filled in (%d ms)",
+                    HS_TIMEOUT_MS);
+            }
+            return;
+        }
+        s_direct_idle_ns = 0;
     }
     int32_t start_frame;
     if (net.local == 0) {

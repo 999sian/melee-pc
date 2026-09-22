@@ -218,10 +218,34 @@ void net_delay_rel(const void* payload, int len) {
         return;
     }
     memcpy(&m, payload, sizeof m);
+    /* Only the host announces. The host never expects one, so a delay message
+     * arriving here at the host is either a peer that has the roles confused
+     * or one that has decided its own latency should be the host's -- either
+     * way it must not retune this side. */
+    if (net.local == 0) {
+        pc_log_line("net: REL_DELAY from the guest ignored (the host announces)");
+        return;
+    }
     int d = (int)ntohl(m.delay);
     int32_t at = (int32_t)ntohl(m.frame);
     if (d < 1 || d >= RING / 2) {
         pc_log_line("net: REL_DELAY asked for delay %d, ignored", d);
+        return;
+    }
+    /* A far-future frame would pin delay_apply() for the rest of the match:
+     * it returns early while net.frame < net.delay_at, so the host would never
+     * announce another change. The bound has to clear a LEGITIMATE
+     * announcement by a wide margin -- the sender sets DELAY_LEAD (120) frames
+     * ahead of its OWN frame, which is itself ahead of ours -- or it silently
+     * turns a real announcement into "apply now" and the two peers switch
+     * delay on different frames (measured: a clamp of RING frames did exactly
+     * that, "peers applied different delays: a 240 b 121"). Ignored rather
+     * than clamped, because clamping is the same mistake by another name: the
+     * sender re-announces next window, and an absurd value is corrupt or
+     * hostile either way. A minute of frames is far above any real skew and
+     * far below the value that would pin the state machine. */
+    if (at > net.frame + 60 * 60) {
+        pc_log_line("net: REL_DELAY for frame %d is %d frames ahead, ignored", at, at - net.frame);
         return;
     }
     net.delay_next = d;

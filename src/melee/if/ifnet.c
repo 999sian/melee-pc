@@ -58,8 +58,9 @@ static void ifNet_Think(HSD_GObj* gobj)
     if (code && code[0]) snprintf(opponent, sizeof opponent, "%s", code);
     else snprintf(opponent, sizeof opponent, "P%d", 2 - pc_net_local_player());
     if (ifNet.debug) snprintf(debug, sizeof debug, "  rb %u", rollbacks);
-    snprintf(line, sizeof line, "P%d vs %s  delay %d  ping %dms%s%s",
+    snprintf(line, sizeof line, "P%d vs %s  delay %d  ping %dms%s%s%s",
              pc_net_local_player() + 1, opponent, delay, ping, debug,
+             pc_net_desync() ? "  DESYNC" : "",
              ifNet_Marker(pc_net_quality()));
     if (strcmp(line, ifNet.line)) {
         HSD_SisLib_803A70A0(ifNet.text, ifNet.entry, "%s", line);

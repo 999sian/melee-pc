@@ -143,6 +143,13 @@ bool pc_net_stats(int* ping_ms, int* delay_frames, unsigned* rollbacks);
  * must treat anything above 2 as at least as bad as 2. */
 int pc_net_quality(void);
 
+/* True once this session's checksums have disagreed with the peer's. The
+ * simulations have parted and no rollback will bring them back; the match is
+ * no longer a match. Reported so the player can see it -- it used to be a
+ * log line and nothing else, which left two players finishing a game that
+ * only one of them was playing. */
+bool pc_net_desync(void);
+
 /* Why the last session ended (kept until the next connect): 0 still up /
  * never broke, 1 the peer left (BYE), 2 timeout, 3 desync, 4 incompatible
  * protocol version, 5 an interruption could not be resumed (the input gap

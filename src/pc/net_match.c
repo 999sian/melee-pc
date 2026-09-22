@@ -235,7 +235,16 @@ static bool load_identity(void) {
 static void digest(void) {
     char text[256];
     int n = snprintf(text, sizeof text, "%s\n%s", pc_app_rev(), pc_lan_disc_id());
-    pc_dht_sha1(text, n > 0 ? (size_t)n : 0, compatibility);
+    /* snprintf returns the length it WOULD have written, so an over-long
+     * MELEE_APP_REV (it is returned verbatim) would make the hash read past
+     * this stack buffer. Hash what is actually in it. */
+    if (n < 0) {
+        n = 0;
+    }
+    if ((size_t)n > sizeof text) {
+        n = (int)sizeof text;
+    }
+    pc_dht_sha1(text, (size_t)n, compatibility);
 }
 static bool send_packet(const void* p, size_t n, const struct pc_dht_endpoint* ep) {
     struct sockaddr_in to = {0};

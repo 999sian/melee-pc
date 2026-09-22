@@ -82,7 +82,11 @@ void net_watchdog_arm(void) {
         sa.sa_flags = SA_RESTART;
         sigaction(SIGPROF, &sa, NULL);
         s_game_thread = pthread_self();
-        s_game_thread_known = true;
+        /* Publish the handle before the flag. The timer thread must never
+         * observe the flag set while the handle is still zero, or it signals
+         * whatever thread sits at that value -- on AArch64 the two plain
+         * stores are freely reorderable. Release/acquire pairs them. */
+        __atomic_store_n(&s_game_thread_known, true, __ATOMIC_RELEASE);
     }
 }
 
@@ -95,8 +99,8 @@ void net_watchdog_tick(int32_t frame) {
         s_reported = false;
         return;
     }
-    if (s_reported || !s_game_thread_known || s_last_move_ns == 0 ||
-        now - s_last_move_ns < (uint64_t)WATCHDOG_MS * 1000000ull)
+    if (s_reported || !__atomic_load_n(&s_game_thread_known, __ATOMIC_ACQUIRE) ||
+        s_last_move_ns == 0 || now - s_last_move_ns < (uint64_t)WATCHDOG_MS * 1000000ull)
     {
         return;
     }

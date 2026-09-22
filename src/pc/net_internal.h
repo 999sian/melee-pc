@@ -113,6 +113,9 @@ static inline void sock_startup(void) {}
 #define FRAME_US ((int32_t)(pc_sim_period_ns() / 1000)) /* the boundary's pacing target */
 #define STALL_TIMEOUT_MS 3000
 #define CONNECT_TIMEOUT_MS 60000
+/* The same wait for a session matchmaking just paired (net.connect_timeout_ms):
+ * the peer signed an offer moments ago, so silence now means a dead address. */
+#define MATCH_CONNECT_TIMEOUT_MS 10000
 #define SYNC_INTERVAL 30 /* frames between time-sync decisions (Slippi) */
 #define SYNC_HOLDOFF 120 /* frames between skip/advance bursts */
 #define IO_QUIET 120     /* frames a disc request keeps the barrier ahead */
@@ -182,6 +185,8 @@ typedef struct Ack {
 
 /* Reliable lobby message (stop-and-wait, net_reliable.c). */
 #define REL_MAX 256
+#define REL_RULES 0x01  /* host -> guest {seed, start_frame, nonce} (net_handshake.c) */
+#define REL_READY 0x02  /* guest -> host {nonce, echo} (net_handshake.c) */
 #define REL_RESUME 0x12 /* net.c's resume exchange, dispatched by on_rel */
 #define REL_DELAY 0x13  /* the host's input-delay pick, dispatched by on_rel */
 #define REL_CHAT 0x15   /* fixed quick-chat phrase, consumed before caller queue */
@@ -320,7 +325,13 @@ struct NetSession {
     struct sockaddr_storage peer;
     socklen_t peer_len;
     int local, remote, delay;
-    uint32_t session;   /* 0 on the guest until the host's first packet */
+    uint32_t session; /* 0 on the guest until the host's first packet */
+    /* How long to wait for the peer's first datagram, ms. CONNECT_TIMEOUT_MS
+     * for a session the user dialled by hand (the other end may simply be
+     * started later); much shorter for one matchmaking just paired, where the
+     * peer proved it was running moments ago and a silent one is a dead
+     * address, not a slow human. */
+    int connect_timeout_ms;
     int32_t frame;      /* next fresh frame to simulate */
     int32_t tick_frame; /* frame the last prepared tick simulates */
     bool resim;         /* re-running frames after a rollback */
