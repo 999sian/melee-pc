@@ -15,6 +15,19 @@
 #include <melee/pl/player.h>
 #include <sysdolphin/baselib/debug.h>
 
+#ifdef TARGET_PC
+#include "pc/pc.h"
+/* PORT: the loops below spin until aurora's DVD threads finish a read; sleep
+ * a little per poll so those threads get the core (src/pc/os.c). */
+static void lbDvd_WaitPoll(void)
+{
+    lb_800195D0();
+    pc_os_yield();
+}
+#else
+#define lbDvd_WaitPoll lb_800195D0
+#endif
+
 /* 0189EC */ static void lbDvd_800189EC(int);
 
 void lbDvd_SetupVsPreloadCache(void)
@@ -100,7 +113,7 @@ static bool lbDvd_80017644(int heap)
 void lbDvd_80017700(int arg0)
 {
     while (lbDvd_80017644(arg0)) {
-        lb_800195D0();
+        lbDvd_WaitPoll();
     }
 }
 
@@ -646,7 +659,7 @@ int lbDvd_800187F4(int entry_num)
 void lbDvd_800189EC(int entry_num)
 {
     while (lbDvd_800187F4(entry_num) == 1) {
-        lb_800195D0();
+        lbDvd_WaitPoll();
     }
 }
 
@@ -721,7 +734,7 @@ int lbDvd_80018A2C(u8 arg0)
 void lbDvd_80018C2C(u8 arg0)
 {
     while (lbDvd_80018A2C(arg0) == 1) {
-        lb_800195D0();
+        lbDvd_WaitPoll();
     }
 }
 
@@ -755,7 +768,7 @@ static inline void inline0(void)
         if (lbHeap_800158E8(lbDvd_804D37F4[i]) == 1) {
             tmp = lbDvd_804D37F4[i];
             while (lbDvd_80017598(tmp) != 0) {
-                lb_800195D0();
+                lbDvd_WaitPoll();
             }
         }
     }
@@ -808,12 +821,12 @@ void lbDvd_80018CF4(int arg0)
     }
     if (lbHeap_800158E8(2) == 1) {
         while (lbDvd_80017598(2) != 0) {
-            lb_800195D0();
+            lbDvd_WaitPoll();
         }
     }
     if (lbHeap_800158E8(3) == 1) {
         while (lbDvd_80017598(3) != 0) {
-            lb_800195D0();
+            lbDvd_WaitPoll();
         }
     }
     inline0();

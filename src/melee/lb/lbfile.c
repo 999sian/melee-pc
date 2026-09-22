@@ -14,6 +14,7 @@
 #ifdef TARGET_PC
 #include "pc/file_cache.h"
 #include "pc/net.h"
+#include "pc/pc.h"
 #endif
 
 static bool cancel;
@@ -33,6 +34,10 @@ static void lbFile_8001615C(int dcreq, uintptr_t args, void* buf, bool cancelfla
 static bool discIsDone(void)
 {
     lb_800195D0();
+#ifdef TARGET_PC
+    /* PORT: yield to the DVD threads this spin waits on (src/pc/os.c). */
+    pc_os_yield();
+#endif
     return cancel;
 }
 #ifdef __MWERKS__
