@@ -93,7 +93,7 @@
  * attacker with a longer presence still gets through — the real fix is a
  * signed proposal keyed by the peer's ed25519 identity. */
 #define LOBBY_DWELL_NS (2 * ANNOUNCE_NS)
-#define REL_READY_BARRIER 0x11   /* reliable type: "my handshake is done" (net_lan.h) */
+#define REL_READY_BARRIER 0x11 /* reliable type: "my handshake is done" (net_lan.h) */
 /* Ubuntu's clang-format (what CI installs) and 22.x disagree on the spacing
  * of a braced-list macro body and neither accepts the other's output, so the
  * two macros below are pinned. The marker comment must be exactly this, with
@@ -1222,8 +1222,7 @@ void pc_lan_poll(void) {
         for (int i = 0; i < s_n; i++) {
             Entry* e = &s_peers[i];
             if (e->state == ST_STARTING && e->peer_id == s_id && e->p.compatible &&
-                e->gen > e->last_gen && e->lobby_ns != 0 &&
-                now - e->lobby_ns >= LOBBY_DWELL_NS)
+                e->gen > e->last_gen && e->lobby_ns != 0 && now - e->lobby_ns >= LOBBY_DWELL_NS)
             {
                 e->last_gen = e->gen;
                 connect_as_guest(e);

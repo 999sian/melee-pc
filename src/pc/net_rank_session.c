@@ -218,9 +218,7 @@ bool pc_rank_session_proof(unsigned player, const void* value, size_t size, int6
              * and the signed hello are self-signed by the peer, so without
              * this pin attacker-chosen pre-ratings would be laundered into
              * both stores through the double-signed record. */
-            if (memcmp(&rating.mu, &initial.mu, 8) ||
-                memcmp(&rating.sigma, &initial.sigma, 8))
-            {
+            if (memcmp(&rating.mu, &initial.mu, 8) || memcmp(&rating.sigma, &initial.sigma, 8)) {
                 pc_rank_session_abort("peer claims a fresh identity with a fabricated rating");
                 return false;
             }
@@ -285,8 +283,7 @@ bool pc_rank_session_chain_record(const void* value, size_t size) {
          * valid() already forces the zero head whenever sets == 0). */
         PcNetRating initial;
         pc_rank_initial(&initial);
-        if (session.known_peer ||
-            memcmp(&session.chain_rating.mu, &initial.mu, 8) ||
+        if (session.known_peer || memcmp(&session.chain_rating.mu, &initial.mu, 8) ||
             memcmp(&session.chain_rating.sigma, &initial.sigma, 8))
             goto invalid;
         session.chain_pending = false;

@@ -845,8 +845,8 @@ void recv_inputs(void) {
              * length matches the datagram, so the Rel view is in bounds and
              * r->len can be trusted here. */
             const Rel* rel = (const Rel*)&u;
-            is_rules = u.h.magic == 'R' && rel->type == REL_RULES &&
-                       ntohs(rel->len) == sizeof(Rules);
+            is_rules =
+                u.h.magic == 'R' && rel->type == REL_RULES && ntohs(rel->len) == sizeof(Rules);
         }
         bool learn_session = net.session == 0 && net.local == 1 && u.h.session != 0 && is_rules;
         bool guest_preamble = !s_heard && net.local == 0 && u.h.session == 0;

@@ -114,7 +114,7 @@ static void play(unsigned winner) {
 static void ancestry_chain(
     PcNetRankRecord chain[2], const PcNetIdentity* a, const PcNetIdentity* b, bool honest) {
     memset(chain, 0, 2 * sizeof *chain);
-    PcNetRankRecord* first = &chain[0], *second = &chain[1];
+    PcNetRankRecord *first = &chain[0], *second = &chain[1];
     for (unsigned i = 0; i < 2; i++) {
         memcpy(first->keys[i], i ? b->public_key : a->public_key, 32);
         memcpy(second->keys[i], i ? b->public_key : a->public_key, 32);

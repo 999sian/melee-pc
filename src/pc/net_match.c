@@ -34,7 +34,7 @@ __attribute__((weak)) void pc_log_line(const char* fmt, ...) {
 #endif
 
 #define MATCH_MAGIC 0x4d504d31u /* MPM1 */
-#define MATCH_VERSION 3 /* v3: hello.code grew 14 -> 18 (40-bit key suffix) */
+#define MATCH_VERSION 3         /* v3: hello.code grew 14 -> 18 (40-bit key suffix) */
 #define RETRY_MS 250
 #define TIMEOUT_MS 8000
 
