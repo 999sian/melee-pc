@@ -56,11 +56,14 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 
     {
         int i;
+        HSD_ObjAllocLink* link;
         for (i = 0; (unsigned) i < num - 1; i++) {
-            *(void**) (pool_start + data->size * i) =
-                (void*) (pool_start + data->size * (i + 1));
+            link = (HSD_ObjAllocLink*) (pool_start + data->size * i);
+            link->next =
+                (HSD_ObjAllocLink*) (pool_start + data->size * (i + 1));
         }
-        *(void**) (pool_start + data->size * i) = data->freehead;
+        link = (HSD_ObjAllocLink*) (pool_start + data->size * i);
+        link->next = data->freehead;
     }
 
     data->freehead = (HSD_ObjAllocLink*) pool_start;
