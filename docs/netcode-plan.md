@@ -247,7 +247,7 @@ offset sample per received packet = `sendTime − myLastSendTime + 16683·(myFra
 > 10 ms → stall ≤ 5 frames; behind > 26.7 ms → advance (2 ticks in one
 present) ≤ 3 frames, 1 per 5 frames. Continuous nudging: ±0.5–1 % on the
 `SDL_DelayPrecise` target in `vi.c:171-175` instead of emu speed. Hard stall
-when remote lags > 7 frames; disconnect after 7 s stalled.
+when remote lags > 7 frames; disconnect after 3 s stalled.
 
 **Desync detection.** Each input packet carries `(ck_frame, ck)` of the newest
 finalised frame (`confirmed_frame`, `src/pc/net.c:185-193`), compared in
@@ -769,12 +769,19 @@ the first packet.
 
 ### 6.2 Timeout policy
 
+> **Corrected 2026-09-22.** `faf888914` deliberately shortened the stall
+> and reconnect windows from 7 s/15 s to 3 s/3 s ("with watchdog heartbeats"),
+> which puts the whole outage tolerance at ~6 s rather than the ~22 s the
+> narratives below were written against. The table above and the defaults in
+> `net.c` are corrected here; the measured runs quoted further down are left
+> as they were measured, at the values that were in force when they ran.
+
 | State | Limit | Where | On expiry |
 |---|---|---|---|
-| Connected, no packet from the peer yet | 60 s (`CONNECT_TIMEOUT_MS`) | `net_internal.h:101`, `wait_remote` `net.c:863` | `PEER_TIMEOUT`, `net: peer silent for 60000 ms`, disconnect. Never resumed: there is nothing to resume to |
-| Stall on an established session (remote more than the window behind, or lockstep waiting) | 7 s (`STALL_TIMEOUT_MS`) **of silence, counted from the last datagram** (`s_last_rx_ns`, stamped in `rx_dispatch`) | `net_internal.h:100`, `wait_remote` | opens the reconnect phase (§6.5); if that is disabled or the session is not established, `PEER_TIMEOUT` and `net: peer silent for 7000 ms at frame N, leaving netplay` |
-| Peer that keeps sending but never advances (it is loading) | 120 s (`NO_PROGRESS_TIMEOUT_MS`) | `wait_remote` | `PEER_TIMEOUT` and `net: peer still sending but stuck at frame N for 120000 ms, leaving netplay`. No reconnect phase: nothing was ever interrupted |
-| Reconnect phase | 15 s (`RECONNECT_MS`, `MELEE_NET_RECONNECT_MS`) | `net.c:80`, `resume_poll` | `net: resume window of 15000 ms expired at frame N`, then the unchanged silence lines and `PEER_TIMEOUT` |
+| Connected, no packet from the peer yet | 60 s (`CONNECT_TIMEOUT_MS`), or 10 s (`MATCH_CONNECT_TIMEOUT_MS`) when matchmaking handed the session over (`net.connect_timeout_ms`) | `net_internal.h:115`/`:118`, `wait_remote` | `PEER_TIMEOUT`, `net: peer silent for 60000 ms`, disconnect. Never resumed: there is nothing to resume to |
+| Stall on an established session (remote more than the window behind, or lockstep waiting) | 3 s (`STALL_TIMEOUT_MS`) **of silence, counted from the last datagram** (`s_last_rx_ns`, stamped in `rx_dispatch`) | `net_internal.h:114`, `wait_remote` | opens the reconnect phase (§6.5); if that is disabled or the session is not established, `PEER_TIMEOUT` and `net: peer silent for 3000 ms at frame N, leaving netplay` |
+| Peer that keeps sending but never advances (it is loading) | 120 s (`NO_PROGRESS_TIMEOUT_MS`), measured from the last forward progress, not from the start of a wait (`s_progress_ns`) | `wait_remote` | `PEER_TIMEOUT` and `net: peer still sending but stuck at frame N for 120000 ms, leaving netplay`. No reconnect phase: nothing was ever interrupted |
+| Reconnect phase | 3 s (`RECONNECT_MS`, `MELEE_NET_RECONNECT_MS`) | `net.c:97`, `resume_poll` | `net: resume window of 3000 ms expired at frame N`, then the unchanged silence lines and `PEER_TIMEOUT` |
 | While stalled: resend our inputs | every 16 ms | `net.c:869-872` | — |
 | Stall longer than 500 ms | marks `s_stall_frame` | `net.c:882-884` | `pc_net_quality()` reports 2 for the next 120 frames (`net.c:1016`) |
 | Liveness while the game thread is not ticking (a load) | the newest input packet again every 7 ms | `tx_timer`, `net.c:286-293` | keeps the peer's silence clock and the NAT mapping fresh, which is what makes a load distinguishable from a lost peer. (A separate 500 ms empty-packet keepalive used to sit here; the 7 ms resend refreshes the same timestamp, so it could never fire and is gone) |
@@ -1709,7 +1716,7 @@ retracted here or labelled with what it actually measured.
   snapshot ring of 8 taken before every predicted tick, restore + re-tick
   via `pc_net_after_tick()` when the real input differs, window 7 then a
   hard stall, which now opens the reconnect phase of §6.5 instead of ending
-  the session (`MELEE_NET_RECONNECT_MS`, default 15 s, `0` = the old hard
+  the session (`MELEE_NET_RECONNECT_MS`, default 3 s, `0` = the old hard
   drop). Inputs sent every tick and again 8 ms
   later from a 4 ms SDL timer, everything since the last ack (cap 16); the
   ack echoes the packet's sequence number, which is the ping sample. Time sync is
@@ -1896,7 +1903,7 @@ under this Xwayland session returned the opening movie and a bare CSS
 starfield while the logs showed a live session on the CSS.
 
 **Rows beyond the flow.** `disconnect` SIGKILLs B mid-match with no BYE and
-requires A to report `peer silent for 7000 ms … leaving netplay`, then
+requires A to report `peer silent for 3000 ms … leaving netplay`, then
 `disconnected … (status 2)`, then to keep its frame loop running for another
 10 s with no DESYNC and no `peer left`. `resume 11 s` and `resume expiry 30 s`
 are §6.5 from the outside: an interruption inside the window must log

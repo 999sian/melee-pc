@@ -19,7 +19,7 @@ results, CSS, SSS, rematch - and the cross-log assertions in check_scenes()
 --oom FRAME: MELEE_NET_SIM_OOM_FRAME on A, so its first
 snapshot at/after FRAME fails like a realloc would; check_oom() asserts the
 session drops to lockstep and finishes anyway. --disconnect: B SIGKILLed
-mid-match (no BYE), asserting A times the peer out within the documented 7 s
+mid-match (no BYE), asserting A times the peer out within the stall timeout
 and keeps its frame loop running. --stall SECONDS: B SIGSTOPped mid-match,
 asserting the reconnect window (net.c:639-832) survives an interruption
 inside it and expires with status 2 past it. --fuzz: tools/net_fuzz.py
@@ -880,7 +880,7 @@ def summarize(inst, need_match=True):
     if inst.proc.returncode != 0:
         fails.append(f"exit code {inst.proc.returncode}")
     # "peer silent" has to be the whole leaving-netplay line, not a substring:
-    # the benign `net: interrupted at frame N (peer silent 7000 ms),
+    # the benign `net: interrupted at frame N (peer silent 3000 ms),
     # reconnecting for up to M ms` that opens the reconnect phase contains the
     # same two words, and matching loosely failed a `--stall` row that had
     # resumed correctly (measured, /tmp/sf_acc "resume 11 s").
@@ -901,8 +901,8 @@ def summarize(inst, need_match=True):
     return fails, line, st
 
 
-# Documented stall limit (docs/netcode-plan.md §6.2, STALL_TIMEOUT_MS,
-# net_internal.h:100) plus room for the loaded machine to notice it.
+# STALL_TIMEOUT_MS (net_internal.h) plus room for the loaded machine to
+# notice it. 7 s until faf888914 shortened it to 3 s.
 PEER_GONE_S = 15
 
 
@@ -987,12 +987,12 @@ def run_disconnect(args):
 # The reconnect phase (net.c:639-832): a silence past STALL_TIMEOUT_MS opens a
 # bounded window instead of ending the session, and the frames predicted
 # across the interruption roll back as usual when the peer's input arrives.
-# MELEE_NET_RECONNECT_MS bounds the window (default 15 s, 0 = the hard drop
+# MELEE_NET_RECONNECT_MS bounds the window (default 3 s, 0 = the hard drop
 # the `disconnect` row covers). SIGSTOP is the honest interruption to test it
 # with: the stopped instance keeps its socket, so the datagrams it missed are
 # queued in its receive buffer when it continues, which is exactly what a
 # peer whose Wi-Fi came back sees. A killed process cannot resume at all.
-STALL_TIMEOUT_S = 7  # STALL_TIMEOUT_MS, src/pc/net_internal.h:100
+STALL_TIMEOUT_S = 3  # STALL_TIMEOUT_MS, src/pc/net_internal.h:114
 RESUME_SLACK_S = 25  # room for a loaded machine to notice and report
 
 
@@ -1177,8 +1177,8 @@ def parse_args(argv=None):
                     help="park B's game thread for SECONDS mid-run while its sender keeps "
                          "running (a load, not a lost peer): the session must carry it with no "
                          "reconnect phase, however long it is")
-    ap.add_argument("--reconnect-ms", type=int, default=15000,
-                    help="MELEE_NET_RECONNECT_MS for --stall (net.c's own default is 15000)")
+    ap.add_argument("--reconnect-ms", type=int, default=3000,
+                    help="MELEE_NET_RECONNECT_MS for --stall (net.c's own default is 3000)")
     ap.add_argument("--fuzz", action="store_true", help="run tools/net_fuzz.py against A")
     ap.add_argument("--fuzz-seconds", type=int, default=30)
     ap.add_argument("--exe", default=os.path.join(here, "..", "build", "melee"))
