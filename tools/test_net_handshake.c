@@ -90,7 +90,11 @@ int pc_net_recv_reliable(uint8_t* t, void* p, int max) {
     return -1;
 }
 
+static bool s_send_full; /* the reliable lane has no room (net_reliable.c) */
 bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
+    if (s_send_full) {
+        return false;
+    }
     s_out_type = type;
     s_out_len = len;
     if (len > 0) {
@@ -510,6 +514,40 @@ int main(void) {
         assert(!s_unlock_saved && s_unlock_live == 0x0003000100000000ull);
         assert(log_count("net: unlock state restored") == 1);
         printf("ok 13: READY with a differing unlock state refused, restore undoes the force\n");
+    }
+
+    /* ---- 14. a message the reliable lane refused never completes a
+     * handshake: the guest keeps the READY and the poll that puts it out is
+     * what finishes the exchange, and a RULES that never goes out times the
+     * host out rather than leaving it agreed with nobody ---------------- */
+    {
+        uint32_t seed_out = 0;
+        net.tick_frame = 300;
+        load_fresh(sess_a, 1);
+        s_send_full = true;
+        s_out_len = -1;
+        handshake_msg(REL_RULES, rules_a, (int)sizeof rules_a);
+        assert(net.hs != HS_DONE && s_out_len == -1);
+        assert(s_hs_tx.len == sizeof(Ready)); /* held for the retry */
+        assert(!pc_net_guest_wait_match(&seed_out, &sf) && net.hs == HS_PENDING);
+        s_send_full = false;
+        assert(pc_net_guest_wait_match(&seed_out, &sf));
+        assert(net.hs == HS_DONE && seed_out == 1234 && sf == 300 + HS_LEAD_FRAMES);
+        assert(s_out_type == REL_READY && s_out_len == (int)sizeof(Ready) && s_hs_tx.len == 0);
+        rules_restore();
+
+        net.tick_frame = 300;
+        load_fresh(sess_c, 0);
+        s_send_full = true;
+        s_out_len = -1;
+        assert(!pc_net_host_match(55, &sf) && net.hs == HS_PENDING);
+        assert(s_out_len == -1 && s_hs_tx.len == sizeof(Rules));
+        s_now += (uint64_t)HS_TIMEOUT_MS * 1000000ull + 1;
+        assert(!pc_net_host_match(55, &sf) && net.hs == HS_FAILED);
+        s_send_full = false;
+        rules_restore();
+        assert(s_hs_tx.len == 0);
+        printf("ok 14: a refused RULES/READY is retried, never a completed handshake\n");
     }
 
     net.tick_frame = 300;

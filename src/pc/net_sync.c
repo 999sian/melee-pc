@@ -39,6 +39,8 @@
 static int32_t s_offset[OFFSET_SAMPLES];
 static int s_offset_n, s_offset_i;
 static int s_skip_left;
+static int32_t s_skip_asked = -1;      /* frame the pending skip was raised on */
+static bool s_skip_wait;               /* prefer an idle frame to take it on */
 static int s_drop_left;                /* SYNC_LEGACY only: samples to discard */
 static int s_sync_over;                /* +1/-1 when the last window crossed a threshold */
 static int32_t s_sync_acted;           /* frame of the last skip/advance burst */
@@ -272,6 +274,8 @@ void time_sync(void) {
         if (off > 100000) {
             s_sync_acted = net.frame;
             s_skip_left = 1;
+            s_skip_asked = net.frame;
+            s_skip_wait = true;
         } else if (off < -100000) {
             s_sync_acted = net.frame;
             net.advance_left = 1;
@@ -340,7 +344,23 @@ uint64_t pc_net_pace_adjust_ns(void) {
     }
     pad_queue_pin();
     uint64_t adj = (uint64_t)s_nudge_ns; /* never negative: see time_sync */
-    if (s_skip_left > 0) {
+    /* The whole-frame correction waits for a frame the player is not in the
+     * middle of. It lengthens one frame by a whole frame period, so taken
+     * mid-input it eats a frame of that input -- the one correction here
+     * that a player can feel, and on a stick sweep or a button press the
+     * one that matters most. GGPO's require_idle_input refuses to sleep for
+     * the same reason. The sub-frame nudge above is unconditional: it is
+     * small enough that no input is lost to it, and it is what closes the
+     * phase in the normal case anyway (the delayed soak: 261 skips against
+     * 225,000 frames, offset held at +0.0 ms). A skip deferred here is not
+     * dropped, it waits for the next idle frame. */
+    /* ...but not forever: a player who never lets go would otherwise defer
+     * it indefinitely and the phase would stay open. After SYNC_HOLDOFF
+     * frames of waiting, take it anyway. */
+    if (s_skip_left > 0 && s_skip_asked >= 0 && net.frame - s_skip_asked >= SYNC_HOLDOFF) {
+        s_skip_wait = false;
+    }
+    if (s_skip_left > 0 && (!s_skip_wait || net_local_idle())) {
         s_skip_left--;
         net.skips++;
         adj += (uint64_t)FRAME_US * 1000; /* the whole frame the nudge could not pay */
@@ -363,6 +383,8 @@ void sync_reset(void) {
     s_offset_n = s_offset_i = 0;
     net.offset_last = 0;
     s_skip_left = net.advance_left = s_drop_left = s_sync_over = 0;
+    s_skip_asked = -1;
+    s_skip_wait = false;
     s_sync_acted = -SYNC_HOLDOFF;
     s_nudge_ns = 0;
     s_delay_base = s_delay_seen = 0;

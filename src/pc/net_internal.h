@@ -111,6 +111,14 @@ static inline void sock_startup(void) {}
 #define SYNC_INTERVAL 30 /* frames between time-sync decisions (Slippi) */
 #define SYNC_HOLDOFF 120 /* frames between skip/advance bursts */
 #define IO_QUIET 120     /* frames a disc request keeps the barrier ahead */
+/* A session ends before its frame counter can get anywhere near the end of
+ * its range. Frames are absolute int32 on the wire and in every ring index,
+ * and the protocol has no wrap strategy: rather than invent serial-number
+ * comparisons for a case no match reaches, the session is bounded so the
+ * counter provably cannot get there. 100 million frames is nineteen days of
+ * continuous play, and the peers part cleanly with a reason when it lands
+ * instead of overflowing into undefined behaviour. */
+#define SESSION_MAX_FRAMES 100000000
 
 /* ---- wire format ------------------------------------------------------ */
 
@@ -443,6 +451,7 @@ void replay_feed(PADStatus* head);
 void record_frame(const PADStatus* head, uint32_t ck, int32_t f);
 void record_confirm(int32_t upto);            /* write settled frames out in order */
 bool record_replay_scene_hold(int32_t frame); /* replay: hold to the recorded exit */
+bool net_local_idle(void); /* net.c; newest local sample has no stick or button */
 void synctest_before_tick(void);
 bool synctest_after_tick(void);
 

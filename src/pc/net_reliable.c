@@ -9,6 +9,24 @@
  * 'R' in flight, resent every 250 ms until its 'K' arrives,
  * 4 queued behind it and its own sequence space.
  *
+ * Lane 1 mixes messages a session depends on -- REL_RESUME, REL_SCENE,
+ * REL_DELAY, the lobby's ready barrier, a stage pick -- with two kinds a
+ * player generates at will: quick chat and the ranked-set exchange. Only
+ * the first kind cannot be refused (a resume that is not queued misses the
+ * window the peer is waiting out, a scene hand-off that is not queued
+ * stalls the scene on both peers, a refused ready barrier fails the
+ * lobby), and quick chat is live in the online lobby, so without a rule a
+ * player mashing phrases could take all four slots from any of them. So
+ * the two player-driven kinds share at most REL_LOW_QUEUE slots and
+ * everything else keeps two, which is as many as are outstanding at once
+ * in practice: a resume overlaps a scene hand-off or a delay change, but
+ * all three want a stall, a scene exit and the host's delay pick on one
+ * frame. Both capped senders retry -- the ranked exchange from
+ * pc_rank_session_poll(), a phrase by the player, who is rate limited to
+ * one per 2 s anyway -- so the cap costs a frame, not a message. A type
+ * that is neither is control by default: the starvable set is named here,
+ * not the protected one.
+ *
  * Wire: Rel.seq / RelAck.seq bit 7 is the lane, bits 0-6 the lane's 7-bit
  * sequence number, so the receiver demultiplexes without a new field.
  * Sequence arithmetic is modulo 128: the next expected seq is processed
@@ -27,7 +45,8 @@
 #define REL_LANES 2
 #define REL_LANE_BIT 0x80
 #define REL_SEQ_MASK 0x7f
-#define REL_REACK 8 /* already-accepted seqs still re-acked */
+#define REL_REACK 8     /* already-accepted seqs still re-acked */
+#define REL_LOW_QUEUE 2 /* lane 1 slots low-priority traffic may hold */
 
 typedef struct RelMsg {
     uint8_t type;
@@ -51,6 +70,27 @@ static bool s_rel_unexpected_logged;
 
 static int lane_of(uint8_t type) {
     return type < 0x10 ? 0 : 1;
+}
+
+/* The two kinds a player can produce faster than the lane drains: a quick
+ * chat phrase, and the ranked-set exchange (net_rank_session.c owns every
+ * type from 0x60 up). Naming these rather than the control types is what
+ * keeps a new message type safe by default. */
+static bool rel_low_priority(uint8_t type) {
+    return type == REL_CHAT || type >= 0x60;
+}
+
+/* Low-priority messages a lane currently holds (caller holds tx_lock). The
+ * queue is four entries, so counting beats keeping a second counter in step
+ * with head/n across enqueue, ack and reset. */
+static int low_queued(const RelTx* t) {
+    int n = 0;
+    for (int i = 0; i < t->n; i++) {
+        if (rel_low_priority(t->q[(t->head + i) % REL_QUEUE].type)) {
+            n++;
+        }
+    }
+    return n;
 }
 
 /* Signed distance a - b in the 7-bit lane sequence space. */
@@ -97,7 +137,7 @@ bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
     }
     RelTx* t = &s_rel_tx[lane_of(type)];
     SDL_LockMutex(net.tx_lock);
-    bool ok = t->n < REL_QUEUE;
+    bool ok = t->n < REL_QUEUE && (!rel_low_priority(type) || low_queued(t) < REL_LOW_QUEUE);
     if (ok) {
         RelMsg* m = &t->q[(t->head + t->n++) % REL_QUEUE];
         m->type = type;

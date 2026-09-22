@@ -142,6 +142,16 @@ enum {
     LOG_READY_NONCE = 1 << 9,
 };
 static uint32_t s_hs_logged; /* LOG_* classes already logged this session */
+/* A RULES or READY the reliable lane had no room for, kept in wire order so
+ * hs_poll() can put it out on a later frame. One slot is enough: neither
+ * side has two handshake messages to send, and the lane is the handshake's
+ * own (types < 0x10), so only an unacked predecessor can fill it. */
+static struct {
+    uint32_t session; /* the net.session it was built for */
+    uint8_t type;
+    uint8_t len; /* 0: nothing pending */
+    uint8_t wire[sizeof(Rules)];
+} s_hs_tx;
 
 uint32_t pc_net_seed(void) {
     return net.seed;
@@ -157,6 +167,49 @@ static void hs_done(void) {
     net.desync_reported = false; /* anything before start_frame was the lobbies differing */
     pc_log_line("net: handshake done seed=%u start_frame=%d (frame %d)", net.seed, net.start_frame,
         net.tick_frame);
+}
+
+/* Queue a handshake message, keeping it for a retry when the reliable lane
+ * refuses it (net_reliable.c, queue full). A refused send used to be logged
+ * and then treated as sent, which on the guest meant a "handshake done" the
+ * host never heard about: it waited out its 15 s timeout while this side
+ * believed the match was agreed. Same pattern as resume_send()/resume_poll()
+ * in net.c -- the poll the caller already runs every frame is the retry. */
+static bool hs_send(uint8_t type, const void* wire, int len) {
+    if (pc_net_send_reliable(type, wire, len)) {
+        s_hs_tx.len = 0;
+        return true;
+    }
+    s_hs_tx.session = net.session;
+    s_hs_tx.type = type;
+    s_hs_tx.len = (uint8_t)len;
+    memcpy(s_hs_tx.wire, wire, (size_t)len);
+    pc_log_line("net: %s not queued (reliable queue full), retrying",
+        type == REL_RULES ? "RULES" : "READY");
+    return false;
+}
+
+/* Retry whatever hs_send() could not queue; called from hs_poll() while the
+ * handshake is pending, so the handshake timeout bounds the retries. A READY
+ * that goes out here is what completes the guest's handshake, which is why
+ * hs_done() is reached from here rather than from on_rules(). */
+static void hs_flush(void) {
+    if (s_hs_tx.len == 0) {
+        return;
+    }
+    if (s_hs_tx.session != net.session) {
+        s_hs_tx.len = 0; /* built for a session that has since been torn down */
+        return;
+    }
+    if (!pc_net_send_reliable(s_hs_tx.type, s_hs_tx.wire, s_hs_tx.len)) {
+        return;
+    }
+    uint8_t type = s_hs_tx.type;
+    s_hs_tx.len = 0;
+    pc_log_line("net: %s queued on retry", type == REL_RULES ? "RULES" : "READY");
+    if (type == REL_READY) {
+        hs_done();
+    }
 }
 
 /* The match-affecting part of RULES, from (capture) or into (apply) the
@@ -257,9 +310,11 @@ void rules_restore(void) {
         pc_log_line("net: RULES restored own settings");
     }
     s_rules_on = false;
-    /* The session is over; its nonces must never be reused, and the next
-     * one gets a fresh log budget for each refusal class. */
+    /* The session is over; its nonces must never be reused, anything it
+     * still had to send dies with it, and the next one gets a fresh log
+     * budget for each refusal class. */
     s_nonce_local = s_nonce_peer = 0;
+    s_hs_tx.len = 0;
     s_hs_logged = 0;
 }
 
@@ -386,8 +441,8 @@ static void on_rules(const uint8_t* payload, int len) {
     *HSD_RandSeedPtr = net.seed;
     rules_apply(&ru, true);
     wire_ready(&rd);
-    if (!pc_net_send_reliable(REL_READY, &rd, sizeof rd)) {
-        pc_log_line("net: READY not queued, reliable queue full");
+    if (!hs_send(REL_READY, &rd, sizeof rd)) {
+        return; /* hs_poll() retries it, and finishes the handshake when it goes out */
     }
     hs_done();
 }
@@ -451,7 +506,10 @@ void handshake_msg(uint8_t type, const uint8_t* payload, int len) {
 static bool hs_poll(int32_t* start_frame) {
     if (net.hs == HS_PENDING) {
         recv_inputs();
-        if (SDL_GetTicksNS() - s_hs_t0 > HS_TIMEOUT_MS * 1000000ull) {
+        hs_flush(); /* after recv_inputs: a 'K' just read may be what freed the slot */
+        /* Re-checked: recv_inputs() or the flush above may have just finished
+         * the handshake, and a done one is not timed out. */
+        if (net.hs == HS_PENDING && SDL_GetTicksNS() - s_hs_t0 > HS_TIMEOUT_MS * 1000000ull) {
             net.hs = HS_FAILED;
             pc_log_line("net: handshake timed out, no %s", net.hs_host ? "READY" : "RULES");
         }
@@ -490,8 +548,9 @@ bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
         ru.hash = rules_hash(ru, net.session);
         rules_apply(&ru, false);
         wire_rules(&ru);
-        pc_net_send_reliable(REL_RULES, &ru, sizeof ru);
-        pc_log_line("net: RULES sent seed=%u start_frame=%d", seed, net.start_frame);
+        if (hs_send(REL_RULES, &ru, sizeof ru)) {
+            pc_log_line("net: RULES sent seed=%u start_frame=%d", seed, net.start_frame);
+        }
     }
     return hs_poll(start_frame);
 }

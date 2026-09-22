@@ -294,6 +294,85 @@ static void log_state_bits(int32_t frame) {
     fprintf(s_state_log, "net: bits %s\n", buf);
 }
 
+/* ---- periodic full-state hash -----------------------------------------
+ * frame_checksum() is a tripwire, not a desync detector: it folds the four
+ * pads, the seed and five fields per fighter, so two timelines can part in a
+ * velocity, a hitlag timer, an item, a camera or any heap byte and keep
+ * agreeing for many frames afterwards. The frame a mismatch is finally
+ * reported on is then not the frame the divergence happened on, which is
+ * what dump_states_around() exists to work backwards from by hand.
+ *
+ * So the other half is the whole of what a snapshot copies -- by
+ * construction everything the simulation can touch -- hashed periodically.
+ * state_hash() is already that walk and the sync test rests on it; it also
+ * drops the spans rollback_to carries across a restore
+ * (synctest_ignored_spans), which is required here for a second reason:
+ * those bytes are the local controller's raw queue, so they differ between
+ * peers on every frame by design and a hash folding them could never be
+ * compared at all. The audio heap and its descriptor are outside the
+ * regions for the same kind of reason (regions_now).
+ *
+ * It costs what a snapshot costs, because it is the same bytes read instead
+ * of copied: XXH3 over 6 MB measures 0.40 ms here against 0.33 ms for the
+ * memcpy, next to the ~0.6 ms a take already reports. That is 3% of a frame
+ * on the frame it runs, so it cannot run per frame; once every
+ * STATE_HASH_EVERY frames it amortises to ~0.02% and still names the
+ * divergence within seconds of it. The value is the confirmed one:
+ * record_state is called again for every re-run frame, so the last write
+ * for a frame is the timeline that stood.
+ *
+ * Nothing of this goes on the wire; protocol 7 is fixed. net_state_hash()
+ * is what a peer comparison would read once it is not. */
+#define STATE_HASH_EVERY 180      /* three seconds, in the cadence AUDIT_EVERY sets */
+static uint64_t state_hash(void); /* defined with the sync test: the snapshot regions */
+
+static uint64_t s_full_hash;
+static int32_t s_full_hash_frame = -1;
+static uint64_t s_full_hash_ns, s_full_hash_ns_max;
+static unsigned s_full_hashes;
+
+/* The newest full-state hash and the frame whose entry state it covers
+ * (frame -1 until one is taken). Both peers hash the same bytes in the same
+ * order, so two values carrying the same frame are comparable. */
+uint64_t net_state_hash(int32_t* frame) {
+    if (frame != NULL) {
+        *frame = s_full_hash_frame;
+    }
+    return s_full_hash;
+}
+
+static void state_hash_periodic(int32_t frame) {
+    /* Never during a load: an I/O worker writes into a heap while the game
+     * thread runs, so the read would be torn and the peers would differ over
+     * nothing. That is the window rollback already refuses (rb_barrier). It
+     * is a local property, so the two peers can skip different frames --
+     * which is why the frame is published next to the hash rather than
+     * assumed. */
+    if ((frame % STATE_HASH_EVERY) != 0 || frame <= net.rb_barrier || !in_fight()) {
+        return;
+    }
+    uint64_t t0 = SDL_GetTicksNS();
+    /* Bracketed like snapshot_take's copy, and for its reason: a pad alarm
+     * delivered in the middle of the read would write rumble state the walk
+     * has already passed, which is a torn hash and a mismatch over nothing. */
+    bool intr = OSDisableInterrupts();
+    s_full_hash = state_hash();
+    OSRestoreInterrupts(intr);
+    s_full_hash_frame = frame;
+    uint64_t dt = SDL_GetTicksNS() - t0;
+    s_full_hash_ns += dt;
+    s_full_hashes++;
+    if (dt > s_full_hash_ns_max) {
+        s_full_hash_ns_max = dt;
+    }
+    /* Into the state log too when it is on: that file is what two platforms'
+     * runs are diffed on, and this is the line that says the divergence is
+     * already in memory even when every checksum still agrees. */
+    if (s_state_log != NULL) {
+        fprintf(s_state_log, "net: fullhash f%d %016llx\n", frame, (unsigned long long)s_full_hash);
+    }
+}
+
 /* Remember what went into this frame's checksum (overwritten when the
  * frame is re-simulated, so the last write is the confirmed timeline), and
  * log it too under MELEE_NET_STATE_LOG. Called for every frame, not only
@@ -329,6 +408,7 @@ void record_state(const PADStatus* head, int32_t frame) {
             fflush(s_state_log);
         }
     }
+    state_hash_periodic(frame);
 }
 
 /* Dump the recorded states around `frame` (both peers do this on DESYNC, so
@@ -569,16 +649,24 @@ const char* snapshot_describe(const Snapshot* s, char* buf, size_t n) {
 }
 
 /* The snapshot fields of the 600-frame report (also used by the sync test);
- * the max pair is per window, the worst pair per process. */
+ * the max pair is per window, the worst pair per process. The full-state
+ * hash is the newest one, not a window figure: it is the value a peer would
+ * be compared against, so it outlives the window its timings belong to. */
 void snap_stats_report(void) {
     pc_log_line("net:   snapshot take %.2f ms (max %.2f, n %u), restore %.2f ms (max %.2f, n %u), "
-                "worst ever %.2f/%.2f, resim/present max %d",
+                "worst ever %.2f/%.2f, resim/present max %d, full state hash %016llx at frame %d "
+                "(%.2f ms, max %.2f, n %u)",
         s_takes ? s_take_ns / 1e6 / s_takes : 0.0, s_take_ns_max / 1e6, s_takes,
         s_restores ? s_restore_ns / 1e6 / s_restores : 0.0, s_restore_ns_max / 1e6, s_restores,
-        s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max);
+        s_take_ns_worst / 1e6, s_restore_ns_worst / 1e6, s_resim_n_max,
+        (unsigned long long)s_full_hash, s_full_hash_frame,
+        s_full_hashes ? s_full_hash_ns / 1e6 / s_full_hashes : 0.0, s_full_hash_ns_max / 1e6,
+        s_full_hashes);
     s_take_ns = s_take_ns_max = s_restore_ns = s_restore_ns_max = 0;
     s_takes = s_restores = 0;
     s_resim_n_max = 0;
+    s_full_hash_ns = s_full_hash_ns_max = 0;
+    s_full_hashes = 0;
 }
 
 /* rollback_to carries the live PadLibData bookkeeping and raw queue across a

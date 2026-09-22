@@ -332,13 +332,21 @@ static void send_inputs(void) {
     memset(&pk, 0, sizeof pk);
     pk.h = hdr('M');
     /* Everything the peer has not acked yet, oldest first so its contiguous
-     * mark can always advance; the cap only bites when acks are starved. */
-    int32_t first = s_last_acked + 1;
+     * mark can always advance; the cap only bites when acks are starved.
+     *
+     * Computed in 64 bits. The values are all frame numbers, and while a
+     * session is bounded well below the point where a frame number could
+     * overflow (see SESSION_MAX_FRAMES), `s_last_acked + 1` and
+     * `newest - first + 1` are the expressions that would do it first, and
+     * signed overflow is undefined rather than merely wrong. Widening costs
+     * nothing here and removes the class. */
+    int64_t newest64 = newest;
+    int64_t first = (int64_t)s_last_acked + 1;
     if (first < 0) {
         first = 0;
     }
-    if (first <= newest - RING) {
-        first = newest - RING + 1;
+    if (first <= newest64 - RING) {
+        first = newest64 - RING + 1;
     }
     /* Repeat only as many unacked frames as loss and rollback depth warrant,
      * clamped to REDUNDANCY: a clean link ships the floor, a lossy or bursty
@@ -353,19 +361,19 @@ static void send_inputs(void) {
         target = REDUNDANCY;
     }
     s_red_target = target;
-    int32_t count = newest - first + 1;
+    int64_t count = newest64 - first + 1;
     if (count > target) {
         count = target;
     }
     if (count < 1) {
         count = 0;
-        first = newest;
+        first = newest64;
     }
     for (int32_t i = 0; i < count; i++) {
         pk.pads[i] = s_local_ring[(first + i) & (RING - 1)];
     }
     pk.count = (uint8_t)count;
-    pk.first = first;
+    pk.first = (int32_t)first;
     pk.newest = newest;
     pk.ck_frame = confirmed_frame();
     pk.ck = pk.ck_frame >= 0 ? s_ck_ring[pk.ck_frame & (RING - 1)] : 0;
@@ -562,7 +570,14 @@ static void rx_dispatch(void* buf, int n) {
         wire_packet(&u->pk);
         switch (seq_check(u->pk.seq)) {
         case SEQ_DUP:
-            s_rx_dups++; /* exact copy: the original was already processed and acked */
+            /* An exact copy means the peer has not seen an ack for it. The
+             * original was processed, but the ack itself may be what went
+             * missing, and dropping the duplicate silently leaves the peer
+             * resending until the redundancy in a later packet happens to
+             * cover the gap. Re-ack it: the ack carries our contiguous mark,
+             * so it is correct whenever it arrives and costs one datagram. */
+            s_rx_dups++;
+            send_ack(s_remote_have, u->pk.seq);
             break;
         case SEQ_REORDER:
             s_rx_reorders++; /* older but new: still process, its pads may fill a gap */
@@ -1186,7 +1201,21 @@ void net_scene_rel(const void* payload, int len) {
         pc_log_line("net: REL_SCENE for frame %d ignored (we are at %d)", (int32_t)f, net.frame);
         return;
     }
-    s_scene_exit_remote[ntohl(m.seq) % SCENE_SLOTS] = (int32_t)f;
+    /* The sequence is the peer's count of completed exits, so the only ones
+     * that can be about a scene either side still cares about are the one we
+     * are in and its immediate neighbours: the peer may be a scene ahead if
+     * it left first, and a retransmit of the previous one may still arrive.
+     * Anything further is stale or invented, and taking it would alias into
+     * a live slot through the modulo -- an exit frame from eight scenes ago,
+     * or a far-future one planted deliberately, landing in the slot the
+     * current hand-off reads. */
+    uint32_t seq = ntohl(m.seq);
+    int64_t ahead = (int64_t)seq - (int64_t)s_scene_seq;
+    if (ahead < -1 || ahead > 1) {
+        pc_log_line("net: REL_SCENE seq %u ignored (we are on %u)", seq, s_scene_seq);
+        return;
+    }
+    s_scene_exit_remote[seq % SCENE_SLOTS] = (int32_t)f;
 }
 
 static void scene_handoff_reset(void) {
@@ -1254,6 +1283,20 @@ bool pc_net_scene_hold(void) {
     s_scene_exit_local = s_scene_exit_at = -1;
     s_scene_seq++;
     return false;
+}
+
+/* True when the newest local sample holds no stick deflection and no button.
+ * A whole-frame correction taken while the player is mid-input costs them
+ * that frame of it; taken at rest it costs nothing anyone can feel. The
+ * sample is the one already quantised for the wire, so idle stick noise
+ * (at_rest) does not read as movement. */
+bool net_local_idle(void) {
+    if (s_wrote < 0) {
+        return true;
+    }
+    const WirePad* p = &s_local_ring[s_wrote & (RING - 1)];
+    return p->button == 0 && p->stickX == 0 && p->stickY == 0 && p->substickX == 0 &&
+           p->substickY == 0 && p->triggerLeft == 0 && p->triggerRight == 0;
 }
 
 static void audio_journal_reset(void);
@@ -2172,11 +2215,21 @@ static void dvd_settle(void) {
     static bool warned;
     while (aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0) {
         if (SDL_GetTicksNS() - t0 > 5000000000ull) {
+            /* The transfer is not going to settle in time. Letting the tick
+             * run here was the dangerous half of this: past this point the
+             * two peers can be simulating the same frame with different I/O
+             * completed, and nothing downstream would notice until the
+             * checksum happened to cover whatever the load changed. Run on,
+             * because parking the game thread indefinitely is worse, but
+             * take rollback off the table for a while: a lockstep frame is
+             * still the same frame on both sides, and it cannot be re-run
+             * from a snapshot that may predate the completion. */
+            barrier_raise(net.frame + IO_QUIET);
             if (!warned) {
                 warned = true;
                 pc_log_line("net: disc/ARAM transfer still in flight after 5 s at frame %d; "
-                            "letting the tick run (loads may cost different tick counts)",
-                    net.frame);
+                            "running on in lockstep to frame %d",
+                    net.frame, net.rb_barrier);
             }
             return;
         }
@@ -2228,6 +2281,14 @@ static void capture_local_sample(bool fresh) {
  * time-sync advance adds, which reuses the last physical sample. */
 static void fresh_tick(PADStatus* head, bool raw) {
     if (net.active) {
+        /* Part cleanly rather than run the frame counter toward the end of
+         * its range; every ring index and every wire field is an absolute
+         * int32 frame, and there is no wrap strategy behind them. */
+        if (net.frame >= SESSION_MAX_FRAMES) {
+            pc_log_line("net: session frame limit reached at %d, disconnecting", net.frame);
+            pc_net_disconnect();
+            return;
+        }
         stall_test();
         static int timing_debug = -1;
         static uint64_t sample_send_total, sample_send_max;

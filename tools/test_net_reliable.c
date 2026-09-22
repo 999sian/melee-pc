@@ -172,11 +172,20 @@ int main(void) {
     }
     assert(recv_user() < 0);
 
-    /* transmit side: a full user lane does not block the handshake lane */
-    for (int i = 0; i < REL_QUEUE; i++) {
-        assert(pc_net_send_reliable(0x10, "ping", 4)); /* never acked */
+    /* transmit side: a lane full of player traffic blocks neither the
+     * handshake lane nor the types that share lane 1 with it. Chat and the
+     * ranked exchange stop at REL_LOW_QUEUE of the four slots between them;
+     * the two they may not take are what a resume or a scene hand-off
+     * queues into, and the lobby's own messages are not capped at all. */
+    for (int i = 0; i < REL_LOW_QUEUE; i++) {
+        assert(pc_net_send_reliable(0x61, "rank", 4)); /* never acked */
     }
-    assert(!pc_net_send_reliable(0x10, "ping", 4));
+    assert(!pc_net_send_reliable(0x61, "rank", 4));     /* capped, two slots still free */
+    assert(!pc_net_send_reliable(REL_CHAT, "c", 1));    /* the cap is shared with chat */
+    assert(pc_net_send_reliable(0x11, NULL, 0));        /* the lobby's ready barrier: uncapped */
+    assert(pc_net_send_reliable(REL_SCENE, "sc", 2));   /* and so is a scene hand-off */
+    assert(!pc_net_send_reliable(REL_RESUME, "rs", 2)); /* only now is the lane full */
+    assert(s_rel_tx[1].n == REL_QUEUE);
     assert(pc_net_send_reliable(0x02, NULL, 0) && out_seq() == 1 && deliver());
     assert(s_hs_msgs == 302);
     ack(); /* clear the handshake lane so only the user lane resends below */
