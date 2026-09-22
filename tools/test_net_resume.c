@@ -874,6 +874,73 @@ static void case_receive_identity(void) {
     pc_net_disconnect();
 }
 
+/* The session id is the guest's one piece of identity it cannot be told in
+ * advance, and it used to be learned from the first well-shaped datagram of
+ * ANY type. The MAC gate above is a grace window while no key exists (the
+ * default), so one forged 16-byte RelAck from anywhere won the race:
+ * net.session became the attacker's, every genuine host datagram then failed
+ * the session check for the rest of the session (learn_session requires
+ * net.session == 0, so there was no second chance), and the match died on the
+ * handshake timeout. Only the message that carries the session in the first
+ * place -- a RULES -- may establish it. */
+static void case_session_learned_only_from_rules(void) {
+    printf("case: only a RULES teaches the guest its session id\n");
+    setup();
+    net.local = 1; /* the guest */
+    net.remote = 0;
+    net.session = 0; /* not told one yet: this is the learning window */
+    net.hs = HS_PENDING;
+    struct sockaddr_in dst, src;
+    sock_t sender = probe_open(&dst, &src);
+    memcpy(&net.peer, &src, sizeof src);
+
+    Ack a = {{'A', WIRE_VERSION, SESSION, 0}, 0, -1};
+    wire_hdr(&a.h);
+    wire_ack(&a);
+    send_dg(sender, &dst, &a, sizeof a);
+    recv_inputs();
+    assert(net.session == 0);
+
+    Rel r = {{'R', WIRE_VERSION, SESSION, 0}, 0, REL_RULES, 0, {0}};
+    wire_hdr(&r.h);
+    wire_rel(&r);
+    send_dg(sender, &dst, &r, offsetof(Rel, payload));
+    recv_inputs();
+    assert(net.session == SESSION);
+    sock_close(sender);
+    pc_net_disconnect();
+}
+
+/* The destination guard for issue #87: a pairing dialled a /8 network base
+ * -- the peer's first octet with the rest zeroed -- instead of the address
+ * its datagrams had arrived from. The session then parked the render thread
+ * for the whole connect wait, which the reporter saw as a crash. Addresses
+ * here are RFC 5737 documentation range, same shape. */
+static void case_connect_destination(void) {
+    printf("case: only a unicast host address may be dialled\n");
+    struct sockaddr_in a;
+    memset(&a, 0, sizeof a);
+    a.sin_family = AF_INET;
+    a.sin_port = htons(16122);
+    a.sin_addr.s_addr = htonl(0xC0000205u); /* 192.0.2.5: a real host */
+    assert(addr_is_host((struct sockaddr*)&a));
+    a.sin_addr.s_addr = htonl(0xC0A80105u); /* 192.168.1.5: a LAN peer is fine */
+    assert(addr_is_host((struct sockaddr*)&a));
+    a.sin_addr.s_addr = htonl(0xC0000000u); /* 192.0.0.0: the /8 base shape */
+    assert(!addr_is_host((struct sockaddr*)&a));
+    a.sin_addr.s_addr = htonl(INADDR_ANY);
+    assert(!addr_is_host((struct sockaddr*)&a));
+    a.sin_addr.s_addr = htonl(0xFFFFFFFFu); /* broadcast */
+    assert(!addr_is_host((struct sockaddr*)&a));
+    a.sin_addr.s_addr = htonl(0xE0000001u); /* 224.0.0.1 multicast */
+    assert(!addr_is_host((struct sockaddr*)&a));
+    a.sin_addr.s_addr = htonl(0xF0000001u); /* 240.0.0.1 reserved */
+    assert(!addr_is_host((struct sockaddr*)&a));
+    a.sin_addr.s_addr = htonl(0xC0000205u);
+    a.sin_port = 0;
+    assert(!addr_is_host((struct sockaddr*)&a));
+}
+
 static void case_old_protocol(void) {
     printf("case: protocol 5 scene peers are incompatible\n");
     setup();
@@ -1122,6 +1189,10 @@ int main(int argc, char** argv) {
             case_seed_reset();
         else if (strcmp(argv[1], "mac") == 0)
             case_bad_mac_rejected();
+        else if (strcmp(argv[1], "learn") == 0)
+            case_session_learned_only_from_rules();
+        else if (strcmp(argv[1], "dest") == 0)
+            case_connect_destination();
         else
             return 2;
         return 0;
@@ -1145,6 +1216,8 @@ int main(int argc, char** argv) {
     case_tick_resume_refused_disconnects();
     case_knob_parse();
     case_receive_identity();
+    case_session_learned_only_from_rules();
+    case_connect_destination();
     case_old_protocol();
     case_snapshot_failure();
     case_snapshot_missing();
