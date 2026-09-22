@@ -103,6 +103,12 @@ advances -- the phase controller nudging both peers together over an hour of
 continuous play without a single discrete correction turning into a lost
 frame.
 
+The no-delay variant (1 % loss and jitter, round trip ~32 ms) also completed
+225,000 frames per peer: 491 rollbacks, max depth 3, no lost rollback, no
+desync, and zero stalls, skips or advances across the hour -- on a link this
+short the delay covers the whole trip, so the phase controller never has to
+act at all. Both soaks of the plan's acceptance are now on record.
+
 Live PC to Android tablet over Wi-Fi (x86-64 against aarch64): mDNS
 discovery, host election, handshake, lobby to CSS to SSS to VS on identical
 frames, rollback depth 8, no desync; and the PC survived the tablet being
