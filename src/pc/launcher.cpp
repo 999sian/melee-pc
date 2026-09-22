@@ -1619,14 +1619,21 @@ public:
         }
     }
     void ProcessEvent(Rml::Event& event) override {
+        /* Hide() leaves RmlUi's focus inside the document it just hid, and
+         * RmlUi keeps delivering key events to that focus, so the closed menu
+         * went on eating input -- Return synthesises a Click on the hidden
+         * control, which plays the select sound (#84). While closed, nothing
+         * the menu could do is wanted. */
+        if (!open)
+            return;
         if (event.GetId() == Rml::EventId::Focus) {
-            if (open && !quiet)
+            if (!quiet)
                 lbAudioAx_80024030(SFX_MOVE);
             return;
         }
         if (event.GetId() == Rml::EventId::Keydown) {
             const auto key = event.GetParameter<int>("key_identifier", 0);
-            if (key == Rml::Input::KI_ESCAPE && open) {
+            if (key == Rml::Input::KI_ESCAPE) {
                 if (binding >= 0)
                     cancel_binding();
                 else
