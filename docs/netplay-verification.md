@@ -95,6 +95,14 @@ In-match frame pacing on a 50 ms link with 20 ms jitter and 1 % loss, per
 second: frames over 20 ms fell from 0.31 to 0.03, worst frame from 72.7 ms to
 32.6 ms, mean 59.99 fps.
 
+A 60-minute soak at 1 % loss, 50 ms outgoing delay and jitter (round trip
+~117 ms, jitter ~22 ms) completed 225,000 frames per peer: 16,535 and 16,417
+rollbacks, max depth 8, no lost rollback, no desync, no "peer silent", and a
+time offset that stayed at +0.0 ms the whole hour. 261/294 skips and 356/398
+advances -- the phase controller nudging both peers together over an hour of
+continuous play without a single discrete correction turning into a lost
+frame.
+
 Live PC to Android tablet over Wi-Fi (x86-64 against aarch64): mDNS
 discovery, host election, handshake, lobby to CSS to SSS to VS on identical
 frames, rollback depth 8, no desync; and the PC survived the tablet being
