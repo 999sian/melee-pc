@@ -35,6 +35,10 @@ public class TouchOverlayView extends View {
 
     private boolean mUserEnabled = true;
     private boolean mPhysicalControllerConnected = false;
+    // Set while the RmlUi launcher owns the screen (pushed from
+    // src/pc/android_compat.cpp). The overlay must not draw over it or consume
+    // any of its touches, or the disc picker is unreachable on a phone.
+    private boolean mLauncherActive = false;
     private float mOpacity = 0.55f;
     private float mScale = 1.0f;
     private boolean mHapticsEnabled = true;
@@ -165,6 +169,23 @@ public class TouchOverlayView extends View {
         return false;
     }
 
+    /* Called from native while the launcher is up and again once the game
+     * starts. While it is up the overlay is fully inert: the launcher draws
+     * its own UI on the same surface and needs every tap. */
+    public void setLauncherActive(boolean active) {
+        if (mLauncherActive == active) {
+            return;
+        }
+        mLauncherActive = active;
+        if (active) {
+            resetInputState();
+            TouchControls.nativeSetTouchActive(false);
+        } else {
+            updateControllerState();
+        }
+        invalidate();
+    }
+
     public void updateControllerState() {
         final boolean hasGamepad = hasPhysicalGamepad();
         mPhysicalControllerConnected = hasGamepad;
@@ -176,14 +197,11 @@ public class TouchOverlayView extends View {
                     setVisibility(View.GONE);
                     TouchControls.nativeSetTouchActive(false);
                 } else {
-                    // No physical gamepad: restore touch controls if user enabled them
-                    if (mUserEnabled) {
-                        setVisibility(View.VISIBLE);
-                        TouchControls.nativeSetTouchActive(true);
-                    } else {
-                        setVisibility(View.GONE);
-                        TouchControls.nativeSetTouchActive(false);
-                    }
+                    // No physical gamepad: stay on screen even when the
+                    // controls are hidden, so the settings pill that un-hides
+                    // them is still reachable.
+                    setVisibility(View.VISIBLE);
+                    TouchControls.nativeSetTouchActive(mUserEnabled);
                 }
             }
         });
@@ -313,7 +331,19 @@ public class TouchOverlayView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (!mUserEnabled || mPhysicalControllerConnected) {
+        // The launcher owns every touch while it is up.
+        if (mLauncherActive || mPhysicalControllerConnected) {
+            return false;
+        }
+        // Hidden controls still answer on the settings pill: it is the only
+        // way back, since the hide toggle lives in its dialog.
+        if (!mUserEnabled) {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN
+                    && mSettingsRect.contains(event.getX(), event.getY())) {
+                vibrateTick();
+                showSettingsDialog();
+                return true;
+            }
             return false;
         }
 
@@ -606,9 +636,16 @@ public class TouchOverlayView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (!mUserEnabled || mPhysicalControllerConnected) return;
+        if (mLauncherActive || mPhysicalControllerConnected) return;
 
         final int baseAlpha = Math.round(mOpacity * 255.0f);
+        if (!mUserEnabled) {
+            // Controls hidden, but the settings pill stays so the hide can be
+            // undone.
+            drawSettingsPill(canvas, baseAlpha);
+            return;
+        }
+
         final int pressedAlpha = Math.min(255, Math.round((mOpacity + 0.35f) * 255.0f));
 
         // 1. Draw Main Stick
@@ -788,7 +825,7 @@ public class TouchOverlayView extends View {
             "Button Size: " + (mScale <= 0.85f ? "Small (80%)" : (mScale >= 1.15f ? "Large (120%)" : "Normal (100%)")),
             "Haptic Feedback: " + (mHapticsEnabled ? "ON" : "OFF"),
             "Floating Stick: " + (mFloatingStick ? "ON" : "OFF"),
-            "Hide Touch Controls"
+            mUserEnabled ? "Hide Touch Controls" : "Show Touch Controls"
         };
 
         builder.setItems(options, (dialog, which) -> {
@@ -815,12 +852,14 @@ public class TouchOverlayView extends View {
                     mFloatingStick = !mFloatingStick;
                     mPrefs.edit().putBoolean(KEY_FLOATING, mFloatingStick).apply();
                     break;
-                case 4: // Hide Touch Controls
-                    mUserEnabled = false;
-                    mPrefs.edit().putBoolean(KEY_USER_ENABLED, false).apply();
-                    setVisibility(View.GONE);
-                    TouchControls.nativeSetTouchActive(false);
-                    return;
+                case 4: // Hide / show the on-screen controls
+                    mUserEnabled = !mUserEnabled;
+                    mPrefs.edit().putBoolean(KEY_USER_ENABLED, mUserEnabled).apply();
+                    if (!mUserEnabled) {
+                        resetInputState();
+                    }
+                    TouchControls.nativeSetTouchActive(mUserEnabled);
+                    break;
             }
             invalidate();
         });

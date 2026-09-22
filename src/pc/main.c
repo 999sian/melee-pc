@@ -22,6 +22,7 @@
 #endif
 
 #include "pc/pc.h"
+#include "pc/android_hooks.h"
 #include "pc/launcher.h"
 
 int melee_main(void);
@@ -664,9 +665,14 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
     signal(SIGINT, pc_on_signal_exit);
     signal(SIGTERM, pc_on_signal_exit);
 
+    /* The launcher is an RmlUi UI on the same surface, and the touch overlay
+     * sits on top of it: leave the overlay inert until the game itself is
+     * running, or it eats the taps meant for the disc picker. */
+    pc_android_set_launcher_active(true);
     const int launched = pc_launcher_run(disc, info.window);
     if (launched != 1)
         return launched == 0 ? 0 : 1;
+    pc_android_set_launcher_active(false);
 
     pc_menu_init(info.window);
     pc_platform_init();

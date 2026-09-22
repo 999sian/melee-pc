@@ -67,6 +67,19 @@ public class MeleeActivity extends SDLActivity {
         }
     }
 
+    /* Called from native (src/pc/android_compat.cpp) around pc_launcher_run:
+     * the launcher needs every touch while it is on screen. */
+    public void setLauncherActive(final boolean active) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (mTouchOverlay != null) {
+                    mTouchOverlay.setLauncherActive(active);
+                }
+            }
+        });
+    }
+
     public static native void nativeDisconnect();
 
     @Override

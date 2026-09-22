@@ -224,6 +224,26 @@ void pc_android_multicast_lock_release(void) {
     }
 }
 
+void pc_android_set_launcher_active(bool active) {
+    JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
+    jobject activity = env != nullptr ? (jobject)SDL_GetAndroidActivity() : nullptr;
+    if (env == nullptr || activity == nullptr) {
+        return;
+    }
+    /* MeleeActivity.setLauncherActive posts to the UI thread itself, so this
+     * is safe from the SDL thread. */
+    jclass cls = env->GetObjectClass(activity);
+    jmethodID set = cls != nullptr ? env->GetMethodID(cls, "setLauncherActive", "(Z)V") : nullptr;
+    if (set != nullptr) {
+        env->CallVoidMethod(activity, set, active ? JNI_TRUE : JNI_FALSE);
+        threw(env, "setLauncherActive");
+    }
+    if (cls != nullptr) {
+        env->DeleteLocalRef(cls);
+    }
+    env->DeleteLocalRef(activity);
+}
+
 const char* pc_android_device_name(void) {
     static char s_label[64];
     static bool s_done;
@@ -251,6 +271,10 @@ const char* pc_android_device_name(void) {
 
 void pc_android_multicast_lock_acquire(void) {}
 void pc_android_multicast_lock_release(void) {}
+
+void pc_android_set_launcher_active(bool active) {
+    (void)active;
+}
 
 const char* pc_android_device_name(void) {
     return nullptr;

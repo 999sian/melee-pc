@@ -5,6 +5,8 @@
 #ifndef PC_ANDROID_HOOKS_H
 #define PC_ANDROID_HOOKS_H
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,6 +31,14 @@ void pc_android_multicast_lock_release(void);
  * announce localhost-<id>._meleepc._udp.local. and claim localhost.local.
  * The result is cached; the buffer is owned by the callee. */
 const char* pc_android_device_name(void);
+
+/* Tell the Android touch overlay whether the RmlUi launcher owns the screen.
+ * The overlay is the only touch entry point, and its analog-stick capture
+ * zone covers the lower-left quarter of the screen, so while the launcher is
+ * up it swallowed the taps meant for "Choose disc" -- the launcher is
+ * unreachable on a phone with no other input. Inert (all touches pass
+ * through, nothing is drawn) while active. Safe to call from any thread. */
+void pc_android_set_launcher_active(bool active);
 
 #ifdef __cplusplus
 }
