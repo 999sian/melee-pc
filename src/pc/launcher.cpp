@@ -163,6 +163,16 @@ void dialog_done(void* userdata, const char* const* files, int) {
     (*owner)->ready = true;
 }
 
+/* Aurora compiles the seeded pipeline cache -- about twelve thousand configs --
+ * on worker threads from startup. Until a config is compiled, every draw that
+ * needs it is skipped (issue #46), so the drain finishing before a match is the
+ * difference between a match that pops and one that does not. The launcher is
+ * the one screen where the player is already waiting; spend it there. */
+static uint32_t pending_pipelines() {
+    const auto* stats = aurora_get_stats();
+    return stats != nullptr ? stats->queuedPipelines : 0;
+}
+
 class Launcher final : public Rml::EventListener {
     SDL_Window* window;
     Rml::ElementDocument* document;
@@ -180,6 +190,11 @@ class Launcher final : public Rml::EventListener {
     bool update_card_dismissed = false;
     pc::updater::Status last_updater_status = pc::updater::Status::Idle;
     float last_download_progress = -1.0f;
+    // Set once the player asks to play while the pipeline queue is still
+    // draining: the game starts by itself when the queue empties, and a second
+    // press starts it immediately.
+    bool shaders_waited = false;
+    uint32_t last_pending = 0;
 
     Rml::Element* element(const char* id) {
         if (std::strcmp(id, "fullscreen") == 0) {
@@ -413,6 +428,26 @@ class Launcher final : public Rml::EventListener {
         refresh_settings();
         save();
     }
+    /* Open the selected disc and leave for the game. False when the disc will
+     * not open, in which case the status line says why and we stay here. */
+    bool begin_game() {
+        auto check = launcher::inspect_disc(prefs.disc);
+        if (!check.supported) {
+            supported = false;
+            status(check.message, true);
+            controls();
+            return false;
+        }
+        if (!aurora_dvd_open(prefs.disc.c_str())) {
+            aurora_dvd_close();
+            status("Could not load this disc. Choose another image or verify it.", true);
+            return false;
+        }
+        pc_load_disc_fonts(prefs.disc.c_str());
+        save();
+        result = 1;
+        return true;
+    }
     void inspect(const std::string& path) {
         pending_path =
             (path.rfind("content://", 0) == 0) ? path : std::filesystem::absolute(path).string();
@@ -462,21 +497,15 @@ class Launcher final : public Rml::EventListener {
 #endif
             controls();
         } else if (id == "play" && supported) {
-            auto check = launcher::inspect_disc(prefs.disc);
-            if (!check.supported) {
-                supported = false;
-                status(check.message, true);
-                controls();
+            /* The pipeline queue may still be draining. Take the wait here,
+             * where the player is already looking at a screen, rather than
+             * during the first match; pressing Play again skips it. */
+            if (!shaders_waited && pending_pipelines() > 0) {
+                shaders_waited = true;
+                last_pending = 0;
                 return;
             }
-            if (aurora_dvd_open(prefs.disc.c_str())) {
-                pc_load_disc_fonts(prefs.disc.c_str());
-                save();
-                result = 1;
-            } else {
-                aurora_dvd_close();
-                status("Could not load this disc. Choose another image or verify it.", true);
-            }
+            begin_game();
         } else if (id == "verify" && supported) {
             cancel = false;
             progress = 0;
@@ -949,6 +978,17 @@ public:
                     }
                 }
                 refresh_settings();
+            }
+            if (shaders_waited && result == -2) {
+                const uint32_t pending = pending_pipelines();
+                if (pending == 0) {
+                    shaders_waited = false;
+                    begin_game(); /* reports its own failure in the status line */
+                } else if (pending != last_pending) {
+                    last_pending = pending;
+                    status("Compiling shaders (" + std::to_string(pending) +
+                           " left). Press Play again to start now.");
+                }
             }
             if (result != -2)
                 break;
@@ -1725,8 +1765,14 @@ extern "C" void pc_menu_update(void) {
             if (!port_menu.counter->IsVisible())
                 port_menu.counter->Show(Rml::ModalFlag::None, Rml::FocusFlag::None);
             if (SDL_GetTicks() - port_menu.last_fps >= 500) {
-                port_menu.counter->GetElementById("count")->SetInnerRML(
-                    std::to_string(int(aurora_get_fps() + 0.5f)) + " FPS");
+                /* Say when the pipeline queue is still draining: a draw whose
+                 * pipeline is not built yet is skipped, and that is what a pop
+                 * in the first minutes of a fresh install actually is. */
+                std::string text = std::to_string(int(aurora_get_fps() + 0.5f)) + " FPS";
+                const uint32_t pending = pending_pipelines();
+                if (pending > 0)
+                    text += " \xc2\xb7 " + std::to_string(pending) + " shaders";
+                port_menu.counter->GetElementById("count")->SetInnerRML(text);
                 port_menu.last_fps = SDL_GetTicks();
             }
         } else if (port_menu.counter->IsVisible())
