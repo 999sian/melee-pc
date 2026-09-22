@@ -16,23 +16,62 @@ English (UK) text.
 
 ## Highlights
 
-A point release for two bugs reported against v0.1.10-beta, both hit on a
-first online visit.
+- **Online play is authenticated end to end.** Every datagram now carries a
+  keyed MAC over its header and body (protocol 8), so someone who can reach
+  your address can no longer inject inputs, acknowledgements, delay changes or
+  a disconnect into a session. The same review closed a forged `RULES` that
+  could lock out the real host, made LAN auto-join require a peer that has
+  actually been seen in the lobby, stopped DHT matchmaking from dialling
+  private, broadcast and multicast addresses, and pinned ranked history to its
+  genesis rating.
+- **Connect codes are longer, and everyone's code has changed.** The suffix
+  after the `#` is now 8 characters instead of 4, carrying 40 bits of your key.
+  Read the new one off the Online Profile screen and send that. Peers must be
+  on the same build: a v0.2 client and a v0.1.10 client cannot play each other.
+- **Shader stutter is largely gone on a fresh install.** The bundled pipeline
+  cache had not been found since v0.1.8 (#79), so every packaged build was
+  compiling every shader from scratch; and the launcher now spends that
+  compilation queue while you are already waiting there instead of during your
+  first matches.
 
 ## Fixes
 
-- **Online Profile said "Identity unavailable. Check your profile files"**, and
-  Direct Connect then hosted an empty code, so nobody could be dialed. An
-  `identity.key` whose length was not 32 bytes (a 0-byte file left by a crash
-  or a full disk between the create and the write, or a truncated copy) was
-  refused forever: every later run failed the same way until the file was
-  deleted by hand. A file that cannot hold a key is now replaced, and every
-  failure logs the path and errno. A readable 32-byte key is never touched.
-  If yours was damaged, your connect code changes: the old key was
-  unrecoverable either way.
-- **The launcher's Discord icon never loaded** (`Failed to open file
-  '<game dir>\discord.png'`). Relative assets in the launcher page were looked
-  up beside the executable instead of in `resources/`.
+- **Windows: online matches could never start (#87).** The peer address was
+  rebuilt through a `struct in_addr` whose first member is a byte array on
+  Windows, so only the first octet survived: a peer at 74.244.47.247 was dialled
+  as 74.0.0.0, the game sat on frame 0 and the session died on the connect
+  timeout. It was reported as a crash because the window stopped redrawing.
+- **The bundled shader cache was never loaded (#79).** v0.1.8 pointed the
+  resource path at `resources/` for the launcher's own assets, which also moved
+  the lookup for `initial_pipeline_cache.db` -- and every packaging script still
+  writes it beside the executable. Since v0.1.8 the 11,905-config seed was found
+  on no platform, which is what "the shaders take a long time to load" was.
+- **Marth's Dancing Blade and Roy's Double-Edge Dance did not glow (#86).** The
+  colour-animation duration was declared as `bool`, so every value above 1
+  became 1 and the overlay was removed on the next frame. A live match asks for
+  13 frames.
+- **The F1 menu went on acting on input after it was closed (#84).** Hiding it
+  leaves RmlUi's focus inside the hidden page, so Return still reached the
+  widgets and applied them -- the select sound playing over live gameplay.
+- **Android: the launcher could not be used, and hiding the touch controls was
+  permanent (#88, #75).** The touch overlay is the only touch entry point and
+  its analog-stick zone covers the lower-left quarter of the screen, so it
+  swallowed the taps meant for "Choose disc"; it is now inert while the launcher
+  is up. "Hide Touch Controls" also hid the settings pill that owns the toggle,
+  so the hide could not be undone; it is a toggle now and the pill stays.
+- **Netplay no longer hangs or wedges.** The scene hand-off had no deadline; a
+  peer could freeze the game for ever by advancing one frame just under the
+  no-progress bound; and a direct session could run unagreed, each side playing
+  on its own boot seed. A desync is now reported rather than silently absorbed.
+- **Three memory-safety defects in the netplay layer**, found by review: a
+  `snprintf` length accumulated past its buffer on the desync path, a SHA-1
+  length over-reading a stack buffer, and an unchecked `XXH3_createState`.
+- **Rollback corrections and pacing**: latency stability, per-scene delay,
+  phase-sync on frame advantage, and a recording that replays without
+  diverging.
+- **A session id can only be established by a `RULES` packet**, so a forged
+  16-byte `RelAck` can no longer end a session permanently, and `REL_DELAY` is
+  no longer accepted from the guest with an unbound frame field.
 
 ## Known issues
 
@@ -45,12 +84,18 @@ the numbers below link there.
   implemented and rendezvous through the public DHT, but pairing across two
   NATs and live ranked acceptance are unproven, and cross-platform simulation
   determinism is not claimed. Ratings are community-computed and unverified.
+  Every datagram is authenticated as of this release (protocol 8), so both peers
+  must run the same version, and a connect code is now 8 characters after the
+  `#`.
 - Widescreen applies to fights (VS, Sudden Death, Training); menus, results and
   cutscenes stay at the original aspect. The wide HUD is a separate toggle and
   only moves the timer and the 2-4 player HUD groups.
-- A move, stage or effect used for the first time may be missing from the
-  picture for a few frames while its shader compiles (previously a freeze,
-  #46); `MELEE_PIPELINE_SYNC=1` restores the old wait-for-compile behaviour.
+- A move, stage or effect whose shader is still compiling is missing from the
+  picture for a few frames (previously a freeze, #46). The bundled seed is
+  queued for compilation on worker threads when the game starts, and the
+  launcher waits for that queue when you press Play -- press Play again to skip
+  the wait. `MELEE_PIPELINE_SYNC=1` restores the old wait-for-compile
+  behaviour, and `MELEE_PIPELINE_JOBS=<n>` sets the compile thread count.
 - Only Vulkan, Direct3D 12/11 and Metal backends are shipped; OpenGL and
   OpenGL ES-only GPUs and drivers do not run the game (#64, #66).
 - Gamepad buttons, sticks and triggers can be remapped; dash sensitivity,
@@ -127,6 +172,28 @@ image path directly:
 ```
 
 ## Previous releases
+
+### Changes in v0.1.10.1-beta
+
+#### Highlights
+
+A point release for two bugs reported against v0.1.10-beta, both hit on a
+first online visit.
+
+#### Fixes
+
+- **Online Profile said "Identity unavailable. Check your profile files"**, and
+  Direct Connect then hosted an empty code, so nobody could be dialed. An
+  `identity.key` whose length was not 32 bytes (a 0-byte file left by a crash
+  or a full disk between the create and the write, or a truncated copy) was
+  refused forever: every later run failed the same way until the file was
+  deleted by hand. A file that cannot hold a key is now replaced, and every
+  failure logs the path and errno. A readable 32-byte key is never touched.
+  If yours was damaged, your connect code changes: the old key was
+  unrecoverable either way.
+- **The launcher's Discord icon never loaded** (`Failed to open file
+  '<game dir>\discord.png'`). Relative assets in the launcher page were looked
+  up beside the executable instead of in `resources/`.
 
 ### Changes in v0.1.10-beta
 
