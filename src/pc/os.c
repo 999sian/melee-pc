@@ -14,6 +14,7 @@
 #include <dolphin/os/OSReset.h>
 #include <dolphin/os/OSError.h>
 
+#include <SDL3/SDL_timer.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -197,6 +198,38 @@ void pc_os_run_alarms(void) {
     }
     OSRestoreInterrupts(intr);
     card_deliver();
+}
+
+/* Melee's frame loop (gm_801A4D34) spins until the pad alarm has queued a
+ * sample. A GameCube CPU had nothing else to do; here the spin runs against
+ * the render and FIFO workers the frame waits on, and once a hitch leaves the
+ * alarm's 60 Hz grid behind the frame boundary's, every frame spins for the
+ * gap: measured at 95% of a core after one injected 25 ms stall. Sleep toward
+ * the earliest alarm instead, at most 1 ms at a time so the loop's own polls
+ * (disc status, card tasks) keep their cadence. */
+void pc_os_wait_alarm(void) {
+    BOOL intr = OSDisableInterrupts();
+    OSTime next = 0;
+    for (OSAlarm* a = s_alarms; a; a = a->next) {
+        if (next == 0 || a->fire < next) {
+            next = a->fire;
+        }
+    }
+    OSRestoreInterrupts(intr);
+    const OSTime wait = next - OSGetTime();
+    if (next != 0 && wait > 0) {
+        const uint64_t ns = (uint64_t)OSTicksToMicroseconds(wait) * 1000u;
+        SDL_DelayPrecise(ns < 1000000u ? ns : 1000000u);
+    }
+}
+
+/* The game's disc waits (lbdvd.c, lbfile.c) spin on a flag that aurora's DVD
+ * and decompression threads set, so on a 2-core machine the spin competes with
+ * the very threads it waits for. A short sleep per poll hands them the core:
+ * the VS scene load's median went from 374 to 256 ms with other load on the
+ * machine, 317 to 306 ms on an idle one. */
+void pc_os_yield(void) {
+    SDL_DelayNS(100000);
 }
 
 /* ---- memory card completions ------------------------------------------ */

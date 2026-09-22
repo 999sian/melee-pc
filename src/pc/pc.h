@@ -21,6 +21,10 @@ void pc_platform_init(void);
 void pc_frame_boundary(void);
 /* Simulation frame period the boundary paces to (60.000 Hz), src/pc/vi.c. */
 uint64_t pc_sim_period_ns(void);
+/* Sleep (at most 1 ms) toward the next due OSAlarm instead of spinning for it,
+ * and a 0.1 ms sleep for the game's disc wait loops, src/pc/os.c. */
+void pc_os_wait_alarm(void);
+void pc_os_yield(void);
 
 /* Append a line to the diagnostic log (src/pc/main.c), so frame stalls
  * interleave with aurora's own records and can be attributed to whatever

@@ -37,6 +37,8 @@ struct DynamicPaletteKey {
   }
 };
 
+constexpr uint64_t UnsetFrame = UINT64_MAX;
+
 struct DynamicPaletteEntry {
   gfx::TextureHandle handle;
   u32 sourceRevision = 0;
@@ -51,6 +53,7 @@ struct CachedTextureEntry {
   u32 tlutDataVersion = 0;
   uint64_t replacementId = 0;
   uint64_t lastUsedFrame = 0;
+  uint64_t firstUsedFrame = UnsetFrame; // stamped by the first sweep_object_caches
 };
 
 struct CachedTlutTextureEntry {
@@ -63,6 +66,7 @@ struct TlutObjectCache {
   absl::flat_hash_map<DynamicPaletteKey, DynamicPaletteEntry> dynamicPaletteTextures;
   absl::flat_hash_set<u32> staticTextureUsers;
   uint64_t lastUsedFrame = 0;
+  uint64_t firstUsedFrame = UnsetFrame; // stamped by the first sweep_object_caches
 };
 
 struct TextureContentKey {
@@ -466,12 +470,26 @@ void touch_bound_texture(const GXTexObj_& obj) {
 }
 
 void sweep_object_caches() {
-  const auto expired = [](uint64_t lastUsedFrame) {
-    return s_frameCount > lastUsedFrame && s_frameCount - lastUsedFrame > texture::ObjectCacheIdleFrames;
+  const auto idle_for = [](uint64_t lastUsedFrame, uint64_t idleFrames) {
+    return s_frameCount > lastUsedFrame && s_frameCount - lastUsedFrame > idleFrames;
+  };
+  /* GXInitTexObj and GXInitTlutObj mint a new ID on every call, so a game that
+   * re-inits its objects per draw (Melee's HSD does, ~150 textures a frame)
+   * never presents the same ID twice. Holding those for ObjectCacheIdleFrames
+   * kept ~90k dead entries that this loop walked every frame: 1.8 ms of main
+   * thread per frame on a 2.5 GHz core. An ID earns the long window only once
+   * it is used on a later frame than the one that created it. Sweeps run every
+   * frame, so the first one an entry sees stamps its creation frame. */
+  const auto object_expired = [&](uint64_t& firstUsedFrame, uint64_t lastUsedFrame) {
+    if (firstUsedFrame == UnsetFrame) {
+      firstUsedFrame = lastUsedFrame;
+    }
+    return idle_for(lastUsedFrame, lastUsedFrame > firstUsedFrame ? texture::ObjectCacheIdleFrames
+                                                                  : texture::UnreusedObjectIdleFrames);
   };
 
   for (auto it = s_textureObjectCaches.begin(); it != s_textureObjectCaches.end();) {
-    if (expired(it->second.lastUsedFrame)) {
+    if (object_expired(it->second.firstUsedFrame, it->second.lastUsedFrame)) {
       const u32 texObjId = it->first;
       const CachedTextureEntry entry = it->second;
       s_textureObjectCaches.erase(it++);
@@ -484,13 +502,14 @@ void sweep_object_caches() {
   for (auto cacheIt = s_tlutObjectCaches.begin(); cacheIt != s_tlutObjectCaches.end();) {
     auto& cache = cacheIt->second;
     for (auto it = cache.dynamicPaletteTextures.begin(); it != cache.dynamicPaletteTextures.end();) {
-      if (expired(it->second.lastUsedFrame)) {
+      if (idle_for(it->second.lastUsedFrame, texture::ObjectCacheIdleFrames)) {
         cache.dynamicPaletteTextures.erase(it++);
       } else {
         ++it;
       }
     }
-    if (expired(cache.lastUsedFrame) && cache.staticTextureUsers.empty() && cache.dynamicPaletteTextures.empty()) {
+    if (object_expired(cache.firstUsedFrame, cache.lastUsedFrame) && cache.staticTextureUsers.empty() &&
+        cache.dynamicPaletteTextures.empty()) {
       s_tlutObjectCaches.erase(cacheIt++);
     } else {
       ++cacheIt;

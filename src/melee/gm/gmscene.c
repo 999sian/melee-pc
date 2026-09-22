@@ -1,6 +1,7 @@
 #include "gmscene.h"
 #ifdef TARGET_PC
 #include "pc/net.h"
+#include "pc/pc.h"
 #include "pc/widescreen.h"
 #endif
 
@@ -390,6 +391,11 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
 
         while ((pad_queue_count = lb_80019894()) == 0) {
             lb_800195D0();
+#ifdef TARGET_PC
+            /* PORT: sleep until the pad alarm is due instead of spinning a
+             * core against the workers this frame waits on (src/pc/os.c). */
+            pc_os_wait_alarm();
+#endif
         }
         lb_800195D0();
 

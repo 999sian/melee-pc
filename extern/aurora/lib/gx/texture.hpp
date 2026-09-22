@@ -31,6 +31,8 @@ constexpr uint64_t ObjectCacheIdleFrames = 120;
 constexpr uint64_t ContentCacheBudgetBytes = 128ull * 1024ull * 1024ull;
 constexpr uint64_t ObjectCacheIdleFrames = 600;
 #endif
+// Idle window for an object ID never used after the frame that created it (see sweep_object_caches).
+constexpr uint64_t UnreusedObjectIdleFrames = 8;
 constexpr bool AsyncTextureReplacements = true;
 constexpr uint32_t ReplacementThumbnailDim = 64;
 constexpr uint64_t ReplacementPublishBudgetBytes = 12ull * 1024ull * 1024ull;

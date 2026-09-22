@@ -49,6 +49,10 @@ extern HSD_RumbleData HSD_Rumble_804C22E0[GC_SLOTS];
 static bool s_enabled;
 static SDL_hid_device* s_dev;
 static int s_retry_ms = 999;
+/* SDL_hid_device_change_count() at the last look for the adapter; 0 = never. */
+static Uint32 s_hid_changes;
+/* Looks left at an adapter that enumerates but will not open yet. */
+static int s_open_retries;
 static bool s_warned_open;
 static uint8_t s_rumble[1 + GC_SLOTS] = {0x11};
 
@@ -148,11 +152,29 @@ static void clear_slot(int i) {
 
 static void try_open(void) {
     /* Serialise against SDL's own hidapi enumeration (same udev/libusb
-     * contexts), which runs under the joystick lock. */
+     * contexts, and the udev monitor the change count drains), which runs
+     * under the joystick lock. */
     SDL_LockJoysticks();
-    s_dev = SDL_hid_open(GC_VID, GC_PID, NULL);
-    SDL_hid_device_info* info = s_dev == NULL ? SDL_hid_enumerate(GC_VID, GC_PID) : NULL;
+    /* Enumerating opens every HID interface on Windows to read its ids: with
+     * an Xbox Wireless Adapter controller attached that is ~380 ms a pass, all
+     * under the joystick lock PADRead needs while the game thread holds the
+     * interrupt lock the audio thread waits on, so a once-a-second retry froze
+     * sound and picture every second (issue #90). Look only when a device came
+     * or went, plus a few seconds more for an adapter that enumerates but will
+     * not open yet (udev may still be applying its permissions), and only
+     * enumerate once: SDL_hid_open is a second enumeration of its own. */
+    const Uint32 changes = SDL_hid_device_change_count();
+    if (changes != s_hid_changes) {
+        s_hid_changes = changes;
+        s_open_retries = 5;
+    } else if (s_open_retries == 0) {
+        SDL_UnlockJoysticks();
+        return;
+    }
+    SDL_hid_device_info* info = SDL_hid_enumerate(GC_VID, GC_PID);
+    s_dev = info != NULL ? SDL_hid_open(GC_VID, GC_PID, NULL) : NULL;
     SDL_UnlockJoysticks();
+    s_open_retries = info != NULL ? s_open_retries - 1 : 0;
     if (s_dev == NULL) {
         if (info != NULL && !s_warned_open) {
             s_warned_open = true;
@@ -174,7 +196,9 @@ static void try_open(void) {
                 SDL_GetError());
         }
 #endif
-        SDL_hid_free_enumeration(info);
+    }
+    SDL_hid_free_enumeration(info);
+    if (s_dev == NULL) {
         return;
     }
     /* Start streaming (same init as SDL's driver). */
@@ -320,7 +344,7 @@ void pc_gcadapter_poll(void) {
         return;
     }
     if (s_dev == NULL) {
-        /* Hot-plug: look again once a second. */
+        /* Hot-plug: once a second, check whether a device came or went. */
         if (++s_retry_ms >= 1000) {
             s_retry_ms = 0;
             try_open();
