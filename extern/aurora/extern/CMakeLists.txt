@@ -5,17 +5,14 @@ set(BUILD_TESTING OFF CACHE INTERNAL "Build tests")
 set(SKIP_INSTALL_ALL ON)
 if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
   set(_USE_SHARED OFF)
-elseif (NOT DEFINED BUILD_SHARED_LIBS)
+elseif (WIN32 AND NOT DEFINED BUILD_SHARED_LIBS)
   set(_USE_SHARED ON)
 else ()
   set(_USE_SHARED OFF)
 endif ()
 
 function(aurora_find_package_global)
-  set(_PREV_FIND_PACKAGE_TARGETS_GLOBAL ${CMAKE_FIND_PACKAGE_TARGETS_GLOBAL})
-  set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL ON)
-  find_package(${ARGV})
-  set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL ${_PREV_FIND_PACKAGE_TARGETS_GLOBAL})
+  find_package(${ARGV} GLOBAL)
 endfunction()
 
 if (AURORA_ENABLE_GX)
@@ -52,7 +49,10 @@ endif ()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/AuroraSDL3Provider.cmake)
 
-if (NOT TARGET xxhash)
+if (NOT TARGET xxHash::xxhash)
+  aurora_find_package_global(xxHash)
+endif ()
+if (NOT TARGET xxHash::xxhash)
   message(STATUS "aurora: Fetching xxhash")
   FetchContent_Declare(xxhash
     URL https://github.com/Cyan4973/xxHash/archive/refs/tags/v0.8.3.tar.gz
@@ -86,7 +86,7 @@ if (NOT TARGET xxhash)
   unset(_aurora_xxhash_had_bsl_cache)
   unset(_aurora_xxhash_had_bsl_var)
   unset(_aurora_xxhash_saved_bsl)
-  if (NOT TARGET xxhash)
+  if (NOT TARGET xxHash::xxhash)
     message(FATAL_ERROR "Failed to make xxhash available")
   endif ()
 else ()
@@ -115,6 +115,15 @@ endif ()
 if (AURORA_ENABLE_GX)
   if (NOT TARGET ZLIB::ZLIB)
     aurora_find_package_global(ZLIB QUIET)
+  endif ()
+  if (NOT TARGET ZLIB::ZLIB)
+    find_package(PkgConfig)
+    if (PkgConfig_FOUND)
+      pkg_check_modules(zlib IMPORTED_TARGET GLOBAL zlib)
+      if (TARGET PkgConfig::zlib)
+        add_library(ZLIB::ZLIB ALIAS PkgConfig::zlib)
+      endif ()
+    endif ()
   endif ()
   if (NOT TARGET ZLIB::ZLIB)
     message(STATUS "aurora: Fetching zlib")
@@ -151,6 +160,16 @@ if (AURORA_ENABLE_GX)
       add_library(PNG::PNG ALIAS png_static)
     else ()
       aurora_find_package_global(PNG QUIET)
+      if (NOT TARGET PNG::PNG)
+        find_package(PkgConfig)
+        if (PkgConfig_FOUND)
+          pkg_check_modules(libpng IMPORTED_TARGET GLOBAL libpng)
+          if (TARGET PkgConfig::libpng)
+            target_link_libraries(PkgConfig::libpng INTERFACE ZLIB::ZLIB)
+            add_library(PNG::PNG ALIAS PkgConfig::libpng)
+          endif ()
+        endif ()
+      endif ()
     endif ()
   endif ()
   if (NOT TARGET PNG::PNG)
@@ -178,6 +197,15 @@ if (AURORA_ENABLE_GX)
   endif ()
 
   aurora_find_package_global(Freetype QUIET)
+  if (NOT TARGET Freetype::Freetype)
+    find_package(PkgConfig)
+    if (PkgConfig_FOUND)
+      pkg_check_modules(freetype2 IMPORTED_TARGET GLOBAL freetype2)
+      if (TARGET PkgConfig::freetype2)
+        add_library(Freetype::Freetype ALIAS PkgConfig::freetype2)
+      endif ()
+    endif ()
+  endif ()
   if (NOT TARGET Freetype::Freetype)
     message(STATUS "aurora: Fetching Freetype")
     set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
@@ -248,6 +276,16 @@ if (AURORA_ENABLE_GX)
     message(STATUS "aurora: Using existing sqlite3")
     add_library(sqlite3 ALIAS SQLite::SQLite3)
   else ()
+    find_package(PkgConfig)
+    if (PkgConfig_FOUND)
+      pkg_check_modules(sqlite3 IMPORTED_TARGET GLOBAL sqlite3)
+      if (TARGET PkgConfig::sqlite3)
+        add_library(sqlite3 ALIAS PkgConfig::sqlite3)
+      endif ()
+    endif ()
+  endif ()
+
+  if (NOT TARGET sqlite3)
     message(STATUS "aurora: Fetching sqlite3")
     FetchContent_Declare(sqlite3
       URL https://sqlite.org/2026/sqlite-amalgamation-3510300.zip
@@ -294,12 +332,9 @@ if (AURORA_ENABLE_GX)
   if (AURORA_ENABLE_RMLUI AND NOT TARGET RmlUi)
     message(STATUS "aurora: Fetching RmlUi")
     FetchContent_Declare(rmlui
-      URL https://github.com/mikke89/RmlUi/archive/0ae381e00d7426762bb5ed897973366358b16642.tar.gz
-      URL_HASH SHA256=fa4b84db1bae7b929996beb51d79b7037cd7aec438737a0df4d3c816d9b13bd8
+      URL https://github.com/encounter/RmlUi/archive/215513c51ee1b3b75fc794518dda0576c462279f.tar.gz
+      URL_HASH SHA256=1df201ef7bade930cc825deeefc4361dc3681d0808806ff5cc746f1ffa272fcf
       DOWNLOAD_EXTRACT_TIMESTAMP FALSE
-      PATCH_COMMAND ${CMAKE_COMMAND}
-        -DRMLUI_SOURCE_DIR=<SOURCE_DIR>
-        -P "${CMAKE_CURRENT_LIST_DIR}/../cmake/patches/apply-rmlui-keyboard-showed-state.cmake"
       EXCLUDE_FROM_ALL
     )
     block(SCOPE_FOR VARIABLES PROPAGATE rmlui_SOURCE_DIR rmlui_BINARY_DIR rmlui_POPULATED)
@@ -315,7 +350,10 @@ if (AURORA_ENABLE_GX)
   endif ()
 endif ()
 
-if (NOT TARGET TracyClient)
+if (NOT TARGET Tracy::TracyClient)
+  aurora_find_package_global(Tracy CONFIG)
+endif ()
+if (NOT TARGET Tracy::TracyClient)
   message(STATUS "aurora: Fetching Tracy")
 
   # Default to off, users can enable the cache variable if they want to use it.
@@ -325,8 +363,8 @@ if (NOT TARGET TracyClient)
 
   FetchContent_Declare(
           tracy
-          URL https://github.com/wolfpld/tracy/archive/6789e7d6f9a65ec98926b602097a33a9676d2606.tar.gz
-          URL_HASH SHA256=ebfe4fb50d7c254901979355c80a7d4cd33624aa2ec0fe90b3b238153cd5d69b
+          URL https://github.com/wolfpld/tracy/archive/refs/tags/v0.14.1.zip
+          URL_HASH SHA256=908f3a2917fa86a247abfcf85dcf04bad1db6986a4d40f94b70512f3e9e98d5b
           DOWNLOAD_EXTRACT_TIMESTAMP FALSE
           EXCLUDE_FROM_ALL
   )

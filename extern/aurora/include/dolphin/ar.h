@@ -22,14 +22,10 @@ struct ARQRequest {
 };
 
 #define ARQ_DMA_ALIGNMENT 32
+#define AR_STACK_INDEX_ENTRY_SIZE sizeof(u32)
 
 #define ARAM_DIR_MRAM_TO_ARAM 0x00
 #define ARAM_DIR_ARAM_TO_MRAM 0x01
-
-#define ARStartDMARead(mmem, aram, len) \
-    ARStartDMA(ARAM_DIR_ARAM_TO_MRAM, mmem, aram, len)
-#define ARStartDMAWrite(mmem, aram, len) \
-    ARStartDMA(ARAM_DIR_MRAM_TO_ARAM, mmem, aram, len)
 
 typedef struct ARQRequest ARQRequest;
 
@@ -39,8 +35,13 @@ typedef struct ARQRequest ARQRequest;
 #define ARQ_PRIORITY_LOW  0
 #define ARQ_PRIORITY_HIGH 1
 
-// AR
-ARQCallback ARRegisterDMACallback(ARQCallback callback);
+#define AR_CLEAR_INTERNAL_ALL 0x00
+#define AR_CLEAR_INTERNAL_USER 0x01
+#define AR_CLEAR_EXPANSION 0x02
+
+typedef void (*ARCallback)(void);
+
+ARCallback ARRegisterDMACallback(ARCallback callback);
 u32 ARGetDMAStatus(void);
 void ARStartDMA(u32 type, u32 mainmem_addr, u32 aram_addr, u32 length);
 u32 ARAlloc(u32 length);
@@ -80,6 +81,9 @@ int aurora_arq_inflight(void);
 
 u16 __ARGetInterruptStatus(void);
 void __ARClearInterrupt(void);
+
+#define ARStartDMARead(mmem, aram, len) ARStartDMA(ARAM_DIR_ARAM_TO_MRAM, mmem, aram, len)
+#define ARStartDMAWrite(mmem, aram, len) ARStartDMA(ARAM_DIR_MRAM_TO_ARAM, mmem, aram, len)
 
 #ifdef __cplusplus
 }

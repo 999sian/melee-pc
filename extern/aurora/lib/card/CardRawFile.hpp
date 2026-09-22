@@ -5,6 +5,7 @@
 #include <string>
 
 #include "FileIO.hpp"
+#include "../io.hpp"
 #include "BlockAllocationTable.hpp"
 #include "Directory.hpp"
 #include "File.hpp"
@@ -57,7 +58,8 @@ class CardRawFile : public ICard {
 
   void _updateDirAndBat(const Directory& dir, const BlockAllocationTable& bat);
   void _updateChecksum();
-  void _repair_card();
+  void _repairCard();
+  bool _writeMetadata(SDL_IOStream* stream);
   File* _fileFromHandle(const FileHandle& fh) const;
   void _deleteFile(File& f, BlockAllocationTable& bat);
 
@@ -392,7 +394,8 @@ public:
    * @param size     The desired size of the file @sa ECardSize.
    * @param encoding The desired encoding @sa EEncoding.
    */
-  void format(ECardSlot deviceId, ECardSize size = ECardSize::Card2043Mb, EEncoding encoding = EEncoding::ASCII) override;
+  ECardResult format(ECardSlot deviceId, ECardSize size = ECardSize::Card2043Mb,
+                     EEncoding encoding = EEncoding::ASCII) override;
 
   /**
    * @brief Returns basic stats about a card image without opening a handle.
@@ -401,11 +404,14 @@ public:
    */
   ProbeResults probeCardFile(const std::filesystem::path& filename) override;
 
+  size_t extractGci(const char* filename, void* output, size_t capacity);
+  bool insertGci(const void* data, size_t size, bool replace);
+
   /**
    * @brief Writes any changes to the Card instance immediately to disk. <br />
    * <b>Note:</b> <i>Under normal circumstances there is no need to call this function.</i>
    */
-  void commit() override;
+  ECardResult commit() override;
 
   /**
    * @brief Opens card image (does nothing if currently open path matches).

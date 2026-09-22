@@ -2,12 +2,14 @@
 #include <filesystem>
 #include <vector>
 
-#include "BlockAllocationTable.hpp"
 #include "CommonData.h"
 #include "File.hpp"
 #include "ICard.hpp"
 
 namespace aurora::card {
+
+std::string gci_filename(std::string_view game, std::string_view maker, std::string_view filename);
+bool is_gci_filename(std::string_view filename);
 
 class CardGciFolder : public ICard {
 private:
@@ -16,11 +18,13 @@ private:
     size_t fileSize;
     std::u8string filename;
     bool opened = false;
+    bool deleted = false;
+    bool dirty = false;
   };
 
   std::vector<GciFile> m_files;
   std::filesystem::path m_folderPath;
-  BlockAllocationTable m_bat;
+  ECardResult m_error = ECardResult::NOCARD;
 
   EEncoding m_encoding = EEncoding::ASCII;
 
@@ -29,11 +33,12 @@ private:
 
   GciFile* get_file(uint32_t idx);
   const GciFile* get_file(uint32_t idx) const;
+  int32_t find_file(const char* filename) const;
   GciFile* get_open_file(const FileHandle& fh);
   const GciFile* get_open_file(const FileHandle& fh) const;
 
 public:
-  CardGciFolder();
+  CardGciFolder() = default;
   ~CardGciFolder() override = default;
 
   CardGciFolder(const CardGciFolder& other) = delete;
@@ -66,9 +71,9 @@ public:
   void getChecksum(uint16_t& checksum, uint16_t& inverse) const override;
   void getFreeBlocks(int32_t& bytesNotUsed, int32_t& filesNotUsed) const override;
   void getEncoding(uint16_t& encoding) const override;
-  void format(ECardSlot deviceId, ECardSize size = ECardSize::Card2043Mb,
-              EEncoding encoding = EEncoding::ASCII) override;
-  void commit() override;
+  ECardResult format(ECardSlot deviceId, ECardSize size = ECardSize::Card2043Mb,
+                     EEncoding encoding = EEncoding::ASCII) override;
+  ECardResult commit() override;
   bool open(const std::filesystem::path& filepath) override;
   void close() override;
   const std::filesystem::path& cardFilename() const override;

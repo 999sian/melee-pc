@@ -53,6 +53,7 @@ struct FrameRecorder {
   Viewport cachedViewport;
   ClipRect cachedScissor;
   bool suppressRenderWorker = false;
+  bool normalRequested = false;
 #ifdef AURORA_GFX_DEBUG_GROUPS
   std::vector<std::string> debugGroupStack;
 #endif
@@ -91,7 +92,12 @@ void set_efb_targets(RenderPass& pass) {
     auto& color = pass.colorAttachments[i];
     color.semantic = layout.colorAttachments[i].semantic;
     color.format = layout.colorAttachments[i].format;
-    AURORA_ASSERT(false, "Scene render-target attachment {} has no backing texture", i);
+    if (color.semantic == ColorAttachmentSemantic::Normal) {
+      color.size = webgpu::g_normalBuffer.size;
+      color.view = webgpu::g_normalBuffer.view;
+    } else {
+      AURORA_ASSERT(false, "Scene render-target attachment {} has no backing texture", i);
+    }
   }
   pass.depthStencilView = webgpu::g_depthBuffer.view;
   pass.depthStencilFormat = layout.depthStencilFormat;
@@ -100,6 +106,9 @@ void set_efb_targets(RenderPass& pass) {
   pass.copySourceView =
       webgpu::g_graphicsConfig.msaaSamples > 1 ? webgpu::g_frameBufferResolved.view : webgpu::g_frameBuffer.view;
   pass.copySourceDepthView = webgpu::g_depthBuffer.view;
+  if (webgpu::g_graphicsConfig.normalBuffer) {
+    pass.copySourceNormalTexture = webgpu::g_normalBuffer.texture;
+  }
   pass.msaaSamples = layout.sampleCount;
   pass.hasDepth = true;
   pass.hasStencil = false;
@@ -139,6 +148,7 @@ absl::flat_hash_map<OffscreenCacheKey, OffscreenCacheEntry> g_offscreenCache;
 struct PassSnapshotEntry {
   webgpu::TextureWithSampler color;
   webgpu::TextureWithSampler depth; // R32Float raw depth
+  webgpu::TextureWithSampler normal;
 };
 struct PassSnapshotPool {
   std::vector<PassSnapshotEntry> entries;
@@ -146,7 +156,8 @@ struct PassSnapshotPool {
 };
 std::array<PassSnapshotPool, FrameSlotCount> g_passSnapshotPools;
 
-PassSnapshotEntry& acquire_pass_snapshot(uint32_t width, uint32_t height, bool wantColor, bool wantDepth) {
+PassSnapshotEntry& acquire_pass_snapshot(uint32_t width, uint32_t height, bool wantColor, bool wantDepth,
+                                         bool wantNormal) {
   auto& pool = g_passSnapshotPools[g_recorder.frameSlot];
   if (pool.used == pool.entries.size()) {
     pool.entries.emplace_back();
@@ -191,6 +202,25 @@ PassSnapshotEntry& acquire_pass_snapshot(uint32_t width, uint32_t height, bool w
         .view = std::move(view),
         .size = size,
         .format = wgpu::TextureFormat::R32Float,
+    };
+  }
+  if (wantNormal && (!entry.normal.texture || entry.normal.size.width != width || entry.normal.size.height != height)) {
+    const wgpu::TextureDescriptor desc{
+        .label = "Pass Snapshot Normal",
+        .usage = wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::TextureBinding,
+        .dimension = wgpu::TextureDimension::e2D,
+        .size = size,
+        .format = webgpu::NormalBufferFormat,
+        .mipLevelCount = 1,
+        .sampleCount = 1,
+    };
+    auto texture = webgpu::g_device.CreateTexture(&desc);
+    auto view = texture.CreateView();
+    entry.normal = webgpu::TextureWithSampler{
+        .texture = std::move(texture),
+        .view = std::move(view),
+        .size = size,
+        .format = webgpu::NormalBufferFormat,
     };
   }
   return entry;
@@ -402,6 +432,7 @@ void resume_efb_pass_loading(const RenderPass& prevPass) {
       .copySourceTexture = prevPass.copySourceTexture,
       .copySourceView = prevPass.copySourceView,
       .copySourceDepthView = prevPass.copySourceDepthView,
+      .copySourceNormalTexture = prevPass.copySourceNormalTexture,
       .msaaSamples = prevPass.msaaSamples,
       .clearDepth = false,
       .hasDepth = prevPass.hasDepth,
@@ -533,6 +564,9 @@ bool g_preserveFrameBuffer = false;
 
 void begin_recording(FramePacket& packet, size_t frameSlot) {
   CHECK(!g_recorder.active(), "A recording session is already active");
+  if (g_recorder.normalRequested && webgpu::enable_normal_buffer()) {
+    g_recorder.normalRequested = false;
+  }
   g_recorder.packet = &packet;
   g_recorder.frameSlot = frameSlot;
   g_passSnapshotPools[frameSlot].used = 0;
@@ -604,6 +638,7 @@ void shutdown_recording() {
   g_recorder.packet = nullptr;
   g_recorder.frameSlot = 0;
   g_recorder.suppressRenderWorker = false;
+  g_recorder.normalRequested = false;
 }
 
 namespace testing {
@@ -797,7 +832,7 @@ void push_draw_command(clear::DrawData data) {
 
 template <>
 PipelineRef pipeline_ref(const clear::PipelineConfig& config) {
-  return find_pipeline(ShaderType::Clear, config, [=] { return create_pipeline(config); });
+  return find_pipeline(config, get_render_target_layout());
 }
 
 void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
@@ -830,6 +865,7 @@ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bo
       .copySourceTexture = prevPass.copySourceTexture,
       .copySourceView = prevPass.copySourceView,
       .copySourceDepthView = prevPass.copySourceDepthView,
+      .copySourceNormalTexture = prevPass.copySourceNormalTexture,
       .msaaSamples = msaaSamples,
       .clearDepthValue = clearDepthValue,
       .clearDepth = clearDepth,
@@ -840,7 +876,11 @@ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bo
   for (uint32_t i = 0; i < newPass.colorAttachmentCount; ++i) {
     auto& color = newPass.colorAttachments[i];
     color.loadOp = wgpu::LoadOp::Undefined;
-    color.clear = false;
+    if (color.semantic == ColorAttachmentSemantic::Normal && clearDepth) {
+      color.clear = true;
+    } else {
+      color.clear = false;
+    }
   }
   if (fullColorClear) {
     auto& sceneColor = newPass.colorAttachments[SceneColorAttachmentIndex];
@@ -853,9 +893,12 @@ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bo
 
   if (!fullColorClear && (clearColor || clearAlpha)) {
     // If we're only clearing color _or_ alpha, perform a clear draw
-    const auto targetLayout = current_render_passes()[g_recorder.currentRenderPass].target_layout();
     push_draw_command(clear::DrawData{
-        .pipeline = pipeline_ref(clear::make_pipeline_config(targetLayout, clearColor, clearAlpha, false)),
+        .pipeline = pipeline_ref(clear::PipelineConfig{
+            .clearColor = clearColor,
+            .clearAlpha = clearAlpha,
+            .clearDepth = false,
+        }),
         .color =
             wgpu::Color{
                 .r = clearColorValue.x(),
@@ -878,9 +921,15 @@ void queue_palette_conv(tex_palette_conv::ConvRequest req) {
 
 bool is_offscreen() noexcept { return g_recorder.inOffscreen; }
 
-uint32_t get_sample_count() noexcept {
-  CHECK(g_recorder.currentRenderPass != UINT32_MAX, "get_sample_count called outside of a frame");
-  return current_render_passes()[g_recorder.currentRenderPass].msaaSamples;
+bool has_normal_attachment() noexcept {
+  CHECK(g_recorder.currentRenderPass != UINT32_MAX, "has_normal_attachment called outside of a frame");
+  const auto& pass = current_render_passes()[g_recorder.currentRenderPass];
+  for (uint32_t i = 0; i < pass.colorAttachmentCount; ++i) {
+    if (pass.colorAttachments[i].semantic == ColorAttachmentSemantic::Normal) {
+      return true;
+    }
+  }
+  return false;
 }
 
 RenderTargetLayout get_render_target_layout() noexcept {
@@ -988,9 +1037,14 @@ bool resolve_pass(const ResolveDesc& desc, ResolvedTargets& out) {
   auto& prevPass = current_render_passes()[g_recorder.currentRenderPass];
   const uint32_t width = prevPass.colorAttachments[SceneColorAttachmentIndex].size.width;
   const uint32_t height = prevPass.colorAttachments[SceneColorAttachmentIndex].size.height;
+  const bool wantNormal = desc.normal && prevPass.copySourceNormalTexture;
+  if (desc.normal && !g_recorder.inOffscreen && !webgpu::g_graphicsConfig.normalBuffer && webgpu::g_hasCoreFeatures &&
+      webgpu::g_graphicsConfig.msaaSamples == 1) {
+    g_recorder.normalRequested = true;
+  }
   // Requesting no snapshots is a plain pass break (or offscreen close, discarding its output).
-  if (desc.color || wantDepth) {
-    auto& entry = acquire_pass_snapshot(width, height, desc.color, wantDepth);
+  if (desc.color || wantDepth || wantNormal) {
+    auto& entry = acquire_pass_snapshot(width, height, desc.color, wantDepth, wantNormal);
     if (desc.color) {
       prevPass.snapshotColorDst = entry.color.texture;
       out.color = entry.color.view;
@@ -999,6 +1053,10 @@ bool resolve_pass(const ResolveDesc& desc, ResolvedTargets& out) {
     if (wantDepth) {
       prevPass.snapshotDepthDst = entry.depth.view;
       out.depth = entry.depth.view;
+    }
+    if (wantNormal) {
+      prevPass.snapshotNormalDst = entry.normal.texture;
+      out.normal = entry.normal.view;
     }
   }
   out.width = width;
@@ -1084,13 +1142,13 @@ void push_draw_command(rmlui::DrawData data) {
 
 template <>
 PipelineRef pipeline_ref(const gx::PipelineConfig& config) {
-  return find_pipeline(ShaderType::GX, config, [=] { return create_pipeline(config); });
+  return find_pipeline(config, get_render_target_layout());
 }
 
 #ifdef AURORA_ENABLE_RMLUI
 template <>
 PipelineRef pipeline_ref(const rmlui::PipelineConfig& config) {
-  return find_pipeline(ShaderType::Rml, config, [=] { return rmlui::create_pipeline(config); });
+  return find_pipeline(config);
 }
 #endif
 

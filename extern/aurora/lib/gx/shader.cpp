@@ -870,9 +870,9 @@ auto lighting_func(const ShaderConfig& config, const ColorChannelConfig& cc, u8 
 absl::flat_hash_set<gfx::ShaderRef> s_seenShaders;
 } // namespace
 
-std::string build_shader_source(const ShaderConfig& config) noexcept {
+std::string build_shader_source(const ShaderConfig& config, uint32_t normalAttachment) noexcept {
   ZoneScoped;
-  const auto hash = xxh3_hash(config);
+  const auto hash = xxh3_hash(normalAttachment, xxh3_hash(config));
   const auto info = build_shader_info(config);
   if (EnableDebugPrints && !s_seenShaders.contains(hash)) {
     s_seenShaders.insert(hash);
@@ -1063,6 +1063,11 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
   if constexpr (EnableNormalVisualization) {
     vtxOutAttrs += fmt::format("\n    @location({}) nrm: vec3f,", vtxOutIdx++);
     vtxXfrAttrsPre += "\n    out.nrm = mv_nrm;";
+  }
+  const bool useNormalTarget = normalAttachment != UINT32_MAX && config.attrs[GX_VA_NRM].attrType != GX_NONE;
+  if (useNormalTarget && !(UsePerPixelLighting && info.lightingEnabled)) {
+    vtxOutAttrs += fmt::format("\n    @location({}) mv_nrm: vec3f,", vtxOutIdx++);
+    vtxXfrAttrsPre += "\n    out.mv_nrm = mv_nrm;";
   }
 
   uniBufAttrs += "\n    proj: mat4x4f,";
@@ -1658,6 +1663,12 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
     fragmentFn += "\n    prev = vec4f(in.nrm, prev.a);";
   }
 
+  // Fragment output: default is a single colour location. Two independent
+  // optional outputs each need a struct return -- the scene normal attachment
+  // writes a second @location (upstream), and Z texture writes
+  // @builtin(frag_depth) (melee-pc). Emit a single FragmentOutput carrying
+  // whichever (or both) is active.
+  //
   // Z texture: the fragment depth is derived from the last TEV stage's
   // texture sample. Only reached with compare-after-texture selected
   // (ztex_source_stage refuses the before-texture case), so writing
@@ -1665,42 +1676,59 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
   // GXSetZCompLoc(GX_FALSE) asked for.
   std::string fragOutStruct;
   std::string_view fragRetType = "@location(0) vec4f"sv;
-  std::string fragReturn = "\n    return prev;";
-  if (info.zTexStage >= 0) {
-    const auto& stage = config.tevStages[info.zTexStage];
-    // Same swap table the TEV colour input mux would have applied.
-    const auto& swap = config.tevSwapTable[stage.tevSwapTex];
-    const auto texel = fmt::format("sampled{}.{}{}{}", static_cast<int>(info.zTexStage), chan_comp(swap.red),
-                                   chan_comp(swap.green), chan_comp(swap.blue));
-    /* U24 is R:G:B, MSB first, matching FragZ24X8 in tex_copy_conv.cpp.
-     * U8's expansion is genuinely unsettled -- Dolphin's coefficients say
-     * z = alpha, this says high byte, and HSD_EraseRect's all-0xFF texture
-     * reads like it wants 0xFFFFFF. Three answers, so leave it: no site in
-     * this tree pairs U8 ztex with compare-after-texture, and ztex is
-     * ignored entirely under compare-before-texture (see ztex_source_stage),
-     * which is what HSD_EraseRect selects. */
-    const std::string_view ztexExpr =
-        config.zTexFmt == 2 ? "(zt_t.r << 16u) | (zt_t.g << 8u) | zt_t.b"sv : "zt_t.r << 16u"sv;
-    fragOutStruct =
-        "\nstruct FragmentOutput {\n"
-        "    @location(0) color: vec4f,\n"
-        "    @builtin(frag_depth) depth: f32,\n"
-        "};\n";
-    fragRetType = "FragmentOutput"sv;
-    fragReturn = fmt::format("\n    // Z texture ({})\n    let zt_t = vec3u(round({} * 255.0));",
-                             config.zTexOp == GX_ZT_ADD ? "add" : "replace", texel);
-    if (config.zTexOp == GX_ZT_ADD) {
-      fragReturn += fmt::format("\n    let zt_poly = u32(clamp({}, 0.0, 1.0) * 16777215.0 + 0.5);",
-                                UseReversedZ ? "1.0 - in.pos.z" : "in.pos.z");
-      fragReturn += fmt::format("\n    let zt_z = (zt_poly + ({}) + {}u) & 0xFFFFFFu;", ztexExpr, config.zTexBias);
-    } else {
-      fragReturn += fmt::format("\n    let zt_z = (({}) + {}u) & 0xFFFFFFu;", ztexExpr, config.zTexBias);
+  std::string fragReturn = "\n    return prev;"s;
+  const bool wantNormal = normalAttachment != UINT32_MAX;
+  const bool wantZTex = info.zTexStage >= 0;
+  if (wantNormal || wantZTex) {
+    std::string members = "    @location(0) color: vec4f,\n";
+    if (wantNormal) {
+      members += fmt::format("    @location({}) normal: vec4f,\n", normalAttachment);
     }
-    fragReturn += fmt::format("\n    var out_frag: FragmentOutput;"
-                              "\n    out_frag.color = prev;"
-                              "\n    out_frag.depth = {};"
-                              "\n    return out_frag;",
-                              UseReversedZ ? "1.0 - f32(zt_z) / 16777215.0" : "f32(zt_z) / 16777215.0");
+    if (wantZTex) {
+      members += "    @builtin(frag_depth) depth: f32,\n";
+    }
+    fragOutStruct = fmt::format("\nstruct FragmentOutput {{\n{}}};\n", members);
+    fragRetType = "FragmentOutput"sv;
+    fragReturn = "\n    var out_frag: FragmentOutput;"
+                 "\n    out_frag.color = prev;"s;
+    if (wantNormal) {
+      if (useNormalTarget) {
+        fragReturn +=
+            "\n    let nrm_len_sq = dot(in.mv_nrm, in.mv_nrm);"
+            "\n    let unit_nrm = select(vec3f(0.0), normalize(in.mv_nrm), nrm_len_sq > 1e-10);"
+            "\n    out_frag.normal = vec4f(unit_nrm * 0.5 + 0.5, select(0.0, 1.0, nrm_len_sq > 1e-10));";
+      } else {
+        fragReturn += "\n    out_frag.normal = vec4f(0.5, 0.5, 0.5, 0.0);";
+      }
+    }
+    if (wantZTex) {
+      const auto& stage = config.tevStages[info.zTexStage];
+      // Same swap table the TEV colour input mux would have applied.
+      const auto& swap = config.tevSwapTable[stage.tevSwapTex];
+      const auto texel = fmt::format("sampled{}.{}{}{}", static_cast<int>(info.zTexStage), chan_comp(swap.red),
+                                     chan_comp(swap.green), chan_comp(swap.blue));
+      /* U24 is R:G:B, MSB first, matching FragZ24X8 in tex_copy_conv.cpp.
+       * U8's expansion is genuinely unsettled -- Dolphin's coefficients say
+       * z = alpha, this says high byte, and HSD_EraseRect's all-0xFF texture
+       * reads like it wants 0xFFFFFF. Three answers, so leave it: no site in
+       * this tree pairs U8 ztex with compare-after-texture, and ztex is
+       * ignored entirely under compare-before-texture (see ztex_source_stage),
+       * which is what HSD_EraseRect selects. */
+      const std::string_view ztexExpr =
+          config.zTexFmt == 2 ? "(zt_t.r << 16u) | (zt_t.g << 8u) | zt_t.b"sv : "zt_t.r << 16u"sv;
+      fragReturn += fmt::format("\n    // Z texture ({})\n    let zt_t = vec3u(round({} * 255.0));",
+                                config.zTexOp == GX_ZT_ADD ? "add" : "replace", texel);
+      if (config.zTexOp == GX_ZT_ADD) {
+        fragReturn += fmt::format("\n    let zt_poly = u32(clamp({}, 0.0, 1.0) * 16777215.0 + 0.5);",
+                                  UseReversedZ ? "1.0 - in.pos.z" : "in.pos.z");
+        fragReturn += fmt::format("\n    let zt_z = (zt_poly + ({}) + {}u) & 0xFFFFFFu;", ztexExpr, config.zTexBias);
+      } else {
+        fragReturn += fmt::format("\n    let zt_z = (({}) + {}u) & 0xFFFFFFu;", ztexExpr, config.zTexBias);
+      }
+      fragReturn += fmt::format("\n    out_frag.depth = {};",
+                                UseReversedZ ? "1.0 - f32(zt_z) / 16777215.0" : "f32(zt_z) / 16777215.0");
+    }
+    fragReturn += "\n    return out_frag;";
   }
 
   const auto shaderSource = fmt::format(R"""(
@@ -2081,10 +2109,16 @@ fn fs_main(in: VertexOutput) -> {10} {{{6}{5}{11}
   return shaderSource;
 }
 
-wgpu::ShaderModule build_shader(const ShaderConfig& config) noexcept {
+wgpu::ShaderModule build_shader(const ShaderConfig& config, const gfx::RenderTargetLayout& layout) noexcept {
   ZoneScoped;
-  const auto shaderSource = build_shader_source(config);
-  const auto hash = xxh3_hash(config);
+  uint32_t normalAttachment = UINT32_MAX;
+  for (uint32_t i = 0; i < layout.colorAttachmentCount; ++i) {
+    if (layout.colorAttachments[i].semantic == gfx::ColorAttachmentSemantic::Normal) {
+      normalAttachment = i;
+    }
+  }
+  const auto shaderSource = build_shader_source(config, normalAttachment);
+  const auto hash = xxh3_hash(normalAttachment, xxh3_hash(config));
   wgpu::ShaderSourceWGSL wgslDescriptor{};
   wgslDescriptor.code = shaderSource.c_str();
   const auto label = fmt::format("GX Shader {:x}", hash);

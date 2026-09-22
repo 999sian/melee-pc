@@ -47,6 +47,7 @@ GraphicsConfig g_graphicsConfig;
 TextureWithSampler g_frameBuffer;
 TextureWithSampler g_frameBufferResolved;
 TextureWithSampler g_depthBuffer;
+TextureWithSampler g_normalBuffer;
 
 // EFB -> XFB copy pipeline
 static wgpu::BindGroupLayout g_CopyBindGroupLayout;
@@ -442,6 +443,32 @@ static TextureWithSampler create_depth_texture(uint32_t width, uint32_t height) 
   };
 }
 
+static TextureWithSampler create_normal_texture(uint32_t width, uint32_t height) {
+  const wgpu::Extent3D size{width, height, 1};
+  const wgpu::TextureDescriptor desc{
+      .label = "Scene normals",
+      .usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc,
+      .size = size,
+      .format = NormalBufferFormat,
+  };
+  auto texture = g_device.CreateTexture(&desc);
+  auto view = texture.CreateView();
+  return {.texture = std::move(texture), .view = std::move(view), .size = size, .format = NormalBufferFormat};
+}
+
+bool enable_normal_buffer() {
+  if (g_graphicsConfig.normalBuffer) {
+    return true;
+  }
+  if (!g_hasCoreFeatures || g_graphicsConfig.msaaSamples != 1 || !g_device || g_frameBuffer.size.width == 0 ||
+      g_frameBuffer.size.height == 0) {
+    return false;
+  }
+  g_normalBuffer = create_normal_texture(g_frameBuffer.size.width, g_frameBuffer.size.height);
+  g_graphicsConfig.normalBuffer = true;
+  return true;
+}
+
 void create_copy_pipeline() {
   wgpu::ShaderSourceWGSL sourceDescriptor{};
   sourceDescriptor.code = R"""(
@@ -760,12 +787,7 @@ static wgpu::BackendType to_wgpu_backend(AuroraBackend backend) {
   }
 }
 
-static void release_surface_locked() noexcept {
-  if (g_surface) {
-    g_surface.Unconfigure();
-  }
-  g_surface = {};
-}
+static void release_surface_locked() noexcept { g_surface = {}; }
 
 static bool create_surface() {
   SDL_Window* window = window::get_sdl_window();
@@ -794,7 +816,15 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
         .requiredFeatures = requiredInstanceFeatures.data(),
     };
 #if defined(WEBGPU_DAWN) && !defined(__MINGW32__)
-    dawn::native::DawnInstanceDescriptor dawnInstanceDescriptor;
+    constexpr std::array instanceToggles{
+        "allow_unsafe_apis",
+    };
+    wgpu::DawnTogglesDescriptor instanceTogglesDescriptor{wgpu::DawnTogglesDescriptor::Init{
+        .enabledToggleCount = instanceToggles.size(),
+        .enabledToggles = instanceToggles.data(),
+    }};
+    dawn::native::DawnInstanceDescriptor dawnInstanceDescriptor{};
+    dawnInstanceDescriptor.nextInChain = &instanceTogglesDescriptor;
     dawnInstanceDescriptor.backendValidationLevel = dawn::native::BackendValidationLevel::Disabled;
     dawnInstanceDescriptor.SetLoggingCallback(wgpu_log);
 #ifdef TRACY_ENABLE
@@ -1013,7 +1043,6 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
 #ifndef ANDROID
         "use_user_defined_labels_in_backend",
 #endif
-        "allow_unsafe_apis",
         "disable_symbol_renaming",
         "enable_immediate_error_handling",
         "gl_allow_context_on_multi_threads",
@@ -1142,6 +1171,8 @@ void shutdown() {
   g_frameBuffer = {};
   g_frameBufferResolved = {};
   g_depthBuffer = {};
+  g_normalBuffer = {};
+  g_graphicsConfig.normalBuffer = false;
   g_queue = {};
   g_surface = {};
   g_device = {};
@@ -1183,6 +1214,9 @@ static void resize_swapchain_internal(uint32_t width, uint32_t height, uint32_t 
   g_frameBuffer = create_render_texture(width, height, true);
   g_frameBufferResolved = create_render_texture(width, height, false);
   g_depthBuffer = create_depth_texture(width, height);
+  if (g_graphicsConfig.normalBuffer) {
+    g_normalBuffer = create_normal_texture(width, height);
+  }
   g_CopyBindGroup = create_copy_bind_group(present_source());
 }
 
