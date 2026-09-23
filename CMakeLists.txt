@@ -46,6 +46,24 @@ target_compile_options(aurora_mtx PRIVATE ${MELEE_FP_FLAGS}
 target_compile_options(aurora_gx PRIVATE ${MELEE_FP_FLAGS})
 target_compile_options(aurora_gd PRIVATE ${MELEE_FP_FLAGS})
 
+# Plain char is signed in the original game: mwcceppc (GC/1.2.5n, the
+# decomp's compiler; configure.py passes no -char) documents "-char signed
+# ... default", and the byte-matching mnname.c/mnnamenew.c compile to
+# different code under -char unsigned. x86-64 agrees, but AArch64 Linux and
+# Android default to unsigned, and tools/gcc_*launcher.py build the game with
+# aarch64-linux-gnu-gcc for Android, iOS and Windows ARM64 alike. Compiling
+# every game TU both ways changes 33 functions on x86-64 and 53 on AArch64;
+# one computes something different, ifPrize's lead-in counter (char x2 = -1,
+# counted up to 5), which skipped its six frames on ARM. Stated on every
+# platform so nothing depends on a default. Directory scope covers
+# melee_game, melee and the test targets created below; aurora's own targets
+# get it by hand, its fetched dependencies keep their defaults.
+add_compile_options(-fsigned-char)
+get_property(_aurora_targets DIRECTORY extern/aurora PROPERTY BUILDSYSTEM_TARGETS)
+foreach (_target IN LISTS _aurora_targets)
+    target_compile_options(${_target} PRIVATE -fsigned-char)
+endforeach ()
+
 # Determinism-harness hook, off by default: perturb one routed trig function
 # by one ULP so tools/net_determinism.py can prove it catches a libm
 # divergence. Every math symbol the simulation uses is defined inside the

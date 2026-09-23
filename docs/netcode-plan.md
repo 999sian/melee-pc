@@ -569,6 +569,7 @@ dead, and the two that were real are not arithmetic at all.
 | NaN sign/payload, min/max, signed zero, denormals | Identical on both; and the state log over 4001 frames contains no NaN, inf or denormal in any checksummed field |
 | Runtime FP mode | FPCR on the device is `0x0` (FZ and DN off) after Vulkan init; MXCSR `0x1f80`. Zero `msr fpcr` in the shipped library |
 | Compile flags | Identical on both targets for every sim TU, including `-fexec-charset=CP932`, which `tools/gcc_launcher.py:108` adds unconditionally even though CMake records Android's compiler as Clang and omits it from `build.ninja` |
+| Plain `char` signedness | The one default that was *not* identical: AArch64 GCC makes `char` unsigned, x86-64 (and mwcc, the original compiler) signed. Compiling every game TU both ways changes 33 functions on x86-64 and 53 on AArch64 (64 distinct). Read line by line, only one computes something different: `fn_802FE470`, the unlock-notice scene (`GS_PRIZE_INTERFACE`), whose `char x2 = -1` lead-in counter skipped its six frames on ARM, outside netplay. The rest pick a different load or register, or test `u8 != (char) -1` before a loader that rejects index 255 either way. `-fsigned-char` on every first-party target (`CMakeLists.txt`) removes the AArch64 difference outright |
 
 **The two real causes, both fixed.** Neither is a floating-point problem:
 they are the seed itself (`net_snapshot.c:148` folds it, and outside a fight

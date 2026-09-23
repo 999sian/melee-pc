@@ -45,6 +45,11 @@ Bug classes that keep coming back when bringing up a new scene:
   so `p[0x14]` for byte 0x50 lands at byte 160. Index by name.
 - Japanese string literals are Shift-JIS at runtime; the build passes
   `-fexec-charset=CP932`.
+- Plain `char` is signed on GameCube (mwcc defaults to `-char signed`) and on
+  x86-64, but unsigned on AArch64 Linux and Android, and every ARM target
+  (Android, iOS, Windows ARM64) builds the game with `aarch64-linux-gnu-gcc`.
+  The build passes `-fsigned-char` to all first-party targets; without it
+  `char x = -1; if (x < 5)` (ifPrize's intro counter) never counts on ARM.
 
 Tag every such divergence from upstream with a `/* PORT: ... */` comment
 (see [CODING_STYLE.md](../CODING_STYLE.md#tagging-porting-divergences)).
