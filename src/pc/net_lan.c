@@ -511,7 +511,12 @@ static bool hex_u64(const char* s, uint64_t* out) {
 /* A validated announce: the entry it yields plus the three identity strings
  * the incompatible-peer log line names ("?" when the peer sent none). */
 typedef struct Txt {
-    char v[12], rev[32], disc[12];
+    /* rev holds a raw `git describe --dirty` string (pc_app_rev()); a build
+     * that is not sitting exactly on a tag appends "-N-g<hash>" before
+     * "-dirty", which 32 bytes does not always fit (RJ_REV rejected a real,
+     * same-protocol peer over exactly this on a non-tagged build). Matches
+     * the val[K_N][64] intermediate parse buffer's own cap. */
+    char v[12], rev[64], disc[12];
     Entry e;
 } Txt;
 
