@@ -1,9 +1,21 @@
 name: Pages
 
+# The project site (docs/site) at the root, and the browser build
+# (platforms/browser) under /play/. Players load their own disc image in the
+# page; no game data is built, uploaded or deployed.
 on:
   push:
     branches: [master]
-    paths: ['docs/site/**', '.github/workflows/pages.yml']
+    paths:
+      - 'docs/site/**'
+      - '.github/workflows/pages.yml'
+      - 'platforms/browser/**'
+      - 'tools/browser/**'
+      - 'tests/browser/**'
+      - 'src/**'
+      - 'extern/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
   workflow_dispatch:
 
 permissions:
@@ -11,9 +23,11 @@ permissions:
   pages: write
   id-token: write
 
+# The browser build takes a while: let a started deployment finish instead of
+# cancelling it on every push; only the newest queued run deploys next.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -21,8 +35,41 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      # tools/browser/common.py. disc_lower is built against LLVM 22's
+      # LibTooling; the runner's gcc-14 is its scalar_storage_order oracle.
+      LLVM_ROOT: /usr/lib/llvm-22
     steps:
       - uses: actions/checkout@v4
+      - name: Install LLVM 22 development libraries
+        run: |
+          wget -q https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh 22
+          sudo apt-get install -y --no-install-recommends libclang-22-dev libclang-cpp22-dev llvm-22-dev ninja-build
+      - name: Read the pinned Emscripten version
+        id: emsdk
+        run: echo "version=$(cd tools/browser && python3 -c 'import common; print(common.EMSCRIPTEN_VERSION)')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: build/browser/emsdk
+          key: emsdk-${{ runner.os }}-${{ steps.emsdk.outputs.version }}
+      - name: Install the pinned Emscripten SDK
+        run: python3 tools/browser/setup_sdk.py
+      # Runs the DISC_STRUCT lowering tests (test_disc_lower.py) before
+      # compiling the game, and the page's node tests after linking.
+      - name: Build the browser platform
+        run: python3 tools/browser/build.py --jobs "$(nproc)"
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/play
+          cp -r docs/site/. _site/
+          # Build outputs only: the directory also holds CMake's own files.
+          cp build/browser/runtime/platforms/browser/*.{html,js,mjs,wasm} _site/play/
+          ls -l _site/play
+          du -sh _site
+          # Pages limits: 100 MB per file, 1 GB per site.
+          big=$(find _site -type f -size +100M)
+          if [ -n "$big" ]; then echo "::error::over the 100 MB Pages file limit: $big"; exit 1; fi
       # One-time manual setup: Settings > Pages > Source = "GitHub Actions".
       # Until then this job fails with "Get Pages site failed ... Not Found".
       # `enablement: true` does not help: GITHUB_TOKEN cannot create the site
@@ -30,6 +77,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
