@@ -167,10 +167,12 @@ void dialog_done(void* userdata, const char* const* files, int) {
  * on worker threads from startup. Until a config is compiled, every draw that
  * needs it is skipped (issue #46), so the drain finishing before a match is the
  * difference between a match that pops and one that does not. The launcher is
- * the one screen where the player is already waiting; spend it there. */
+ * the one screen where the player is already waiting; spend it there. Ask
+ * aurora_wait_pipelines rather than AuroraStats::queuedPipelines: the stat
+ * also counts rows no thread will ever build (Android parks the seed), and
+ * waiting on those never ended. */
 static uint32_t pending_pipelines() {
-    const auto* stats = aurora_get_stats();
-    return stats != nullptr ? stats->queuedPipelines : 0;
+    return aurora_wait_pipelines(0);
 }
 
 class Launcher final : public Rml::EventListener {
@@ -500,11 +502,13 @@ class Launcher final : public Rml::EventListener {
             /* The pipeline queue may still be draining. Take the wait here,
              * where the player is already looking at a screen, rather than
              * during the first match; pressing Play again skips it. */
-            if (!shaders_waited && pending_pipelines() > 0) {
+            if (const uint32_t pending = pending_pipelines(); !shaders_waited && pending > 0) {
+                SDL_Log("Launcher: Play waits for %u pipelines", pending);
                 shaders_waited = true;
                 last_pending = 0;
                 return;
             }
+            SDL_Log("Launcher: starting the game");
             begin_game();
         } else if (id == "verify" && supported) {
             cancel = false;
@@ -982,6 +986,7 @@ public:
             if (shaders_waited && result == -2) {
                 const uint32_t pending = pending_pipelines();
                 if (pending == 0) {
+                    SDL_Log("Launcher: pipelines built, starting the game");
                     shaders_waited = false;
                     begin_game(); /* reports its own failure in the status line */
                 } else if (pending != last_pending) {

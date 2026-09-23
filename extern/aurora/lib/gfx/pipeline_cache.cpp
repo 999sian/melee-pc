@@ -1370,15 +1370,27 @@ bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline) {
   return true;
 }
 
+/* Pipelines some thread is going to build. Background rows no thread takes
+ * -- none without a worker pool (Adreno, WebGPU), and none on Android at all
+ * (CompileBackgroundQueue) -- stay parked until a draw promotes one. Counting
+ * them had the launcher's Play wait on a queue that never drains: with the
+ * Android policy forced on Linux, one Play press sat on "Compiling shaders
+ * (6041 left)" for the whole 60 s run; counting only these, it started at
+ * once. */
+static size_t compilable_pipelines() {
+  const bool backgroundBuilt = g_hasPipelineThread && CompileBackgroundQueue;
+  return g_pendingPipelines.size() - (backgroundBuilt ? 0 : g_backgroundPipelineQueue.size());
+}
+
 uint32_t wait_pipelines(uint32_t maxWaitMs) {
   std::unique_lock lock{g_pipelineMutex};
   // Without a worker pool the pending entries compile on this thread at frame
   // end, so waiting here would only wait on ourselves.
-  if (g_hasPipelineThread && CompileBackgroundQueue && maxWaitMs != 0) {
+  if (g_hasPipelineThread && maxWaitMs != 0) {
     g_pipelineReadyCv.wait_for(lock, std::chrono::milliseconds{maxWaitMs},
-                               [] { return g_pendingPipelines.empty() || g_pipelineThreadEnd; });
+                               [] { return compilable_pipelines() == 0 || g_pipelineThreadEnd; });
   }
-  return static_cast<uint32_t>(g_pendingPipelines.size());
+  return static_cast<uint32_t>(compilable_pipelines());
 }
 
 } // namespace aurora::gfx
