@@ -412,7 +412,6 @@ enum {
     RJ_NAME,
     RJ_PORT,
     RJ_NO_OURS,
-    RJ_REV,
     RJ_DISC,
     RJ_STATE,
     RJ_GEN,
@@ -433,7 +432,6 @@ static const char* const k_rj[RJ_N] = {
     "over-long name",
     "bad game port",
     "no rev/disc/state/gen",
-    "over-long rev",
     "bad disc id",
     "unknown state",
     "bad gen",
@@ -511,12 +509,7 @@ static bool hex_u64(const char* s, uint64_t* out) {
 /* A validated announce: the entry it yields plus the three identity strings
  * the incompatible-peer log line names ("?" when the peer sent none). */
 typedef struct Txt {
-    /* rev holds a raw `git describe --dirty` string (pc_app_rev()); a build
-     * that is not sitting exactly on a tag appends "-N-g<hash>" before
-     * "-dirty", which 32 bytes does not always fit (RJ_REV rejected a real,
-     * same-protocol peer over exactly this on a non-tagged build). Matches
-     * the val[K_N][64] intermediate parse buffer's own cap. */
-    char v[12], rev[64], disc[12];
+    char v[12], rev[64] /* = val[] cap; git describe output */, disc[12];
     Entry e;
 } Txt;
 
@@ -587,9 +580,6 @@ static bool parse_txt(const mdns_record_txt_t* txt, size_t n, Txt* out) {
     const unsigned our_keys = KBIT(K_REV) | KBIT(K_DISC) | KBIT(K_STATE) | KBIT(K_GEN);
     if ((seen & our_keys) != our_keys) {
         return reject(RJ_NO_OURS);
-    }
-    if (strlen(val[K_REV]) >= sizeof out->rev) {
-        return reject(RJ_REV);
     }
     if (!hex_u64(val[K_DISC], &h) || strlen(val[K_DISC]) >= sizeof out->disc) {
         return reject(RJ_DISC);
@@ -780,37 +770,12 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
 
 /* ---- interface selection ---------------------------------------------- */
 
-/* Case-insensitive prefix match, local so this costs no header question (see
- * main.c's own ieq for the same reasoning): strncasecmp lives in <strings.h>
- * on POSIX and is only declared in <string.h> on MinGW when __STRICT_ANSI__
- * is off, which depends on the -std the target happens to use. */
-static bool prefix_ci(const char* name, const char* prefix) {
-    for (; *prefix != '\0'; name++, prefix++) {
-        int a = (unsigned char)*name, b = (unsigned char)*prefix;
-        if (a >= 'A' && a <= 'Z') {
-            a += 'a' - 'A';
-        }
-        if (b >= 'A' && b <= 'Z') {
-            b += 'a' - 'A';
-        }
-        if (a != b) {
-            return false;
-        }
-    }
-    return true;
-}
-
 static bool iface_skipped(const char* name) {
-    /* Matched case-insensitively: a Windows adapter's friendly name is
-     * capitalized ("Tailscale", "Radmin VPN", "Ethernet"), so a
-     * case-sensitive match against this all-lowercase list never matched
-     * anything there regardless of which of these products was installed -
-     * pick_iface() silently fell through to scoring a VPN/virtual adapter
-     * the same as a real one. */
+    /* case-insensitive: Windows friendly names are capitalized ("Tailscale") */
     static const char* const virt[] = {"docker", "veth", "br-", "virbr", "tun", "tap", "wg",
-        "utun", "zt", "tailscale", "radmin"};
+        "utun", "zt", "zerotier", "tailscale", "radmin"};
     for (size_t i = 0; i < sizeof virt / sizeof virt[0]; i++) {
-        if (prefix_ci(name, virt[i])) {
+        if (SDL_strncasecmp(name, virt[i], SDL_strlen(virt[i])) == 0) {
             return true;
         }
     }

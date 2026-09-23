@@ -410,7 +410,6 @@ def run(args):
             ("over-long name", "over-long name", p.base(name="txtprobelongname")),
             ("port with trailing junk", "bad game port", p.base(port="%dx" % PROBE_PORT)),
             ("no disc=", "no rev/disc/state/gen", p.base(disc=None)),
-            ("over-long rev", "over-long rev", p.base(rev="r" * 32)),
             ("non-hex disc", "bad disc id", p.base(disc="zzzzzzzz")),
             ("unknown state", "unknown state", p.base(state="hosting")),
             ("non-numeric gen", "bad gen", p.base(gen="7x")),

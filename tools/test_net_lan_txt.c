@@ -708,8 +708,6 @@ int main(int argc, char** argv) {
     n = variant(p, "rev",
         "rev=0123456789012345678901234567890123456789012345678901234567890123456789", NULL, 0);
     must_reject("value over 63 bytes", p, n);
-    n = variant(p, "rev", "rev=0123456789012345678901234567890123", NULL, 0);
-    must_reject("rev over 31 bytes", p, n);
 
     n = variant(p, "id", "id=0000000000000000", NULL, 0);
     must_reject("id=0", p, n);
