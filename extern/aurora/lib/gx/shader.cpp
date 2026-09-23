@@ -1731,6 +1731,14 @@ std::string build_shader_source(const ShaderConfig& config, uint32_t normalAttac
     fragReturn += "\n    return out_frag;";
   }
 
+  /* Byte/half-word unpacking has no form every mobile compiler accepts:
+   * PowerVR Rogue miscompiles extractBits on storage-buffer reads (vertex
+   * explosions, Galaxy A04), while Adreno 750's compiler fails to link most
+   * vertex shaders once the same reads are written as shifts and masks
+   * (VK_ERROR_UNKNOWN from CreateGraphicsPipelines, OnePlus Pad 2). */
+  const std::string_view gxBitsBody = webgpu::g_adapterInfo.vendorID == 0x1010 /* Imagination */
+                                          ? "(v >> off) & ((1u << n) - 1u)"
+                                          : "extractBits(v, off, n)";
   const auto shaderSource = fmt::format(R"""(
 fn bswap32(v: u32, le: bool) -> u32 {{
   if (le) {{
@@ -1744,6 +1752,10 @@ fn bswap32(v: u32, le: bool) -> u32 {{
 
 fn bswap16(v: u32, le: bool) -> u32 {{
   return select(((v & 0xFFu) << 8u) | (v >> 8u), v, le);
+}}
+
+fn gx_bits(v: u32, off: u32, n: u32) -> u32 {{
+  return {12};
 }}
 
 fn load_word(p: ptr<storage, array<u32>>, word_idx: u32) -> u32 {{
@@ -1780,10 +1792,10 @@ fn load_u16(p: ptr<storage, array<u32>>, byte_off: u32, le: bool) -> u32 {{
   let sub = byte_off & 3u;
   let word = load_word(p, word_idx);
   if (sub <= 2u) {{
-    return bswap16((word >> (sub * 8u)) & 0xFFFFu, le);
+    return bswap16(gx_bits(word, sub * 8u, 16u), le);
   }}
   let next = load_word(p, word_idx + 1u);
-  let raw = ((word >> 24u) & 0xFFu) | (((next >> 0u) & 0xFFu) << 8u);
+  let raw = gx_bits(word, 24u, 8u) | (gx_bits(next, 0u, 8u) << 8u);
   return bswap16(raw, le);
 }}
 
@@ -1816,33 +1828,33 @@ fn raw_fetch_u8_2(p: ptr<storage, array<u32>>, byte_off: u32) -> vec2u {{
   if (sub <= 2u) {{
     let shift = sub * 8u;
     return vec2u(
-      (word >> (shift + 0u)) & 0xFFu,
-      (word >> (shift + 8u)) & 0xFFu,
+      gx_bits(word, shift + 0u, 8u),
+      gx_bits(word, shift + 8u, 8u),
     );
   }}
   let next = load_word(p, word_idx + 1u);
   return vec2u(
-    (word >> 24u) & 0xFFu,
-    (next >> 0u) & 0xFFu,
+    gx_bits(word, 24u, 8u),
+    gx_bits(next, 0u, 8u),
   );
 }}
 
 fn raw_fetch_u8_3(p: ptr<storage, array<u32>>, byte_off: u32) -> vec3u {{
   let raw = load_u32_raw(p, byte_off);
   return vec3u(
-    (raw >> 0u) & 0xFFu,
-    (raw >> 8u) & 0xFFu,
-    (raw >> 16u) & 0xFFu,
+    gx_bits(raw, 0u, 8u),
+    gx_bits(raw, 8u, 8u),
+    gx_bits(raw, 16u, 8u),
   );
 }}
 
 fn raw_fetch_u8_4(p: ptr<storage, array<u32>>, byte_off: u32) -> vec4u {{
   let raw = load_u32_raw(p, byte_off);
   return vec4u(
-    (raw >> 0u) & 0xFFu,
-    (raw >> 8u) & 0xFFu,
-    (raw >> 16u) & 0xFFu,
-    (raw >> 24u) & 0xFFu,
+    gx_bits(raw, 0u, 8u),
+    gx_bits(raw, 8u, 8u),
+    gx_bits(raw, 16u, 8u),
+    gx_bits(raw, 24u, 8u),
   );
 }}
 
@@ -2101,7 +2113,7 @@ fn fs_main(in: VertexOutput) -> {10} {{{6}{5}{11}
 )""",
                                         uniBufAttrs, texBindings, vtxOutAttrs, vtxInAttrs, vtxXfrAttrs, fragmentFn,
                                         fragmentFnPre, vtxXfrAttrsPre, uniformPre, fragOutStruct, fragRetType,
-                                        fragReturn);
+                                        fragReturn, gxBitsBody);
   if (EnableDebugPrints) {
     Log.info("Generated shader (hash {:x}): {}", hash, shaderSource);
   }
