@@ -8,6 +8,7 @@
 #include "updater.hpp"
 #include "net_match.h"
 #include "net.h"
+#include "pc.h"
 #include <RmlUi/Core/Elements/ElementFormControl.h>
 #include <aurora/dvd.h>
 #include <aurora/event.h>
@@ -802,6 +803,11 @@ public:
         if (!initial_error.empty())
             status(initial_error, true);
         while (result == -2) {
+            if (pc_exit_requested) { /* SIGINT/SIGTERM, src/pc/main.c */
+                result = 0;
+                cancel = true;
+                break;
+            }
             auto* events = aurora_update();
             for (auto* e = events; e && e->type != AURORA_NONE; ++e) {
                 if (e->type == AURORA_EXIT) {

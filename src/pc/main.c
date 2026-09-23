@@ -314,10 +314,17 @@ static void pc_shutdown_once(void) {
     aurora_shutdown();
 }
 
+/* SIGINT/SIGTERM only ask the loops to leave; they run the real exit path
+ * themselves (the launcher's loop, pc_frame_boundary in vi.c). exit() from
+ * here ran the static destructors on whatever this thread was doing: once
+ * the launcher's idle time waited on aurora's pipeline-ready condition
+ * variable, the signal landed inside that wait and ~condition_variable
+ * blocked for ever on its own waiter (the launcher-startup smoke case hung
+ * until killed). A second signal gets the default action, so an impatient
+ * Ctrl+C still ends a wedged process. */
 static void pc_on_signal_exit(int sig) {
-    (void)sig;
     pc_exit_requested = true;
-    exit(0);
+    signal(sig, SIG_DFL);
 }
 
 static const struct {
