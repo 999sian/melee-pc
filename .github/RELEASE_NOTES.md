@@ -16,62 +16,55 @@ English (UK) text.
 
 ## Highlights
 
-- **Online play is authenticated end to end.** Every datagram now carries a
-  keyed MAC over its header and body (protocol 8), so someone who can reach
-  your address can no longer inject inputs, acknowledgements, delay changes or
-  a disconnect into a session. The same review closed a forged `RULES` that
-  could lock out the real host, made LAN auto-join require a peer that has
-  actually been seen in the lobby, stopped DHT matchmaking from dialling
-  private, broadcast and multicast addresses, and pinned ranked history to its
-  genesis rating.
-- **Connect codes are longer, and everyone's code has changed.** The suffix
-  after the `#` is now 8 characters instead of 4, carrying 40 bits of your key.
-  Read the new one off the Online Profile screen and send that. Peers must be
-  on the same build: a v0.2 client and a v0.1.10 client cannot play each other.
-- **Shader stutter is largely gone on a fresh install.** The bundled pipeline
-  cache had not been found since v0.1.8 (#79), so every packaged build was
-  compiling every shader from scratch; and the launcher now spends that
-  compilation queue while you are already waiting there instead of during your
-  first matches.
+- **Play in your browser.** https://999sian.github.io/melee-pc/play/ runs the
+  same game and renderer as the native builds, at 60 fps, in Chrome or Edge
+  with WebGPU. Your own disc image is read in the page and never uploaded. The
+  platform was contributed by @turtlesoupy (#85). The first visit reloads the
+  page once to enable the threads the engine needs.
+- **Rollback netplay recovers from hitches instead of stalling.** A side whose
+  game froze now catches up in whole frames: after a 250 ms freeze the two
+  sides are back within one frame instead of drifting for seconds, and the
+  stalls per freeze fell from about 3.5 to about 1.1. Packets are received,
+  acknowledged and timed on their own thread, so a freeze on one side no
+  longer shows up as a ping spike on both (339 ms -> 27 ms in the test). The
+  fight input delay never drops below 2 frames, which cut the waits on a
+  ~60 ms link from 7,996 to 1,365 per fight.
+- **Android: shaders no longer compile in the middle of a frame.** On most
+  GPUs they are built on a background thread, and only pipelines this device
+  has already built are warmed at startup. On a Pixel 8 Pro the PC's waits on
+  the phone in a LAN match went from 300-480 to 1. The game asks for a 60 Hz
+  display, supports Android's game modes, and no longer restarts when the font
+  size changes.
+- **Lighter on weak machines.** The frame and disc-wait loops sleep instead of
+  spinning (a core at 94 % after a hitch now sits at 8 %), the per-frame
+  texture sweep went from 1.8 ms to 0.1 ms on a slow core, and the reverb only
+  runs while something feeds it. That alone took the audio thread from 7.9 %
+  to 0.6 % of a slow core. Settings gain a reverb toggle and a one-press
+  **Performance** preset (native resolution, no MSAA or anisotropic filtering,
+  reverb off).
 
 ## Fixes
 
-- **Windows: online matches could never start (#87).** The peer address was
-  rebuilt through a `struct in_addr` whose first member is a byte array on
-  Windows, so only the first octet survived: a peer at 74.244.47.247 was dialled
-  as 74.0.0.0, the game sat on frame 0 and the session died on the connect
-  timeout. It was reported as a crash because the window stopped redrawing.
-- **The bundled shader cache was never loaded (#79).** v0.1.8 pointed the
-  resource path at `resources/` for the launcher's own assets, which also moved
-  the lookup for `initial_pipeline_cache.db` -- and every packaging script still
-  writes it beside the executable. Since v0.1.8 the 11,905-config seed was found
-  on no platform, which is what "the shaders take a long time to load" was.
-- **Marth's Dancing Blade and Roy's Double-Edge Dance did not glow (#86).** The
-  colour-animation duration was declared as `bool`, so every value above 1
-  became 1 and the overlay was removed on the next frame. A live match asks for
-  13 frames.
-- **The F1 menu went on acting on input after it was closed (#84).** Hiding it
-  leaves RmlUi's focus inside the hidden page, so Return still reached the
-  widgets and applied them -- the select sound playing over live gameplay.
-- **Android: the launcher could not be used, and hiding the touch controls was
-  permanent (#88, #75).** The touch overlay is the only touch entry point and
-  its analog-stick zone covers the lower-left quarter of the screen, so it
-  swallowed the taps meant for "Choose disc"; it is now inert while the launcher
-  is up. "Hide Touch Controls" also hid the settings pill that owns the toggle,
-  so the hide could not be undone; it is a toggle now and the pill stays.
-- **Netplay no longer hangs or wedges.** The scene hand-off had no deadline; a
-  peer could freeze the game for ever by advancing one frame just under the
-  no-progress bound; and a direct session could run unagreed, each side playing
-  on its own boot seed. A desync is now reported rather than silently absorbed.
-- **Three memory-safety defects in the netplay layer**, found by review: a
-  `snprintf` length accumulated past its buffer on the desync path, a SHA-1
-  length over-reading a stack buffer, and an unchecked `XXH3_createState`.
-- **Rollback corrections and pacing**: latency stability, per-scene delay,
-  phase-sync on frame advantage, and a recording that replays without
-  diverging.
-- **A session id can only be established by a `RULES` packet**, so a forged
-  16-byte `RelAck` can no longer end a session permanently, and `REL_DELAY` is
-  no longer accepted from the guest with an unbound frame field.
+- **Audio and video froze every ~2 s with an Xbox controller on the Xbox
+  Wireless Adapter (#90).** While no GameCube adapter was plugged in, the game
+  re-scanned every HID device once a second under the joystick lock, which
+  takes ~800 ms per scan on Windows with that controller attached. It now looks
+  again only when a USB/HID device is added or removed.
+- **The launcher's shader wait never ended on Android.** Play waited for
+  pipelines that no thread would ever build; it now waits only for work that
+  is actually queued.
+- **A disc read in progress dropped a whole netplay session into lockstep**,
+  logged as out of memory. A refused rollback snapshot now costs one lockstep
+  frame.
+- **LAN lobby**: a match is refused when the two peers are on different
+  screens (a desync at frame 141), peers are kept across a lobby restart, a
+  failed lobby can be retried, and the host sends the rules as soon as it opens
+  the session.
+- **ARM builds (Android, iOS, Windows ARM64, Linux aarch64) treated `char` as
+  unsigned**, unlike the original game; the new-unlock notice drew its random
+  number 6 frames early there. Everything is now compiled with signed `char`.
+- **Rendering on PowerVR and Adreno**: the shader bit-extract form is kept off
+  PowerVR only, since the Adreno 750 driver cannot link the shift form.
 
 ## Known issues
 
@@ -84,9 +77,9 @@ the numbers below link there.
   implemented and rendezvous through the public DHT, but pairing across two
   NATs and live ranked acceptance are unproven, and cross-platform simulation
   determinism is not claimed. Ratings are community-computed and unverified.
-  Every datagram is authenticated as of this release (protocol 8), so both peers
-  must run the same version, and a connect code is now 8 characters after the
-  `#`.
+  Every datagram is authenticated (protocol 8, since v0.2), and the LAN lobby
+  only pairs identical builds, so both players should update to v0.2.1. A
+  connect code is 8 characters after the `#`.
 - Widescreen applies to fights (VS, Sudden Death, Training); menus, results and
   cutscenes stay at the original aspect. The wide HUD is a separate toggle and
   only moves the timer and the 2-4 player HUD groups.
@@ -96,12 +89,23 @@ the numbers below link there.
   launcher waits for that queue when you press Play -- press Play again to skip
   the wait. `MELEE_PIPELINE_SYNC=1` restores the old wait-for-compile
   behaviour, and `MELEE_PIPELINE_JOBS=<n>` sets the compile thread count.
+  On Android, Qualcomm Adreno GPUs still compile shaders inline, because the
+  Adreno 750 driver fails when pipelines are created on a second thread, so
+  expect some first-use stutter there.
 - Only Vulkan, Direct3D 12/11 and Metal backends are shipped; OpenGL and
   OpenGL ES-only GPUs and drivers do not run the game (#64, #66).
 - Gamepad buttons, sticks and triggers can be remapped; dash sensitivity,
   tap-jump disable and input buffer settings are not available (#3).
 - Some users cannot get past the launcher; if the launcher shows but the game
   never starts, run with the log enabled and attach it (#40).
+
+**Browser**
+
+- Tested in Chrome only; Firefox and Safari WebGPU support is incomplete.
+- Only a raw, uncompressed USA revision 2 (GALE01) image loads: no `.ciso`,
+  `.rvz` or PAL.
+- No online play, and no gamepad remapping (the default mapping is used; the
+  keys are listed under the canvas).
 
 **Windows**
 
@@ -145,7 +149,8 @@ the numbers below link there.
 - Windows 10/11 (x86-64 or ARM64): Direct3D 12 feature level 11_0 or Vulkan
   1.1; a Direct3D 11 fallback exists but is unverified.
   Linux (x86-64 or aarch64): Vulkan 1.1. macOS: Metal (Apple Silicon tested).
-  Android: arm64 with Vulkan 1.1. iOS 14+: arm64, Metal.
+  Android: arm64 with Vulkan 1.1. iOS 14+: arm64, Metal. Browser: Chrome or
+  Edge with WebGPU.
 - Keep `resources/` (and on Windows the DLLs) beside the executable.
 - A Melee USA 1.02 (GALE01) disc image (`.iso`, `.gcm`, `.ciso` or `.rvz`).
 
@@ -163,6 +168,7 @@ the numbers below link there.
 | iOS arm64 | `Melee-iOS-arm64.ipa` | Sideloadable IPA (AltStore, Sideloadly, TrollStore) with Metal backend. |
 | macOS arm64 | `Melee-macOS-arm64.zip` | Apple Silicon. Ad-hoc signed: right-click > Open on first launch. |
 | macOS x86_64 | `Melee-macOS-x86_64.zip` | Intel. Same notes; built but not yet tested on Intel hardware. |
+| Browser | [999sian.github.io/melee-pc/play](https://999sian.github.io/melee-pc/play/) | Chrome or Edge with WebGPU. Raw `.iso`/`.gcm` only; no online play. |
 
 Launch with no arguments to open the launcher and pick a disc, or pass the
 image path directly:
@@ -172,6 +178,67 @@ image path directly:
 ```
 
 ## Previous releases
+
+### Changes in v0.2-beta
+
+#### Highlights
+
+- **Online play is authenticated end to end.** Every datagram now carries a
+  keyed MAC over its header and body (protocol 8), so someone who can reach
+  your address can no longer inject inputs, acknowledgements, delay changes or
+  a disconnect into a session. The same review closed a forged `RULES` that
+  could lock out the real host, made LAN auto-join require a peer that has
+  actually been seen in the lobby, stopped DHT matchmaking from dialling
+  private, broadcast and multicast addresses, and pinned ranked history to its
+  genesis rating.
+- **Connect codes are longer, and everyone's code has changed.** The suffix
+  after the `#` is now 8 characters instead of 4, carrying 40 bits of your key.
+  Read the new one off the Online Profile screen and send that. Peers must be
+  on the same build: a v0.2 client and a v0.1.10 client cannot play each other.
+- **Shader stutter is largely gone on a fresh install.** The bundled pipeline
+  cache had not been found since v0.1.8 (#79), so every packaged build was
+  compiling every shader from scratch; and the launcher now spends that
+  compilation queue while you are already waiting there instead of during your
+  first matches.
+
+#### Fixes
+
+- **Windows: online matches could never start (#87).** The peer address was
+  rebuilt through a `struct in_addr` whose first member is a byte array on
+  Windows, so only the first octet survived: a peer at 74.244.47.247 was dialled
+  as 74.0.0.0, the game sat on frame 0 and the session died on the connect
+  timeout. It was reported as a crash because the window stopped redrawing.
+- **The bundled shader cache was never loaded (#79).** v0.1.8 pointed the
+  resource path at `resources/` for the launcher's own assets, which also moved
+  the lookup for `initial_pipeline_cache.db` -- and every packaging script still
+  writes it beside the executable. Since v0.1.8 the 11,905-config seed was found
+  on no platform, which is what "the shaders take a long time to load" was.
+- **Marth's Dancing Blade and Roy's Double-Edge Dance did not glow (#86).** The
+  colour-animation duration was declared as `bool`, so every value above 1
+  became 1 and the overlay was removed on the next frame. A live match asks for
+  13 frames.
+- **The F1 menu went on acting on input after it was closed (#84).** Hiding it
+  leaves RmlUi's focus inside the hidden page, so Return still reached the
+  widgets and applied them -- the select sound playing over live gameplay.
+- **Android: the launcher could not be used, and hiding the touch controls was
+  permanent (#88, #75).** The touch overlay is the only touch entry point and
+  its analog-stick zone covers the lower-left quarter of the screen, so it
+  swallowed the taps meant for "Choose disc"; it is now inert while the launcher
+  is up. "Hide Touch Controls" also hid the settings pill that owns the toggle,
+  so the hide could not be undone; it is a toggle now and the pill stays.
+- **Netplay no longer hangs or wedges.** The scene hand-off had no deadline; a
+  peer could freeze the game for ever by advancing one frame just under the
+  no-progress bound; and a direct session could run unagreed, each side playing
+  on its own boot seed. A desync is now reported rather than silently absorbed.
+- **Three memory-safety defects in the netplay layer**, found by review: a
+  `snprintf` length accumulated past its buffer on the desync path, a SHA-1
+  length over-reading a stack buffer, and an unchecked `XXH3_createState`.
+- **Rollback corrections and pacing**: latency stability, per-scene delay,
+  phase-sync on frame advantage, and a recording that replays without
+  diverging.
+- **A session id can only be established by a `RULES` packet**, so a forged
+  16-byte `RelAck` can no longer end a session permanently, and `REL_DELAY` is
+  no longer accepted from the guest with an unbound frame field.
 
 ### Changes in v0.1.10.1-beta
 

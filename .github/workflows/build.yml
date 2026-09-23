@@ -204,7 +204,7 @@ jobs:
 
       - name: Build APK
         env:
-          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.2' }}
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.2.1' }}
           MELEE_KEYSTORE_BASE64: ${{ secrets.MELEE_KEYSTORE_BASE64 }}
           MELEE_KEYSTORE_PASSWORD: ${{ secrets.MELEE_KEYSTORE_PASSWORD }}
           MELEE_KEY_ALIAS: ${{ secrets.MELEE_KEY_ALIAS }}
@@ -250,7 +250,7 @@ jobs:
 
       - name: Build and package
         env:
-          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.2' }}
+          MELEE_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '0.2.1' }}
         run: tools/package_macos.sh
 
       - uses: actions/upload-artifact@v4
