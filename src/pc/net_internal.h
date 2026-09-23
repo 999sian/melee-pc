@@ -15,21 +15,32 @@
  *
  * Threading
  * ---------
- * Everything runs on the game thread except tx_timer (net.c), a 4 ms SDL
- * timer that resends the newest input packet, releases held (simulated)
- * datagrams and retransmits the reliable message in flight. The timer and
- * the game thread share, under net.tx_lock only:
+ * Everything runs on the game thread except two helpers in net.c:
+ *   - tx_timer, a 4 ms SDL timer that resends the newest input packet,
+ *     releases held (simulated) datagrams and retransmits the reliable
+ *     message in flight;
+ *   - rx_main, the receive thread: it drains the socket, runs the
+ *     authentication gate, acks each input packet and times each ack the
+ *     moment it lands, and queues everything else for recv_inputs, which
+ *     applies it on the game thread. Its gate state, counters and queue are
+ *     under s_rx_lock (net.c), taken before tx_lock and never inside it.
+ * The two helpers and the game thread share, under net.tx_lock only:
  *   - the socket: net.active flips under the lock too, so the timer never
- *     sends on a closed socket, and pc_net_disconnect removes the timer
- *     before taking the lock so no callback outlives the socket;
+ *     sends on a closed socket, and pc_net_disconnect removes the timer and
+ *     joins the receive thread before taking the lock, so neither outlives
+ *     the socket;
  *   - the frozen packet copy (s_last_pkt, net.c), the held queue (s_held,
  *     net_sim.c) and the sim knobs tx() reads, net.tx_pkts/tx_inputs;
  *   - the reliable transmit queue (s_rel_tx, net_reliable.c):
  *     s_rel_tx[s_rel_tx_head] is the message in flight, resent until its
- *     'K' arrives. The reliable receive queue is game thread only.
+ *     'K' arrives. The reliable receive queue is game thread only;
+ *   - the session key (net_wire.c), the RTT ring, and net.session and
+ *     net.peer, which the receive thread alone changes once a session is up
+ *     (the guest learning its id, a dual-stack peer answering from another
+ *     address).
  * All simulation state (frames, input rings, snapshots, rollback, time
- * sync, handshake, record/replay, s_rx_held) is game thread only;
- * pc_net_note_io ignores other threads for that reason.
+ * sync, handshake, record/replay) is game thread only; pc_net_note_io
+ * ignores other threads for that reason.
  *
  * Invariants
  * ----------
@@ -45,7 +56,7 @@
  *   - net.frame is the next fresh frame; net.tick_frame is the frame of the
  *     tick being run (frame - 1 outside a rollback, older during one).
  *   - a datagram is authenticated before anything reads it: once one tag
- *     has verified, recv_inputs accepts nothing that does not, so no state
+ *     has verified, the receive gate accepts nothing that does not, so no state
  *     below it (peer address, session id, rings, reliable lane) can be
  *     moved by a datagram that is not the peer's.
  *   - net.tx_pkts/tx_inputs are counted under tx_lock and cleared by the
@@ -376,12 +387,15 @@ extern struct NetSession net;
 
 /* ---- net.c ------------------------------------------------------------ */
 
+/* Apply what the receive thread queued: inputs, acks, reliable messages
+ * (game thread). */
 void recv_inputs(void);
 int scene_kind(void);
 bool in_fight(void);
 
 /* A REL_RESUME payload from the peer (on_rel dispatches it here instead of
- * queueing it for the caller); game thread, like the whole receive side. */
+ * queueing it for the caller); game thread, like everything recv_inputs
+ * applies. */
 void net_resume_rel(const void* payload, int len);
 
 /* One sendto with errno/WSA translation and the sock_err counter; used by
