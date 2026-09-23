@@ -775,11 +775,37 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
 
 /* ---- interface selection ---------------------------------------------- */
 
+/* Case-insensitive prefix match, local so this costs no header question (see
+ * main.c's own ieq for the same reasoning): strncasecmp lives in <strings.h>
+ * on POSIX and is only declared in <string.h> on MinGW when __STRICT_ANSI__
+ * is off, which depends on the -std the target happens to use. */
+static bool prefix_ci(const char* name, const char* prefix) {
+    for (; *prefix != '\0'; name++, prefix++) {
+        int a = (unsigned char)*name, b = (unsigned char)*prefix;
+        if (a >= 'A' && a <= 'Z') {
+            a += 'a' - 'A';
+        }
+        if (b >= 'A' && b <= 'Z') {
+            b += 'a' - 'A';
+        }
+        if (a != b) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool iface_skipped(const char* name) {
-    static const char* const virt[] = {
-        "docker", "veth", "br-", "virbr", "tun", "tap", "wg", "utun", "zt"};
+    /* Matched case-insensitively: a Windows adapter's friendly name is
+     * capitalized ("Tailscale", "Radmin VPN", "Ethernet"), so a
+     * case-sensitive match against this all-lowercase list never matched
+     * anything there regardless of which of these products was installed -
+     * pick_iface() silently fell through to scoring a VPN/virtual adapter
+     * the same as a real one. */
+    static const char* const virt[] = {"docker", "veth", "br-", "virbr", "tun", "tap", "wg",
+        "utun", "zt", "tailscale", "radmin"};
     for (size_t i = 0; i < sizeof virt / sizeof virt[0]; i++) {
-        if (strncmp(name, virt[i], strlen(virt[i])) == 0) {
+        if (prefix_ci(name, virt[i])) {
             return true;
         }
     }
