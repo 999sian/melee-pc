@@ -163,14 +163,13 @@ void dialog_done(void* userdata, const char* const* files, int) {
     (*owner)->ready = true;
 }
 
-/* Aurora compiles the seeded pipeline cache -- about twelve thousand configs --
- * on worker threads from startup. Until a config is compiled, every draw that
- * needs it is skipped (issue #46), so the drain finishing before a match is the
- * difference between a match that pops and one that does not. The launcher is
- * the one screen where the player is already waiting; spend it there. Ask
- * aurora_wait_pipelines rather than AuroraStats::queuedPipelines: the stat
- * also counts rows no thread will ever build (Android parks the seed), and
- * waiting on those never ended. */
+/* Aurora compiles the known pipeline configs ahead of use -- the ~12k-config
+ * seed on desktop, on Android the ones this device has built before -- on
+ * worker threads from startup, or, without workers (Adreno), in this loop's
+ * idle time. Until a config is compiled, every draw that needs it is skipped
+ * (issue #46), so the drain finishing before a match is the difference between
+ * a match that pops and one that does not. The launcher is the one screen
+ * where the player is already waiting; spend it there. */
 static uint32_t pending_pipelines() {
     return aurora_wait_pipelines(0);
 }
@@ -999,7 +998,15 @@ public:
                 break;
             if (aurora_begin_frame())
                 aurora_end_frame();
-            SDL_Delay(8);
+            /* Spend the idle time until the next frame on the pipeline queue:
+             * with worker threads this only waits, as a plain delay did;
+             * without them (Adreno) it builds queued pipelines here, the only
+             * place they are built before a match. */
+            const uint64_t idle_start = SDL_GetTicks();
+            aurora_wait_pipelines(8);
+            const uint64_t idle = SDL_GetTicks() - idle_start;
+            if (idle < 8)
+                SDL_Delay(uint32_t(8 - idle));
         }
         return result;
     }
