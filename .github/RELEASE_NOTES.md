@@ -16,55 +16,24 @@ English (UK) text.
 
 ## Highlights
 
-- **Play in your browser.** https://999sian.github.io/melee-pc/play/ runs the
-  same game and renderer as the native builds, at 60 fps, in Chrome or Edge
-  with WebGPU. Your own disc image is read in the page and never uploaded. The
-  platform was contributed by @turtlesoupy (#85). The first visit reloads the
-  page once to enable the threads the engine needs.
-- **Rollback netplay recovers from hitches instead of stalling.** A side whose
-  game froze now catches up in whole frames: after a 250 ms freeze the two
-  sides are back within one frame instead of drifting for seconds, and the
-  stalls per freeze fell from about 3.5 to about 1.1. Packets are received,
-  acknowledged and timed on their own thread, so a freeze on one side no
-  longer shows up as a ping spike on both (339 ms -> 27 ms in the test). The
-  fight input delay never drops below 2 frames, which cut the waits on a
-  ~60 ms link from 7,996 to 1,365 per fight.
-- **Android: shaders no longer compile in the middle of a frame.** On most
-  GPUs they are built on a background thread, and only pipelines this device
-  has already built are warmed at startup. On a Pixel 8 Pro the PC's waits on
-  the phone in a LAN match went from 300-480 to 1. The game asks for a 60 Hz
-  display, supports Android's game modes, and no longer restarts when the font
-  size changes.
-- **Lighter on weak machines.** The frame and disc-wait loops sleep instead of
-  spinning (a core at 94 % after a hitch now sits at 8 %), the per-frame
-  texture sweep went from 1.8 ms to 0.1 ms on a slow core, and the reverb only
-  runs while something feeds it. That alone took the audio thread from 7.9 %
-  to 0.6 % of a slow core. Settings gain a reverb toggle and a one-press
-  **Performance** preset (native resolution, no MSAA or anisotropic filtering,
-  reverb off).
+- **Online matches no longer fail with "match handshake failed" when the host
+  has Items set to Off.** The game stores Items: Off as 255, and the rules
+  check only allowed 0-5, so the other player silently discarded the host's
+  rules and both sides sat through a 15 s timeout. Any player with Items Off
+  saved in their VS settings failed about half their online matches this way.
+  Found in real two-machine testing by @Joyastick (#91).
+- **Matchmaking starts faster.** A player who was already paired kept greeting
+  newly found players, who then locked onto them and waited 8 s before
+  searching again. A paired player now stays quiet.
 
 ## Fixes
 
-- **Audio and video froze every ~2 s with an Xbox controller on the Xbox
-  Wireless Adapter (#90).** While no GameCube adapter was plugged in, the game
-  re-scanned every HID device once a second under the joystick lock, which
-  takes ~800 ms per scan on Windows with that controller attached. It now looks
-  again only when a USB/HID device is added or removed.
-- **The launcher's shader wait never ended on Android.** Play waited for
-  pipelines that no thread would ever build; it now waits only for work that
-  is actually queued.
-- **A disc read in progress dropped a whole netplay session into lockstep**,
-  logged as out of memory. A refused rollback snapshot now costs one lockstep
-  frame.
-- **LAN lobby**: a match is refused when the two peers are on different
-  screens (a desync at frame 141), peers are kept across a lobby restart, a
-  failed lobby can be retried, and the host sends the rules as soon as it opens
-  the session.
-- **ARM builds (Android, iOS, Windows ARM64, Linux aarch64) treated `char` as
-  unsigned**, unlike the original game; the new-unlock notice drew its random
-  number 6 frames early there. Everything is now compiled with signed `char`.
-- **Rendering on PowerVR and Adreno**: the shader bit-extract form is kept off
-  PowerVR only, since the Adreno 750 driver cannot link the shift form.
+- **LAN peers on a non-release build could not see each other**: the build
+  version did not fit its 32-byte announce field and the whole announcement
+  was dropped (#92, @Joyastick).
+- **LAN on Windows could pick a VPN adapter** (Tailscale, Radmin, ZeroTier)
+  instead of the real network card, because adapter names were matched
+  case-sensitively (#93, @Joyastick).
 
 ## Known issues
 
@@ -178,6 +147,60 @@ image path directly:
 ```
 
 ## Previous releases
+
+### Changes in v0.2.1-beta
+
+#### Highlights
+
+- **Play in your browser.** https://999sian.github.io/melee-pc/play/ runs the
+  same game and renderer as the native builds, at 60 fps, in Chrome or Edge
+  with WebGPU. Your own disc image is read in the page and never uploaded. The
+  platform was contributed by @turtlesoupy (#85). The first visit reloads the
+  page once to enable the threads the engine needs.
+- **Rollback netplay recovers from hitches instead of stalling.** A side whose
+  game froze now catches up in whole frames: after a 250 ms freeze the two
+  sides are back within one frame instead of drifting for seconds, and the
+  stalls per freeze fell from about 3.5 to about 1.1. Packets are received,
+  acknowledged and timed on their own thread, so a freeze on one side no
+  longer shows up as a ping spike on both (339 ms -> 27 ms in the test). The
+  fight input delay never drops below 2 frames, which cut the waits on a
+  ~60 ms link from 7,996 to 1,365 per fight.
+- **Android: shaders no longer compile in the middle of a frame.** On most
+  GPUs they are built on a background thread, and only pipelines this device
+  has already built are warmed at startup. On a Pixel 8 Pro the PC's waits on
+  the phone in a LAN match went from 300-480 to 1. The game asks for a 60 Hz
+  display, supports Android's game modes, and no longer restarts when the font
+  size changes.
+- **Lighter on weak machines.** The frame and disc-wait loops sleep instead of
+  spinning (a core at 94 % after a hitch now sits at 8 %), the per-frame
+  texture sweep went from 1.8 ms to 0.1 ms on a slow core, and the reverb only
+  runs while something feeds it. That alone took the audio thread from 7.9 %
+  to 0.6 % of a slow core. Settings gain a reverb toggle and a one-press
+  **Performance** preset (native resolution, no MSAA or anisotropic filtering,
+  reverb off).
+
+#### Fixes
+
+- **Audio and video froze every ~2 s with an Xbox controller on the Xbox
+  Wireless Adapter (#90).** While no GameCube adapter was plugged in, the game
+  re-scanned every HID device once a second under the joystick lock, which
+  takes ~800 ms per scan on Windows with that controller attached. It now looks
+  again only when a USB/HID device is added or removed.
+- **The launcher's shader wait never ended on Android.** Play waited for
+  pipelines that no thread would ever build; it now waits only for work that
+  is actually queued.
+- **A disc read in progress dropped a whole netplay session into lockstep**,
+  logged as out of memory. A refused rollback snapshot now costs one lockstep
+  frame.
+- **LAN lobby**: a match is refused when the two peers are on different
+  screens (a desync at frame 141), peers are kept across a lobby restart, a
+  failed lobby can be retried, and the host sends the rules as soon as it opens
+  the session.
+- **ARM builds (Android, iOS, Windows ARM64, Linux aarch64) treated `char` as
+  unsigned**, unlike the original game; the new-unlock notice drew its random
+  number 6 frames early there. Everything is now compiled with signed `char`.
+- **Rendering on PowerVR and Adreno**: the shader bit-extract form is kept off
+  PowerVR only, since the Adreno 750 driver cannot link the shift form.
 
 ### Changes in v0.2-beta
 
@@ -576,6 +599,7 @@ settings overlay.
 - **@ribbanya** (Robin Avery) — Decompilation and memory card subsystem.
 - **@PsiLupan** (Will Carter) — Decompilation and subsystem typing.
 - **@itsgrimetime** (Mike Grimes) — Decompilation foundations.
+- **@Joyastick** — Real two-machine netplay testing and fixes (#91, #92, #93).
 
 ### Community Testers & Issue Reporters
 Special thanks to our community members whose detailed bug reports and reproduction steps directly helped diagnose and resolve issues in these releases:
