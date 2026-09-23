@@ -526,6 +526,7 @@ static uint64_t s_take_ns_worst, s_restore_ns_worst;
 static unsigned s_takes, s_restores;
 static int s_resim_n_max;        /* re-run ticks per present, worst */
 static unsigned s_take_inflight; /* takes refused over in-flight transfers */
+static bool s_take_refused_io;   /* the last take was one of them */
 
 /* MELEE_NET_SIM_OOM_FRAME=n: the first take at frame >= n fails the way a
  * realloc failure does, to exercise the lockstep fallback. */
@@ -542,10 +543,11 @@ bool snapshot_take(Snapshot* s, int32_t frame) {
      * drains transfers before each tick precisely so this is normally false
      * (net.c dvd_settle), but the drain gives up after five seconds and runs
      * on, and a request issued from a worker never went through it at all.
-     * Refuse rather than take one that may not be restorable: the caller
-     * already treats a failed take as "stay in lockstep for this frame",
-     * which is the correct answer here too. */
-    if (aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0) {
+     * Refuse rather than take one that may not be restorable. This is not
+     * a failure of the snapshot machinery: the caller runs just this frame
+     * in lockstep and predicts again from the next (net.c snap_predicted). */
+    s_take_refused_io = aurora_dvd_inflight() > 0 || aurora_arq_inflight() > 0;
+    if (s_take_refused_io) {
         s_take_inflight++;
         s->frame = -1;
         return false;
@@ -604,6 +606,10 @@ bool snapshot_take(Snapshot* s, int32_t frame) {
         s_take_ns_worst = dt;
     }
     return true;
+}
+
+bool snapshot_refused_io(void) {
+    return s_take_refused_io;
 }
 
 /* Why a snapshot cannot be restored right now, NULL when it can: the scene

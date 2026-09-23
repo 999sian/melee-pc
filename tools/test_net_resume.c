@@ -6,9 +6,11 @@
  * the exchange is injected from a step hook that runs once per wait-loop
  * turn: net_resume_rel() for its RESUME, on_inputs() for the pads that
  * refill the gap. The socket is real but bound to an ephemeral port with no
- * peer listening, so recv_inputs() just drains empty and every send lands in
- * the void; tx() captures the input packets for the assertions. The include
- * order matters: aurora's headers must come before src/. From the repo root:
+ * peer listening, and no receive thread is started (SDL_CreateThreadRuntime
+ * below), so recv_inputs() drains it itself, synchronously; every send lands
+ * in the void, and tx() captures the input packets for the assertions. The
+ * include order matters: aurora's headers must come before src/. From the
+ * repo root:
  *   cc -std=gnu11 -DTARGET_PC=1 -DMELEE_PC=1 -DAURORA \
  *      -I extern/aurora/include -I src -I src/sdk_include \
  *      -I build/_deps/sdl-build/include-revision \
@@ -121,6 +123,21 @@ SDL_ThreadID SDL_GetCurrentThreadID(void) {
 }
 Uint64 SDL_GetPerformanceCounter(void) {
     return 424242;
+}
+/* No receive thread: net.c then drains the socket from recv_inputs() on the
+ * calling thread, so a case sees its datagram handled when that returns. */
+SDL_Thread* SDL_CreateThreadRuntime(SDL_ThreadFunction fn, const char* name, void* data,
+    SDL_FunctionPointer begin, SDL_FunctionPointer end) {
+    (void)fn;
+    (void)name;
+    (void)data;
+    (void)begin;
+    (void)end;
+    return NULL;
+}
+void SDL_WaitThread(SDL_Thread* thread, int* status) {
+    (void)thread;
+    (void)status;
 }
 
 /* Exercise the shipping wire codecs and address comparison. */
@@ -237,6 +254,8 @@ const char* state_line(int32_t frame) {
 static Snapshot s_snaps[SNAPS];
 static uint8_t s_snap_storage[SNAPS];
 static int32_t s_snapshot_fail_at = -1;
+static int32_t s_snapshot_io_at = -1; /* refuse this frame's take over in-flight I/O */
+static bool s_snapshot_io;
 static int32_t s_restored = -1;
 static bool s_state_missing;
 static bool s_restore_rumble_fixture;
@@ -246,7 +265,8 @@ static HSD_RumbleData s_saved_rumble_heads[4];
 static RumbleInfo s_saved_rumble_info;
 bool snapshot_take(Snapshot* s, int32_t frame) {
     s->frame = -1;
-    if (s_state_missing || frame == s_snapshot_fail_at) {
+    s_snapshot_io = frame == s_snapshot_io_at;
+    if (s_state_missing || frame == s_snapshot_fail_at || s_snapshot_io) {
         return false;
     }
     if (s_restore_rumble_fixture) {
@@ -257,6 +277,9 @@ bool snapshot_take(Snapshot* s, int32_t frame) {
     s->buf = &s_snap_storage[frame % SNAPS];
     s->frame = frame;
     return true;
+}
+bool snapshot_refused_io(void) {
+    return s_snapshot_io;
 }
 const char* snapshot_unusable(const Snapshot* s) {
     (void)s;
@@ -368,7 +391,7 @@ static void setup(void) {
     a.sin_port = 0; /* ephemeral: no collision with a concurrent run */
     assert(bind(sock, (struct sockaddr*)&a, sizeof a) == 0);
     assert(sock_nonblock(sock));
-    s_snapshot_fail_at = s_restored = -1;
+    s_snapshot_fail_at = s_snapshot_io_at = s_restored = -1;
     s_state_missing = false;
     gm_804D6720 = NULL;
     session_reset();
@@ -447,7 +470,7 @@ static void peer_pads(int32_t first, int32_t last) {
         pk.pads[i].button = (uint16_t)(0x2000 + first + i);
     }
     peer_heard();
-    on_inputs(&pk, (int)(offsetof(Packet, pads) + (size_t)pk.count * sizeof(WirePad)));
+    on_inputs(&pk);
 }
 
 /* ---- cases ------------------------------------------------------------ */
@@ -1061,7 +1084,7 @@ static void deliver_changed_input(void) {
     for (int i = 0; i < pk.count; i++) {
         pk.pads[i].button = 0x100;
     }
-    on_inputs(&pk, offsetof(Packet, pads) + pk.count * sizeof(WirePad));
+    on_inputs(&pk);
     s_step = NULL;
 }
 
@@ -1079,6 +1102,25 @@ static void case_snapshot_failure(void) {
     assert(s_rb_frame == FRAME - 1);
     assert(rollback_to(s_rb_frame));
     assert(s_restored == FRAME - 1 && s_rb_lost == 0);
+    assert(s_lockstep && logged("out of memory for snapshots at frame 200, lockstep from here"));
+    pc_net_disconnect();
+}
+
+static void case_snapshot_io_refusal(void) {
+    printf("case: a take refused over in-flight I/O costs one lockstep frame, not the session\n");
+    fight_setup();
+    s_remote_have = FRAME - 1;
+    s_snapshot_io_at = FRAME;
+    s_step = deliver_changed_input;
+    fresh_tick(s_test_queue[0].stat, true);
+    assert(net.active && net.frame == FRAME + 1);
+    assert(s_remote_have == FRAME); /* waited for the real input instead of predicting */
+    assert(s_test_queue[0].stat[1].button == 0x100);
+    assert(!s_lockstep && !logged("lockstep from here"));
+    s_snapshot_io_at = -1;
+    fresh_tick(s_test_queue[0].stat, true); /* the peer has not sent FRAME + 1 yet */
+    assert(net.active && net.frame == FRAME + 2 && s_remote_have == FRAME);
+    assert(snap_slot(FRAME + 1)->frame == FRAME + 1); /* predicted again */
     pc_net_disconnect();
 }
 
@@ -1221,6 +1263,7 @@ int main(int argc, char** argv) {
     case_connect_destination();
     case_old_protocol();
     case_snapshot_failure();
+    case_snapshot_io_refusal();
     case_snapshot_missing();
     case_resim_snapshot_failure();
     case_seed_reset();

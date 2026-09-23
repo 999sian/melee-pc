@@ -53,6 +53,11 @@ void pc_net_poll(void);
  * transfers on success only; no new NAT mapping is created. */
 bool pc_net_connect_socket(
     intptr_t socket, const char* ip, uint16_t port, int player, uint32_t seed);
+/* Offered every IPv4 datagram on the session socket before the session sees
+ * it; true consumes it. Runs on net.c's receive thread, and
+ * pc_net_set_datagram_handler() returns only once no call into the previous
+ * handler is still running, so what one reads must stay fixed while it is
+ * installed. */
 typedef bool (*PcNetDatagramHandler)(const void*, size_t, uint32_t, uint16_t);
 void pc_net_set_datagram_handler(PcNetDatagramHandler handler);
 bool pc_net_send_datagram(const void* data, size_t size, uint32_t address, uint16_t port);
@@ -88,6 +93,11 @@ bool pc_net_after_tick(bool scene_ending);
  * paid here rather than by sleeping inside a tick, and only ever lengthen a
  * frame: the peer that is behind is caught by the one ahead slowing down. */
 uint64_t pc_net_pace_adjust_ns(void);
+
+/* Called by the frame boundary before its pacing sleep with how late the
+ * boundary is against its schedule; returns how much of that to run off by
+ * skipping the sleep. The rest is dropped. */
+uint64_t pc_net_catch_up_ns(uint64_t late_ns);
 
 /* True while re-simulating: sound/music/rumble starts must be suppressed. */
 bool pc_net_resim(void);

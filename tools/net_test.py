@@ -1177,6 +1177,9 @@ def parse_args(argv=None):
                     help="park B's game thread for SECONDS mid-run while its sender keeps "
                          "running (a load, not a lost peer): the session must carry it with no "
                          "reconnect phase, however long it is")
+    ap.add_argument("--hitch", default=None, metavar="MS:EVERY",
+                    help="MELEE_NET_HITCH_TEST on B: park its game thread for MS every EVERY "
+                         "frames of the fight (a phone's frame freezes); A must ride them out")
     ap.add_argument("--reconnect-ms", type=int, default=3000,
                     help="MELEE_NET_RECONNECT_MS for --stall (net.c's own default is 3000)")
     ap.add_argument("--fuzz", action="store_true", help="run tools/net_fuzz.py against A")
@@ -1224,6 +1227,8 @@ def run(args):
         # B only, and well past boot so the session is established: the wait
         # this exercises is the one a scene hand-off makes, not the connect.
         sim["MELEE_NET_STALL_TEST"] = f"{LOAD_STALL_FRAME}:{int(args.load_stall * 1000)}"
+    if args.hitch:
+        sim["MELEE_NET_HITCH_TEST"] = args.hitch  # B only: sim_a was copied above
     shutil.rmtree(args.work, ignore_errors=True)
     os.makedirs(args.work)
     if args.state_log:
@@ -1313,6 +1318,11 @@ def run(args):
     extra += check_scenes(a, b) if args.scenes else check_oom(a, args.oom) if args.oom else []
     if args.load_stall:
         extra += check_load_stall(a, b)
+    if args.hitch:
+        n = count(b, r"net: hitch test:")
+        print(f"net_test: b injected {n} hitches of {args.hitch}", flush=True)
+        if n == 0:
+            extra.append("b never ran the hitch injection (MELEE_NET_HITCH_TEST did not fire)")
     results = []
     for inst in (a, b):
         fails, line, st = summarize(inst, need_match=True)

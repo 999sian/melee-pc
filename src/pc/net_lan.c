@@ -17,7 +17,9 @@
  * Peers are keyed by install id and connected to at the datagram's source
  * address (IPv4 preferred when a peer is seen on both families; link-local
  * IPv6 carries its %scope). Our own looped-back record is skipped; a peer
- * silent for 5 s, or one that sent a goodbye (ttl 0), is dropped. A peer on
+ * silent for 5 s, or one that sent a goodbye (ttl 0), is dropped, and a
+ * record with an older gen= than the one held for its id is stale (a late
+ * copy through the other family's socket) and ignored. A peer on
  * another protocol version, build (rev=) or game image (disc=) is listed as
  * incompatible and never picked. The address in our A/AAAA/host= is the
  * route to the mDNS group (connected UDP probe + getsockname), unless that
@@ -33,9 +35,11 @@
  * and connects as P2; a timer repeats its joining record while the first
  * tick waits for the host. gen= keeps stale attempts from being reused.
  * Both then poll the RULES/READY handshake in net.c once per frame, then
- * exchange one READY_BARRIER (reliable 0x11) so state 2 means both sides
- * are through the handshake. Every failure goes through fail(): session
- * closed, timer gone, goodbye sent, state 3 with the reason for the menu.
+ * exchange one READY_BARRIER (reliable 0x11, carrying the sender's scene)
+ * so state 2 means both sides are through the handshake and in the same
+ * scene (s_scene). Every failure goes through fail(): session
+ * closed, timer gone, goodbye sent, state 3 with the reason for the menu;
+ * 3 is still the lobby (proposals are joined, Start retries).
  * A goodbye from the peer we are connecting to fails us the same way, and
  * a goodbye also goes out from atexit() so closing the window in the lobby
  * announces leaving.
@@ -166,6 +170,17 @@ static uint64_t s_t0_ns;
 static uint64_t s_barrier_ns;
 static uint32_t s_seed;
 static int32_t s_start_frame;
+/* scene_kind() when our READY_BARRIER went out; the barrier carries it. The
+ * frame checksums start at s_start_frame, and nothing before made the two
+ * sides be in the same scene there: the menu lobby only ever polls from
+ * GS_ONLINE_LOBBY, but the MELEE_LAN_TEST/MELEE_LAN_DIRECT fixtures start a
+ * session from wherever the game is. The first phone<->PC LAN session did
+ * exactly that, the PC on the title (scene 0) and the phone on the opening
+ * movie (28): the hand-off agreed the exit frames (both left at 51 and 308),
+ * the two entered different scenes, and "net: DESYNC at frame 141". So the
+ * peer's barrier must name our scene, and ours must not change until
+ * s_start_frame (pc_lan_poll), or the match is refused. */
+static int s_scene;
 
 static const char* state_txt(void) {
     if (s_state == 4) {
@@ -337,6 +352,7 @@ static void fail(const char* why) {
     s_peer_id = 0;
     s_barrier_ns = 0;
     announce(s_tx, sizeof s_tx, true);
+    s_gen++; /* the goodbye ends its gen: a late copy of it is then stale (on_record) */
     pc_log_line("lan: failed: %s", why);
 }
 
@@ -698,6 +714,19 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
             "lan: ignoring a record for %s from %s (it is %s)", e.p.name, e.p.ip, s_peers[i].p.ip);
         return 0;
     }
+    /* A record older than the one we hold is stale: gen= only rises within
+     * one run of a lobby and a restarted lobby starts above it (pc_lan_start).
+     * The two families arrive on two sockets drained one after the other, so
+     * a peer re-entering its lobby (goodbye then announce, both families, in
+     * the same millisecond) reads here as goodbye4, announce4, goodbye6,
+     * announce6: the old incarnation's IPv6 goodbye used to evict the entry
+     * its new IPv4 announce had just made, and a stale "starting" record
+     * could reinstate a proposal nobody is making any more. Seen on a phone
+     * and a PC on one Wi-Fi as "lost 192.168.1.160 / found / lost / found
+     * fe80::...%47" on every lobby entry of the other side. */
+    if (i < s_n && e.gen < s_peers[i].gen) {
+        return 0;
+    }
     if (ttl == 0) { /* goodbye */
         if (i < s_n) {
             drop(i);
@@ -975,7 +1004,12 @@ void pc_lan_start(void) {
     snprintf(
         s_instance, sizeof s_instance, "%s-%016llx." SERVICE, s_name, (unsigned long long)s_id);
     snprintf(s_hostname, sizeof s_hostname, "%s.local.", s_name);
-    s_gen = (uint32_t)time(NULL); /* newer than any gen a previous run of ours announced */
+    /* Newer than any gen a previous run of ours announced: across processes
+     * by the clock, and across a lobby re-entry within one (the menu stops
+     * and restarts us in the same second, after Start may have bumped gen
+     * past the clock) by construction. on_record() drops older records. */
+    uint32_t now_s = (uint32_t)time(NULL);
+    s_gen = now_s > s_gen ? now_s : s_gen + 1;
     s_n = 0;
     s_full = false;
     s_heard = false;
@@ -1040,6 +1074,18 @@ static bool open_host(Entry* e) {
         fail("connect failed");
         return false;
     }
+    /* RULES now, before this thread's first tick can park in the lockstep
+     * wait for the guest's first input: the guest accepts no host datagram
+     * until a RULES has told it the session id (net.c recv_inputs), so a
+     * host that died inside that wait left the guest nothing it could hear,
+     * and it sat in the 60 s first-packet wait instead of timing a silent
+     * peer out. The reliable lane's timer resends it from here on whatever
+     * this thread does. tools/net_lan_test.py host_dies (guest's inputs held
+     * 3 s off the host, host killed 1 s in): no "lan: failed:" within 20 s
+     * before, on the base build too; "connection lost" 9.0 s after the kill
+     * with this. poll_connecting() repeats the call (idempotent) until
+     * READY is in. */
+    pc_net_host_match(s_seed, &s_start_frame);
     timer_start();
     pc_log_line("lan: connect %s:%u as P1 seed=%08x", e->p.ip, e->p.port, s_seed);
     return true;
@@ -1151,7 +1197,9 @@ static void poll_connecting(uint64_t now) {
                               pc_net_guest_wait_match(&s_seed, &s_start_frame);
         if (ok) {
             s_barrier_ns = now;
-            if (!pc_net_send_reliable(REL_READY_BARRIER, NULL, 0)) {
+            s_scene = scene_kind();
+            uint8_t scene = (uint8_t)s_scene;
+            if (!pc_net_send_reliable(REL_READY_BARRIER, &scene, 1)) {
                 fail("ready barrier not sent");
                 return;
             }
@@ -1164,6 +1212,15 @@ static void poll_connecting(uint64_t now) {
             if (type == REL_READY_BARRIER) {
                 if (pc_net_frame() > s_start_frame) {
                     fail("ready barrier arrived after the start frame");
+                    return;
+                }
+                /* -2: an empty barrier, from a build before it carried one */
+                int theirs = n == 1 ? (int8_t)buf[0] : -2;
+                if (theirs != s_scene || scene_kind() != s_scene) {
+                    pc_log_line("lan: refusing the match: the peer is on scene %d, we are on "
+                                "scene %d (%d when our barrier went out)",
+                        theirs, scene_kind(), s_scene);
+                    fail("peer is on another scene");
                     return;
                 }
                 timer_stop();
@@ -1218,7 +1275,16 @@ void pc_lan_poll(void) {
         announce(s_tx, sizeof s_tx, false);
         s_announce_ns = now;
     }
-    if (s_state == 0 || s_state == 4) {
+    /* A failure (3) leaves us in the lobby, still announcing state=lobby, so
+     * it must still behave like one: a proposal naming us is joined, and
+     * pc_lan_start_match() retries. It used to be terminal until the player
+     * left and re-entered the lobby, and that exit's goodbye is what failed
+     * the other side. In the phone<->PC logs each of the three "Failed: peer
+     * left lobby" is the other peer's "lan: stopped" 0.2-0.3 s earlier (the
+     * two clocks aligned on a session's shared frames), as it left a lobby
+     * that could not answer this side's proposal: twice this state after
+     * its own failure, once a fixture session's leftover 2. */
+    if (s_state == 0 || s_state == 3 || s_state == 4) {
         for (int i = 0; i < s_n; i++) {
             Entry* e = &s_peers[i];
             if (e->state == ST_STARTING && e->peer_id == s_id && e->p.compatible &&
@@ -1255,6 +1321,22 @@ void pc_lan_poll(void) {
                 SDL_DelayNS(1000000);
             }
         }
+    } else if (s_state == 2 && !pc_net_active()) {
+        /* Only the MELEE_LAN_TEST fixtures (vi.c) and a lobby still counting
+         * down poll in 2 once the session is gone; the menu restarts the
+         * lobby when a match ends. Stay a joinable lobby member (3) instead
+         * of an unanswering one still announcing state=lobby: the phone's
+         * fixture sat in 2 after its session and the PC's next proposal to
+         * it waited 9 s for an acknowledgement that never came. */
+        fail("session ended");
+    } else if (s_state == 2 && pc_net_frame() <= s_start_frame && scene_kind() != s_scene) {
+        /* A hand-off agreed while both waited for the start frame: the scene
+         * the barriers compared is gone, and the peer may have entered a
+         * different one. Both sides leave on the same agreed frame, so both
+         * refuse here. */
+        pc_log_line("lan: refusing the match: our scene went %d -> %d before start frame %d",
+            s_scene, scene_kind(), s_start_frame);
+        fail("scene changed before the match start");
     }
 }
 
@@ -1292,7 +1374,7 @@ const char* pc_lan_local_name(void) {
 }
 
 bool pc_lan_start_match(void) {
-    if (!s_started || s_state != 0 || s_n == 0) {
+    if (!s_started || (s_state != 0 && s_state != 3) || s_n == 0) {
         return false;
     }
     s_state = 4;
