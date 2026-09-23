@@ -586,9 +586,11 @@ static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
         if (reason <= 0 || reason >= (int) ARRAY_SIZE(peer_word)) {
             reason = 0;
         }
-        snprintf(status, sizeof status, "Failed: %s%s%s",
+        /* Still in the lobby: Start elects again, and a peer's proposal is
+         * still joined (net_lan.c), so leaving to retry is never needed. */
+        snprintf(status, sizeof status, "Failed: %s%s%s%s",
                  why != NULL ? why : "unknown error", reason ? " - " : "",
-                 peer_word[reason]);
+                 peer_word[reason], nc ? " - START: retry" : "");
         break;
     }
     memcpy(view->message, status, sizeof view->message);
@@ -773,8 +775,10 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         pc_lan_stop();
         gm_ChangeGameModeAfterCurrentScene(GM_MENU);
         gm_801A4B60();
-    } else if ((input & HSD_PAD_START) && state == 0 && lobbyCompatible(peers, n)) {
+    } else if ((input & HSD_PAD_START) && (state == 0 || state == 3) &&
+               lobbyCompatible(peers, n)) {
         sfxForward();
+        pc_net_peer_status_clear(); /* a retry from 3 is not the last session's */
         pc_lan_start_match();
     }
 #endif

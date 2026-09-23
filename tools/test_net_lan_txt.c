@@ -42,6 +42,7 @@ static int g_lost;         /* "lan: lost" lines */
 static int g_full;         /* "lobby full" lines */
 static char g_last[512];   /* last line logged */
 static char g_detail[512]; /* last incompatible-detail line */
+static char g_refuse[512]; /* last "refusing the match" line */
 
 void pc_log_line(const char* fmt, ...) {
     va_list ap;
@@ -55,6 +56,9 @@ void pc_log_line(const char* fmt, ...) {
     if (strstr(g_last, "theirs: proto") != NULL) {
         g_incompat++;
         snprintf(g_detail, sizeof g_detail, "%s", g_last);
+    }
+    if (strstr(g_last, "refusing the match") != NULL) {
+        snprintf(g_refuse, sizeof g_refuse, "%s", g_last);
     }
 }
 
@@ -114,20 +118,24 @@ int pc_net_handshake_state(void) {
 int pc_net_quality(void) {
     return 0;
 }
+static int g_sent_scene = -3; /* payload of the last READY_BARRIER we sent */
 bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
-    (void)type;
-    (void)payload;
-    (void)len;
+    if (type == 0x11) {
+        g_sent_scene = len == 1 ? (int8_t)((const uint8_t*)payload)[0] : -3;
+    }
     return true;
 }
+static int g_scene = 45, g_peer_scene = 45; /* both in GS_ONLINE_LOBBY */
+int scene_kind(void) {
+    return g_scene;
+}
 int pc_net_recv_reliable(uint8_t* type, void* payload, int max) {
-    (void)type;
-    (void)payload;
-    (void)max;
+    assert(max >= 1);
     if (g_barrier_received) {
         g_barrier_received = false;
         *type = 0x11;
-        return 0;
+        *(uint8_t*)payload = (uint8_t)g_peer_scene;
+        return 1;
     }
     return -1;
 }
@@ -258,11 +266,21 @@ static void feed(
     s_pkt[lenat] = (uint8_t)(rdlen >> 8);
     s_pkt[lenat + 1] = (uint8_t)rdlen;
 
-    struct sockaddr_in from;
+    /* A ':' makes it an IPv6 source, link-local on scope 3 like a Wi-Fi one. */
+    struct sockaddr_storage from;
     memset(&from, 0, sizeof from);
-    from.sin_family = AF_INET;
-    from.sin_port = htons(5353);
-    assert(inet_pton(AF_INET, src_ip, &from.sin_addr) == 1);
+    if (strchr(src_ip, ':') != NULL) {
+        struct sockaddr_in6* a6 = (struct sockaddr_in6*)&from;
+        a6->sin6_family = AF_INET6;
+        a6->sin6_port = htons(5353);
+        a6->sin6_scope_id = 3;
+        assert(inet_pton(AF_INET6, src_ip, &a6->sin6_addr) == 1);
+    } else {
+        struct sockaddr_in* a4 = (struct sockaddr_in*)&from;
+        a4->sin_family = AF_INET;
+        a4->sin_port = htons(5353);
+        assert(inet_pton(AF_INET, src_ip, &a4->sin_addr) == 1);
+    }
     on_record(0, (const struct sockaddr*)&from, sizeof from, MDNS_ENTRYTYPE_ANSWER, 0,
         MDNS_RECORDTYPE_TXT, MDNS_CLASS_IN, ttl, s_pkt, o, 12, 0, rdata, rdlen, NULL);
 }
@@ -356,6 +374,7 @@ static void election_setup(uint64_t local, uint64_t peer) {
     s_state = 4;
     s_hosting = false;
     s_barrier_ns = 0;
+    s_scene = g_scene = g_peer_scene = 45; /* cases that preset s_barrier_ns skip the send */
     s_timer = 0;
     s_t0_ns = s_start_ns = s_announce_ns = s_now;
     s_n = 1;
@@ -437,6 +456,26 @@ static void case_election(void) {
     assert(g_connections == 1 && g_player == 1);
     timer_stop();
 
+    /* A failed lobby (3) is still a lobby: a proposal naming us is joined and
+     * Start retries. Before, only leaving the lobby cleared 3, and that exit's
+     * goodbye is what failed the other side's connect. */
+    election_setup(100, 200);
+    s_state = 3;
+    election_record(200, 100, "starting", NULL);
+    pc_lan_poll();
+    assert(g_connections == 1 && g_player == 1);
+    timer_stop();
+    election_setup(100, 200);
+    s_state = 3;
+    assert(pc_lan_start_match() && pc_lan_state(NULL) == 4);
+    /* So is a fixture still polling in 2 after its session ended. */
+    election_setup(100, 200);
+    s_state = 2;
+    g_active = false;
+    pc_lan_poll();
+    g_active = true;
+    assert(pc_lan_state(NULL) == 3);
+
     /* A starting record naming us from a peer never observed in the lobby
      * (spoofed out of nowhere; LAN-SPOOF-AUTOJOIN) must not auto-dial. */
     election_setup(100, 200);
@@ -480,6 +519,7 @@ static void case_ready_frame_fence(void) {
     g_ready_after = 3;
     pc_lan_poll();
     assert(s_state == 2 && g_frame == 120 && g_polls == 3);
+    assert(g_sent_scene == 45); /* our barrier named our scene */
     g_handshake_pending = false;
 
     /* A missing barrier times out on this same simulation frame. */
@@ -510,8 +550,54 @@ static void case_ready_frame_fence(void) {
     s_started = false;
 }
 
+/* The READY_BARRIER names the sender's scene, and a session whose sides would
+ * reach the start frame in different scenes is refused. The first phone<->PC
+ * session ran the PC's title (0) against the phone's opening movie (28) and
+ * desynced at frame 141. */
+static void case_scene(void) {
+    election_setup(100, 200);
+    s_state = 1;
+    s_offer_pending = false;
+    s_barrier_ns = s_now;
+    s_start_frame = g_scheduled = 120;
+    g_frame = 60;
+    s_scene = g_scene = 0;
+    g_peer_scene = 28;
+    g_barrier_received = true;
+    pc_lan_poll();
+    assert(s_state == 3 && strcmp(s_why, "peer is on another scene") == 0);
+    assert(strstr(g_refuse, "peer is on scene 28, we are on scene 0") != NULL);
+    printf("  %s\n", g_refuse);
+
+    /* A hand-off between the barriers and the start frame is refused too. */
+    election_setup(100, 200);
+    s_state = 2;
+    s_start_frame = g_scheduled = 120;
+    g_frame = 100;
+    pc_lan_poll();
+    assert(s_state == 2);
+    g_scene = 1;
+    pc_lan_poll();
+    assert(s_state == 3 && strstr(g_refuse, "went 45 -> 1") != NULL);
+    printf("  %s\n", g_refuse);
+
+    /* From the start frame on, scenes are the session's (hand-off, checksums). */
+    election_setup(100, 200);
+    s_state = 2;
+    s_start_frame = g_scheduled = 120;
+    g_frame = 121;
+    g_scene = 1;
+    pc_lan_poll();
+    assert(s_state == 2);
+
+    g_frame = g_scheduled = -1;
+    g_scene = g_peer_scene = 45;
+    s_started = false;
+}
+
 int main(int argc, char** argv) {
     case_ready_frame_fence();
+    case_scene();
     set_image(argc > 1 && strcmp(argv[1], "b") == 0 ? 1 : 0);
 
     /* The module state pc_lan_start() would have built. */
@@ -750,6 +836,8 @@ int main(int argc, char** argv) {
     {
         reset();
         feed(INSTANCE, good, NPAIRS(good), 120, "10.0.0.7");
+        feed(INSTANCE, good, NPAIRS(good), 120, "fe80::7");
+        assert(s_n == 1 && g_found == 1 && strcmp(s_peers[0].p.ip, "10.0.0.7") == 0);
         struct sockaddr_in6 v6;
         memset(&v6, 0, sizeof v6);
         v6.sin6_family = AF_INET6;
@@ -759,6 +847,34 @@ int main(int argc, char** argv) {
         net_addr_text((const struct sockaddr*)&v6, text, sizeof text);
         assert(strcmp(text, "fe80::1%3") == 0);
         printf("  net_addr_text(fe80::1 scope 3) = %s\n", text);
+    }
+
+    /* A peer re-entering its lobby sends goodbye then announce on both
+     * families within a millisecond, and the two sockets are drained v4
+     * first. The old run's IPv6 goodbye, read after the new run's IPv4
+     * announce, must not evict the peer (the phone<->PC logs' "lost
+     * 192.168.1.160 / found / lost / found fe80::...%47"), nor fail a
+     * connect to it; a goodbye of the gen we hold still does both. */
+    {
+        const char* next[NPAIRS(good)];
+        size_t nn = variant(next, "gen", "gen=8", NULL, 0);
+        reset();
+        feed(INSTANCE, good, NPAIRS(good), 120, "10.0.0.7");
+        feed(INSTANCE, good, NPAIRS(good), 120, "fe80::7");
+        feed(INSTANCE, good, NPAIRS(good), 0, "10.0.0.7"); /* goodbye, gen 7 */
+        feed(INSTANCE, next, nn, 120, "10.0.0.7");         /* new run, gen 8 */
+        feed(INSTANCE, good, NPAIRS(good), 0, "fe80::7");  /* the gen 7 goodbye's twin */
+        feed(INSTANCE, next, nn, 120, "fe80::7");
+        assert(g_lost == 1 && g_found == 2 && s_n == 1 && s_peers[0].gen == 8);
+        assert(strcmp(s_peers[0].p.ip, "10.0.0.7") == 0);
+        s_state = 1;
+        s_peer_id = 0xdeadbeefull;
+        feed(INSTANCE, good, NPAIRS(good), 0, "fe80::7"); /* delivered late again */
+        assert(s_n == 1 && s_state == 1);
+        feed(INSTANCE, next, nn, 0, "fe80::7");
+        assert(s_n == 0 && s_state == 3 && strcmp(s_why, "peer left lobby") == 0);
+        printf("  lobby re-entry on two families: one lost, connect kept until its own gen "
+               "says goodbye\n");
     }
 
     case_election();
