@@ -397,6 +397,47 @@ static AtomicStatRef queuedPipelines{detail::resources().stats.queuedPipelines};
 static AtomicStatRef createdPipelines{detail::resources().stats.createdPipelines};
 #endif
 
+/* melee-pc: what pipeline creation costs, logged by log_pipeline_stats.
+ * Creation is Tint + vkCreateGraphicsPipelines (or the D3D12/Metal
+ * equivalent); the Dawn blob cache can skip Tint and hand the driver a
+ * VkPipelineCache, so the per-pipeline time is what tells a warm launch from
+ * a cold one. "Needed by a draw" counts, once per pipeline, a draw that found
+ * its pipeline not yet built: skipped, or on the inline path built while the
+ * frame waited. That number is the stutter a player sees. */
+static std::atomic_uint32_t g_statCreated{0};
+static std::atomic_uint64_t g_statCreateNs{0};
+static std::atomic_uint64_t g_statCreateMaxNs{0};
+static absl::flat_hash_set<PipelineRef> g_demandedPipelines; // guarded by g_pipelineMutex
+
+static wgpu::RenderPipeline create_timed(const NewPipelineCallback& create) {
+  const auto start = std::chrono::steady_clock::now();
+  auto pipeline = create();
+  const uint64_t ns = static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count());
+  ++g_statCreated;
+  g_statCreateNs += ns;
+  uint64_t max = g_statCreateMaxNs.load(std::memory_order_relaxed);
+  while (ns > max && !g_statCreateMaxNs.compare_exchange_weak(max, ns, std::memory_order_relaxed)) {
+  }
+  return pipeline;
+}
+
+static void log_pipeline_stats() {
+  size_t demanded;
+  {
+    std::lock_guard lock{g_pipelineMutex};
+    demanded = g_demandedPipelines.size();
+  }
+  const uint32_t created = g_statCreated.load();
+  const double totalMs = static_cast<double>(g_statCreateNs.load()) / 1e6;
+  const auto dawn = webgpu::cache_stats();
+  Log.info("pipelines: {} created in {:.0f} ms (avg {:.1f} ms, max {:.1f} ms), {} needed by a draw before ready; "
+           "Dawn cache: {} hits ({} KiB), {} misses, {} stores ({} KiB)",
+           created, totalMs, created != 0 ? totalMs / created : 0.0,
+           static_cast<double>(g_statCreateMaxNs.load()) / 1e6, demanded, dawn.hits, dawn.hitBytes / 1024,
+           dawn.misses, dawn.stores, dawn.storeBytes / 1024);
+}
+
 template <typename PipelineConfig>
 static PipelineCacheWrite make_pipeline_cache_write(ShaderType type, PipelineRef hash, const PipelineConfig& config,
                                                     uint32_t firstFrameUsed) {
@@ -509,13 +550,16 @@ static PipelineRef find_pipeline_impl(PipelineRef runtimeKey, NewPipelineCallbac
   {
     std::scoped_lock guard{g_pipelineMutex};
     auto pipelineIt = g_pipelines.find(runtimeKey);
+    if (pipelineIt == g_pipelines.end() && priority != PipelinePriority::Background) {
+      g_demandedPipelines.insert(runtimeKey);
+    }
     if (pipelineIt != g_pipelines.end()) {
       pipelineReady = true;
     } else if (g_pendingPipelines.contains(runtimeKey)) {
       if (blocking && !g_hasPipelineThread) {
         auto pending = take_pending_pipeline(runtimeKey);
         if (pending) {
-          g_pipelines.try_emplace(runtimeKey, CachedPipeline{.pipeline = pending->create()});
+          g_pipelines.try_emplace(runtimeKey, CachedPipeline{.pipeline = create_timed(pending->create)});
           pipelineReady = true;
           ++g_pipelinesPerFrame;
           createdPipeline = true;
@@ -526,7 +570,7 @@ static PipelineRef find_pipeline_impl(PipelineRef runtimeKey, NewPipelineCallbac
         notifyWorker = priority != PipelinePriority::Background;
       }
     } else if (!g_hasPipelineThread && (blocking || g_pipelinesPerFrame < BuildPipelinesPerFrame)) {
-      g_pipelines.try_emplace(runtimeKey, CachedPipeline{.pipeline = cb()});
+      g_pipelines.try_emplace(runtimeKey, CachedPipeline{.pipeline = create_timed(cb)});
       pipelineReady = true;
       ++g_pipelinesPerFrame;
       createdPipeline = true;
@@ -1059,7 +1103,7 @@ static void pipeline_worker() {
       pending = std::move(source.front());
       source.pop_front();
     }
-    auto result = pending.create();
+    auto result = create_timed(pending.create);
     {
       std::lock_guard lock{g_pipelineMutex};
       g_pipelines.try_emplace(pending.hash, CachedPipeline{std::move(result)});
@@ -1271,6 +1315,7 @@ void shutdown_pipeline_cache() {
     g_pipelineThreads.clear();
   }
   g_hasPipelineThread = false;
+  log_pipeline_stats();
 
   stop_pipeline_cache_writer();
   pipeline_cache_abort();
@@ -1286,6 +1331,10 @@ void shutdown_pipeline_cache() {
 
   queuedPipelines = 0;
   createdPipelines = 0;
+  g_statCreated = 0;
+  g_statCreateNs = 0;
+  g_statCreateMaxNs = 0;
+  g_demandedPipelines.clear();
 }
 
 void begin_pipeline_frame() {
@@ -1294,6 +1343,14 @@ void begin_pipeline_frame() {
   }
   if (g_pipelineLayoutKey != scene_render_target_layout().key) {
     rebuild_pipeline_cache();
+  }
+  /* Every ten seconds at 60 Hz, and only when something was built: a
+   * scripted run's last line is its total even if it is killed. */
+  static uint32_t frames = 0;
+  static uint32_t loggedCreated = 0;
+  if (++frames % 600 == 0 && g_statCreated.load() != loggedCreated) {
+    loggedCreated = g_statCreated.load();
+    log_pipeline_stats();
   }
 }
 
