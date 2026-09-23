@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <vector>
 
+#include "gpu.hpp"
 #include "../internal.hpp"
 #include "../io.hpp"
 #include "../sqlite_utils.hpp"
@@ -27,6 +28,7 @@ static sqlite3_stmt* store_stmt;
 static bool cache_broken;
 static std::mutex cache_mutex;
 static std::vector<XXH128_hash_t> cache_keys_used;
+static CacheStats cache_counters; /* guarded by cache_mutex */
 #if defined(AURORA_CACHE_USE_ZSTD)
 static std::vector<uint8_t> compress_buffer;
 #endif
@@ -278,6 +280,7 @@ size_t load_from_cache(void const* key, size_t keySize, void* value, size_t valu
   } else if (ret == SQLITE_DONE) {
     // Miss
     foundSize = 0;
+    ++cache_counters.misses;
   } else {
     Log.error("Looking up cache key failed: {}", sqlite3_errmsg(db));
     return 0;
@@ -287,6 +290,10 @@ size_t load_from_cache(void const* key, size_t keySize, void* value, size_t valu
 
   if (loadSucceeded) {
     cache_keys_used.push_back(keyHash);
+    /* Dawn asks for the size first (value == nullptr), then for the data;
+     * only the second call is a hit. */
+    ++cache_counters.hits;
+    cache_counters.hitBytes += foundSize;
   }
 
   return foundSize;
@@ -352,6 +359,13 @@ void store_to_cache(void const* key, size_t keySize, void const* value, size_t v
 
   tx.commit();
   cache_keys_used.push_back(keyHash);
+  ++cache_counters.stores;
+  cache_counters.storeBytes += valueSize;
+}
+
+CacheStats cache_stats() {
+  std::lock_guard lock(cache_mutex);
+  return cache_counters;
 }
 
 void cache_prune() {
@@ -422,6 +436,7 @@ void cache_shutdown() {
   compress_buffer.clear();
 #endif
   cache_keys_used.clear();
+  cache_counters = {};
   if (load_stmt != nullptr) {
     check(sqlite3_finalize(load_stmt));
     load_stmt = nullptr;

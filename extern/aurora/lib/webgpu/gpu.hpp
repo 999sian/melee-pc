@@ -86,4 +86,13 @@ void store_to_cache(void const* key, size_t keySize, void const* value, size_t v
 void cache_prune();
 void cache_shutdown();
 
+/* melee-pc: Dawn blob-cache traffic since startup. A hit is a Tint compile
+ * (shader module) or a VkPipelineCache payload (pipeline) Dawn did not have
+ * to produce again; a miss is followed by a store once Dawn has made it. */
+struct CacheStats {
+  uint32_t hits = 0, misses = 0, stores = 0;
+  uint64_t hitBytes = 0, storeBytes = 0;
+};
+CacheStats cache_stats();
+
 } // namespace aurora::webgpu
