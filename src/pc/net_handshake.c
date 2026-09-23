@@ -339,9 +339,13 @@ bool pc_net_rules(bool* unlock_all, bool* frozen_stadium) {
  * zeroes them at boot and fills them in during it, and a zeroed set fails
  * these exactly as a corrupt one does. */
 static const char* rules_values_invalid(const Rules* ru) {
+    /* item_freq is u8 "x21 - 1" (mnItemSw_CommitItems, mnitemsw.c): the UI's
+     * first entry (x21 == 0, "Off") underflows to 0xFF, not 0 - a completely
+     * ordinary Items: Off rules choice, not a corrupt or forged field. 0-4
+     * cover Very Low..Very High. */
     if (ru->game.mode > 3 || ru->game.time_limit > 99 || ru->game.stock_count > 99 ||
-        ru->game.damage_ratio < 5 || ru->game.damage_ratio > 20 || ru->item_freq > 5 ||
-        ru->stage_mask == 0)
+        ru->game.damage_ratio < 5 || ru->game.damage_ratio > 20 ||
+        (ru->item_freq > 4 && ru->item_freq != 0xFF) || ru->stage_mask == 0)
     {
         return "value out of range";
     }
