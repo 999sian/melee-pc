@@ -191,6 +191,11 @@ size_t FrameSlotPool::free_count() const {
 }
 
 void initialize() {
+#ifdef __EMSCRIPTEN__
+  // Browser WebGPU handles belong to the owning JavaScript realm.
+  g_workerThreadId=std::this_thread::get_id();
+  return;
+#endif
   if (g_running.exchange(true, std::memory_order_acq_rel)) {
     return;
   }

@@ -1880,6 +1880,14 @@ static bool addr_is_host(const struct sockaddr* sa) {
 
 static bool connect_impl(
     sock_t supplied, const char* ip, uint16_t port, int player, uint32_t seed) {
+#ifdef __EMSCRIPTEN__
+    /* A page has no UDP: Emscripten's sockets are WebSocket proxies. Every
+     * session path (MELEE_NET, the lobby's DHT socket) comes through here, so
+     * refusing here keeps netplay inert and its receive thread unstarted. */
+    (void)supplied, (void)ip, (void)port, (void)player, (void)seed;
+    pc_log_line("net: netplay is unavailable in the browser");
+    return false;
+#endif
     if (net.tx_lock == NULL) {
         net.tx_lock = SDL_CreateMutex();
         s_rx_lock = SDL_CreateMutex();

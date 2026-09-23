@@ -103,7 +103,12 @@ void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
   }
 
   const auto& resources = gfx::detail::resources();
+#ifdef __EMSCRIPTEN__
+  const std::array immediateOffsets{data.immediateRange.offset};
+  pass.SetBindGroup(3, resources.uniformBindGroup, immediateOffsets.size(), immediateOffsets.data());
+#else
   pass.SetImmediates(0, &data.immediateData, sizeof(data.immediateData));
+#endif
   const std::array offsets{data.uniformRange.offset};
   pass.SetBindGroup(1, resources.uniformBindGroup, offsets.size(), offsets.data());
   if (data.bindGroups.textureBindGroup) {

@@ -18,7 +18,11 @@ std::shared_ptr<wgpu::ChainedStruct> SetupWindowAndGetSurfaceDescriptor(SDL_Wind
   return SetupWindowAndGetSurfaceDescriptorCocoa(window);
 #else
   const auto props = SDL_GetWindowProperties(window);
-#if defined(SDL_PLATFORM_ANDROID)
+#if defined(__EMSCRIPTEN__)
+  auto desc = std::make_shared<wgpu::EmscriptenSurfaceSourceCanvasHTMLSelector>();
+  desc->selector = "#canvas";
+  return desc;
+#elif defined(SDL_PLATFORM_ANDROID)
   std::shared_ptr<wgpu::SurfaceSourceAndroidNativeWindow> desc =
       std::make_shared<wgpu::SurfaceSourceAndroidNativeWindow>();
   desc->window = SDL_GetPointerProperty(props, SDL_PROP_WINDOW_ANDROID_WINDOW_POINTER, nullptr);

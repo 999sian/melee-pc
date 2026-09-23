@@ -150,6 +150,11 @@ elseif (_aurora_sdl3_provider STREQUAL "vendor")
         -P "${CMAKE_CURRENT_LIST_DIR}/patches/apply-sdl3-android-security-exception.cmake"
       EXCLUDE_FROM_ALL
     )
+    if (EMSCRIPTEN)
+      # Source archives have no .git directory. SDL would otherwise describe
+      # the enclosing Melee checkout, changing its banner on every fork commit.
+      set(SDL_REVISION "SDL-${AURORA_SDL3_REF}" CACHE STRING "Pinned SDL source ref" FORCE)
+    endif ()
     FetchContent_MakeAvailable(SDL)
   else ()
     message(STATUS "aurora: Using existing SDL3")

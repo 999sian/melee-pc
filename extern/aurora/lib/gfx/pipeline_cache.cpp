@@ -1,3 +1,10 @@
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+extern "C" void browser_yield(void);
+EM_JS(void, browser_graphics_progress, (unsigned done, unsigned total), {
+  Module.onGraphicsPreparation?.(done, total);
+});
+#endif
 #include "pipeline_cache.hpp"
 
 #include "clear.hpp"
@@ -892,7 +899,13 @@ static bool prepare_pipeline_cache_db() {
     return false;
   }
 
+#ifdef __EMSCRIPTEN__
+  // MEMFS has no shared memory for the WAL index and the page is torn down
+  // without a checkpoint, so WAL commits never reached the persisted database.
+  ret = sqlite::exec(g_pipelineCacheDb, "PRAGMA journal_mode=MEMORY; PRAGMA synchronous=OFF;");
+#else
   ret = sqlite::exec(g_pipelineCacheDb, "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+#endif
   if (ret != SQLITE_OK) {
     Log.error("Failed to set pipeline cache pragmas: {}", sqlite3_errmsg(g_pipelineCacheDb));
     pipeline_cache_abort();
@@ -1466,6 +1479,24 @@ void begin_pipeline_frame() {
   }
 }
 
+#ifdef __EMSCRIPTEN__
+// Restore the cache before simulation begins. Without workers, frames build
+// only what they draw, so known pipelines would otherwise wait for a launcher.
+// wait_pipelines builds the queues on this thread; yielding between slices
+// lets the asynchronous creations resolve and the page paint the progress.
+extern "C" void browser_prepare_graphics() {
+  const uint32_t total = wait_pipelines(0);
+  if (!total) return;
+  browser_graphics_progress(0, total);
+  for (uint32_t left = total; left != 0;) {
+    left = wait_pipelines(16);
+    browser_graphics_progress(total - left, total);
+    browser_yield();
+  }
+  Log.info("Prepared {} cached browser pipelines before simulation", total);
+}
+#endif
+
 void end_pipeline_frame() {
   if (!g_hasPipelineThread) {
     pipeline_worker();
@@ -1478,6 +1509,11 @@ bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline) {
   if (it == g_pipelines.end()) {
     return false;
   }
+#ifdef __EMSCRIPTEN__
+  // Newly encountered effects compile off the GPU submission path. Skip only
+  // their unready draws; startup waits for all initial pipelines before reveal.
+  if (!it->second.pipeline && !gx::take_browser_pipeline(ref, it->second.pipeline)) return false;
+#endif
   pipeline = it->second.pipeline;
   return true;
 }

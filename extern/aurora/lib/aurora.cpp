@@ -304,7 +304,9 @@ bool begin_frame() noexcept {
     }
   }
 
+#ifndef __EMSCRIPTEN__
   imgui::new_frame(window::get_window_size());
+#endif
   if (!gfx::begin_frame()) {
     return false;
   }
@@ -320,7 +322,11 @@ void end_frame() noexcept {
   gx::fifo::end_frame();
   gx::texture::end_frame();
   gfx::finish();
+#ifdef __EMSCRIPTEN__
+  imgui::DrawData imguiDrawData; // Browser controls live in the launcher.
+#else
   auto imguiDrawData = imgui::freeze();
+#endif
 
   const auto& presentSource = webgpu::present_source();
   const auto viewport = webgpu::calculate_present_viewport(webgpu::g_graphicsConfig.surfaceConfiguration.width,
@@ -397,8 +403,12 @@ void end_frame() noexcept {
         // Copy EFB -> XFB (swapchain)
         pass.SetPipeline(webgpu::g_CopyPipeline);
         pass.SetBindGroup(0, presentBindGroup, 0, nullptr);
-        set_present_viewport(pass, viewport, webgpu::g_graphicsConfig.surfaceConfiguration.width,
-                             webgpu::g_graphicsConfig.surfaceConfiguration.height);
+        /* The acquired texture's own size, not the configured one: a browser
+         * canvas that the page resized (SDL follows its CSS size) hands back
+         * a texture of the new size before the resize event reconfigures the
+         * surface, and a scissor outside it is a fatal validation error.
+         * Natively the two sizes are always equal. */
+        set_present_viewport(pass, viewport, currentTexture.GetWidth(), currentTexture.GetHeight());
 
         pass.Draw(3);
         if (rmlBindGroup && rmlOverlay) {
@@ -445,7 +455,12 @@ void end_frame() noexcept {
       {
         window::SurfaceLock surfaceLock;
         if (window::is_presentable()) {
+#ifdef __EMSCRIPTEN__
+          // The browser presents the canvas when control returns to its event loop.
+          status = wgpu::Status::Success;
+#else
           status = g_surface.Present();
+#endif
         }
       }
       if (status) {

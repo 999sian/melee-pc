@@ -10,7 +10,7 @@ static inline int capture_backtrace(void** buffer, int max_frames) {
   return CaptureStackBackTrace(0, max_frames, buffer, NULL);
 }
 #define backtrace capture_backtrace
-#elif defined(__ANDROID__)
+#elif defined(__ANDROID__) || defined(__EMSCRIPTEN__)
 static inline int capture_backtrace(void** buffer, int max_frames) {
   (void)buffer;
   (void)max_frames;

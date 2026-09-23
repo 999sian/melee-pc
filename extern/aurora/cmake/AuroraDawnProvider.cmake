@@ -1,3 +1,12 @@
+if(EMSCRIPTEN)
+  add_library(aurora_browser_webgpu INTERFACE)
+  add_library(dawn::webgpu_dawn ALIAS aurora_browser_webgpu)
+  add_library(dawn::dawncpp_headers ALIAS aurora_browser_webgpu)
+  target_compile_options(aurora_browser_webgpu INTERFACE --use-port=emdawnwebgpu)
+  target_link_options(aurora_browser_webgpu INTERFACE --use-port=emdawnwebgpu)
+  set(AURORA_DAWN_IS_SHARED FALSE)
+  return()
+endif()
 include_guard(GLOBAL)
 include("${CMAKE_CURRENT_LIST_DIR}/AuroraTargetPlatform.cmake")
 
