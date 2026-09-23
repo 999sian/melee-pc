@@ -6,8 +6,11 @@ public class MeleeActivity extends SDLActivity {
 
     @Override
     protected String[] getLibraries() {
+        /* libpng is linked statically since the aurora sync to 77326d45
+         * (extern/aurora/extern/CMakeLists.txt, _USE_SHARED is off on
+         * Android), so a clean build ships no libpng16.so and loading it
+         * failed before the activity had a window. */
         return new String[] {
-            "png16",
             "melee"
         };
     }
