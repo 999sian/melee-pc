@@ -681,9 +681,9 @@ Every multi-byte field is big-endian on the wire (`be16/be32/be64`,
 pinned by `_Static_assert` (`net_internal.h:211-219`). The sizes below are the
 *message*; from v8 every datagram is that message followed by an 8-byte
 authentication tag (`NET_MAC_LEN`, §6.4a), so a `Bye` is 8 bytes of message in
-a 16-byte datagram. `recv_inputs` checks the tag, then hands `n -
-NET_MAC_LEN` to everything below it, which is why no length in this table
-moved.
+a 16-byte datagram. The receive gate (`rx_datagram`) checks the tag, then
+hands `n - NET_MAC_LEN` to everything below it, which is why no length in this
+table moved.
 
 | Struct | Magic | Layout (bytes) | Size | Notes |
 |---|---|---|---|---|
@@ -699,7 +699,8 @@ moved.
 | `Resume` | payload of `Rel` type `0x12` (`net_internal.h:193-199`) | `u32 session` @0, `u32 seed` @4, `s32 newest` @8, `s32 have` @12, `s32 frame` @16 | 20 (`net_internal.h:219`), datagram 31 | new in v4. All five fields are 32-bit, so `net.c` byte-swaps the image as one array (`wire_resume`, `net.c:677`) instead of field by field. §6.5 |
 | `MAC` | — | `u8 tag[8]` | 8 | suffixes every datagram from v8; keyed BLAKE2b over the whole message in front of it, header included (`net_mac_stamp`/`net_mac_ok`, `net_wire.c`). Zero-filled while no session key exists. §6.4a |
 
-Receive-side validation, in order (`recv_inputs`, `net.c`): the datagram must
+Receive-side validation, in order (`rx_datagram`, on `net.c`'s receive
+thread, §6.1b): the datagram must
 be at least `sizeof(Hdr) + NET_MAC_LEN` and the right shape for its magic;
 then, from v8, its tag must verify under the session key, before anything
 else is read (§6.4a) — nothing below this line can be reached by a datagram
@@ -712,8 +713,8 @@ Body lengths are checked per magic in `rx_dispatch` (`net.c:492-550`), then
 `Packet` contents in int64 so the comparisons cannot overflow at the INT32
 ends: `first < 0`, pads past `newest`, `newest` more than `RING/2` frames
 ahead, or `ck_frame` outside `[-1, newest]` is dropped as malformed
-(`on_inputs`, `net.c:399-416`). The reliable payloads add their own length and
-hash gates (§6.4, §6.5); the fuzzers that exercise all of this are §6.6.
+(`rx_input`). The reliable payloads add their own length and hash gates
+(§6.4, §6.5); the fuzzers that exercise all of this are §6.6.
 
 **Bumping `PC_NET_PROTO_VERSION`** (`net.h:17-20`): required for any change
 to a packed layout above, to `Rules` (including `GameRules` itself, since it
@@ -756,7 +757,8 @@ timeout down to nothing. Measured phone↔PC, with the host logging
 `dropped a datagram from 192.168.1.129 (the peer is
 fe80::c0ef:34ff:fe21:910b%3)`.
 
-`recv_inputs()` therefore validates the header *before* the address: the
+The receive gate (`rx_datagram`) therefore validates the header *before* the
+address: the
 identity of a datagram is its protocol version, session id and player
 number. Until the peer has been heard (`s_heard`), a datagram that passes
 those is accepted and `net.peer` follows its source; afterwards the address
@@ -766,6 +768,61 @@ accepts one session-0 datagram from an unheard peer, because a guest stamps
 address it never answers on, that is the only way it can ever be heard.
 This also covers a NAT that remaps the port between the announcement and
 the first packet.
+
+### 6.1b Reception runs off the game thread
+
+Until 2026-09-23 the game thread drained the socket (`recv_inputs`, once per
+fresh tick and every 0.5 ms inside `wait_remote`), so a datagram waited in
+the kernel until the frame loop next looked, and every freeze of that thread
+was measured as network latency on *both* peers: the frozen side acked late,
+and timed the acks it received late. On phone↔PC sessions over one Wi-Fi
+network (~20 ms ping) the per-window ping max read 150-450 ms and matched the
+phone's frame freezes exactly; auto delay and the jitter mean feed on that
+number, and the frozen side's missing acks read as loss to its peer.
+
+Now `rx_main` (`net.c`), an SDL thread per session, sits in `poll()` (select
+on Windows) and, the moment a datagram lands, runs the gate above
+(`rx_datagram`), acks each input packet, and times each ack of ours against
+the send ring (`rtt_sample`). Everything that changes game or session state
+goes through a 256-entry queue that `recv_inputs` applies on the game thread
+at the same points as before: the input rings and `s_remote_have`, frame
+advantage, `s_last_acked` and the RTT statistics, and the reliable lanes
+(handshake, resume, delay, scene hand-off, lobby messages). A BYE or a
+protocol mismatch is a sticky flag rather than a queue entry, so a full queue
+cannot lose it. The ack's frame is the receive thread's own contiguous mark
+(`s_rx_have`) over what it has queued; `on_inputs` applies the same packets in
+the same order under the same rule, so an ack never claims a frame the game
+thread will not get. A packet the full queue refuses is still acked with the
+unchanged mark and counted as `rx_full` in the stats line. `s_rx_lock` guards
+the queue and the gate's state and is always taken before `tx_lock`.
+`pc_net_disconnect` joins the thread (it wakes at least every 5 ms) before it
+closes the socket. If the thread cannot be created, `recv_inputs` drains the
+socket itself as before, which is also how `tools/test_net_resume.c` runs.
+
+*Measured* (`tools/net_test.py --minutes 1`, peer B's game thread parked by
+`--load-stall` at frame 900; the numbers are A's, the side that did not
+freeze, for the stats window holding the freeze):
+
+| Link, freeze | build | ping avg / max | jitter | loss |
+|---|---|---|---|---|
+| `--delay 10` (20 ms RTT), 0.3 s | before | 47 / **339** ms | 7.1 ms | 0 % |
+| `--delay 10` (20 ms RTT), 0.3 s | after | 24 / **27** ms | 0.9 ms | 0 % |
+| loopback, 2 s | before | 12 / 50 ms | 7.4 ms | 2 % |
+| loopback, 2 s | after | 0 / 0 ms | 0.1 ms | 0 % |
+
+The frozen side read 350 ms max before and 27 ms after on the 20 ms link. The
+2 s freeze under-reads before because the send ring keeps the send times of
+only the last 64 input packets, and because the frozen side's socket buffer
+overflowed (A sent 3432 datagrams that window, B received 3113); after, B's
+receive thread drained all of it and nothing overflowed the queue
+(`rx_full 0`). Outside any freeze the same removal shows up as the ping
+itself: 40-47 ms before and 23-24 ms after on the 20 ms link, 11-19 ms before
+and 0 ms after on loopback. The before figures carry most of a frame of drain
+delay on each end, and so did the jitter (6-9 ms before, about 1 ms after).
+One consequence: with the honest RTT, auto delay picks lockstep delay 1 on
+the 20 ms link where it used to keep 2 (`delay_auto`, §6.2), and the menus
+then stall briefly more often (734 stalls over that run against 30, about 700
+of them before the match).
 
 ### 6.2 Timeout policy
 
@@ -964,14 +1021,14 @@ so the key differs even in the 2⁻³² case where the host picks the same
 session id again. What the tag does not do is make a replay of *this*
 session's own traffic distinguishable beyond the seq window — a packet older
 than 64 seqs is processed as a reorder, exactly as before, and the frame
-range checks in `on_inputs` are what bound it.
+range checks in `rx_input` are what bound it.
 
 **The bootstrap window, stated honestly.** The key does not exist until the
 handshake, and the two peers get it one leg apart: the guest when it accepts
 RULES, the host when it accepts the READY that answers it. So a datagram that
 does not verify is treated as a peer that has not keyed yet *until the first
 one that does verify*, and from that moment nothing unauthenticated is
-accepted again for the rest of the session (`s_mac_seen`, `recv_inputs`).
+accepted again for the rest of the session (`s_mac_seen`, `rx_datagram`).
 The upgrade is one round trip wide and is never given back. Before it, the
 lobby traffic is unauthenticated: input packets, and the lane-1 reliable
 messages (chat, matcher, `REL_RESUME`) are forgeable by anyone who guesses
@@ -1008,7 +1065,7 @@ cost 584 ns and 576 ns on this machine (i7-155H, `gcc -O2 -DNDEBUG`, best of
 seven runs of 400 000); a 13-byte ack costs ~405 ns each way, because keyed
 BLAKE2b always compresses the 128-byte key block first. Two sends and two
 receives a frame is ~2.3 µs of a 16.67 ms budget. It runs inside `tx()` and
-at the top of `recv_inputs`, neither of which takes a lock for it.
+in the receive gate (`rx_datagram`), both under `tx_lock`, which guards the key.
 
 *Verified:* `tools/test_net_resume.c` case `mac` drives the real socket —
 an authenticated ack lands, one with a flipped tag bit is counted in

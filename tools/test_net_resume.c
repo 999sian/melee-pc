@@ -6,9 +6,11 @@
  * the exchange is injected from a step hook that runs once per wait-loop
  * turn: net_resume_rel() for its RESUME, on_inputs() for the pads that
  * refill the gap. The socket is real but bound to an ephemeral port with no
- * peer listening, so recv_inputs() just drains empty and every send lands in
- * the void; tx() captures the input packets for the assertions. The include
- * order matters: aurora's headers must come before src/. From the repo root:
+ * peer listening, and no receive thread is started (SDL_CreateThreadRuntime
+ * below), so recv_inputs() drains it itself, synchronously; every send lands
+ * in the void, and tx() captures the input packets for the assertions. The
+ * include order matters: aurora's headers must come before src/. From the
+ * repo root:
  *   cc -std=gnu11 -DTARGET_PC=1 -DMELEE_PC=1 -DAURORA \
  *      -I extern/aurora/include -I src -I src/sdk_include \
  *      -I build/_deps/sdl-build/include-revision \
@@ -121,6 +123,21 @@ SDL_ThreadID SDL_GetCurrentThreadID(void) {
 }
 Uint64 SDL_GetPerformanceCounter(void) {
     return 424242;
+}
+/* No receive thread: net.c then drains the socket from recv_inputs() on the
+ * calling thread, so a case sees its datagram handled when that returns. */
+SDL_Thread* SDL_CreateThreadRuntime(SDL_ThreadFunction fn, const char* name, void* data,
+    SDL_FunctionPointer begin, SDL_FunctionPointer end) {
+    (void)fn;
+    (void)name;
+    (void)data;
+    (void)begin;
+    (void)end;
+    return NULL;
+}
+void SDL_WaitThread(SDL_Thread* thread, int* status) {
+    (void)thread;
+    (void)status;
 }
 
 /* Exercise the shipping wire codecs and address comparison. */
@@ -447,7 +464,7 @@ static void peer_pads(int32_t first, int32_t last) {
         pk.pads[i].button = (uint16_t)(0x2000 + first + i);
     }
     peer_heard();
-    on_inputs(&pk, (int)(offsetof(Packet, pads) + (size_t)pk.count * sizeof(WirePad)));
+    on_inputs(&pk);
 }
 
 /* ---- cases ------------------------------------------------------------ */
@@ -1061,7 +1078,7 @@ static void deliver_changed_input(void) {
     for (int i = 0; i < pk.count; i++) {
         pk.pads[i].button = 0x100;
     }
-    on_inputs(&pk, offsetof(Packet, pads) + pk.count * sizeof(WirePad));
+    on_inputs(&pk);
     s_step = NULL;
 }
 

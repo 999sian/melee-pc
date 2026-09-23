@@ -41,9 +41,13 @@
 #include <SDL3/SDL_thread.h>
 #include <SDL3/SDL_timer.h>
 #include <errno.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if !defined(_WIN32)
+#include <poll.h>
+#endif
 
 /* ---- state ------------------------------------------------------------ */
 
@@ -122,7 +126,24 @@ static SDL_TimerID s_timer;
 static Packet s_last_pkt;
 static bool s_last_valid;
 static uint64_t s_last_send_ns;
-static Held s_rx_held[HELD_MAX]; /* incoming, game thread */
+
+/* Receive side: rx_main, a thread of its own, drains the socket, runs the
+ * authentication gate, acks every input packet and times the round trip of
+ * every ack the moment the datagram lands; recv_inputs applies what it
+ * queued on the game thread (the "receive" section says why). s_rx_lock
+ * guards the queue and everything the gate owns: s_heard, s_last_rx_ns, the
+ * MAC grace state, the seq window, s_rx_have, s_rx_held, the sticky
+ * "peer gone" pair and the rx counters. It is taken before net.tx_lock,
+ * never while holding it. */
+static SDL_Thread* s_rx_thread; /* NULL: recv_inputs drains the socket itself */
+static atomic_bool s_rx_run;
+static SDL_Mutex* s_rx_lock;
+static atomic_int s_frame_pub;   /* net.frame as the receive thread may read it */
+static int32_t s_rx_have = -1;   /* newest contiguous remote frame queued (acked) */
+static bool s_rx_left;           /* BYE or protocol mismatch seen: s_peer_left to be */
+static int s_rx_why;             /* the s_status that goes with it */
+static unsigned s_rx_full;       /* datagrams dropped on a full queue, this window */
+static Held s_rx_held[HELD_MAX]; /* incoming, receive thread */
 
 /* Sequence numbers (proto 3): every outgoing datagram carries s_tx_seq++,
  * assigned in send_packet under tx_lock. The receiver dedups exact copies
@@ -257,6 +278,22 @@ static bool sock_transient(int e) {
     return e == WSAEINTR || e == WSAECONNRESET;
 #else
     return e == EINTR || e == ECONNREFUSED;
+#endif
+}
+
+/* Block until the socket has a datagram or ms pass. select() is the wait
+ * Winsock has; a POSIX descriptor at or above FD_SETSIZE would overflow its
+ * fd_set, so poll() there. */
+static void sock_wait(sock_t s, int ms) {
+#if defined(_WIN32)
+    fd_set r;
+    FD_ZERO(&r);
+    FD_SET(s, &r);
+    struct timeval tv = {0, ms * 1000};
+    select(0, &r, NULL, NULL, &tv);
+#else
+    struct pollfd p = {s, POLLIN, 0};
+    poll(&p, 1, ms);
 #endif
 }
 
@@ -422,7 +459,82 @@ static void send_bye(uint8_t reason) {
     tx(&b, sizeof b);
 }
 
-/* ---- receive ---------------------------------------------------------- */
+/* ---- receive -----------------------------------------------------------
+ * Reception runs on a thread of its own (rx_main below), not on the game
+ * thread. On the game thread a datagram waited in the socket until the frame
+ * loop next drained it, so every freeze of that thread -- a load, a shader
+ * compile, a phone descheduling it -- was measured as network latency by
+ * both peers: the frozen side acked late, and timed the acks it received
+ * late. Phone<->PC on one Wi-Fi network (~20 ms ping) logged ping max
+ * 150-450 ms per window, matching the phone's frame freezes exactly, and
+ * auto delay and the jitter mean (net_sync.c) consume that number. The
+ * frozen side also stopped acking, so its peer counted its own packets as
+ * lost and widened their redundancy.
+ *
+ * So the receive thread does the part that is about the link the moment a
+ * datagram lands: drain the socket, authenticate, ack every input packet
+ * and time every ack of ours. What is about the game goes through a queue
+ * (rx_push) that recv_inputs applies on the game thread: the input rings,
+ * s_remote_have, frame advantage, s_last_acked, the RTT statistics, the
+ * reliable lanes and through them the handshake, resume, delay and scene
+ * hand-off. A BYE or a protocol mismatch is a sticky flag instead, so a full
+ * queue cannot lose it.
+ *
+ * Measured with tools/net_test.py --delay 10 --load-stall 0.3 (20 ms round
+ * trip, one peer's game thread parked 300 ms): the other peer's ping max for
+ * that window went from 339 ms to 27 ms, jitter from 7.1 to 0.9 ms. Its
+ * steady ping went from 40-47 ms to 23-24 ms too, because the old figure also
+ * carried most of a frame of drain delay on each end.
+ *
+ * The ack carries s_rx_have, the receive thread's contiguous mark over what
+ * it has queued. on_inputs applies the same packets in the same order under
+ * the same rule, so the next drain brings s_remote_have to that mark or past
+ * it: an ack never claims a frame the game thread will not get, and the peer
+ * drops a frame from its redundancy window (which starts at s_last_acked + 1)
+ * only once it is queued here. A packet the full queue refuses is still
+ * acked, with the unchanged mark, so the peer's RTT and loss stay honest.
+ *
+ * A thread rather than tx_timer: the timer polls every 4 ms, which would
+ * put up to 4 ms of quantisation back into every sample on each side (the
+ * error this removes, only smaller), and SDL runs every timer on one shared
+ * thread. A thread parked in poll() wakes when the datagram lands. */
+
+/* One datagram's worth of game-thread work, host order. */
+typedef struct RxMsg {
+    int len;    /* message bytes */
+    int rtt_us; /* 'A': round trip timed as it landed, -1 for none */
+    union {
+        Hdr h;
+        Packet pk;
+        Ack ack;
+        Rel rel;
+        RelAck rack;
+    } u;
+} RxMsg;
+/* While this side is frozen the peer keeps sending: its input packet every
+ * 16 ms from wait_remote(), every 8 ms once its tx_timer resends as well,
+ * and an ack for each resend our own tx_timer makes (16 ms apart, 8 when the
+ * link wants resends) -- 120 to 250 datagrams a second. 256 is a second of
+ * that, past every freeze the phone sessions logged (<= 450 ms); a 2 s
+ * --load-stall on loopback dropped none (rx_full 0). A longer freeze
+ * drops the surplus and counts it (rx_full): input packets and reliable
+ * messages are resent, and a later ack supersedes a lost one. */
+#define RXQ 256
+static RxMsg s_rxq[RXQ]; /* under s_rx_lock */
+static int s_rxq_head, s_rxq_n;
+
+/* Queue a message for the game thread (receive thread, s_rx_lock held). */
+static bool rx_push(const void* body, int len, int rtt_us) {
+    if (s_rxq_n == RXQ) {
+        s_rx_full++;
+        return false;
+    }
+    RxMsg* m = &s_rxq[(s_rxq_head + s_rxq_n++) % RXQ];
+    m->len = len;
+    m->rtt_us = rtt_us;
+    memcpy(&m->u, body, (size_t)len);
+    return true;
+}
 
 /* RTP/IPsec-style anti-replay over the per-datagram seq: SEQ_DUP is an exact
  * copy already seen (drop it), SEQ_REORDER is older but not a duplicate
@@ -454,7 +566,13 @@ static int seq_check(uint16_t seq) {
     return SEQ_REORDER;
 }
 
-static void on_inputs(const Packet* pk, int n) {
+/* An input packet off the wire (receive thread, s_rx_lock held): checked,
+ * queued for on_inputs and acked. The ack goes out here rather than after
+ * the game thread applies the packet because its seq is what the peer times
+ * its round trip by; its frame is s_rx_have, final once the packet is queued
+ * (see the top of this section). */
+static void rx_input(const Packet* pk, int n) {
+    int32_t frame = atomic_load(&s_frame_pub);
     int count = pk->count > REDUNDANCY ? REDUNDANCY : pk->count;
     /* A peer can be at most window + delays ahead of us; anything else is
      * garbage (a corrupt packet, or a stale process at the peer's address).
@@ -468,14 +586,14 @@ static void on_inputs(const Packet* pk, int n) {
 
     if (!is_keepalive && (n < (int)(offsetof(Packet, pads) + (size_t)count * sizeof(WirePad)) ||
                              first < 0 || newest < first || last > newest ||
-                             newest > (int64_t)net.frame + RING / 2 || ckf < -1 || ckf > newest))
+                             newest > (int64_t)frame + RING / 2 || ckf < -1 || ckf > newest))
     {
         s_rx_malformed++;
         if (!s_warn_bad) {
             s_warn_bad = true;
             pc_log_line("net: dropped malformed input packet (len %d first %d count %d newest %d "
                         "ck_frame %d at frame %d)",
-                n, pk->first, count, pk->newest, pk->ck_frame, net.frame);
+                n, pk->first, count, pk->newest, pk->ck_frame, frame);
         }
         return;
     }
@@ -484,6 +602,22 @@ static void on_inputs(const Packet* pk, int n) {
     }
     /* Only contiguous data is taken; the ack below tells the peer what to
      * resend, so a gap never has to be tracked. */
+    int64_t have = s_rx_have;
+    if (count > 0 && first <= have + 1 && last > have && last < (int64_t)frame + RING / 2) {
+        have = last;
+    }
+    if (rx_push(pk, n, -1)) {
+        s_rx_have = (int32_t)have;
+    }
+    send_ack(s_rx_have, pk->seq);
+}
+
+/* The game thread's half of a packet rx_input queued. rx_input's rule over
+ * the same packets in the same order, against a net.frame never behind the
+ * one it checked, so a drain leaves s_remote_have at or above s_rx_have. */
+static void on_inputs(const Packet* pk) {
+    int count = pk->count > REDUNDANCY ? REDUNDANCY : pk->count;
+    int64_t last = (int64_t)pk->first + count - 1;
     if (count > 0 && pk->first <= s_remote_have + 1 && last > s_remote_have &&
         last < (int64_t)net.frame + RING / 2)
     {
@@ -506,7 +640,6 @@ static void on_inputs(const Packet* pk, int n) {
         s_remote_ck_frame = pk->ck_frame;
         s_remote_ck = pk->ck;
     }
-    send_ack(s_remote_have, pk->seq);
     /* The peer's frame advantage against ours. Both are measured the same
      * way against data that actually arrived, so their DIFFERENCE is the
      * phase error with nothing estimated in it -- no shared clock, no round
@@ -528,44 +661,49 @@ static void on_inputs(const Packet* pk, int n) {
     }
 }
 
-static void on_ack(const Ack* a) {
+/* The round trip of our input packet `seq`, timed as its ack lands (receive
+ * thread); -1 unless the ack echoes a seq we actually sent and have not
+ * sampled yet. Consumed, so a delayed duplicate ack cannot skew the
+ * estimate. The ring is written by both senders under tx_lock. */
+static int rtt_sample(uint16_t seq) {
+    int rtt = -1;
+    SDL_LockMutex(net.tx_lock);
+    int slot = seq & 63;
+    if (s_rtt_ring[slot].seq == seq && s_rtt_ring[slot].send_ns != 0) {
+        uint64_t now = SDL_GetTicksNS();
+        if (now > s_rtt_ring[slot].send_ns && now - s_rtt_ring[slot].send_ns < 5000000000ull) {
+            rtt = (int)((now - s_rtt_ring[slot].send_ns) / 1000);
+        }
+        s_rtt_ring[slot].send_ns = 0;
+    }
+    SDL_UnlockMutex(net.tx_lock);
+    return rtt;
+}
+
+/* The game thread's half of an ack: rtt is rtt_sample()'s. */
+static void on_ack(const Ack* a, int rtt) {
     /* The peer cannot hold a frame we never sent: a bogus ack above s_wrote
      * would leave send_inputs() with first > newest, i.e. shipping no pads at
      * all for the rest of the session (and INT32_MAX overflows first). */
     if (a->frame > s_last_acked && a->frame <= s_wrote) {
         s_last_acked = a->frame;
     }
-    /* Sample RTT only when the ack echoes a seq we actually sent and have
-     * not sampled yet; consume it so a delayed duplicate ack cannot skew the
-     * estimate. The ring is written by both senders under tx_lock. */
-    uint64_t rtt = 0;
-    bool got = false;
-    SDL_LockMutex(net.tx_lock);
-    int slot = a->seq & 63;
-    if (s_rtt_ring[slot].seq == a->seq && s_rtt_ring[slot].send_ns != 0) {
-        uint64_t now = SDL_GetTicksNS();
-        if (now > s_rtt_ring[slot].send_ns) {
-            rtt = (now - s_rtt_ring[slot].send_ns) / 1000;
-            got = true;
-        }
-        s_rtt_ring[slot].send_ns = 0;
-    }
-    SDL_UnlockMutex(net.tx_lock);
-    if (got && rtt < 5000000u) {
+    if (rtt >= 0) {
         net.ping_us = net.ping_us == 0 ? (uint32_t)rtt : (uint32_t)((net.ping_us * 3 + rtt) / 4);
-        s_ping_sum += rtt;
+        s_ping_sum += (uint64_t)rtt;
         s_ping_n++;
-        if (s_rtt_min == 0 || rtt < s_rtt_min) {
+        if (s_rtt_min == 0 || (uint32_t)rtt < s_rtt_min) {
             s_rtt_min = (uint32_t)rtt;
         }
-        if (rtt > s_rtt_max) {
+        if ((uint32_t)rtt > s_rtt_max) {
             s_rtt_max = (uint32_t)rtt;
         }
         jitter_note((uint32_t)rtt);
     }
 }
 
-/* One datagram from the peer, header already in host order and checked. */
+/* One datagram from the peer, header already in host order and checked
+ * (receive thread, s_rx_lock held). */
 static void rx_dispatch(void* buf, int n) {
     union {
         Hdr h;
@@ -590,14 +728,14 @@ static void rx_dispatch(void* buf, int n) {
              * cover the gap. Re-ack it: the ack carries our contiguous mark,
              * so it is correct whenever it arrives and costs one datagram. */
             s_rx_dups++;
-            send_ack(s_remote_have, u->pk.seq);
+            send_ack(s_rx_have, u->pk.seq);
             break;
         case SEQ_REORDER:
             s_rx_reorders++; /* older but new: still process, its pads may fill a gap */
-            on_inputs(&u->pk, n);
+            rx_input(&u->pk, n);
             break;
         default:
-            on_inputs(&u->pk, n);
+            rx_input(&u->pk, n);
             break;
         }
         break;
@@ -607,20 +745,20 @@ static void rx_dispatch(void* buf, int n) {
         }
         wire_ack(&u->ack);
         s_rx_acks++;
-        on_ack(&u->ack);
+        rx_push(&u->ack, n, rtt_sample(u->ack.seq));
         break;
     case 'R':
         if (n < (int)offsetof(Rel, payload)) {
             return;
         }
         wire_rel(&u->rel);
-        on_rel(&u->rel, n);
+        rx_push(&u->rel, n, -1);
         break;
     case 'K':
         if (n != (int)sizeof(RelAck)) {
             return;
         }
-        on_rel_ack(&u->rack);
+        rx_push(&u->rack, n, -1);
         break;
     case 'B':
         /* Only a peer we have already heard from can end the session. Before
@@ -628,12 +766,12 @@ static void rx_dispatch(void* buf, int n) {
          * peer answers from either family), so without this any host that
          * knows the published port could kill a connecting session with one
          * forged 8-byte datagram. */
-        if (n != (int)sizeof(Bye) || s_peer_left || !s_heard) {
+        if (n != (int)sizeof(Bye) || s_rx_left || !s_heard) {
             return;
         }
-        s_peer_left = true;
-        s_status = u->bye.reason <= PC_NET_PEER_RESUME ? u->bye.reason : PC_NET_PEER_LEFT;
-        pc_log_line("net: peer left (reason %d) at frame %d", s_status, net.frame);
+        s_rx_left = true;
+        s_rx_why = u->bye.reason <= PC_NET_PEER_RESUME ? u->bye.reason : PC_NET_PEER_LEFT;
+        pc_log_line("net: peer left (reason %d) at frame %d", s_rx_why, atomic_load(&s_frame_pub));
         break;
     default:
         return;
@@ -668,10 +806,6 @@ static bool packet_shape(const void* buf, int n) {
     }
 }
 
-/* Drain the socket. A datagram is dropped, with one log line per session
- * and reason, unless it comes from the peer's address, carries our protocol
- * version and session id (the guest learns the id from the host's first
- * packet) and names the remote player. */
 /* Hardware output is deliberately outside game snapshots. Compare against
  * the last command actually emitted, not the interpreter's rewound status. */
 void pc_net_rumble_command(unsigned port, unsigned command) {
@@ -683,8 +817,12 @@ void pc_net_rumble_command(unsigned port, unsigned command) {
 }
 
 static PcNetDatagramHandler s_datagram_handler;
+/* The handler runs on the receive thread, inside s_rx_lock; taking the lock
+ * here means that once this returns no call into the old one is running. */
 void pc_net_set_datagram_handler(PcNetDatagramHandler handler) {
+    SDL_LockMutex(s_rx_lock);
     s_datagram_handler = handler;
+    SDL_UnlockMutex(s_rx_lock);
 }
 
 bool pc_net_send_datagram(const void* data, size_t size, uint32_t address, uint16_t port) {
@@ -703,16 +841,189 @@ bool pc_net_send_datagram(const void* data, size_t size, uint32_t address, uint1
     return n == (int)size;
 }
 
-/* One call's worth of datagrams. The peer sends an input packet per frame,
- * a mid-frame resend, an ack per packet received and the odd reliable
- * message: a couple of dozen per frame at the very worst. Without a cap the
- * drain is a livelock -- anything that fills the socket faster than the loop
- * empties it parks the game thread here for as long as it keeps arriving,
- * and this runs on the frame loop and inside wait_remote(). The remainder
- * stays queued for the next call. */
+/* One call's worth of datagrams (rx_pump) or of queued messages
+ * (recv_inputs). The peer sends an input packet per frame, a mid-frame
+ * resend, an ack per packet received and the odd reliable message: a couple
+ * of dozen per frame at the very worst. Without a cap a drain is a livelock
+ * -- anything that fills it faster than the loop empties it parks the
+ * draining thread there for as long as it keeps arriving, and on the game
+ * thread that is the frame loop and wait_remote(). The remainder stays
+ * queued for the next call. */
 #define RX_BUDGET 128
 
-void recv_inputs(void) {
+/* One datagram off the socket (receive thread, s_rx_lock held). It is
+ * dropped, with one log line per session and reason, unless it comes from
+ * the peer's address, carries our protocol version and session id (the
+ * guest learns the id from the host's first packet) and names the remote
+ * player. */
+static void rx_datagram(void* buf, int n, const struct sockaddr_storage* from, socklen_t from_len) {
+    Hdr* h = buf;
+    if (s_datagram_handler && from->ss_family == AF_INET) {
+        const struct sockaddr_in* a = (const struct sockaddr_in*)from;
+        if (s_datagram_handler(buf, (size_t)n, a->sin_addr.s_addr, ntohs(a->sin_port)))
+            return;
+    }
+    s_rx_pkts++;
+    if (n < (int)(sizeof(Hdr) + NET_MAC_LEN)) {
+        s_rx_malformed++;
+        return;
+    }
+    /* Everything downstream measures the message, not the datagram: the
+     * tag is checked here and then left behind, so every length test and
+     * every body parser below stays the one it was. */
+    int body = n - NET_MAC_LEN;
+    if (!packet_shape(buf, body)) {
+        s_rx_malformed++;
+        return;
+    }
+    /* The authentication gate, ahead of every other check: a datagram
+     * that cannot prove it belongs to this session must not pin the peer
+     * address, teach us the session id, fail our protocol version or
+     * reach rx_dispatch.
+     *
+     * A handshake-derived key does not exist until the handshake, and
+     * the two peers get it one leg apart -- the guest when it accepts
+     * RULES, the host when it accepts the READY that answers it. Until a
+     * datagram has actually verified, one that does not is taken as a
+     * peer that has not keyed yet rather than as an attack; from the
+     * first tag that checks out, nothing unauthenticated is accepted
+     * again for the rest of the session. That upgrade is one round trip
+     * wide and it is never given back, so the window is the bootstrap
+     * one that already existed rather than a downgrade an attacker can
+     * reopen.
+     *
+     * A key pinned from MELEE_NET_KEY gets no such grace: both peers
+     * hold it from connect, so there is no leg to wait out and the first
+     * untagged datagram is already a forgery. Without this the knob
+     * would authenticate nothing at all -- an attacker who never sends a
+     * valid tag would simply keep the grace open forever.
+     *
+     * The key is read under tx_lock: the handshake installs it on the
+     * game thread while this runs on the receive thread. */
+    SDL_LockMutex(net.tx_lock);
+    bool keyed = net_key_ready();
+    bool mac_ok = keyed && net_mac_ok(buf, (size_t)body);
+    bool pinned = net_key_pinned();
+    SDL_UnlockMutex(net.tx_lock);
+    if (mac_ok) {
+        s_mac_seen = true;
+    } else if (s_mac_seen || pinned) {
+        s_rx_bad_mac++;
+        if (!s_warn_mac) {
+            s_warn_mac = true;
+            pc_log_line("net: dropped a datagram with a bad MAC (magic %c len %d) at frame %d",
+                h->magic >= 32 && h->magic < 127 ? h->magic : '?', n, atomic_load(&s_frame_pub));
+        }
+        return;
+    } else if (keyed && ++s_mac_quiet == MAC_QUIET_MAX) {
+        /* We hold a key and two seconds of the peer's traffic has gone by
+         * without one tag of it verifying. That is not the handshake leg
+         * the upgrade above allows for; it is two peers holding different
+         * keys -- a stale MELEE_NET_KEY on one side is how -- and the
+         * session is running unauthenticated. Said once, out loud,
+         * because the alternative is a session that looks protected in
+         * the log and is not. */
+        pc_log_line("net: %d datagrams from the peer and none of them authenticate; this "
+                    "session is UNAUTHENTICATED (the two sides hold different keys)",
+            MAC_QUIET_MAX);
+    }
+    wire_hdr(h);
+    bool same_addr = addr_eq(from, &net.peer);
+    /* Once pinned, unrelated traffic cannot change any session state.
+     *
+     * Before pinning, the address is NOT a usable filter: the two sides
+     * pick their own for each other, and a dual-stack LAN peer routinely
+     * answers from a different family than the one the lobby handed us
+     * (measured PC<->tablet: we dialled its IPv6 link-local, it answered
+     * from 192.168.1.109). Requiring a match there breaks the handshake
+     * outright. What IS gated on the address is the one datagram that
+     * needs no session state to do damage -- see the BYE in rx_dispatch:
+     * before pinning, a forged one from anywhere would otherwise end the
+     * session on its own. */
+    if (s_heard && !same_addr) {
+        s_rx_bad_src++;
+        if (!s_warn_src) {
+            char got[80] = "?", want[80] = "?";
+            net_addr_text((const struct sockaddr*)from, got, sizeof got);
+            net_addr_text((const struct sockaddr*)&net.peer, want, sizeof want);
+            s_warn_src = true;
+            pc_log_line("net: dropped a datagram from %s (the peer is %s)", got, want);
+        }
+        return;
+    }
+    if (h->player != net.remote) {
+        s_rx_bad_player++;
+        return;
+    }
+    /* Learning the session id is how the guest finds the host without the
+     * lobby having told it one -- and it is also the one piece of session
+     * state a stranger could set with a single well-shaped datagram,
+     * because the MAC gate above is a grace window while no key exists.
+     * A 16-byte RelAck carrying someone else's session id used to win that
+     * race, after which every genuine host datagram failed the session
+     * check for the rest of the session (learn_session requires
+     * net.session == 0, so there is no second chance) and the match died
+     * on the handshake timeout. Only the message that carries the session
+     * in the first place -- a well-formed RULES -- may establish it.
+     * "Well-formed" here means the Rel frame declares a full Rules
+     * payload: the genuine host always sends sizeof(Rules) (on_rules
+     * drops anything else), so a one-packet forgery has to shape a
+     * payload that also survives the guest's validation, and the
+     * session is still only learned -- no address pin, no key. */
+    bool is_rules;
+    {
+        /* packet_shape has already proved this is a 'R' whose declared
+         * length matches the datagram, so the Rel view is in bounds and
+         * r->len can be trusted here. */
+        const Rel* rel = buf;
+        is_rules = h->magic == 'R' && rel->type == REL_RULES && ntohs(rel->len) == sizeof(Rules);
+    }
+    bool learn_session = net.session == 0 && net.local == 1 && h->session != 0 && is_rules;
+    bool guest_preamble = !s_heard && net.local == 0 && h->session == 0;
+    if (h->session != net.session && !learn_session && !guest_preamble) {
+        s_rx_bad_sess++;
+        if (!s_warn_sess) {
+            s_warn_sess = true;
+            pc_log_line("net: dropped a datagram for session %08x player %u (ours %08x, peer %d)",
+                h->session, h->player, net.session, net.remote);
+        }
+        return;
+    }
+    if (h->version != WIRE_VERSION) {
+        if (same_addr && !s_rx_left) {
+            s_rx_left = true;
+            s_rx_why = PC_NET_PEER_INCOMPATIBLE;
+            pc_log_line("net: peer speaks protocol %u, we speak %u", h->version, WIRE_VERSION);
+        }
+        return;
+    }
+    if (learn_session) {
+        SDL_LockMutex(net.tx_lock);
+        net.session = h->session;
+        SDL_UnlockMutex(net.tx_lock);
+    }
+    if (!s_heard && !same_addr) {
+        char got[80] = "?", want[80] = "?";
+        net_addr_text((const struct sockaddr*)from, got, sizeof got);
+        net_addr_text((const struct sockaddr*)&net.peer, want, sizeof want);
+        pc_log_line("net: peer answers from %s, not %s; following it", got, want);
+        SDL_LockMutex(net.tx_lock);
+        memcpy(&net.peer, from, sizeof net.peer);
+        net.peer_len = from_len;
+        SDL_UnlockMutex(net.tx_lock);
+    }
+    if (net.sim_rx_delay_ns == 0) {
+        rx_dispatch(buf, body);
+    } else {
+        /* A full simulator queue is one more loss. */
+        held_put(s_rx_held, buf, (size_t)body, SDL_GetTicksNS() + net.sim_rx_delay_ns);
+    }
+}
+
+/* Drain the socket through the gate, then release what the link simulator
+ * held back. Runs on the receive thread, or on the game thread when there
+ * is none. False on a hard socket error (sock_err_note logged it). */
+static bool rx_pump(void) {
     for (int budget = RX_BUDGET; budget > 0; budget--) {
         union {
             Hdr h;
@@ -730,173 +1041,96 @@ void recv_inputs(void) {
                 continue; /* EINTR / ICMP unreachable: more may still be queued */
             }
             sock_err_note("recvfrom", e);
-            break;
+            return false;
         }
         if (n == 0) {
             continue; /* empty datagram: nothing to parse */
         }
-        if (s_datagram_handler && from.ss_family == AF_INET) {
-            const struct sockaddr_in* a = (const struct sockaddr_in*)&from;
-            if (s_datagram_handler(&u, (size_t)n, a->sin_addr.s_addr, ntohs(a->sin_port)))
-                continue;
-        }
-        s_rx_pkts++;
-        if (n < (int)(sizeof(Hdr) + NET_MAC_LEN)) {
-            s_rx_malformed++;
-            continue;
-        }
-        /* Everything downstream measures the message, not the datagram: the
-         * tag is checked here and then left behind, so every length test and
-         * every body parser below stays the one it was. */
-        int body = n - NET_MAC_LEN;
-        if (!packet_shape(&u, body)) {
-            s_rx_malformed++;
-            continue;
-        }
-        /* The authentication gate, ahead of every other check: a datagram
-         * that cannot prove it belongs to this session must not pin the peer
-         * address, teach us the session id, fail our protocol version or
-         * reach rx_dispatch.
-         *
-         * A handshake-derived key does not exist until the handshake, and
-         * the two peers get it one leg apart -- the guest when it accepts
-         * RULES, the host when it accepts the READY that answers it. Until a
-         * datagram has actually verified, one that does not is taken as a
-         * peer that has not keyed yet rather than as an attack; from the
-         * first tag that checks out, nothing unauthenticated is accepted
-         * again for the rest of the session. That upgrade is one round trip
-         * wide and it is never given back, so the window is the bootstrap
-         * one that already existed rather than a downgrade an attacker can
-         * reopen.
-         *
-         * A key pinned from MELEE_NET_KEY gets no such grace: both peers
-         * hold it from connect, so there is no leg to wait out and the first
-         * untagged datagram is already a forgery. Without this the knob
-         * would authenticate nothing at all -- an attacker who never sends a
-         * valid tag would simply keep the grace open forever. */
-        if (net_key_ready() && net_mac_ok(&u, (size_t)body)) {
-            s_mac_seen = true;
-        } else if (s_mac_seen || net_key_pinned()) {
-            s_rx_bad_mac++;
-            if (!s_warn_mac) {
-                s_warn_mac = true;
-                pc_log_line("net: dropped a datagram with a bad MAC (magic %c len %d) at frame %d",
-                    u.h.magic >= 32 && u.h.magic < 127 ? u.h.magic : '?', n, net.frame);
-            }
-            continue;
-        } else if (net_key_ready() && ++s_mac_quiet == MAC_QUIET_MAX) {
-            /* We hold a key and two seconds of the peer's traffic has gone by
-             * without one tag of it verifying. That is not the handshake leg
-             * the upgrade above allows for; it is two peers holding different
-             * keys -- a stale MELEE_NET_KEY on one side is how -- and the
-             * session is running unauthenticated. Said once, out loud,
-             * because the alternative is a session that looks protected in
-             * the log and is not. */
-            pc_log_line("net: %d datagrams from the peer and none of them authenticate; this "
-                        "session is UNAUTHENTICATED (the two sides hold different keys)",
-                MAC_QUIET_MAX);
-        }
-        wire_hdr(&u.h);
-        bool same_addr = addr_eq(&from, &net.peer);
-        /* Once pinned, unrelated traffic cannot change any session state.
-         *
-         * Before pinning, the address is NOT a usable filter: the two sides
-         * pick their own for each other, and a dual-stack LAN peer routinely
-         * answers from a different family than the one the lobby handed us
-         * (measured PC<->tablet: we dialled its IPv6 link-local, it answered
-         * from 192.168.1.109). Requiring a match there breaks the handshake
-         * outright. What IS gated on the address is the one datagram that
-         * needs no session state to do damage -- see the BYE in rx_dispatch:
-         * before pinning, a forged one from anywhere would otherwise end the
-         * session on its own. */
-        if (s_heard && !same_addr) {
-            s_rx_bad_src++;
-            if (!s_warn_src) {
-                char got[80] = "?", want[80] = "?";
-                net_addr_text((const struct sockaddr*)&from, got, sizeof got);
-                net_addr_text((const struct sockaddr*)&net.peer, want, sizeof want);
-                s_warn_src = true;
-                pc_log_line("net: dropped a datagram from %s (the peer is %s)", got, want);
-            }
-            continue;
-        }
-        if (u.h.player != net.remote) {
-            s_rx_bad_player++;
-            continue;
-        }
-        /* Learning the session id is how the guest finds the host without the
-         * lobby having told it one -- and it is also the one piece of session
-         * state a stranger could set with a single well-shaped datagram,
-         * because the MAC gate above is a grace window while no key exists.
-         * A 16-byte RelAck carrying someone else's session id used to win that
-         * race, after which every genuine host datagram failed the session
-         * check for the rest of the session (learn_session requires
-         * net.session == 0, so there is no second chance) and the match died
-         * on the handshake timeout. Only the message that carries the session
-         * in the first place -- a well-formed RULES -- may establish it.
-         * "Well-formed" here means the Rel frame declares a full Rules
-         * payload: the genuine host always sends sizeof(Rules) (on_rules
-         * drops anything else), so a one-packet forgery has to shape a
-         * payload that also survives the guest's validation, and the
-         * session is still only learned -- no address pin, no key. */
-        bool is_rules;
-        {
-            /* packet_shape has already proved this is a 'R' whose declared
-             * length matches the datagram, so the Rel view is in bounds and
-             * r->len can be trusted here. */
-            const Rel* rel = (const Rel*)&u;
-            is_rules =
-                u.h.magic == 'R' && rel->type == REL_RULES && ntohs(rel->len) == sizeof(Rules);
-        }
-        bool learn_session = net.session == 0 && net.local == 1 && u.h.session != 0 && is_rules;
-        bool guest_preamble = !s_heard && net.local == 0 && u.h.session == 0;
-        if (u.h.session != net.session && !learn_session && !guest_preamble) {
-            s_rx_bad_sess++;
-            if (!s_warn_sess) {
-                s_warn_sess = true;
-                pc_log_line(
-                    "net: dropped a datagram for session %08x player %u (ours %08x, peer %d)",
-                    u.h.session, u.h.player, net.session, net.remote);
-            }
-            continue;
-        }
-        if (u.h.version != WIRE_VERSION) {
-            if (same_addr && !s_peer_left) {
-                s_peer_left = true;
-                s_status = PC_NET_PEER_INCOMPATIBLE;
-                pc_log_line("net: peer speaks protocol %u, we speak %u", u.h.version, WIRE_VERSION);
-            }
-            continue;
-        }
-        if (learn_session) {
-            SDL_LockMutex(net.tx_lock);
-            net.session = u.h.session;
-            SDL_UnlockMutex(net.tx_lock);
-        }
-        if (!s_heard && !addr_eq(&from, &net.peer)) {
-            char got[80] = "?", want[80] = "?";
-            net_addr_text((const struct sockaddr*)&from, got, sizeof got);
-            net_addr_text((const struct sockaddr*)&net.peer, want, sizeof want);
-            pc_log_line("net: peer answers from %s, not %s; following it", got, want);
-            SDL_LockMutex(net.tx_lock);
-            memcpy(&net.peer, &from, sizeof net.peer);
-            net.peer_len = from_len;
-            SDL_UnlockMutex(net.tx_lock);
-        }
-        if (net.sim_rx_delay_ns == 0) {
-            rx_dispatch(&u, body);
-        } else if (held_put(s_rx_held, &u, (size_t)body, SDL_GetTicksNS() + net.sim_rx_delay_ns) <
-                   0)
-        {
-            continue; /* simulator queue full: one more loss */
-        }
+        SDL_LockMutex(s_rx_lock);
+        rx_datagram(&u, n, &from, from_len);
+        SDL_UnlockMutex(s_rx_lock);
     }
     if (net.sim_rx_delay_ns != 0) {
+        SDL_LockMutex(s_rx_lock);
         uint64_t now = SDL_GetTicksNS();
         for (Held* h; (h = held_due(s_rx_held, now)) != NULL;) {
             h->release_ns = 0;
             rx_dispatch(h->buf, h->len);
         }
+        SDL_UnlockMutex(s_rx_lock);
+    }
+    return true;
+}
+
+/* The longest the receive thread waits between looks at s_rx_run: all it
+ * bounds is how long pc_net_disconnect() waits for the thread to notice. */
+#define RX_WAIT_MS 5
+
+static int SDLCALL rx_main(void* ud) {
+    (void)ud;
+    /* The simulator's receive hold is released from here too, and a 1 ms
+     * turn keeps its delay within a millisecond of the knob. */
+    int ms = net.sim_rx_delay_ns != 0 ? 1 : RX_WAIT_MS;
+    while (atomic_load(&s_rx_run)) {
+        sock_wait(net.sock, ms);
+        if (!rx_pump()) {
+            SDL_DelayNS(RX_WAIT_MS * 1000000ull); /* a hard error is logged, not spun on */
+        }
+    }
+    return 0;
+}
+
+/* When the peer was last heard from, 0 before its first datagram: the
+ * receive thread's clock, read under its lock (game thread). */
+static uint64_t rx_heard_ns(void) {
+    SDL_LockMutex(s_rx_lock);
+    uint64_t t = s_heard ? s_last_rx_ns : 0;
+    SDL_UnlockMutex(s_rx_lock);
+    return t;
+}
+
+/* Apply what the receive thread queued, in arrival order (game thread): the
+ * frame loop calls this once per fresh tick and wait_remote() once a turn. */
+void recv_inputs(void) {
+    atomic_store(&s_frame_pub, net.frame);
+    if (s_rx_thread == NULL) {
+        rx_pump();
+    }
+    for (int budget = RX_BUDGET; budget > 0; budget--) {
+        RxMsg m;
+        SDL_LockMutex(s_rx_lock);
+        bool got = s_rxq_n > 0;
+        if (got) {
+            m = s_rxq[s_rxq_head];
+            s_rxq_head = (s_rxq_head + 1) % RXQ;
+            s_rxq_n--;
+        }
+        SDL_UnlockMutex(s_rx_lock);
+        if (!got) {
+            break;
+        }
+        switch (m.u.h.magic) {
+        case 'M':
+            on_inputs(&m.u.pk);
+            break;
+        case 'A':
+            on_ack(&m.u.ack, m.rtt_us);
+            break;
+        case 'R':
+            on_rel(&m.u.rel, m.len);
+            break;
+        default: /* 'K' */
+            on_rel_ack(&m.u.rack);
+            break;
+        }
+    }
+    SDL_LockMutex(s_rx_lock);
+    bool left = s_rx_left;
+    int why = s_rx_why;
+    SDL_UnlockMutex(s_rx_lock);
+    if (left && !s_peer_left) {
+        s_peer_left = true;
+        s_status = why;
     }
 }
 
@@ -1193,6 +1427,8 @@ static bool wait_remote(int32_t need) {
             return false;
         }
         net_watchdog_heartbeat();
+        /* Before now, so no stamp the receive thread writes is later than it. */
+        uint64_t heard = rx_heard_ns();
         uint64_t now = SDL_GetTicksNS();
         if (s_rc != RSM_NONE) {
             if (!resume_poll(now)) {
@@ -1201,8 +1437,8 @@ static bool wait_remote(int32_t need) {
         } else {
             /* Before the first packet there is no rx clock, so the connect
              * wait is still measured from t0. */
-            uint64_t quiet = s_heard ? now - s_last_rx_ns : now - t0;
-            uint64_t limit = (s_heard ? STALL_TIMEOUT_MS : connect_timeout_ms()) * 1000000ull;
+            uint64_t quiet = heard ? now - heard : now - t0;
+            uint64_t limit = (heard ? STALL_TIMEOUT_MS : connect_timeout_ms()) * 1000000ull;
             /* Measured from the last forward progress, not from the start of
              * this wait: t0 restarts with every wait_remote() call, so a peer
              * that advanced the contiguous mark one frame just under the bound
@@ -1213,7 +1449,7 @@ static bool wait_remote(int32_t need) {
             bool stuck = now - since > NO_PROGRESS_TIMEOUT_MS * 1000000ull;
             if (quiet > limit || stuck) {
                 s_no_progress = stuck && quiet <= limit;
-                if (!s_heard || s_no_progress || !resume_begin(now)) {
+                if (!heard || s_no_progress || !resume_begin(now)) {
                     s_status = PC_NET_PEER_TIMEOUT;
                     return false;
                 }
@@ -1223,6 +1459,8 @@ static bool wait_remote(int32_t need) {
             send_inputs(); /* peer may be waiting on us, or lost our packets */
             last_send = now;
         }
+        /* The receive thread is draining the socket meanwhile; half a
+         * millisecond is how late its queue can be seen here. */
         SDL_DelayNS(500000);
     }
     if (s_rc != RSM_NONE) {
@@ -1481,7 +1719,12 @@ static void session_reset(void) {
     s_sock_err = 0;
     s_warn_sock = false;
     s_rx_malformed = s_rx_bad_src = s_rx_bad_sess = s_rx_bad_player = s_tx_would_block = 0;
-    s_rx_bad_mac = 0;
+    s_rx_bad_mac = s_rx_full = 0;
+    s_rx_have = -1;
+    s_rx_left = false;
+    s_rx_why = 0;
+    s_rxq_head = s_rxq_n = 0;
+    atomic_store(&s_frame_pub, 0);
     s_red_target = REDUNDANCY;
     s_red_floor = REDUNDANCY_FLOOR;
     s_resim_run = 0;
@@ -1516,13 +1759,20 @@ void pc_net_disconnect(void) {
     if (net.sock == SOCK_INVALID) {
         return;
     }
-    /* Timer first: once removed it cannot fire again, and taking tx_lock
-     * below waits out a callback already running, so nothing touches the
-     * socket after this returns. */
+    /* Timer and receive thread first: a removed timer cannot fire again, and
+     * taking tx_lock below waits out a callback already running; a joined
+     * thread reads the socket no more, and what it queued dies with the
+     * session. Nothing touches the socket after this returns. */
     if (s_timer) {
         SDL_RemoveTimer(s_timer);
         s_timer = 0;
     }
+    if (s_rx_thread != NULL) {
+        atomic_store(&s_rx_run, false);
+        SDL_WaitThread(s_rx_thread, NULL);
+        s_rx_thread = NULL;
+    }
+    s_rxq_head = s_rxq_n = 0;
     if (!s_peer_left) {
         /* Tell the peer why so it need not wait out the silence; sent
          * as a 5-packet burst so NAT/firewall drops are tolerated. */
@@ -1632,6 +1882,7 @@ static bool connect_impl(
     sock_t supplied, const char* ip, uint16_t port, int player, uint32_t seed) {
     if (net.tx_lock == NULL) {
         net.tx_lock = SDL_CreateMutex();
+        s_rx_lock = SDL_CreateMutex();
         sock_startup();
     }
     pc_net_disconnect();
@@ -1796,6 +2047,13 @@ static bool connect_impl(
         net.session, WIRE_VERSION, net.sim_loss, (int)(net.sim_delay_ns / 1000000),
         (int)(net.sim_rx_delay_ns / 1000000), net.sim_jitter_ms, net.sim_reorder, net.sim_dup,
         net.sim_burst);
+    atomic_store(&s_rx_run, true);
+    s_rx_thread = SDL_CreateThread(rx_main, "net rx", NULL);
+    if (s_rx_thread == NULL) {
+        /* Still a working session, only without the fix: recv_inputs drains
+         * the socket itself, and a stall of this thread reads as latency. */
+        pc_log_line("net: no receive thread; receiving on the game thread");
+    }
     /* The FP control word, from inside the shipped process. Flush-to-zero or
      * a non-default rounding mode on one peer and not the other silently
      * changes every result; it was measured IEEE-default on both targets,
@@ -2032,7 +2290,7 @@ static bool wait_input(int32_t need) {
                 s_remote_newest, NO_PROGRESS_TIMEOUT_MS);
         } else {
             pc_log_line("net: peer silent for %d ms at frame %d, leaving netplay",
-                s_heard ? STALL_TIMEOUT_MS : connect_timeout_ms(), net.frame);
+                rx_heard_ns() ? STALL_TIMEOUT_MS : connect_timeout_ms(), net.frame);
         }
     }
     /* The BYE can arrive while the game thread is parked in
@@ -2633,21 +2891,26 @@ static void fresh_tick(PADStatus* head, bool raw) {
          * and is enough on its own to make pc_net_quality() call a good
          * connection bad. */
         int sent = (int)(net.tx_inputs - s_loss_tx_mark);
-        int acked = (int)(s_rx_acks - s_loss_ack_mark);
         s_loss_tx_mark = net.tx_inputs;
+        SDL_LockMutex(s_rx_lock); /* the receive thread counts the acks */
+        int acked = (int)(s_rx_acks - s_loss_ack_mark);
         s_loss_ack_mark = s_rx_acks;
+        SDL_UnlockMutex(s_rx_lock);
         if (sent > 0) {
             int now_pct = sent > acked ? 100 * (sent - acked) / sent : 0;
             s_loss_pct = (s_loss_pct * 2 + now_pct) / 3;
         }
     }
     if ((net.frame % 600) == 0 && net.frame > 0 && net.active) {
+        /* The rx counters are the receive thread's: read and cleared under
+         * its lock, which it waits out for one log line every 10 s. */
+        SDL_LockMutex(s_rx_lock);
         pc_log_line("net: frame %d, rollbacks %u (max depth %d, lost %u), stalls %u (worst "
                     "%.1f ms), skips %u, advances %u, ping %u ms (avg %.0f, min %u, max %u, "
                     "jitter %.1f), loss %d%% (%u tx %u rx), offset %+.1f ms, remote behind %d, "
                     "barrier %d, quality %d, dup %u reorder %u sock_err %u resim_eat %u red %d, "
                     "drops (bad_src %u bad_sess %u bad_player %u bad_mac %u malformed %u "
-                    "would_block %u), "
+                    "would_block %u rx_full %u), "
                     "pad reuse %u empty %u, audio replayed %u over %u, seed out-of-tick %u draws "
                     "in %u frames, pad slips %u (queue worst %u, full at write %u), idle ticks %u, "
                     "audio liveness asked %u (engine would say yes %u)",
@@ -2657,10 +2920,10 @@ static void fresh_tick(PADStatus* head, bool raw) {
             jitter_us() / 1000.0, s_loss_pct, net.tx_pkts, s_rx_pkts, net.offset_last / 1000.0,
             net.frame - 1 - s_remote_have, net.rb_barrier, pc_net_quality(), s_rx_dups,
             s_rx_reorders, s_sock_err, s_resim_eat, s_red_target, s_rx_bad_src, s_rx_bad_sess,
-            s_rx_bad_player, s_rx_bad_mac, s_rx_malformed, s_tx_would_block, net.pad_reuse,
-            net.pad_empty, s_aj_replays, s_aj_over, s_seed_out_draws, s_seed_out_frames,
-            s_pad_slips, s_qdepth_max, s_pad_full, s_tick_idle, s_deaf_asks, s_deaf_true);
-        snap_stats_report();
+            s_rx_bad_player, s_rx_bad_mac, s_rx_malformed, s_tx_would_block, s_rx_full,
+            net.pad_reuse, net.pad_empty, s_aj_replays, s_aj_over, s_seed_out_draws,
+            s_seed_out_frames, s_pad_slips, s_qdepth_max, s_pad_full, s_tick_idle, s_deaf_asks,
+            s_deaf_true);
         s_stall_ns_max = 0;
         s_ping_sum = 0;
         s_ping_n = 0;
@@ -2669,7 +2932,9 @@ static void fresh_tick(PADStatus* head, bool raw) {
         s_loss_tx_mark = s_loss_ack_mark = 0; /* the marks index those counters */
         s_rx_dups = s_rx_reorders = s_sock_err = s_resim_eat = 0;
         s_rx_bad_src = s_rx_bad_sess = s_rx_bad_player = s_rx_malformed = s_tx_would_block = 0;
-        s_rx_bad_mac = 0;
+        s_rx_bad_mac = s_rx_full = 0;
+        SDL_UnlockMutex(s_rx_lock);
+        snap_stats_report();
     }
 #ifdef MELEE_FP_PERTURB_NAME
     if ((net.frame % 600) == 0 && net.frame > 0) {
