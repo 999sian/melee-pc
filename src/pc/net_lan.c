@@ -1074,6 +1074,18 @@ static bool open_host(Entry* e) {
         fail("connect failed");
         return false;
     }
+    /* RULES now, before this thread's first tick can park in the lockstep
+     * wait for the guest's first input: the guest accepts no host datagram
+     * until a RULES has told it the session id (net.c recv_inputs), so a
+     * host that died inside that wait left the guest nothing it could hear,
+     * and it sat in the 60 s first-packet wait instead of timing a silent
+     * peer out. The reliable lane's timer resends it from here on whatever
+     * this thread does. tools/net_lan_test.py host_dies (guest's inputs held
+     * 3 s off the host, host killed 1 s in): no "lan: failed:" within 20 s
+     * before, on the base build too; "connection lost" 9.0 s after the kill
+     * with this. poll_connecting() repeats the call (idempotent) until
+     * READY is in. */
+    pc_net_host_match(s_seed, &s_start_frame);
     timer_start();
     pc_log_line("lan: connect %s:%u as P1 seed=%08x", e->p.ip, e->p.port, s_seed);
     return true;
