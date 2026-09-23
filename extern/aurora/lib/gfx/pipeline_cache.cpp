@@ -1354,7 +1354,7 @@ void rebuild_pipeline_cache() {
   {
     std::lock_guard lock{g_pipelineMutex};
     known.reserve(g_knownPipelines.size());
-    for (const auto& pipeline : g_knownPipelines | std::views::values) {
+    for (const auto& [hash, pipeline] : g_knownPipelines) {
       known.push_back(pipeline);
     }
   }

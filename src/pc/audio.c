@@ -1119,14 +1119,14 @@ void AXSetVoiceSrcRatio(AXVPB* p, float ratio) {
     audio_unlock();
 }
 
-static long axfx_longest_path(void (*cb)(void*, void*), void* ctx);
+static int32_t axfx_longest_path(void (*cb)(void*, void*), void* ctx);
 
 static void aux_register(AuxBus* bus, void (*cb)(void*, void*), void* ctx) {
     audio_lock();
     bus->cb = cb;
     bus->ctx = ctx;
     bus->quiet = 0;
-    bus->hold = cb != NULL ? (int)(axfx_longest_path(cb, ctx) / AX_FRAME) + 1 : 0;
+    bus->hold = cb != NULL ? axfx_longest_path(cb, ctx) / AX_FRAME + 1 : 0;
     audio_unlock();
 }
 
@@ -1285,7 +1285,7 @@ static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv, struct AXFX_BUFFERUPDATE
     for (ch = 0; ch < AXFX_CHANNELS; ch++) {
         struct AXFX_REVHI_DELAYLINE* line[6];
         float* buf[6];
-        long pos[6], len[6];
+        int32_t pos[6], len[6];
         float lp = rv->lpLastout[ch];
 
         for (k = 0; k < 3; k++) {
@@ -1552,14 +1552,14 @@ void AXFXDelayCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_DELAY* d) {
  * long run_aux must see silence before it may conclude the effect is quiet.
  * Reverb: the longest comb, then the all-passes, which are plain delays when
  * coloration is 0. Chorus passes its input straight through. */
-static long axfx_longest_path(void (*cb)(void*, void*), void* ctx) {
-    long longest = 0;
+static int32_t axfx_longest_path(void (*cb)(void*, void*), void* ctx) {
+    int32_t longest = 0;
     int c, k;
 
     for (c = 0; c < AXFX_CHANNELS; c++) {
-        long n = kCombLen[c][2];
+        int32_t n = kCombLen[c][2];
         if ((void*)cb == (void*)AXFXDelayCallback) {
-            n = (long)((struct AXFX_DELAY*)ctx)->currentSize[c];
+            n = (int32_t)((struct AXFX_DELAY*)ctx)->currentSize[c];
         } else {
             for (k = 0; k < 3; k++) {
                 n += kAllPassLen[c][k];
