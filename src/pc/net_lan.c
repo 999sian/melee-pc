@@ -781,8 +781,8 @@ static bool prefix_ci(const char* s, const char* lower) {
 }
 
 static bool iface_skipped(const char* name) {
-    static const char* const virt[] = {"docker", "veth", "br-", "virbr", "tun", "tap", "wg",
-        "utun", "zt", "zerotier", "tailscale", "radmin"};
+    static const char* const virt[] = {"docker", "veth", "br-", "virbr", "tun", "tap", "wg", "utun",
+        "zt", "zerotier", "tailscale", "radmin"};
     for (size_t i = 0; i < sizeof virt / sizeof virt[0]; i++) {
         if (prefix_ci(name, virt[i])) {
             return true;
