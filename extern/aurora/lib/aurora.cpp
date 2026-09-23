@@ -403,8 +403,12 @@ void end_frame() noexcept {
         // Copy EFB -> XFB (swapchain)
         pass.SetPipeline(webgpu::g_CopyPipeline);
         pass.SetBindGroup(0, presentBindGroup, 0, nullptr);
-        set_present_viewport(pass, viewport, webgpu::g_graphicsConfig.surfaceConfiguration.width,
-                             webgpu::g_graphicsConfig.surfaceConfiguration.height);
+        /* The acquired texture's own size, not the configured one: a browser
+         * canvas that the page resized (SDL follows its CSS size) hands back
+         * a texture of the new size before the resize event reconfigures the
+         * surface, and a scissor outside it is a fatal validation error.
+         * Natively the two sizes are always equal. */
+        set_present_viewport(pass, viewport, currentTexture.GetWidth(), currentTexture.GetHeight());
 
         pass.Draw(3);
         if (rmlBindGroup && rmlOverlay) {

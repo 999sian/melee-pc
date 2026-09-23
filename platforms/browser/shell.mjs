@@ -53,12 +53,13 @@ window.Module = {
   onAbort: (reason) => status(`Engine stopped: ${reason}`),
   onGraphicsPreparation: (done, total) =>
     status(done === total ? 'Starting…' : `Preparing graphics… ${Math.floor(done * 100 / total)}%`),
-  onRuntimeInitialized: () => { status('Choose a GALE01 disc image (.iso or .gcm).'); updateStart(); },
+  onRuntimeInitialized: () => { ready = true; status('Choose a GALE01 disc image (.iso or .gcm).'); updateStart(); },
 };
 
+// Not `typeof Module.callMain`: that exists as soon as the script runs, while
+// the wasm is still compiling, and a disc picked by then started a dead runtime.
 let ready = false;
 function updateStart() {
-  ready = typeof Module.callMain === 'function';
   $('start').disabled = !(ready && $('disc').files.length);
 }
 $('disc').addEventListener('change', updateStart);
