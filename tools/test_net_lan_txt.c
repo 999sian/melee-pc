@@ -258,11 +258,21 @@ static void feed(
     s_pkt[lenat] = (uint8_t)(rdlen >> 8);
     s_pkt[lenat + 1] = (uint8_t)rdlen;
 
-    struct sockaddr_in from;
+    /* A ':' makes it an IPv6 source, link-local on scope 3 like a Wi-Fi one. */
+    struct sockaddr_storage from;
     memset(&from, 0, sizeof from);
-    from.sin_family = AF_INET;
-    from.sin_port = htons(5353);
-    assert(inet_pton(AF_INET, src_ip, &from.sin_addr) == 1);
+    if (strchr(src_ip, ':') != NULL) {
+        struct sockaddr_in6* a6 = (struct sockaddr_in6*)&from;
+        a6->sin6_family = AF_INET6;
+        a6->sin6_port = htons(5353);
+        a6->sin6_scope_id = 3;
+        assert(inet_pton(AF_INET6, src_ip, &a6->sin6_addr) == 1);
+    } else {
+        struct sockaddr_in* a4 = (struct sockaddr_in*)&from;
+        a4->sin_family = AF_INET;
+        a4->sin_port = htons(5353);
+        assert(inet_pton(AF_INET, src_ip, &a4->sin_addr) == 1);
+    }
     on_record(0, (const struct sockaddr*)&from, sizeof from, MDNS_ENTRYTYPE_ANSWER, 0,
         MDNS_RECORDTYPE_TXT, MDNS_CLASS_IN, ttl, s_pkt, o, 12, 0, rdata, rdlen, NULL);
 }
@@ -436,6 +446,26 @@ static void case_election(void) {
     pc_lan_poll();
     assert(g_connections == 1 && g_player == 1);
     timer_stop();
+
+    /* A failed lobby (3) is still a lobby: a proposal naming us is joined and
+     * Start retries. Before, only leaving the lobby cleared 3, and that exit's
+     * goodbye is what failed the other side's connect. */
+    election_setup(100, 200);
+    s_state = 3;
+    election_record(200, 100, "starting", NULL);
+    pc_lan_poll();
+    assert(g_connections == 1 && g_player == 1);
+    timer_stop();
+    election_setup(100, 200);
+    s_state = 3;
+    assert(pc_lan_start_match() && pc_lan_state(NULL) == 4);
+    /* So is a fixture still polling in 2 after its session ended. */
+    election_setup(100, 200);
+    s_state = 2;
+    g_active = false;
+    pc_lan_poll();
+    g_active = true;
+    assert(pc_lan_state(NULL) == 3);
 
     /* A starting record naming us from a peer never observed in the lobby
      * (spoofed out of nowhere; LAN-SPOOF-AUTOJOIN) must not auto-dial. */
@@ -750,6 +780,8 @@ int main(int argc, char** argv) {
     {
         reset();
         feed(INSTANCE, good, NPAIRS(good), 120, "10.0.0.7");
+        feed(INSTANCE, good, NPAIRS(good), 120, "fe80::7");
+        assert(s_n == 1 && g_found == 1 && strcmp(s_peers[0].p.ip, "10.0.0.7") == 0);
         struct sockaddr_in6 v6;
         memset(&v6, 0, sizeof v6);
         v6.sin6_family = AF_INET6;
@@ -759,6 +791,34 @@ int main(int argc, char** argv) {
         net_addr_text((const struct sockaddr*)&v6, text, sizeof text);
         assert(strcmp(text, "fe80::1%3") == 0);
         printf("  net_addr_text(fe80::1 scope 3) = %s\n", text);
+    }
+
+    /* A peer re-entering its lobby sends goodbye then announce on both
+     * families within a millisecond, and the two sockets are drained v4
+     * first. The old run's IPv6 goodbye, read after the new run's IPv4
+     * announce, must not evict the peer (the phone<->PC logs' "lost
+     * 192.168.1.160 / found / lost / found fe80::...%47"), nor fail a
+     * connect to it; a goodbye of the gen we hold still does both. */
+    {
+        const char* next[NPAIRS(good)];
+        size_t nn = variant(next, "gen", "gen=8", NULL, 0);
+        reset();
+        feed(INSTANCE, good, NPAIRS(good), 120, "10.0.0.7");
+        feed(INSTANCE, good, NPAIRS(good), 120, "fe80::7");
+        feed(INSTANCE, good, NPAIRS(good), 0, "10.0.0.7"); /* goodbye, gen 7 */
+        feed(INSTANCE, next, nn, 120, "10.0.0.7");         /* new run, gen 8 */
+        feed(INSTANCE, good, NPAIRS(good), 0, "fe80::7");  /* the gen 7 goodbye's twin */
+        feed(INSTANCE, next, nn, 120, "fe80::7");
+        assert(g_lost == 1 && g_found == 2 && s_n == 1 && s_peers[0].gen == 8);
+        assert(strcmp(s_peers[0].p.ip, "10.0.0.7") == 0);
+        s_state = 1;
+        s_peer_id = 0xdeadbeefull;
+        feed(INSTANCE, good, NPAIRS(good), 0, "fe80::7"); /* delivered late again */
+        assert(s_n == 1 && s_state == 1);
+        feed(INSTANCE, next, nn, 0, "fe80::7");
+        assert(s_n == 0 && s_state == 3 && strcmp(s_why, "peer left lobby") == 0);
+        printf("  lobby re-entry on two families: one lost, connect kept until its own gen "
+               "says goodbye\n");
     }
 
     case_election();

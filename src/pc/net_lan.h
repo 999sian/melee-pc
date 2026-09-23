@@ -57,7 +57,7 @@ const char* pc_lan_disc_id(void);
  * a lower install id exists it hosts and we join; otherwise we host the
  * first eligible peer. Host proposals are acknowledged before opening the
  * game connection; simultaneous proposals converge on the lower install id.
- * Returns false if there is no peer yet. */
+ * Returns false if there is no peer yet. Also retries from state 3. */
 bool pc_lan_start_match(void);
 
 /* Skip discovery: session with a known ip + game port, both sides call this
@@ -66,13 +66,14 @@ bool pc_lan_start_match(void);
 bool pc_lan_connect_direct(const char* ip, uint16_t port);
 
 /* Lobby state for the menu: 0 idle/searching, 1 connecting, 2 in match,
- * 3 failed (message in *why), 4 ready (Start pressed, waiting for the
- * election). 2 means BOTH peers finished the RULES/READY handshake: each
- * side sends reliable type 0x11 (READY_BARRIER, empty payload) once its
- * handshake is done and reports 2 only after the peer's arrived (15 s,
- * else 3 "peer never became ready"). Other reliable types received in
- * that window are logged and dropped. pc_lan_is_host(): valid while the
- * state is 1 or 2. */
+ * 3 failed (message in *why; still a lobby member, like 0: a proposal
+ * naming us is joined and pc_lan_start_match() retries), 4 ready (Start
+ * pressed, waiting for the election). 2 means BOTH peers finished the
+ * RULES/READY handshake: each side sends reliable type 0x11
+ * (READY_BARRIER, empty payload) once its handshake is done and reports 2
+ * only after the peer's arrived (15 s, else 3 "peer never became ready").
+ * Other reliable types received in that window are logged and dropped.
+ * pc_lan_is_host(): valid while the state is 1 or 2. */
 int pc_lan_state(const char** why);
 bool pc_lan_is_host(void);
 
