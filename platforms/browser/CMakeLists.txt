@@ -62,7 +62,7 @@ add_custom_command(TARGET melee_browser POST_BUILD
   COMMENT "Optimizing melee_browser.wasm at -O3")
 
 # Keep the standalone validation server runnable from a clean build.
-file(GLOB BROWSER_ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.mjs" "${CMAKE_CURRENT_SOURCE_DIR}/*.html")
+file(GLOB BROWSER_ASSETS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.mjs" "${CMAKE_CURRENT_SOURCE_DIR}/*.js" "${CMAKE_CURRENT_SOURCE_DIR}/*.html")
 foreach(asset IN LISTS BROWSER_ASSETS)
   get_filename_component(name "${asset}" NAME)
   configure_file("${asset}" "${CMAKE_CURRENT_BINARY_DIR}/${name}" COPYONLY)

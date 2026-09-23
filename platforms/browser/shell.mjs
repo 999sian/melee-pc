@@ -92,7 +92,21 @@ $('start').addEventListener('click', async () => {
   }
 });
 
-const script = document.createElement('script');
-script.src = './melee_browser.js';
-script.onerror = () => status('melee_browser.js is missing: run tools/browser/build.py first.');
-document.head.append(script);
+// Threads need a cross-origin isolated page. Where the server cannot send
+// COOP/COEP (GitHub Pages), coi-sw.js adds them and the page reloads once
+// under its control; the session flag stops a browser that still refuses
+// from reloading for ever.
+if (crossOriginIsolated) {
+  sessionStorage.removeItem('melee-coi-reload');
+  const script = document.createElement('script');
+  script.src = './melee_browser.js';
+  script.onerror = () => status('melee_browser.js is missing: run tools/browser/build.py first.');
+  document.head.append(script);
+} else if (navigator.serviceWorker && !sessionStorage.getItem('melee-coi-reload')) {
+  sessionStorage.setItem('melee-coi-reload', '1');
+  navigator.serviceWorker.register('./coi-sw.js')
+    .then(() => navigator.serviceWorker.ready)
+    .then(() => location.reload(), (error) => status(`Cannot enable threads: ${error.message}`));
+} else {
+  status('This page needs cross-origin isolation for its threads, and this browser did not allow it.');
+}
