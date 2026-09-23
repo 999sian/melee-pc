@@ -31,6 +31,11 @@
  * paid by the rollback window instead of by the player's hands. Menus are
  * lockstep and pay all of it. */
 #define ROLLBACK_COVER 2
+/* ...but never below FIGHT_DELAY_MIN. Covering the trip with rollback instead
+ * of delay only pays while the rollbacks stay shallow: a phone on mobile data
+ * at 53 ms of ping got a fight delay of 1, rolled back 8 frames deep, and
+ * waited on the PC 2,472 times in one match. 2 is also Slippi's default. */
+#define FIGHT_DELAY_MIN 2
 /* Nudge: the offset ring is a 30-sample trimmed mean, so only part of a
  * window's correction is visible in the next window's measurement; taking
  * half the excess per window damps the rest instead of ringing. */
@@ -184,7 +189,8 @@ static void delay_auto(void) {
     }
     bool fight = in_fight();
     int d = fight ? s_delay_base - ROLLBACK_COVER : s_delay_base;
-    d = d < 1 ? 1 : d > 4 ? 4 : d;
+    int lo = fight ? FIGHT_DELAY_MIN : 1;
+    d = d < lo ? lo : d > 4 ? 4 : d;
     if (d == net.delay) {
         return;
     }

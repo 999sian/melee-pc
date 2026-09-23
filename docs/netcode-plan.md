@@ -794,7 +794,7 @@ the first packet.
 | LAN election window | 100 ms after Start (`ELECTION_NS`) | `net_lan.c:86`, `:1033-1034` | a simultaneous Start on the other side is seen before we decide |
 | LAN peer silent | 5 s (`LOST_NS`) | `net_lan.c:84`, `:1003-1009` | dropped from the peer table (announces are 1 s apart, `ANNOUNCE_NS`, `:83`) |
 | LAN nothing heard at all (not even our own loop-back) | 5 s | `net_lan.c:1013-1016` | `pc_lan_discovery_unavailable()` = true: multicast is blocked, use a direct ip |
-| Auto delay re-evaluation | every 600 frames | `delay_auto`, `net_sync.c:86-107` | `delay = round((rtt/2 + jitter)/frame) − 1` clamped 1..4 (`:91-92`), applied outside a fight |
+| Auto delay re-evaluation | every 60 frames | `delay_auto`, `net_sync.c` | lockstep `delay = ceil((rtt/2 + jitter)/frame)` clamped 1..4; a fight takes 2 (`ROLLBACK_COVER`) off it but never goes below 2 (`FIGHT_DELAY_MIN`) and is fixed from entry to exit |
 
 ### 6.3 Session failure reasons
 
@@ -1255,7 +1255,7 @@ peer connecting to us fails at once with `"peer left lobby"` (`fail`,
 `:276-289`; `atexit(pc_lan_stop)`, `:807-810`). UI is the Double Dash
 counter screen in `gmonlinemode.c` (`"N players found - press START"`,
 `gmonlinemode.c:320-321`). Same rollback engine; delay is auto (§6.2),
-which floors at 1 (`net_sync.c:92`).
+which floors at 1 in menus and 2 in fights (`net_sync.c` `FIGHT_DELAY_MIN`).
 
 **Election** (`net_lan.c:25-34`, `elect` `:922-943`). Start flips our
 record to `state=ready` and bumps `gen` (`pc_lan_start_match`, `:1075-1085`).
