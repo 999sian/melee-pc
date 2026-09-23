@@ -65,6 +65,7 @@
 
 #include <SDL3/SDL_mutex.h>
 #include <SDL3/SDL_timer.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -770,12 +771,20 @@ static int on_record(int sock, const struct sockaddr* from, size_t addrlen, mdns
 
 /* ---- interface selection ---------------------------------------------- */
 
+/* Case-insensitive against the lowercase list: Windows friendly names are
+ * capitalized ("Tailscale"). Local, not SDL_strncasecmp: the LAN unit test
+ * stubs SDL, and strncasecmp's header differs on MinGW (main.c's ieq). */
+static bool prefix_ci(const char* s, const char* lower) {
+    while (*lower && tolower((unsigned char)*s) == *lower)
+        s++, lower++;
+    return *lower == '\0';
+}
+
 static bool iface_skipped(const char* name) {
-    /* case-insensitive: Windows friendly names are capitalized ("Tailscale") */
     static const char* const virt[] = {"docker", "veth", "br-", "virbr", "tun", "tap", "wg",
         "utun", "zt", "zerotier", "tailscale", "radmin"};
     for (size_t i = 0; i < sizeof virt / sizeof virt[0]; i++) {
-        if (SDL_strncasecmp(name, virt[i], SDL_strlen(virt[i])) == 0) {
+        if (prefix_ci(name, virt[i])) {
             return true;
         }
     }

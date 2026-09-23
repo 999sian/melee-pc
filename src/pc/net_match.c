@@ -539,6 +539,11 @@ void pc_net_match_poll(void) {
         }
         struct pc_dht_endpoint ep;
         while (pc_dht_next_candidate(&ep)) {
+            /* Paired already: a Hello now would lock that player onto us while
+             * receive() ignores their answer, costing them TIMEOUT_MS. The DHT
+             * rediscovers them if this attempt expires. */
+            if (have_peer)
+                continue;
             uint32_t cip = ntohl(ep.address);
             pc_log_line("match: sending MatchHello to %u.%u.%u.%u:%u (target=%s)", cip >> 24,
                 (cip >> 16) & 0xFF, (cip >> 8) & 0xFF, cip & 0xFF, ep.port, target);
