@@ -136,12 +136,14 @@ void pc_frame_boundary(void) {
         }
         frame_prev_ns = now_ns;
         if (now - fps_t0 >= 1000) {
-            fprintf(stderr,
+            /* Through pc_log_line, not stderr: on Android stderr goes
+             * nowhere, so MELEE_FPS printed nothing there. pc_log_line also
+             * reaches logcat and MELEE_LOG_FILE. */
+            pc_log_line(
                 "fps %.1f worst %.1fms late>20ms %u late>33ms %u "
-                "sleep_overshoot %.1fms\n",
+                "sleep_overshoot %.1fms",
                 fps_n * 1000.0 / (double)(now - fps_t0), frame_worst_ns / 1e6, frame_late_20,
                 frame_late_33, sleep_worst_over_ns / 1e6);
-            fflush(stderr);
             fps_t0 = now;
             fps_n = 0;
             frame_worst_ns = 0;

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Game Mode API (Android 13+): declares that the game supports the
+     Performance and Battery modes, so the game dashboard offers them and the
+     platform does not apply its own interventions (resolution downscaling,
+     FPS overrides) for those modes. Dusklight declares the same. -->
+<game-mode-config
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:supportsBatteryGameMode="true"
+    android:supportsPerformanceGameMode="true" />
