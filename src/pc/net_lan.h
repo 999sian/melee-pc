@@ -70,10 +70,13 @@ bool pc_lan_connect_direct(const char* ip, uint16_t port);
  * naming us is joined and pc_lan_start_match() retries), 4 ready (Start
  * pressed, waiting for the election). 2 means BOTH peers finished the
  * RULES/READY handshake: each side sends reliable type 0x11
- * (READY_BARRIER, empty payload) once its handshake is done and reports 2
- * only after the peer's arrived (15 s, else 3 "peer never became ready").
- * Other reliable types received in that window are logged and dropped.
- * pc_lan_is_host(): valid while the state is 1 or 2. */
+ * (READY_BARRIER, one byte: its scene_kind()) once its handshake is done
+ * and reports 2 only after the peer's arrived (15 s, else 3 "peer never
+ * became ready"). A barrier naming another scene than ours, or our scene
+ * changing before the start frame, is 3 instead: the sims must enter the
+ * start frame in the same scene. Other reliable types received in that
+ * window are logged and dropped. pc_lan_is_host(): valid while the state
+ * is 1 or 2. */
 int pc_lan_state(const char** why);
 bool pc_lan_is_host(void);
 
@@ -90,6 +93,9 @@ int32_t pc_lan_start_frame(void);
  * before connecting. Game thread only. */
 bool pc_net_connect(const char* ip, uint16_t port, int player, uint32_t seed);
 void pc_net_disconnect(void);
+/* The running game scene (GameSceneKind), -1 before the first (src/pc/net.c).
+ * The lobby's READY_BARRIER carries it. */
+int scene_kind(void);
 
 /* Reliable lobby messages over the game socket (stop-and-wait, one in
  * flight). type is caller-defined (>= 0x10; 0x11 is the lobby's

@@ -42,6 +42,7 @@ static int g_lost;         /* "lan: lost" lines */
 static int g_full;         /* "lobby full" lines */
 static char g_last[512];   /* last line logged */
 static char g_detail[512]; /* last incompatible-detail line */
+static char g_refuse[512]; /* last "refusing the match" line */
 
 void pc_log_line(const char* fmt, ...) {
     va_list ap;
@@ -55,6 +56,9 @@ void pc_log_line(const char* fmt, ...) {
     if (strstr(g_last, "theirs: proto") != NULL) {
         g_incompat++;
         snprintf(g_detail, sizeof g_detail, "%s", g_last);
+    }
+    if (strstr(g_last, "refusing the match") != NULL) {
+        snprintf(g_refuse, sizeof g_refuse, "%s", g_last);
     }
 }
 
@@ -114,20 +118,24 @@ int pc_net_handshake_state(void) {
 int pc_net_quality(void) {
     return 0;
 }
+static int g_sent_scene = -3; /* payload of the last READY_BARRIER we sent */
 bool pc_net_send_reliable(uint8_t type, const void* payload, int len) {
-    (void)type;
-    (void)payload;
-    (void)len;
+    if (type == 0x11) {
+        g_sent_scene = len == 1 ? (int8_t)((const uint8_t*)payload)[0] : -3;
+    }
     return true;
 }
+static int g_scene = 45, g_peer_scene = 45; /* both in GS_ONLINE_LOBBY */
+int scene_kind(void) {
+    return g_scene;
+}
 int pc_net_recv_reliable(uint8_t* type, void* payload, int max) {
-    (void)type;
-    (void)payload;
-    (void)max;
+    assert(max >= 1);
     if (g_barrier_received) {
         g_barrier_received = false;
         *type = 0x11;
-        return 0;
+        *(uint8_t*)payload = (uint8_t)g_peer_scene;
+        return 1;
     }
     return -1;
 }
@@ -366,6 +374,7 @@ static void election_setup(uint64_t local, uint64_t peer) {
     s_state = 4;
     s_hosting = false;
     s_barrier_ns = 0;
+    s_scene = g_scene = g_peer_scene = 45; /* cases that preset s_barrier_ns skip the send */
     s_timer = 0;
     s_t0_ns = s_start_ns = s_announce_ns = s_now;
     s_n = 1;
@@ -510,6 +519,7 @@ static void case_ready_frame_fence(void) {
     g_ready_after = 3;
     pc_lan_poll();
     assert(s_state == 2 && g_frame == 120 && g_polls == 3);
+    assert(g_sent_scene == 45); /* our barrier named our scene */
     g_handshake_pending = false;
 
     /* A missing barrier times out on this same simulation frame. */
@@ -540,8 +550,54 @@ static void case_ready_frame_fence(void) {
     s_started = false;
 }
 
+/* The READY_BARRIER names the sender's scene, and a session whose sides would
+ * reach the start frame in different scenes is refused. The first phone<->PC
+ * session ran the PC's title (0) against the phone's opening movie (28) and
+ * desynced at frame 141. */
+static void case_scene(void) {
+    election_setup(100, 200);
+    s_state = 1;
+    s_offer_pending = false;
+    s_barrier_ns = s_now;
+    s_start_frame = g_scheduled = 120;
+    g_frame = 60;
+    s_scene = g_scene = 0;
+    g_peer_scene = 28;
+    g_barrier_received = true;
+    pc_lan_poll();
+    assert(s_state == 3 && strcmp(s_why, "peer is on another scene") == 0);
+    assert(strstr(g_refuse, "peer is on scene 28, we are on scene 0") != NULL);
+    printf("  %s\n", g_refuse);
+
+    /* A hand-off between the barriers and the start frame is refused too. */
+    election_setup(100, 200);
+    s_state = 2;
+    s_start_frame = g_scheduled = 120;
+    g_frame = 100;
+    pc_lan_poll();
+    assert(s_state == 2);
+    g_scene = 1;
+    pc_lan_poll();
+    assert(s_state == 3 && strstr(g_refuse, "went 45 -> 1") != NULL);
+    printf("  %s\n", g_refuse);
+
+    /* From the start frame on, scenes are the session's (hand-off, checksums). */
+    election_setup(100, 200);
+    s_state = 2;
+    s_start_frame = g_scheduled = 120;
+    g_frame = 121;
+    g_scene = 1;
+    pc_lan_poll();
+    assert(s_state == 2);
+
+    g_frame = g_scheduled = -1;
+    g_scene = g_peer_scene = 45;
+    s_started = false;
+}
+
 int main(int argc, char** argv) {
     case_ready_frame_fence();
+    case_scene();
     set_image(argc > 1 && strcmp(argv[1], "b") == 0 ? 1 : 0);
 
     /* The module state pc_lan_start() would have built. */

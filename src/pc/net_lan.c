@@ -35,8 +35,9 @@
  * and connects as P2; a timer repeats its joining record while the first
  * tick waits for the host. gen= keeps stale attempts from being reused.
  * Both then poll the RULES/READY handshake in net.c once per frame, then
- * exchange one READY_BARRIER (reliable 0x11) so state 2 means both sides
- * are through the handshake. Every failure goes through fail(): session
+ * exchange one READY_BARRIER (reliable 0x11, carrying the sender's scene)
+ * so state 2 means both sides are through the handshake and in the same
+ * scene (s_scene). Every failure goes through fail(): session
  * closed, timer gone, goodbye sent, state 3 with the reason for the menu;
  * 3 is still the lobby (proposals are joined, Start retries).
  * A goodbye from the peer we are connecting to fails us the same way, and
@@ -169,6 +170,17 @@ static uint64_t s_t0_ns;
 static uint64_t s_barrier_ns;
 static uint32_t s_seed;
 static int32_t s_start_frame;
+/* scene_kind() when our READY_BARRIER went out; the barrier carries it. The
+ * frame checksums start at s_start_frame, and nothing before made the two
+ * sides be in the same scene there: the menu lobby only ever polls from
+ * GS_ONLINE_LOBBY, but the MELEE_LAN_TEST/MELEE_LAN_DIRECT fixtures start a
+ * session from wherever the game is. The first phone<->PC LAN session did
+ * exactly that, the PC on the title (scene 0) and the phone on the opening
+ * movie (28): the hand-off agreed the exit frames (both left at 51 and 308),
+ * the two entered different scenes, and "net: DESYNC at frame 141". So the
+ * peer's barrier must name our scene, and ours must not change until
+ * s_start_frame (pc_lan_poll), or the match is refused. */
+static int s_scene;
 
 static const char* state_txt(void) {
     if (s_state == 4) {
@@ -1173,7 +1185,9 @@ static void poll_connecting(uint64_t now) {
                               pc_net_guest_wait_match(&s_seed, &s_start_frame);
         if (ok) {
             s_barrier_ns = now;
-            if (!pc_net_send_reliable(REL_READY_BARRIER, NULL, 0)) {
+            s_scene = scene_kind();
+            uint8_t scene = (uint8_t)s_scene;
+            if (!pc_net_send_reliable(REL_READY_BARRIER, &scene, 1)) {
                 fail("ready barrier not sent");
                 return;
             }
@@ -1186,6 +1200,15 @@ static void poll_connecting(uint64_t now) {
             if (type == REL_READY_BARRIER) {
                 if (pc_net_frame() > s_start_frame) {
                     fail("ready barrier arrived after the start frame");
+                    return;
+                }
+                /* -2: an empty barrier, from a build before it carried one */
+                int theirs = n == 1 ? (int8_t)buf[0] : -2;
+                if (theirs != s_scene || scene_kind() != s_scene) {
+                    pc_log_line("lan: refusing the match: the peer is on scene %d, we are on "
+                                "scene %d (%d when our barrier went out)",
+                        theirs, scene_kind(), s_scene);
+                    fail("peer is on another scene");
                     return;
                 }
                 timer_stop();
@@ -1294,6 +1317,14 @@ void pc_lan_poll(void) {
          * fixture sat in 2 after its session and the PC's next proposal to
          * it waited 9 s for an acknowledgement that never came. */
         fail("session ended");
+    } else if (s_state == 2 && pc_net_frame() <= s_start_frame && scene_kind() != s_scene) {
+        /* A hand-off agreed while both waited for the start frame: the scene
+         * the barriers compared is gone, and the peer may have entered a
+         * different one. Both sides leave on the same agreed frame, so both
+         * refuse here. */
+        pc_log_line("lan: refusing the match: our scene went %d -> %d before start frame %d",
+            s_scene, scene_kind(), s_start_frame);
+        fail("scene changed before the match start");
     }
 }
 
