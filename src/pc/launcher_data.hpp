@@ -34,7 +34,7 @@ struct Preferences {
     int widescreen = 0;
     int filter_mode = 0;
     int backend = 0;
-    bool mute = false, fps = false;
+    bool mute = false, fps = false, reverb = true;
     bool check_updates = true;
     bool custom_textures = true;
     bool unlock_all = false;

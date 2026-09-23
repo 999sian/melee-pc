@@ -114,6 +114,9 @@ void pc_audio_set_music_volume(float volume);
 void pc_audio_set_sfx_volume(float volume);
 float pc_audio_get_music_volume(void);
 float pc_audio_get_sfx_volume(void);
+/* false bypasses the aux effects (stage reverb and echo); the dry mix is
+ * unchanged. On by default. */
+void pc_audio_set_reverb(bool on);
 
 /* Texture replacements (src/pc/textures.cpp) */
 void pc_textures_init(void);

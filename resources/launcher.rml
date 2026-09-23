@@ -102,6 +102,10 @@
               <div class="description"><h3>Graphics backend <span class="badge">RESTART</span></h3><p>Auto, or a specific API this platform provides.</p></div>
               <button id="backend">Auto</button>
             </div>
+            <div class="setting">
+              <div class="description"><h3>Performance preset</h3><p>For slow devices: 1x internal resolution, no anti-aliasing, 1x filtering and reverb off.</p></div>
+              <button id="performance">Apply</button>
+            </div>
           </div>
           <div id="page-cheats" class="page">
             <div class="setting">
@@ -146,6 +150,10 @@
             <div class="setting">
               <div class="description"><h3>Mute audio</h3><p>Silence audio output without changing volume.</p></div>
               <button id="mute">Mute</button>
+            </div>
+            <div class="setting">
+              <div class="description"><h3>Reverb</h3><p>Stage reverb and echo. Off saves audio CPU on slow devices.</p></div>
+              <button id="reverb">On</button>
             </div>
             <div class="setting">
               <div class="description"><h3>Performance display</h3><p>Show the current frame rate.</p></div>

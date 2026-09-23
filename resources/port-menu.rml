@@ -28,6 +28,7 @@
 <div class="setting"><div class="description"><h3>Music volume</h3><p>Background music volume.</p></div><div class="slider-control"><input type="range" id="music-volume" min="0" max="100" step="5" value="100" /><span id="music-volume-val" class="slider-value">100%</span></div></div>
 <div class="setting"><div class="description"><h3>SFX volume</h3><p>Sound effects and combat audio volume.</p></div><div class="slider-control"><input type="range" id="sfx-volume" min="0" max="100" step="5" value="100" /><span id="sfx-volume-val" class="slider-value">100%</span></div></div>
 <div class="setting"><div class="description"><h3>Mute audio</h3></div><button id="mute">Mute</button></div>
+<div class="setting"><div class="description"><h3>Reverb</h3><p>Stage reverb and echo.</p></div><button id="reverb">On</button></div>
 <div class="setting"><div class="description"><h3>Performance display</h3></div><button id="fps">FPS counter</button></div>
 <div class="setting"><div class="description"><h3>UI scale</h3><p>Scale launcher and overlay elements.</p></div><div class="slider-control"><input type="range" id="scale" min="75" max="150" step="25" value="100" /><span id="scale-val" class="slider-value">100%</span></div></div>
 <div class="setting"><div class="description"><h3>Check for updates</h3><p id="port-update-status">Up to date</p></div><button id="port-check-update">Check now</button></div>

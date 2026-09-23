@@ -243,10 +243,10 @@ class Launcher final : public Rml::EventListener {
         switch (tab) {
         case 0:
             return {"display", "sync", "resolution", "aspect", "hud-mode", "aa", "filter",
-                "filter-mode", "custom-textures", "backend"};
+                "filter-mode", "custom-textures", "backend", "performance"};
         case 1:
-            return {"volume", "music-volume", "sfx-volume", "mute", "fps", "scale", "check-updates",
-                "check-now", "settings-discord"};
+            return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
+                "check-updates", "check-now", "settings-discord"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
         case 4:
@@ -366,6 +366,7 @@ class Launcher final : public Rml::EventListener {
         slider("sfx-volume", prefs.sfx_volume * 100.0f);
         text("sfx-volume-val", std::to_string(int(prefs.sfx_volume * 100 + 0.5f)) + "%");
         text("mute", prefs.mute ? "On" : "Off");
+        text("reverb", prefs.reverb ? "On" : "Off");
         text("fps", prefs.fps ? "On" : "Off");
         slider("scale", prefs.scale * 100.0f);
         text("scale-val", std::to_string(int(prefs.scale * 100 + 0.5f)) + "%");
@@ -630,6 +631,23 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("mute")->Focus();
+        } else if (id == "reverb") {
+            prefs.reverb = !prefs.reverb;
+            save();
+            refresh_settings();
+            element("reverb")->Focus();
+        } else if (id == "performance") {
+            // The cheapest settings for a slow GPU or CPU, in one press.
+            prefs.render_scale = 1;
+            prefs.msaa = 1;
+            prefs.anisotropy = 1;
+            prefs.reverb = false;
+            save();
+            refresh_settings();
+            text("settings-status",
+                "Performance preset: internal resolution 1x, anti-aliasing off, filtering 1x "
+                "and reverb off. Anti-aliasing and filtering apply after a restart.");
+            element("performance")->Focus();
         } else if (id == "fps") {
             prefs.fps = !prefs.fps;
             save();
@@ -1153,6 +1171,7 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
 extern "C" void pc_audio_set_volume(float volume);
 extern "C" void pc_audio_set_music_volume(float volume);
 extern "C" void pc_audio_set_sfx_volume(float volume);
+extern "C" void pc_audio_set_reverb(bool on);
 // Melee's own menu bank: 0 is back/cancel, 1 confirm, 2 the cursor tick.
 extern "C" void lbAudioAx_80024030(int);
 enum { SFX_BACK = 0, SFX_CONFIRM = 1, SFX_MOVE = 2 };
@@ -1204,7 +1223,7 @@ public:
             return {"display", "sync", "resolution", "aspect", "hud-mode", "aa", "filter",
                 "filter-mode", "custom-textures", "backend"};
         case 1:
-            return {"volume", "music-volume", "sfx-volume", "mute", "fps", "scale",
+            return {"volume", "music-volume", "sfx-volume", "mute", "reverb", "fps", "scale",
                 "port-check-update"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
@@ -1327,6 +1346,7 @@ public:
         slider("sfx-volume", prefs.sfx_volume * 100.0f);
         label("sfx-volume-val", std::to_string(int(prefs.sfx_volume * 100 + 0.5f)) + "%");
         label("mute", prefs.mute ? "On" : "Off");
+        label("reverb", prefs.reverb ? "On" : "Off");
         label("fps", prefs.fps ? "On" : "Off");
         slider("scale", prefs.scale * 100.0f);
         label("scale-val", std::to_string(int(prefs.scale * 100 + 0.5f)) + "%");
@@ -1532,6 +1552,8 @@ public:
             prefs.sfx_volume = (step >= 10 ? 0 : step + 1) / 10.0f;
         } else if (id == "mute")
             prefs.mute = !prefs.mute;
+        else if (id == "reverb")
+            prefs.reverb = !prefs.reverb;
         else if (id == "fps")
             prefs.fps = !prefs.fps;
         else if (id == "scale") {
@@ -1548,6 +1570,7 @@ public:
         pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
         pc_audio_set_music_volume(prefs.music_volume);
         pc_audio_set_sfx_volume(prefs.sfx_volume);
+        pc_audio_set_reverb(prefs.reverb);
         lbAudioAx_80024030(SFX_CONFIRM);
         saved();
     }
@@ -1729,6 +1752,7 @@ extern "C" void pc_menu_init(SDL_Window* window) {
     pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
     pc_audio_set_music_volume(prefs.music_volume);
     pc_audio_set_sfx_volume(prefs.sfx_volume);
+    pc_audio_set_reverb(prefs.reverb);
     auto* context = aurora::rmlui::get_context();
     if (!context) {
         SDL_Log("F1 menu: RmlUi context unavailable");

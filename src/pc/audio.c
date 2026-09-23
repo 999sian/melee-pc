@@ -264,6 +264,14 @@ typedef struct AuxBus {
 } AuxBus;
 
 static AuxBus s_auxA, s_auxB;
+/* pc_audio_set_reverb(false) stops voices sending to the aux busses. The dry
+ * mix is untouched, and run_aux's gate then lets the tail already in the
+ * effects ring out and stops running them, so off costs nothing. */
+static bool s_aux_on = true;
+
+void pc_audio_set_reverb(bool on) {
+    s_aux_on = on;
+}
 
 /* Helper to identify whether a voice belongs to an HPS music stream or SFX.
  * In Melee, music is streamed in 64 KiB ring buffer blocks (DSP-ADPCM), acquired
@@ -314,8 +322,8 @@ static void mix_voice(Voice* v, float* out) {
     float ar = (pb->mix.vAuxAR / 32767.0f) * voice_gain;
     float bl = (pb->mix.vAuxBL / 32767.0f) * voice_gain;
     float br = (pb->mix.vAuxBR / 32767.0f) * voice_gain;
-    bool send_a = (s_auxA.cb != NULL) && (al != 0.0f || ar != 0.0f);
-    bool send_b = (s_auxB.cb != NULL) && (bl != 0.0f || br != 0.0f);
+    bool send_a = s_aux_on && (s_auxA.cb != NULL) && (al != 0.0f || ar != 0.0f);
+    bool send_b = s_aux_on && (s_auxB.cb != NULL) && (bl != 0.0f || br != 0.0f);
 
     if (vol < 0) {
         vol = 0;

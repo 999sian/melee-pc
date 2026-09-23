@@ -80,7 +80,8 @@ int main(int argc, char** argv) {
              "2\nbackend 2\n";
     }
     loaded = load_preferences(config);
-    assert(loaded.backend == 2);
+    // A file from before the reverb setting existed keeps reverb on.
+    assert(loaded.backend == 2 && loaded.reverb);
     assert(save_preferences(config, loaded, error));
     {
         std::ifstream f(config);
@@ -97,28 +98,30 @@ int main(int argc, char** argv) {
         assert(saved.find("free_camera 0\n") != std::string::npos);
         assert(saved.find("music_volume 1\n") != std::string::npos);
         assert(saved.find("sfx_volume 1\n") != std::string::npos);
+        assert(saved.find("reverb 1\n") != std::string::npos);
     }
     {
         std::ofstream f(config);
         f << "custom_textures 0\nunlock_all 1\nhud_mode 1\nfrozen_stadium 1\nfree_camera "
              "1\nmusic_volume "
-             "0.75\nsfx_volume 0.5\n";
+             "0.75\nsfx_volume 0.5\nreverb 0\n";
     }
     loaded = load_preferences(config);
     assert(!loaded.custom_textures && loaded.unlock_all && loaded.hud_mode == 1 &&
-           loaded.frozen_stadium && loaded.free_camera);
+           loaded.frozen_stadium && loaded.free_camera && !loaded.reverb);
     assert(std::abs(loaded.music_volume - 0.75f) < 0.001f);
     assert(std::abs(loaded.sfx_volume - 0.5f) < 0.001f);
+    assert(save_preferences(config, loaded, error) && !load_preferences(config).reverb);
     // msaa 8 is the dangerous one: Dawn aborts device creation on it.
     {
         std::ofstream f(config);
         f << "render_scale -1\nmsaa 8\nanisotropy 32\nvolume 2\nmute 9\nfps -1\nfilter_mode "
-             "99\nbackend 99\n";
+             "99\nbackend 99\nreverb 9\n";
     }
     loaded = load_preferences(config);
     assert(loaded.render_scale == 0 && loaded.msaa == 1 && loaded.anisotropy == 16 &&
            loaded.filter_mode == 0 && loaded.backend == 0);
-    assert(loaded.volume == 1 && !loaded.mute && !loaded.fps);
+    assert(loaded.volume == 1 && !loaded.mute && !loaded.fps && loaded.reverb);
     for (int mode = 0; mode <= 2; ++mode) {
         loaded.widescreen = mode;
         assert(save_preferences(config, loaded, error));
