@@ -82,6 +82,16 @@ static std::deque<PendingPipeline> g_pipelineQueue;
 static std::deque<PendingPipeline> g_backgroundPipelineQueue;
 static absl::flat_hash_set<PipelineRef> g_pendingPipelines;
 static std::atomic_bool g_gpuCachePrunePending = false;
+/* Android compiles only what a frame asked for (the game's own draws, a seed
+ * row promoted by touch_pending_pipeline included), never the rest of the
+ * seed. The seed is recorded on desktop GPUs, and an Adreno 750 driver
+ * (OnePlus Pad 2) fails one of its configs with VK_ERROR_UNKNOWN, which
+ * aborts the app on every launch once a worker walks the whole queue. */
+#if defined(__ANDROID__)
+constexpr bool CompileBackgroundQueue = false;
+#else
+constexpr bool CompileBackgroundQueue = true;
+#endif
 
 static bool env_flag(const char* name) {
   const char* v = std::getenv(name);
@@ -1045,7 +1055,8 @@ static void pipeline_worker() {
         // Several workers share the queues, so always re-check under the lock
         // rather than trusting a "has more" observed before it was released.
         g_pipelineQueueCv.wait(lock, [] {
-          return !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty() || g_pipelineThreadEnd;
+          return !g_pipelineQueue.empty() || (CompileBackgroundQueue && !g_backgroundPipelineQueue.empty()) ||
+                 g_pipelineThreadEnd;
         });
       } else if (g_pipelineQueue.empty()) {
         // On platforms without a background compilation thread (e.g. mobile/Android),
@@ -1215,7 +1226,16 @@ void initialize_pipeline_cache() {
   g_pipelineThreadEnd = false;
   g_gpuCachePrunePending = false;
 
-  if (webgpu::g_backendType == wgpu::BackendType::WebGPU) {
+#if defined(__ANDROID__)
+  /* Qualcomm (vendor 0x5143): the Adreno 750 driver on a OnePlus Pad 2
+   * aborts with VK_ERROR_UNKNOWN in vkCreateGraphicsPipelines as soon as
+   * pipelines are created off the draw thread, the concurrency failure the
+   * old inline-only rule was written for; inline, the same match runs. */
+  const bool inlineOnly = webgpu::g_adapterInfo.vendorID == 0x5143;
+#else
+  const bool inlineOnly = false;
+#endif
+  if (webgpu::g_backendType == wgpu::BackendType::WebGPU || inlineOnly) {
     g_hasPipelineThread = false;
   } else {
     /* Android too: compiling on the draw path instead cost 7-30 ms a pipeline
@@ -1292,7 +1312,7 @@ uint32_t wait_pipelines(uint32_t maxWaitMs) {
   std::unique_lock lock{g_pipelineMutex};
   // Without a worker pool the pending entries compile on this thread at frame
   // end, so waiting here would only wait on ourselves.
-  if (g_hasPipelineThread && maxWaitMs != 0) {
+  if (g_hasPipelineThread && CompileBackgroundQueue && maxWaitMs != 0) {
     g_pipelineReadyCv.wait_for(lock, std::chrono::milliseconds{maxWaitMs},
                                [] { return g_pendingPipelines.empty() || g_pipelineThreadEnd; });
   }
