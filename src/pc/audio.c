@@ -15,7 +15,7 @@
  * setter takes host-native values. The mirror `AXVPB.pb` the engine reads
  * back (state, currentAddress) is kept host-native.
  *
- * ponytail: no aux (reverb/chorus) busses and no ITD; dry stereo only.
+ * ponytail: no ITD and no surround; stereo dry mix plus the two aux busses.
  */
 #include <dolphin/ai.h>
 #include "pc/pc.h"
@@ -247,13 +247,20 @@ static bool next_sample(Voice* v, s16* out) {
 /* AX has two auxiliary send busses. Voices send into them with the vAuxA and
  * vAuxB mix levels, the registered AXFX callback processes the bus in place,
  * and the result is summed back into the dry mix. Melee puts stage reverb on
- * aux A. AX aux buffers are 32-bit and carry L, R and surround. */
+ * aux A. AX aux buffers are 32-bit and carry L, R and surround; nothing here
+ * feeds surround (mix_voice sends L and R only, and the vAuxAS/vAuxBS levels
+ * belong to AX's Dolby surround mode, which this stereo mixer does not
+ * have), so the effects process L and R and surround stays zero. */
 typedef struct AuxBus {
     void (*cb)(void*, void*);
     void* ctx;
     /* `long`, not s32: AXFX_BUFFERUPDATE types its channels `long*`, which is
      * 64-bit on LP64. A 32-bit buffer here is overrun by the effect. */
     long ch[3][AX_FRAME];  // NOLINT: Dolphin SDK AXFX_BUFFERUPDATE expects long*
+    /* Gate state; see run_aux. */
+    int quiet; /* consecutive frames with a silent input and a wet output below the floor */
+    int hold;  /* frames that covers the effect's longest delay line */
+    int runs;  /* frames the effect ran; MELEE_AUDIO_STATS */
 } AuxBus;
 
 static AuxBus s_auxA, s_auxB;
@@ -556,23 +563,56 @@ static void mix_voice(Voice* v, float* out) {
     set_addr(&pb->addr.currentAddressHi, &pb->addr.currentAddressLo, v->cur_addr);
 }
 
+/* -80 dBFS RMS over both channels of a frame, as a sum of squares of
+ * normalised samples: the floor Dusklight's reverb gate uses
+ * (src/dusk/audio/DuskDsp.cpp). */
+#define AUX_QUIET_ENERGY (2.0f * AX_FRAME * 1e-8f)
+
+/* Runs the bus's effect and mixes its output back, unless the effect has
+ * gone quiet. It used to run every frame, and on silence that is worse than
+ * wasted work: the reverb's lines decay into denormals and stay there (the
+ * smallest denormal times the damping rounds back to itself), which on an LP
+ * E-core cost 1.2 ms of every 5 ms frame against 13 us with a signal --
+ * measured replaying a captured VS scene whose only sends are in its first
+ * two seconds. So, like Dusklight's gate, the effect is skipped once its
+ * input is silent and its output has stayed under AUX_QUIET_ENERGY for `hold`
+ * frames in a row, not one: an echo can still be travelling down a line
+ * while the output is silent (the aux B delay's left line is 310 ms), so
+ * only a quiet stretch as long as the longest line shows the state is below
+ * the floor. That state is kept, and resumes with the next send.
+ *
+ * "Silent input" is the bus itself being all zero rather than no voice
+ * having a send level: a voice faded to volume 0 keeps its send level and
+ * would hold the gate open on silence. */
 static void run_aux(AuxBus* bus, float* out) {
     struct AXFX_BUFFERUPDATE bu;
     void (*cb)(void*, void*) = bus->cb;
     void* ctx = bus->ctx;
+    float energy = 0.0f;
+    long input = 0;  // NOLINT: the bus is long
 
     if (cb == NULL || ctx == NULL) {
+        return;
+    }
+    for (int i = 0; i < AX_FRAME; i++) {
+        input |= bus->ch[0][i] | bus->ch[1][i];
+    }
+    if (input == 0 && bus->quiet >= bus->hold) {
         return;
     }
     bu.left = bus->ch[0];
     bu.right = bus->ch[1];
     bu.surround = bus->ch[2];
     cb(&bu, ctx);
+    bus->runs++;
     for (int i = 0; i < AX_FRAME; i++) {
-        float sur = (float)bus->ch[2][i] * (0.5f / 32767.0f);
-        out[i * 2] += (float)bus->ch[0][i] * (1.0f / 32767.0f) + sur;
-        out[i * 2 + 1] += (float)bus->ch[1][i] * (1.0f / 32767.0f) + sur;
+        float l = (float)bus->ch[0][i] * (1.0f / 32767.0f);
+        float r = (float)bus->ch[1][i] * (1.0f / 32767.0f);
+        out[i * 2] += l;
+        out[i * 2 + 1] += r;
+        energy += l * l + r * r;
     }
+    bus->quiet = input != 0 || energy >= AUX_QUIET_ENERGY ? 0 : bus->quiet + 1;
 }
 
 static void render_frame(float* out) {
@@ -659,16 +699,18 @@ static void render_frame(float* out) {
      * but inaudible, so `used` climbing to 64 with `running` low means the
      * game is not calling AXFreeVoice on voices the mixer already ended.
      * `old` counts voices held for over ten seconds, which for a one-shot
-     * sound effect means it was never reaped. */
+     * sound effect means it was never reaped. `aux` is how many of those
+     * 100 frames ran each aux effect, i.e. what run_aux's gate let through. */
     if (pc_dbg_audio_stats()) {
         static uint64_t frames;
         frames++;
         if ((frames % 100) == 0) { /* every 100 * 5ms = 0.5s of output */
             fprintf(stderr,
                 "voices t=%.1fs used=%d running=%d stopped=%d"
-                " zero_mix=%d zero_ratio=%d loop=%d old=%d\n",
+                " zero_mix=%d zero_ratio=%d loop=%d old=%d aux=%d/%d\n",
                 frames * (double)AX_FRAME / AX_RATE, n_used, n_running, n_stopped, n_zero_mix,
-                n_zero_ratio, n_loop, n_old);
+                n_zero_ratio, n_loop, n_old, s_auxA.runs, s_auxB.runs);
+            s_auxA.runs = s_auxB.runs = 0;
         }
     }
     /* AX sums into a 16-bit accumulator and saturates; do the same so a busy
@@ -1069,18 +1111,23 @@ void AXSetVoiceSrcRatio(AXVPB* p, float ratio) {
     audio_unlock();
 }
 
-void AXRegisterAuxACallback(void (*callback)(void*, void*), void* context) {
+static long axfx_longest_path(void (*cb)(void*, void*), void* ctx);
+
+static void aux_register(AuxBus* bus, void (*cb)(void*, void*), void* ctx) {
     audio_lock();
-    s_auxA.cb = callback;
-    s_auxA.ctx = context;
+    bus->cb = cb;
+    bus->ctx = ctx;
+    bus->quiet = 0;
+    bus->hold = cb != NULL ? (int)(axfx_longest_path(cb, ctx) / AX_FRAME) + 1 : 0;
     audio_unlock();
 }
 
+void AXRegisterAuxACallback(void (*callback)(void*, void*), void* context) {
+    aux_register(&s_auxA, callback, context);
+}
+
 void AXRegisterAuxBCallback(void (*callback)(void*, void*), void* context) {
-    audio_lock();
-    s_auxB.cb = callback;
-    s_auxB.ctx = context;
-    audio_unlock();
+    aux_register(&s_auxB, callback, context);
 }
 
 /* ---- AXFX -------------------------------------------------------------- */
@@ -1112,18 +1159,20 @@ void AXFXSetHooks(void* (*alloc_hook)(size_t), void (*free_hook)(void*)) {
  * pre-delay, crosstalk) map onto this one directly and the audible result is
  * stage reverb rather than silence.
  * ponytail: 3+3 sections per channel, not the SDK's 9; raise if a stage
- * sounds obviously thin. */
-#define AXFX_CHANNELS 3
+ * sounds obviously thin.
+ *
+ * L and R only: the surround input is always zero (see AuxBus), and a zero
+ * input into zeroed lines produces exactly zero, so the third network that
+ * used to run here only ever computed silence. */
+#define AXFX_CHANNELS 2
 
 static const long kCombLen[AXFX_CHANNELS][3] = {
     {1789, 1999, 2333},
     {1847, 2063, 2399},
-    {1693, 1931, 2267},
 };
 static const long kAllPassLen[AXFX_CHANNELS][3] = {
     {433, 149, 53},
     {449, 157, 59},
-    {419, 139, 47},
 };
 
 /* The delay lines come from the host heap, not AXFXAllocFunction: the game's
@@ -1149,20 +1198,12 @@ static void axfx_line_free(struct AXFX_REVHI_DELAYLINE* d) {
     d->length = 0;
 }
 
-static float axfx_line_step(struct AXFX_REVHI_DELAYLINE* d, float in) {
-    if (d == NULL || d->inputs == NULL || d->length == 0) {
-        return 0.0f;
+static void axfx_reverb_shutdown(struct AXFX_REVHI_WORK* rv) {
+    int i;
+    for (i = 0; i < 9; i++) {
+        axfx_line_free(&rv->C[i]);
+        axfx_line_free(&rv->AP[i]);
     }
-    float out = d->inputs[d->outPoint];
-    d->inputs[d->inPoint] = in;
-    if (++d->inPoint >= d->length) {
-        d->inPoint = 0;
-    }
-    if (++d->outPoint >= d->length) {
-        d->outPoint = 0;
-    }
-    d->lastOutput = out;
-    return out;
 }
 
 static int axfx_reverb_init(struct AXFX_REVHI_WORK* rv, float coloration, float mix, float time,
@@ -1175,6 +1216,8 @@ static int axfx_reverb_init(struct AXFX_REVHI_WORK* rv, float coloration, float 
             if (!axfx_line_alloc(&rv->C[ch * 3 + k], kCombLen[ch][k]) ||
                 !axfx_line_alloc(&rv->AP[ch * 3 + k], kAllPassLen[ch][k]))
             {
+                /* All lines or none: axfx_reverb_run checks only the first. */
+                axfx_reverb_shutdown(rv);
                 return 0;
             }
         }
@@ -1196,25 +1239,19 @@ static int axfx_reverb_init(struct AXFX_REVHI_WORK* rv, float coloration, float 
     return 1;
 }
 
-static void axfx_reverb_shutdown(struct AXFX_REVHI_WORK* rv) {
-    int i;
-    for (i = 0; i < 9; i++) {
-        axfx_line_free(&rv->C[i]);
-        axfx_line_free(&rv->AP[i]);
-    }
-}
-
 static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv, struct AXFX_BUFFERUPDATE* b) {
-    long* chan[AXFX_CHANNELS];
+    long* chan[AXFX_CHANNELS] = {b->left, b->right};
+    float in[AXFX_CHANNELS][AX_FRAME];
     int ch, k, i;
     float damp = rv->damping;
     float ap = rv->allPassCoeff;
     float wet = rv->level;
 
-    chan[0] = b->left;
-    chan[1] = b->right;
-    chan[2] = b->surround;
-
+    /* Unregistered before shutdown frees the lines, and init allocates all
+     * of them or none, so this one check stands for every line. */
+    if (rv->C[0].inputs == NULL) {
+        return;
+    }
     if (damp < 0.0f) {
         damp = 0.0f;
     } else if (damp > 0.95f) {
@@ -1222,40 +1259,65 @@ static void axfx_reverb_run(struct AXFX_REVHI_WORK* rv, struct AXFX_BUFFERUPDATE
     }
 
     for (i = 0; i < AX_FRAME; i++) {
-        float in[AXFX_CHANNELS];
-
-        for (ch = 0; ch < AXFX_CHANNELS; ch++) {
-            in[ch] = (float)chan[ch][i];
-        }
+        in[0][i] = (float)chan[0][i];
+        in[1][i] = (float)chan[1][i];
         /* Crosstalk bleeds each side into the other before the network. */
         if (rv->crosstalk > 0.0f) {
             float c = rv->crosstalk;
-            float l = in[0] + c * in[1];
-            float r = in[1] + c * in[0];
-            in[0] = l;
-            in[1] = r;
+            float l = in[0][i] + c * in[1][i];
+            float r = in[1][i] + c * in[0][i];
+            in[0][i] = l;
+            in[1][i] = r;
         }
-        for (ch = 0; ch < AXFX_CHANNELS; ch++) {
+    }
+    /* Past the crosstalk the channels are independent, so each runs its whole
+     * frame with the line positions and filter state held in locals. In a
+     * line inPoint always equals outPoint: the sample read out is replaced by
+     * the one written in. */
+    for (ch = 0; ch < AXFX_CHANNELS; ch++) {
+        struct AXFX_REVHI_DELAYLINE* line[6];
+        float* buf[6];
+        long pos[6], len[6];
+        float lp = rv->lpLastout[ch];
+
+        for (k = 0; k < 3; k++) {
+            line[k] = &rv->C[ch * 3 + k];
+            line[3 + k] = &rv->AP[ch * 3 + k];
+        }
+        for (k = 0; k < 6; k++) {
+            buf[k] = line[k]->inputs;
+            pos[k] = line[k]->outPoint;
+            len[k] = line[k]->length;
+        }
+        for (i = 0; i < AX_FRAME; i++) {
             float acc = 0.0f;
             float y;
 
             for (k = 0; k < 3; k++) {
-                struct AXFX_REVHI_DELAYLINE* c = &rv->C[ch * 3 + k];
-                float out = c->inputs[c->outPoint];
-                float lp = rv->lpLastout[ch] = out * (1.0f - damp) + rv->lpLastout[ch] * damp;
-                axfx_line_step(c, in[ch] + lp * rv->combCoef[ch * 3 + k]);
+                float out = buf[k][pos[k]];
+                lp = out * (1.0f - damp) + lp * damp;
+                buf[k][pos[k]] = in[ch][i] + lp * rv->combCoef[ch * 3 + k];
+                if (++pos[k] >= len[k]) {
+                    pos[k] = 0;
+                }
                 acc += out;
             }
             y = acc * (1.0f / 3.0f);
-            for (k = 0; k < 3; k++) {
-                struct AXFX_REVHI_DELAYLINE* a = &rv->AP[ch * 3 + k];
-                float out = a->inputs[a->outPoint];
+            for (k = 3; k < 6; k++) {
+                float out = buf[k][pos[k]];
                 float v = y + ap * out;
-                axfx_line_step(a, v);
+                buf[k][pos[k]] = v;
+                if (++pos[k] >= len[k]) {
+                    pos[k] = 0;
+                }
                 y = out - ap * v;
             }
             chan[ch][i] = (long)(y * wet);
         }
+        for (k = 0; k < 6; k++) {
+            line[k]->inPoint = line[k]->outPoint = pos[k];
+        }
+        rv->lpLastout[ch] = lp;
     }
 }
 
@@ -1394,7 +1456,8 @@ void AXFXChorusCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_CHORUS* c) {
  * `feedback[i]` and `output[i]` are percentages -- the values the driver
  * defaults to are 260/310/6 ms at 24% feedback and 35% output. State lives in
  * the SDK structure's own currentSize/currentPos/left/right/sur fields; the
- * lines come from the host heap for the same reason the reverb's do. */
+ * lines come from the host heap for the same reason the reverb's do. Like the
+ * reverb it runs L and R only; `sur` stays NULL. */
 int AXFXDelayShutdown(struct AXFX_DELAY* d) {
     if (d == NULL) {
         return 1;
@@ -1423,7 +1486,7 @@ int AXFXDelayInit(struct AXFX_DELAY* d) {
     for (i = 0; i < 3; i++) {
         *lines[i] = NULL;
     }
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < AXFX_CHANNELS; i++) {
         u32 n = d->delay[i] * (AX_RATE / 1000u);
         if (n == 0) {
             n = 1;
@@ -1452,11 +1515,11 @@ void AXFXDelayCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_DELAY* d) {
     if (b == NULL || d == NULL) {
         return;
     }
-    long* chan[3] = {b->left, b->right, b->surround};
-    long* line[3] = {d->left, d->right, d->sur};
+    long* chan[AXFX_CHANNELS] = {b->left, b->right};
+    long* line[AXFX_CHANNELS] = {d->left, d->right};
     int c, i;
 
-    for (c = 0; c < 3; c++) {
+    for (c = 0; c < AXFX_CHANNELS; c++) {
         u32 size = d->currentSize[c];
         u32 pos = d->currentPos[c];
         long fb = (long)d->currentFeedback[c];  // NOLINT
@@ -1475,6 +1538,28 @@ void AXFXDelayCallback(struct AXFX_BUFFERUPDATE* b, struct AXFX_DELAY* d) {
         }
         d->currentPos[c] = pos;
     }
+}
+
+/* The longest a sample can take to reach the effect's output, which is how
+ * long run_aux must see silence before it may conclude the effect is quiet.
+ * Reverb: the longest comb, then the all-passes, which are plain delays when
+ * coloration is 0. Chorus passes its input straight through. */
+static long axfx_longest_path(void (*cb)(void*, void*), void* ctx) {
+    long longest = 0;
+    int c, k;
+
+    for (c = 0; c < AXFX_CHANNELS; c++) {
+        long n = kCombLen[c][2];
+        if ((void*)cb == (void*)AXFXDelayCallback) {
+            n = (long)((struct AXFX_DELAY*)ctx)->currentSize[c];
+        } else {
+            for (k = 0; k < 3; k++) {
+                n += kAllPassLen[c][k];
+            }
+        }
+        longest = n > longest ? n : longest;
+    }
+    return longest;
 }
 
 /* AI: the DTK stream is unused -- Melee's music is HPS played through AX
