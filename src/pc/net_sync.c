@@ -35,6 +35,7 @@
  * window's correction is visible in the next window's measurement; taking
  * half the excess per window damps the rest instead of ringing. */
 #define NUDGE_MAX_NS 1000000 /* 1 ms: ~6% of a frame, one dropped frame in 16 */
+#define FAST_GAP 2           /* frames of phase from which whole frames are paid */
 
 static int32_t s_offset[OFFSET_SAMPLES];
 static int s_offset_n, s_offset_i;
@@ -42,8 +43,8 @@ static int s_skip_left;
 static int32_t s_skip_asked = -1;      /* frame the pending skip was raised on */
 static bool s_skip_wait;               /* prefer an idle frame to take it on */
 static int s_drop_left;                /* SYNC_LEGACY only: samples to discard */
-static int s_sync_over;                /* +1/-1 when the last window crossed a threshold */
-static int32_t s_sync_acted;           /* frame of the last skip/advance burst */
+static int s_sync_over;                /* +1/-1 when the last window crossed FAST_GAP */
+static uint64_t s_catch_up_ns;         /* frame debt the last boundary kept */
 static uint32_t s_rtt_prev;            /* last RTT sample, for the jitter ring */
 static uint32_t s_jit[JITTER_SAMPLES]; /* |dRTT| ring; its mean scales the thresholds */
 static int s_jit_n, s_jit_i;
@@ -291,21 +292,33 @@ void time_sync(void) {
     } else {
         s_nudge_ns = 0;
     }
-    /* A gap the nudge would take seconds to close still pays a whole frame,
-     * at most one per SYNC_HOLDOFF. The advance (an extra tick) is kept for
-     * the mirror case only: a peer this far behind is normally pulled back
-     * by the other side waiting on its inputs. */
-    if (net.frame - s_sync_acted >= SYNC_HOLDOFF) {
-        if (off > 100000) {
-            s_sync_acted = net.frame;
-            s_skip_left = 1;
+    /* A gap of FAST_GAP frames or more is paid in whole frames, half of it
+     * by each side: the peer ahead skips (a longer wait, taken on an idle
+     * frame if one comes), the peer behind advances (an extra tick). The two
+     * measure the same gap from opposite ends, so between them it closes in
+     * one step. The gap has to show in two windows running before either
+     * acts, and the window after a step only measures: a freeze leaves the
+     * phase ring full of samples from before the frozen peer caught up
+     * (pc_net_catch_up_ns), and acting on those corrects a gap the catch-up
+     * has already closed. The steps shrink with the gap, and what is left
+     * under FAST_GAP is the nudge's. This is what pays a freeze when the
+     * frozen side cannot run frames back to back (VSync at 60 Hz): with the
+     * catch-up disabled, a 250 ms freeze was back within a frame after ~60
+     * frames, where one skip or advance per 120 frames took 147. */
+    int32_t gap = off < 0 ? -off : off;
+    int over = gap < FAST_GAP * FRAME_US ? 0 : off > 0 ? 1 : -1;
+    if (over != 0 && over == s_sync_over && s_skip_left == 0 && net.advance_left == 0) {
+        int n = gap / FRAME_US / 2;
+        if (over > 0) {
+            s_skip_left = n;
             s_skip_asked = net.frame;
             s_skip_wait = true;
-        } else if (off < -100000) {
-            s_sync_acted = net.frame;
-            net.advance_left = 1;
+        } else {
+            net.advance_left = n;
         }
+        over = 0;
     }
+    s_sync_over = over;
 }
 
 /* The frame loop runs one tick per queued raw sample (lb_80019894), and a
@@ -380,9 +393,10 @@ uint64_t pc_net_pace_adjust_ns(void) {
      * 225,000 frames, offset held at +0.0 ms). A skip deferred here is not
      * dropped, it waits for the next idle frame. */
     /* ...but not forever: a player who never lets go would otherwise defer
-     * it indefinitely and the phase would stay open. After SYNC_HOLDOFF
-     * frames of waiting, take it anyway. */
-    if (s_skip_left > 0 && s_skip_asked >= 0 && net.frame - s_skip_asked >= SYNC_HOLDOFF) {
+     * it indefinitely and the phase would stay open. After a window of
+     * waiting, take it anyway: the next decision has to measure what the
+     * skips did (time_sync). */
+    if (s_skip_left > 0 && s_skip_asked >= 0 && net.frame - s_skip_asked >= SYNC_INTERVAL) {
         s_skip_wait = false;
     }
     if (s_skip_left > 0 && (!s_skip_wait || net_local_idle())) {
@@ -393,7 +407,48 @@ uint64_t pc_net_pace_adjust_ns(void) {
     return adj;
 }
 
-/* Session start: empty rings, no burst pending, holdoff already elapsed. */
+/* A boundary that is late because this peer froze (a GC, a shader compile,
+ * the OS taking the core) owes the frames it did not run. Dropping them, as
+ * offline pacing does, leaves this side behind the peer by the whole freeze;
+ * the peer meanwhile runs WINDOW + delay frames ahead on predictions and
+ * stays there, rolling back that deep on every input change and stalling on
+ * every late packet, until time sync has slowed it down by as much. Measured
+ * with tools/net_test.py --hitch 250:300: back within a frame of the peer
+ * 147 frames after each 250 ms freeze, against 1-4 frames with the debt
+ * kept. So it is paid by running boundaries back to back, up to WINDOW +
+ * delay frames: that is the most the peer can have got ahead during the
+ * freeze, so paying more would put this side in front.
+ *
+ * Time the tick spent blocked on the peer (wait_input) is not debt. It means
+ * this side is the one ahead, and the wait is the slowing down time sync
+ * would otherwise have had to ask for; catching it up would run straight
+ * back into the window edge.
+ *
+ * A debt that did not shrink over the last boundary is not being paid:
+ * presents are held to a 60 Hz display (VSync) and cannot run ahead of it.
+ * Kept, it would only swallow the next skips, so it is dropped as offline
+ * pacing does and time_sync's advances pay the gap instead. A debt that grew
+ * by a frame or more is a new freeze, not a stuck one.
+ *
+ * MELEE_NET_SYNC=off/legacy keep the offline rule: they exist to reproduce
+ * runs measured without any of this. */
+uint64_t pc_net_catch_up_ns(uint64_t late_ns) {
+    const uint64_t frame = (uint64_t)FRAME_US * 1000;
+    uint64_t waited = net.waited_ns;
+    net.waited_ns = 0;
+    if (net.sync_mode != SYNC_ON) {
+        return late_ns > 2 * frame ? 0 : late_ns;
+    }
+    uint64_t late = late_ns > waited ? late_ns - waited : 0;
+    if (late > 2 * frame && late >= s_catch_up_ns && late < s_catch_up_ns + frame) {
+        late = 0;
+    }
+    const uint64_t cap = (uint64_t)(WINDOW + net.delay) * frame;
+    s_catch_up_ns = late < cap ? late : cap;
+    return s_catch_up_ns;
+}
+
+/* Session start: empty rings, no correction pending, no frame debt. */
 void sync_reset(void) {
     const char* mode = getenv("MELEE_NET_SYNC");
     net.sync_mode = mode == NULL                ? SYNC_ON :
@@ -410,7 +465,7 @@ void sync_reset(void) {
     s_skip_left = net.advance_left = s_drop_left = s_sync_over = 0;
     s_skip_asked = -1;
     s_skip_wait = false;
-    s_sync_acted = -SYNC_HOLDOFF;
+    s_catch_up_ns = net.waited_ns = 0;
     s_nudge_ns = 0;
     s_delay_base = s_delay_seen = 0;
     s_delay_acted = -DELAY_HOLDOFF;

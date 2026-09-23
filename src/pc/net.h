@@ -89,6 +89,11 @@ bool pc_net_after_tick(bool scene_ending);
  * frame: the peer that is behind is caught by the one ahead slowing down. */
 uint64_t pc_net_pace_adjust_ns(void);
 
+/* Called by the frame boundary before its pacing sleep with how late the
+ * boundary is against its schedule; returns how much of that to run off by
+ * skipping the sleep. The rest is dropped. */
+uint64_t pc_net_catch_up_ns(uint64_t late_ns);
+
 /* True while re-simulating: sound/music/rumble starts must be suppressed. */
 bool pc_net_resim(void);
 /* Reconcile physical motors after rollback; hardware state is not snapshotted. */

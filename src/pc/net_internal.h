@@ -117,7 +117,6 @@ static inline void sock_startup(void) {}
  * the peer signed an offer moments ago, so silence now means a dead address. */
 #define MATCH_CONNECT_TIMEOUT_MS 10000
 #define SYNC_INTERVAL 30 /* frames between time-sync decisions (Slippi) */
-#define SYNC_HOLDOFF 120 /* frames between skip/advance bursts */
 #define IO_QUIET 120     /* frames a disc request keeps the barrier ahead */
 /* A session ends before its frame counter can get anywhere near the end of
  * its range. Frames are absolute int32 on the wire and in every ring index,
@@ -368,6 +367,7 @@ struct NetSession {
     bool pad_reused;    /* this present queued no new physical sample */
     unsigned pad_reuse; /* how often that happened */
     unsigned pad_empty; /* ticks that ran with an empty pad queue (a bug) */
+    uint64_t waited_ns; /* game thread blocked on the peer since the last boundary */
 
     /* sync test (net_snapshot.c) */
     bool synctest;

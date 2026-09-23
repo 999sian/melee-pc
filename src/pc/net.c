@@ -2021,7 +2021,9 @@ bool pc_net_resim(void) {
 /* Every input wait, including a failed snapshot, has the same disconnect
  * handling. A failed snapshot must not allow a speculative tick to run. */
 static bool wait_input(int32_t need) {
+    uint64_t t0 = SDL_GetTicksNS();
     if (wait_remote(need)) {
+        net.waited_ns += SDL_GetTicksNS() - t0; /* not lateness: pc_net_catch_up_ns */
         return true;
     }
     /* A refused resume logged its own reason, and the peer was not
