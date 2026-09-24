@@ -13,6 +13,7 @@
 #include <dolphin/os.h>
 #ifdef TARGET_PC
 #include "pc/net.h"
+#include "pc/net_sfx.h"
 #endif
 
 /* Cached once: the .sem interpreter below runs this guard for every opcode
@@ -91,6 +92,14 @@ static bool AXDriverKeyOff(HSD_SM* v)
                   "(v->flags&SMSTATE_MASK) == SMSTATE_ACTIVE || "
                   "(v->flags&SMSTATE_MASK) == SMSTATE_SLEEP");
 
+#ifdef TARGET_PC
+    /* A netplay re-run repeats a key-off the replaced timeline already made,
+     * and must not cut a voice that timeline started after it; see
+     * pc/net_sfx.h. */
+    if (pc_net_sfx_on() && net_sfx_shielded(v->unk)) {
+        return false;
+    }
+#endif
     idx = v->vID;
     if (v->vID != -1) {
         AXDriver_804C5920[idx & 0x3F] = 0;
@@ -112,6 +121,11 @@ bool HSD_AudioSFXKeyOff(int vid)
     bool enabled;
     PAD_STACK(8);
 
+#ifdef TARGET_PC
+    if (net_sfx_is_handle(vid)) {
+        vid = net_sfx_keyoff(vid); /* -1: waiting or gone, nothing to cut */
+    }
+#endif
     idx = vid & 0x7F;
     if (vid < 0 || idx >= 0x60) {
         return false;
@@ -137,6 +151,11 @@ bool HSD_AudioSFXKeyOff(int vid)
 
 void HSD_AudioSFXKeyOffAll(void)
 {
+#ifdef TARGET_PC
+    if (pc_net_sfx_on()) {
+        net_sfx_keyoff_track(0, true);
+    }
+#endif
     bool enabled = OSDisableInterrupts();
     HSD_SM* v = AXDriver_804D7794;
     PAD_STACK(8);
@@ -154,6 +173,11 @@ void HSD_AudioSFXKeyOffAll(void)
 
 void HSD_AudioSFXKeyOffTrack(int track)
 {
+#ifdef TARGET_PC
+    if (pc_net_sfx_on()) {
+        net_sfx_keyoff_track(track, false);
+    }
+#endif
     bool enabled = OSDisableInterrupts();
     HSD_SM* v = AXDriver_804D7794;
 
@@ -603,22 +627,51 @@ static int HSD_AudioSFXStartParam_play(int sound_id, u8 volume, u8 pan, int trac
 
 /* Netplay: the voice id a sound start hands back is state the simulation
  * keeps (fighters store it in fp->x2144..x2160 and ask about it later), but
- * it comes from the audio engine, not from the frame's inputs. The netcode
- * journals it per frame, so every re-simulation of a frame hands the game
- * the same id and starts no second sound; see pc/net.h. */
+ * it comes from the audio engine, not from the frame's inputs -- and its
+ * -1, "no free voice", is each machine's own pool occupancy, which the game
+ * branches on. In a netplay session the start goes through pc/net_sfx.c
+ * instead: the game gets a handle made of the frame and the call order,
+ * never -1, and a re-run of the frame gets the same handle and starts no
+ * second sound. Every call below that takes a voice id resolves a handle
+ * to the engine's voice first. */
 int HSD_AudioSFXStartParam(int sound_id, u8 volume, u8 pan, int track, int channel)
 {
     int32_t j;
+    if (pc_net_sfx_on()) {
+        return (int) net_sfx_start(sound_id, volume, pan, track, channel);
+    }
+    /* MELEE_NET_SFX_LOG=off: the engine's id, journalled per frame. */
     if (pc_net_audio_replay(&j)) {
         return (int) j;
     }
     if (pc_net_resim()) {
-        /* No journal entry for this call (the frame's journal is full):
-         * suppress it as before rather than start the sound a second time. */
-        return (int) pc_net_audio_record(-1);
+        return (int) pc_net_audio_record(-1); /* no second start */
     }
     return (int) pc_net_audio_record(
         HSD_AudioSFXStartParam_play(sound_id, volume, pan, track, channel));
+}
+
+/* pc/net_sfx.c's way into the engine, below the handle layer: it passes the
+ * engine's own voice ids, never handles. */
+int32_t net_sfx_engine_play(int32_t sound, uint8_t volume, uint8_t pan,
+                            int32_t track, int32_t channel)
+{
+    return HSD_AudioSFXStartParam_play(sound, volume, pan, track, channel);
+}
+
+bool net_sfx_engine_keyoff(int32_t voice)
+{
+    return HSD_AudioSFXKeyOff(voice);
+}
+
+void net_sfx_engine_cut(int32_t track)
+{
+    HSD_AudioSFXKeyOffTrack(track);
+}
+
+void net_sfx_engine_pitch(int32_t voice, int16_t pitch)
+{
+    HSD_AudioSFXSetPitchFid(voice, pitch);
 }
 
 static int HSD_AudioSFXStartParam_play(int sound_id, u8 volume, u8 pan, int track,
@@ -721,6 +774,11 @@ bool HSD_AudioSFXSetPan(int vid, u8 pan)
     HSD_SM* v;
     u8 clamped;
 
+#ifdef TARGET_PC
+    if (net_sfx_is_handle(vid)) {
+        vid = net_sfx_set(vid, NET_SFX_PAN, pan);
+    }
+#endif
     idx = vid & 0x7F;
     if (vid < 0 || idx >= 0x60) {
         return false;
@@ -748,6 +806,11 @@ bool HSD_AudioSFXSetVolumeEx(s32 vid, u8 volume)
     bool enabled;
     s32 voice_id;
 
+#ifdef TARGET_PC
+    if (net_sfx_is_handle(vid)) {
+        vid = net_sfx_set(vid, NET_SFX_VOLUME, volume);
+    }
+#endif
     idx = vid & 0x7F;
     if (vid < 0 || idx >= 0x60) {
         return false;
@@ -776,6 +839,11 @@ bool HSD_AudioSFXSetPitchFid(s32 vid, s16 pitch)
     bool enabled;
     int clamped;
 
+#ifdef TARGET_PC
+    if (net_sfx_is_handle(vid)) {
+        vid = net_sfx_set(vid, NET_SFX_PITCH, pitch);
+    }
+#endif
     idx = vid & 0x7F;
     if (vid < 0 || idx >= 0x60) {
         return false;
@@ -914,6 +982,15 @@ bool HSD_AudioSFXCheck(int vid)
 {
 #ifdef TARGET_PC
     bool live;
+    if (net_sfx_is_handle(vid)) {
+        bool audio_only = net_sfx_is_private(vid);
+        vid = net_sfx_resolve(vid);
+        if (audio_only) {
+            /* Asked by lbaudio_ax.c about its own loop: nothing the
+             * simulation keeps depends on it, so the engine answers. */
+            return HSD_AudioSFXCheck_ask(vid);
+        }
+    }
     if (pc_net_audio_deaf(&live)) {
         /* Measurement only: what the engine would have said. The value never
          * reaches the simulation, it only sizes the behaviour change. */

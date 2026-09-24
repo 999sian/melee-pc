@@ -151,6 +151,17 @@ void net_watchdog_tick(int32_t frame) {
     (void)frame;
 }
 void net_watchdog_heartbeat(void) {}
+/* The sound log (pc/net_sfx.c, tools/test_net_sfx.c tests it); no sounds here. */
+void net_sfx_reset(void) {}
+void net_sfx_begin(int32_t frame, bool resim) {
+    (void)frame;
+    (void)resim;
+}
+void net_sfx_end(void) {}
+void net_sfx_rollback_done(void) {}
+void net_sfx_stats(NetSfxStats* out) {
+    memset(out, 0, sizeof *out);
+}
 int aurora_dvd_inflight(void) {
     return 0;
 }

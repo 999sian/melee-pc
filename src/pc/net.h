@@ -147,6 +147,12 @@ int32_t pc_net_audio_record(int32_t v);
 bool pc_net_audio_deaf(bool* answer);
 void pc_net_audio_deaf_note(bool live);
 
+/* True in a netplay session on the game thread: sound starts then go through
+ * pc/net_sfx.c, which hands the game virtual handles instead of engine voice
+ * ids, logs each tick's starts and settles a rollback's sounds once it has
+ * caught up. MELEE_NET_SFX_LOG=off falls back to the journal above. */
+bool pc_net_sfx_on(void);
+
 /* Called whenever the game issues a disc request: a tick that did I/O can
  * never be re-simulated (completions land on worker threads). */
 void pc_net_note_io(void);

@@ -230,6 +230,7 @@ set(PC_SOURCES
         src/pc/net_handshake.c
         src/pc/net_lan.c
         src/pc/net_reliable.c
+        src/pc/net_sfx.c
         src/pc/net_sim.c
         src/pc/net_snapshot.c
         src/pc/net_sync.c
@@ -508,6 +509,12 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         add_test(NAME net_dht_bootstrap COMMAND net_dht_bootstrap_test)
         set_tests_properties(net_dht_bootstrap PROPERTIES LABELS melee TIMEOUT 30)
         add_dependencies(unit_tests net_dht_bootstrap_test)
+        add_executable(net_sfx_test EXCLUDE_FROM_ALL tools/test_net_sfx.c src/pc/net_sfx.c)
+        target_include_directories(net_sfx_test PRIVATE src)
+        target_compile_options(net_sfx_test PRIVATE -UNDEBUG)
+        add_test(NAME net_sfx COMMAND net_sfx_test)
+        set_tests_properties(net_sfx PROPERTIES LABELS melee TIMEOUT 30)
+        add_dependencies(unit_tests net_sfx_test)
         set(NET_IDENTITY_SOURCES src/pc/net_identity.c src/pc/net_dht.c src/pc/net_dht_item.c
             extern/dht/dht.c extern/dht/sha1.c extern/monocypher/monocypher.c
             extern/monocypher/monocypher-ed25519.c)

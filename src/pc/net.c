@@ -29,6 +29,7 @@
 #include "compat.h"
 #include "pc/file_cache.h"
 #include "pc/net_internal.h"
+#include "pc/net_sfx.h"
 
 #include <dolphin/ar.h>
 #include <dolphin/os.h>
@@ -2305,10 +2306,27 @@ static bool audio_journal_live(void) {
     return s_aj_off == 0 && s_aj_on && net.active && SDL_GetCurrentThreadID() == s_game_thread;
 }
 
+/* MELEE_NET_SFX_LOG=off: sound starts go back to the journal below. */
+static int s_sfx_off = -1;
+
+bool pc_net_sfx_on(void) {
+    if (SDL_GetCurrentThreadID() != s_game_thread) {
+        return false; /* the audio thread keys voices off too */
+    }
+    if (s_sfx_off < 0) {
+        const char* e = getenv("MELEE_NET_SFX_LOG");
+        s_sfx_off = e != NULL && strcmp(e, "off") == 0;
+    }
+    return s_sfx_off == 0 && net.active;
+}
+
 /* A frame's simulation begins (a fresh tick or a re-run of it). */
 static void audio_journal_begin(int32_t f) {
     s_aj_i = 0;
     s_aj_on = true;
+    if (net.active) {
+        net_sfx_begin(f, net.resim); /* a re-run of an older frame starts a rollback */
+    }
     struct AudioJournal* j = &s_aj[f & (RING - 1)];
     if (j->frame != f) {
         j->frame = f;
@@ -2374,7 +2392,18 @@ void pc_net_audio_deaf_note(bool live) {
     }
 }
 
+/* The sound log's numbers for the 600-frame report: session totals. */
+static void sfx_stats_report(void) {
+    NetSfxStats st;
+    net_sfx_stats(&st);
+    pc_log_line("net: sfx played %u, resim deduped %u, late %u, killed %u, cancelled %u "
+                "(revived %u), shielded %u, outside ticks %u, audio-private %u, overflow %u",
+        st.played, st.deduped, st.late, st.killed, st.cancelled, st.revived, st.shielded,
+        st.outside, st.private_starts, st.overflow);
+}
+
 static void audio_journal_reset(void) {
+    net_sfx_reset();
     memset(s_aj, 0, sizeof s_aj);
     s_aj_i = 0;
     s_aj_on = false;
@@ -3126,6 +3155,7 @@ static void fresh_tick(PADStatus* head, bool raw) {
         s_rx_bad_mac = s_rx_full = 0;
         SDL_UnlockMutex(s_rx_lock);
         snap_stats_report();
+        sfx_stats_report();
     }
 #ifdef MELEE_FP_PERTURB_NAME
     if ((net.frame % 600) == 0 && net.frame > 0) {
@@ -3387,7 +3417,8 @@ static void audit_after_run2(void) {
 
 bool pc_net_after_tick(bool scene_ending) {
     s_aj_on = false; /* the tick is over: later audio queries are not its own */
-    head_check();    /* did this tick consume the inputs write_head wrote? */
+    net_sfx_end();
+    head_check(); /* did this tick consume the inputs write_head wrote? */
     if (net.synctest) {
         return synctest_after_tick();
     }
@@ -3431,6 +3462,7 @@ bool pc_net_after_tick(bool scene_ending) {
             return resim_prepare(g);
         }
         net.resim = false;
+        net_sfx_rollback_done();     /* the re-run caught up: settle its sounds */
         resim_note(s_resim_run + 1); /* the tick that just ran was a re-run too */
         s_resim_run = 0;
         if (s_audit_running) {

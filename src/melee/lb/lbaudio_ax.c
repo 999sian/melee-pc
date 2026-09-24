@@ -10,6 +10,9 @@
 #include "lblanguage.h"
 #include "pc/music_stream.h"
 #include "pc/net.h"
+#ifdef TARGET_PC
+#include "pc/net_sfx.h"
+#endif
 #include <dolphin/ai.h>
 #include <dolphin/ar.h>
 #include <dolphin/ax.h>
@@ -2057,6 +2060,11 @@ void lbAudioAx_80027DF8(void)
     int carry;
 
     PAD_STACK(16);
+#ifdef TARGET_PC
+    /* Everything below decides from this file's statics, which no netplay
+     * snapshot holds: its starts are audio-private (pc/net_sfx.h). */
+    net_sfx_private(true);
+#endif
     if (!lbl_804D640C) {
         lbl_804D6430--;
         if (lbl_804D6430 <= 0) {
@@ -2135,10 +2143,16 @@ void lbAudioAx_80027DF8(void)
             }
         }
         lbl_804D641C = 0;
+#ifdef TARGET_PC
+        net_sfx_private(false);
+#endif
         return;
     }
 
     lbAudioAx_80027DF8_inline();
+#ifdef TARGET_PC
+    net_sfx_private(false);
+#endif
 }
 
 void lbAudioAx_8002835C(void)
