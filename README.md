@@ -374,10 +374,10 @@ python3 tools/net_determinism.py --only linux,linux-flip   # ~2 min, no Proton
 
 ## License
 
-Three situations, spelled out in [LICENSE.md](LICENSE.md): the decompiled
+Three situations, spelled out in [LICENSE.md](licenses/LICENSE.md): the decompiled
 game code in `src/melee` and `src/sysdolphin` is **not licensed** and remains
 the property of its copyright holders; the port code in `src/pc`, `tools`,
-`platforms`, `cmake` and `.github` is **GPL-3.0-or-later** ([COPYING](COPYING));
+`platforms`, `cmake` and `.github` is **GPL-3.0-or-later** ([COPYING](licenses/COPYING));
 bundled third-party components keep their own licenses. Because the game code
 cannot be relicensed, the repository as a whole is not distributable under the
 GPL. No game assets are in this repository.
