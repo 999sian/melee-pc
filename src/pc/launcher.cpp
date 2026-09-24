@@ -1833,10 +1833,25 @@ extern "C" bool pc_is_unlock_all_enabled(void) {
 }
 extern "C" bool pc_is_frozen_stadium_enabled(void) {
     bool unlock_all, frozen;
-    return pc_net_rules(&unlock_all, &frozen) ? frozen : prefs.frozen_stadium;
+    if (pc_net_rules(&unlock_all, &frozen)) {
+        return frozen;
+    }
+    /* MELEE_FROZEN_STADIUM=0|1 overrides the preference, so a test can reach
+     * the transformations whatever the machine's launcher says. The host's
+     * value is what RULES carries, so setting it on the host is enough. */
+    static const char* env = std::getenv("MELEE_FROZEN_STADIUM");
+    return env ? env[0] != '0' : prefs.frozen_stadium;
 }
+/* Free camera and UCF are read by the simulation (camera.c's pause camera
+ * feeds offscreen damage; UCF decides dashbacks and shield drops), so a
+ * local preference must not reach it while the run has to reproduce on
+ * another machine: two peers with different settings would desync on the
+ * first dashback UCF changes. Such a run plays the competitive standard,
+ * which is Slippi's too: UCF on, free camera off. Both peers run the same
+ * build (the handshake binds it), so forcing here keeps them agreed without
+ * a RULES field. */
 extern "C" bool pc_is_free_camera_enabled(void) {
-    return prefs.free_camera;
+    return !pc_net_deterministic() && prefs.free_camera;
 }
 extern "C" uint64_t pc_install_id(void) {
     return prefs.install_id;
@@ -1849,6 +1864,9 @@ extern "C" const char* pc_app_rev(void) {
     return pc::get_app_version().c_str();
 }
 extern "C" bool pc_is_ucf_enabled(void) {
+    if (pc_net_deterministic()) {
+        return true;
+    }
     static const char* env = std::getenv("MELEE_UCF");
     return env ? env[0] != '0' : prefs.ucf;
 }

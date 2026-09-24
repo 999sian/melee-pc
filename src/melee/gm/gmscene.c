@@ -448,6 +448,9 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
             break;
         }
 
+#ifdef TARGET_PC
+        pc_net_render_audit(false);
+#endif
         lb_800195D0();
         GXInvalidateVtxCache();
         GXInvalidateTexAll();
@@ -456,6 +459,9 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         HSD_Init_803755A8();
         HSD_PerfSetDrawTime();
         HSD_VICopyXFBAsync(HSD_RP_SCREEN);
+#ifdef TARGET_PC
+        pc_net_render_audit(true);
+#endif
         if (temp_r25->unk_4 != -2U) {
             temp_r25->unk_4++;
         }

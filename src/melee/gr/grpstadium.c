@@ -37,7 +37,14 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/wobj.h>
 #ifdef TARGET_PC
+#include <melee/ft/inlines.h>
+#include <melee/ft/types.h>
+#include "pc/file_cache.h"
+#include "pc/net.h"
 #include "pc/widescreen.h"
+/* The transformation archive the pending load is for; in .bss, so a
+ * snapshot carries it with the load state it belongs to. */
+static const char* grStadium_pc_pending;
 #endif
 #include "pc/pc.h"
 
@@ -1395,6 +1402,45 @@ bool grStadium_801D32D0(Ground_GObj* gobj)
     var_r28 = false;
     gp = GET_GROUND(gobj);
 
+#ifdef TARGET_PC
+    /* Slippi's PSCameraIndependentMonitor: whether the zoomed-in monitor
+     * view stays up decides when the transition code runs, and that code
+     * draws from the shared RNG. Deciding it by projecting through the live
+     * camera made it depend on the viewport and aspect, which differ between
+     * two players' displays, so a netplay or replay run asks Slippi's
+     * question instead: is the fighter inside the stage's camera limits
+     * (-170..170, -60..120) less a fixed margin. The monitor placement below
+     * still follows the camera; only the decision moves. */
+    if (pc_net_deterministic()) {
+        player_gobj = Player_GetEntity(gp->u.display.xEE);
+        if (player_gobj == NULL || Player_8003219C(gp->u.display.xEE)) {
+            return false;
+        }
+        if ((cobj = GET_COBJ(Camera_80030A50())) &&
+            (wrapper = gp->u.display.xDC->user_data))
+        {
+            ftLib_80086B90(player_gobj, &sp28);
+            lbVector_WorldToScreen(cobj, &sp28, &sp1C, 0);
+            sp1C.x -= 62.0f;
+            sp1C.x = sp1C.x < cobj->viewport.xmin ? cobj->viewport.xmin :
+                     sp1C.x + 124.0f > cobj->viewport.xmax ?
+                                                    cobj->viewport.xmax - 124.0f :
+                                                    sp1C.x;
+            sp1C.y -= 40.0f;
+            sp1C.y = sp1C.y < cobj->viewport.ymin ? cobj->viewport.ymin :
+                     sp1C.y + 80.0f > cobj->viewport.ymax ?
+                                                    cobj->viewport.ymax - 80.0f :
+                                                    sp1C.y;
+            wrapper->x1A = ((int) sp1C.x >> 1) * 2;
+            wrapper->x1C = ((int) sp1C.y >> 1) * 2;
+        }
+        {
+            Fighter* fp = GET_FIGHTER(player_gobj);
+            return fp->cur_pos.x >= -120.0f && fp->cur_pos.x <= 120.0f &&
+                   fp->cur_pos.y <= 80.0f && fp->cur_pos.y >= -20.0f;
+        }
+    }
+#endif
     if ((cobj = GET_COBJ(Camera_80030A50()))) {
         player_gobj = Player_GetEntity(gp->u.display.xEE);
         if (player_gobj != NULL && !Player_8003219C(gp->u.display.xEE)) {
@@ -1894,6 +1940,23 @@ bool grStadium_801D42B8(void)
     if (gp->u.stadium.xC4_b1) {
         return false;
     }
+#ifdef TARGET_PC
+    /* The parse relocates the archive in place, and the buffer may be
+     * preload-cache memory no rollback snapshot covers. A rollback to the
+     * frame between the load and this parse would then hand the re-run an
+     * already relocated buffer. Copying the pristine file over it first
+     * makes the parse the same whichever timeline reaches it. */
+    if (grStadium_pc_pending != NULL &&
+        pc_net_pure_load(lbFileGetFullName(grStadium_pc_pending)))
+    {
+        size_t size;
+        if (pc_file_cache_get(lbFileGetFullName(grStadium_pc_pending),
+                              gp->u.stadium.xCC, &size))
+        {
+            gp->u.stadium.xC8 = size;
+        }
+    }
+#endif
     gp->u.stadium.xD0 =
         grDatFiles_801C6478(gp->u.stadium.xCC, gp->u.stadium.xC8);
     return true;
@@ -2099,6 +2162,9 @@ void grStadium_801D4548(Ground_GObj* gobj)
             gp = GET_GROUND(map_gobj);
             HSD_ASSERT(0x99B, gp);
             gp->u.stadium.xC4_b1 = true;
+#ifdef TARGET_PC
+            grStadium_pc_pending = datfiles[var_r29];
+#endif
             lbFile_80016580(datfiles[var_r29], gp->u.stadium.xCC,
                             &gp->u.stadium.xC8, fn_801D4220, NULL);
             temp_r31->u.stadium.xDC = 1;

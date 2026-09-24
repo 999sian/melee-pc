@@ -24,8 +24,15 @@ extern "C" {
  * not send one cannot be synchronised against.
  * Version 8 appends a truncated keyed-BLAKE2b tag to every datagram, so a
  * peer that does not authenticate what it sends cannot be talked to at all
- * once the session key exists (src/pc/net_wire.c). */
-#define PC_NET_PROTO_VERSION 8
+ * once the session key exists (src/pc/net_wire.c).
+ * Version 9 widens the input packet to 32 unacked frames and folds each
+ * fighter's self and knockback velocity into the frame checksum, so a peer
+ * on 8 would read every fight frame as a desync. READY names the start
+ * frame it took, since a host whose RULES went stale re-issues one, and
+ * input packets carry their pads delta-coded (pads_encode, net_wire.c).
+ * A fight reseeds the RNG every tick (fight_reseed) and forces UCF on and
+ * free camera off, which an older peer does not. */
+#define PC_NET_PROTO_VERSION 9
 void pc_net_init(void);
 void pc_net_set_input_delay(int frames);
 bool pc_net_active(void);
@@ -34,6 +41,7 @@ bool pc_net_chat_available(void);
 /* True when the simulation must be reproducible elsewhere: netplay,
  * record, replay or sync test. Guards machine-seeded retail behaviour. */
 bool pc_net_deterministic(void);
+bool pc_net_pure_load(const char* filename); /* served from memory, no barrier */
 
 /* Netplay scene hand-off: true while the scene that asked to end must keep
  * ticking, so both peers leave it on the same frame however long their loads
@@ -87,6 +95,7 @@ void pc_net_sync(void);
  * (rollback re-simulation or the MELEE_NET_SYNCTEST self-check). */
 /* Finish rollback/bookkeeping, but defer fresh advances during scene exit. */
 bool pc_net_after_tick(bool scene_ending);
+void pc_net_render_audit(bool after); /* MELEE_NET_RENDER_AUDIT, net_snapshot.c */
 
 /* Called by the frame boundary (src/pc/vi.c) after the pad alarm ran; the
  * returned ns are added to the next pacing wait. Time-sync corrections are

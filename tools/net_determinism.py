@@ -73,7 +73,7 @@ import net_test  # fifo_write(): one key line into a MELEE_KEY_FIFO
 # PADStatus is 16 bytes on TARGET_PC, not 12: dolphin/pad.h adds extButton.
 # tools/test_net_replay_seed.py compiles the real header and recording code
 # and checks the 8 + 76*n layout and checksum/seed offsets independently.
-REC_MAGIC = b"MRC4"
+REC_MAGIC = b"MRC5"  # MRC4: same layout, checksum without velocities
 REC_HDR = 8
 REC_STRIDE = 76
 PAD_STRIDE = 16

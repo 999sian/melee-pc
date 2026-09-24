@@ -149,6 +149,10 @@ void lbFile_80016580(const char* basename, void* dst, size_t* size,
 {
     char* filename = lbFileGetFullName(basename);
 #ifdef TARGET_PC
+    /* A pure load (pc_net_pure_load) is served from memory on both peers,
+     * fetched now if the fight-entry fetch somehow missed it, and a tick
+     * that did one re-simulates like any other. */
+    bool pure = pc_net_pure_load(filename) && pc_file_cache_require(filename);
     if (pc_file_cache_get(filename, dst, size)) {
         /* A cache hit is a load too. It returns early and never reaches
          * HSD_DevComRequest, so without this it never raised the rollback
@@ -156,7 +160,9 @@ void lbFile_80016580(const char* basename, void* dst, size_t* size,
          * raise it on different frames for the same load, or one not at all.
          * A tick that did I/O cannot be re-simulated, whichever way the bytes
          * arrived. */
-        pc_net_note_io();
+        if (!pure) {
+            pc_net_note_io();
+        }
         if (callback != NULL) {
             callback(0, (uintptr_t) args, NULL, false);
         }

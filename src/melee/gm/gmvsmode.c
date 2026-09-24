@@ -187,6 +187,15 @@ void onEnterDebugVs(GameModeState* state)
     start->players[2].slot_type = Gm_PKind_NA;
     start->players[3].slot_type = Gm_PKind_NA;
 #ifdef TARGET_PC
+    /* MELEE_DEBUG_VS_STAGE=<StKind>: the debug match on one stage instead of
+     * the last-used one, so the harness can reach a stage's mid-match loads
+     * (3 is Pokemon Stadium, whose transformations load from disc). */
+    if (getenv("MELEE_DEBUG_VS_STAGE") != NULL) {
+        int st = atoi(getenv("MELEE_DEBUG_VS_STAGE"));
+        if (st > St_Kind_Test && st < St_Kind_Last) {
+            start->rules.stkind = (StKind) st;
+        }
+    }
     if (getenv("MELEE_DEBUG_VS") != NULL && strcmp(getenv("MELEE_DEBUG_VS"), "cpu") == 0) {
         start->players[1].slot_type = Gm_PKind_Cpu;
     } else if (getenv("MELEE_DEBUG_VS") != NULL && strcmp(getenv("MELEE_DEBUG_VS"), "cpu4") == 0) {

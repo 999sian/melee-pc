@@ -22,6 +22,9 @@
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/state.h>
+#ifdef TARGET_PC
+#include "pc/net.h"
+#endif
 
 static U8Vec4 ftDrawCommon_804D3A88 = { 0xFF, 0xFF, 0xFF, 0x80 };
 static U8Vec4 ftDrawCommon_804D3A8C = { 0x80, 0x80, 0xFF, 0x80 };
@@ -368,6 +371,19 @@ static inline void ftDrawCommon_80080E18_inline2(HSD_GObj* gobj, Fighter* old)
     Vec3* pos;
 
     MtxPtr matrix = HSD_CObjGetInvViewingMtxPtr(Camera_800310B8());
+#ifdef TARGET_PC
+    /* Slippi's UpdateModelPos.asm: a render callback places the model and
+     * nothing else. Writing cur_pos here made the physics position depend
+     * on whether this frame was drawn, which a rollback resim is not (see
+     * ftCo_DeadUpFall_Anim). */
+    if (pc_net_deterministic()) {
+        Vec3 model;
+        PSMTXMultVec(matrix, (Vec3*) &old->mv.co.walk.fast_anim_frame,
+                     &model);
+        HSD_JObjSetTranslate(jobj, &model);
+        return;
+    }
+#endif
     /// @todo this seems to be using the wrong common attributes
     PSMTXMultVec(matrix, (Vec3*) &old->mv.co.walk.fast_anim_frame,
                  &fp->cur_pos);

@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
     FILE* f = fopen(argv[1], "rb");
     unsigned char bytes[160]; /* 8-byte header + two 76-byte records */
     assert(fread(bytes, 1, sizeof bytes, f) == sizeof bytes);
-    assert(fgetc(f) == EOF && memcmp(bytes, "MRC4", 4) == 0);
+    assert(fgetc(f) == EOF && memcmp(bytes, "MRC5", 4) == 0);
     uint32_t word;
     int32_t at;
     memcpy(&word, bytes + 8 + 64, 4); assert(word == 0x11111111);
@@ -127,7 +127,7 @@ class ReplaySeedTest(unittest.TestCase):
         self.assertIn("seed_value == 11", broken.stderr)
 
     def test_checksum_readers_preserve_old_captures_and_read_new_seed(self):
-        for magic, stride in ((b"MRC1", 68), (b"MRC2", 72), (b"MRC3", 76), (b"MRC4", 76)):
+        for magic, stride in ((b"MRC1", 68), (b"MRC2", 72), (b"MRC3", 76), (b"MRC4", 76), (b"MRC5", 76)):
             with self.subTest(magic=magic), tempfile.TemporaryDirectory() as work:
                 header = magic + struct.pack("<I", 7)
                 def row(ck, stride=stride):
@@ -143,7 +143,7 @@ class ReplaySeedTest(unittest.TestCase):
                 self.assertEqual(net_test.record_cks(path), expected)
                 self.assertEqual(net_test.record_cks(path, tail=1), expected[-1:])
                 self.assertEqual(net_test.record_cks(path, tail=10), expected)
-        data = b"MRC4" + struct.pack("<I", 7) + bytes(64) + struct.pack("<IIi", 11, 23, -1)
+        data = b"MRC5" + struct.pack("<I", 7) + bytes(64) + struct.pack("<IIi", 11, 23, -1)
         self.assertEqual(net_determinism.rec_frames(data), 1)
         self.assertEqual(net_determinism.rec_ck(data, 0), 11)
 

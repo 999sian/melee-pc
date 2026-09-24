@@ -524,7 +524,7 @@ LRAS = "Q+E+X+Return"
 # reading garbage checksums.
 REC = 76
 CK_OFF = 64
-REC_FORMATS = {b"MRC1": 68, b"MRC2": 72, b"MRC3": 76, b"MRC4": REC}  # earlier captures stay readable
+REC_FORMATS = {b"MRC1": 68, b"MRC2": 72, b"MRC3": 76, b"MRC4": REC, b"MRC5": REC}  # earlier captures stay readable
 MATCH_WINDOW = 600
 MATCH_RATIO = 0.5
 MATCH_MIN = 1800  # frames of moving state a row has to get, i.e. 30 s of match
@@ -1180,6 +1180,9 @@ def parse_args(argv=None):
     ap.add_argument("--hitch", default=None, metavar="MS:EVERY",
                     help="MELEE_NET_HITCH_TEST on B: park its game thread for MS every EVERY "
                          "frames of the fight (a phone's frame freezes); A must ride them out")
+    ap.add_argument("--stage", type=int, default=None, metavar="STKIND",
+                    help="MELEE_DEBUG_VS_STAGE for the direct match (3: Pokemon Stadium, "
+                         "whose transformations load mid-match)")
     ap.add_argument("--reconnect-ms", type=int, default=3000,
                     help="MELEE_NET_RECONNECT_MS for --stall (net.c's own default is 3000)")
     ap.add_argument("--fuzz", action="store_true", help="run tools/net_fuzz.py against A")
@@ -1229,6 +1232,11 @@ def run(args):
         sim["MELEE_NET_STALL_TEST"] = f"{LOAD_STALL_FRAME}:{int(args.load_stall * 1000)}"
     if args.hitch:
         sim["MELEE_NET_HITCH_TEST"] = args.hitch  # B only: sim_a was copied above
+    if args.stage is not None:
+        sim_a["MELEE_DEBUG_VS_STAGE"] = sim["MELEE_DEBUG_VS_STAGE"] = str(args.stage)
+        # A frozen Stadium (the launcher default on many machines) never
+        # transforms, which is the load this option exists to reach.
+        sim_a["MELEE_FROZEN_STADIUM"] = sim["MELEE_FROZEN_STADIUM"] = "0"
     shutil.rmtree(args.work, ignore_errors=True)
     os.makedirs(args.work)
     if args.state_log:

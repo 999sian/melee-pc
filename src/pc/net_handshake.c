@@ -114,9 +114,15 @@ static bool csprng(void* out, size_t n) {
 #endif
 
 #define HS_TIMEOUT_MS 15000
-#define HS_LEAD_FRAMES 120 /* ponytail: 2 s for READY; a slower link misses the start */
+#define HS_LEAD_FRAMES 120 /* the floor: 2 s for RULES out and READY back */
+#define HS_LEAD_MAX 200    /* inside rules_invalid's RING * 4 with room for tick skew */
 
 static uint64_t s_hs_t0;
+/* Host: the RULES in force, host order, kept so a stale one can be re-issued
+ * with a fresh start_frame, and the start_frame it replaced -- a READY for
+ * that one may already be on its way. */
+static Rules s_hs_rules;
+static int32_t s_hs_prev_start = -1;
 /* When a direct session was first seen waiting for the game's own rules to
  * fill in. Bounded, or a run that never fills them plays on unagreed. */
 static uint64_t s_direct_idle_ns;
@@ -146,6 +152,7 @@ enum {
     LOG_RULES_LATE = 1 << 11,
     LOG_RULES_UNLOCK = 1 << 12,
     LOG_RULES_NONCE = 1 << 13,
+    LOG_READY_START = 1 << 14,
 };
 static uint32_t s_hs_logged; /* LOG_* classes already logged this session */
 /* A RULES or READY the reliable lane had no room for, kept in wire order so
@@ -465,7 +472,7 @@ static void on_rules(const uint8_t* payload, int len) {
         unlock_restore();
         return;
     }
-    Ready rd = {nonce_local(), ru.nonce, unlock_mine, 0};
+    Ready rd = {nonce_local(), ru.nonce, unlock_mine, ru.start_frame, 0};
     if (rd.nonce == 0) {
         hs_drop(LOG_RULES_NONCE, "RULES", "no random source");
         unlock_restore();
@@ -536,6 +543,18 @@ static void on_ready(const uint8_t* payload, int len) {
         net.hs = HS_FAILED;
         return;
     }
+    if (rd.start_frame != net.start_frame) {
+        /* The guest took a RULES this side has since replaced (hs_reissue).
+         * Both were ours and the guest can apply only one, so its answer is
+         * the agreed frame. If that frame has already gone by here, the
+         * match layer's ready barrier refuses the start. */
+        if (rd.start_frame != s_hs_prev_start) {
+            hs_drop(LOG_READY_START, "READY", "start_frame we never sent");
+            return;
+        }
+        pc_log_line("net: READY took the earlier start_frame=%d", rd.start_frame);
+        net.start_frame = rd.start_frame;
+    }
     s_nonce_peer = rd.nonce;
     /* This side's turn: the READY just authenticated is what carries the
      * guest's nonce, so from here both peers hold the same three values and
@@ -556,11 +575,49 @@ void handshake_msg(uint8_t type, const uint8_t* payload, int len) {
     }
 }
 
+/* Frames from sending RULES to the start. A fixed 120 was a deadline the
+ * round trip could miss: a guest that gets RULES after its start_frame drops
+ * it, and the host went on resending that same stale RULES until its 15 s
+ * timeout. Three round trips cover RULES out, READY back and a retransmit of
+ * either; 30 more cover the ready barrier behind them. */
+static int32_t hs_lead(void) {
+    int32_t rtt_frames = (int32_t)((net.ping_us + 16666) / 16667);
+    int32_t lead = 3 * rtt_frames + 30;
+    return lead < HS_LEAD_FRAMES ? HS_LEAD_FRAMES : lead > HS_LEAD_MAX ? HS_LEAD_MAX : lead;
+}
+
+/* Host: put RULES out for net.start_frame, rehashed. */
+static bool hs_send_rules(void) {
+    s_hs_rules.start_frame = net.start_frame;
+    s_hs_rules.hash = rules_hash(s_hs_rules, net.session);
+    Rules w = s_hs_rules;
+    wire_rules(&w);
+    return hs_send(REL_RULES, &w, sizeof w);
+}
+
+/* Host: the start went by with no READY, so the RULES out there can only be
+ * refused as late. Slippi never races a deadline, it starts once both sides
+ * have acknowledged; this keeps the agreed-frame start and re-arms it
+ * instead. Same nonce and rules, so a guest that did take the old one drops
+ * this as a duplicate, and its READY names the one it took (on_ready). The
+ * 15 s timeout still bounds the whole handshake. */
+static void hs_reissue(void) {
+    s_hs_prev_start = net.start_frame;
+    net.start_frame = net.tick_frame + hs_lead();
+    if (hs_send_rules()) {
+        pc_log_line("net: no READY by start_frame=%d, RULES re-issued for %d", s_hs_prev_start,
+            net.start_frame);
+    }
+}
+
 /* Drive the pending handshake a step; true once done, with start_frame. */
 static bool hs_poll(int32_t* start_frame) {
     if (net.hs == HS_PENDING) {
         recv_inputs();
         hs_flush(); /* after recv_inputs: a 'K' just read may be what freed the slot */
+        if (net.hs == HS_PENDING && net.hs_host && net.tick_frame >= net.start_frame) {
+            hs_reissue();
+        }
         /* Re-checked: recv_inputs() or the flush above may have just finished
          * the handshake, and a done one is not timed out. */
         if (net.hs == HS_PENDING && SDL_GetTicksNS() - s_hs_t0 > HS_TIMEOUT_MS * 1000000ull) {
@@ -591,18 +648,17 @@ bool pc_net_host_match(uint32_t seed, int32_t* start_frame) {
         s_hs_t0 = SDL_GetTicksNS();
         net.seed = seed;
         seed_apply();
-        net.start_frame = net.tick_frame + HS_LEAD_FRAMES;
+        net.start_frame = net.tick_frame + hs_lead();
+        s_hs_prev_start = -1;
         Rules ru = {0};
         ru.seed = seed;
-        ru.start_frame = net.start_frame;
         ru.nonce = s_nonce_local;
         rules_capture(&ru);
         unlock_force();
         ru.unlock_hash = unlock_hash_now();
-        ru.hash = rules_hash(ru, net.session);
         rules_apply(&ru, false);
-        wire_rules(&ru);
-        if (hs_send(REL_RULES, &ru, sizeof ru)) {
+        s_hs_rules = ru;
+        if (hs_send_rules()) {
             pc_log_line("net: RULES sent seed=%u start_frame=%d", seed, net.start_frame);
         }
     }

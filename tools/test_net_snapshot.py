@@ -186,6 +186,72 @@ int main(void) {
             result = subprocess.run([str(exe)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_reserve_pages_in_one_slot_per_call_and_keeps_contents(self):
+        source = SOURCE.read_text()
+        start = source.index("void snaps_reserve(void) {")
+        reserve = source[start:source.index("/* Session end", start)]
+        body = r'''
+#include <assert.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#define SNAPS 8
+#define MAX_REGIONS 12
+typedef struct { const char* name; void* ptr; size_t len; } Region;
+typedef struct { int32_t frame; uint8_t* buf; size_t cap, used, faulted; } Snapshot;
+static Snapshot s_snaps[SNAPS];
+static size_t live = 1000; /* bytes a take would copy right now */
+static int regions_now(Region* r) {
+    r[0] = (Region){"data", NULL, live / 2};
+    r[1] = (Region){"heap0", NULL, live - live / 2};
+    return 2;
+}
+''' + reserve + r'''
+int main(void) {
+    /* A slot already holding a snapshot must keep it through the growth. */
+    s_snaps[3].buf = malloc(100);
+    memset(s_snaps[3].buf, 0x5a, 100);
+    s_snaps[3].cap = s_snaps[3].used = s_snaps[3].faulted = 100;
+    s_snaps[3].frame = 42;
+    for (int call = 1; call <= SNAPS; call++) {
+        snaps_reserve();
+        int done = 0;
+        for (int i = 0; i < SNAPS; i++) {
+            done += s_snaps[i].faulted == live;
+        }
+        assert(done == call); /* exactly one more slot per call */
+    }
+    for (int i = 0; i < SNAPS; i++) {
+        assert(s_snaps[i].cap >= live && s_snaps[i].cap == live * 3 / 2);
+    }
+    for (int i = 0; i < 100; i++) {
+        assert(s_snaps[3].buf[i] == 0x5a);
+    }
+    assert(s_snaps[3].frame == 42 && s_snaps[3].used == 100);
+    /* Sized: a no-op, however often it runs. */
+    uint8_t* was[SNAPS];
+    for (int i = 0; i < SNAPS; i++) {
+        was[i] = s_snaps[i].buf;
+        memset(s_snaps[i].buf, 0x77, live);
+    }
+    for (int k = 0; k < 20; k++) {
+        snaps_reserve();
+    }
+    for (int i = 0; i < SNAPS; i++) {
+        assert(s_snaps[i].buf == was[i] && s_snaps[i].buf[live - 1] == 0x77);
+    }
+    /* Growth inside the headroom writes only past what was paged in. */
+    live = 1200;
+    snaps_reserve();
+    assert(s_snaps[0].faulted == 1200 && s_snaps[0].buf == was[0]);
+    assert(s_snaps[0].buf[999] == 0x77 && s_snaps[0].buf[1000] == 0);
+    assert(s_snaps[1].faulted == 1000);
+    return 0;
+}
+'''
+        result = self.compile_and_run(body)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

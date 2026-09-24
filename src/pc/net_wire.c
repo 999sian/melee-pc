@@ -87,6 +87,65 @@ void wire_packet(Packet* pk) {
     }
 }
 
+/* Pads on the wire, after wire_packet: each one XORed against the pad before
+ * it (the first against zero), sent as a mask byte whose bit j says byte j of
+ * that XOR is nonzero, then those bytes in order. Melee pads repeat frame to
+ * frame, so a held pad costs one byte instead of eight and a full 32-frame
+ * window of a player holding shield is 40 bytes, not 256. GGRS does the same
+ * with XOR plus RLE, GGPO with a list of changed bits; this form keeps every
+ * pad byte-aligned and its worst case (all eight bytes changing every frame)
+ * one byte a pad over raw. */
+size_t pads_encode(const WirePad* pads, int count, uint8_t* out) {
+    uint8_t prev[sizeof(WirePad)] = {0};
+    size_t n = 0;
+    for (int i = 0; i < count; i++) {
+        uint8_t cur[sizeof(WirePad)];
+        memcpy(cur, &pads[i], sizeof cur);
+        uint8_t* mask = &out[n++];
+        *mask = 0;
+        for (int j = 0; j < (int)sizeof cur; j++) {
+            uint8_t x = cur[j] ^ prev[j];
+            if (x != 0) {
+                *mask |= (uint8_t)(1u << j);
+                out[n++] = x;
+            }
+        }
+        memcpy(prev, cur, sizeof prev);
+    }
+    return n;
+}
+
+/* Bytes the encoded pads take in `in`, or -1 when `len` cannot hold them. */
+int pads_wire_len(const uint8_t* in, int len, int count) {
+    int n = 0;
+    for (int i = 0; i < count; i++) {
+        if (n >= len) {
+            return -1;
+        }
+        n += 1 + __builtin_popcount(in[n]);
+    }
+    return n <= len ? n : -1;
+}
+
+/* pads_encode's inverse; false unless the pads fill exactly `len` bytes. */
+bool pads_decode(const uint8_t* in, int len, int count, WirePad* pads) {
+    if (pads_wire_len(in, len, count) != len) {
+        return false;
+    }
+    uint8_t prev[sizeof(WirePad)] = {0};
+    int n = 0;
+    for (int i = 0; i < count; i++) {
+        uint8_t mask = in[n++];
+        for (int j = 0; j < (int)sizeof prev; j++) {
+            if (mask & (1u << j)) {
+                prev[j] ^= in[n++];
+            }
+        }
+        memcpy(&pads[i], prev, sizeof prev);
+    }
+    return true;
+}
+
 void wire_ack(Ack* a) {
     be16(&a->seq);
     be32(&a->frame);
@@ -111,6 +170,7 @@ void wire_ready(Ready* rd) {
     be64(&rd->nonce);
     be64(&rd->echo);
     be32(&rd->unlock_hash);
+    be32(&rd->start_frame);
     be32(&rd->hash);
 }
 

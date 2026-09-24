@@ -24,6 +24,9 @@
 #include <melee/pl/plbonuslib.h>
 #include <melee/pl/plstale.h>
 #include <sysdolphin/baselib/random.h>
+#ifdef TARGET_PC
+#include "pc/net.h"
+#endif
 
 const Quaternion lbl_803B7500 = { 0, 3.1415927f, 0, 0 };
 
@@ -858,6 +861,23 @@ void ftCo_DeadUpFall_Anim(Fighter_GObj* gobj)
             fp->self_vel.z = data->x55C;
             fp->mv.co.unk_deadup.x40 = data->x530;
             fp->mv.co.unk_deadup.x44 = 3;
+#ifdef TARGET_PC
+            /* Slippi's FreezeDeadUpFallPhysics (InitHitVelocity.asm): the
+             * fall after a screen KO lives in the camera-space position
+             * alone, and the physics position stays put. Retail moved the
+             * physics position with self_vel and then let the fighter's
+             * render callback overwrite it from the camera
+             * (ftDrawCommon_80080E18), which a rollback resim and a time-
+             * sync advance tick both skip: the sim then read a position
+             * one peer had rendered and the other had not. The velocity
+             * sits in the two words Slippi uses (0x2348, 0x234C), free
+             * once the approach lerp is done. */
+            if (pc_net_deterministic()) {
+                fp->mv.co.walk.slow_anim_frame = fp->self_vel.y;
+                fp->mv.co.walk.middle_anim_frame = fp->self_vel.z;
+                fp->self_vel.x = fp->self_vel.y = fp->self_vel.z = 0.0f;
+            }
+#endif
             return;
         case 3:
             ftCommon_8007E2FC(gobj);
@@ -902,8 +922,23 @@ void ftCo_DeadUpFall_Phys(Fighter_GObj* gobj)
                       fp->mv.co.unk_deadup.x4C);
         break;
     case 3:
-        ftCommon_Fall(fp, ca->x554, ca->x558);
-        lbVector_Add(&fp->mv.co.unk_deadup.x5C, &fp->self_vel);
+#ifdef TARGET_PC
+        if (pc_net_deterministic()) {
+            /* UpdateFallVelocity.asm: ftCommon_Fall on the stored Y
+             * velocity, Z constant, both into the camera-space step. */
+            f32 vy = fp->mv.co.walk.slow_anim_frame - ca->x554;
+            if (vy < -ca->x558) {
+                vy = -ca->x558;
+            }
+            fp->mv.co.walk.slow_anim_frame = vy;
+            fp->mv.co.unk_deadup.x5C.y += vy;
+            fp->mv.co.unk_deadup.x5C.z += fp->mv.co.walk.middle_anim_frame;
+        } else
+#endif
+        {
+            ftCommon_Fall(fp, ca->x554, ca->x558);
+            lbVector_Add(&fp->mv.co.unk_deadup.x5C, &fp->self_vel);
+        }
         if (fp->x2222_b6) {
             if (!ftAnim_80070FD0(fp)) {
                 break;

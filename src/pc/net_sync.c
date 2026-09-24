@@ -36,6 +36,14 @@
  * at 53 ms of ping got a fight delay of 1, rolled back 8 frames deep, and
  * waited on the PC 2,472 times in one match. 2 is also Slippi's default. */
 #define FIGHT_DELAY_MIN 2
+/* A LAN whose whole round trip, jitter included, sits well inside a frame
+ * gets 1 instead: the peer's input is in before it is needed nearly every
+ * frame, so the frame of delay saved costs a rollback of one frame or none.
+ * Far below the 53 ms that set the floor above, and decided like everything
+ * here only on entering a fight. */
+#define FIGHT_DELAY_LAN 1
+#define LAN_PING_US 10000
+#define LAN_JITTER_US 2000
 /* A lockstep frame also waits for both game threads: the input is sampled at
  * one peer's frame boundary and consumed at the next of the other's, about a
  * frame between them. The ping used to carry that frame by accident, because
@@ -197,7 +205,8 @@ static void delay_auto(void) {
     }
     bool fight = in_fight();
     int d = fight ? s_delay_base - ROLLBACK_COVER : s_delay_base + LOCKSTEP_PROCESSING;
-    int lo = fight ? FIGHT_DELAY_MIN : 1;
+    bool lan = net.ping_us < LAN_PING_US && jitter_us() < LAN_JITTER_US;
+    int lo = !fight ? 1 : lan ? FIGHT_DELAY_LAN : FIGHT_DELAY_MIN;
     d = d < lo ? lo : d > 4 ? 4 : d;
     if (d == net.delay) {
         return;

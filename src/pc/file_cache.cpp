@@ -65,7 +65,11 @@ bool is_pinned_file(const std::string& key) {
         "MnMaAll.usd", "MnMaAll.dat", "MnSlChr.usd", "MnSlChr.dat", "MnSlMap.usd", "MnSlMap.dat",
         "MnExtAll.usd", "MnExtAll.dat", "SdSlChr.usd", "SdSlChr.dat", "IfAll.usd", "IfAll.dat",
         "ItCo.dat", "LbRb.dat", "LbMcGame.usd", "NtMemAc.usd", "SdMenu.usd", "SdIntro.dat",
-        "GmPause.usd", "IfCoGet.dat", "LbBf.dat"};
+        "GmPause.usd", "IfCoGet.dat", "LbBf.dat",
+        /* Pokemon Stadium's transformations: loaded mid-fight, and netplay
+         * re-simulates that load from memory (pc_net_pure_load), so an
+         * eviction between a load and its re-run must not happen. */
+        "GrPs1.dat", "GrPs2.dat", "GrPs3.dat", "GrPs4.dat"};
     for (const char* p : s_pinned) {
         if (key == p)
             return true;
@@ -395,6 +399,15 @@ void pc_file_cache_put(const char* filename, const void* data, size_t size) {
     OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)%s\n", key.c_str(), size,
         pinned ? ", pinned" : "", s_totalCacheBytes / (1024.0 * 1024.0),
         PC_IS_ARAM_ADDR(data) ? " [from ARAM]" : "");
+}
+
+bool pc_file_cache_require(const char* filename) {
+    size_t size;
+    if (pc_file_cache_get_size(filename, &size)) {
+        return true;
+    }
+    preload_single_file(filename, -1);
+    return pc_file_cache_get_size(filename, &size);
 }
 
 void pc_file_cache_start_prewarm(void) {

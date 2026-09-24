@@ -21,7 +21,7 @@ with ... session" line) crafts every datagram with that session id, --player
 read from src/pc/net.h), so they pass the
 header gate and the frame-range/count validation of input packets, acks and
 the reliable channel is what gets hit: first/count/newest at the RING/2
-boundary around the instance's frame, INT32 extremes, count 0/16/17/255,
+boundary around the instance's frame, INT32 extremes, count 0/RED/RED+1/255,
 bodies one byte short. No BYE and no foreign version in this mode (either
 ends the session and the rest would be inert). We also play peer: the
 instance's own input packets tell us its newest frame and we feed neutral
@@ -92,7 +92,7 @@ def datagram(rng):
     hdr = struct.pack(">BBIB", magic, version, session, player)
     i32 = lambda: rng.choice([0, -1, 1, 2**31 - 1, -2**31, rng.randrange(-2**31, 2**31)])
     if kind == 0:  # input packet, any count/frames, then maybe truncated
-        count = rng.choice([0, 1, 16, 17, 128, 255])
+        count = rng.choice([0, 1, RED, RED + 1, 128, 255])
         body = hdr + struct.pack(">HiiiIB", rng.getrandbits(16), i32(), i32(), i32(),
                                  rng.getrandbits(32), count) + rng.randbytes(8 * rng.randrange(0, 20))
     elif kind == 1:  # ack
@@ -136,6 +136,22 @@ def wire_version(default=3):
 VERSION = wire_version()
 
 
+def wire_redundancy(default=32):
+    """Frames an input packet may carry (REDUNDANCY, src/pc/net_internal.h):
+    the count edges below sit on it, and it moved 16 -> 32 with protocol 9."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "pc",
+                        "net_internal.h")
+    try:
+        with open(path) as f:
+            m = re.search(r"define REDUNDANCY\s+(\d+)", f.read())
+        return int(m.group(1)) if m else default
+    except OSError:
+        return default
+
+
+RED = wire_redundancy()
+
+
 def datagram_session(rng, session, player, version, base, extremes=True):
     """Valid header; bodies at the validation edges of on_inputs()/on_ack()/
     on_rel() (src/pc/net.c). `base` is the instance's newest frame from its
@@ -160,10 +176,10 @@ def datagram_session(rng, session, player, version, base, extremes=True):
             first, count = newest, 1
         elif edge == 2:  # full redundancy ending at the window edge
             newest = base + rng.choice([30, 31, 32, 33])
-            first, count = newest - 15, 16
-        elif edge == 3:  # count clamped to 16 by the parser
-            first = max(0, base - 15)
-            count, newest = rng.choice([17, 128, 255]), base
+            first, count = newest - (RED - 1), RED
+        elif edge == 3:  # count past REDUNDANCY: refused by the parser
+            first = max(0, base - (RED - 1))
+            count, newest = rng.choice([RED + 1, 128, 255]), base
         elif edge == 4:  # first < 0
             first, count, newest = rng.choice([-1, INT_MIN]), 1, 0
         elif edge == 5:  # first + count - 1 > newest
@@ -171,26 +187,27 @@ def datagram_session(rng, session, player, version, base, extremes=True):
         elif edge == 6:  # INT32_MAX newest
             first, count, newest = INT_MAX, 1, INT_MAX
         elif edge == 7:  # first + count - 1 overflows int32 in the parser
-            first, count, newest = INT_MAX, 16, INT_MAX
+            first, count, newest = INT_MAX, RED, INT_MAX
         elif edge == 8:
-            first, count, newest = INT_MAX - 15, 16, INT_MAX
+            first, count, newest = INT_MAX - (RED - 1), RED, INT_MAX
         elif edge == 9:  # newest far ahead, frames fine
-            first, count, newest = 0, 16, INT_MAX
+            first, count, newest = 0, RED, INT_MAX
         elif edge == 10:  # ck_frame below -1, otherwise valid
-            first, count, newest = max(0, base - 15), 16, base
+            first, count, newest = max(0, base - (RED - 1)), RED, base
             ck_frame = rng.choice([-2, INT_MIN])
         elif edge == 11:  # ck_frame far ahead: stored, never confirmed
-            first, count, newest = max(0, base - 15), 16, base
+            first, count, newest = max(0, base - (RED - 1)), RED, base
             ck_frame = INT_MAX
         elif edge == 12:  # newest < 0 with sane first/count
             first, count, newest = 0, 1, rng.choice([-1, INT_MIN])
         else:  # contiguous with what we fed, past the acceptance window
             first = max(0, base - 3)
-            count = 16
+            count = RED
             newest = first + count - 1 + rng.choice([0, 16, 17, 32])
         body = hdr(ord("M")) + struct.pack(">HiiiIB", rng.getrandbits(16), newest, first, ck_frame,
                                            rng.getrandbits(32), count & 0xFF)
-        body += bytes(8 * min(count & 0xFF, 16))  # what the parser expects for that count
+        # neutral pads, delta-coded (pads_encode): each an all-zero mask byte
+        body += bytes(min(count & 0xFF, RED))  # what the parser expects for that count
         trim = rng.choice([0, 0, 0, -1, 1, 8])   # one short, one long, one pad long
         body = body[:trim] if trim < 0 else body + bytes(trim)
     elif kind < 7:  # ack: just past what the instance sent, then the INT32 ends

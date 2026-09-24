@@ -17,7 +17,10 @@ import re
 LINE = re.compile(r'^net: (state|bits) f(\d+) (.*)$')
 STATE = re.compile(r'seed=([0-9a-f]{8}) pads=([0-9a-f]{4})/(-?\d+),(-?\d+) ([0-9a-f]{4})/(-?\d+),(-?\d+)')
 HUMAN = re.compile(r' p(\d+)=\(([^,]+),([^)]*)\) v\(([^,]+),([^)]*)\) kb\(([^,]+),([^)]*)\) f(\S+) (\S+)% m(-?\d+) s(-?\d+)')
-BITS = re.compile(r' p(\d+) pos=([0-9a-f]{8})/([0-9a-f]{8})/([0-9a-f]{8}) dir=([0-9a-f]{8}) pct=([0-9a-f]{8}) mid=(-?\d+) st=(-?\d+)')
+# vel/kb joined the checksum with protocol 9; logs from before it lack them.
+BITS = re.compile(r' p(\d+) pos=([0-9a-f]{8})/([0-9a-f]{8})/([0-9a-f]{8}) dir=([0-9a-f]{8}) pct=([0-9a-f]{8}) mid=(-?\d+) st=(-?\d+)'
+                  r'(?: vel=([0-9a-f]{8})/([0-9a-f]{8})/([0-9a-f]{8}) kb=([0-9a-f]{8})/([0-9a-f]{8})/([0-9a-f]{8}))?')
+BITS_NAMES = ['pos.x', 'pos.y', 'pos.z', 'dir', 'pct', 'mid', 'stocks', 'vel.x', 'vel.y', 'vel.z', 'kb.x', 'kb.y', 'kb.z']
 
 
 def fields(state, bits):
@@ -43,7 +46,7 @@ def fields(state, bits):
         m = BITS.match(tail)
         if not m:
             raise ValueError('malformed exact-bits fighter')
-        out.update((f'bits.p{m[1]}.{name}', value) for name, value in zip(['pos.x', 'pos.y', 'pos.z', 'dir', 'pct', 'mid', 'stocks'], m.groups()[1:]))
+        out.update((f'bits.p{m[1]}.{name}', value) for name, value in zip(BITS_NAMES, m.groups()[1:]) if value is not None)
         tail = tail[m.end():]
     return out
 

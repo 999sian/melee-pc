@@ -117,10 +117,12 @@ static inline void sock_startup(void) {}
 
 /* ---- constants -------------------------------------------------------- */
 
-#define RING 64       /* frames of history kept per side; power of two */
-#define REDUNDANCY 16 /* unacked frames repeated in every input packet */
-#define WINDOW 7      /* predicted frames allowed before a hard stall */
-#define SNAPS 8       /* snapshot ring, one per predicted frame; > WINDOW */
+#define RING 64 /* frames of history kept per side; power of two */
+/* Unacked frames an input packet can carry. Delivery runs at one packet's
+ * worth per round trip (net.c send_inputs), so 32 holds 60 Hz to ~530 ms. */
+#define REDUNDANCY 32
+#define WINDOW 7 /* predicted frames allowed before a hard stall */
+#define SNAPS 8  /* snapshot ring, one per predicted frame; > WINDOW */
 #define FRAME_US ((int32_t)(pc_sim_period_ns() / 1000)) /* the boundary's pacing target */
 #define STALL_TIMEOUT_MS 3000
 #define CONNECT_TIMEOUT_MS 60000
@@ -241,6 +243,7 @@ typedef struct Ready {
     uint64_t nonce;       /* the guest's */
     uint64_t echo;        /* Rules.nonce as the guest received it */
     uint32_t unlock_hash; /* the guest's forced unlock state */
+    int32_t start_frame;  /* the RULES start_frame it took: the host may re-issue */
     uint32_t hash;        /* ready_hash() of the wire image above */
 } __attribute__((packed)) Ready;
 
@@ -279,17 +282,25 @@ _Static_assert(sizeof(Ack) == 13, "wire layout");
 _Static_assert(sizeof(Rel) == 11 + REL_MAX, "wire layout");
 _Static_assert(sizeof(RelAck) == 8 && sizeof(Bye) == 8, "wire layout");
 _Static_assert(sizeof(Rules) == 16 + sizeof(GameRules) + 22, "wire layout");
-_Static_assert(sizeof(Ready) == 24, "wire layout");
+_Static_assert(sizeof(Ready) == 28, "wire layout");
 _Static_assert(sizeof(Resume) == 20 && sizeof(Resume) % 4 == 0, "wire layout");
 _Static_assert(sizeof(DelayMsg) == 8, "wire layout");
 _Static_assert(sizeof(SceneMsg) == 8, "wire layout");
+
+/* An input packet on the wire: the fields before pads as they are, then the
+ * pads delta-coded (pads_encode, net_wire.c), at most 9 bytes each. */
+#define PACKET_WIRE_MAX (offsetof(Packet, pads) + REDUNDANCY * (sizeof(WirePad) + 1))
+
+/* The largest message tx() stamps and the link simulator holds: a full input
+ * packet outgrew a reliable one when REDUNDANCY went to 32. */
+#define HELD_BYTES (PACKET_WIRE_MAX > sizeof(Rel) ? PACKET_WIRE_MAX : sizeof(Rel))
 
 /* Datagrams parked by the simulator; release_ns 0 marks a free slot. Sent in
  * release order, so plain delay stays FIFO and jitter reorders. */
 typedef struct Held {
     uint64_t release_ns;
     uint16_t len;
-    uint8_t buf[sizeof(Rel) + NET_MAC_LEN];
+    uint8_t buf[HELD_BYTES + NET_MAC_LEN];
 } Held;
 #define HELD_MAX 128
 
@@ -311,6 +322,7 @@ typedef struct Snapshot {
     uint8_t* buf;
     size_t cap;
     size_t used;
+    size_t faulted; /* bytes of buf ever written, so already paged in */
     int nregions;
     Region regions[MAX_REGIONS];
     u32* seed_ptr;
@@ -410,6 +422,9 @@ void to_wire(WirePad* w, const PADStatus* p);
 void from_wire(PADStatus* p, const WirePad* w);
 void wire_hdr(Hdr* h);
 void wire_packet(Packet* pk);
+size_t pads_encode(const WirePad* pads, int count, uint8_t* out);
+int pads_wire_len(const uint8_t* in, int len, int count);
+bool pads_decode(const uint8_t* in, int len, int count, WirePad* pads);
 void wire_ack(Ack* a);
 void wire_rel(Rel* r);
 void wire_rules(Rules* ru);
@@ -507,6 +522,9 @@ void snapshot_restore(const Snapshot* s);
  * validated ELF, PE or Mach-O sections; fixtures can exercise the fallback. */
 const char* snapshot_state_region_missing(void);
 Snapshot* snap_slot(int32_t f); /* rollback ring entry for frame f */
+/* Size and page in every rollback slot for the state as it stands, so the
+ * first predicted frame pays neither the allocation nor the faults. */
+void snaps_reserve(void);
 void snaps_free(void);
 void snap_stats_report(void);
 uint32_t frame_checksum(const PADStatus* head);

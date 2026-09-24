@@ -38,6 +38,18 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(result['first_difference'], {'frame': 3, 'fields': [{'field': 'bits.p0.pos.x', 'a': '3f800000', 'b': '3f800001'}]})
         self.assertTrue(injection_check(a)['passed'])
 
+    def test_velocity_bits_parsed_and_compared(self):
+        # Protocol 9 logs carry vel/kb after st=; a velocity-only divergence
+        # must name the field, and the older line without them still parses.
+        new = lambda f, vx='00000000': pair(f).replace(' st=4\n', f' st=4 vel={vx}/3f000000/00000000 kb=00000000/00000000/00000000\n')
+        a = self.load(new(0) + new(1) + new(2) + new(3))
+        b = self.load(new(0) + new(1) + new(2) + new(3, vx='3f800000'))
+        self.assertEqual(a[2][0]['bits.p0.vel.y'], '3f000000')
+        self.assertEqual(compare(a, b)['first_difference'], {'frame': 3, 'fields': [{'field': 'bits.p0.vel.x', 'a': '00000000', 'b': '3f800000'}]})
+        self.assertTrue(injection_check(a)['passed'])
+        old = self.load(pair(0) + pair(2))
+        self.assertNotIn('bits.p0.vel.x', old[2][0])
+
     def test_handshake_before_first_tick(self):
         rows = self.load(pair(0) + pair(1) + pair(2), handshake_frame=-1)
         self.assertEqual(set(rows), {2})

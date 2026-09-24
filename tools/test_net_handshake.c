@@ -248,12 +248,18 @@ static void reforge_unlock(uint8_t* buf, uint32_t session, uint32_t unlock_hash)
     memcpy(buf, &ru, sizeof ru);
 }
 
-static void forge_ready(
-    uint8_t* out, uint32_t session, uint64_t nonce, uint64_t echo, uint32_t unlock_hash) {
-    Ready rd = {nonce, echo, unlock_hash, 0};
+static void forge_ready_at(uint8_t* out, uint32_t session, uint64_t nonce, uint64_t echo,
+    uint32_t unlock_hash, int32_t start_frame) {
+    Ready rd = {nonce, echo, unlock_hash, start_frame, 0};
     rd.hash = ready_hash(rd, session);
     wire_ready(&rd);
     memcpy(out, &rd, sizeof rd);
+}
+
+/* A READY for the RULES the host has in force. */
+static void forge_ready(
+    uint8_t* out, uint32_t session, uint64_t nonce, uint64_t echo, uint32_t unlock_hash) {
+    forge_ready_at(out, session, nonce, echo, unlock_hash, net.start_frame);
 }
 
 int main(void) {
@@ -264,7 +270,7 @@ int main(void) {
     Side host, guest;
 
     /* every check below depends on these sizes being the wire ones */
-    assert(sizeof(Rules) == 16 + sizeof(GameRules) + 22 && sizeof(Ready) == 24);
+    assert(sizeof(Rules) == 16 + sizeof(GameRules) + 22 && sizeof(Ready) == 28);
 
     s_game.mode = 1;
     s_game.time_limit = 8;
@@ -648,6 +654,71 @@ int main(void) {
     assert(net.hs == HS_IDLE);
     assert(s_out_len == -1);
     assert(!s_unlock_saved);
+
+    /* ---- 16. a RULES that went stale is re-issued, not waited out ------ */
+    {
+        const uint32_t sess_e = 0x5eed1e55;
+        uint8_t stale[sizeof(Rules)], fresh[sizeof(Rules)], k[sizeof(Ready)];
+        /* the lead grows with the round trip, between the floor and the cap */
+        net.ping_us = 0;
+        assert(hs_lead() == HS_LEAD_FRAMES);
+        net.ping_us = 1000000; /* 60 frames: 3 * 60 + 30 */
+        assert(hs_lead() == HS_LEAD_MAX);
+        net.ping_us = 50000; /* 3 frames */
+        assert(hs_lead() == HS_LEAD_FRAMES);
+        net.ping_us = 0;
+
+        net.tick_frame = 300;
+        load_fresh(sess_e, 0);
+        assert(!pc_net_host_match(55, &sf));
+        memcpy(stale, s_out, sizeof stale);
+        uint64_t hn = s_nonce_local;
+        /* no READY by the start frame: a new RULES goes out for a later one */
+        net.tick_frame = 300 + HS_LEAD_FRAMES;
+        s_out_len = -1;
+        s_logn = 0;
+        assert(!pc_net_host_match(55, &sf));
+        assert(net.hs == HS_PENDING && s_hs_prev_start == 300 + HS_LEAD_FRAMES);
+        assert(net.start_frame == 300 + 2 * HS_LEAD_FRAMES);
+        assert(s_out_type == REL_RULES && s_out_len == (int)sizeof(Rules));
+        assert(log_count("net: no READY by start_frame=") == 1);
+        memcpy(fresh, s_out, sizeof fresh);
+        side_save(&host);
+
+        /* the guest that missed the first takes the second */
+        load_fresh(sess_e, 1);
+        net.tick_frame = 300 + HS_LEAD_FRAMES + 5;
+        s_logn = 0;
+        handshake_msg(REL_RULES, stale, sizeof stale);
+        assert(net.hs == HS_IDLE &&
+               log_count("net: RULES ignored (start_frame already reached)") == 1);
+        handshake_msg(REL_RULES, fresh, sizeof fresh);
+        assert(net.hs == HS_DONE && net.seed == 55 && net.start_frame == 300 + 2 * HS_LEAD_FRAMES);
+        memcpy(k, s_out, sizeof k);
+        rules_restore();
+
+        /* and its READY names that frame, which the host agrees to */
+        side_load(&host);
+        handshake_msg(REL_READY, k, sizeof k);
+        assert(net.hs == HS_DONE && net.start_frame == 300 + 2 * HS_LEAD_FRAMES);
+        side_save(&host);
+
+        /* a READY that took the first RULES (in flight when the host gave
+         * up on it) settles on that frame; one for a frame never sent does not */
+        side_load(&host);
+        net.hs = HS_PENDING;
+        forge_ready_at(k, sess_e, 0x4444444444444444ull, hn, unlock_hash_now(), 12345);
+        s_logn = 0;
+        handshake_msg(REL_READY, k, sizeof k);
+        assert(net.hs == HS_PENDING &&
+               log_count("net: READY ignored (start_frame we never sent)") == 1);
+        forge_ready_at(
+            k, sess_e, 0x4444444444444444ull, hn, unlock_hash_now(), 300 + HS_LEAD_FRAMES);
+        handshake_msg(REL_READY, k, sizeof k);
+        assert(net.hs == HS_DONE && net.start_frame == 300 + HS_LEAD_FRAMES);
+        rules_restore();
+        printf("ok 16: a stale RULES is re-issued for a later frame, READY names the one taken\n");
+    }
 
     printf("test_net_handshake: all checks passed\n");
     return 0;

@@ -2162,13 +2162,18 @@ to the objdump gate allowlist in `tools/package_windows.sh`).
   the tournament-mode "is the music still playing" read
   (`lbAudioAx_80023730`/`AXDriver_8038EA18`, sole caller `gmtou_1.c:2089`) is
   the same shape on a path that is not online yet.
-- **`AXDriver_8038CFF4`'s failure value is still engine state.** A sound start
-  returns −1 when no voice is free, the sim branches on `!= -1`, and pool
-  occupancy is a wall-clock fact per machine. Journalling makes it
-  self-consistent per peer, not equal across peers. The fix shape is a sentinel
-  handle every audio lookup rejects, so the branch-visible part is stable; the
-  first step is counting how often a start really fails.
-- **The PC file cache bypasses the rollback barrier.** `lbFile_80016580` /
+- **Resolved (2026-09): `AXDriver_8038CFF4`'s failure value was engine state.**
+  In a session a sound start now returns a virtual handle built from the frame
+  and call index alone, never −1, mapped to a real voice on the audio side
+  (`src/pc/net_sfx.c`). The same module is Slippi's SFX log: a re-simulated
+  frame reuses the voices its first pass started, sounds only the corrected
+  timeline has start late when the rollback ends, and voices it dropped are
+  keyed off. The "is it playing" answer is still `pc_net_audio_deaf`'s.
+- **Partly resolved (2026-09): the PC file cache bypassed the rollback barrier.**
+  Pokemon Stadium's four transformation archives are now pure loads
+  (`pc_net_pure_load`, net.c): cached at fight entry and re-simulatable, so
+  they raise no barrier. Kirby's copy-ability load still does. Original note:
+  **The PC file cache bypasses the rollback barrier.** `lbFile_80016580` /
   `lbFile_8001668C` return early when `pc_file_cache_get` answers, so a
   cache-hit synchronous load never reaches `HSD_DevComRequest` and never raises
   the barrier — and cache warmth is per machine, so two peers can raise the

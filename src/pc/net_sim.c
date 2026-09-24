@@ -54,8 +54,8 @@ Held* held_due(Held* held, uint64_t now) {
  * packets, the acks, the reliable lane and the BYE, and the copy that makes
  * room for the tag is the same copy the held queue would make anyway. */
 void tx(const void* body, size_t body_len) {
-    uint8_t stamped[sizeof(Rel) + NET_MAC_LEN];
-    if (body_len > sizeof(Rel)) {
+    uint8_t stamped[HELD_BYTES + NET_MAC_LEN];
+    if (body_len > HELD_BYTES) {
         return; /* no sender builds one: a truncated datagram would be worse */
     }
     memcpy(stamped, body, body_len);
