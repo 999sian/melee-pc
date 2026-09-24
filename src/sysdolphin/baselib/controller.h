@@ -105,6 +105,14 @@ struct PadLibData {
 };
 
 extern HSD_PadStatus HSD_PadMasterStatus[4];
+#ifdef TARGET_PC
+/* The main stick's X as the queue delivered it, before the octagon clamp,
+ * for the master and game status of each port. UCF's dashback reads the
+ * raw stick (a flick past the 80-unit rim measures longer than its clamped
+ * value), and this is where the raw value still exists. */
+extern s8 pc_pad_master_raw_x[4];
+extern s8 pc_pad_game_raw_x[4];
+#endif
 extern HSD_PadStatus HSD_PadGameStatus[4];
 extern HSD_PadStatus HSD_PadCopyStatus[4];
 

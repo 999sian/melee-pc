@@ -37,7 +37,10 @@ static void put_f32(int off, float f) {
 static void feed(Fighter* fp, int raw_x) {
     s8* h = ftCo_ucf_raw_x[0];
     float prev = fp->input.lstick[0].x;
-    float x = raw_x / 80.0f;
+    /* The game stick is octagon-clamped at the 80-unit rim; the UCF history
+     * keeps the raw value (pc_pad_game_raw_x, fighter.c). */
+    int clamped = raw_x > 80 ? 80 : raw_x < -80 ? -80 : raw_x;
+    float x = clamped / 80.0f;
     h[2] = h[1];
     h[1] = h[0];
     h[0] = (s8)raw_x;
@@ -127,6 +130,10 @@ int main(void) {
     // the rim arrives a frame late. Vanilla stays in the tilt turn; UCF sees
     // 0 -> -80 over two frames (delta 80 > 75) and dashes back.
     check_dashback(SCRIPT(0, 0, -50, -80), NONE, DASHBACK);
+    // A flick that ends past the rim: -5 -> -85 is 80 raw units (a fast
+    // flick) but only 75 once clamped, so UCF fed the clamped stick missed
+    // it. The raw history catches it.
+    check_dashback(SCRIPT(0, -5, -50, -85), NONE, DASHBACK);
     // Nana never takes the UCF path.
     assert(run_dashback(SCRIPT(0, 0, -50, -80), true, true) == NONE);
     // Clean one-frame flick: both dash back on the crossing frame.

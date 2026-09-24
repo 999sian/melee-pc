@@ -42,8 +42,9 @@ s8 ftCo_ucf_raw_x[4][3];
 /// retroactively by the caller instead.
 bool ftCo_UcfDashback(Fighter* fp)
 {
-    // ponytail: octagon-clamped stickX (HSD_PadGameStatus), not the pre-clamp
-    // raw queue UCF reads; they only differ beyond the 80-unit rim.
+    // The history is the pre-clamp stick (pc_pad_game_raw_x, fighter.c), as
+    // UCF reads it: past the 80-unit rim the clamped value is shorter, and a
+    // -5 -> -85 flick (80 units raw, 75 clamped) used to miss the dashback.
     s8* h = ftCo_ucf_raw_x[fp->x618_player_id];
     int delta = h[0] - h[2];
     return !fp->is_sub_fighter && fp->cur_anim_frame == 2.0f &&

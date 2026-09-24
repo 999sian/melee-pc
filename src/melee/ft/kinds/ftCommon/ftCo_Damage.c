@@ -58,6 +58,10 @@
 #include <sysdolphin/baselib/mtx.h>
 #include <sysdolphin/baselib/random.h>
 
+#ifdef TARGET_PC
+#include <melee/ft/ftwobble.h>
+#endif
+
 int ftCo_803C5520[2][4][3] = {
     {
         { 81, 78, 75 },
@@ -744,6 +748,32 @@ static inline void inlineB2(Fighter_GObj* gobj)
     ftCommon_800804FC(fp);
 }
 
+#ifdef TARGET_PC
+/// The inlineB2 copy at 0x8008F08C, the one Slippi Online's Disable
+/// Wobbling hooks (0x8008F090, ftwobble.c). A broken grab skips the
+/// CaptureDamage re-entry, as Slippi's branch to 0x8008F0C8 does.
+static inline void inlineB2_wobble(Fighter_GObj* gobj)
+{
+    Fighter* fp = gobj->user_data;
+    ftCo_800C8D00(gobj);
+    if (!ftWobble_Check(gobj)) {
+        if (fp->motion_id == 0xe0 || fp->motion_id == 0xe1) {
+            ftCo_800DC284(gobj);
+        }
+        if (fp->motion_id == 0xe3 || fp->motion_id == 0xe4) {
+            ftCo_800DC3A4(gobj);
+        }
+    }
+    if (ftCo_8008DA4C(
+            gobj, fp->dmg.x1860_element,
+            ftCo_8008D8E8(fp->dmg.kb_applied * p_ftCommonData->x154)))
+    {
+        ftCo_800C0408(gobj);
+    }
+    ftCommon_800804FC(fp);
+}
+#endif
+
 static inline void inlineB4(Fighter_GObj* gobj)
 {
     ftCo_8008E9D0(gobj);
@@ -821,7 +851,11 @@ void ftCo_8008EC90(Fighter_GObj* gobj)
                         }
                     }
                     fp->input.pressed_buttons = fp->input.released_buttons = 0;
+#ifdef TARGET_PC
+                    inlineB2_wobble(gobj);
+#else
                     inlineB2(gobj);
+#endif
                     goto ret_A8C;
                 }
                 {

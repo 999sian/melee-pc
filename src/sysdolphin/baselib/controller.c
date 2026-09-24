@@ -14,6 +14,10 @@ PadLibData default_libinfo_data = { 0,    0,    0, 0,    0, 0,    0x2D, 8,
 PadLibData HSD_PadLibData;
 HSD_PadStatus HSD_PadMasterStatus[4];
 HSD_PadStatus HSD_PadCopyStatus[4];
+#ifdef TARGET_PC
+s8 pc_pad_master_raw_x[4];
+s8 pc_pad_game_raw_x[4];
+#endif
 HSD_PadStatus HSD_PadGameStatus[4];
 const u32 pad_bit[4] = { PAD_CHAN0_BIT, PAD_CHAN1_BIT, PAD_CHAN2_BIT,
                          PAD_CHAN3_BIT };
@@ -370,6 +374,9 @@ void HSD_PadRenewMasterStatus(void)
             mp->last_button = mp->button;
             mp->err = qread->err;
             if (mp->err == 0) {
+#ifdef TARGET_PC
+                pc_pad_master_raw_x[i] = qread->stickX;
+#endif
                 mp->button = qread->button;
                 mp->stickX = qread->stickX;
                 mp->stickY = qread->stickY;
@@ -386,6 +393,9 @@ void HSD_PadRenewMasterStatus(void)
             } else if (mp->err == -3) {
                 mp->err = 0;
             } else {
+#ifdef TARGET_PC
+                pc_pad_master_raw_x[i] = 0;
+#endif
                 mp->button = 0;
                 mp->subStickY = 0;
                 mp->subStickX = 0;
@@ -527,6 +537,9 @@ void HSD_PadRenewGameStatus(void)
         } else {
             HSD_PadClearStatusFields(gs);
         }
+#ifdef TARGET_PC
+        pc_pad_game_raw_x[i] = gs->err == 0 ? pc_pad_master_raw_x[i] : 0;
+#endif
         gs->trigger = gs->button & (gs->last_button ^ gs->button);
         gs->release = gs->last_button & (gs->last_button ^ gs->button);
         if (gs->last_button ^ gs->button) {

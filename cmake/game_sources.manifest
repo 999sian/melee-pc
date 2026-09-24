@@ -83,6 +83,7 @@ src/melee/ft/ftswing.c
 src/melee/ft/ftwaitanim.c
 src/melee/ft/ftwalkcommon.c
 src/melee/ft/ftwalljump.c
+src/melee/ft/ftwobble.c
 src/melee/ft/kinds/ftCLink/ftclink.c
 src/melee/ft/kinds/ftCLink/ftclinkappeals.c
 src/melee/ft/kinds/ftCaptain/ftcaptain.c

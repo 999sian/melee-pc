@@ -10,6 +10,10 @@
 #include <melee/it/kinds/itlinkhookshot.h>
 #include <melee/it/kinds/itsamusgrapple.h>
 
+#ifdef TARGET_PC
+#include <melee/ft/ftwobble.h>
+#endif
+
 bool fn_800DAD18(Fighter_GObj*);
 static void fn_800DBBF8(Fighter_GObj*);
 
@@ -93,6 +97,9 @@ void fn_800DB790(Fighter_GObj* gobj)
     }
 
     ftCommon_8007E2F4(fp, 0x1FF);
+#ifdef TARGET_PC
+    ftWobble_Reset(fp);
+#endif
 }
 
 void fn_800DB8A4(Fighter_GObj* gobj)
@@ -187,6 +194,9 @@ void fn_800DBAE4(Fighter_GObj* gobj)
     }
 
     ftCommon_8007E2F4(fp, 0x1FF);
+#ifdef TARGET_PC
+    ftWobble_Reset(fp);
+#endif
 }
 
 static inline void fn_800DBBF8_noinline(Fighter_GObj* gobj1, Fighter* gobj2)

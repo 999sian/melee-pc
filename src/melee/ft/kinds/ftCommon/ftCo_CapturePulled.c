@@ -7,6 +7,10 @@
 #include <melee/lb/lb_00B0.h>
 #include <melee/pl/player.h>
 
+#ifdef TARGET_PC
+#include <melee/ft/ftwobble.h>
+#endif
+
 /* 0DAECC */ static void fn_800DAECC(Fighter_GObj* gobj);
 /* 0DAEEC */ static void fn_800DAEEC(Fighter_GObj* gobj);
 /* 0DB230 */ static inline void fn_800DB230_inline(Fighter_GObj* gobj);
@@ -63,6 +67,12 @@ void fn_800DA8E4(Fighter_GObj* gobj, Fighter_GObj* victim_gobj, s32 arg2)
     ftAnim_8006EBA4(gobj);
     ftCommon_8007E2FC(gobj);
     ftCommon_8007E2F4(fp, 0x1FF);
+#ifdef TARGET_PC
+    /* Slippi only resets on CaptureWait entry; until then its counter is
+     * whatever the previous motion state left in those motion-var bytes.
+     * Start every grab from zero instead. */
+    ftWobble_Reset(fp);
+#endif
 }
 
 void fn_800DAA40(Fighter_GObj* arg0, Fighter_GObj* arg1)

@@ -1835,7 +1835,7 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
                 s8* h = ftCo_ucf_raw_x[fp->x618_player_id];
                 h[2] = h[1];
                 h[1] = h[0];
-                h[0] = HSD_PadGameStatus[fp->x618_player_id].stickX;
+                h[0] = pc_pad_game_raw_x[fp->x618_player_id];
                 SET_STICKS(fp->input.lstick[0].x, fp->input.lstick[0].y,
                            HSD_PadGameStatus[fp->x618_player_id].nml_stickX,
                            HSD_PadGameStatus[fp->x618_player_id].nml_stickY);

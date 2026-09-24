@@ -571,6 +571,9 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         add_test(NAME gcadapter COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_gcadapter.py --build ${CMAKE_BINARY_DIR})
         set_tests_properties(pad_regressions gcadapter PROPERTIES LABELS melee TIMEOUT 60)
+        add_test(NAME wobble COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_wobble.py)
+        set_tests_properties(wobble PROPERTIES LABELS melee TIMEOUT 60)
     endif ()
 
     if (NOT WIN32)

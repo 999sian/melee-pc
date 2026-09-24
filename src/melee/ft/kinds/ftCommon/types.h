@@ -502,6 +502,18 @@ union ftCommon_MotionVars {
         /* fp+2340 */ float timer;
         /* fp+2344 */ int flag;
     } itemscope;
+#ifdef TARGET_PC
+    /// Slippi Online's Disable Wobbling state on the held fighter
+    /// (ftwobble.c). Slippi keeps it at fp+2384/2386, past the end of
+    /// #capturewait and #capturedamage, so nothing the Capture states run
+    /// touches it.
+    struct {
+        /* fp+2340 */ u8 pad_x0[0x44];
+        /* fp+2384 */ u8 count;
+        /* fp+2385 */ u8 pad_x45;
+        /* fp+2386 */ u16 last_move_id;
+    } wobble;
+#endif
 };
 
 /// @todo Fake, need to find real size of #HitCapsule

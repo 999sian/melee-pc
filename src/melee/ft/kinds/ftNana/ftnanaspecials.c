@@ -19,6 +19,9 @@
 #include <melee/ft/kinds/ftPopo/types.h>
 #include <melee/ft/types.h>
 #include <melee/pl/player.h>
+#ifdef TARGET_PC
+#include "pc/net.h"
+#endif
 
 /* 123B3C */ static void ftNn_Init_80123B3C(Fighter_GObj* nana_gobj);
 /* 123BF0 */ static void ftNn_Init_80123BF0(Fighter_GObj* gobj);
@@ -63,7 +66,15 @@ bool ftNn_Init_80123954(Fighter_GObj* nana_gobj, GroundOrAir pp_ga)
         case 11:
         case 12:
         case 13:
-            nana_fp->x1A5C = NULL;
+#ifdef TARGET_PC
+            /* Slippi's FreezeGlitchFix (a nop at 0x801239A8, this store):
+             * clearing Nana's leader link while she is in one of these
+             * states is what lets the Ice Climbers freeze glitch lock a
+             * victim for good. Online play keeps the link, as Slippi does;
+             * offline keeps retail. */
+            if (!pc_net_deterministic())
+#endif
+                nana_fp->x1A5C = NULL;
             ret = true;
             break;
         default: {
