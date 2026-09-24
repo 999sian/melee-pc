@@ -5,6 +5,7 @@
  * only (net_internal.h). */
 #include "compat.h"
 #include "pc/net_internal.h"
+#include "pc/slp.h"
 
 #include <dolphin/ar.h>
 #include <dolphin/dvd.h>
@@ -47,6 +48,7 @@
  *                        from "identical over 1376 frames" to "diverges at
  *                        1359"). Off by default. */
 static FILE* s_rec;
+static int32_t s_confirmed = INT32_MIN; /* newest final netplay frame, for slp.c */
 static FILE* s_rep;
 static bool s_rep_reported;
 static FILE* s_state_log;
@@ -204,6 +206,7 @@ void record_frame(const PADStatus* head, uint32_t ck, int32_t f) {
  * A frame that aged out of the ring before it was confirmed cannot be
  * recovered, so the file stops there rather than silently skipping it. */
 void record_confirm(int32_t upto) {
+    s_confirmed = net.active ? upto : INT32_MIN;
     if (s_rec == NULL || !net.active) {
         return;
     }
@@ -246,6 +249,19 @@ bool record_replay_scene_hold(int32_t frame) {
 }
 
 /* ---- frame checksum --------------------------------------------------- */
+
+/* For the .slp recorder (slp.c), which runs inside the tick. The frame the
+ * tick simulates: a rollback's re-run frame, otherwise the newest fresh one
+ * (net.frame counts every tick offline too, where tick_frame is not kept). */
+int32_t pc_net_sim_frame(void) {
+    return net.resim && net.active ? net.tick_frame : net.frame - 1;
+}
+
+/* The newest netplay frame no rollback can change, as record_confirm last
+ * heard it from fresh_tick; INT32_MIN offline. */
+int32_t pc_net_confirmed_frame(void) {
+    return s_confirmed;
+}
 
 uint32_t frame_checksum(const PADStatus* head) {
     /* Inputs as simulated, the RNG seed entering the frame, and each

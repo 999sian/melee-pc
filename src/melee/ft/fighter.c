@@ -92,6 +92,9 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/mtx.h>
 #include <sysdolphin/baselib/random.h>
+#ifdef TARGET_PC
+#include "pc/slp.h"
+#endif
 
 extern MotionState* ftData_CharacterStateTables[Ft_Kind_Max];
 
@@ -1917,6 +1920,9 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
                 }
             }
 
+#ifdef TARGET_PC
+            pc_slp_pre_frame(gobj); /* Slippi's SendGamePreFrame hook point */
+#endif
             Fighter_Spaghetti_8006AD10_Inner1(fp);
 
             // Fighter_ClampSpecificValue

@@ -196,6 +196,8 @@ set(PC_SOURCES
         src/pc/misc.c
         src/pc/os.c
         src/pc/region.c
+        src/pc/slp.c
+        src/pc/slp_format.c
         src/pc/stb_vorbis.c
         src/pc/thp.c
         src/pc/touch.c
@@ -497,6 +499,13 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         add_test(NAME net_chat_ui COMMAND net_chat_ui_test)
         set_tests_properties(net_chat_ui PROPERTIES LABELS melee TIMEOUT 30)
         add_dependencies(unit_tests net_chat_ui_test)
+        add_executable(slp_test EXCLUDE_FROM_ALL tools/test_slp.c src/pc/slp_format.c)
+        target_include_directories(slp_test PRIVATE src)
+        target_link_libraries(slp_test PRIVATE ${AURORA_SDL3_TARGET})
+        target_compile_options(slp_test PRIVATE -UNDEBUG)
+        add_test(NAME slp COMMAND slp_test)
+        set_tests_properties(slp PROPERTIES LABELS melee TIMEOUT 30)
+        add_dependencies(unit_tests slp_test)
         add_executable(net_chat_test EXCLUDE_FROM_ALL tools/test_net_chat.c src/pc/net_chat.c)
         target_include_directories(net_chat_test PRIVATE src extern/aurora/include)
         target_link_libraries(net_chat_test PRIVATE ${AURORA_SDL3_TARGET})
