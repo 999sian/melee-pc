@@ -1212,7 +1212,7 @@ static void pipeline_worker() {
         g_pipelineQueueCv.wait(
             lock, [] { return !g_pipelineQueue.empty() || !g_backgroundPipelineQueue.empty() || g_pipelineThreadEnd; });
       } else if (g_pipelineQueue.empty()) {
-        // On platforms without a background compilation thread (Adreno, WebGPU),
+        // On platforms without a background compilation thread (Android, WebGPU),
         // only process pipelines actively queued by the current frame (g_pipelineQueue).
         // Never stall the presentation loop compiling background pipelines; those
         // are built by wait_pipelines when the host has time to spare (the launcher).
@@ -1394,21 +1394,15 @@ void initialize_pipeline_cache() {
   g_gpuCachePrunePending = false;
 
 #if defined(__ANDROID__)
-  /* Qualcomm (vendor 0x5143): the Adreno 750 driver on a OnePlus Pad 2
-   * aborts with VK_ERROR_UNKNOWN in vkCreateGraphicsPipelines as soon as
-   * pipelines are created off the draw thread, the concurrency failure the
-   * old inline-only rule was written for; inline, the same match runs. */
-  const bool inlineOnly = webgpu::g_adapterInfo.vendorID == 0x5143;
+  /* Some Android Vulkan drivers crash when pipelines are created off the
+   * draw thread. Keep the v0.2 inline path for every GPU. */
+  const bool inlineOnly = true;
 #else
   const bool inlineOnly = false;
 #endif
   if (webgpu::g_backendType == wgpu::BackendType::WebGPU || inlineOnly) {
     g_hasPipelineThread = false;
   } else {
-    /* Android too: compiling on the draw path instead cost 7-30 ms a pipeline
-     * on a Mali-G715, ~100 of them in one Final Destination match, and in
-     * netplay each burst froze the frame long enough to stall the peer past
-     * the rollback window. A skipped draw for a frame is the lesser evil. */
     g_hasPipelineThread = true;
     const unsigned jobs = pipeline_job_count();
     Log.info("Compiling pipelines on {} thread(s){}", jobs, g_pipelineSync ? ", sync mode" : "");
@@ -1520,8 +1514,8 @@ bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline) {
 
 uint32_t wait_pipelines(uint32_t maxWaitMs) {
   if (!g_hasPipelineThread) {
-    /* No worker pool: this thread is the only one that builds pipelines (the
-     * Adreno 750 failed vkCreateGraphicsPipelines off the draw thread), and
+    /* No worker pool: this thread is the only one that builds pipelines (some
+     * Android drivers fail vkCreateGraphicsPipelines off the draw thread), and
      * nothing builds background rows during frames. So spend the caller's
      * idle time building them here, one at a time until the budget is gone;
      * the first always starts, so a build longer than the budget still

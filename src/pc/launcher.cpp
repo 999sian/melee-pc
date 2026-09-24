@@ -166,7 +166,7 @@ void dialog_done(void* userdata, const char* const* files, int) {
 
 /* Aurora compiles the known pipeline configs ahead of use -- the ~12k-config
  * seed on desktop, on Android the ones this device has built before -- on
- * worker threads from startup, or, without workers (Adreno), in this loop's
+ * worker threads from startup, or, without workers (Android), in this loop's
  * idle time. Until a config is compiled, every draw that needs it is skipped
  * (issue #46), so the drain finishing before a match is the difference between
  * a match that pops and one that does not. The launcher is the one screen
@@ -1024,7 +1024,7 @@ public:
                 aurora_end_frame();
             /* Spend the idle time until the next frame on the pipeline queue:
              * with worker threads this only waits, as a plain delay did;
-             * without them (Adreno) it builds queued pipelines here, the only
+             * without them (Android) it builds queued pipelines here, the only
              * place they are built before a match. */
             const uint64_t idle_start = SDL_GetTicks();
             aurora_wait_pipelines(8);
