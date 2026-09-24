@@ -154,6 +154,10 @@ OnlineKind gmOnline_GetKind(void)
     return online_kind;
 }
 
+#ifdef TARGET_PC
+static bool internetLobby(void);
+#endif
+
 void onEnterLobby(UNUSED GameModeState* state)
 {
 #ifdef TARGET_PC
@@ -163,7 +167,13 @@ void onEnterLobby(UNUSED GameModeState* state)
         (pc_rank_session_set_complete() ||
          pc_rank_session_state(NULL) == PC_RANK_SESSION_FAILED);
     if (!awaiting_rank_result) {
-        pc_net_match_stop();
+        /* Internet lobbies keep the DHT node the online menu warmed up; LAN
+         * and Profile close it so LAN can bind the same port. */
+        if (internetLobby()) {
+            pc_net_match_idle();
+        } else {
+            pc_net_match_stop();
+        }
         pc_net_disconnect();
     }
     pc_lan_stop();
@@ -480,7 +490,10 @@ void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
             pc_net_match_start(online_kind == ONLINE_KIND_UNRANKED ? PC_MATCH_UNRANKED :
                                PC_MATCH_RANKED, NULL);
         }
-    } else if (!internetLobby()) pc_lan_start();
+    } else if (!internetLobby()) {
+        pc_net_match_stop(); /* free the port the online menu's DHT node holds */
+        pc_lan_start();
+    }
 #endif
 }
 
@@ -625,6 +638,8 @@ void gm_Scene_OnlineLobby_OnFrame(void)
             snprintf(view.message, sizeof view.message, "%s", profile_message);
         } else if (direct_editing) {
             u64 repeat = gm_801A36C0(PAD_MAX_CONTROLLERS);
+            /* Bootstrap while the code is being typed, not after START. */
+            pc_net_match_warm();
             bool edited = false;
             if (repeat & PAD_ANY_LEFT) {
                 direct_cursor = (direct_cursor + DIRECT_CODE_SLOTS - 1) % DIRECT_CODE_SLOTS;

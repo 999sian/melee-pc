@@ -19,6 +19,10 @@ void pc_identity_sign(
     const PcNetIdentity* identity, uint8_t signature[64], const void* message, size_t length);
 bool pc_identity_verify(
     const uint8_t public_key[32], const uint8_t signature[64], const void* message, size_t length);
+/* Deterministic keypair from public material: anyone holding the same bytes
+ * derives the same key, so it only addresses/signs shared DHT slots and never
+ * authenticates a player. code is left empty. */
+void pc_identity_derive(PcNetIdentity* identity, const void* material, size_t length);
 void pc_identity_clear(PcNetIdentity* identity);
 #ifdef __cplusplus
 }
