@@ -26,7 +26,7 @@ struct node {
     bool known, queried, pending, put_sent, responded;
 };
 static struct {
-    bool active, publishing, putting, immutable;
+    bool active, publishing, putting, immutable, first;
     uint8_t key[32], target[20], salt[64], value[1000], signature[64], best_value[1000];
     size_t salt_length, value_length, best_length;
     int64_t sequence, best_sequence;
@@ -275,6 +275,13 @@ static bool begin(const uint8_t key[32], const void* salt, size_t salt_length, i
 bool pc_dht_item_get(const uint8_t key[32], const void* salt, size_t salt_length, int64_t minimum,
     pc_dht_item_callback callback, void* context) {
     return begin(key, salt, salt_length, minimum, callback, context);
+}
+bool pc_dht_item_get_first(const uint8_t key[32], const void* salt, size_t salt_length,
+    int64_t minimum, pc_dht_item_callback callback, void* context) {
+    if (!begin(key, salt, salt_length, minimum, callback, context))
+        return false;
+    item.first = true;
+    return true;
 }
 bool pc_dht_item_put(const PcNetIdentity* identity, const void* salt, size_t salt_length,
     int64_t sequence, const void* value, size_t length, pc_dht_item_callback callback,
@@ -548,6 +555,10 @@ bool pc_dht_item_receive(const void* data, size_t length, uint32_t ip, uint16_t 
             if (n && pc_identity_verify(key.p, signature.p, signable, n)) {
                 if (!remember_value(node, sequence, payload))
                     return true;
+                if (item.first && item.best_sequence >= item.sequence) {
+                    finish(PC_DHT_ITEM_OK);
+                    return true;
+                }
             }
         }
     }

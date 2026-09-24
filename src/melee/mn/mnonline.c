@@ -9,6 +9,9 @@
 #include <melee/gm/types.h>
 #include <melee/lb/lbaudio_ax.h>
 #include <sysdolphin/baselib/gobj.h>
+#ifdef TARGET_PC
+#include "pc/net_match.h"
+#endif
 
 /* VS Mode > Online. Each entry selects its GM_ONLINE lobby mode. */
 
@@ -75,6 +78,13 @@ void mnOnline_Think(HSD_GObj* gp)
     u32 buttons = mn_80229624(4);
     int count = ARRAY_SIZE(online_labels);
 
+#ifdef TARGET_PC
+    /* Open and bootstrap the DHT node while the player is still choosing, so
+     * Direct/Unranked/Ranked start searching with a populated routing table.
+     * The lobby takes it over (or closes it for LAN) on entry. */
+    pc_net_match_warm();
+#endif
+
     mn_804A04F0.buttons = buttons;
     if (buttons & MenuInput_Confirm) {
         switch (mn_804A04F0.hovered_selection) {
@@ -98,6 +108,9 @@ void mnOnline_Think(HSD_GObj* gp)
         }
     } else if (buttons & MenuInput_Back) {
         sfxBack();
+#ifdef TARGET_PC
+        pc_net_match_stop(); /* nothing polls it outside this menu */
+#endif
         mn_804A04F0.entering_menu = 0;
         mn_80229894(MENU_KIND_VS, SEL_VS_ONLINE, 3);
     } else if (buttons & MenuInput_Up) {

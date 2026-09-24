@@ -193,6 +193,25 @@ int main(void) {
             assert(result.sequence == 8 && result.value_length == 5 &&
                    !memcmp(result.value, "first", 5));
     }
+    /* get_first completes on the first verified record at or above the
+     * minimum, without walking on to the closer node it was handed. */
+    reset();
+    assert(pc_dht_item_get_first(identity.public_key, NULL, 0, 5, done, &result));
+    pc_dht_item_tick();
+    deliver(0, &identity, 8, "first", false, true);
+    assert(completions == 1 && !pc_dht_item_busy() && sent_count == 1);
+    assert(result.status == PC_DHT_ITEM_OK && result.sequence == 8 && result.value_length == 5 &&
+           !memcmp(result.value, "first", 5));
+    reset();
+    assert(pc_dht_item_get_first(identity.public_key, NULL, 0, 5, done, &result));
+    pc_dht_item_tick();
+    deliver(0, &identity, 4, "stale", false, true);
+    assert(!completions && pc_dht_item_busy()); /* below minimum: keep looking */
+    pc_dht_item_tick();
+    assert(sent_count == 2);
+    deliver(1, &identity, 3, "bad", true, false);
+    pc_dht_item_tick();
+    assert(completions == 1 && result.status == PC_DHT_ITEM_NOT_FOUND);
     reset();
     assert(pc_dht_item_put(&identity, "rating", 6, 4, "new", 3, done, &result));
     pc_dht_item_tick();

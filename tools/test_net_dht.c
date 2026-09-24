@@ -63,8 +63,17 @@ int main(void) {
     pc_dht_stop();
     assert(fcntl(owned, F_GETFD) >= 0);
     close(owned);
-    assert(pc_dht_start(PC_DHT_UNRANKED, NULL, 0, 0));
+    /* A warm node is reused by start and survives idle; only stop closes it. */
+    assert(pc_dht_warm(0));
     owned = pc_dht_socket();
+    uint16_t warm_port = pc_dht_port();
+    assert(owned >= 0 && warm_port);
+    assert(pc_dht_start(PC_DHT_UNRANKED, NULL, 0, 0));
+    assert(pc_dht_socket() == owned && pc_dht_port() == warm_port);
+    pc_dht_idle();
+    assert(pc_dht_socket() == owned);
+    assert(pc_dht_start(PC_DHT_DIRECT, "FOX#ABCD", 0, warm_port));
+    assert(pc_dht_socket() == owned);
     pc_dht_stop();
     assert(fcntl(owned, F_GETFD) == -1);
 #endif

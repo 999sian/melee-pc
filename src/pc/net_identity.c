@@ -169,6 +169,13 @@ bool pc_identity_verify(
     const uint8_t key[32], const uint8_t signature[64], const void* message, size_t length) {
     return crypto_ed25519_check(signature, key, message, length) == 0;
 }
+void pc_identity_derive(PcNetIdentity* id, const void* material, size_t length) {
+    uint8_t seed[32];
+    crypto_blake2b(seed, sizeof seed, material, length);
+    memset(id, 0, sizeof *id);
+    crypto_ed25519_key_pair(id->secret_key, id->public_key, seed);
+    crypto_wipe(seed, sizeof seed);
+}
 void pc_identity_clear(PcNetIdentity* id) {
     crypto_wipe(id, sizeof *id);
 }

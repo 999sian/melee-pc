@@ -31,6 +31,11 @@ typedef void (*pc_dht_item_callback)(const PcDhtItemResult*, void*);
  * Public DHT nodes host values; this client does not serve mutable storage. */
 bool pc_dht_item_get(const uint8_t key[32], const void* salt, size_t salt_length,
     int64_t minimum_sequence, pc_dht_item_callback, void*);
+/* Same as get, but completes on the first verified record at or above
+ * minimum_sequence instead of walking to the closest nodes for the highest
+ * one. For rendezvous records where any fresh copy is good enough. */
+bool pc_dht_item_get_first(const uint8_t key[32], const void* salt, size_t salt_length,
+    int64_t minimum_sequence, pc_dht_item_callback, void*);
 bool pc_dht_item_put(const PcNetIdentity*, const void* salt, size_t salt_length, int64_t sequence,
     const void* value, size_t value_length, pc_dht_item_callback, void*);
 /* Immutable values use SHA1(the bencoded byte string) as their target.

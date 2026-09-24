@@ -13,8 +13,14 @@ struct pc_dht_endpoint {
     uint16_t port;
 }; /* network IP, host port */
 typedef void (*pc_dht_datagram_fn)(const void*, size_t, const struct pc_dht_endpoint*, void*);
-/* Main-thread-only singleton. Port zero requests an ephemeral port. */
+/* Main-thread-only singleton. Port zero requests an ephemeral port.
+ * warm opens and bootstraps the node without searching, so the routing table
+ * is already populated by the time a search starts. start reuses a live node
+ * bound to the same port (switching its search topic) instead of reopening.
+ * idle stops searching and drops the datagram callback but keeps the node. */
+bool pc_dht_warm(uint16_t port);
 bool pc_dht_start(enum pc_dht_mode mode, const char* code, int band, uint16_t port);
+void pc_dht_idle(void);
 void pc_dht_poll(void);
 bool pc_dht_next_candidate(struct pc_dht_endpoint* out);
 void pc_dht_set_datagram_callback(pc_dht_datagram_fn callback, void* context);
