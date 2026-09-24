@@ -163,6 +163,10 @@ void pc_dht_poll(void) {
     socklen_t z = sizeof a;
     int n;
     while ((n = recvfrom(dht_fd, b, sizeof b, MSG_DONTWAIT, (void*)&a, &z)) > 0) {
+        /* Idle node (after a failed attempt): no callback, like net_dht.c,
+         * which only hands non-DHT datagrams to a registered callback. */
+        if (!dht_cb)
+            continue;
         if (n > 5 && b[5] == 'O' && !dropped_offer++) {
             continue;
         }
