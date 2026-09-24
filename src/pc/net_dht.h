@@ -31,6 +31,9 @@ bool pc_dht_external_endpoint(struct pc_dht_endpoint* out);
 void pc_dht_sha1(const void* data, size_t len, unsigned char out[20]);
 bool pc_dht_topic(
     enum pc_dht_mode mode, const char* code, int band, int64_t unix_minute, unsigned char out[20]);
+/* After pc_dht_start: also search and announce this topic every round
+ * (up to 16, cleared by the next start). */
+bool pc_dht_add_topic(const unsigned char hash[20]);
 #ifdef __cplusplus
 }
 #endif

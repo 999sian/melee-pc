@@ -35,7 +35,7 @@ int main(void) {
     hash("abc", "a9993e364706816aba3e25717850c26c9cd0d89d");
     hash("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
         "84983e441c3bd26ebaae4aa1f95129e5e54670f1");
-    topic(PC_DHT_DIRECT, "FOX#ABCD", 0, 42, "meleepc/v1/direct/FOX#ABCD");
+    topic(PC_DHT_DIRECT, "ABCDEFGH", 0, 42, "meleepc/v2/direct/ABCDEFGH");
     topic(PC_DHT_UNRANKED, NULL, 0, 123456, "meleepc/v1/unranked/123456");
     topic(PC_DHT_RANKED, NULL, 10, 123456, "meleepc/v1/ranked/10/123456");
     unsigned char out[20];

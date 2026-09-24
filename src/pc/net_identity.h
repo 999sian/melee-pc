@@ -15,6 +15,14 @@ typedef struct PcNetIdentity {
 bool pc_identity_random(void* bytes, size_t length);
 bool pc_identity_load(PcNetIdentity* identity, const char* directory, const char* name);
 bool pc_identity_code_valid(const char* code);
+/* Finds a connect code in free text -- a paste, a chat line, a code typed
+ * with the wrong case or with 0/1/8 for O/I/B -- and returns its eight
+ * base32 key characters in `suffix` (plus the name before the '#', if there
+ * is one, in `name`; "" otherwise). Only the suffix identifies a player: it
+ * is derived from their key, and the name is a label they can change. */
+bool pc_identity_parse_code(const char* text, char suffix[9], char name[9]);
+/* The suffix of `code` (a valid NAME#SUFFIX), or "" */
+const char* pc_identity_code_suffix(const char* code);
 void pc_identity_sign(
     const PcNetIdentity* identity, uint8_t signature[64], const void* message, size_t length);
 bool pc_identity_verify(

@@ -6,6 +6,7 @@
 #include "net_lan.h"
 #include "net_rank_session.h"
 #include "pc.h"
+#include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_timer.h>
 #include <stddef.h>
@@ -34,7 +35,10 @@ __attribute__((weak)) void pc_log_line(const char* fmt, ...) {
 #endif
 
 #define MATCH_MAGIC 0x4d504d31u /* MPM1 */
-#define MATCH_VERSION 3         /* v3: hello.code grew 14 -> 18 (40-bit key suffix) */
+/* v3: hello.code grew 14 -> 18 (40-bit key suffix).
+ * v4: direct calls meet on key-suffix topics and are matched by key alone
+ *     (pairing_topic), so the name part of a code no longer has to match. */
+#define MATCH_VERSION 4
 #define RETRY_MS 250
 #define TIMEOUT_MS 8000
 
@@ -69,6 +73,9 @@ static enum PcNetMatchMode mode;
 static int state = PC_MATCH_FAIL;
 static const char* failure = "not started";
 static char target[18], opponent[18];
+static char target_suffix[9]; /* direct: the key suffix we are calling, "" hosting */
+static uint64_t started_ms;   /* this search's start, for the UI's clock */
+static unsigned candidates_tried;
 static uint8_t peer_key[32], compatibility[20], topic[20], offer_hash[20];
 static uint64_t local_nonce, peer_nonce, deadline, next_send;
 static struct pc_dht_endpoint peer;
@@ -268,6 +275,17 @@ static bool key_code_matches(const uint8_t key[32], const char* code) {
             return false;
     return true;
 }
+/* The key's own eight-character suffix (the part of a code it proves). */
+static void key_suffix(const uint8_t key[32], char out[9]) {
+    uint8_t h[20];
+    pc_dht_sha1(key, 32, h);
+    static const char a[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    uint64_t bits = (uint64_t)h[0] << 32 | (uint64_t)h[1] << 24 | (uint64_t)h[2] << 16 |
+                    (uint64_t)h[3] << 8 | h[4];
+    for (int i = 0; i < 8; i++)
+        out[i] = a[(bits >> (35 - 5 * i)) & 31];
+    out[8] = 0;
+}
 static bool signed_ok(const uint8_t key[32], const uint8_t sig[64], const void* p, size_t n) {
     return pc_identity_verify(key, sig, p, n - 64);
 }
@@ -284,13 +302,131 @@ static void fail(const char* why) {
         pc_rank_session_abort(why);
 }
 
-static void pairing_topic(enum PcNetMatchMode m, const char* direct, uint8_t out[20]) {
+/* The context a Hello and an Offer are bound to. A direct call is found on
+ * one of several DHT topics (the callee's doorbell or the pair topic), so it
+ * binds to the mode, and who may pair is decided by key (receive()). */
+static void pairing_topic(enum PcNetMatchMode m, uint8_t out[20]) {
     char text[64];
-    int n = m == PC_MATCH_DIRECT ?
-                snprintf(text, sizeof text, "meleepc/match/v1/direct/%s", direct) :
-                snprintf(text, sizeof text,
-                    m == PC_MATCH_RANKED ? "meleepc/match/v1/ranked" : "meleepc/match/v1/unranked");
+    int n = snprintf(text, sizeof text,
+        m == PC_MATCH_DIRECT ? "meleepc/match/v2/direct" :
+        m == PC_MATCH_RANKED ? "meleepc/match/v1/ranked" :
+                               "meleepc/match/v1/unranked");
     pc_dht_sha1(text, n > 0 ? (size_t)n : 0, out);
+}
+
+/* The topic two players who each dial the other both search: the two key
+ * suffixes in sorted order, so either side computes the same one. */
+static void pair_topic(const char* a, const char* b, uint8_t out[20]) {
+    char text[64];
+    int n = strcmp(a, b) < 0 ? snprintf(text, sizeof text, "meleepc/v2/pair/%s/%s", a, b) :
+                               snprintf(text, sizeof text, "meleepc/v2/pair/%s/%s", b, a);
+    pc_dht_sha1(text, n > 0 ? (size_t)n : 0, out);
+}
+
+/* ---- contacts: everyone this profile has played, newest first ----------
+ * Written only once a match reaches PC_MATCH_READY, so a code is saved only
+ * after the key behind it answered: a typo is never remembered. Keyed by
+ * suffix; the name is refreshed from the latest Hello. */
+static PcNetContact contacts[PC_NET_CONTACTS_MAX];
+static int contact_count = -1; /* -1: not loaded */
+
+static void contacts_path(char* out, size_t n) {
+    snprintf(out, n, "%s/contacts.txt", profile_directory);
+}
+
+static void contacts_load(void) {
+    if (contact_count >= 0 || !load_identity())
+        return;
+    contact_count = 0;
+    char path[4200];
+    contacts_path(path, sizeof path);
+    FILE* f = fopen(path, "r");
+    if (!f)
+        return;
+    char line[128];
+    while (contact_count < PC_NET_CONTACTS_MAX && fgets(line, sizeof line, f)) {
+        PcNetContact c = {0};
+        long long when = 0;
+        if (sscanf(line, "%17s %lld", c.code, &when) != 2 || !pc_identity_code_valid(c.code))
+            continue;
+        c.last_played = (int64_t)when;
+        contacts[contact_count++] = c;
+    }
+    fclose(f);
+}
+
+static void contacts_note(const char* code) {
+    contacts_load();
+    if (contact_count < 0 || !pc_identity_code_valid(code))
+        return;
+    const char* suffix = pc_identity_code_suffix(code);
+    int at = contact_count < PC_NET_CONTACTS_MAX ? contact_count : PC_NET_CONTACTS_MAX - 1;
+    for (int i = 0; i < contact_count; i++)
+        if (!strcmp(pc_identity_code_suffix(contacts[i].code), suffix)) {
+            at = i;
+            break;
+        }
+    if (at == contact_count)
+        contact_count++;
+    memmove(&contacts[1], &contacts[0], (size_t)at * sizeof contacts[0]);
+    snprintf(contacts[0].code, sizeof contacts[0].code, "%s", code);
+    contacts[0].last_played = (int64_t)time(NULL);
+    char path[4200], tmp[4210];
+    contacts_path(path, sizeof path);
+    snprintf(tmp, sizeof tmp, "%s.tmp", path);
+    FILE* f = fopen(tmp, "w");
+    if (!f)
+        return;
+    for (int i = 0; i < contact_count; i++)
+        fprintf(f, "%s %lld\n", contacts[i].code, (long long)contacts[i].last_played);
+    bool ok = fclose(f) == 0;
+#ifdef _WIN32
+    remove(path);
+#endif
+    if (!ok || rename(tmp, path) != 0)
+        pc_log_line("match: could not save %s", path);
+}
+
+int pc_net_match_contacts(PcNetContact* out, int max) {
+    contacts_load();
+    int n = contact_count < 0 ? 0 : contact_count < max ? contact_count : max;
+    memcpy(out, contacts, (size_t)n * sizeof *out);
+    return n;
+}
+
+/* A connect code on the clipboard, normalised to NAME#SUFFIX (or #SUFFIX when
+ * the paste had no name), or false. */
+bool pc_net_match_clipboard_code(char out[18]) {
+    if (!SDL_HasClipboardText())
+        return false;
+    char* text = SDL_GetClipboardText();
+    char suffix[9], name[9];
+    bool ok = text && pc_identity_parse_code(text, suffix, name) &&
+              strcmp(suffix, pc_identity_code_suffix(pc_net_match_local_code()));
+    SDL_free(text);
+    if (ok)
+        snprintf(out, 18, "%s#%s", name, suffix);
+    return ok;
+}
+
+bool pc_net_match_copy_code(void) {
+    const char* code = pc_net_match_local_code();
+    return code[0] && SDL_SetClipboardText(code);
+}
+
+void pc_net_match_progress(PcNetMatchProgress* p) {
+    memset(p, 0, sizeof *p);
+    p->elapsed_ms = state == PC_MATCH_SEARCH && started_ms ? SDL_GetTicks() - started_ms : 0;
+    p->network_ready = state != PC_MATCH_SEARCH || pc_dht_ready();
+    p->candidates = candidates_tried;
+    p->found = have_peer || state == PC_MATCH_CONNECT || state == PC_MATCH_READY;
+    p->calling = mode == PC_MATCH_DIRECT && target_suffix[0];
+}
+
+static void ready(void) {
+    state = PC_MATCH_READY;
+    pc_net_set_datagram_handler(NULL);
+    contacts_note(opponent);
 }
 
 static bool accept_ack(const MatchAck* a) {
@@ -354,7 +490,8 @@ static void receive(const void* data, size_t n, const struct pc_dht_endpoint* ep
             h->mode != (uint8_t)mode || h->nonce == local_nonce ||
             memcmp(h->compatibility, compatibility, 20) || memcmp(h->topic, topic, 20) ||
             !terminator || !key_code_matches(h->public_key, h->code) ||
-            (mode == PC_MATCH_DIRECT && target[0] && strcmp(h->code, target)) ||
+            (mode == PC_MATCH_DIRECT && target_suffix[0] &&
+                strcmp(pc_identity_code_suffix(h->code), target_suffix)) ||
             !signed_ok(h->public_key, h->signature, h, sizeof *h))
             return;
         bool fresh = !have_peer;
@@ -480,22 +617,43 @@ bool pc_net_match_start(enum PcNetMatchMode m, const char* code) {
     recovery_immutable = false;
     proof_step = 0;
     identity_loaded = false; /* Reload display code from the same persistent key. */
-    if (code && *code && (!pc_identity_code_valid(code) || strlen(code) >= sizeof target)) {
+    char name[9];
+    target_suffix[0] = 0;
+    if (code && *code && !pc_identity_parse_code(code, target_suffix, name)) {
         fail("invalid connect code");
         return false;
     }
-    snprintf(target, sizeof target, "%s", code ? code : "");
+    if (target_suffix[0])
+        snprintf(target, sizeof target, "%s#%s", name, target_suffix);
+    else
+        target[0] = 0;
     if (!load_identity() || !pc_identity_random(&local_nonce, sizeof local_nonce)) {
         fail("identity unavailable");
         return false;
     }
+    char own[9];
+    key_suffix(identity.public_key, own);
+    if (m == PC_MATCH_DIRECT && !strcmp(target_suffix, own)) {
+        fail("that is your own code");
+        return false;
+    }
     digest();
-    const char* direct = target[0] ? target : identity.code;
-    pairing_topic(m, direct, topic);
-    if (!pc_dht_start((enum pc_dht_mode)m, direct, 0, (uint16_t)pc_get_net_port())) {
+    pairing_topic(m, topic);
+    /* Direct: the doorbell is the callee's suffix, the caller's target or our
+     * own when hosting. A caller also waits on the pair topic, which is where
+     * two players who each dialled the other both are. */
+    const char* doorbell = target_suffix[0] ? target_suffix : own;
+    if (!pc_dht_start((enum pc_dht_mode)m, doorbell, 0, (uint16_t)pc_get_net_port())) {
         fail("DHT unavailable");
         return false;
     }
+    if (m == PC_MATCH_DIRECT && target_suffix[0]) {
+        uint8_t pair[20];
+        pair_topic(own, target_suffix, pair);
+        pc_dht_add_topic(pair);
+    }
+    started_ms = SDL_GetTicks();
+    candidates_tried = 0;
     memset(&hello, 0, sizeof hello);
     hello.magic = htonl(MATCH_MAGIC);
     hello.version = MATCH_VERSION;
@@ -537,6 +695,17 @@ void pc_net_match_poll(void) {
                 }
             }
         }
+        /* No DHT after 45 s is this side's network, not the friend: say so
+         * once rather than showing "Calling" forever (online-ux E40). */
+        if (!pc_dht_ready() && started_ms && now - started_ms > 45000 && !have_peer &&
+            failure == NULL)
+        {
+            failure = "Can't reach the online network - check your internet";
+        } else if (pc_dht_ready() && failure != NULL && !have_peer &&
+                   !strncmp(failure, "Can't reach", 11))
+        {
+            failure = NULL;
+        }
         struct pc_dht_endpoint ep;
         while (pc_dht_next_candidate(&ep)) {
             /* Paired already: a Hello now would lock that player onto us while
@@ -545,6 +714,7 @@ void pc_net_match_poll(void) {
             if (have_peer)
                 continue;
             uint32_t cip = ntohl(ep.address);
+            candidates_tried++;
             pc_log_line("match: sending MatchHello to %u.%u.%u.%u:%u (target=%s)", cip >> 24,
                 (cip >> 16) & 0xFF, (cip >> 8) & 0xFF, cip & 0xFF, ep.port, target);
             for (int p = 0; p < 3; p++) {
@@ -567,7 +737,11 @@ void pc_net_match_poll(void) {
             opponent[0] = 0;
             seed = 0;
             next_send = 0; /* peer attempt expired: remain queued in DHT */
-            failure = "Could not connect to opponent. Searching again...";
+            /* Found, then nothing: the peer left, or the two networks cannot
+             * reach each other (both behind routers that block unsolicited
+             * UDP). Keep searching, but say which it may be. */
+            failure = mode == PC_MATCH_DIRECT ? "Found them but couldn't connect. Still trying..." :
+                                                "Could not connect to opponent. Searching again...";
         }
     } else if (state == PC_MATCH_CONNECT) {
         pc_net_poll();
@@ -605,15 +779,13 @@ void pc_net_match_poll(void) {
                         fail("late ranked ready barrier");
                         return;
                     }
-                    state = PC_MATCH_READY;
-                    pc_net_set_datagram_handler(NULL);
+                    ready();
                 }
             } else if (pc_net_frame() > start_frame) {
                 state = PC_MATCH_FAIL;
                 failure = "late ready barrier";
             } else {
-                state = PC_MATCH_READY;
-                pc_net_set_datagram_handler(NULL);
+                ready();
             }
         }
         if (pc_net_handshake_state() == 3) {

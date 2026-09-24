@@ -141,6 +141,34 @@ static void sisEndKerning(u8* data, s32* out_idx, s32* has_kerning)
 /// @param data output buffer for the converted string
 /// @param string ASCII string to be converted
 /// @return length of encoded string
+#ifdef TARGET_PC
+/* Full-width (0x81xx) glyph for ASCII punctuation the encoder has no case
+ * for, or 0. Every entry is in the font atlas (lbl_8040C8C0). */
+static u8 sisAsciiPunct(u8 c)
+{
+    switch (c) {
+    case '#': return 0x94;
+    case '/': return 0x5E;
+    case '+': return 0x7B;
+    case '?': return 0x48;
+    case '!': return 0x49;
+    case '(': return 0x69;
+    case ')': return 0x6A;
+    case '*': return 0x96;
+    case '@': return 0x97;
+    case '%': return 0x93;
+    case '<': return 0x83;
+    case '>': return 0x84;
+    case '=': return 0x81;
+    case '[': return 0x6D;
+    case ']': return 0x6E;
+    case '&': return 0x95;
+    case '_': return 0x51;
+    default: return 0;
+    }
+}
+#endif
+
 s32 HSD_SisLib_803A67EC(u8* data, u8* string)
 {
     u8* str_cursor;
@@ -203,6 +231,18 @@ s32 HSD_SisLib_803A67EC(u8* data, u8* string)
             sisEndKerning(data, &out_idx, has_kerning);
             sjis_hi = 0x82;
             sjis_lo = string[in_idx] + 0x20;
+#ifdef TARGET_PC
+        } else if (cur_char < 0x80 && sisAsciiPunct(cur_char) != 0) {
+            /* Retail never passes ASCII punctuation beyond the cases above,
+             * so anything else fell to the Shift-JIS branch below and took
+             * the NEXT byte as its second half: a connect code's '#' ate
+             * the first character after it. An ASCII byte is never a
+             * Shift-JIS lead byte, so its full-width form is what it meant,
+             * and the font has these. */
+            sisEndKerning(data, &out_idx, has_kerning);
+            sjis_hi = 0x81;
+            sjis_lo = sisAsciiPunct(cur_char);
+#endif
         } else {
             sisEndKerning(data, &out_idx, has_kerning);
             sjis_hi = string[in_idx++];

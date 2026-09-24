@@ -45,14 +45,23 @@ enum {
     line_status,
     line_hint,
     line_countdown,
+    line_subtitle,
     line_rows, /* 4 per player: YOU marker, name, host badge, ping */
-    line_count = line_rows + ONLINE_LOBBY_MAX_PLAYERS * 4,
+    line_menu = line_rows + ONLINE_LOBBY_MAX_PLAYERS * 4, /* cursor + text */
+    line_keys = line_menu + ONLINE_LOBBY_MENU_ROWS * 2,
+    line_count = line_keys + ONLINE_LOBBY_KEY_ROWS * ONLINE_LOBBY_KEY_COLS,
 };
+
+#define KEY_X0 136.0f
+#define KEY_DX 48.0f
+#define KEY_Y0 200.0f
+#define KEY_DY 40.0f
 
 static HSD_Text* lobby_text;
 static Line lines[line_count];
 static int lobby_frame;
 static bool lobby_error_tint;
+static int key_lit = -1; /* the key drawn highlighted */
 
 static GXColor col_white = { 0xFF, 0xFF, 0xFF, 0xFF };
 static GXColor col_dim = { 0xB0, 0xB0, 0xB0, 0xFF };
@@ -90,8 +99,11 @@ static void sanitizeName(char* dst, size_t cap, const char* src)
     size_t i;
     for (i = 0; i + 1 < cap && src[i] != '\0'; i++) {
         char c = src[i];
+        /* '#' is in the set now: the encoder draws it (hsd_3A64.c) instead
+         * of eating the byte after it, and every connect code has one. */
         bool ok = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
-                  (c >= 'a' && c <= 'z') || c == ' ' || c == '-' || c == '.';
+                  (c >= 'a' && c <= 'z') || c == ' ' || c == '-' || c == '.' ||
+                  c == '#';
         dst[i] = ok ? c : '-';
     }
     dst[i] = '\0';
@@ -156,7 +168,19 @@ void mnOnlineLobby_Create(void)
     memset(lines, 0, sizeof(lines));
     lobby_frame = 0;
     lobby_error_tint = false;
+    key_lit = -1;
     addLine(&lines[line_title], 48.0f, 40.0f, 1.0f, &col_white);
+    /* Right of the title (which ends at x ~370), on its baseline. */
+    addLine(&lines[line_subtitle], 360.0f, 60.0f, 0.45f, &col_you);
+    for (i = 0; i < ONLINE_LOBBY_MENU_ROWS; i++) {
+        float y = ROW_Y0 + i * ROW_DY;
+        addLine(&lines[line_menu + i * 2], COL_YOU, y, 0.55f, &col_you);
+        addLine(&lines[line_menu + i * 2 + 1], COL_NAME - 24.0f, y, 0.55f, &col_white);
+    }
+    for (i = 0; i < ONLINE_LOBBY_KEY_ROWS * ONLINE_LOBBY_KEY_COLS; i++) {
+        addLine(&lines[line_keys + i], KEY_X0 + (i % ONLINE_LOBBY_KEY_COLS) * KEY_DX,
+                KEY_Y0 + (i / ONLINE_LOBBY_KEY_COLS) * KEY_DY, 0.8f, &col_dim);
+    }
     for (i = 0; i < ONLINE_LOBBY_MAX_PLAYERS; i++) {
         float y = ROW_Y0 + i * ROW_DY;
         Line* row = &lines[line_rows + i * 4];
@@ -167,8 +191,8 @@ void mnOnlineLobby_Create(void)
     }
     /* Top right, beside the title: eight rows fill the list area. */
     addLine(&lines[line_countdown], 360.0f, 56.0f, 0.7f, &col_you);
-    addLine(&lines[line_status], 48.0f, 400.0f, 0.55f, &col_white);
-    addLine(&lines[line_hint], 48.0f, 436.0f, 0.45f, &col_dim);
+    addLine(&lines[line_status], 48.0f, 392.0f, 0.55f, &col_white);
+    addLine(&lines[line_hint], 48.0f, 418.0f, 0.45f, &col_dim);
 }
 
 void mnOnlineLobby_Update(const OnlineLobbyView* view)
@@ -182,10 +206,43 @@ void mnOnlineLobby_Update(const OnlineLobbyView* view)
     }
     lobby_frame++;
     setLine(&lines[line_title], view->title != NULL ? view->title : "");
+    setLine(&lines[line_subtitle], view->subtitle);
+
+    /* MENU and KEYS replace the player list; the rows they do not use are
+     * blanked, so switching screens leaves nothing behind. */
+    for (i = 0; i < ONLINE_LOBBY_MENU_ROWS; i++) {
+        bool shown = view->screen != LOBBY_SCREEN_PLAYERS && i < view->menu_count;
+        bool here = shown && view->screen == LOBBY_SCREEN_MENU && i == view->cursor;
+        setLine(&lines[line_menu + i * 2], here ? ">" : "");
+        setLine(&lines[line_menu + i * 2 + 1], shown ? view->menu[i] : "");
+        if (shown) {
+            setColor(&lines[line_menu + i * 2 + 1],
+                     here || view->screen == LOBBY_SCREEN_KEYS ? &col_white : &col_dim);
+        }
+    }
+    for (i = 0; i < ONLINE_LOBBY_KEY_ROWS * ONLINE_LOBBY_KEY_COLS; i++) {
+        char key[2] = { 0, 0 };
+        if (view->screen == LOBBY_SCREEN_KEYS && view->keys != NULL) {
+            key[0] = view->keys[i];
+        }
+        setLine(&lines[line_keys + i], key);
+    }
+    {
+        int lit = view->screen == LOBBY_SCREEN_KEYS ? view->key_cursor : -1;
+        if (lit != key_lit) {
+            if (key_lit >= 0) {
+                setColor(&lines[line_keys + key_lit], &col_dim);
+            }
+            if (lit >= 0) {
+                setColor(&lines[line_keys + lit], &col_you);
+            }
+            key_lit = lit;
+        }
+    }
 
     for (i = 0; i < ONLINE_LOBBY_MAX_PLAYERS; i++) {
         Line* row = &lines[line_rows + i * 4];
-        if (i < view->player_count) {
+        if (view->screen == LOBBY_SCREEN_PLAYERS && i < view->player_count) {
             const OnlineLobbyPlayer* p = &view->players[i];
             setLine(&row[0], p->is_local ? "YOU" : "");
             sanitizeName(buf, ONLINE_LOBBY_NAME_LEN, p->name);
@@ -225,7 +282,10 @@ void mnOnlineLobby_Update(const OnlineLobbyView* view)
         setColor(&lines[line_status], error ? &col_error : &col_white);
     }
 
-    if (view->phase == LOBBY_PHASE_FOUND) {
+    if (view->hint != NULL) {
+        setLine(&lines[line_hint], view->hint);
+        setColor(&lines[line_hint], &col_dim);
+    } else if (view->phase == LOBBY_PHASE_FOUND) {
         setLine(&lines[line_hint], "START: begin    B: back");
         /* Subtle blink on the START hint while it is actionable. */
         setColor(&lines[line_hint],

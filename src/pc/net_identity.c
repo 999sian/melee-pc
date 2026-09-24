@@ -44,6 +44,9 @@ bool pc_identity_random(void* bytes, size_t length) {
 #endif
 }
 
+static char upper(char c) {
+    return c >= 'a' && c <= 'z' ? (char)(c - ('a' - 'A')) : c;
+}
 static bool name_char(char c) {
     return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
@@ -61,6 +64,73 @@ bool pc_identity_code_valid(const char* code) {
         if (!((code[i] >= 'A' && code[i] <= 'Z') || (code[i] >= '2' && code[i] <= '7')))
             return false;
     return true;
+}
+
+const char* pc_identity_code_suffix(const char* code) {
+    return pc_identity_code_valid(code) ? code + strlen(code) - 8 : "";
+}
+
+/* One character of a base32 suffix as a person might type it, or 0. The
+ * alphabet has no 0, 1 or 8, so those can only be O, I and B misread. */
+static char suffix_char(char c) {
+    c = upper(c);
+    if (c == '0')
+        return 'O';
+    if (c == '1')
+        return 'I';
+    if (c == '8')
+        return 'B';
+    return (c >= 'A' && c <= 'Z') || (c >= '2' && c <= '7') ? c : 0;
+}
+
+bool pc_identity_parse_code(const char* text, char suffix[9], char name[9]) {
+    if (!text)
+        return false;
+    suffix[0] = name[0] = 0;
+    /* Preferred: NAME#SUFFIX, or #SUFFIX, anywhere in the text. Separators
+     * people add when reading a code out (spaces, dashes) are skipped. */
+    for (const char* hash = strchr(text, '#'); hash; hash = strchr(hash + 1, '#')) {
+        char s[9];
+        int n = 0;
+        const char* p = hash + 1;
+        for (; *p && n < 8; p++) {
+            if (*p == '-' || *p == ' ')
+                continue;
+            char c = suffix_char(*p);
+            if (!c)
+                break;
+            s[n++] = c;
+        }
+        char next = suffix_char(*p);
+        if (n != 8 || (next && *p != ' ' && *p != '-'))
+            continue; /* too short, or runs on: not a code */
+        s[8] = 0;
+        /* The name: up to eight name characters directly before the '#'. */
+        int len = 0;
+        while (len < 8 && hash - len > text && name_char(upper(hash[-len - 1])))
+            len++;
+        for (int i = 0; i < len; i++)
+            name[i] = upper(hash[i - len]);
+        name[len] = 0;
+        memcpy(suffix, s, 9);
+        return true;
+    }
+    /* Otherwise a bare suffix: exactly eight code characters standing alone. */
+    for (const char* p = text; *p; p++) {
+        if (p > text && suffix_char(p[-1]))
+            continue; /* only at the start of a run */
+        char s[9];
+        int n = 0;
+        const char* q = p;
+        while (n < 8 && suffix_char(*q))
+            s[n++] = suffix_char(*q++);
+        if (n == 8 && !suffix_char(*q)) {
+            s[8] = 0;
+            memcpy(suffix, s, 9);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool pc_identity_load(PcNetIdentity* id, const char* directory, const char* name) {

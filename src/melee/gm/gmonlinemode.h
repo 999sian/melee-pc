@@ -49,8 +49,28 @@ typedef enum OnlineLobbyPhase {
     LOBBY_PHASE_ERROR,      /* message explains; B goes back */
 } OnlineLobbyPhase;
 
+/* Direct connect's own screens, drawn in place of the player list. */
+#define ONLINE_LOBBY_MENU_ROWS 8
+#define ONLINE_LOBBY_KEY_ROWS 4
+#define ONLINE_LOBBY_KEY_COLS 8
+
+typedef enum OnlineLobbyScreen {
+    LOBBY_SCREEN_PLAYERS, /* the player list (LAN, searching, connecting) */
+    LOBBY_SCREEN_MENU,    /* a list of choices with a cursor */
+    LOBBY_SCREEN_KEYS,    /* the code keyboard */
+} OnlineLobbyScreen;
+
 typedef struct OnlineLobbyView {
     const char* title;                 /* "LAN PLAY" / "DIRECT CONNECT" */
+    OnlineLobbyScreen screen;
+    char subtitle[ONLINE_LOBBY_MSG_LEN]; /* top right: e.g. your own code */
+    /* MENU: rows and the cursor; KEYS: `menu[0]` is the entry line. */
+    char menu[ONLINE_LOBBY_MENU_ROWS][ONLINE_LOBBY_MSG_LEN];
+    int menu_count;
+    int cursor;
+    const char* keys; /* KEYS: ROWS*COLS characters, row-major */
+    int key_cursor;
+    const char* hint; /* the button line, or NULL for the default */
     OnlineLobbyPhase phase;
     OnlineLobbyPlayer players[ONLINE_LOBBY_MAX_PLAYERS];
     int player_count;                  /* includes the local player */

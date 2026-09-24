@@ -122,6 +122,20 @@ bool pc_dht_start(enum pc_dht_mode m, const char* c, int b, uint16_t p) {
         .sin_port = htons(local_port)};
     return bind(dht_fd, (void*)&a, sizeof a) == 0;
 }
+bool pc_dht_add_topic(const unsigned char hash[20]) {
+    (void)hash;
+    return true;
+}
+bool SDL_HasClipboardText(void) {
+    return false;
+}
+char* SDL_GetClipboardText(void) {
+    return NULL;
+}
+bool SDL_SetClipboardText(const char* text) {
+    (void)text;
+    return true;
+}
 void pc_dht_set_datagram_callback(pc_dht_datagram_fn f, void* c) {
     dht_cb = f;
     dht_ctx = c;
@@ -254,6 +268,25 @@ void pc_net_disconnect(void) {
 }
 
 int main(int argc, char** argv) {
+    if (argc == 2 && !strcmp(argv[1], "code")) {
+        puts(pc_net_match_local_code());
+        return 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "parse")) {
+        char suffix[9], name[9];
+        assert(pc_identity_parse_code("sian#k3xq-2m7a", suffix, name));
+        assert(!strcmp(suffix, "K3XQ2M7A") && !strcmp(name, "SIAN"));
+        assert(pc_identity_parse_code("FOX#AB0DE1G8", suffix, name) && !strcmp(suffix, "ABODEIGB"));
+        assert(pc_identity_parse_code("just k3xq2m7a", suffix, name) && !name[0]);
+        assert(!pc_identity_parse_code("FOX#ABCDEFG", suffix, name));
+        assert(!pc_identity_parse_code("FOX#ABCDEFGHJ", suffix, name));
+        assert(!pc_identity_parse_code("hello there", suffix, name));
+        /* dialling our own code is refused before anything is sent */
+        local_port = 0;
+        assert(!pc_net_match_start(PC_MATCH_DIRECT, pc_net_match_local_code()));
+        puts("parse ok");
+        return 0;
+    }
     if (argc == 2 && !strcmp(argv[1], "cancel")) {
         local_port = 0;
         assert(
@@ -272,8 +305,11 @@ int main(int argc, char** argv) {
     if (argc == 3) {
         local_port = atoi(argv[1]);
         peer_port = atoi(argv[2]);
-        assert(
-            pc_net_match_start(getenv("MATCH_RANKED") ? PC_MATCH_RANKED : PC_MATCH_UNRANKED, ""));
+        if (getenv("MATCH_DIAL"))
+            assert(pc_net_match_start(PC_MATCH_DIRECT, getenv("MATCH_DIAL")));
+        else
+            assert(pc_net_match_start(
+                getenv("MATCH_RANKED") ? PC_MATCH_RANKED : PC_MATCH_UNRANKED, ""));
         for (int i = 0; i < 400 && pc_net_match_state(NULL) != PC_MATCH_READY; i++) {
             pc_net_match_poll();
             usleep(5000);
@@ -287,6 +323,12 @@ int main(int argc, char** argv) {
             return 0;
         }
         assert(pc_net_match_state(NULL) == PC_MATCH_READY);
+        if (getenv("MATCH_DIAL")) {
+            /* the opponent is remembered, by the code their Hello carried */
+            PcNetContact c[PC_NET_CONTACTS_MAX];
+            assert(pc_net_match_contacts(c, PC_NET_CONTACTS_MAX) == 1);
+            assert(!strcmp(c[0].code, pc_net_match_opponent_code()));
+        }
         if (getenv("MATCH_COMPLETE")) {
             for (int game = 0; game < 2; game++) {
                 pc_rank_session_stage_begin();

@@ -36,12 +36,25 @@ def run():
         finally:
             for sock in sockets:
                 sock.close()
+        codes = []
+        for player in range(2):
+            profile = Path(work) / f"p{player}"
+            profile.mkdir()
+            codes.append(subprocess.run(
+                [executable, "code"], check=True, text=True, capture_output=True,
+                env=os.environ | {"MATCH_NAME": f"P{player}", "MATCH_DIR": str(profile)}
+            ).stdout.strip())
         processes = []
         try:
             for player in range(2):
                 profile = Path(work) / f"p{player}"
-                profile.mkdir()
                 env = os.environ | {"MATCH_NAME": f"P{player}", "MATCH_DIR": str(profile)}
+                if os.getenv("MATCH_DIRECT"):
+                    # Both players dial each other -- the habit Slippi
+                    # teaches -- and player 1 gets the name wrong: only the
+                    # key suffix identifies a player now.
+                    theirs = codes[1 - player]
+                    env["MATCH_DIAL"] = theirs if player else "WRONG" + theirs[theirs.index("#"):]
                 processes.append(subprocess.Popen(
                     [executable, str(ports[player]), str(ports[1-player])],
                     env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE))
@@ -62,6 +75,8 @@ def run():
         profile.mkdir()
         subprocess.run([executable, "cancel"], check=True, timeout=20,
                        env=os.environ | {"MATCH_NAME": "CANCEL", "MATCH_DIR": str(profile)})
+        subprocess.run([executable, "parse"], check=True, timeout=20,
+                       env=os.environ | {"MATCH_NAME": "CANCEL", "MATCH_DIR": str(profile)})
 
     if os.getenv("MATCH_RECOVER"):
         detail = "restart republishes durable immutable history and stale mutable state"
@@ -69,6 +84,8 @@ def run():
         detail = "dual-signed durable set, immutable publication and mutable retry"
     elif os.getenv("MATCH_PROOF_TIMEOUT") or os.getenv("MATCH_PROOF_MISMATCH"):
         detail = "unverified peer state refused before socket handoff"
+    elif os.getenv("MATCH_DIRECT"):
+        detail = "mutual direct dial by key suffix (one name wrong), contact saved"
     elif os.getenv("MATCH_RANKED"):
         detail = "BEP44 genesis proofs, signed ranked session and READY barrier"
     else:

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <melee/lb/forward.h>
 
 #include "forward.h"
@@ -53,6 +54,7 @@ enum {
 };
 
 static bool awaiting_rank_result;
+static unsigned lobby_frame_n;
 static void onEnterLobby(GameModeState*);
 static void onEnterCss(GameModeState*);
 static void onExitCss(GameModeState*);
@@ -408,57 +410,251 @@ static bool internetLobby(void) {
            !(online_kind == ONLINE_KIND_DIRECT && getenv("MELEE_LAN_DIRECT"));
 }
 
-/* Direct Connect code entry. The friend's code is the one piece of online
- * state the player has to type, and the F1 field is only editable before the
- * lobby consumes it, so the lobby edits it in place: stick or D-pad
- * left/right picks a slot, up/down cycles the character, Start connects. An
- * empty code hosts our own code, which is what a friend types.
- * ponytail: 17 fixed slots instead of a keyboard; codes are 17 chars max. */
-#define DIRECT_CODE_SLOTS 17
-static const char direct_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#";
-static char direct_entry[DIRECT_CODE_SLOTS + 1];
-static int direct_cursor;
-static bool direct_editing;
+/* Direct Connect. From the online-UX research (2026-09): the code is
+ * your identity but you should rarely have to type it. So the first screen
+ * is a hub -- a code found on the clipboard, everyone you have played,
+ * "enter a code", "wait for a friend" -- and typing, when it is needed, is
+ * eight characters on a keyboard grid rather than seventeen slots on a
+ * wheel. Only the part after the '#' is typed: it is derived from the
+ * friend's key and is all that identifies them (net_match.c pairing_topic),
+ * so the name can be wrong or missing and the call still connects. Both
+ * players may dial each other; they meet on a topic both compute.
+ *
+ * States: HUB -> KEYS -> (call) ; HUB -> (call or wait). The call itself is
+ * the internet lobby below, with a progress line and a clock. */
+#define DIRECT_SUFFIX 8
+enum { DIRECT_OFF, DIRECT_HUB, DIRECT_KEYS };
+enum { ROW_PASTE, ROW_CONTACT, ROW_TYPE, ROW_WAIT };
+static const char direct_keys[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+static int direct_screen;
+static int direct_cursor;       /* hub row */
+static int direct_key;          /* keyboard cell */
+static char direct_suffix[DIRECT_SUFFIX + 1];
 static char direct_error[ONLINE_LOBBY_MSG_LEN];
+static char direct_clip[18];    /* a code seen on the clipboard, or "" */
+static PcNetContact direct_contacts[ONLINE_LOBBY_MENU_ROWS];
+static int direct_contact_n;
+static int direct_row_kind[ONLINE_LOBBY_MENU_ROWS];
+static int direct_row_arg[ONLINE_LOBBY_MENU_ROWS];
+static int direct_rows;
+static char direct_calling[18]; /* who the current call is to, "" hosting */
+static bool direct_copied;
+
+static void directHubBuild(void)
+{
+    direct_rows = 0;
+    if (pc_net_match_clipboard_code(direct_clip)) {
+        direct_row_kind[direct_rows++] = ROW_PASTE;
+    } else {
+        direct_clip[0] = '\0';
+    }
+    direct_contact_n = pc_net_match_contacts(direct_contacts, ONLINE_LOBBY_MENU_ROWS - 3);
+    for (int i = 0; i < direct_contact_n; i++) {
+        direct_row_kind[direct_rows] = ROW_CONTACT;
+        direct_row_arg[direct_rows++] = i;
+    }
+    direct_row_kind[direct_rows++] = ROW_TYPE;
+    direct_row_kind[direct_rows++] = ROW_WAIT;
+    if (direct_cursor >= direct_rows) {
+        direct_cursor = 0;
+    }
+}
 
 static void directEntryBegin(void)
 {
-    snprintf(direct_entry, sizeof direct_entry, "%s", pc_get_net_target());
-    direct_cursor = (int) strlen(direct_entry);
-    if (direct_cursor >= DIRECT_CODE_SLOTS) {
-        direct_cursor = DIRECT_CODE_SLOTS - 1;
-    }
-    direct_editing = true;
+    direct_screen = DIRECT_HUB;
+    direct_cursor = 0;
     direct_error[0] = '\0';
-    pc_log_line("lobby: direct connect code entry, prefilled '%s'", direct_entry);
+    direct_copied = false;
+    directHubBuild();
+    pc_log_line("lobby: direct connect hub, %d recent, clipboard %s", direct_contact_n,
+                direct_clip[0] ? direct_clip : "-");
 }
 
-/* Slots past the first blank stay blank, so the code is always contiguous. */
-static void directEntrySet(int slot, char c)
+static void directCall(const char* code)
 {
-    size_t len = strlen(direct_entry);
-    if (c == '\0') {
-        memset(direct_entry + slot, 0, sizeof direct_entry - (size_t) slot);
+    snprintf(direct_calling, sizeof direct_calling, "%s", code ? code : "");
+    direct_screen = DIRECT_OFF;
+    if (code != NULL) {
+        pc_set_net_target(code);
+    }
+    pc_log_line("lobby: direct connect %s '%s'", code ? "calling" : "waiting as",
+                code ? code : pc_net_match_local_code());
+    pc_net_match_start(PC_MATCH_DIRECT, code);
+}
+
+/* "RYAN#K3XQ2M7A" -> "RYAN #K3X-Q2M-7A": the suffix in groups of three is
+ * how a person reads a code aloud and checks it against a friend's. */
+static void directShow(char* out, size_t n, const char* code)
+{
+    const char* hash = strchr(code, '#');
+    if (hash == NULL || strlen(hash + 1) != DIRECT_SUFFIX) {
+        snprintf(out, n, "%s", code);
         return;
     }
-    while (len < (size_t) slot) {
-        direct_entry[len++] = direct_alphabet[0];
-    }
-    direct_entry[slot] = c;
-    if ((size_t) slot >= len) {
-        direct_entry[slot + 1] = '\0';
+    const char* s = hash + 1;
+    snprintf(out, n, "%.*s#%.3s-%.3s-%.2s", (int) (hash - code), code, s, s + 3, s + 6);
+}
+
+static void directAgo(char* out, size_t n, int64_t when)
+{
+    int64_t d = (int64_t) time(NULL) - when;
+    if (d < 3600) {
+        snprintf(out, n, "%dm ago", (int) (d / 60));
+    } else if (d < 86400) {
+        snprintf(out, n, "%dh ago", (int) (d / 3600));
+    } else {
+        snprintf(out, n, "%dd ago", (int) (d / 86400));
     }
 }
 
-static void directEntryCycle(int step)
+/* One frame of the hub or the keyboard; true while it owns the screen. */
+static bool directEntryFrame(OnlineLobbyView* view, u64 input)
 {
-    /* The wheel is the alphabet plus one blank, so a slot can be cleared. */
-    const int n = (int) sizeof direct_alphabet; /* includes the blank */
-    char current = direct_entry[direct_cursor];
-    const char* at = current ? strchr(direct_alphabet, current) : NULL;
-    int index = at ? (int) (at - direct_alphabet) : n - 1;
-    index = (index + step + n) % n;
-    directEntrySet(direct_cursor, index == n - 1 ? '\0' : direct_alphabet[index]);
+    u64 repeat = gm_801A36C0(PAD_MAX_CONTROLLERS);
+    char buf[ONLINE_LOBBY_MSG_LEN], shown[40];
+
+    directShow(shown, sizeof shown, pc_net_match_local_code());
+    snprintf(view->subtitle, sizeof view->subtitle, "YOU %s", shown);
+    view->phase = LOBBY_PHASE_FOUND;
+
+    if (direct_screen == DIRECT_HUB) {
+        /* The clipboard is read again as the player moves, so a code copied
+         * from a chat while the hub is open shows up without leaving it. */
+        if ((lobby_frame_n++ % 30) == 0) {
+            int was = direct_rows;
+            directHubBuild();
+            if (direct_rows != was) {
+                direct_cursor = 0;
+            }
+        }
+        if (repeat & PAD_ANY_UP) {
+            direct_cursor = (direct_cursor + direct_rows - 1) % direct_rows;
+            sfxMove();
+        } else if (repeat & PAD_ANY_DOWN) {
+            direct_cursor = (direct_cursor + 1) % direct_rows;
+            sfxMove();
+        }
+        view->screen = LOBBY_SCREEN_MENU;
+        view->menu_count = direct_rows;
+        view->cursor = direct_cursor;
+        for (int i = 0; i < direct_rows; i++) {
+            switch (direct_row_kind[i]) {
+            case ROW_PASTE:
+                directShow(shown, sizeof shown, direct_clip);
+                snprintf(view->menu[i], sizeof view->menu[i], "Call %s  from clipboard", shown);
+                break;
+            case ROW_CONTACT: {
+                const PcNetContact* c = &direct_contacts[direct_row_arg[i]];
+                char ago[16];
+                directShow(shown, sizeof shown, c->code);
+                directAgo(ago, sizeof ago, c->last_played);
+                snprintf(view->menu[i], sizeof view->menu[i], "%-22s played %s", shown, ago);
+                break;
+            }
+            case ROW_TYPE:
+                snprintf(view->menu[i], sizeof view->menu[i], "Enter a friend's code");
+                break;
+            default:
+                snprintf(view->menu[i], sizeof view->menu[i], "Wait for a friend to call me");
+                break;
+            }
+        }
+        snprintf(view->message, sizeof view->message, "%s",
+                 direct_error[0] ? direct_error :
+                 direct_copied ? "Your code is copied - send it to a friend" :
+                 "Pick who to play. Both of you can call each other.");
+        view->hint = "A: select   Y: copy my code   B: back";
+        if (input & HSD_PAD_Y) {
+            direct_copied = pc_net_match_copy_code();
+            sfxForward();
+        }
+        if (input & (HSD_PAD_A | HSD_PAD_START)) {
+            sfxForward();
+            switch (direct_row_kind[direct_cursor]) {
+            case ROW_PASTE:
+                directCall(direct_clip);
+                break;
+            case ROW_CONTACT:
+                directCall(direct_contacts[direct_row_arg[direct_cursor]].code);
+                break;
+            case ROW_TYPE:
+                direct_screen = DIRECT_KEYS;
+                direct_suffix[0] = '\0';
+                direct_key = 0;
+                direct_error[0] = '\0';
+                break;
+            default:
+                directCall(NULL);
+                break;
+            }
+        }
+        return direct_screen != DIRECT_OFF;
+    }
+
+    /* KEYS: eight characters, A-Z and 2-7 (the code alphabet has no 0, 1,
+     * 8 or 9, so there is nothing to mistype them as). The grid wraps, so
+     * any key is at most six moves away. */
+    int len = (int) strlen(direct_suffix);
+    if (repeat & PAD_ANY_LEFT) {
+        direct_key = direct_key / ONLINE_LOBBY_KEY_COLS * ONLINE_LOBBY_KEY_COLS +
+                     (direct_key + ONLINE_LOBBY_KEY_COLS - 1) % ONLINE_LOBBY_KEY_COLS;
+        sfxMove();
+    } else if (repeat & PAD_ANY_RIGHT) {
+        direct_key = direct_key / ONLINE_LOBBY_KEY_COLS * ONLINE_LOBBY_KEY_COLS +
+                     (direct_key + 1) % ONLINE_LOBBY_KEY_COLS;
+        sfxMove();
+    } else if (repeat & PAD_ANY_UP) {
+        direct_key = (direct_key + (int) sizeof direct_keys - 1 - ONLINE_LOBBY_KEY_COLS) %
+                     ((int) sizeof direct_keys - 1);
+        sfxMove();
+    } else if (repeat & PAD_ANY_DOWN) {
+        direct_key = (direct_key + ONLINE_LOBBY_KEY_COLS) % ((int) sizeof direct_keys - 1);
+        sfxMove();
+    }
+    if ((input & HSD_PAD_A) && len < DIRECT_SUFFIX) {
+        direct_suffix[len++] = direct_keys[direct_key];
+        direct_suffix[len] = '\0';
+        direct_error[0] = '\0';
+        sfxForward();
+    } else if (input & HSD_PAD_B) {
+        if (len > 0) {
+            direct_suffix[--len] = '\0';
+            sfxBack();
+        } else {
+            direct_screen = DIRECT_HUB; /* B on an empty code goes back a step */
+            sfxBack();
+            return true;
+        }
+    } else if (input & HSD_PAD_START) {
+        if (len == DIRECT_SUFFIX) {
+            char code[18];
+            snprintf(code, sizeof code, "#%s", direct_suffix);
+            sfxForward();
+            directCall(code);
+            return false;
+        }
+        snprintf(direct_error, sizeof direct_error, "A code has 8 characters after the #");
+        sfxBack();
+    }
+    view->screen = LOBBY_SCREEN_KEYS;
+    view->keys = direct_keys;
+    view->key_cursor = direct_key;
+    view->menu_count = 1;
+    {
+        char slots[DIRECT_SUFFIX + 1];
+        for (int i = 0; i < DIRECT_SUFFIX; i++) {
+            slots[i] = i < len ? direct_suffix[i] : '_';
+        }
+        slots[DIRECT_SUFFIX] = '\0';
+        snprintf(buf, sizeof buf, "Friend's code   # %.3s-%.3s-%.2s", slots, slots + 3, slots + 6);
+        snprintf(view->menu[0], sizeof view->menu[0], "%s", buf);
+    }
+    snprintf(view->message, sizeof view->message, "%s",
+             direct_error[0] ? direct_error :
+             "Type the 8 characters after the #");
+    view->hint = "A: type   B: delete   START: call";
+    return true;
 }
 #endif
 
@@ -466,7 +662,7 @@ void gm_Scene_OnlineLobby_OnEnter(UNUSED void* unused)
 {
     mnOnlineLobby_Create();
 #ifdef TARGET_PC
-    direct_editing = false;
+    direct_screen = DIRECT_OFF;
     if (online_kind == ONLINE_KIND_PROFILE) {
         profileRefresh();
     } else if (internetLobby() && online_kind == ONLINE_KIND_DIRECT) {
@@ -556,7 +752,13 @@ static void lobbyFillView(OnlineLobbyView* view, int state, const char* why,
     switch (state) {
     case 0:
         view->phase = nc == 0 ? LOBBY_PHASE_SEARCHING : LOBBY_PHASE_FOUND;
-        if (nc == 0) {
+        if (nc == 0 && pc_lan_discovery_unavailable()) {
+            /* Five seconds without even our own announce looping back:
+             * this network (often guest or campus Wi-Fi) hides players
+             * from each other, and waiting longer will not change it. */
+            snprintf(status, sizeof status,
+                     "This network hides other players - try DIRECT CONNECT");
+        } else if (nc == 0) {
             snprintf(status, sizeof status, "LAN: searching...%s",
                      pc_lan_full() ? " - Lobby full" : "");
         } else {
@@ -623,57 +825,9 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         if (online_kind == ONLINE_KIND_PROFILE) {
             view.phase = LOBBY_PHASE_FOUND;
             snprintf(view.message, sizeof view.message, "%s", profile_message);
-        } else if (direct_editing) {
-            u64 repeat = gm_801A36C0(PAD_MAX_CONTROLLERS);
-            bool edited = false;
-            if (repeat & PAD_ANY_LEFT) {
-                direct_cursor = (direct_cursor + DIRECT_CODE_SLOTS - 1) % DIRECT_CODE_SLOTS;
-                edited = true;
-            } else if (repeat & PAD_ANY_RIGHT) {
-                direct_cursor = (direct_cursor + 1) % DIRECT_CODE_SLOTS;
-                edited = true;
-            } else if (repeat & PAD_ANY_UP) {
-                directEntryCycle(1);
-                edited = true;
-            } else if (repeat & PAD_ANY_DOWN) {
-                directEntryCycle(-1);
-                edited = true;
-            }
-            if (edited) {
-                sfxMove();
-                direct_error[0] = '\0'; /* the rejected code is being changed */
-            }
-            view.phase = LOBBY_PHASE_FOUND;
-            if (direct_error[0]) {
-                snprintf(view.message, sizeof view.message, "%s", direct_error);
-            } else {
-                snprintf(view.message, sizeof view.message,
-                         "Friend's code %-17s  slot %d  START: %s",
-                         direct_entry[0] ? direct_entry : "-", direct_cursor + 1,
-                         direct_entry[0] ? "connect" : "host your code");
-            }
-            if (input & HSD_PAD_START) {
-                if (direct_entry[0] && !pc_identity_code_valid(direct_entry)) {
-                    sfxBack();
-                    /* Held until the code changes: a one-frame message is
-                     * invisible, and the player needs to know why nothing
-                     * happened. */
-                    snprintf(direct_error, sizeof direct_error,
-                             "%s is not a connect code (NAME#AB2CDE3F)", direct_entry);
-                    snprintf(view.message, sizeof view.message, "%s", direct_error);
-                    pc_log_line("lobby: direct connect rejected '%s'", direct_entry);
-                } else {
-                    sfxForward();
-                    direct_editing = false;
-                    direct_error[0] = '\0';
-                    pc_set_net_target(direct_entry);
-                    pc_log_line("lobby: direct connect %s '%s'",
-                                direct_entry[0] ? "dialing" : "hosting as",
-                                direct_entry[0] ? direct_entry : pc_net_match_local_code());
-                    pc_net_match_start(PC_MATCH_DIRECT,
-                                       direct_entry[0] ? direct_entry : NULL);
-                }
-            }
+        } else if (direct_screen != DIRECT_OFF && directEntryFrame(&view, input)) {
+            /* the hub or the keyboard drew the screen and took the input */
+            input &= ~(u64) (HSD_PAD_B | PAD_CANCEL);
         } else if (awaiting_rank_result && pc_net_match_publication(NULL) == 0) {
             pc_net_poll();
             pc_rank_session_poll();
@@ -716,6 +870,41 @@ void gm_Scene_OnlineLobby_OnFrame(void)
                          state == PC_MATCH_CONNECT ? LOBBY_PHASE_CONNECTING : LOBBY_PHASE_SEARCHING;
             if (reason != PC_NET_PEER_OK && reason < (int) ARRAY_SIZE(peer_word)) {
                 snprintf(view.message, sizeof view.message, "%s - START: search", peer_word[reason]);
+            } else if (state == PC_MATCH_SEARCH && why == NULL) {
+                /* Every wait shows what it is waiting on and for how long;
+                 * "Searching..." alone looked the same whether the network
+                 * was down, the friend was away or the code was wrong. */
+                PcNetMatchProgress pr;
+                pc_net_match_progress(&pr);
+                unsigned secs = (unsigned) (pr.elapsed_ms / 1000);
+                char who[40];
+                directShow(who, sizeof who, direct_calling);
+                if (!pr.network_ready) {
+                    snprintf(view.message, sizeof view.message,
+                             "Joining the online network...  %u:%02u", secs / 60, secs % 60);
+                } else if (online_kind == ONLINE_KIND_DIRECT && pr.calling) {
+                    snprintf(view.message, sizeof view.message,
+                             secs < 45 ? "Calling %s  %u:%02u" :
+                                         "%s isn't answering yet. Still calling  %u:%02u",
+                             who, secs / 60, secs % 60);
+                } else if (online_kind == ONLINE_KIND_DIRECT) {
+                    snprintf(view.message, sizeof view.message,
+                             "Waiting for a friend to call you  %u:%02u", secs / 60, secs % 60);
+                } else {
+                    snprintf(view.message, sizeof view.message,
+                             "Looking for an opponent  %u:%02u", secs / 60, secs % 60);
+                }
+                if (online_kind == ONLINE_KIND_DIRECT) {
+                    char me[40];
+                    directShow(me, sizeof me, pc_net_match_local_code());
+                    snprintf(view.subtitle, sizeof view.subtitle, "YOU %s", me);
+                    view.player_count = 0; /* the subtitle already says who we are */
+                    view.hint = "Y: copy my code   B: stop";
+                    if (input & HSD_PAD_Y) {
+                        pc_net_match_copy_code();
+                        sfxForward();
+                    }
+                }
             } else {
                 snprintf(view.message, sizeof view.message, "%s", why ? why : "Searching for an opponent...");
             }

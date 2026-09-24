@@ -547,6 +547,10 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
             add_test(NAME ${case} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_${case}.py)
             set_tests_properties(${case} PROPERTIES LABELS melee TIMEOUT 60)
         endforeach()
+        add_test(NAME net_match_direct COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_net_match.py)
+        set_tests_properties(net_match_direct PROPERTIES LABELS melee TIMEOUT 90
+            ENVIRONMENT "MATCH_DIRECT=1")
         foreach(mode IN ITEMS ranked proof_timeout proof_mismatch complete recover)
             add_test(NAME net_match_${mode} COMMAND ${Python3_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_net_match.py)
