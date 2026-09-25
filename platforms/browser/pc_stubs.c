@@ -15,6 +15,7 @@
 
 #include "pc/file_cache.h"
 #include "pc/pc.h"
+#include "pc/slp.h"
 
 /* Desktop launcher preferences; defaults match launcher_data.hpp. MELEE_UCF is
  * the one the launcher also reads from the environment (launcher.cpp). */
@@ -95,3 +96,20 @@ void pc_file_cache_put(const char* filename, const void* data, size_t size) {
     (void)size;
 }
 void pc_file_cache_start_prewarm(void) {}
+bool pc_file_cache_require(const char* filename) {
+    (void)filename;
+    return false;
+}
+
+/* Replay recording writes to a native file; the browser has no recorder. */
+void pc_slp_match_start(const struct StartMeleeData* data) {
+    (void)data;
+}
+void pc_slp_match_end(void) {}
+void pc_slp_tick_begin(void) {}
+void pc_slp_tick_end(uint64_t proc_mask) {
+    (void)proc_mask;
+}
+void pc_slp_pre_frame(struct HSD_GObj* gobj) {
+    (void)gobj;
+}

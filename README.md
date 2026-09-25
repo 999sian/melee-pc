@@ -96,8 +96,8 @@ table is right and the other one is stale.
 | 2-player keyboard remapping | planned | The keyboard is port 1 on a fixed layout. |
 | High-refresh interpolation | planned | |
 | Training tools (hitboxes, savestates, frame advance) | planned | |
-| Replay recording (`.slp`) | planned | `src/pc/slp.h` defines the hook points; nothing implements them. |
-| Online play (LAN / direct IP) | partial | LAN/direct-IP plus signed internet Direct, Unranked and Ranked implemented. Every datagram is authenticated (protocol 8), so both peers must run the same build, and a connect code is 8 characters after the `#`. Public DHT storage verified; two-NAT and live ranked acceptance remain pending. See platform matrix below. |
+| Replay recording (`.slp`) | done | Set `MELEE_SLP_DIR` to record offline or online VS matches; off by default. |
+| Online play (LAN / direct IP) | partial | LAN/direct-IP plus signed internet Direct, Unranked and Ranked implemented. Every datagram is authenticated (protocol 9), so both peers must run the same build, and a connect code is 8 characters after the `#`. Phone VPN to home broadband Direct Connect reached results; broader two-NAT and live ranked acceptance remain pending. See platform matrix below. |
 | RetroAchievements | planned | |
 
 The phases behind the planned rows, and why they are ordered that way, are in
@@ -247,9 +247,10 @@ path retains its older protocol-version-only check.
 
 In the menus: VS Mode → ONLINE → LAN PLAY finds other
 copies on the local network by mDNS and the first Start elects a host
-(lowest install id wins a tie). In the launcher or F1 Online tab, set your name
-and your friend's `NAME#XXXXXXXX` code, then choose DIRECT CONNECT. UNRANKED searches
-for an opponent; RANKED runs a rated best-of-three set. PROFILE shows your code
+(lowest install id wins a tie). DIRECT CONNECT opens an in-game hub where
+either player can call a friend's `NAME#XXXXXXXX` code, enter its eight-character
+suffix, or choose a clipboard code or recent opponent. UNRANKED searches for
+an opponent; RANKED runs a rated best-of-three set. PROFILE shows your code
 and locally verified rating. Internet discovery may take about 30 seconds to
 bootstrap and some NATs cannot support a direct peer connection. Legacy
 `MELEE_LAN_DIRECT=ip:port` remains available for direct-IP sessions. The game port is UDP 41000 by default and discovery uses UDP
