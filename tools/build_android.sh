@@ -44,6 +44,14 @@ cmake -B "${BUILD_DIR}" -G Ninja \
     -DANDROID_PLATFORM=android-26 \
     -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384" \
     -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
+SDL_JAVA_SOURCE_DIR="$(sed -n 's/^AURORA_SDL3_JAVA_SOURCE_DIR:INTERNAL=//p' "${BUILD_DIR}/CMakeCache.txt")"
+SDL_VERSION_PATTERN='private static final int SDL_(MAJOR|MINOR|MICRO)_VERSION ='
+SDL_NATIVE_VERSION="$(grep -E "${SDL_VERSION_PATTERN}" "${SDL_JAVA_SOURCE_DIR}/org/libsdl/app/SDLActivity.java")"
+SDL_APP_VERSION="$(grep -E "${SDL_VERSION_PATTERN}" "${ANDROID_DIR}/app/src/main/java/org/libsdl/app/SDLActivity.java")"
+if [[ "${SDL_NATIVE_VERSION}" != "${SDL_APP_VERSION}" ]]; then
+    echo "error: Android SDL Java version does not match the native SDL source" >&2
+    exit 1
+fi
 ninja -C "${BUILD_DIR}" melee
 
 echo "=== Staging assets and native libraries ==="

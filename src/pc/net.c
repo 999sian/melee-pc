@@ -2430,10 +2430,17 @@ bool pc_net_resim(void) {
 
 /* Every input wait, including a failed snapshot, has the same disconnect
  * handling. A failed snapshot must not allow a speculative tick to run. */
-static bool wait_input(int32_t need) {
+static bool wait_input(int32_t need, const char* reason) {
+    int32_t have = s_remote_have;
     uint64_t t0 = SDL_GetTicksNS();
-    if (wait_remote(need)) {
-        net.waited_ns += SDL_GetTicksNS() - t0; /* not lateness: pc_net_catch_up_ns */
+    bool ready = wait_remote(need);
+    uint64_t waited = SDL_GetTicksNS() - t0;
+    if (waited >= 33000000ull && getenv("MELEE_NET_DEBUG") != NULL) {
+        pc_log_line("net timing: input wait %.1f ms at frame %d need %d have %d -> %d (%s)",
+            waited / 1e6, net.frame, need, have, s_remote_have, reason);
+    }
+    if (ready) {
+        net.waited_ns += waited; /* not lateness: pc_net_catch_up_ns */
         return true;
     }
     /* A refused resume logged its own reason, and the peer was not
@@ -2692,7 +2699,7 @@ static PADStatus* unconsume(void) {
  * predicted (the old one holds the discarded timeline), then feed it. */
 static bool resim_prepare(int32_t f) {
     if (f > s_remote_have) {
-        if (!snap_predicted(f) && !wait_input(f)) {
+        if (!snap_predicted(f) && !wait_input(f, "replay snapshot")) {
             return false;
         }
         if (f > s_remote_have) {
@@ -3051,14 +3058,14 @@ static void fresh_tick(PADStatus* head, bool raw) {
             pure_loads_fetch();
         }
         int32_t need = lockstep ? net.frame : (net.frame >= WINDOW ? net.frame - WINDOW : 0);
-        if (!wait_input(need)) {
+        if (!wait_input(need, lockstep ? "lockstep" : "window")) {
             return;
         }
         if ((net.frame % SYNC_INTERVAL) == 0 && net.frame > 0) {
             time_sync();
         }
         if (s_remote_have < net.frame) {
-            if (!snap_predicted(net.frame) && !wait_input(net.frame)) {
+            if (!snap_predicted(net.frame) && !wait_input(net.frame, "snapshot fallback")) {
                 return;
             }
             if (s_remote_have < net.frame) {

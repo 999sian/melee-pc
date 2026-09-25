@@ -312,6 +312,10 @@ void HSD_VICopyXFBAsync(HSD_RenderPass rpass)
 #ifdef TARGET_PC
     if (debug) {
         u64 waited_ns = pc_monotonic_ns() - began_ns;
+        if (waited_ns > 50000000ull)
+            pc_log_line("net timing: XFB free wait %.1f ms at %llu ns",
+                        waited_ns / 1000000.0,
+                        (unsigned long long) pc_monotonic_ns());
         total_ns += waited_ns;
         if (waited_ns > max_ns) max_ns = waited_ns;
         if (++samples == 600) {

@@ -72,6 +72,7 @@ static void pc_pace_wait(u64 ns) {
 #endif
 
 void pc_frame_boundary(void) {
+    static int timing_debug = -1;
     static int fps_log = -1;
     static u64 fps_t0;
     static u32 fps_n;
@@ -85,8 +86,17 @@ void pc_frame_boundary(void) {
     static u32 frame_late_33;
     static u64 sleep_worst_over_ns;
 
+    if (timing_debug < 0)
+        timing_debug = getenv("MELEE_NET_DEBUG") != NULL;
     if (s_in_frame) {
+        u64 started = timing_debug ? SDL_GetTicksNS() : 0;
         aurora_end_frame();
+        if (timing_debug) {
+            u64 elapsed = SDL_GetTicksNS() - started;
+            if (elapsed > 20000000ull)
+                pc_log_line("net timing: aurora_end_frame %.1f ms at retrace %u frame %d",
+                    elapsed / 1e6, s_retrace_count, pc_net_frame());
+        }
         s_in_frame = false;
     }
     /* Session messages are host-side work, never rollback simulation. The
@@ -177,7 +187,14 @@ void pc_frame_boundary(void) {
         }
     }
 
+    u64 update_started = timing_debug ? SDL_GetTicksNS() : 0;
     const AuroraEvent* event = aurora_update();
+    if (timing_debug) {
+        u64 elapsed = SDL_GetTicksNS() - update_started;
+        if (elapsed > 50000000ull)
+            pc_log_line("net timing: aurora_update %.1f ms at retrace %u frame %d", elapsed / 1e6,
+                s_retrace_count, pc_net_frame());
+    }
     while (event != NULL && event->type != AURORA_NONE) {
         if (event->type == AURORA_EXIT) {
             pc_exit_requested = true;
@@ -242,12 +259,17 @@ void pc_frame_boundary(void) {
         /* On standard 60 Hz VSync, aurora_begin_frame already waited for VBlank. On high-refresh
          * (120/144/240 Hz) or VSync-off, this throttles simulation to exact 60 Hz. */
         if (PC_PACE_ALWAYS || !aurora_vsync_enabled() || want > 2000000ull) {
+            u64 started = (fps_log || timing_debug) ? SDL_GetTicksNS() : 0;
             pc_pace_wait(want);
-            if (fps_log > 0) {
-                const u64 slept = SDL_GetTicksNS() - now;
-                if (slept > want && slept - want > sleep_worst_over_ns) {
+            if (fps_log || timing_debug) {
+                u64 slept = SDL_GetTicksNS() - started;
+                if (fps_log && slept > want && slept - want > sleep_worst_over_ns) {
                     sleep_worst_over_ns = slept - want;
                 }
+                if (timing_debug && slept > 20000000ull)
+                    pc_log_line(
+                        "net timing: pacing sleep %.1f ms (asked %.1f) at retrace %u frame %d",
+                        slept / 1e6, want / 1e6, s_retrace_count, pc_net_frame());
             }
         }
     }
@@ -260,8 +282,25 @@ void pc_frame_boundary(void) {
     /* aurora_begin_frame returns false while minimized/paused; keep pumping.
      * Sleep a frame between attempts: without it a minimized window spins a
      * core at 100% polling SDL. */
-    while (!aurora_begin_frame()) {
+    for (;;) {
+        u64 started = timing_debug ? SDL_GetTicksNS() : 0;
+        bool begun = aurora_begin_frame();
+        if (timing_debug) {
+            u64 elapsed = SDL_GetTicksNS() - started;
+            if (elapsed > 20000000ull)
+                pc_log_line("net timing: aurora_begin_frame %.1f ms at retrace %u frame %d",
+                    elapsed / 1e6, s_retrace_count, pc_net_frame());
+        }
+        if (begun)
+            break;
+        update_started = timing_debug ? SDL_GetTicksNS() : 0;
         event = aurora_update();
+        if (timing_debug) {
+            u64 elapsed = SDL_GetTicksNS() - update_started;
+            if (elapsed > 50000000ull)
+                pc_log_line("net timing: aurora_update %.1f ms at retrace %u frame %d",
+                    elapsed / 1e6, s_retrace_count, pc_net_frame());
+        }
         while (event != NULL && event->type != AURORA_NONE) {
             if (event->type == AURORA_EXIT) {
                 pc_net_match_stop();
@@ -297,16 +336,37 @@ void pc_frame_boundary(void) {
     /* Age of the 1000 Hz sample the sim is about to consume, before the pad
      * alarms (fn_800195FC -> PADRead) fire from pc_os_run_alarms. */
     pc_input_latency_record();
+    u64 alarms_started = timing_debug ? SDL_GetTicksNS() : 0;
     pc_os_run_alarms();
+    if (timing_debug) {
+        u64 elapsed = SDL_GetTicksNS() - alarms_started;
+        if (elapsed > 50000000ull)
+            pc_log_line("net timing: pc_os_run_alarms %.1f ms at retrace %u frame %d",
+                elapsed / 1e6, s_retrace_count, pc_net_frame());
+    }
     /* Time sync spreads its correction here: a per-frame lengthening of the
      * next wait, plus a whole frame when a gap is too big to nudge away. */
     next_sim_ns += pc_net_pace_adjust_ns();
     if (s_pre_cb) {
+        u64 started = timing_debug ? SDL_GetTicksNS() : 0;
         s_pre_cb(s_retrace_count);
+        if (timing_debug) {
+            u64 elapsed = SDL_GetTicksNS() - started;
+            if (elapsed > 50000000ull)
+                pc_log_line("net timing: pre-retrace callback %.1f ms at retrace %u frame %d",
+                    elapsed / 1e6, s_retrace_count, pc_net_frame());
+        }
     }
     s_current_fb = s_next_fb;
     if (s_post_cb) {
+        u64 started = timing_debug ? SDL_GetTicksNS() : 0;
         s_post_cb(s_retrace_count);
+        if (timing_debug) {
+            u64 elapsed = SDL_GetTicksNS() - started;
+            if (elapsed > 50000000ull)
+                pc_log_line("net timing: post-retrace callback %.1f ms at retrace %u frame %d",
+                    elapsed / 1e6, s_retrace_count, pc_net_frame());
+        }
     }
 }
 

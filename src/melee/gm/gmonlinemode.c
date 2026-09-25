@@ -811,7 +811,7 @@ void gm_Scene_OnlineLobby_OnFrame(void)
     const char* why = NULL;
     int state;
     int n;
-    u64 input = gm_GetButtonsTriggered(PAD_MAX_CONTROLLERS);
+    u64 input = gm_GetButtonsTriggered(pc_net_active() ? pc_net_local_player() : PAD_MAX_CONTROLLERS);
 
     if (online_kind == ONLINE_KIND_PROFILE || internetLobby()) {
         memset(&view, 0, sizeof view);
@@ -864,6 +864,11 @@ void gm_Scene_OnlineLobby_OnFrame(void)
         } else {
             pc_net_match_poll();
             state = pc_net_match_state(&why);
+#ifdef ANDROID
+            /* Build cached device shaders while Direct Connect is still waiting. */
+            if (online_kind == ONLINE_KIND_DIRECT && state == PC_MATCH_SEARCH)
+                pc_gfx_prewarm(8);
+#endif
             int reason = pc_net_peer_status();
             view.phase = state == PC_MATCH_READY ? LOBBY_PHASE_STARTING :
                          (state == PC_MATCH_FAIL || reason != PC_NET_PEER_OK) ? LOBBY_PHASE_ERROR :

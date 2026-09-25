@@ -30,6 +30,9 @@ public class MeleeActivity extends SDLActivity {
     @Override
     protected void onCreate(android.os.Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (mBrokenLibraries) {
+            return;
+        }
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         applyImmersiveMode();
 
@@ -126,6 +129,9 @@ public class MeleeActivity extends SDLActivity {
     }
 
     private void applyImmersiveMode() {
+        if (mBrokenLibraries) {
+            return;
+        }
         android.view.Window window = getWindow();
         if (window == null) {
             return;

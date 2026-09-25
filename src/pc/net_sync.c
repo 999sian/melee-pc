@@ -207,7 +207,10 @@ static void delay_auto(void) {
     int d = fight ? s_delay_base - ROLLBACK_COVER : s_delay_base + LOCKSTEP_PROCESSING;
     bool lan = net.ping_us < LAN_PING_US && jitter_us() < LAN_JITTER_US;
     int lo = !fight ? 1 : lan ? FIGHT_DELAY_LAN : FIGHT_DELAY_MIN;
-    d = d < lo ? lo : d > 4 ? 4 : d;
+    /* Lockstep must cover the trip; a 200 ms link needs about seven frames.
+     * Fights still cap delay at four and use rollback for the rest. */
+    int hi = fight ? 4 : 8;
+    d = d < lo ? lo : d > hi ? hi : d;
     if (d == net.delay) {
         return;
     }

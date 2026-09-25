@@ -93,7 +93,7 @@ static std::mutex g_pipelineMutex;
 static bool g_hasPipelineThread = false;
 static size_t g_pipelinesPerFrame = 0;
 // For synchronous pipeline fallback (OpenGL)
-#ifdef NDEBUG
+#if defined(NDEBUG) && !defined(__ANDROID__)
 constexpr size_t BuildPipelinesPerFrame = 5;
 #else
 constexpr size_t BuildPipelinesPerFrame = 1;
@@ -425,8 +425,16 @@ static std::atomic_uint64_t g_statCreateMaxNs{0};
 static absl::flat_hash_set<PipelineRef> g_demandedPipelines; // guarded by g_pipelineMutex
 
 static wgpu::RenderPipeline create_timed(const NewPipelineCallback& create) {
+#if defined(__ANDROID__)
+  // SEARCH prewarm and GX FIFO draws may compile on different threads.
+  static std::mutex createMutex;
+  std::unique_lock lock{createMutex};
+#endif
   const auto start = std::chrono::steady_clock::now();
   auto pipeline = create();
+#if defined(__ANDROID__)
+  lock.unlock();
+#endif
   const uint64_t ns = static_cast<uint64_t>(
       std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count());
   ++g_statCreated;
