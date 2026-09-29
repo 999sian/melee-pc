@@ -467,7 +467,7 @@ static void capture_fighter(Staged* s, int i, HSD_GObj* g) {
      * rollback re-runs ticks without drawing them, so in netplay the bit
      * depends on which predicted frames a peer drew. Left clear there, so
      * both peers' replays hold the same frames. */
-    po->flags[4] = BITS8(fp->x221F_b0 && !s_net, fp->x221F_b1, fp->x221F_b2, fp->x221F_b3,
+    po->flags[4] = BITS8(fp->x221F_b0 && !s_net, fp->x221F_b1, fp->x221F_b2, fp->is_sleeping,
         fp->is_sub_fighter, fp->x221F_b5, fp->x221F_b6, fp->x221F_b7);
     /* fp+2340, the first motion-variable word (hitstun left, a float, while
      * in hitstun): its 32 bits as they are, whatever the state stores. */
@@ -542,7 +542,7 @@ static void capture_items(Staged* s) {
         if (owner != NULL && owner->classifier == HSD_GOBJ_CLASS_FIGHTER &&
             owner->user_data != NULL)
         {
-            o->owner = (int8_t)GET_FIGHTER(owner)->player_id;
+            o->owner = (int8_t)GET_FIGHTER(owner)->player_idx;
         }
         o->instance_id = ip->xDA8_short; /* ip+DA8 */
     }
@@ -642,7 +642,7 @@ void pc_slp_tick_end(uint64_t proc_mask) {
             HSD_GObj* g = fighter_gobj(i / 2, i & 1);
             /* fp+221F 0x10: asleep (Sheik/Zelda's other half, a Nana waiting
              * for Popo, a player out of stocks) sends nothing */
-            if (g != NULL && !GET_FIGHTER(g)->x221F_b3) {
+            if (g != NULL && !GET_FIGHTER(g)->is_sleeping) {
                 capture_fighter(s, i, g);
             }
         }

@@ -15,7 +15,8 @@
 
 void ftCh_Init_80159F40(HSD_GObj* gobj)
 {
-    Fighter_ChangeMotionState(gobj, ftMh_MS_Grab, 0, 0.0f, 1.0f, 0.0f, NULL);
+    Fighter_ChangeMotionState(gobj, ftMh_MS_Grab, Ft_MF_None, 0.0f, 1.0f, 0.0f,
+                              NULL);
     ftAnim_8006EBA4(gobj);
 }
 
@@ -29,7 +30,7 @@ void ftCh_Grab_Anim(HSD_GObj* gobj)
 void ftCh_Grab_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }

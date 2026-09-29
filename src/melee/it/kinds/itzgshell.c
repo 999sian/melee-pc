@@ -73,7 +73,6 @@ void it_802DDB38(Item_GObj* gobj)
     itGShell_Attrs* attrs = DP(itGShell_Attrs, ip->xC4_article_data->x4_specialAttributes);
     Vec v;
     HSD_JObj* jobj;
-    PAD_STACK(4);
     /// @todo Shared code with #it_8028B8D8.
     if (ip->xDD4_itemVar.zgshell.xDF8 <= 0.0f) {
         jobj = GET_JOBJ(gobj);
@@ -391,18 +390,10 @@ void itZGShell_Logic11_Dropped(Item_GObj* gobj)
     Item_80268E5C(gobj, 4, 6);
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 bool itZrshell_UnkMotion4_Anim(Item_GObj* gobj)
 {
-    it_802DDBE8(gobj);
-    return false;
+    return itZrshell_UnkMotion3_Anim(gobj);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void itZrshell_UnkMotion4_Phys(Item_GObj* gobj)
 {
@@ -469,8 +460,6 @@ static inline void it_802DDB38_inline(Item_GObj* gobj, Vec* v)
 bool itZrshell_UnkMotion6_Anim(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
-    Vec v;
-    PAD_STACK(8);
     if (ip->xDD4_itemVar.zgshell.xDF4 <= 0.0f) {
         if (!ip->xDCD_flag.b5) {
             it_80275444(gobj);
@@ -480,7 +469,7 @@ bool itZrshell_UnkMotion6_Anim(Item_GObj* gobj)
     }
     it_802DDBE8(gobj);
     if (ip->msid == 6 || ip->msid == 5) {
-        it_802DDB38_inline(gobj, &v);
+        it_802DDB38(gobj);
     }
     return false;
 }
@@ -567,29 +556,10 @@ void it_802DEC80(Item_GObj* gobj)
     ip->jumped_on = fn_802DFE7C;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 bool itZrshell_UnkMotion8_Anim(Item_GObj* gobj)
 {
-    Item* ip = gobj->user_data;
-    if (ip->xDD4_itemVar.zgshell.xDF4 <= 0.0f) {
-        if (!ip->xDCD_flag.b5) {
-            it_80275444(gobj);
-        }
-    } else {
-        ip->xDD4_itemVar.zgshell.xDF4 -= 1.0f;
-    }
-    it_802DDBE8(gobj);
-    if (ip->msid == 6 || ip->msid == 5) {
-        it_802DDB38(gobj);
-    }
-    return false;
+    return itZrshell_UnkMotion6_Anim(gobj);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void itZrshell_UnkMotion8_Phys(Item_GObj* gobj)
 {

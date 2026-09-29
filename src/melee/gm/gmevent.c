@@ -1045,16 +1045,16 @@ void gm_801BC00C(void)
     case 35:
         if (ev->x20 == 0) {
             event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 2);
-            ftLib_80087508(
+            ftLib_LoadFighterCostume(
                 Player_800325C8((CharacterKind) event_entry->c_kind, 0),
                 event_entry->color);
             event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 3);
-            ftLib_80087508(
+            ftLib_LoadFighterCostume(
                 Player_800325C8((CharacterKind) event_entry->c_kind, 0),
                 event_entry->color);
         } else {
             event_entry = EV_ENTRY(EV_STAGES(LV(event_levels, idx)), 4);
-            ftLib_80087508(
+            ftLib_LoadFighterCostume(
                 Player_800325C8(gm_801BC00C_GetCharacterKind(event_entry), 0),
                 event_entry->color);
         }
@@ -1062,7 +1062,7 @@ void gm_801BC00C(void)
     case 43:
         chr = gm_801BC00C_GetCharacter(
             DP(gm_801BAB40_src, EV_X4(LV(event_levels, idx))->x4));
-        ftLib_80087508(chr, ev->x50[2]);
+        ftLib_LoadFighterCostume(chr, ev->x50[2]);
         if ((s8) ev->x0 == 4) {
             Player_80031DA8(chr, ev->x1);
         }
@@ -1697,6 +1697,7 @@ void gm_801BD46C(HSD_GObj* gobj)
     VsSceneController* temp_r3;
     s32 var_r0;
     struct EventData* temp_r31;
+    s32 var_r30;
     int i;
     int count;
     HSD_GObj* p;
@@ -1708,7 +1709,10 @@ void gm_801BD46C(HSD_GObj* gobj)
      * sibling count loops in gm_801BD30C and gm_801BD658 do. */
     for (i = 1; i < 3; i++) {
         p = Player_GetEntityAtIndex(i, 1);
-        if (p != NULL && ftLib_8008731C(p) != 0) {
+        if (p != NULL) {
+            var_r30 = ftLib_IsSleeping_8008731C(p);
+        }
+        if (var_r30 != 0) {
             count++;
         }
     }

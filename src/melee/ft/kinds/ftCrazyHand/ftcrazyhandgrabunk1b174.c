@@ -49,7 +49,7 @@ void ftCh_TagFail_Anim(HSD_GObj* gobj)
 void ftCh_TagFail_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -64,9 +64,9 @@ void fn_8015B2C0(HSD_GObj* gobj)
     u8 _[16];
     switch (fp->mv.ch.unk4.x0) {
     case 0: {
-        HSD_GObj* enemy_gobj = ftLib_8008627C(&fp->cur_pos, gobj);
+        HSD_GObj* enemy_gobj = ftLib_FindNearestOpponent(&fp->cur_pos, gobj);
         if (enemy_gobj != NULL) {
-            Camera_8002E6FC((int) ftLib_80086BE0(enemy_gobj));
+            Camera_8002E6FC((int) ftLib_GetPlayerIndex(enemy_gobj));
         } else {
             Camera_8002E6FC(0);
         }

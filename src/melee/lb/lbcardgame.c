@@ -151,26 +151,25 @@ int lb_8001C8BC(void)
                        &_p(unk_status));
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 static LbCardStatus updateCardStatus(void)
 {
     bool unk_status = _p(unk_status);
     _p(unk_status) = false;
     switch (_p(card_status)) {
-    case 0:
+    case LbCardStatus_0:
         if (unk_status) {
             _p(card_status) = LbCardStatus_1;
         }
         break;
-    case 3:
+    case LbCardStatus_1:
+    case LbCardStatus_2:
+        break;
+    case LbCardStatus_3:
         if (lbCardNew_ProbeEx(0) != LbCardResult_Ready) {
             _p(card_status) = LbCardStatus_4;
         }
         break;
-    case 4:
+    case LbCardStatus_4:
         if (unk_status != 0 && lbCardNew_ProbeEx(0) == LbCardResult_Ready) {
             _p(card_status) = LbCardStatus_3;
         }
@@ -180,9 +179,6 @@ static LbCardStatus updateCardStatus(void)
     }
     return _p(card_status);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void lbCardGame_SetCardStatus(LbCardStatus status)
 {
@@ -296,7 +292,7 @@ static void gobj1_Proc(HSD_GObj* gobj)
     HSD_JObjAnimAll(gobj->hsd_obj);
 }
 
-static void gobj0_RenderFunc(HSD_GObj* gobj, int arg1)
+static void gobj0_RenderFunc(HSD_GObj* gobj, intptr_t arg1)
 {
     if (_p(x10) == 1) {
         HSD_GObj_803910D8(gobj, arg1);

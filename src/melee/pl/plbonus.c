@@ -35,44 +35,6 @@ static inline void setPointValue(int player, int kind, unsigned int val)
     table->x0_staleMoveTable.x904[kind] = val;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-unsigned int pl_800386D8(plActionStats* arg0, ssize_t arg1)
-{
-    /* Every caller passes an id >= StatsAttack_Count; retail reads those
-     * past the end of by_attack_hi, in the u32 run at +0x568. */
-    return arg0->ext_attack_counts[arg1 - 0x60];
-}
-#ifdef MUST_MATCH
-#pragma pop
-#endif
-
-int pl_800386E8(pl_800386E8_arg0_t* arg0)
-{
-    int temp = arg0->unk_190 + arg0->unk_5AC;
-    return temp + arg0->unk_5B0;
-}
-
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-int fn_80038700(const int* arg0, int arg1, int arg2)
-{
-    int sum = 0;
-    int i;
-
-    for (i = arg1; i <= arg2; i++) {
-        sum += arg0[i + 1];
-    }
-    return sum;
-}
-#ifdef MUST_MATCH
-#pragma pop
-#endif
-
 void pl_80038788(int player, int kind, int arg2)
 {
     setPointValue(player, kind, arg2);
@@ -107,8 +69,7 @@ void pl_8003891C(int player)
 {
     int i;
     pl_StaleMoveTableExt_t* temp_r31;
-    /// @todo This aint it
-    volatile int temp_zero;
+    union Struct2070 zero;
 
     temp_r31 = Player_GetStaleMoveTableIndexPtr2(player);
     plStale_ResetStaleMoveTableForPlayer(player);
@@ -149,12 +110,9 @@ void pl_8003891C(int player)
     temp_r31->x0_staleMoveTable.xCAC = 6;
     temp_r31->x0_staleMoveTable.xCB4 = 0;
 
-    /// @todo What?
-    {
-        temp_zero = 0;
-        temp_r31->x0_staleMoveTable.xCB8 = 6;
-        *(int*) &temp_r31->x0_staleMoveTable.xCBC = temp_zero;
-    }
+    zero.x2070_int = 0;
+    temp_r31->x0_staleMoveTable.xCB8 = 6;
+    temp_r31->x0_staleMoveTable.xCBC = zero;
 
     temp_r31->x0_staleMoveTable.xCC0.x0 = 0;
     temp_r31->x0_staleMoveTable.xCC0.x4 = 0;
@@ -1203,7 +1161,7 @@ void fn_8003CC84(int player)
                     break;
                 }
             }
-            if (ftLib_8008732C(temp_r29) == 0) {
+            if (ftLib_IsDead(temp_r29) == 0) {
                 if (ft_800898C0(temp_r29) != 0) {
                     setFlag(player, 0x8B);
                 }

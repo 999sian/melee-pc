@@ -76,7 +76,7 @@ struct plActionStats {
             u32 x500;
         };
     };
-    /* +504 */ u8 x504[StatsAttack_Count]; ///< related to UnkPlBonusBits
+    /* +504 */ u8 x504[StatsAttack_Count]; ///< indexed by Struct2070::x2073
     /// Counters for attack ids >= #StatsAttack_Count, indexed by id - 0x60.
     /// Retail reaches these by running off the end of #by_attack_hi.
     /* +568 */ union {
@@ -94,9 +94,9 @@ struct plActionStats {
             u32 x58C;
             u32 x590;
             u32 x594;
-            u32 x598[8];
         };
     };
+    /* +598 */ u32 x598[8];
     /* +5B8 */ u8 x5B8[4];
     /* +5BC */ u8 x5BC_b0 : 1;
     /* +5BC */ u8 x5BC_b1 : 1;
@@ -171,7 +171,7 @@ struct StaleMoveTable {
     /* +CB0 */ int xCB0;
     /* +CB4 */ int xCB4;
     /* +CB8 */ int xCB8;
-    /* +CBC */ UnkPlBonusBits xCBC;
+    /* +CBC */ union Struct2070 xCBC;
     /* +CC0 */ ft_800898B4_t xCC0;
     /* +CD4 */ u16 xCD4;
     /* +CD8 */ int xCD8;

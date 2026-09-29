@@ -35,6 +35,7 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/sislib.h>
+#include <sysdolphin/baselib/sislib_font.h>
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
 
@@ -51,7 +52,7 @@
                                            float x, float y, float z);
 /* 313774 */ static void _tyList_80313774(void);
 /* 31438C */ static void _tyList_8031438C(HSD_GObj* arg0);
-/* 314504 */ static void _tyList_80314504(HSD_GObj* gobj, int);
+/* 314504 */ static void _tyList_80314504(HSD_GObj* gobj, intptr_t);
 /* 31457C */ static void _tyList_8031457C(void);
 /* 3148E4 */ static void _tyList_803148E4(s32 arg0);
 /* 4A2AC0 */ static TyListState _tyList_804A2AC0;
@@ -108,7 +109,7 @@ char* _tyList_80312834(char* buf, u32 num)
  * the TyListArg every caller passes. Its GameCube byte offsets stop matching
  * TyListArg's fields once the three leading pointer arrays are 8 bytes wide,
  * so address the real struct instead. */
-void _tyList_80312904(TyListArg* row, s8 arg1)
+static void _tyList_80312904(TyListArg* row, s8 arg1)
 {
     TyListState* state = &_tyList_804A2AC0;
     f32 f30;
@@ -900,7 +901,7 @@ void _tyList_8031438C(HSD_GObj* gobj)
     HSD_GObj_80390CD4(entry->x0);
 }
 
-void _tyList_80314504(HSD_GObj* gobj, int unused)
+void _tyList_80314504(HSD_GObj* gobj, intptr_t unused)
 {
     /* Was a `TyListData` overlay reading byte 0x28 of the GObj: that is
      * HSD_GObj::hsd_obj on GameCube, but not on a 64-bit host. */

@@ -1,10 +1,12 @@
+#include <melee/it/forward.h>
+
 #include "db.h"
-#include "dbitem.static.h"
 #include <melee/ef/efsync.h>
 #include <melee/ft/ftlib.h>
 #include <melee/gm/gm_unsplit.h>
 #include <melee/if/textdraw.h>
 #include <melee/if/textlib.h>
+#include <melee/if/types.h>
 #include <melee/it/inlines.h>
 #include <melee/it/it_26B1.h>
 #include <melee/it/it_3F14.h>
@@ -13,6 +15,100 @@
 #include <melee/it/types.h>
 #include <melee/pl/player.h>
 #include <sysdolphin/baselib/gobj.h>
+
+/* 49FA50 */ static char db_ItemAndPokemonMenuText_buf[0x50];
+
+/* 4D6B38 */ static DevText* db_ItemAndPokemonMenuText;
+/* 4D6B3C */ static int db_ShowItemCollisionBubbles;
+
+static struct {
+    unsigned int DisplayStatus; // 0=uninitialized, 1=visible, 2=hidden
+    unsigned int DisplayFadeTimer;
+    int ItemSpawnsEnabled;
+    int Player;
+    int CurrentlySelectedItem;
+    int CurrentlySelectedPokemon;
+    ItemKind LastSelectedItem;
+    int LastSelectedPokemon;
+    u32 ShowEnemyStompRange : 1;
+    u32 ShowItemPickupRange : 1;
+    u32 ShowCoinPickupRange : 1;
+} db_ItemAndPokemonMenu;
+
+/* 3EA94C */ static char* db_ItemNames[] = {
+    // clang-format off
+    "Capsule ",
+    "Box     ",
+    "Taru    ",
+    "Egg     ",
+    "Kusudama",
+    "TaruCann",
+    "BombHei ",
+    "Dosei   ",
+    "Heart   ",
+    "Tomato  ",
+    "Star    ",
+    "Bat     ",
+    "Sword   ",
+    "Parasol ",
+    "G Shell ",
+    "R Shell ",
+    "L Gun   ",
+    "Freeze  ",
+    "Foods   ",
+    "MSBomb  ",
+    "Flipper ",
+    "S Scope ",
+    "StarRod ",
+    "LipStick",
+    "Harisen ",
+    "F Flower",
+    "Kinoko  ",
+    "DKinoko ",
+    "Hammer  ",
+    "WStar   ",
+    "ScBall  ",
+    "RabbitC ",
+    "MetalB  ",
+    "Spycloak",
+    "M Ball  ",
+    // clang-format on
+};
+
+/* 3EAA50 */ static char* db_PokemonNames[] = {
+    "Random",      "Tosakinto", "Chicorita", "Kabigon",    "Kamex",
+    "Matadogas",   "Lizardon",  "Fire",      "Thunder",    "Freezer",
+    "Sonans",      "Hassam",    "Unknown",   "Entei",      "Raikou",
+    "Suikun",      "Kireihana", "Marumine",  "Lugia",      "Houou",
+    "Metamon",     "Pippi",     "Togepy",    "Mew",        "Cerebi",
+    "Hitodeman",   "Lucky",     "Porygon2",  "Hinoarashi", "Maril",
+    "Fushigibana",
+};
+
+/* 3EAAFC */ static char* db_BarrelEnemies[] = { "Kuriboh ", "Leadead ",
+                                                 "Octarock", "Ottosei " };
+
+/* 3EABA8 */ static char* db_AdventureEnemies[26] = {
+    // clang-format off
+    "old-Kuri",
+    "Mato    ",
+    "Heiho   ",
+    "Nokonoko",
+    "Patapata",
+    "likelike",
+    "old-lead",
+    "old-octa",
+    "old-otto",
+    "whitebea",
+    "klap    ",
+    "zgshell ",
+    "zrshell ",
+    // clang-format on
+};
+
+static char unused_db_string_803EAC10[] =
+    "Item=%d Foods=%d Yaku=%d Sp_Item=%d Pokemon=%d PokeShot=%d CZako=%d "
+    "CZakoShot=%d Zako=%d ZakoShot=%d Shot=%d Etc=%d\n";
 
 void fn_SetupItemAndPokemonMenu(void)
 {
@@ -181,11 +277,6 @@ void db_80225D64(Item_GObj* item, Fighter_GObj* owner)
     it->xDAA_byte |= db_ShowItemCollisionBubbles;
 }
 
-/// @todo avoid auto-inlining into fn_CheckItemAndPokemonMenu
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void fn_ToggleItemCollisionBubbles(void)
 {
     HSD_GObj* item_gobj;
@@ -203,14 +294,11 @@ void fn_ToggleItemCollisionBubbles(void)
         item_gobj = item_gobj->next;
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void db_80225DD8(Item_GObj* item, Fighter_GObj* owner)
 {
     Item* it = GET_ITEM(item);
-    if (ftLib_80086960(owner) == 0) {
+    if (ftLib_IsFighter(owner) == 0) {
         it = GET_ITEM(item);
         it->xDAA_byte |= db_ShowItemCollisionBubbles;
         // db_80225D64(item, owner); // stack too big
@@ -418,6 +506,15 @@ void db_CheckAndSpawnItem(int player)
     }
 }
 
+static inline void checkToggleCollisionBubbles(int player)
+{
+    if (db_ButtonsDown(player) & HSD_PAD_R &&
+        db_ButtonsPressed(player) & HSD_PAD_DPADUP)
+    {
+        fn_ToggleItemCollisionBubbles();
+    }
+}
+
 void fn_CheckItemAndPokemonMenu(int player)
 {
     if (db_ItemAndPokemonMenu.DisplayStatus == 1 &&
@@ -435,10 +532,6 @@ void fn_CheckItemAndPokemonMenu(int player)
     if (gm_GetDbPauseFlag(1) == 0 && gm_GetDbPauseFlag(0) == 0) {
         db_CheckAndSpawnItem(player);
     }
-    if (db_ButtonsDown(player) & HSD_PAD_R &&
-        db_ButtonsPressed(player) & HSD_PAD_DPADUP)
-    {
-        fn_ToggleItemCollisionBubbles();
-    }
+    checkToggleCollisionBubbles(player);
     fn_80225A54(player);
 }

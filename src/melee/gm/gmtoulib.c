@@ -38,6 +38,8 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/wobj.h>
 
+/* 4771C4 */ TmData gm_804771C4;   // must not be static
+
 int lbl_804D663C;
 HSD_Archive* lbl_804D6638;
 
@@ -1622,7 +1624,7 @@ void fn_8018DF68(BracketEntry* arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4,
     }
 }
 
-void fn_8018E46C(HSD_GObj* gobj, int unused)
+void fn_8018E46C(HSD_GObj* gobj, intptr_t unused)
 {
     BracketEntry* data;
     s32 temp;

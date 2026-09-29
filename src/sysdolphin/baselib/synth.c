@@ -10,6 +10,7 @@
 #include "synth.static.h"
 #include <dolphin/ai.h>
 #include <dolphin/ar.h>
+#include <dolphin/ax.h>
 #include <dolphin/os.h>
 
 /* Cached once: getenv() scans the whole environment, and these guards sit

@@ -3,6 +3,7 @@
 
 #include <Runtime/platform.h>
 
+#include <dolphin/gx/GXStruct.h>
 #include <melee/sc/types.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/displayfunc.h>
@@ -39,11 +40,13 @@ static inline HSD_CameraAnim* vi_SceneFogAnim(SceneDesc* s, int i)
               DP(DiscU32, DP(struct SceneFogDesc, s->fogs)->anims)[i].v);
 }
 
-static inline void vi_RunCamera(HSD_GObj* gobj, u8 erase_colors[4], u64 prio)
+static inline void vi_RunCamera(HSD_GObj* gobj, GXColor* erase_color, u64 prio)
 {
-    if (HSD_CObjSetCurrent(GET_COBJ(gobj))) {
-        HSD_SetEraseColor(erase_colors[0], erase_colors[1], erase_colors[2],
-                          erase_colors[3]);
+    HSD_CObj* cobj = GET_COBJ(gobj);
+
+    if (HSD_CObjSetCurrent(cobj)) {
+        HSD_SetEraseColor(erase_color->r, erase_color->g, erase_color->b,
+                          erase_color->a);
         HSD_CObjEraseScreen(GET_COBJ(gobj), 1, 0, 1);
         vi_8031CA04(gobj);
         gobj->gxlink_prios = prio;
@@ -51,5 +54,6 @@ static inline void vi_RunCamera(HSD_GObj* gobj, u8 erase_colors[4], u64 prio)
         HSD_CObjEndCurrent();
     }
 }
+
 
 #endif

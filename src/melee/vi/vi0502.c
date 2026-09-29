@@ -48,16 +48,13 @@ static HSD_Archive* un_804D6F98;
 static HSD_Archive* un_804D6F9C;
 static GXColor erase_colors_vi0502;
 static HSD_GObj* kirby_gobj;
-ViCharaDesc* un_804D6FA8[2];
+u8 un_804D6FA8[8]; ///< @todo #ViCharaDesc?
 
 void un_8031E110(int arg0, int arg1, int arg2)
 {
-    u8* p;
-
-    *(u8*) &un_804D6FA8 = arg0;
-    p = (u8*) &un_804D6FA8;
-    p[1] = arg1;
-    p[3] = arg2;
+    un_804D6FA8[0] = arg0;
+    un_804D6FA8[1] = arg1;
+    un_804D6FA8[3] = arg2;
 }
 
 void vi0502_8031E124(CharacterKind player_kind, int player_costume,
@@ -66,8 +63,9 @@ void vi0502_8031E124(CharacterKind player_kind, int player_costume,
     HSD_JObj* jobj;
     HSD_JObj* jobj2;
     VecMtxPtr pmtx;
+    Vec3 pos;
 
-    PAD_STACK(32);
+    PAD_STACK(16);
     Stage_InitScene(St_Kind_Greens, 0);
     Item_80266FA8();
     Item_80266FCC();
@@ -81,7 +79,7 @@ void vi0502_8031E124(CharacterKind player_kind, int player_costume,
     Player_80036E20(player_kind, un_804D6F94, 3);
     Player_SetPlayerCharacter(0, player_kind);
     Player_SetCostumeId(0, player_costume);
-    Player_SetPlayerId(0, 0);
+    Player_SetPadPort(0, 0);
     Player_SetSlottype(0, Gm_PKind_Demo);
     Player_SetFacingDirection(0, 1.0f);
     Player_80032768(0, &un_804000D0.initial_pos);
@@ -90,7 +88,7 @@ void vi0502_8031E124(CharacterKind player_kind, int player_costume,
     Player_80036E20(CKind_Kirby, un_804D6F9C, 7);
     Player_SetPlayerCharacter(1, CKind_Kirby);
     Player_SetCostumeId(1, kirby_costume);
-    Player_SetPlayerId(1, 0);
+    Player_SetPadPort(1, 0);
     Player_SetSlottype(1, Gm_PKind_Demo);
     Player_SetFacingDirection(1, -1.0f);
     Player_80036F34(1, 14);
@@ -101,7 +99,8 @@ void vi0502_8031E124(CharacterKind player_kind, int player_costume,
     HSD_JObjAnimAll(jobj);
     jobj2 = GET_JOBJ(kirby_gobj);
     pmtx = grLib_801C9A10();
-    HSD_JObjGetTranslation2(jobj2, &pmtx[1]);
+    HSD_JObjGetTranslation(jobj2, &pos);
+    pmtx[1] = pos;
 
     HSD_JObjReqAnimAll(jobj, 0.0f);
 
@@ -116,11 +115,10 @@ void vi0502_8031E304(HSD_GObj* gobj)
     HSD_JObjAnimAll(GET_JOBJ(gobj));
 }
 
-static void vi0502_GObj_OnRender(HSD_GObj* gobj, UNUSED int code)
+static void vi0502_GObj_OnRender(HSD_GObj* gobj, UNUSED intptr_t code)
 {
-    PAD_STACK(8);
     lbShadow_8000F38C(0);
-    vi_RunCamera(gobj, (u8*) &erase_colors_vi0502, 0x281);
+    vi_RunCamera(gobj, &erase_colors_vi0502, 0x281);
 }
 
 void vi0502_GObj_OnProc(HSD_GObj* gobj)
@@ -186,8 +184,7 @@ void vi0502_Scene_OnEnter(void* arg)
     camera_gobj = GObj_Create(0x13, 0x14, 0);
     cobj = lb_80013B14(vi_SceneCamDesc(un_804D6F90));
     HSD_GObjObject_80390A70(camera_gobj, HSD_GObj_CameraKind, cobj);
-    GObj_SetupGXLinkMax(camera_gobj,
-                        (void (*)(HSD_GObj*, int)) vi0502_GObj_OnRender, 5);
+    GObj_SetupGXLinkMax(camera_gobj, vi0502_GObj_OnRender, 5);
     HSD_CObjAddAnim(cobj, vi_SceneCamAnim(un_804D6F90, 0));
     HSD_CObjReqAnim(cobj, 0.0F);
     HSD_CObjAnim(cobj);

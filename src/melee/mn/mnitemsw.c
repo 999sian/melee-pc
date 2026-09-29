@@ -78,10 +78,12 @@ u8 mnItemSw_803ED438[32] = {
 
 static f32 mnItemSw_804D4BA0[2] = { 0.0f, 1.0f };
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
+// Some routines address the adjacent data blocks as one table.
+static inline struct MnItemSwTable* mnItemSw_GetTable(void)
+{
+    return (struct MnItemSwTable*) mnItemSw_803ED340;
+}
+
 s32 mnItemSw_80233A98(s32 arg0)
 {
     switch (arg0) {
@@ -100,9 +102,6 @@ s32 mnItemSw_80233A98(s32 arg0)
         return (s32) mnItemSw_AnimTable.items[arg0];
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void mnItemSw_80233B68(MnItemSwData* arg0, u32 arg1)
 {
@@ -315,9 +314,9 @@ HSD_JObj* mnItemSw_8023405C(MnItemSwData* data, u8 idx)
     return cur;
 }
 
-static inline s32 mnItemSw_GetItemAnim(s32 i)
+static inline s32 mnItemSw_GetItemAnim(const u8* order, s32 i)
 {
-    return mnItemSw_80233A98((s32) mnItemSw_803ED438[i]);
+    return mnItemSw_80233A98(order[i]);
 }
 
 static inline void mnItemSw_SetCursorPosition(MnItemSwData* data)
@@ -385,7 +384,7 @@ void mnItemSw_80234104(HSD_GObj* gobj)
         }
 
         lb_80011E24(jobj, &item_jobj, 3, -1);
-        item_anim = mnItemSw_GetItemAnim(i);
+        item_anim = mnItemSw_GetItemAnim(mnItemSw_803ED438, i);
         HSD_JObjReqAnimAll(item_jobj, (f32) item_anim);
         HSD_JObjAnimAll(item_jobj);
         HSD_JObjReqAnimAll(item_jobj, mnItemSw_AnimTable.x30[0]);

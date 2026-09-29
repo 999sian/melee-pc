@@ -199,9 +199,6 @@ typedef struct fn_8017F14C_arg {
     /* 0x98 */ s32 x98;
 } fn_8017F14C_arg;
 
-#ifdef MUST_MATCH
-#pragma dont_inline on
-#endif
 s32 fn_8017F14C(void* arg0)
 {
     fn_8017F14C_arg* p = arg0;
@@ -216,9 +213,6 @@ s32 fn_8017F14C(void* arg0)
     }
     return 0;
 }
-#ifdef MUST_MATCH
-#pragma dont_inline off
-#endif
 
 s32 fn_8017F1B8(void)
 {
@@ -705,8 +699,8 @@ void fn_8017FF1C(HSD_GObj* gobj)
         }
 
         {
-            u64 buttons = gm_GetButtonsTriggered(Player_GetPlayerId(0));
-            u64 repeat = gm_801A36C0(Player_GetPlayerId(0));
+            u64 buttons = gm_GetButtonsTriggered(Player_GetPadPort(0));
+            u64 repeat = gm_801A36C0(Player_GetPadPort(0));
             if (((repeat | buttons) & (PAD_BUTTON_DOWN | PAD_STICK_DOWN)) |
                 ((repeat | buttons) & 0))
             {
@@ -724,8 +718,8 @@ void fn_8017FF1C(HSD_GObj* gobj)
                     }
                 }
             } else {
-                buttons = gm_GetButtonsTriggered(Player_GetPlayerId(0));
-                repeat = gm_801A36C0(Player_GetPlayerId(0));
+                buttons = gm_GetButtonsTriggered(Player_GetPadPort(0));
+                repeat = gm_801A36C0(Player_GetPadPort(0));
                 if (((repeat | buttons) & (PAD_BUTTON_UP | PAD_STICK_UP)) |
                     ((repeat | buttons) & 0))
                 {
@@ -759,7 +753,7 @@ void fn_8017FF1C(HSD_GObj* gobj)
 
     for (i = 0; i < 6; i++) {
         if (Player_GetPlayerSlotType(i) == Gm_PKind_Human &&
-            (HSD_PadMasterStatus[(u8) Player_GetPlayerId(i)].trigger &
+            (HSD_PadMasterStatus[(u8) Player_GetPadPort(i)].trigger &
              HSD_PAD_A))
         {
             data.state->xFC = data.state->x104;
@@ -771,7 +765,7 @@ void fn_8017FF1C(HSD_GObj* gobj)
     if (data.state->x110 > 0x3EU) {
         for (i = 0; i < 6; i++) {
             if (Player_GetPlayerSlotType(i) == Gm_PKind_Human &&
-                (HSD_PadMasterStatus[(u8) Player_GetPlayerId(i)].trigger &
+                (HSD_PadMasterStatus[(u8) Player_GetPadPort(i)].trigger &
                  0x1000))
             {
                 data.state->xFC = data.state->x104;
@@ -870,6 +864,13 @@ s32 fn_801803FC(void* arg0)
     fn_8017FBA4(arg0);
     return fn_8017FA1C(arg0);
     PAD_STACK(4);
+}
+
+static inline void setScoreBonuses(struct lbl_80472D28_t* state,
+                                   MatchEnd* result)
+{
+    state->xD0 = fn_8017F09C();
+    state->xDC = fn_8017F14C(result);
 }
 
 static inline HSD_GObj* fn_80180630_CreateCameraGObj(void)
@@ -1011,8 +1012,7 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3, MatchEnd* arg4)
     }
 
     if (state->x118 == 0) {
-        state->xD0 = fn_8017F09C();
-        state->xDC = fn_8017F14C(arg4);
+        setScoreBonuses(state, arg4);
     }
 
     if (state->x117 != 0) {

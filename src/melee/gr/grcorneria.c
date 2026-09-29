@@ -556,10 +556,6 @@ bool grCorneria_801DD52C(void)
     return false;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 HSD_GObj* grCorneria_801DD534(int arg0)
 {
     HSD_GObj* gobj;
@@ -588,9 +584,6 @@ HSD_GObj* grCorneria_801DD534(int arg0)
 
     return gobj;
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void grCorneria_801DD620(Ground_GObj* gobj)
 {
@@ -2151,7 +2144,7 @@ void grCorneria_801E1348(Ground_GObj* gobj)
         {
             HSD_GObj* fighter = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
             while (fighter != NULL) {
-                ftLib_80086644(fighter, &fighter_pos);
+                ftLib_GetPos(fighter, &fighter_pos);
                 if (ABS(cannon_pos.y - fighter_pos.y) <= 10.0f) {
                     found = 1;
                     break;
@@ -2232,9 +2225,7 @@ void grCorneria_801E1878(Ground_GObj* gobj)
     HSD_JObj* target_jobj = tmp;
 
     /// @remarks Splitting the pad around a scoped @c pos places the vector
-    /// at sp+0x18 as in the target; a function-scope @c pos with a single
-    /// PAD_STACK(16) leaves it at sp+0x24 (six reg-save/load instructions
-    /// arg-mismatch, 99.90%).
+    /// at sp+0x18 as in the target.
     PAD_STACK(8);
     {
         Vec3 pos;
@@ -2459,7 +2450,7 @@ HSD_Generator* grCorneria_801E2480(Vec3* vec, s32 arg1)
 }
 
 /// This triggers for both Corneria and Venom
-void smashTaunt_801E24AC(Ground_GObj* gobj, int renderpass)
+void smashTaunt_801E24AC(Ground_GObj* gobj, intptr_t renderpass)
 {
     Ground* gp = GET_GROUND(gobj);
     PAD_STACK(8);
@@ -2510,14 +2501,15 @@ static inline void grCn_HideJointPair(HSD_GObj* gobj, s16* joints)
     }
 }
 
-static inline void grCn_SetupSmashTaunt(struct grSmashTaunt_GroundVars* gv,
-                                        int line, int arg3, int arg4,
-                                        HSD_GObj* gobj)
+void grCorneria_801E25C4(HSD_GObj* gobj, struct grSmashTaunt_GroundVars* gv,
+                         int line, int arg3, int arg4)
 {
-    int joint1;
-    int joint0;
-    int i;
     s16* joints;
+    int i;
+    int joint0;
+    int joint1;
+    PAD_STACK(8);
+
     gv->line = line;
     gv->sis_data_idx = arg3;
     gv->sound_id = arg4;
@@ -2545,26 +2537,12 @@ static inline void grCn_SetupSmashTaunt(struct grSmashTaunt_GroundVars* gv,
     HSD_JObjAnimAll(gobj->hsd_obj);
 }
 
-void grCorneria_801E25C4(HSD_GObj* gobj, struct grSmashTaunt_GroundVars* gv,
-                         int line, int arg3, int arg4)
-{
-    PAD_STACK(8);
-    grCn_SetupSmashTaunt(gv, line, arg3, arg4, gobj);
-}
-
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void grCorneria_801E2738(HSD_GObj* gobj, void* ptr, u32 idx1, u32 idx2)
 {
     grCorneria_801E25C4(gobj, ptr, grCn_803E2204[idx1][idx2].data[0],
                         grCn_803E2204[idx1][idx2].data[1],
                         grCn_803E2204[idx1][idx2].data[2]);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 const GXColor grCn_804DB24C = { 0xFF, 0xFF, 0xFF, 0xFF };
 
@@ -2681,54 +2659,39 @@ void grCorneria_801E2AF4(void)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-bool grCorneria_801E2B80(void)
+static inline bool startTalk(int talk, int venom_talk)
 {
-    int rand;
     HSD_GObj* wgobj;
-    PAD_STACK(44);
+    int rand;
 
     if (stage_info.grkind == Gr_Kind_Corneria) {
         if (Ground_GetMapGObj(12) != NULL) {
             return false;
         }
-        rand = HSD_Randi(5) + 8;
+        rand = HSD_Randi(5) + talk;
         wgobj = grCorneria_801DD534(12);
         HSD_ASSERT(3598, wgobj);
         grCorneria_801E0F34(wgobj, rand);
         return true;
     } else if (stage_info.grkind == Gr_Kind_Venom) {
-        return grVenom_80206BF0(2);
+        return grVenom_80206BF0(venom_talk);
     }
     return true;
+}
+
+bool grCorneria_801E2B80(void)
+{
+    PAD_STACK(44);
+
+    return startTalk(8, 2);
 }
 
 bool grCorneria_801E2C34(void)
 {
-    int rand;
-    HSD_GObj* wgobj;
     PAD_STACK(44);
 
-    if (stage_info.grkind == Gr_Kind_Corneria) {
-        if (Ground_GetMapGObj(12) != NULL) {
-            return false;
-        }
-        rand = HSD_Randi(5) + 13;
-        wgobj = grCorneria_801DD534(12);
-        HSD_ASSERT(3598, wgobj);
-        grCorneria_801E0F34(wgobj, rand);
-        return true;
-    } else if (stage_info.grkind == Gr_Kind_Venom) {
-        return grVenom_80206BF0(20);
-    }
-    return true;
+    return startTalk(13, 20);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 bool grCorneria_801E2CE8(void)
 {

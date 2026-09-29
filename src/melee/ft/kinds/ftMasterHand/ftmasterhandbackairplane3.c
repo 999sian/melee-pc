@@ -20,7 +20,7 @@ void ftMh_BackAirplane3_Anim(HSD_GObj* gobj)
 void ftMh_BackAirplane3_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -38,7 +38,7 @@ void ftMh_MS_369_80153B90(HSD_GObj* gobj)
     ftMasterHand_SpecialAttrs* da = DP(ftMasterHand_SpecialAttrs, fp->ft_data->ext_attr);
     Vec3 pos;
 
-    Fighter_ChangeMotionState(gobj, ftMh_MS_BackPunch, 0, 0, 1, 0, 0);
+    Fighter_ChangeMotionState(gobj, ftMh_MS_BackPunch, Ft_MF_None, 0, 1, 0, 0);
     ftAnim_8006EBA4(gobj);
     fp->mv.mh.unk0.x0 = da->x6C;
     ftBossLib_8015C208(gobj, &pos);
@@ -59,7 +59,7 @@ void ftMh_BackPunch_Anim(HSD_GObj* gobj)
 void ftMh_BackPunch_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }

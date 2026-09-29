@@ -126,7 +126,7 @@
 /* 1C0C2C */ static void Ground_801C0C2C(HSD_GObj*);
 /* 1C1CD0 */ static void Ground_801C1CD0(HSD_GObj*);
 /* 1C1D38 */ static void Ground_801C1D38(HSD_GObj*);
-/* 1C1E2C */ static void Ground_801C1E2C(HSD_GObj* gobj, int code);
+/* 1C1E2C */ static void Ground_801C1E2C(HSD_GObj* gobj, intptr_t code);
 /* 1C1E94 */ static void Ground_801C1E94(void);
 /* 1C20E0 */ static DiscU32* Ground_801C20E0(UnkArchiveStruct*, DiscU32*);
 /* 1C24F8 */ static bool Ground_801C24F8(StKind stkind, u32, s32*);
@@ -609,8 +609,8 @@ void Ground_801C0C2C(HSD_GObj* arg0)
 
     if (stage_info.unk8C.b6 || stage_info.unk8C.b7) {
         HSD_GObj* gobj = Ground_GetP1Fighter();
-        if (gobj != NULL && !ftLib_8008701C(gobj)) {
-            ftLib_80086644(gobj, &sp50);
+        if (gobj != NULL && !ftLib_IsSleeping(gobj)) {
+            ftLib_GetPos(gobj, &sp50);
             if (stage_info.unk8C.b6) {
                 int i;
                 bool result = pass_x_bounds = pass_y_min =
@@ -1072,7 +1072,7 @@ s32 Ground_801C1E18(void)
     return stage_info.unk8C.b2;
 }
 
-void Ground_801C1E2C(HSD_GObj* gobj, int code)
+void Ground_801C1E2C(HSD_GObj* gobj, intptr_t code)
 {
     bool stage_is_something;
     HSD_JObj* jobj;
@@ -1096,7 +1096,7 @@ HSD_GObj* Ground_801C1E84(void)
 
 /// void Camera_SetBackgroundColor(u8, u8, u8);     /* extern */
 /// UnkStruct3* grDatFiles_801C6330(int); /* extern */
-/// void Ground_801C1E2C(HSD_GObj*, int); /* extern */
+/// void Ground_801C1E2C(HSD_GObj*, intptr_t); /* extern */
 /// extern s8 HSD_GObj_FogKind;
 /// extern float @330;
 
@@ -2594,7 +2594,7 @@ static void Ground_801C461C(HSD_GObj* gobj)
     Ground_801C445C(gobj->hsd_obj);
 }
 
-static void Ground_801C4640(HSD_GObj* gobj, int unused)
+static void Ground_801C4640(HSD_GObj* gobj, intptr_t unused)
 {
     HSD_LObj_803668EC(gobj->hsd_obj);
     HSD_LObjSetupInit(HSD_CObjGetCurrent());

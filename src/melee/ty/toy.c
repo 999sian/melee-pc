@@ -66,7 +66,7 @@ typedef struct ToyUnkJObjData {
 /* 3062EC */ static void _Toy_803062EC(s32 arg0, u32 arg1, f32 farg0);
 /* 3064B8 */ static s16 _Toy_803064B8(s16 arg0, s8 arg1);
 /* 30663C */ static void _Toy_8030663C(void);
-/* 306A0C */ static void _Toy_80306A0C(HSD_GObj* arg0, int);
+/* 306A0C */ static void _Toy_80306A0C(HSD_GObj* arg0, intptr_t);
 /* 306C5C */ static void _Toy_80306C5C(HSD_GObj* arg0);
 /* 307018 */ static void _Toy_80307018(void);
 /* 30715C */ static void _Toy_8030715C(f32, f32);
@@ -90,7 +90,7 @@ typedef struct ToyUnkJObjData {
 /* 3114E8 */ static void _Toy_803114E8(void);
 /* 311788 */ static void _Toy_80311788(void);
 /* 311F5C */ static void _Toy_80311F5C(void);
-/* 312050 */ static void _Toy_80312050(HSD_GObj* gobj, int code);
+/* 312050 */ static void _Toy_80312050(HSD_GObj* gobj, intptr_t code);
 
 bool un_80304470(void)
 {
@@ -1837,7 +1837,7 @@ void Toy_803067BC(s32 arg0, s32 arg1)
     }
 }
 
-void Toy_803068E0(HSD_GObj* gobj, int unused)
+void Toy_803068E0(HSD_GObj* gobj, intptr_t unused)
 {
     if (HSD_CObjSetCurrent(gobj->hsd_obj) != 0) {
         HSD_GObj_80390ED0(gobj, 7);
@@ -1846,12 +1846,12 @@ void Toy_803068E0(HSD_GObj* gobj, int unused)
     }
 }
 
-void Toy_80306930(HSD_GObj* gobj, int unused)
+void Toy_80306930(HSD_GObj* gobj, intptr_t unused)
 {
     HSD_FogSet(gobj->hsd_obj);
 }
 
-void Toy_80306954(HSD_GObj* gobj, int unused)
+void Toy_80306954(HSD_GObj* gobj, intptr_t unused)
 {
     ToyCameraControl* state;
 
@@ -1870,7 +1870,7 @@ void Toy_80306954(HSD_GObj* gobj, int unused)
     }
 }
 
-void _Toy_80306A0C(HSD_GObj* arg0, int unused)
+void _Toy_80306A0C(HSD_GObj* arg0, intptr_t unused)
 {
     HSD_Fog* fog = GET_FOG(arg0);
 
@@ -2775,11 +2775,6 @@ void Toy_803083D8(HSD_JObj* jobj, s32 arg1)
     HSD_JObjAnim(jobj);
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma peephole on
-#endif
-
 void _Toy_803084A0(s32 arg0)
 {
     volatile GXColor color;
@@ -2887,10 +2882,6 @@ void _Toy_803084A0(s32 arg0)
     HSD_SisLib_803A6368(display->x14C, Toy_803063D4(id, 0x128, 0x37A));
     HSD_SisLib_803A6368(display->x150, Toy_803063D4(id, 0x24E, 0x380));
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 HSD_GObj* Toy_803087F4(void* arg0)
 {
@@ -3248,11 +3239,6 @@ f32 _Toy_80309338(Vec3* arg0, Vec3* arg1)
     }
     return var_f1;
 }
-
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline off
-#endif
 
 static inline void _Toy_ReadTrigger(u32* out)
 {
@@ -3974,10 +3960,6 @@ void _Toy_80309404(HSD_GObj* gobj)
     state->x48 = state->x40;
     state->x4C = state->x44;
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 /// trophy/lighting debug viewer
 void _Toy_8030B530(HSD_GObj* arg0)
@@ -6431,7 +6413,7 @@ void Toy_Scene_OnFrame(void)
     }
 }
 
-void _Toy_80312050(HSD_GObj* gobj, int code)
+void _Toy_80312050(HSD_GObj* gobj, intptr_t code)
 {
     HSD_CObj* cobj;
     TyViewData* data;

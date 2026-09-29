@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 
-#include "ftKb_Init.static.h"
 #include "ftkirbyattackdash.h"
 #include "ftkirbyspecialdonkey.h"
 #include "ftkirbyspecialgamewatch.h"
@@ -37,6 +36,13 @@
 #include <sysdolphin/baselib/id.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
+
+typedef struct ftKirby_CostumeArchive {
+    /* +0 */ HSD_Joint* joint;
+    /* +4 */ HSD_MatAnimJoint* matanim;
+} ftKirby_CostumeArchive;
+
+extern HSD_GObjEvent ftKb_Init_803C9CC8[];
 
 /* 459C10 */ UnkCostumeStruct ftKb_CostumeList[6];
 /* 459B88 */ struct ft_80459B88_t ft_80459B88;
@@ -2553,10 +2559,10 @@ void ftKb_Init_OnDeath(HSD_GObj* gobj)
     fp->u.kb.hat.x14.data = 0;
     fp->u.kb.x60 = 0;
     fp->u.kb.x64 = 0;
-    if (Player_GetFlagsBit1(fp->player_id) &&
-        Player_GetUnk4D(fp->player_id) != 4)
+    if (Player_GetFlagsBit1(fp->player_idx) &&
+        Player_GetUnk4D(fp->player_idx) != 4)
     {
-        ftKb_SpecialN_800F1BAC(gobj, Player_GetUnk4D(fp->player_id), 0);
+        ftKb_SpecialN_800F1BAC(gobj, Player_GetUnk4D(fp->player_idx), 0);
     }
 }
 
@@ -2569,7 +2575,7 @@ void ftKb_Init_OnLoad(HSD_GObj* gobj)
 
     fp->can_multijump = true;
     fp->x2D0 = fp->dat_attrs;
-    fp->u.kb.hat.x8_b0 = Player_GetFlagsAEBit1(fp->player_id);
+    fp->u.kb.hat.x8_b0 = Player_GetFlagsAEBit1(fp->player_idx);
     it_8026B3F8(DP(Article, item_list[0].v), It_Kind_Kirby_CBeam);
     it_8026B3F8(DP(Article, item_list[1].v), It_Kind_Kirby_Hammer);
     it_8026B3F8(DP(Article, item_list[2].v), It_Kind_Unk1);
@@ -2859,7 +2865,7 @@ void ftKb_SpecialN_800EF040(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
         struct Fighter_804D6540_t* ft_data =
             DP(struct Fighter_804D6540_t, Fighter_804D6540[fp->kind].v);
         int count = ft_data->x4;
-        HSD_Joint* joint = ftKb_Init_803C9FC8[arg1][fp->x619_costume_id].joint;
+        HSD_Joint* joint = ftKb_Init_803C9FC8[arg1][fp->costume_id].joint;
         struct Fighter_804D6540_x0_t* parts =
             DP(struct Fighter_804D6540_x0_t, ft_data->x0);
         int i;
@@ -2936,7 +2942,7 @@ void ftKb_SpecialN_800EF0E4(Fighter_GObj* gobj, int arg1, u8* arg2)
     s32 byte_base;
 
     ftPartsPObjSetDefaultClass();
-    root = ftKb_Init_803C9FC8[arg1][fp->x619_costume_id].joint;
+    root = ftKb_Init_803C9FC8[arg1][fp->costume_id].joint;
     ftKb_SpecialN_insert_joint_refs(&total_dobjs, root, fp, &insert_part_idx,
                                     &current_joint, &joint_idx, &byte_base);
     joint_idx = 0;
@@ -3004,7 +3010,7 @@ void ftKb_SpecialN_800EF35C(Fighter_GObj* gobj, int arg1, u8* arg2)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     ftKirby_CostumeArchive* costume_data = ftKb_Init_803C9FC8[arg1];
-    HSD_MatAnimJoint* matanimjoint = costume_data[fp->x619_costume_id].matanim;
+    HSD_MatAnimJoint* matanimjoint = costume_data[fp->costume_id].matanim;
     int idx = 0;
     arg1 = 0;
     PAD_STACK(4);
@@ -3590,44 +3596,30 @@ void ftKb_SpecialN_800F0F5C(Fighter_GObj* gobj)
     ftKb_SpecialN_800EFAF0_inline(gobj);
     ftCo_UnloadDynamicBones(fp);
 }
-/// Shared body of the Kirby hat loaders: load the hat model/parts for
-/// @p kind and start its animation.
-/// @todo Should be an inline function (which would also allow removing the
-/// callers' @c dont_inline pragmas), but that shifts register allocation.
-#define LOAD_HAT(gobj, fp, fp2, kind, hat, part_dobj_indices)                 \
-    do {                                                                      \
-        (hat) = ft_80459B88.hats[kind];                                       \
-        ftKb_SpecialN_800EF040(gobj, (kind) + 1, hat);                        \
-        (fp2)->u.kb.hat.x14.data = HSD_ObjAlloc(&fighter_x2040_alloc_data);   \
-        (fp2)->u.kb.hat.x1C.data = HSD_ObjAlloc(&fighter_x2040_alloc_data);   \
-        ftKb_SpecialN_800EF0E4(gobj, (kind) + 1, part_dobj_indices);          \
-        ftKb_SpecialN_800EF35C(gobj, (kind) + 1, part_dobj_indices);          \
-        ftKb_SpecialN_800EF438(gobj, hat);                                    \
-        ftParts_8007487C((FtPartsDesc*) (hat), &(fp)->u.kb.hat.x24,           \
-                         (fp)->x619_costume_id, &(fp)->u.kb.hat.x14,          \
-                         &(fp)->u.kb.hat.x1C);                                \
-        ftAnim_80070200(fp, (ftData_x8_x8*) ((u8*) (hat) + 8),                 \
-                        &(fp)->u.kb.x44, &(fp)->u.kb.hat.x14);                \
-    } while (0)
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
+/// Load a hat that replaces fighter parts; counterpart of
+/// ftKb_SpecialN_800EF69C.
+static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
+                                     KirbyHatStruct* hat)
+{
+    u8 part_dobj_indices[0x8C];
+    Fighter* fp = GET_FIGHTER(gobj);
+    ftKb_SpecialN_800EF040(gobj, arg1, hat);
+    fp->u.kb.hat.x14.data = HSD_ObjAlloc(&fighter_x2040_alloc_data);
+    fp->u.kb.hat.x1C.data = HSD_ObjAlloc(&fighter_x2040_alloc_data);
+    ftKb_SpecialN_800EF0E4(gobj, arg1, part_dobj_indices);
+    ftKb_SpecialN_800EF35C(gobj, arg1, part_dobj_indices);
+    ftKb_SpecialN_800EF438(gobj, hat);
+}
+
 void ftKb_SpecialN_800F0FC0(Fighter_GObj* gobj)
 {
-    u8 part_dobj_indices[0x90];
-    Fighter* fp = fp = gobj->user_data;
-    KirbyHatStruct* hat;
-    PAD_STACK(8);
-    if (fp->u.kb.hat.x14.data != NULL) {
-        return;
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->u.kb.hat.x14.data == NULL) {
+        KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Captain];
+        ftKb_LoadHatParts(gobj, 3, hat);
     }
-    LOAD_HAT(gobj, fp, fp, Ft_Kind_Captain, hat, part_dobj_indices);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void ftKb_SpecialN_800F10A4(Fighter_GObj* gobj)
 {
@@ -3635,27 +3627,15 @@ void ftKb_SpecialN_800F10A4(Fighter_GObj* gobj)
 }
 
 /// Load Yoshi's hat for Kirby copy ability.
-/// @note The split Fighter* locals are required for register allocation.
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void ftKb_SpecialN_800F10D4(Fighter_GObj* gobj)
 {
-    u8 part_dobj_indices[0x88];
-    Fighter* fp = gobj->user_data;
-    Fighter* fp2 = gobj->user_data;
-    KirbyHatStruct* hat;
-    PAD_STACK(8);
-    if (fp2->u.kb.hat.x14.data != NULL) {
-        return;
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->u.kb.hat.x14.data == NULL) {
+        KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Yoshi];
+        ftKb_LoadHatParts(gobj, 0xF, hat);
+        ftCo_8009D81C(fp);
     }
-    LOAD_HAT(gobj, fp, fp2, Ft_Kind_Yoshi, hat, part_dobj_indices);
-    ftCo_8009D81C(fp2);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void ftKb_SpecialN_800F11AC(Fighter_GObj* gobj)
 {
@@ -3665,27 +3645,15 @@ void ftKb_SpecialN_800F11AC(Fighter_GObj* gobj)
 }
 
 /// Load Jigglypuff's hat for Kirby copy ability.
-/// @note The split Fighter* locals are required for register allocation.
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void ftKb_SpecialN_800F11F0(Fighter_GObj* gobj)
 {
-    u8 part_dobj_indices[0x88];
-    Fighter* fp = gobj->user_data;
-    Fighter* fp2 = gobj->user_data;
-    KirbyHatStruct* hat;
-    PAD_STACK(8);
-    if (fp2->u.kb.hat.x14.data != NULL) {
-        return;
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->u.kb.hat.x14.data == NULL) {
+        KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Purin];
+        ftKb_LoadHatParts(gobj, 0x10, hat);
+        ftCo_8009DB50(fp);
     }
-    LOAD_HAT(gobj, fp, fp2, Ft_Kind_Purin, hat, part_dobj_indices);
-    ftCo_8009DB50(fp2);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void ftKb_SpecialN_800F12C8(Fighter_GObj* gobj)
 {
@@ -3695,25 +3663,14 @@ void ftKb_SpecialN_800F12C8(Fighter_GObj* gobj)
 }
 
 /// Load Dr. Mario's hat for Kirby copy ability.
-/// @note The self-assignment `fp = fp` is required for register allocation.
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void ftKb_SpecialN_800F130C(Fighter_GObj* gobj)
 {
-    u8 part_dobj_indices[0x90];
-    Fighter* fp = fp = gobj->user_data;
-    KirbyHatStruct* hat;
-    PAD_STACK(8);
-    if (fp->u.kb.hat.x14.data != NULL) {
-        return;
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->u.kb.hat.x14.data == NULL) {
+        KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_DrMario];
+        ftKb_LoadHatParts(gobj, 0x16, hat);
     }
-    LOAD_HAT(gobj, fp, fp, Ft_Kind_DrMario, hat, part_dobj_indices);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void ftKb_SpecialN_800F13F0(Fighter_GObj* gobj)
 {
@@ -3752,32 +3709,23 @@ u8* ftKb_SpecialN_800F1420(Fighter_GObj* gobj, const u32* arg1)
     return p;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void ftKb_SpecialN_800F14B4(Fighter_GObj* gobj)
 {
-    u8 part_dobj_indices[0x88];
-    Fighter* fp = fp = gobj->user_data;
-    KirbyHatStruct* hat;
-    FtPartsVisLookup* lookup;
-    PAD_STACK(8);
-    if (fp->u.kb.hat.x14.data != NULL) {
-        return;
+    Fighter* fp = GET_FIGHTER(gobj);
+    if (fp->u.kb.hat.x14.data == NULL) {
+        KirbyHatStruct* hat = ft_80459B88.hats[Ft_Kind_Pichu];
+        FtPartsVisLookup* lookup;
+        ftKb_LoadHatParts(gobj, 0x18, hat);
+        lookup = DP(FtPartsVisLookup, hat->hat_dynamics[3]);
+        fp->u.kb.hat.x24.xC[4] = lookup;
+        fp->x5AC.xC[4] = lookup;
+        ftParts_80074D7C(&fp->u.kb.hat.x24, 4, &fp->u.kb.hat.x14);
+        ftKb_SpecialN_800F1420(gobj, (u32*) (DP(u8, hat->hat_dynamics[4]) + 4));
+        *(u32*) &fp->x610_color_rgba[1] =
+            *(u32*) (DP(u8, hat->hat_dynamics[4]) + 8);
+        Fighter_UpdateModelScale(gobj);
     }
-    LOAD_HAT(gobj, fp, fp, Ft_Kind_Pichu, hat, part_dobj_indices);
-    lookup = DP(FtPartsVisLookup, hat->hat_dynamics[3]);
-    fp->u.kb.hat.x24.xC[4] = lookup;
-    fp->x5AC.xC[4] = lookup;
-    ftParts_80074D7C(&fp->u.kb.hat.x24, 4, &fp->u.kb.hat.x14);
-    ftKb_SpecialN_800F1420(gobj, (u32*) (DP(u8, hat->hat_dynamics[4]) + 4));
-    *(u32*) &fp->x610_color_rgba[1] = *(u32*) (DP(u8, hat->hat_dynamics[4]) + 8);
-    Fighter_UpdateModelScale(gobj);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void ftKb_SpecialN_800F15D8(Fighter_GObj* gobj)
 {

@@ -2,9 +2,9 @@
 #include "axdriver.h"
 
 #include <math.h>
+#include "axdriver.static.h"
 #include <string.h>
 
-#include "axdriver.static.h"
 #include "debug.h"
 #include "synth.h"
 #include <dolphin/ax.h>

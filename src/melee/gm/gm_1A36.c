@@ -1,9 +1,32 @@
 #include "gm_1A36.h"
 
-#include "gm_1A36.static.h"
+#include <Runtime/platform.h>
+
 #include "gmscdata.h"
 #include "types.h"
+#include <dolphin/pad.h>
 #include <sysdolphin/baselib/controller.h>
+
+struct gm_controller_map {
+    /* 00 */ u64 button;
+    /* 08 */ u64 trigger; ///< buttons pressed this frame, maybe rename?
+    /* 10 */ u64 repeat;
+    /* 18 */ u64 release;
+    /* 20 */ u64 repeat2;
+    /* 28 */ s32 repeat_timer;
+    /* 2C */ s32 x2C;
+};
+
+static struct controller_map {
+    struct gm_controller_map x0[PAD_MAX_CONTROLLERS + 1];
+    /* F0 */ void (*xF0)(int);
+    /* F4 */ u16 xF4;
+    /* F6 */ u8 xF6;
+    /* F8 */ u16 xF8;
+    /* FA */ u8 xFA;
+    /* FC */ u16 xFC;
+    /* FE */ u8 xFE;
+} controller_map;
 
 u64 gm_GetButtonsPressed(u8 idx)
 {
@@ -99,34 +122,47 @@ static void fn_801A396C(int idx)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
+static inline void mapButtons(int i)
+{
+    gm_801A3714(i, PAD_BUTTON_A | PAD_BUTTON_START, PAD_CONFIRM);
+    gm_801A3714(i, PAD_BUTTON_B, PAD_CANCEL);
+    gm_801A3820(i, PAD_TRIGGER_L | PAD_TRIGGER_R | PAD_BUTTON_START,
+                PAD_LR_START);
+    gm_801A3820(
+        i, PAD_TRIGGER_L | PAD_TRIGGER_R | PAD_BUTTON_A | PAD_BUTTON_START,
+        PAD_LRA_START);
+    gm_801A3714(i, PAD_BUTTON_UP | PAD_STICK_UP, PAD_ANY_UP);
+    gm_801A3714(i, PAD_BUTTON_DOWN | PAD_STICK_DOWN, PAD_ANY_DOWN);
+    gm_801A3714(i, PAD_BUTTON_LEFT | PAD_STICK_LEFT, PAD_ANY_LEFT);
+    gm_801A3714(i, PAD_BUTTON_RIGHT | PAD_STICK_RIGHT, PAD_ANY_RIGHT);
+}
+
+static inline void copyStatus(int i)
+{
+    struct gm_controller_map* c = &controller_map.x0[i];
+    HSD_PadStatus* status = &HSD_PadCopyStatus[(u8) i];
+
+    c->button = status->button;
+    c->trigger = status->trigger;
+    c->repeat = status->repeat;
+    c->release = status->release;
+}
+
+static inline void updatePad(int i)
+{
+    copyStatus(i);
+    mapButtons(i);
+    controller_map.xF0(i);
+}
+
 void gm_EvaluateAllControllerInputs(void)
 {
     struct gm_controller_map* controller = controller_map.x0;
     int i;
-
-    PAD_STACK(0x10);
+    UNUSED u8 _[8];
 
     for (i = 0; i < PAD_MAX_CONTROLLERS; i++) {
-        controller_map.x0[i].button = HSD_PadCopyStatus[(u8) i].button;
-        controller_map.x0[i].trigger = HSD_PadCopyStatus[(u8) i].trigger;
-        controller_map.x0[i].repeat = HSD_PadCopyStatus[(u8) i].repeat;
-        controller_map.x0[i].release = HSD_PadCopyStatus[(u8) i].release;
-        gm_801A3714(i, PAD_BUTTON_A | PAD_BUTTON_START, PAD_CONFIRM);
-        gm_801A3714(i, PAD_BUTTON_B, PAD_CANCEL);
-        gm_801A3820(i, PAD_TRIGGER_L | PAD_TRIGGER_R | PAD_BUTTON_START,
-                    PAD_LR_START);
-        gm_801A3820(
-            i, PAD_TRIGGER_L | PAD_TRIGGER_R | PAD_BUTTON_A | PAD_BUTTON_START,
-            PAD_LRA_START);
-        gm_801A3714(i, PAD_BUTTON_UP | PAD_STICK_UP, PAD_ANY_UP);
-        gm_801A3714(i, PAD_BUTTON_DOWN | PAD_STICK_DOWN, PAD_ANY_DOWN);
-        gm_801A3714(i, PAD_BUTTON_LEFT | PAD_STICK_LEFT, PAD_ANY_LEFT);
-        gm_801A3714(i, PAD_BUTTON_RIGHT | PAD_STICK_RIGHT, PAD_ANY_RIGHT);
-        controller_map.xF0(i);
+        updatePad(i);
     }
     controller_map.x0[PAD_MAX_CONTROLLERS].button = 0;
     controller_map.x0[PAD_MAX_CONTROLLERS].trigger = 0;
@@ -142,9 +178,6 @@ void gm_EvaluateAllControllerInputs(void)
         controller[PAD_MAX_CONTROLLERS].repeat2 |= controller[i].repeat2;
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void gm_801A3E88(void)
 {

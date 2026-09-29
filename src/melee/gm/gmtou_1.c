@@ -1130,10 +1130,6 @@ void fn_80198824(HSD_GObj* gobj)
 /// Initializes tournament mode match data.
 /// Initializes tournament mode match data structures.
 /// Type casts used to match target instruction patterns (stw/sth vs stb).
-#ifdef MUST_MATCH
-#pragma push
-#pragma auto_inline off
-#endif
 void fn_80198BA0(void)
 {
     TmData* td;
@@ -1180,15 +1176,8 @@ void fn_80198BA0(void)
         ptr++;
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 /// Initializes tournament mode text displays.
-#ifdef MUST_MATCH
-#pragma push
-#pragma auto_inline off
-#endif
 void fn_80198C60(void)
 {
     TmData* td;
@@ -1210,9 +1199,6 @@ void fn_80198C60(void)
     HSD_SisLib_803A6B98(td->x524[3], 320.0F, 250.0F, "    ");
     HSD_SisLib_803A7548(td->x524[3], 0, 1.5F, 1.5F);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 /// Initializes the scene rendering components for the gm_18A5 game mode.
 void fn_80198D18(void)
@@ -1222,7 +1208,6 @@ void fn_80198D18(void)
     HSD_GObj* gobj;
     PAD_STACK(24);
 
-    gm_GetTournamentData();
     gobj = fn_80190174(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
     fn_801901F8(DP(HSD_CObjDesc, GM_SCENE_CAMERA(lbl_804D666C)->desc));
     fn_801902F0(gobj);
@@ -1439,7 +1424,6 @@ void fn_80199AF0(void)
     TmData* td1;
     TmData* td2;
     HSD_JObj* jobj;
-    HSD_JObj* next;
     HSD_GObj* gobj;
     s32 slot;
     s32 j;
@@ -1524,33 +1508,18 @@ void fn_80199AF0(void)
     if (lbl_803DA0D0.icon_model_map[td1->x4B8[slot].x1] == 0) {
         HSD_JObjSetTranslateZ(jobj, 0.0f);
         for (i = 1; i <= 12; i++) {
-            if (jobj == NULL) {
-                next = NULL;
-            } else {
-                next = jobj->next;
-            }
-            jobj = next;
+            jobj = HSD_JObjGetNext(jobj);
             HSD_JObjSetTranslateZ(jobj, 10000.0f);
         }
     } else {
         for (j = 1; j <= 12; j++) {
-            if (jobj == NULL) {
-                next = NULL;
-            } else {
-                next = jobj->next;
-            }
-            jobj = next;
+            jobj = HSD_JObjGetNext(jobj);
             HSD_JObjSetTranslateZ(jobj, 10000.0f);
 
             if ((s32) lbl_803DA0D0.icon_model_map[td1->x4B8[slot].x1] == j) {
                 HSD_JObjSetTranslateZ(jobj, 0.0f);
                 for (slot = j + 1; slot <= 12; slot++) {
-                    if (jobj == NULL) {
-                        next = NULL;
-                    } else {
-                        next = jobj->next;
-                    }
-                    jobj = next;
+                    jobj = HSD_JObjGetNext(jobj);
                     HSD_JObjSetTranslateZ(jobj, 10000.0f);
                 }
                 break;
@@ -1564,8 +1533,19 @@ static inline BracketEntry* fn_8019A158_GetBracketEntry(s32 bracket_idx)
     return &lbl_80473AB8[bracket_idx];
 }
 
-/// @todo All instructions match; only the callee-saved register assignment
-/// is permuted against the target.
+typedef struct MatchEndStanding {
+    u8 pad[0x5D];
+    u8 is_big_loser;
+    u8 is_small_loser;
+    u8 pad5F[0xA8 - 0x5F];
+} MatchEndStanding;
+ASSERT_SIZE(MatchEndStanding, 0xA8);
+
+typedef struct Lbl804799D8Text {
+    u8 pad[0x4E];
+    char x4E[20];
+} Lbl804799D8Text;
+
 void fn_8019A158(void)
 {
     struct Lbl804799D8_t* base_ptr;
@@ -2268,9 +2248,33 @@ static inline void fn_8019B458_UpdateRank(TmData* tm, struct Lbl804799D8_t* d8)
     tm->x33 = rank;
 }
 
-static inline s32 fn_8019B458_GetRank(void)
+static inline void setupScene(TmData* tm, struct Lbl804799D8_t* d8)
 {
-    return fn_80196CF8();
+    s32 match = fn_80196CF8();
+    TmData* td = gm_GetTournamentData();
+    fn_80198D18();
+
+    {
+        HSD_GObj* gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6670, 3), match, 0x1A,
+                                     3, 1, fn_80196EEC, 0.0f);
+
+        if (td->pad_x34[0] == match) {
+            HSD_JObjSetFlagsAll(gobj->hsd_obj, JOBJ_HIDDEN);
+        }
+    }
+
+    if (match < 4) {
+        d8->x1B = 0x50;
+    } else if (match == 4) {
+        d8->x1B = 0x5F;
+    } else {
+        d8->x1B = 0x61;
+    }
+
+    fn_80198BA0();
+    fn_8018E618(tm->entrants, 4.5f, tm->x2C);
+    fn_8018E85C(GM_SCENE_MODEL(lbl_804D6670, 4), tm->x2C);
+    fn_8018FA24();
 }
 
 void fn_8019B458(s32* arg0)
@@ -2282,8 +2286,6 @@ void fn_8019B458(s32* arg0)
     } req;
     TmData* tm = (TmData*) arg0;
     struct Lbl804799D8_t* d8 = &lbl_804799D8;
-    s32 match;
-    TmData* td2;
     s32 i;
     PAD_STACK(0x10);
 
@@ -2291,31 +2293,7 @@ void fn_8019B458(s32* arg0)
     fn_8019B458_UpdateRank(tm, d8);
 
     {
-        match = fn_8019B458_GetRank();
-        td2 = gm_GetTournamentData();
-        fn_80198D18();
-
-        {
-            HSD_GObj* gobj = fn_8019035C(0, GM_SCENE_MODEL(lbl_804D6670, 3), match,
-                                         0x1A, 3, 1, fn_80196EEC, 0.0f);
-
-            if ((s32) td2->pad_x34[0] == match) {
-                HSD_JObjSetFlagsAll(gobj->hsd_obj, JOBJ_HIDDEN);
-            }
-        }
-
-        if (match < 4) {
-            d8->x1B = 0x50;
-        } else if (match == 4) {
-            d8->x1B = 0x5F;
-        } else {
-            d8->x1B = 0x61;
-        }
-
-        fn_80198BA0();
-        fn_8018E618(tm->entrants, 4.5f, tm->x2C);
-        fn_8018E85C(GM_SCENE_MODEL(lbl_804D6670, 4), tm->x2C);
-        fn_8018FA24();
+        setupScene(tm, d8);
 
         tm->cur_option = 0x14;
         tm->x2C = 0;

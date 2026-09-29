@@ -138,7 +138,8 @@ void ftCo_800DD398(Fighter_GObj* gobj, FtMotionId msid, FtMotionId victim_msid,
     fp->throw_flags = 0;
     fp->mv.co.fighterthrow.x4 = 0;
     fp->mv.co.fighterthrow.x8 = 0;
-    Fighter_ChangeMotionState(gobj, msid, 0, 0.0f, anim_speed, 0.0f, NULL);
+    Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0.0f, anim_speed, 0.0f,
+                              NULL);
     ftAnim_8006EBA4(gobj);
     ftCommon_8007E2F4(fp, 0x1FF);
     ftCo_800DE3FC(fp->victim_gobj, victim_msid, anim_speed);
@@ -271,7 +272,7 @@ void ftCo_800DD724(Fighter_GObj* gobj)
         Fighter_GObj* victim = fp->victim_gobj;
         ftCommon_8007E2F4(fp, 0);
         if (victim != NULL) {
-            pl_80040614(fp->player_id, fp->is_sub_fighter,
+            pl_80040614(fp->player_idx, fp->is_sub_fighter,
                         GET_FIGHTER(victim)->grab_timer);
             ftCo_800DE2A8(gobj, victim);
             ftCo_800DE7C0(victim, gobj, fp->motion_id == 222);
@@ -540,8 +541,8 @@ void ftCo_800DDDE4(Fighter_GObj* gobj, Fighter_GObj* gobj2, bool arg)
     ftColl_80076640(fp2, &damage);
     fp2->dmg.kb_applied = ftColl_80079AB0(
         fp2, &hit[0], hit[0].unk_count, gm_8016B248(),
-        Player_GetAttackRatio(fp->player_id),
-        Player_GetDefenseRatio(fp2->player_id), p_ftCommonData->x10C);
+        Player_GetAttackRatio(fp->player_idx),
+        Player_GetDefenseRatio(fp2->player_idx), p_ftCommonData->x10C);
     fp2->dmg.x1848_kb_angle = hit[0].kb_angle;
     fp2->dmg.facing_dir_1 = -(fp->facing_dir);
     fp2->dmg.x184c_damaged_hurtbox = 1;
@@ -604,7 +605,7 @@ void ftCo_800DE2F0(Fighter_GObj* gobj)
                 NULL, &vec);
     fp->dmg.kb_applied =
         ftColl_80079AB0(fp, &hit, hit.unk_count, gm_8016B248(), 1.0f,
-                        Player_GetDefenseRatio(fp->player_id), attrs->weight);
+                        Player_GetDefenseRatio(fp->player_idx), attrs->weight);
     fp->dmg.x1848_kb_angle = hit.kb_angle;
     fp->dmg.facing_dir_1 = fp->facing_dir;
     fp->dmg.x184c_damaged_hurtbox = 1;

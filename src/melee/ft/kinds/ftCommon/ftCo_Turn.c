@@ -45,7 +45,7 @@ bool ftCo_UcfDashback(Fighter* fp)
     // The history is the pre-clamp stick (pc_pad_game_raw_x, fighter.c), as
     // UCF reads it: past the 80-unit rim the clamped value is shorter, and a
     // -5 -> -85 flick (80 units raw, 75 clamped) used to miss the dashback.
-    s8* h = ftCo_ucf_raw_x[fp->x618_player_id];
+    s8* h = ftCo_ucf_raw_x[fp->player_idx];
     int delta = h[0] - h[2];
     return !fp->is_sub_fighter && fp->cur_anim_frame == 2.0f &&
            fp->input.lstick[0].x * fp->mv.co.turn.facing_after >=
@@ -133,7 +133,7 @@ void ftCo_Turn_IASA(Fighter_GObj* gobj)
     if (!fp->mv.co.turn.has_turned) {
         fp->facing_dir = -fp->facing_dir;
         if (pc_is_ucf_enabled() && ftCo_UcfDashback(fp)) {
-            Fighter_GObj* nana = Player_GetEntityAtIndex(fp->player_id, 1);
+            Fighter_GObj* nana = Player_GetEntityAtIndex(fp->player_idx, 1);
             fp->mv.co.turn.has_turned = true;
             fp->mv.co.turn.just_turned = true;
             if (nana != NULL && GET_FIGHTER(nana)->kind == Ft_Kind_Nana) {

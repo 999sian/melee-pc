@@ -29,7 +29,7 @@ void ftMh_BackDisappear_Anim(HSD_GObj* gobj)
 void ftMh_BackDisappear_IASA(HSD_GObj* arg0)
 {
     Fighter* fp = GET_FIGHTER(arg0);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(arg0);
     }
 }
@@ -64,7 +64,8 @@ void ftMh_Wait1_1_Anim(HSD_GObj* gobj)
     }
 
     if (!ftAnim_IsFramesRemaining(gobj)) {
-        Fighter_ChangeMotionState(gobj, ftMh_MS_Wait1_1, 0, 0, 1, 0, 0);
+        Fighter_ChangeMotionState(gobj, ftMh_MS_Wait1_1, Ft_MF_None, 0, 1, 0,
+                                  0);
         ftAnim_8006EBA4(gobj);
     }
 }
@@ -72,7 +73,7 @@ void ftMh_Wait1_1_Anim(HSD_GObj* gobj)
 void ftMh_Wait1_1_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -139,7 +140,7 @@ void ftMh_Wait1_1_Coll(HSD_GObj* gobj) {}
 void ftMh_MS_373_801545A0(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    Fighter_ChangeMotionState(gobj, ftMh_MS_Grab, 0, 0, 1, 0, 0);
+    Fighter_ChangeMotionState(gobj, ftMh_MS_Grab, Ft_MF_None, 0, 1, 0, 0);
     ftAnim_8006EBA4(gobj);
     ftCommon_8007E2D0(fp, 128, ftMh_MS_375_80154A2C, 0, ftMh_MS_388_80155A58);
     fp->mv.mh.unk0.x20 = 0;
@@ -157,7 +158,7 @@ void ftMh_Grab_Anim(HSD_GObj* gobj)
 void ftMh_Grab_IASA(HSD_GObj* arg0)
 {
     Fighter* fp = GET_FIGHTER(arg0);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(arg0);
     }
 }
@@ -190,7 +191,7 @@ void ftMh_Fail_Anim(HSD_GObj* gobj)
 void ftMh_Fail_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -238,7 +239,7 @@ void ftMh_Cancel_Anim(HSD_GObj* gobj)
 void ftMh_Cancel_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }

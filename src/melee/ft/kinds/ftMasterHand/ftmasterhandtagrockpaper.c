@@ -34,7 +34,7 @@ void ftMh_TagRockPaper_Anim(HSD_GObj* gobj)
 void ftMh_TagRockPaper_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -63,7 +63,7 @@ void ftMh_TagGrab_Anim(HSD_GObj* gobj)
 void ftMh_TagGrab_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -109,7 +109,7 @@ void ftMh_TagSqueeze_Anim(HSD_GObj* gobj)
 void ftMh_TagSqueeze_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -123,7 +123,7 @@ void ftMh_TagSqueeze_Coll(HSD_GObj* gobj) {}
 
 static void ftMh_MS_386_80155818(HSD_GObj* gobj)
 {
-    Fighter_ChangeMotionState(gobj, ftMh_MS_TagFail, 0, 0, 1, 0, 0);
+    Fighter_ChangeMotionState(gobj, ftMh_MS_TagFail, Ft_MF_None, 0, 1, 0, 0);
     ftAnim_8006EBA4(gobj);
 }
 
@@ -137,7 +137,7 @@ void ftMh_TagFail_Anim(HSD_GObj* gobj)
 void ftMh_TagFail_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -164,7 +164,7 @@ void ftMh_TagCancel_Anim(HSD_GObj* gobj)
 void ftMh_TagCancel_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }

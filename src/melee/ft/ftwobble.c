@@ -113,7 +113,7 @@ bool ftWobble_Check(Fighter_GObj* gobj)
      * CaptureCut unless that id was 0. */
     ftCo_800DA698(grabber, prev_move_id != 0);
 
-    nana = Player_GetEntityAtIndex(grabber_fp->player_id, 1);
+    nana = Player_GetEntityAtIndex(grabber_fp->player_idx, 1);
     if (nana != NULL) {
         Fighter* nfp = GET_FIGHTER(nana);
         if (!nfp->x221F_b1 && !nfp->x2219_b5 &&

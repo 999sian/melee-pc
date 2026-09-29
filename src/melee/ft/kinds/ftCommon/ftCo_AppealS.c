@@ -69,7 +69,7 @@ void ftCo_800DEA28(Fighter_GObj* gobj)
         ftCo_800DEBD0(gobj);
         break;
     }
-    pl_80040120(fp->player_id, fp->is_sub_fighter);
+    pl_80040120(fp->player_idx, fp->is_sub_fighter);
 }
 
 void ftCo_800DEAE8(Fighter_GObj* gobj, FtMotionId msid0, FtMotionId msid1)
@@ -80,9 +80,11 @@ void ftCo_800DEAE8(Fighter_GObj* gobj, FtMotionId msid0, FtMotionId msid1)
                           : &fp->x1C_actionStateList[msid1];
     fp->allow_interrupt = false;
     if (fp->facing_dir == -1.0f && ftData_80085FD4(fp, ms->anim_id)->x8 != 0) {
-        Fighter_ChangeMotionState(gobj, msid1, 0, 0.0f, 1.0f, 0.0f, NULL);
+        Fighter_ChangeMotionState(gobj, msid1, Ft_MF_None, 0.0f, 1.0f, 0.0f,
+                                  NULL);
     } else {
-        Fighter_ChangeMotionState(gobj, msid0, 0, 0.0f, 1.0f, 0.0f, NULL);
+        Fighter_ChangeMotionState(gobj, msid0, Ft_MF_None, 0.0f, 1.0f, 0.0f,
+                                  NULL);
     }
 }
 

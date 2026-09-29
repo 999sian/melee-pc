@@ -78,8 +78,8 @@ void hsd_8039D354(u32 unused)
     hsd_804D78DA = 0;
     hsd_804D78F4 = NULL;
     psCamera = NULL;
-    hsd_804D78E8 = NULL;
-    hsd_804D78EC = NULL;
+    hsd_804D78E8 = 0;
+    hsd_804D78EC = 0;
     hsd_804D78F8 = NULL;
     hsd_804D7900 = NULL;
 }
@@ -135,8 +135,7 @@ void hsd_8039D4DC(HSD_Generator* gen)
     hsd_804D78F8 = NULL;
     while (cur != NULL) {
         if (cur == gen) {
-            hsd_804D78F8 =
-                hsd_8039D3AC(gen, hsd_804D78F8);
+            hsd_804D78F8 = hsd_8039D3AC(gen, hsd_804D78F8);
             if (hsd_804D78F8 != NULL) {
                 while (hsd_804D78F8->next != NULL) {
                     hsd_804D78F8 = hsd_804D78F8->next;
@@ -213,8 +212,7 @@ void hsd_8039D688(HSD_JObj* jobj, f32** unused1, s32 unused2)
                     gen->type = type | 0x80;
                 }
             }
-            hsd_804D78F8 =
-                hsd_8039D3AC(gen, hsd_804D78F8);
+            hsd_804D78F8 = hsd_8039D3AC(gen, hsd_804D78F8);
         } else {
             hsd_804D78F8 = gen;
         }
@@ -325,9 +323,7 @@ HSD_Generator* hsd_8039D9C8(void)
         hsd_804D78DA = hsd_804D78E0;
     }
 
-    if (hsd_804D78F8 == NULL ||
-        hsd_804D78F8->next == NULL)
-    {
+    if (hsd_804D78F8 == NULL || hsd_804D78F8->next == NULL) {
         if (hsd_804D78FC == NULL) {
             gen->next = NULL;
             hsd_804D78FC = gen;
@@ -712,9 +708,9 @@ f32 hsd_8039DAD4(HSD_Generator* gen)
             /* Spawn particle */
             cur_angle = cos_az;
             hsd_80398F0C(gen->linkNo, gen->bank, gen->kind, gen->texGroup,
-                         gen->cmdList, gen->life, 0, gen,
-                         emit_pos.x, emit_pos.y, emit_pos.z, vec.x, vec.y,
-                         vec.z, gen->size, gen->grav, gen->fric);
+                         gen->cmdList, gen->life, 0, gen, emit_pos.x,
+                         emit_pos.y, emit_pos.z, vec.x, vec.y, vec.z,
+                         gen->size, gen->grav, gen->fric);
             break;
         }
 
@@ -733,9 +729,9 @@ f32 hsd_8039DAD4(HSD_Generator* gen)
             PSMTXMultVec(rot_mtx, &vel_copy, &vec);
 
             hsd_80398F0C(gen->linkNo, gen->bank, gen->kind, gen->texGroup,
-                         gen->cmdList, gen->life, 0, gen,
-                         emit_pos.x, emit_pos.y, emit_pos.z, vec.x, vec.y,
-                         vec.z, gen->size, gen->grav, gen->fric);
+                         gen->cmdList, gen->life, 0, gen, emit_pos.x,
+                         emit_pos.y, emit_pos.z, vec.x, vec.y, vec.z,
+                         gen->size, gen->grav, gen->fric);
             break;
         }
 
@@ -755,9 +751,8 @@ f32 hsd_8039DAD4(HSD_Generator* gen)
             }
             gen->aux.line.x2 = elevation;
             hsd_80398F0C(gen->linkNo, gen->bank, gen->kind | 4, gen->texGroup,
-                         gen->cmdList, gen->life, 0, gen, 0.0F,
-                         0.0F, 0.0F, cur_angle, sin_az, 0.0F, gen->size,
-                         angle1, angle3);
+                         gen->cmdList, gen->life, 0, gen, 0.0F, 0.0F, 0.0F,
+                         cur_angle, sin_az, 0.0F, gen->size, angle1, angle3);
             break;
         }
 
@@ -872,9 +867,9 @@ f32 hsd_8039DAD4(HSD_Generator* gen)
             PSMTXMultVec(rot_mtx, &vec, &vec);
 
             hsd_80398F0C(gen->linkNo, gen->bank, gen->kind, gen->texGroup,
-                         gen->cmdList, gen->life, 0, gen,
-                         emit_pos.x, emit_pos.y, emit_pos.z, vec.x, vec.y,
-                         vec.z, gen->size, gen->grav, gen->fric);
+                         gen->cmdList, gen->life, 0, gen, emit_pos.x,
+                         emit_pos.y, emit_pos.z, vec.x, vec.y, vec.z,
+                         gen->size, gen->grav, gen->fric);
             break;
         }
 
@@ -943,9 +938,9 @@ f32 hsd_8039DAD4(HSD_Generator* gen)
             emit_pos.z = sin_az * emit_pos.z + gen->pos.z;
 
             hsd_80398F0C(gen->linkNo, gen->bank, gen->kind, gen->texGroup,
-                         gen->cmdList, gen->life, 0, gen,
-                         emit_pos.x, emit_pos.y, emit_pos.z, vec.x, vec.y,
-                         vec.z, gen->size, gen->grav, gen->fric);
+                         gen->cmdList, gen->life, 0, gen, emit_pos.x,
+                         emit_pos.y, emit_pos.z, vec.x, vec.y, vec.z,
+                         gen->size, gen->grav, gen->fric);
             break;
         }
 
@@ -968,7 +963,7 @@ void hsd_8039EE24(u32 mask)
     HSD_Generator* gen;
 
     while (hsd_804D78F4 != NULL) {
-        gp = (HSD_Generator*) hsd_804D78F4->data;
+        gp = hsd_804D78F4->data;
         hsd_8039D71C(gp);
         hsd_804D78F4 = HSD_SListRemove(hsd_804D78F4);
         if (gp->jobj != NULL) {
@@ -1004,8 +999,7 @@ void hsd_8039EE24(u32 mask)
             u16 life = gen->genLife - 1;
             gen->genLife = life;
             if (life == 0) {
-                hsd_804D78F8 =
-                    hsd_8039D3AC(gen, hsd_804D78F8);
+                hsd_804D78F8 = hsd_8039D3AC(gen, hsd_804D78F8);
                 if (hsd_804D78F8 != NULL) {
                     gen = hsd_804D78F8->next;
                 } else {
@@ -1238,7 +1232,6 @@ HSD_Generator* hsd_8039F6CC(s32 linkNo, s32 bank, s32 gfx_id, HSD_JObj* jobj)
         }
     }
     gen->type |= (gen->kind & 0x20000) ? 0x500 : 0x700;
-    hsd_804D78F4 =
-        HSD_SListAllocAndAppend(hsd_804D78F4, gen);
+    hsd_804D78F4 = HSD_SListAllocAndAppend(hsd_804D78F4, gen);
     return gen;
 }

@@ -630,7 +630,7 @@ void ftAnim_8006F4C8(Fighter* fp, bool do_blending, FigaTree* tree)
         }
         if (i >= 0x8C) {
             HSD_ASSERTREPORT(767, 0, "atree data error! player %d\n",
-                             fp->player_id);
+                             fp->player_idx);
         }
         if (!fp->parts[i].flags_b0 && !fp->parts[i].flags_b5) {
             HSD_JObj* jobj = get_part_joint(fp, i, do_blending);
@@ -1020,8 +1020,8 @@ void ftAnim_80070200(Fighter* fp, ftData_x8_x8* r4, CostumeTObjList* r5,
         HSD_ASSERTREPORT(1228, 0, "fighter tobj num over!\n");
     }
     DiscU32* xC = DP(DiscU32, r4->xC);
-    r5->x5D0 = xC[fp->x619_costume_id].v
-                   ? DP(DiscU16, xC[fp->x619_costume_id].v)
+    r5->x5D0 = xC[fp->costume_id].v
+                   ? DP(DiscU16, xC[fp->costume_id].v)
                    : DP(DiscU16, xC[0].v);
 
     for (i = 0; i < r5->n_costume_tobjs; i++) {
@@ -1038,11 +1038,10 @@ void ftAnim_80070308(Fighter_GObj* fighter_gobj)
     Fighter* fp = GET_FIGHTER(fighter_gobj);
     HSD_JObj* jobj = GET_JOBJ(fighter_gobj);
 
-    HSD_JObjAddAnimAll(jobj, NULL,
-                       CostumeListsForeachCharacter[fp->kind]
-                           .costume_list[fp->x619_costume_id]
-                           .x4,
-                       NULL);
+    HSD_JObjAddAnimAll(
+        jobj, NULL,
+        CostumeListsForeachCharacter[fp->kind].costume_list[fp->costume_id].x4,
+        NULL);
     HSD_JObjReqAnimAll(jobj, 0.0F);
     ftAnim_80070200(fp, &DP(struct ftData_x8, fp->ft_data->x8)->x8, &fp->tobj_list, &fp->dobj_list);
 }
@@ -1062,7 +1061,7 @@ void ftAnim_80070458(Fighter* fp, CostumeTObjList* tobj_list, u32 tobj_idx,
                      float frame)
 {
     if (tobj_idx >= tobj_list->n_costume_tobjs) {
-        HSD_ASSERTREPORT(1264, 0, "texture no exist! %d %d\n", fp->player_id,
+        HSD_ASSERTREPORT(1264, 0, "texture no exist! %d %d\n", fp->player_idx,
                          tobj_idx);
     }
     tobjAnim(&tobj_list->costume_tobjs[tobj_idx], frame);

@@ -29,6 +29,7 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/sislib.h>
+#include <sysdolphin/baselib/sislib_font.h>
 
 static gmCameraUnkStruct gmCamera_VsCamUiState;
 
@@ -76,7 +77,6 @@ u8* gmCamera_801A2224(u8* arg0, u32 arg1)
     *arg0 = 0;
     return arg0;
 }
-
 HSD_Text* gmCamera_801A2334(s32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4)
 {
     HSD_Text* text;
@@ -218,30 +218,14 @@ gmCameraUnkFuncTable gmCamera_VsCamStateTable[9] = {
     { { 0, 0x1A14 }, NULL, gmCamera_801A2BB0 },
 };
 
-static inline void gmCamera_801A26C0_FreeTexts(gmCameraUnkStruct* unk)
+static inline void freeTexts(gmCameraUnkStruct* unk)
 {
     s32 i;
-    s32 zero;
 
     if (unk->x48[0] != NULL) {
-        i = 0;
-        zero = i;
-        for (; i < 3; i++) {
+        for (i = 0; i < 3; i++) {
             HSD_SisLib_803A5CC4(unk->x48[i]);
             unk->x48[i] = NULL;
-        }
-    }
-}
-
-static inline void gmCamera_FreeTextsWithZero(HSD_Text* zero)
-{
-    s32 i;
-
-    if (gmCamera_VsCamUiState.x48[0] != NULL) {
-        i = 0;
-        for (; i < 3; i++) {
-            HSD_SisLib_803A5CC4(gmCamera_VsCamUiState.x48[i]);
-            gmCamera_VsCamUiState.x48[i] = zero;
         }
     }
 }
@@ -264,7 +248,7 @@ void gmCamera_801A26C0(void)
         hud->state.hud_enabled = 1;
         hud->state.unk_3 = 0;
     }
-    gmCamera_801A26C0_FreeTexts(&gmCamera_VsCamUiState);
+    freeTexts(&gmCamera_VsCamUiState);
 }
 
 void gmCamera_801A2798(void)
@@ -327,7 +311,7 @@ void gmCamera_801A292C(void)
     f32* tbl = gmCamera_803DA630;
     PAD_STACK(16);
 
-    gmCamera_FreeTextsWithZero(NULL);
+    freeTexts(&gmCamera_VsCamUiState);
 
     for (i = 0; i < 2; i++) {
         gmCamera_VsCamUiState.x24[i].x0 = lbSnap_8001D40C(i);

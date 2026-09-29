@@ -302,7 +302,7 @@ void fn_80181708(void)
     lbl_80472E48.b32 = 0;
     lbl_80472E48.b10 = 0;
     lbl_80472E48.xC = 0;
-    lbl_80472E48.x10 = (s8) Player_GetPlayerId(0);
+    lbl_80472E48.x10 = (s8) Player_GetPadPort(0);
     lbl_804D65D4 = 0;
     lbl_804D65D8 = 0;
 

@@ -210,7 +210,7 @@ void ftMaterial_800BF6BC(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp)
     if (!fp->x2223_b3) {
         overlay = ftCo_800C0658(fp);
         chk1 = 0;
-        var_r5 = fp->x61A_controller_index;
+        var_r5 = fp->sub_color;
         if (fp->x2228_b0 && fp->x2224_b0) {
             if (fp->is_metal) {
                 var_r5 = 4;
@@ -267,7 +267,7 @@ void ftMaterial_800BF6BC(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp)
                 chk1 = 1;
             } else {
                 chk1 = 1;
-                sp168 = ((GXColor*) &p_ftCommonData->x6D8)[var_r5];
+                sp168 = p_ftCommonData->sub_colors[var_r5 - 1];
             }
         } else if (overlay->x7C_color_enable) {
             chk1 = 1;

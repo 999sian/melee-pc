@@ -53,10 +53,6 @@ u32 gap_10_804D6C7C_sbss;
 HSD_GObj* mnInfo_804D6C78;
 extern GXColor mn_804D4B64;
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 s32 mnInfo_80251A08(s32 arg0)
 {
     switch (arg0) { /* irregular */
@@ -76,29 +72,24 @@ s32 mnInfo_80251A08(s32 arg0)
         return gmMainLib_8015D94C(arg0);
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
+static inline bool isUnlockVisible(s32 id)
+{
+    return mnInfo_80251A08(id) != 0;
+}
+
 s32 mnInfo_80251AA4(void)
 {
     s32 i;
     s32 var_r30 = 0;
 
     for (i = 0; i < 0x42; i++) {
-        if (mnInfo_80251A08(i) != 0) {
+        if (isUnlockVisible(i)) {
             var_r30++;
         }
     }
     return var_r30;
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 static inline bool mnInfo_80251AFC_inline(s32 i)
 {
@@ -140,8 +131,8 @@ void mnInfo_80251AFC(void)
     }
     for (i = 0; i < 0x42; i++) {
         for (j = i + 1; j < 0x42; j++) {
-            if (mnInfo_80251A08(mnInfo_804A0968[j]) != 0 &&
-                (mnInfo_80251A08(mnInfo_804A0968[i]) == 0 ||
+            if (!mnInfo_80251AFC_inline(j) &&
+                (mnInfo_80251AFC_inline(i) ||
                  *gmMainLib_8015D804(mnInfo_80251AFC_inline_3(
                      mnInfo_804A0968, i)) > mnInfo_80251AFC_inline_2(j)))
             {
@@ -183,10 +174,6 @@ DATA char gap_07_803EFCE0_data[8] = "";
 #pragma pop
 #endif
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 s32 mnInfo_80251D58(mnInfo_GObj* arg0, s32 arg1, u32 arg2, u32 arg3)
 {
     char sp34[5];
@@ -231,17 +218,10 @@ s32 mnInfo_80251D58(mnInfo_GObj* arg0, s32 arg1, u32 arg2, u32 arg3)
     return HSD_SisLib_803A6B98(text, 0.0f, 40.0f, mnInfo_TimeFormat, sp30,
                                sp2C, sp28);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void mnInfo_80251F04(mnInfo_GObj* arg0, s32 arg1, u32 arg2)
 {
-    s16 sp16;
+    u16 sp16;
     s16 unused;
     HSD_Text** slot;
     HSD_Text* text;
@@ -259,11 +239,8 @@ void mnInfo_80251F04(mnInfo_GObj* arg0, s32 arg1, u32 arg2)
     text->font_size.y = 0.035f;
     text->default_fitting = 1;
     un_802FE3F8((s32) arg2, 0x4BD, &sp16, NULL);
-    HSD_SisLib_803A6368(text, (s32) (u16) sp16);
+    HSD_SisLib_803A6368(text, sp16);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 static inline s32 mnInfo_CountUnlocked(void)
 {
@@ -278,23 +255,22 @@ static inline s32 mnInfo_CountUnlocked(void)
     return count;
 }
 
-static inline void mnInfo_CreateEntries(u32 id)
+static inline void mnInfo_CreateEntry(mnInfo_GObj* gobj, s32 i, u32 id)
 {
-    u8* trophy;
+    mnInfo_80251D58(gobj, i, id, *gmMainLib_8015D804(id));
+    mnInfo_80251F04(gobj, i, id);
+}
+
+static inline void mnInfo_CreateEntries(mnInfo_GObj* gobj, int start)
+{
     s32 i;
-    mnInfo_GObj* gobj;
 
-    gobj = mnInfo_804D6C78;
-    trophy = &mnInfo_804A0968[id];
-    (void) trophy;
     for (i = 0; i < 4; i++) {
-        if (mnInfo_80251A08(*trophy) != 0) {
-            id = *trophy;
+        if (isUnlockVisible(mnInfo_804A0968[start + i])) {
+            u32 id = mnInfo_804A0968[start + i];
 
-            mnInfo_80251D58(gobj, i, id, *gmMainLib_8015D804(id));
-            mnInfo_80251F04(gobj, i, id);
+            mnInfo_CreateEntry(gobj, i, id);
         }
-        trophy++;
     }
 }
 
@@ -323,7 +299,7 @@ void fn_80251FE4(void)
     MnInfoData* data;
     u64 buttons;
     s32 count;
-    PAD_STACK(0x18);
+    PAD_STACK(0x8);
 
     data = mnInfo_804D6C78->user_data;
     if (mn_804D6BC8.cooldown != 0) {
@@ -344,25 +320,7 @@ void fn_80251FE4(void)
             data->scroll_idx -= 1;
             sfxMove();
             mnInfo_FreeEntries();
-            {
-                u8* other;
-                u8* trophy;
-                s32 i;
-                mnInfo_GObj* gobj;
-
-                gobj = mnInfo_804D6C78;
-                other = trophy = &mnInfo_804A0968[data->scroll_idx];
-                for (i = 0; i < 4; i++) {
-                    (void) (other == trophy);
-                    if (mnInfo_80251A08(*trophy) != 0) {
-                        u32 id = *trophy;
-
-                        mnInfo_80251D58(gobj, i, id, *gmMainLib_8015D804(id));
-                        mnInfo_80251F04(gobj, i, id);
-                    }
-                    ++trophy;
-                }
-            }
+            mnInfo_CreateEntries(mnInfo_804D6C78, data->scroll_idx);
         }
     } else if (buttons & MenuInput_Down) {
         count = mnInfo_CountUnlocked();
@@ -370,7 +328,7 @@ void fn_80251FE4(void)
             sfxMove();
             data->scroll_idx += 1;
             mnInfo_FreeEntries();
-            mnInfo_CreateEntries(data->scroll_idx);
+            mnInfo_CreateEntries(mnInfo_804D6C78, data->scroll_idx);
         }
     }
 }
@@ -534,10 +492,6 @@ void fn_80252548(HSD_GObj* gobj)
     fn_80252548_inline(data, gobj);
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void mnInfo_80252720(MnInfoData* data)
 {
     data->scroll_idx = 0;
@@ -552,9 +506,12 @@ void mnInfo_80252720(MnInfoData* data)
     data->left_column[3] = NULL;
     data->right_column[3] = NULL;
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
+
+static inline void initUserData(HSD_GObj* gobj, MnInfoData* data)
+{
+    mnInfo_80252720(data);
+    GObj_InitUserData(gobj, 0, HSD_Free, data);
+}
 
 s32 mnInfo_80252758(void)
 {
@@ -594,8 +551,7 @@ s32 mnInfo_80252758(void)
         OSReport(mnInfo_AssertReport);
         __assert(mnInfo_AssertFile, 0x267, mnInfo_AssertExpr);
     }
-    mnInfo_80252720(user_data);
-    GObj_InitUserData(gobj, 0, HSD_Free, user_data);
+    initUserData(gobj, user_data);
 
     proc = HSD_GObj_SetupProc(gobj, (HSD_GObjEvent) fn_80252548, 0);
     proc->flags_3 = HSD_GObj_804D783C;

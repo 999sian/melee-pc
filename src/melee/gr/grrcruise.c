@@ -1187,7 +1187,7 @@ void grRCruise_80201B60(HSD_JObj* jobj, bool clear)
     }
 }
 
-void fn_80201BE0(HSD_GObj* gobj, int pass)
+void fn_80201BE0(HSD_GObj* gobj, intptr_t pass)
 {
     if (gm_GetDbPauseFlag(1) || gm_GetDbPauseFlag(2) || Camera_8003010C()) {
         return;

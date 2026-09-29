@@ -24,11 +24,11 @@ float ftCo_800DA824(Fighter* fp)
     f32 temp;
     f32 value;
 
-    slot = Player_80033BB8(fp->player_id) + 1;
+    slot = Player_80033BB8(fp->player_idx) + 1;
     temp = (f32) slot;
     value = co->x364 - temp;
     value = co->x360 * value;
-    handicap = Player_GetHandicap(fp->player_id);
+    handicap = Player_GetHandicap(fp->player_idx);
     temp = (f32) handicap;
     temp = co->x35C - temp;
     temp = co->x358 * temp + co->x354;
@@ -52,9 +52,9 @@ void fn_800DA8E4(Fighter_GObj* gobj, Fighter_GObj* victim_gobj, s32 arg2)
     fp->facing_dir = -victim->facing_dir;
     cd = p_ftCommonData;
     cd2 = cd->x360;
-    v = cd2 * (cd->x364 - ((f32) (Player_80033BB8(fp->player_id) + 1)));
+    v = cd2 * (cd->x364 - ((f32) (Player_80033BB8(fp->player_idx) + 1)));
     {
-        f32 s3 = (cd->x35C - (f32) Player_GetHandicap(fp->player_id));
+        f32 s3 = (cd->x35C - (f32) Player_GetHandicap(fp->player_idx));
         s3 = cd->x358 * s3 + cd->x354;
         s3 = s3 + v;
         ftCommon_InitGrab(fp, 0, (fp->dmg.x1830_percent * cd->x368) + s3);
@@ -63,7 +63,7 @@ void fn_800DA8E4(Fighter_GObj* gobj, Fighter_GObj* victim_gobj, s32 arg2)
     fp->mv._[0xC] = 0;
     fp->mv.ca.speciallw.friction = 0.0f;
     fp->mv.ca.speciallw.x4 = 0;
-    Fighter_ChangeMotionState(gobj, arg2, 0, 0.0f, 1.0f, 0.0f, NULL);
+    Fighter_ChangeMotionState(gobj, arg2, Ft_MF_None, 0.0f, 1.0f, 0.0f, NULL);
     ftAnim_8006EBA4(gobj);
     ftCommon_8007E2FC(gobj);
     ftCommon_8007E2F4(fp, 0x1FF);

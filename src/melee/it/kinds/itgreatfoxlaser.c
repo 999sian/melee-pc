@@ -18,7 +18,6 @@ ItemStateTable it_803F8FD0[] = {
       NULL },
 };
 
-
 Item_GObj* it_802EAF34(HSD_GObj* owner, Vec3* offset, int type)
 {
     Item_GObj* item_gobj;
@@ -151,7 +150,7 @@ bool it_2725_Logic27_Reflected(Item_GObj* gobj)
     PAD_STACK(16);
 
     if (ip->msid == 0) {
-        ftLib_80086644(ip->xC64_reflectGObj, &reflect_pos);
+        ftLib_GetPos(ip->xC64_reflectGObj, &reflect_pos);
         jobj = ip->xDD4_itemVar.greatfoxlaser.x20->hsd_obj;
         lb_8000B1CC(jobj, &ip->xDD4_itemVar.greatfoxlaser.x28, &laser_pos);
         ip->xDD4_itemVar.greatfoxlaser.x28.x -=

@@ -20,7 +20,7 @@ void ftMh_FingerGun3_Anim(HSD_GObj* gobj)
 void ftMh_FingerGun3_IASA(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -34,6 +34,7 @@ void ftMh_FingerGun3_Coll(HSD_GObj* gobj) {}
 
 void ftMh_MS_366_80153820(HSD_GObj* gobj)
 {
-    Fighter_ChangeMotionState(gobj, ftMh_MS_BackAirplane1, 0, 0, 1, 0, 0);
+    Fighter_ChangeMotionState(gobj, ftMh_MS_BackAirplane1, Ft_MF_None, 0, 1, 0,
+                              0);
     ftAnim_8006EBA4(gobj);
 }

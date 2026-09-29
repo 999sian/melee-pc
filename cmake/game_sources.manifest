@@ -27,6 +27,7 @@ src/melee/ft/ftCo_800C7434.c
 src/melee/ft/ftCo_800C7590.c
 src/melee/ft/ftCo_800C78B0.c
 src/melee/ft/ftCo_800C7CA0.c
+src/melee/ft/ft_0763.c
 src/melee/ft/ft_07C1.c
 src/melee/ft/ft_07C6.c
 src/melee/ft/ft_0819.c
@@ -466,6 +467,7 @@ src/melee/gm/gm_1798.c
 src/melee/gm/gm_17AD.c
 src/melee/gm/gm_17BA.c
 src/melee/gm/gm_17C0.c
+src/melee/gm/gm_17DB.c
 src/melee/gm/gm_17E4.c
 src/melee/gm/gm_17EB.c
 src/melee/gm/gm_180A.c
@@ -625,6 +627,8 @@ src/melee/if/if_2F6E.c
 src/melee/if/if_2F72.c
 src/melee/if/if_2FD9.c
 src/melee/if/if_2FF2.c
+src/melee/if/if_2FFC.c
+src/melee/if/if_3004.c
 src/melee/if/ifall.c
 src/melee/if/ifcoget.c
 src/melee/if/ifhazard.c
@@ -895,6 +899,7 @@ src/melee/pl/plbonuslib.c
 src/melee/pl/plstale.c
 src/melee/pl/pltrick.c
 src/melee/sfx/crowdsfx.c
+src/melee/sfx/crowdsfx_1.c
 src/melee/sfx/sfx_unk.c
 src/melee/ty/toy.c
 src/melee/ty/tydisplay.c
@@ -937,6 +942,7 @@ src/sysdolphin/baselib/gobjplink.c
 src/sysdolphin/baselib/gobjproc.c
 src/sysdolphin/baselib/gobjuserdata.c
 src/sysdolphin/baselib/hash.c
+src/sysdolphin/baselib/hsd_3910.c
 src/sysdolphin/baselib/hsd_3915.c
 src/sysdolphin/baselib/hsd_3924.c
 src/sysdolphin/baselib/hsd_392A.c

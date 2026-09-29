@@ -75,7 +75,6 @@ static void sdata2_order(void)
 #define CollisionFlagAir_PlatformPassCallback 0x2
 #define CollisionFlagAir_CanGrabLedge 0x4
 
-/// 80041C78 https://decomp.me/scratch/V6eYQ
 void mpColl_80041C78(void)
 {
     mpColl_804D64A0 = NULL;
@@ -83,7 +82,6 @@ void mpColl_80041C78(void)
     mpColl_804D64A8 = 0;
 }
 
-/// 80041C8C https://decomp.me/scratch/VvSaI
 void mpCollPrev(CollData* cd)
 {
     u8 _[8];
@@ -94,11 +92,12 @@ void mpCollPrev(CollData* cd)
         if (!(cd->cur_pos.x < 45000.0F) || !(cd->cur_pos.x > -45000.0F) ||
             !(cd->cur_pos.y < 45000.0F) || !(cd->cur_pos.y > -45000.0F))
         {
-            if (ftLib_80086960(cd->x0_gobj)) {
+            if (ftLib_IsFighter(cd->x0_gobj)) {
                 OSReport(
                     "%s:%d: Error: mpCollPrev() pos(%f,%f) player=%d ms=%d\n",
                     "mpcoll.c", 203, cd->cur_pos.x, cd->cur_pos.y,
-                    ftLib_80086BE0(cd->x0_gobj), ftLib_800874BC(cd->x0_gobj));
+                    ftLib_GetPlayerIndex(cd->x0_gobj),
+                    ftLib_IsSubFighter(cd->x0_gobj));
             } else {
                 OSReport("%s:%d: Error: mpCollPrev() pos(%f,%f) gobj_id=%d\n",
                          "mpcoll.c", 212, cd->x0_gobj->classifier,
@@ -113,7 +112,6 @@ void mpCollPrev(CollData* cd)
     cd->x28_vec = cd->cur_pos;
 }
 
-/// 80041DD0 https://decomp.me/scratch/1KPLe
 static inline void clamp_above(float* value, float min)
 {
     if (*value < min) {
@@ -163,7 +161,6 @@ void mpCollCheckBounding(CollData* cd, u32 flags)
     mpBoundingCheck(left, bottom, right, top);
 }
 
-/// 80041EE4 https://decomp.me/scratch/j2TXK
 /// CollDataInit
 void mpColl_80041EE4(CollData* cd)
 {
@@ -216,7 +213,6 @@ void mpColl_80041EE4(CollData* cd)
     memzero(&cd->x64_ecb, sizeof(ftECB));
 }
 
-/// 80042078 https://decomp.me/scratch/hM7h8
 void mpColl_SetECBSource_JObj(CollData* cd, HSD_GObj* gobj, HSD_JObj* arg1,
                               HSD_JObj* arg2, HSD_JObj* arg3, HSD_JObj* arg4,
                               HSD_JObj* arg5, HSD_JObj* arg6, HSD_JObj* arg7,
@@ -253,7 +249,6 @@ void mpColl_SetECBSource_JObj(CollData* cd, HSD_GObj* gobj, HSD_JObj* arg1,
     cd->x50 = 0.0F;
 }
 
-/// 8004220C https://decomp.me/scratch/nOinn
 void mpColl_SetECBSource_Fixed(CollData* cd, HSD_GObj* gobj, float arg1,
                                float arg2, float arg3, float arg4)
 {
@@ -281,7 +276,6 @@ void mpColl_SetECBSource_Fixed(CollData* cd, HSD_GObj* gobj, float arg1,
     cd->facing_dir = -1;
 }
 
-/// 80042374 https://decomp.me/scratch/SgKfv
 void mpColl_SetLedgeSnap(CollData* coll, float ledge_snap_x,
                          float ledge_snap_y, float ledge_snap_height)
 {
@@ -290,7 +284,6 @@ void mpColl_SetLedgeSnap(CollData* coll, float ledge_snap_x,
     coll->ledge_snap_height = ledge_snap_height;
 }
 
-/// 80042384 https://decomp.me/scratch/P8djI
 void mpColl_80042384(CollData* cd)
 {
     if (ABS(cd->desired_ecb.top.y - cd->desired_ecb.bottom.y) < 1.0F) {
@@ -332,7 +325,6 @@ void mpColl_80042384(CollData* cd)
     }
 }
 
-/// 800424DC https://decomp.me/scratch/DhzDB
 static inline void update_min_max(float* min, float* max, float val)
 {
     if (*min > val) {
@@ -455,7 +447,6 @@ void mpColl_LoadECB_JObj(CollData* coll, u32 flags)
     coll->x34_flags.b0 = 0;
 }
 
-/// 8004293C https://decomp.me/scratch/H4EUT
 static inline void update_min_max_2(float* min, float* max, float val)
 {
     if (*max < val) {
@@ -642,11 +633,6 @@ static inline void mpColl_LoadECB_inline(CollData* coll, enum_t i)
     mpColl_80042384(coll);
 }
 
-/// 80042D24 https://decomp.me/scratch/2MnVj
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void mpColl_LoadECB(CollData* coll)
 {
     float saved_bottom_x;
@@ -667,11 +653,7 @@ void mpColl_LoadECB(CollData* coll)
     }
     mpColl_80042384(coll);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
-/// 80042DB0 https://decomp.me/scratch/GbMpk
 static inline void Vec2_Interpolate(float time, Vec2* dest, Vec2* src)
 {
     dest->x += time * (src->x - dest->x);
@@ -815,13 +797,13 @@ void mpCollEnd(CollData* coll, bool arg1, bool arg2)
         if (!(coll->cur_pos.x < 45000.0F && coll->cur_pos.x > -45000.0F &&
               coll->cur_pos.y < 45000.0F && coll->cur_pos.y > -45000.0F))
         {
-            if (ftLib_80086960(coll->x0_gobj)) {
+            if (ftLib_IsFighter(coll->x0_gobj)) {
                 OSReport("%s:%d: Error: mpCollEnd() last(%f,%f) pos(%f,%f) "
                          "ply=%d ms=%d\n",
                          __FILE__, 1350, coll->last_pos.x, coll->last_pos.y,
                          coll->cur_pos.x, coll->cur_pos.y,
-                         ftLib_80086BE0(coll->x0_gobj),
-                         ftLib_800874BC(coll->x0_gobj));
+                         ftLib_GetPlayerIndex(coll->x0_gobj),
+                         ftLib_IsSubFighter(coll->x0_gobj));
             } else {
                 s32 gobjid = coll->x0_gobj->classifier;
                 OSReport("%s:%d: Error: mpCollEnd() last(%f,%f) pos(%f,%f) "
@@ -917,7 +899,6 @@ void mpColl_800436E4(CollData* coll, float arg1)
     }
 }
 
-/// 80043754 https://decomp.me/scratch/JEEcj
 static inline float max_inline(float a, float b)
 {
     return (a > b) ? a : b;
@@ -1003,7 +984,6 @@ bool mpColl_80043754(mpColl_Callback cb, CollData* coll, u32 flags)
     return ret;
 }
 
-/// 800439FC https://decomp.me/scratch/T1yAJ
 void mpColl_800439FC(CollData* coll)
 {
     float right_dx; // f31
@@ -1076,10 +1056,6 @@ void mpColl_80043ADC(CollData* coll)
     coll->cur_pos.x = sp10.x;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 bool mpColl_80043BBC(CollData* coll, int* line_id_out)
 {
     int line_id = mpLinePrevNonFloor(coll->floor.index);
@@ -1101,9 +1077,6 @@ bool mpColl_80043BBC(CollData* coll, int* line_id_out)
     return false;
 }
 
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 void mpColl_80043C6C(CollData* coll, int line_id, bool ignore_bottom)
 {
     float f1;
@@ -1165,10 +1138,6 @@ void mpColl_80043C6C(CollData* coll, int line_id, bool ignore_bottom)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 bool mpColl_80043E90(CollData* coll, int* line_id_out)
 {
     int line_id = mpLineNextNonFloor(coll->floor.index);
@@ -1190,9 +1159,6 @@ bool mpColl_80043E90(CollData* coll, int* line_id_out)
     return false;
 }
 
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 void mpColl_80043F40(CollData* coll, int line_id, bool ignore_bottom)
 {
     float f1;
@@ -2345,21 +2311,27 @@ static inline void mpCollCeilingInline(CollData* coll)
     }
 }
 
+static inline void floorWallHug(CollData* coll, bool ecb_unlocked,
+                                u32 squeeze_flags, int* wall_id)
+{
+    if (mpColl_80043BBC(coll,
+                        wall_id)) { // Physics_CheckFloorConnectedLeftWallHug
+        // Physics_LeftWallFloorMultiCollide
+        mpColl_80043C6C(coll, *wall_id, ecb_unlocked && !(squeeze_flags & 1));
+    }
+
+    if (mpColl_80043E90(coll,
+                        wall_id)) { // Physics_CheckFloorConnectedRightWallHug
+        // Physics_RightWallFloorMultiCollide
+        mpColl_80043F40(coll, *wall_id, ecb_unlocked && !(squeeze_flags & 1));
+    }
+}
+
 static inline void mpCollFloorInline(CollData* coll, bool ecb_unlocked,
                                      u32 squeeze_flags)
 {
     int wall_id;
-    if (mpColl_80043BBC(coll,
-                        &wall_id)) { // Physics_CheckFloorConnectedLeftWallHug
-        // Physics_LeftWallFloorMultiCollide
-        mpColl_80043C6C(coll, wall_id, ecb_unlocked && !(squeeze_flags & 1));
-    }
-
-    if (mpColl_80043E90(coll,
-                        &wall_id)) { // Physics_CheckFloorConnectedRightWallHug
-        // Physics_RightWallFloorMultiCollide
-        mpColl_80043F40(coll, wall_id, ecb_unlocked && !(squeeze_flags & 1));
-    }
+    floorWallHug(coll, ecb_unlocked, squeeze_flags, &wall_id);
 }
 
 bool mpColl_80046904(CollData* coll, u32 flags)
@@ -2461,14 +2433,7 @@ bool mpColl_80046904(CollData* coll, u32 flags)
         if (r3) {
             if (stay_airborne) {
                 if (mpColl_80044948_Floor(c)) {
-                    if (mpColl_80043BBC(c, &wid_floorA)) {
-                        mpColl_80043C6C(c, wid_floorA,
-                                        false && !(squeeze_flags & 1));
-                    }
-                    if (mpColl_80043E90(c, &wid_floorA)) {
-                        mpColl_80043F40(c, wid_floorA,
-                                        false && !(squeeze_flags & 1));
-                    }
+                    floorWallHug(c, false, squeeze_flags, &wid_floorA);
                 }
             } else {
                 bool ecb_unlocked = false;
@@ -2481,14 +2446,7 @@ bool mpColl_80046904(CollData* coll, u32 flags)
                         c, ecb_unlocked &&
                                !(squeeze_flags &
                                  1))) { // Physics_SnapToFloorNoEdgePass
-                    if (mpColl_80043BBC(c, &wid_floorB)) {
-                        mpColl_80043C6C(c, wid_floorB,
-                                        ecb_unlocked && !(squeeze_flags & 1));
-                    }
-                    if (mpColl_80043E90(c, &wid_floorB)) {
-                        mpColl_80043F40(c, wid_floorB,
-                                        ecb_unlocked && !(squeeze_flags & 1));
-                    }
+                    floorWallHug(c, ecb_unlocked, squeeze_flags, &wid_floorB);
                     c->x34_flags.b5 = true;
                     touched_floor = true;
                 }
@@ -2743,7 +2701,7 @@ static inline bool inline1(CollData* coll, int i,
 bool mpColl_800471F8(CollData* coll)
 {
     mpCollPrev(coll);
-    mpColl_LoadECB_inline(coll, 6);
+    mpColl_LoadECB(coll);
     return inline0(coll, 0, true);
 }
 
@@ -2757,7 +2715,7 @@ bool mpColl_8004730C(CollData* coll, ftCollisionBox* arg1)
 bool mpColl_800473CC(CollData* coll)
 {
     mpCollPrev(coll);
-    mpColl_LoadECB_inline(coll, 6);
+    mpColl_LoadECB(coll);
     return inline0(coll, 4, true);
 }
 
@@ -2779,14 +2737,14 @@ bool mpColl_800476B4(CollData* coll, bool (*arg1)(Fighter_GObj*, enum_t),
                      Fighter_GObj* gobj)
 {
     mpCollPrev(coll);
-    mpColl_LoadECB_inline(coll, 6);
+    mpColl_LoadECB(coll);
     return inline1(coll, 3, arg1, gobj);
 }
 
 bool mpColl_800477E0(CollData* coll)
 {
     mpCollPrev(coll);
-    mpColl_LoadECB_inline(coll, 6);
+    mpColl_LoadECB(coll);
     return inline0(coll, 1, true);
 }
 
@@ -2808,7 +2766,7 @@ bool mpColl_80047AC8(CollData* coll, bool (*arg1)(Fighter_GObj*, int),
                      Fighter_GObj* arg2)
 {
     mpCollPrev(coll);
-    mpColl_LoadECB_inline(coll, 6);
+    mpColl_LoadECB(coll);
     return inline1(coll, 2, arg1, arg2);
 }
 
@@ -2837,7 +2795,7 @@ bool mpColl_80047E14(CollData* coll, bool (*arg1)(Fighter_GObj*, int),
                      Fighter_GObj* arg2)
 {
     mpCollPrev(coll);
-    mpColl_LoadECB_inline(coll, 6);
+    mpColl_LoadECB(coll);
     return inline1(coll, 6, arg1, arg2);
 }
 
@@ -4573,6 +4531,12 @@ void mpCopyCollData(CollData* src, CollData* dst, int arg2)
     dst->ceiling.normal = src->ceiling.normal;
 }
 
+static inline void prepareColl(CollData* coll)
+{
+    mpCollPrev(coll);
+    mpColl_LoadECB(coll);
+}
+
 bool mpColl_8004D024(Vec3* arg0)
 {
     CollData spC;
@@ -4584,8 +4548,7 @@ bool mpColl_8004D024(Vec3* arg0)
     spC.last_pos.z = arg0->z;
     spC.cur_pos = *arg0;
     spC.x130_flags |= CollData_X130_Clear;
-    mpCollPrev(&spC);
-    mpColl_LoadECB(&spC);
+    prepareColl(&spC);
     inline0(&spC, 0, true);
     if (spC.x34_flags.b6) {
         return true;

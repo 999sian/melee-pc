@@ -57,7 +57,7 @@ void un_8031F294(s32 arg0, s32 arg1)
 {
     HSD_JObj* jobj;
     VecMtxPtr pmtx;
-    PAD_STACK(16);
+    Vec3 pos;
 
     Stage_InitScene(St_Kind_Battle, 0);
     Item_80266FA8();
@@ -69,7 +69,7 @@ void un_8031F294(s32 arg0, s32 arg1)
     Player_80036E20(arg0, un_804D6FC8, 3);
     Player_SetPlayerCharacter(0, arg0);
     Player_SetCostumeId(0, arg1);
-    Player_SetPlayerId(0, 0);
+    Player_SetPadPort(0, 0);
     Player_SetSlottype(0, Gm_PKind_Demo);
     Player_SetFacingDirection(0, un_804DE0D8);
     Player_80032768(0, un_80400200.spawns);
@@ -78,7 +78,7 @@ void un_8031F294(s32 arg0, s32 arg1)
     Player_80036E20(CKind_Mario, un_804D6FCC, 5);
     Player_SetPlayerCharacter(1, CKind_Mario);
     Player_SetCostumeId(1, 0);
-    Player_SetPlayerId(1, 0);
+    Player_SetPadPort(1, 0);
     Player_SetSlottype(1, Gm_PKind_Demo);
     Player_SetFacingDirection(1, un_804DE0DC);
     Player_80032768(1, un_80400200.spawns);
@@ -88,13 +88,14 @@ void un_8031F294(s32 arg0, s32 arg1)
     jobj = GET_JOBJ(un_804D6FD0.unk0);
     HSD_JObjReqAnimAll(jobj, un_804DE0E0);
     HSD_JObjAnimAll(jobj);
-    pmtx[1] = un_80400200.spawns[1];
+    pos = un_80400200.spawns[1];
+    pmtx[1] = pos;
     HSD_JObjReqAnimAll(jobj, un_804DE0DC);
     if (gm_IsCKindUnlocked(CKind_Luigi) != 0) {
         Player_80036E20(CKind_Luigi, un_804D6FCC, 5);
         Player_SetPlayerCharacter(2, CKind_Luigi);
         Player_SetCostumeId(2, 0);
-        Player_SetPlayerId(2, 0);
+        Player_SetPadPort(2, 0);
         Player_SetSlottype(2, Gm_PKind_Demo);
         Player_SetFacingDirection(2, un_804DE0DC);
         Player_80032768(2, un_80400200.spawns);
@@ -104,7 +105,8 @@ void un_8031F294(s32 arg0, s32 arg1)
         jobj = GET_JOBJ(un_804D6FD0.unk4);
         HSD_JObjReqAnimAll(jobj, un_804DE0E0);
         HSD_JObjAnimAll(jobj);
-        pmtx[2] = un_80400200.spawns[2];
+        pos = un_80400200.spawns[2];
+        pmtx[2] = pos;
         HSD_JObjReqAnimAll(jobj, un_804DE0DC);
     }
     lbAudioAx_80026F2C(0x1C);
@@ -118,12 +120,10 @@ void fn_8031F548(HSD_GObj* gobj)
     HSD_JObjAnimAll(GET_JOBJ(gobj));
 }
 
-static void fn_8031F56C(HSD_GObj* gobj, int unused)
+static void fn_8031F56C(HSD_GObj* gobj, intptr_t unused)
 {
-    PAD_STACK(8);
-
     lbShadow_8000F38C(0);
-    vi_RunCamera(gobj, (u8*) &un_804D5B08, 0x281);
+    vi_RunCamera(gobj, &un_804D5B08, 0x281);
 }
 
 void fn_8031F600(HSD_GObj* gobj)

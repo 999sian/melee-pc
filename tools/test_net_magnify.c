@@ -23,11 +23,11 @@ bool Camera_80030130(void) {
 HSD_GObj* Player_GetEntity(s32 slot) {
     return slot == 0 ? &fighter : NULL;
 }
-bool ftLib_80086ED0(HSD_GObj* gobj) {
+bool ftLib_CanBeMagnified(HSD_GObj* gobj) {
     assert(gobj == &fighter);
     return eligible;
 }
-CmSubject* ftLib_80086B74(HSD_GObj* gobj) {
+CmSubject* ftLib_GetCameraSubject(HSD_GObj* gobj) {
     assert(gobj == &fighter);
     return (CmSubject*)&fighter;
 }

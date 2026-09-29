@@ -28,7 +28,7 @@ static inline void ftPurin_SpecialHi_SetVars(HSD_GObj* gobj)
 
     fp->accessory4_cb = &ftPr_Init_8013C94C;
 
-    if (gm_8016B1D8() && grStadium_801D4FF8(fp->player_id)) {
+    if (gm_8016B1D8() && grStadium_801D4FF8(fp->player_idx)) {
         fp->mv.pr.specialhi.x0 = true;
     } else {
         fp->mv.pr.specialhi.x0 = false;
@@ -42,9 +42,9 @@ ftPurin_SpecialHi_SetActionFromFacingDirection(HSD_GObj* gobj, u32 left_id,
     Fighter* fighter = GET_FIGHTER(gobj);
 
     if (-1 == fighter->facing_dir) {
-        Fighter_ChangeMotionState(gobj, left_id, 0, 0, 1, 0, NULL);
+        Fighter_ChangeMotionState(gobj, left_id, Ft_MF_None, 0, 1, 0, NULL);
     } else {
-        Fighter_ChangeMotionState(gobj, right_id, 0, 0, 1, 0, NULL);
+        Fighter_ChangeMotionState(gobj, right_id, Ft_MF_None, 0, 1, 0, NULL);
     }
 }
 

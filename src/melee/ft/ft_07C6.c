@@ -78,7 +78,7 @@ void ft_8007C77C(Fighter_GObj* gobj)
         u32 a, b;
         fp = GET_FIGHTER(gobj);
         a = gm_801A4BB8() & 1;
-        b = fp->player_id & 1;
+        b = fp->player_idx & 1;
         if (a == b) {
             var_r0 = 0;
         } else {
@@ -101,8 +101,8 @@ void ft_8007C77C(Fighter_GObj* gobj)
             continue;
         }
         var_r29 = 0;
-        if (ftLib_80086FD4(gobj, ip->owner) != 0) {
-            if (ip->xDD4_itemVar.it_2E5A.x18.b1) {
+        if (ftLib_IsSamePlayer(gobj, ip->owner) != 0) {
+            if (ip->xDD4_itemVar.unk4.xDEC_b1) {
                 var_r29 = 1;
             }
         } else if (ip->xDD4_itemVar.it_2E5A.x18.b0) {
@@ -121,11 +121,11 @@ void ft_8007C77C(Fighter_GObj* gobj)
             struct Fighter_x1614_t* tmp = &fp->x1614[i];
             if (lbColl_80007B78(temp_r26, tmp, ip->scl, fp->x34_scale.y)) {
                 temp_r29 = it_802E5EF4(ip->entity);
-                Player_SetCoins(fp->player_id,
-                                temp_r29 + Player_GetCoins(fp->player_id));
-                Player_SetTotalCoins(fp->player_id,
+                Player_SetCoins(fp->player_idx,
+                                temp_r29 + Player_GetCoins(fp->player_idx));
+                Player_SetTotalCoins(fp->player_idx,
                                      temp_r29 +
-                                         Player_GetTotalCoins(fp->player_id));
+                                         Player_GetTotalCoins(fp->player_idx));
                 lbAudioAx_80023870(0x93, 0x7F, 0x40, 0x1A);
                 sp18 = 1.0f;
                 efSync_Spawn(0x432, NULL, &temp_r26->x20, &sp18);

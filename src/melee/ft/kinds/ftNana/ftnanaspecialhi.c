@@ -33,7 +33,7 @@
 bool ftNn_Init_801230D0(Fighter_GObj* nana_gobj)
 {
     Fighter* nana_fp = GET_FIGHTER(nana_gobj);
-    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_id, 0);
+    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_idx, 0);
     u8 _[12];
     Vec popo_vec;
     Vec nana_vec;
@@ -71,7 +71,7 @@ bool ftNn_Init_801230D0(Fighter_GObj* nana_gobj)
 void fn_80123218(Fighter_GObj* nana_gobj)
 {
     Fighter* nana_fp = GET_FIGHTER(nana_gobj);
-    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_id, 0);
+    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_idx, 0);
     if (popo_gobj != NULL) {
         Fighter* popo_fp = GET_FIGHTER(popo_gobj);
         Vec nana_vec;
@@ -94,7 +94,7 @@ void ftNn_Init_801232A4(Fighter_GObj* nana_gobj)
 {
     Fighter* nana_fp = GET_FIGHTER(nana_gobj);
     ftCo_DatAttrs* attrs = getFtAttrs(nana_fp);
-    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_id, 0);
+    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_idx, 0);
     if (popo_gobj != NULL) {
         Fighter* popo_fp = GET_FIGHTER(popo_gobj);
         nana_fp->facing_dir = popo_fp->facing_dir;
@@ -157,7 +157,7 @@ void ftPp_SpecialHi_3_Coll(Fighter_GObj* gobj)
 void ftNn_Init_801233F8(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    Fighter_ChangeMotionState(gobj, 0x169, 0, 0.0f, 1.0f, 0.0f, NULL);
+    Fighter_ChangeMotionState(gobj, 0x169, Ft_MF_None, 0.0f, 1.0f, 0.0f, NULL);
     fp->accessory4_cb = fn_80123218;
 }
 
@@ -265,7 +265,7 @@ void ftNn_Init_801237F8(Fighter_GObj* nana_gobj)
 {
     Fighter* nana_fp = GET_FIGHTER(nana_gobj);
     ftIceClimberAttributes* attrs = nana_fp->dat_attrs;
-    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_id, 0);
+    Fighter_GObj* popo_gobj = Player_GetEntityAtIndex(nana_fp->player_idx, 0);
     PAD_STACK(0x10);
     if (popo_gobj != NULL) {
         Fighter* popo_fp = GET_FIGHTER(popo_gobj);
@@ -276,6 +276,7 @@ void ftNn_Init_801237F8(Fighter_GObj* nana_gobj)
     nana_fp->self_vel.y = attrs->x13C * sinf(attrs->x140);
     nana_fp->cur_pos.x += 4.0f * nana_fp->facing_dir * nana_fp->x34_scale.y;
     nana_fp->cur_pos.y += 7.0f * nana_fp->x34_scale.y;
-    Fighter_ChangeMotionState(nana_gobj, 365, 0, 0.0f, 1.0f, 0.0f, NULL);
+    Fighter_ChangeMotionState(nana_gobj, 365, Ft_MF_None, 0.0f, 1.0f, 0.0f,
+                              NULL);
     nana_fp->accessory4_cb = fn_80123218;
 }

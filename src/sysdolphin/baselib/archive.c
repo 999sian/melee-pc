@@ -49,28 +49,25 @@ s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
         offset = archive->header.data_size + sizeof(HSD_ArchiveHeader);
     }
     if (archive->header.nb_reloc != 0) { // Relocation Size
-        archive->reloc_info =
-            (HSD_ArchiveRelocationInfo*) ((uintptr_t) src + offset);
+        archive->reloc_info = (HSD_ArchiveRelocationInfo*) (src + offset);
         offset = offset +
                  archive->header.nb_reloc * sizeof(HSD_ArchiveRelocationInfo);
     }
     if (archive->header.nb_public != 0) { // Root Size
-        archive->public_info =
-            (HSD_ArchivePublicInfo*) ((uintptr_t) src + offset);
+        archive->public_info = (HSD_ArchivePublicInfo*) (src + offset);
         offset =
             offset + archive->header.nb_public * sizeof(HSD_ArchivePublicInfo);
     }
     if (archive->header.nb_extern != 0) { // XRef Size
-        archive->extern_info =
-            (HSD_ArchiveExternInfo*) ((uintptr_t) src + offset);
+        archive->extern_info = (HSD_ArchiveExternInfo*) (src + offset);
         offset =
             offset + archive->header.nb_extern * sizeof(HSD_ArchiveExternInfo);
     }
     if (offset < archive->header.file_size) { // File Size
-        archive->symbols = (char*) ((uintptr_t) src + offset);
+        archive->symbols = (char*) (src + offset);
     }
 
-    archive->top_ptr = (void*) src;
+    archive->top_ptr = src;
     Locate(archive);
 
     return 0;
@@ -93,13 +90,13 @@ void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive, const char* symbols)
     return NULL;
 }
 
-char* HSD_ArchiveGetExtern(HSD_Archive* archive, int offset)
+char* HSD_ArchiveGetExtern(HSD_Archive* archive, int index)
 {
-    if (offset < 0 || archive->header.nb_extern <= (unsigned) offset) {
+    if (index < 0 || archive->header.nb_extern <= (u32) index) {
         return NULL;
     }
 
-    return archive->symbols + archive->extern_info[offset].symbol;
+    return archive->symbols + archive->extern_info[index].symbol;
 }
 
 void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbols,

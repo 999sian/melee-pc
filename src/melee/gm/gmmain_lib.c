@@ -1330,10 +1330,22 @@ void gmMainLib_8015F600(int arg0, int arg1)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma inline_depth(3)
-#endif
+static inline void setupAudioVideo(void)
+{
+    lbAudioAx_80028690();
+    gmMainLib_8015F500();
+}
+
+static inline void resetSaveData(void)
+{
+    int i;
+
+    for (i = 1; i < 9; i++) {
+        gmMainLib_8015F600(i, 1);
+    }
+    setupAudioVideo();
+}
+
 void gmMainLib_8015FA34(s32 arg0)
 {
     s32 i;
@@ -1354,12 +1366,9 @@ void gmMainLib_8015FA34(s32 arg0)
         gm_8017297C();
         gm_801741FC();
     }
-    lbAudioAx_80028690();
-    gmMainLib_8015F500();
+    setupAudioVideo();
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
+
 void gmMainLib_8015FB68(void)
 {
     gmMainLib_804D3EE0->thing.save_data.x186C = 0;
@@ -1370,10 +1379,6 @@ void gmMainLib_8015FB68(void)
     Toy_80311960();
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void gmMainLib_8015FBA4(void)
 {
     int i;
@@ -1397,15 +1402,8 @@ void gmMainLib_8015FBA4(void)
     }
 
     gmMainLib_8045A6C0.x1850 = gmMainLib_DefaultGameRules;
-    for (i = 1; i < 9; i++) {
-        gmMainLib_8015F600(i, 1);
-    }
-    lbAudioAx_80028690();
-    gmMainLib_8015F500();
+    resetSaveData();
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 int gmMainLib_8015FC74(void)
 {

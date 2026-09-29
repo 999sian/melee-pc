@@ -2,6 +2,7 @@
 #define MELEE_FT_TYPES_H
 #include <Runtime/platform.h>
 
+#include <melee/ef/forward.h>
 #include <melee/ft/forward.h> // IWYU pragma: export
 #include <melee/it/forward.h>
 #include <sysdolphin/baselib/forward.h>
@@ -576,9 +577,10 @@ struct DISC_STRUCT ftCommonData {
     /* +6CC */ int x6CC;
     /* +6D0 */ float x6D0;
     /* +6D4 */ int x6D4;
-    /* +6D8 */ int x6D8[1]; ///< @todo expand to actual size
-    /* +6DC */ GXColor x6DC_colorsByPlayer[4];
-    /* +6EC */ u8 x6EC[0x6F0 - 0x6EC];
+    /* +6D8 */ int x6D8;
+    /* +6DC */ GXColor
+        sub_colors[5]; ///< Array of tint colors, see #gm_SetupSubColors and
+                       ///< #Fighter_UnkInitLoad_80068914
     /* +6F0 */ float metal_armor;
     /* +6F4 */ int x6F4_unkDamage;
     /* +6F8 */ int x6F8;
@@ -1084,11 +1086,16 @@ struct Fighter_DemoStrings {
     /* fp+2070 */ int x2070_int;
 };
 
+struct Struct207C {
+    f32 x;
+    s32 y;
+};
+
 /// @todo See if this should likewise be instituted for item->xD94 thru
 /// xDA4_word/xDA8_short
 /* fp+2074 */ struct Struct2074 {
-    /* fp+2074 */ Vec2 x2074_vec;
-    /* fp+207C */ S32Vec2 x207C;
+    /* fp+2074 */ S32Vec2 x2074_vec;
+    /* fp+207C */ struct Struct207C x207C;
     /* fp+2084 */ union {
         u32 x2084;
         struct {
@@ -1338,7 +1345,8 @@ struct Fighter {
     /*    fp+0 */ HSD_GObj* gobj;
     /*    fp+4 */ FighterKind kind;
     /*    fp+8 */ s32 x8_spawnNum;
-    /*    fp+C */ u8 player_id;
+    /*    fp+C */ u8
+        player_idx; ///< Index into player_slots[Gm_Player_NumMax];
     /*   fp+10 */ FtMotionId motion_id;
     /*   fp+14 */ enum_t anim_id;
     /*   fp+18 */ s32 x18;
@@ -1423,8 +1431,8 @@ struct Fighter {
     /*  fp+598 */ FigaTree* x598;
     /*  fp+59C */ struct Fighter_x59C_t* x59C;
     /*  fp+5A0 */ struct Fighter_x59C_t* x5A0;
-    /*  fp+5A4 */ UNK_T x5A4;
-    /*  fp+5A8 */ UNK_T x5A8;
+    /*  fp+5A4 */ uintptr_t x5A4;
+    /*  fp+5A8 */ uintptr_t x5A8;
     /*  fp+5AC */ FtPartsVis x5AC;
     /*  fp+5CC */ CostumeTObjList tobj_list;
     /*  fp+5E8 */ FighterBone* parts;
@@ -1432,11 +1440,11 @@ struct Fighter {
     /*  fp+5F4 */ struct {
         /*  fp+5F4 */ s8 prev, idx;
     } x5F4_arr[12];
-    /*  fp+60C */ void* x60C;
+    /*  fp+60C */ EF_QueuedEffect* x60C;
     /*  fp+610 */ GXColor x610_color_rgba[2];
-    /*  fp+618 */ u8 x618_player_id;
-    /*  fp+619 */ u8 x619_costume_id;
-    /*  fp+61A */ u8 x61A_controller_index;
+    /*  fp+618 */ u8 pad_port; ///< Physical controller port for this fighter
+    /*  fp+619 */ u8 costume_id;
+    /*  fp+61A */ u8 sub_color;
     /*  fp+61B */ u8 team;
     /*  fp+61C */ s8 x61C;
     /*  fp+61D */ u8 x61D;
@@ -1555,7 +1563,7 @@ struct Fighter {
         /* fp+18C8 */ int x18C8;
         /* fp+18CC */ int x18CC;
         /* fp+18D0 */ int x18D0;
-        /* fp+18D4 */ UnkPlBonusBits x18d4;
+        /* fp+18D4 */ union Struct2070 x18d4;
         /* fp+18D8 */ ft_800898B4_t x18d8;
         /// Last Move Instance This Player Was Hit by
         /* fp+18EC */ u16 x18ec_instancehitby;
@@ -1810,8 +1818,8 @@ struct Fighter {
     /* fp+221C:6 */ u16 x221C_b6 : 1;
     /* fp+221C:7 */ u16 x221C_u16_y : 3;
     /* fp+221D:2 */ u16 x221D_b2 : 1;
-    /* fp+221D:3 */ u16 x221D_b3 : 1;
-    /* fp+221D:4 */ u16 x221D_b4 : 1;
+    /* fp+221D:3 */ u16 has_prev_input : 1;
+    /* fp+221D:4 */ u16 input_disabled : 1;
     /* fp+221D:5 */ u16 x221D_b5 : 1;
     /* fp+221D:6 */ u16 x221D_b6 : 1;
     /* fp+221D:7 */ u16 x221D_b7 : 1;
@@ -1828,7 +1836,7 @@ struct Fighter {
     /* fp+221F:0 */ u8 x221F_b0 : 1;
     /* fp+221F:1 */ u8 x221F_b1 : 1;
     /* fp+221F:2 */ u8 x221F_b2 : 1;
-    /* fp+221F:3 */ u8 x221F_b3 : 1;
+    /* fp+221F:3 */ u8 is_sleeping : 1;
     /* fp+221F:4 */ u8 is_sub_fighter : 1;
     /* fp+221F:5 */ u8 x221F_b5 : 1;
     /* fp+221F:6 */ u8 x221F_b6 : 1;
@@ -1870,7 +1878,7 @@ struct Fighter {
 
     /* fp+2224:0 */ u8 x2224_b0 : 1;
     /* fp+2224:1 */ u8 x2224_b1 : 1;
-    /* fp+2224:2 */ u8 x2224_b2 : 1;
+    /* fp+2224:2 */ u8 stamina_dead : 1;
     /* fp+2224:3 */ u8 x2224_b3 : 1;
     /* fp+2224:4 */ u8 x2224_b4 : 1;
     /* fp+2224:5 */ u8 x2224_b5 : 1;

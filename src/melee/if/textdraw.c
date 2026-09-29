@@ -55,7 +55,7 @@
 ASSERT_SIZE(struct DevText_Pool, 0x6B0);
 
 /// .sbss
-/* 4D6E38 */ DevText* devtext_poolhead[2];
+/* 4D6E38 */ DevText* devtext_poolhead;
 /* 4D6E34 */ int devtext_setup_render_priority;
 /* 4D6E30 */ int devtext_setup_gx_link;
 /* 4D6E2C */ int devtext_setup_priority;
@@ -64,8 +64,6 @@ ASSERT_SIZE(struct DevText_Pool, 0x6B0);
 /* 4D6E20 */ HSD_CObj* devtext_cobj;
 /* 4D6E1C */ HSD_GObj* devtext_gobj;
 /* 4D6E18 */ DevText* devtext_drawlist;
-
-#define devtext_poolhead devtext_poolhead[0]
 
 int DevText_StrLen(char* str)
 {
@@ -116,10 +114,6 @@ HSD_GObj* DevText_GetGObj(void)
     return devtext_gobj;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void DevText_InitPool(void)
 {
     DevText* text = devtext_pool.entries;
@@ -133,9 +127,6 @@ void DevText_InitPool(void)
     devtext_poolhead = devtext_pool.entries;
     devtext_drawlist = NULL;
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void DevText_Remove(DevText** ptext)
 {
@@ -234,9 +225,9 @@ void DevText_Draw(DevText* text)
                 s8 chr;
                 u8 color_idx;
                 color_ptr = &color;
-                index = (col + text->w * row) * 2;
-                chr = text->buf[index];
-                color_idx = ((u8) text->buf[index + 1] & 0xC0) >> 6;
+                index = col + text->w * row;
+                chr = text->buf[index].chr;
+                color_idx = text->buf[index].color;
                 if (chr) {
                     color = text->text_colors[color_idx];
                     DrawASCII(chr, x, y, color_ptr);
@@ -259,12 +250,15 @@ void DevText_Draw(DevText* text)
     }
 }
 
-void DevText_DrawAll(HSD_GObj* gobj, int pass)
+static inline DevText* getDrawList(void)
 {
-    PAD_STACK(8);
+    return devtext_drawlist;
+}
 
+void DevText_DrawAll(HSD_GObj* gobj, intptr_t pass)
+{
     if ((unsigned int) pass == HSD_RP_BOTTOMHALF) {
-        DevText* text = devtext_drawlist;
+        DevText* text = getDrawList();
         HSD_FogSet(NULL);
         DevText_SetupCObj();
         while (text) {
@@ -274,10 +268,6 @@ void DevText_DrawAll(HSD_GObj* gobj, int pass)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void DevText_CreateCObj(int classifier, int p_link, int gobj_priority,
                         int gx_link, u8 gx_priority)
 {
@@ -297,16 +287,28 @@ void DevText_CreateCObj(int classifier, int p_link, int gobj_priority,
         }
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
+
+static inline void setupSystem(int classifier, int p_link, int priority,
+                               int gx_link, u8 camera_priority)
+{
+    DevText_CreateCObj(classifier, p_link, priority, gx_link, camera_priority);
+    DevText_InitPool();
+}
+
+static inline HSD_GObj* createDrawGObj(void)
+{
+    HSD_GObj* gobj = GObj_Create(devtext_setup_classifier,
+                                 devtext_setup_p_link, devtext_setup_priority);
+    if (gobj) {
+        GObj_SetupGXLink(gobj, DevText_DrawAll, devtext_setup_gx_link,
+                         devtext_setup_render_priority & 0xFF);
+    }
+    return gobj;
+}
 
 HSD_GObj* DevText_Setup(int classifier, int p_link, int priority, int gx_link,
                         int render_priority, u8 camera_priority)
 {
-    HSD_GObj* gobj;
-    PAD_STACK(8);
-
     devtext_setup_classifier = classifier;
     devtext_setup_p_link = p_link;
     devtext_setup_priority = priority;
@@ -314,15 +316,8 @@ HSD_GObj* DevText_Setup(int classifier, int p_link, int priority, int gx_link,
     devtext_setup_render_priority = render_priority;
     devtext_cobj = NULL;
 
-    DevText_CreateCObj(classifier, p_link, priority, gx_link, camera_priority);
-    DevText_InitPool();
-    gobj = GObj_Create(devtext_setup_classifier, devtext_setup_p_link,
-                       devtext_setup_priority);
-    if (gobj) {
-        GObj_SetupGXLink(gobj, DevText_DrawAll, devtext_setup_gx_link,
-                         devtext_setup_render_priority & 0xFF);
-    }
-    devtext_gobj = gobj;
+    setupSystem(classifier, p_link, priority, gx_link, camera_priority);
+    devtext_gobj = createDrawGObj();
     return devtext_gobj;
 }
 

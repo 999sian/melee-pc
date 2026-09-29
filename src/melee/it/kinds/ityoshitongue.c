@@ -59,7 +59,7 @@ void it_802F2CE0(Item_GObj* gobj, bool clear_destroy_type)
     Item* item = GET_ITEM(gobj);
     it_80275070(gobj,
                 DP(ItemModelDesc, item->xC4_article_data->x10_modelDesc)->x8_bone_attach_id);
-    lb_8000B1CC(ftLib_80086630(item->grab_victim,
+    lb_8000B1CC(ftLib_GetPartJObj(item->grab_victim,
                                ftYs_SpecialN_GetBoneIndex(item->grab_victim)),
                 NULL, &item->pos);
     it_8027B4A4(item->grab_victim, gobj);

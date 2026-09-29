@@ -49,7 +49,9 @@ static void vi1202_SetupChild(HSD_JObj* child)
     HSD_JObjSetTranslateXWithMtxDirty(child, -Toy_803060BC(0x1F, 0));
     HSD_JObjSetTranslateYWithMtxDirty(child, -Toy_803060BC(0x1F, 1));
     HSD_JObjSetTranslateZWithMtxDirty(child, -Toy_803060BC(0x1F, 2));
-    HSD_JObjSetRotationYWithMtxDirty(child, -Toy_803060BC(0x1F, 5));
+
+    scale = -Toy_803060BC(0x1F, 5);
+    HSD_JObjSetRotationYWithMtxDirty(child, scale);
 
     scale = 0.49f * (Toy_803060BC(0x1F, 4) * (1.0f / Toy_803060BC(0x1F, 3)));
 
@@ -97,13 +99,53 @@ void vi1202_RunFrame(HSD_GObj* gobj)
     }
 }
 
+static inline void setupKoopa(void)
+{
+    HSD_GObj* koopa_gobj;
+    HSD_JObj* jobj;
+
+    koopa_gobj = GObj_Create(0xE, 0xF, 0);
+    jobj = HSD_JObjLoadJoint(un_804D7048);
+    HSD_GObjObject_80390A70(koopa_gobj, HSD_GObj_JObjKind, jobj);
+    GObj_SetupGXLink(koopa_gobj, HSD_GObj_JObjCallback, 0xB, 0);
+
+    HSD_JObjSetScaleX(jobj, 0.49f);
+    HSD_JObjSetScaleY(jobj, 0.49f);
+    HSD_JObjSetScaleZ(jobj, 0.49f);
+
+    lb_8000C1C0(jobj, un_804D704C);
+    lb_8000C290(jobj, un_804D704C);
+    HSD_GObj_SetupProc(koopa_gobj, un_80321130, 0x17);
+}
+
+static inline void setupStand(void)
+{
+    HSD_GObj* stand_gobj;
+    HSD_JObj* jobj;
+    HSD_JObj* child;
+
+    stand_gobj = GObj_Create(0xE, 0xF, 0);
+    jobj = HSD_JObjLoadJoint(DP(HSD_Joint, vi_SceneModel(un_804D7044, 0)->joint));
+    HSD_GObjObject_80390A70(stand_gobj, HSD_GObj_JObjKind, jobj);
+    GObj_SetupGXLink(stand_gobj, HSD_GObj_JObjCallback, 0xB, 0);
+    HSD_GObj_SetupProc(stand_gobj, un_8032110C, 0x17);
+
+    child = HSD_JObjGetChild(jobj);
+
+    vi1202_SetupChild(child);
+
+    lb_8000C1C0(jobj, un_804D704C);
+    lb_8000C290(jobj, un_804D704C);
+}
+
 void vi1202_Scene_OnEnter(void* arg)
 {
     HSD_LObj* lobj;
+    HSD_GObj* gobj;
     HSD_CObj* cobj;
+    HSD_GObj* cam_gobj;
     HSD_JObj* jobj;
     HSD_JObj* child;
-    HSD_GObj *gobj, *cam_gobj;
     PAD_STACK(16);
 
     lbAudioAx_80023694();

@@ -186,7 +186,7 @@ bool ftpickupitem_8009447C(Fighter_GObj* gobj, Item_GObj* item_gobj)
             ftCommon_8007FA58(gobj, item_gobj);
             break;
         case It_Kind_MetalB:
-            ftLib_800871A8(gobj, item_gobj);
+            ftLib_ApplyMetalBox(gobj, item_gobj);
             Item_8026A8EC(item_gobj);
             break;
         case It_Kind_Spycloak:
@@ -256,12 +256,12 @@ void ftpickupitem_80094818(Fighter_GObj* gobj, bool arg1)
     Fighter* fp = gobj->user_data;
     PAD_STACK(8);
     if (fp->x1978 != NULL) {
-        pl_8003E17C(fp->player_id, fp->is_sub_fighter, fp->x1978);
+        pl_8003E17C(fp->player_idx, fp->is_sub_fighter, fp->x1978);
     } else if (fp->item_gobj != NULL) {
         if (ftData_OnItemPickupExt[fp->kind] != NULL) {
             ftData_OnItemPickupExt[fp->kind](gobj, arg1);
         }
-        pl_8003E17C(fp->player_id, fp->is_sub_fighter, fp->item_gobj);
+        pl_8003E17C(fp->player_idx, fp->is_sub_fighter, fp->item_gobj);
     }
 }
 
@@ -286,7 +286,7 @@ void ftpickupitem_800948A8(Fighter_GObj* gobj, Item_GObj* item_gobj)
         } else {
             ret_part = DP(struct ftData_x8, fp->ft_data->x8)->x11;
         }
-        pl_8003E854(fp->player_id, fp->is_sub_fighter, item_gobj);
+        pl_8003E854(fp->player_idx, fp->is_sub_fighter, item_gobj);
         Item_8026AB54(item_gobj, gobj, ret_part);
         if (itIsHeavy(item_gobj) == 1) {
             ft_800881D8(fp, DP(FtSFX, fp->ft_data->x4C_sfx)->x2C, 127, 64);
@@ -378,7 +378,7 @@ void ftpickupitem_80094B6C(Fighter_GObj* gobj, Item_GObj* item_gobj)
             ftCommon_8007FA58(gobj, item_gobj);
             return;
         case It_Kind_MetalB:
-            ftLib_800871A8(gobj, item_gobj);
+            ftLib_ApplyMetalBox(gobj, item_gobj);
             Item_8026A8EC(item_gobj);
             return;
         case It_Kind_Spycloak:

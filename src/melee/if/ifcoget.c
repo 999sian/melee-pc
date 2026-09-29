@@ -19,33 +19,22 @@
 #include <sysdolphin/baselib/wobj.h>
 
 /* 3F9E08 */ static struct un_803F9E08_t {
-    unsigned char x0_b0 : 1;
-    unsigned char x0_b1 : 1;
-    unsigned char x0_b234 : 3;
-    unsigned char x0_b567 : 3;
-    unsigned char x1;
-    unsigned char x2;
-    unsigned char x3;
+    u8 x0_b0 : 1;
+    u8 x0_b1 : 1;
+    u8 x0_b234 : 3;
+    u8 x0_b567 : 3;
+    u8 x1;
+    u8 x2;
+    u8 x3;
     int x4;
     int x8;
     HSD_GObj* xC;
 } un_803F9E08 = { 0 };
 ASSERT_SIZE(un_803F9E08, 0x10);
 
-#ifdef MUST_MATCH
-static void order_data(void)
-{
-    (void) "IfCoGet.dat";
-    (void) "ScInfCgt_scene_data";
-}
-#endif
-
 /// .sbss
 /* 4D6DA0 */ static void* un_804D6DA0;
 /* 4D6DA4 */ static SceneDesc* un_804D6DA4;
-
-/// .sdata2
-/* 4DDC20 */ extern float un_804DDC20;
 
 void fn_802FED14(HSD_GObj* gobj)
 {
@@ -80,9 +69,12 @@ void fn_802FED14(HSD_GObj* gobj)
 void un_802FEFAC(void)
 {
     HSD_GObj* gobj_camera;
+    HSD_CObj* cobj;
     HSD_GObj* gobj_light;
+    HSD_LObj* lobj;
     HSD_GObj* gobj_ui;
     HSD_JObj* jobj_ui;
+
     gobj_camera = GObj_Create(HSD_GOBJ_CLASS_CAMERA, 21, 0);
     HSD_GObjObject_80390A70(
         gobj_camera, HSD_GObj_CameraKind,

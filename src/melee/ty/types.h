@@ -442,19 +442,20 @@ struct TyListState {
 };
 ASSERT_SIZE(struct TyListState, 0x2AC);
 
-struct SisFontData {
-    u8 pad[0x4E8];
-    u8* digits;
+struct TyListData {
+    u8 pad[0x28];
+    HSD_CObj* cobj;
 };
 
-/* GC size 0x5C. The bytes from 0x10 to 0x34 are one nine-element joint array:
- * lb_8001204C fills it from &x10 with the nine indices in _Toy_803FE3F8, and
- * the slot at +0x30 is read back to drive the panel animation. Naming only
- * three of the nine slots left the rest inside pad runs, whose GameCube byte
- * counts stop agreeing with the pointer stride once pointers are 8 bytes.
- * This is also the one declaration for this object - it used to be viewed
- * through ToyGlobalsS_, TyArchiveData and tyLightData as well, which each
- * placed the archive pointer at a different host offset. */
+struct TyListWaitData {
+    u8 pad[0x20];
+    u32 x20;
+    s32 x24;
+};
+
+/// @todo = ToyGlobalsS_
+/// @todo = TyArchiveData
+/// @todo = tyLightData
 struct ToyED8Data {
     /*  +0 */ HSD_GObj* x0;
     /*  +4 */ HSD_GObj* gobj;

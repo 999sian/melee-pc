@@ -40,10 +40,11 @@ void ftCo_800C7590(Fighter_GObj* gobj)
     ftCommon_8007E2FC(gobj);
     cd = p_ftCommonData;
     {
-        f32 tmp1 =
-            cd->x728 * (cd->x72C - (f32) (Player_80033BB8(fp->player_id) + 1));
-        f32 tmp2 = (cd->x720 * (cd->x724 - Player_GetHandicap(fp->player_id)) +
-                    cd->x71C);
+        f32 tmp1 = cd->x728 *
+                   (cd->x72C - (f32) (Player_80033BB8(fp->player_idx) + 1));
+        f32 tmp2 =
+            (cd->x720 * (cd->x724 - Player_GetHandicap(fp->player_idx)) +
+             cd->x71C);
         tmp2 += tmp1;
         ftCommon_InitGrab(fp, 1, fp->dmg.x1830_percent * cd->x730 + tmp2);
     }
@@ -88,8 +89,8 @@ void ftCo_800C7800(Fighter_GObj* gobj)
     } else {
         fp->self_vel.x = -fp->facing_dir * p_ftCommonData->x370;
     }
-    Fighter_ChangeMotionState(gobj, ftCo_MS_CaptureCut, 0, 0.0F, 1.0F, 0.0F,
-                              NULL);
+    Fighter_ChangeMotionState(gobj, ftCo_MS_CaptureCut, Ft_MF_None, 0.0F, 1.0F,
+                              0.0F, NULL);
     fp->capture_timer = p_ftCommonData->x73C;
 }
 

@@ -70,7 +70,8 @@ void ftCh_FingerBeamLoop_Anim(HSD_GObj* gobj)
     }
 
     if (!ftAnim_IsFramesRemaining(gobj)) {
-        Fighter_ChangeMotionState(gobj, 0x16A, 0, 0, 1.0f, 0.0f, NULL);
+        Fighter_ChangeMotionState(gobj, 0x16A, Ft_MF_None, 0, 1.0f, 0.0f,
+                                  NULL);
         ftAnim_8006EBA4(gobj);
     }
 }
@@ -78,7 +79,7 @@ void ftCh_FingerBeamLoop_Anim(HSD_GObj* gobj)
 void ftCh_FingerBeamLoop_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -120,7 +121,7 @@ void ftCh_FingerBeamLoop_Coll(HSD_GObj* gobj) {}
 void ftCh_Init_80158DFC(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    Fighter_ChangeMotionState(gobj, 0x16B, 0, 0, 1.0f, 0.0f, NULL);
+    Fighter_ChangeMotionState(gobj, 0x16B, Ft_MF_None, 0, 1.0f, 0.0f, NULL);
     ftAnim_8006EBA4(gobj);
     ftCommon_8007E2D0(fp, 0x100, fn_80159288, NULL, fn_8015B548);
     fp->mv.ch.unk0.x20 = 0;
@@ -138,7 +139,7 @@ void ftCh_FingerBeamEnd_Anim(HSD_GObj* gobj)
 void ftCh_FingerBeamEnd_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -171,7 +172,7 @@ void ftCh_BackPunch_Anim(HSD_GObj* gobj)
 void ftCh_BackPunch_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -219,7 +220,7 @@ void ftCh_FingerGun1_Anim(HSD_GObj* gobj)
 void ftCh_FingerGun1_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }

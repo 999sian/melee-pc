@@ -365,8 +365,8 @@ void ftCo_800958FC(HSD_GObj* gobj, FtMotionId msid)
         temp_r4->mv.co.itemthrow.facing_dir = temp_r4->facing_dir;
         break;
     }
-    Fighter_ChangeMotionState(gobj, msid, 0, 0.0F, base_throw_speed, 0.0F,
-                              NULL);
+    Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0.0F, base_throw_speed,
+                              0.0F, NULL);
     ftAnim_8006EBA4(gobj);
 
     fp->accessory4_cb = ftCo_80095EFC;
@@ -546,7 +546,7 @@ void ftCo_80095EFC(Fighter_GObj* gobj)
                         fsm * (fp->mv.co.itemthrow4.x8.y - vec0.y) + vec0.y;
                     vec2.y = interpolation;
                     vec2.z = 0;
-                    pl_8003E978(fp->player_id, fp->is_sub_fighter,
+                    pl_8003E978(fp->player_idx, fp->is_sub_fighter,
                                 fp->item_gobj);
                     {
                         FtMoveId msid = fp->motion_id;

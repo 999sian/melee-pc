@@ -19,7 +19,7 @@
 
 void fn_80157080(Fighter_GObj* gobj)
 {
-    Fighter_ChangeMotionState(gobj, 0x158, 0, 0.0f, 1.0f, 0.0f, NULL);
+    Fighter_ChangeMotionState(gobj, 0x158, Ft_MF_None, 0.0f, 1.0f, 0.0f, NULL);
     ftAnim_8006EBA4(gobj);
 }
 void ftCh_Damage_Anim(HSD_GObj* gobj)
@@ -32,7 +32,7 @@ void ftCh_Damage_Anim(HSD_GObj* gobj)
 void ftCh_Damage_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -50,7 +50,7 @@ void ftCh_Init_80157170(HSD_GObj* gobj)
     ftCrazyHand_DatAttrs* attrs = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
     fp->mv.ch.unk0.xC.x = fp->cur_pos.x - attrs->x28;
     fp->mv.ch.unk0.xC.y = attrs->x24;
-    Fighter_ChangeMotionState(gobj, ftMh_MS_Damage2, 0,
+    Fighter_ChangeMotionState(gobj, ftMh_MS_Damage2, Ft_MF_None,
                               fp->mv.ch.unk0.xC.z = 0.0f, 1.0f, 0.0f, NULL);
     ftAnim_8006EBA4(gobj);
     ft_PlaySFX(fp, 0x4E207, 127, 64);
@@ -70,7 +70,7 @@ void ftCh_Damage2_Anim(HSD_GObj* gobj)
             attrs = DP(ftCrazyHand_DatAttrs, fp->ft_data->ext_attr);
             fp->mv.ch.unk0.xC.x = fp->cur_pos.x - attrs->x28;
             fp->mv.ch.unk0.xC.y = attrs->x24;
-            Fighter_ChangeMotionState(gobj, ftMh_MS_Damage2, 0,
+            Fighter_ChangeMotionState(gobj, ftMh_MS_Damage2, Ft_MF_None,
                                       fp->mv.ch.unk0.xC.z = 0.0f, 1.0f, 0.0f,
                                       NULL);
             ftAnim_8006EBA4(gobj);
@@ -82,7 +82,7 @@ void ftCh_Damage2_Anim(HSD_GObj* gobj)
 void ftCh_Damage2_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }
@@ -100,8 +100,8 @@ void ftCh_Damage2_Coll(HSD_GObj* gobj) {}
 
 void ftCh_Init_8015737C(HSD_GObj* gobj)
 {
-    Fighter_ChangeMotionState(gobj, ftMh_MS_WaitSweep, 0, 0.0f, 1.0f, 0.0f,
-                              NULL);
+    Fighter_ChangeMotionState(gobj, ftMh_MS_WaitSweep, Ft_MF_None, 0.0f, 1.0f,
+                              0.0f, NULL);
     ftAnim_8006EBA4(gobj);
 }
 
@@ -120,7 +120,7 @@ void ftCh_WaitSweep_Phys(HSD_GObj* gobj)
 void ftCh_WaitSweep_IASA(HSD_GObj* gobj)
 {
     Fighter* ft = GET_FIGHTER(gobj);
-    if (Player_GetPlayerSlotType(ft->player_id) == Gm_PKind_Human) {
+    if (Player_GetPlayerSlotType(ft->player_idx) == Gm_PKind_Human) {
         ftBossLib_8015BD20(gobj);
     }
 }

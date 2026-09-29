@@ -48,7 +48,7 @@ void ftBossLib_8015BD24(s32 arg0, float* arg1, float arg2, s32 arg3, s32 arg4,
 void ftBossLib_ReportGObjSlotType(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    Gm_PKind kind = Player_GetPlayerSlotType(fp->player_id);
+    Gm_PKind kind = Player_GetPlayerSlotType(fp->player_idx);
     HSD_ASSERTREPORT(103,
                      kind == Gm_PKind_Human || kind == Gm_PKind_Boss ||
                          kind == Gm_PKind_Cpu,
@@ -153,12 +153,12 @@ void ftBossLib_8015C208(HSD_GObj* arg0, Vec3* arg1)
 {
     Fighter* fp = GET_FIGHTER(arg0);
     HSD_GObj* gobj = ftBossLib_8015C244(arg0, &fp->cur_pos);
-    ftLib_80086644(gobj, arg1);
+    ftLib_GetPos(gobj, arg1);
 }
 
 HSD_GObj* ftBossLib_8015C244(HSD_GObj* arg0, Vec3* arg1)
 {
-    return ftLib_8008627C(arg1, arg0);
+    return ftLib_FindNearestOpponent(arg1, arg0);
 }
 
 bool ftBossLib_IsMasterHandEntry(void)
@@ -205,7 +205,7 @@ bool ftBossLib_8015C31C(void)
 bool ftBossLib_8015C358(void)
 {
     HSD_GObj* gobj = ftBossLib_GetFighterGObj(Ft_Kind_MasterH);
-    if (gobj && GET_FIGHTER(gobj)->x221F_b3) {
+    if (gobj && GET_FIGHTER(gobj)->is_sleeping) {
         return true;
     }
 
@@ -215,7 +215,7 @@ bool ftBossLib_8015C358(void)
 bool ftBossLib_8015C3A0(void)
 {
     HSD_GObj* gobj = ftBossLib_GetFighterGObj(Ft_Kind_CrezyH);
-    if (gobj && GET_FIGHTER(gobj)->x221F_b3) {
+    if (gobj && GET_FIGHTER(gobj)->is_sleeping) {
         return true;
     }
 

@@ -26,7 +26,7 @@ void ftMh_TagCrush_Anim(HSD_GObj* gobj)
 void ftMh_TagCrush_IASA(HSD_GObj* arg0)
 {
     Fighter* fp = GET_FIGHTER(arg0);
-    if (Player_GetPlayerSlotType(fp->player_id) == 0) {
+    if (Player_GetPlayerSlotType(fp->player_idx) == 0) {
         ftBossLib_8015BD20(arg0);
     }
 }
@@ -49,6 +49,7 @@ void ftMh_MS_382_801552F8(HSD_GObj* gobj)
         }
         fp->x1A5C = gobj_2;
     }
-    Fighter_ChangeMotionState(gobj, ftMh_MS_TagApplaud, 0, 0, 1, 0, 0);
+    Fighter_ChangeMotionState(gobj, ftMh_MS_TagApplaud, Ft_MF_None, 0, 1, 0,
+                              0);
     ftAnim_8006EBA4(gobj);
 }

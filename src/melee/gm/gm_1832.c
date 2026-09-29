@@ -551,7 +551,7 @@ s32 fn_801851C0(void)
     for (i = 0; i < (s32) lbl_804735E8.xE0; i++) {
         result = i + 1;
         Player_SetPlayerCharacter(result, (CharacterKind) lbl_8047368C.xF4[0]);
-        Player_SetPlayerId(result, 0);
+        Player_SetPadPort(result, 0);
         Player_SetSlottype(result, Gm_PKind_Demo);
         Player_SetFacingDirection(result, 0.0f);
         Player_SetCostumeId(result, i);
@@ -666,39 +666,23 @@ void fn_80185408(int x, float arg8, float arg9, float argA, float argB)
 extern float MSL_TrigF_80400770[];
 extern float MSL_TrigF_80400774[];
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-double fn_801855BC(double arg8)
+double fn_801855BC(double x)
 {
-    f64 temp_f2;
-    f64 temp_f2_2;
-    f64 temp_f2_3;
-    f64 temp_f2_4;
-
-    if (arg8 > 0.0) {
-        temp_f2_2 = __frsqrte(arg8);
-        temp_f2_3 =
-            0.5 * temp_f2_2 * -(((f64) arg8 * (temp_f2_2 * temp_f2_2)) - 3.0);
-        temp_f2_4 =
-            0.5 * temp_f2_3 * -(((f64) arg8 * (temp_f2_3 * temp_f2_3)) - 3.0);
-        temp_f2 =
-            0.5 * temp_f2_4 * -(((f64) arg8 * (temp_f2_4 * temp_f2_4)) - 3.0);
-        return arg8 *
-               (0.5 * temp_f2 * -(((f64) arg8 * (temp_f2 * temp_f2)) - 3.0));
-    }
-    if (0.0 == arg8) {
-        return 0.0;
-    }
-    if (arg8) {
+    if (x > 0.0) {
+        double guess = __frsqrte(x);
+        guess = 0.5 * guess * (3.0 - guess * guess * x);
+        guess = 0.5 * guess * (3.0 - guess * guess * x);
+        guess = 0.5 * guess * (3.0 - guess * guess * x);
+        guess = 0.5 * guess * (3.0 - guess * guess * x);
+        return x * guess;
+    } else if (x == 0) {
+        return 0;
+    } else if (x) {
         return MSL_TrigF_80400770[0];
+    } else {
+        return MSL_TrigF_80400774[0];
     }
-    return MSL_TrigF_80400774[0];
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void fn_8018564C(HSD_GObj* gobj)
 {
@@ -912,7 +896,7 @@ s32 fn_80185E34(void)
             Player_SetPlayerCharacter(player_slot,
                                       (CharacterKind) lbl_8047368C.xF1[i]);
             Player_SetCostumeId(player_slot, (s32) lbl_8047368C.xF7[i]);
-            Player_SetPlayerId(player_slot, 0);
+            Player_SetPadPort(player_slot, 0);
             Player_SetSlottype(player_slot, Gm_PKind_Demo);
             Player_SetFacingDirection(player_slot, 0.0f);
             Player_SetModelScale(player_slot, 1.0f);
@@ -938,7 +922,7 @@ void fn_80185F5C(s32 arg0)
             Player_SetPlayerCharacter(arg0,
                                       (CharacterKind) lbl_8047368C.xF4[i]);
             Player_SetCostumeId(arg0, (s32) lbl_8047368C.xFA[i]);
-            Player_SetPlayerId(arg0, 0);
+            Player_SetPadPort(arg0, 0);
             Player_SetSlottype(arg0, Gm_PKind_Demo);
             Player_SetFacingDirection(arg0, 0.0f);
             Player_SetModelScale(arg0, 1.0f);

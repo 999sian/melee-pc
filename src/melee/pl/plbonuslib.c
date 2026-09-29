@@ -10,6 +10,7 @@
 #include "player.h"
 #include "plbonus.h"
 #include "plbonusinline.h"
+#include "pltrick.h"
 #include <melee/ft/ft_0877.h>
 #include <melee/ft/ft_0892.h>
 #include <melee/ft/ftlib.h>
@@ -56,8 +57,8 @@ void plBonusLib_8003D514(int arg0)
     int var_r29;
     pl_StaleMoveTableExt_t* temp_r31_2;
 
-    RETURN_IF(ftLib_80087354(temp_r31) != 0);
-    ftLib_80086644(temp_r31, &sp18);
+    RETURN_IF(ftLib_IsDeadUp(temp_r31) != 0);
+    ftLib_GetPos(temp_r31, &sp18);
 
     for (var_r29 = 0; var_r29 < 6; var_r29++) {
         if (var_r29 == arg0) {
@@ -65,13 +66,13 @@ void plBonusLib_8003D514(int arg0)
         }
 
         temp_r30 = Player_GetEntity(var_r29);
-        if (!Player_8003221C(var_r29) || ftLib_8008732C(temp_r30)) {
+        if (!Player_8003221C(var_r29) || ftLib_IsDead(temp_r30)) {
             continue;
         }
 
         temp_r31_2 = Player_GetStaleMoveTableIndexPtr2(var_r29);
-        ftLib_80086644(temp_r30, &spC);
-        temp_f1 = ftLib_800865C0(temp_r30);
+        ftLib_GetPos(temp_r30, &spC);
+        temp_f1 = ftLib_GetFacingDir(temp_r30);
         temp_r31_2->xDD1.bit6 = 1;
 
         if ((temp_f1 * sp18.x) > (temp_f1 * spC.x)) {
@@ -119,7 +120,7 @@ void pl_8003D644(int arg0, int arg1, int arg2, int arg3)
     pl_StaleMoveTableExt_t* temp_r3_2;
     pl_StaleMoveTableExt_t* temp_r3_3;
     pl_StaleMoveTableExt_t* temp_r3_4;
-    struct UnkPlBonusBits* temp_r30;
+    union Struct2070* temp_r30;
     int temp_r29;
     int temp_r28;
     int temp_r27;
@@ -133,13 +134,13 @@ void pl_8003D644(int arg0, int arg1, int arg2, int arg3)
     temp_r26 = Player_GetStaleMoveTableIndexPtr2(arg0);
     temp_r3 = Player_GetEntityAtIndex(arg0, arg1);
     temp_r27 = ftLib_GetMotionId(temp_r3);
-    temp_r28 = ftLib_800876F4(temp_r3);
-    temp_r29 = ftLib_80087700(temp_r3);
+    temp_r28 = ftLib_GetLastHitSourceType(temp_r3);
+    temp_r29 = ftLib_GetLastHitSourceKind(temp_r3);
     temp_r30 = ft_80089890(temp_r3);
     temp_r24 = ft_8008989C(temp_r3);
     temp_r31 = ft_800898B4(temp_r3);
-    temp_r23 = ftLib_80087300(temp_r3);
-    temp_r22 = ftLib_8008730C(temp_r3);
+    temp_r23 = ftLib_GetLastAttackerSlot(temp_r3);
+    temp_r22 = ftLib_IsLastAttackerSubFighter(temp_r3);
 
     if (arg1 != 1) {
         temp_r26->x0_staleMoveTable.xCB8 = temp_r23;
@@ -147,13 +148,13 @@ void pl_8003D644(int arg0, int arg1, int arg2, int arg3)
         temp_r26->x0_staleMoveTable.xCC0 = *temp_r31;
         temp_r26->x0_staleMoveTable.xCD4 = temp_r24;
         pl_8003FED0(arg0, arg1);
-        if (ftLib_800873A4(temp_r3) != 0) {
+        if (ftLib_IsDeadUpFall(temp_r3) != 0) {
             pl_80038824(arg0, 0x81);
         }
-        if (ftLib_8008737C(temp_r3) != 0) {
+        if (ftLib_IsDeadUpStar(temp_r3) != 0) {
             temp_r26->x0_staleMoveTable.xC94++;
         }
-        if (ftLib_80087354(temp_r3) != 0) {
+        if (ftLib_IsDeadUp(temp_r3) != 0) {
             temp_r26->xDD1.bit2 = true;
         }
         if (temp_r27 == 0) {
@@ -235,7 +236,7 @@ void pl_8003D644(int arg0, int arg1, int arg2, int arg3)
         }
 
         if (!unk_cond(arg0, temp_r23)) {
-            if (ftLib_8008737C(temp_r3) != 0) {
+            if (ftLib_IsDeadUpStar(temp_r3) != 0) {
                 pl_80038824(temp_r23, 0x6D);
             }
             if (temp_r27 == 3) {
@@ -249,28 +250,28 @@ void pl_8003D644(int arg0, int arg1, int arg2, int arg3)
             switch (temp_r28) {
             case 1:
             case 2:
-                if (temp_r30->x3 >= 1 && temp_r30->x3 <= 3) {
+                if (temp_r30->x2073 >= 1 && temp_r30->x2073 <= 3) {
                     pl_80038824(temp_r23, 0x6E);
                 }
-                if (temp_r30->x3 >= 0x40 && temp_r30->x3 <= 0x43) {
+                if (temp_r30->x2073 >= 0x40 && temp_r30->x2073 <= 0x43) {
                     pl_80038824(temp_r23, 0xC0);
                 }
-                if (temp_r30->x3 == 0x46) {
+                if (temp_r30->x2073 == 0x46) {
                     pl_80038824(temp_r23, 0xC1);
                 }
-                if (temp_r30->x3 == 0x5F) {
+                if (temp_r30->x2073 == 0x5F) {
                     pl_80038824(temp_r23, 0xAD);
                 }
-                if (temp_r30->x3 == 0x63) {
+                if (temp_r30->x2073 == 0x63) {
                     pl_80038824(temp_r23, 0x70);
                 }
-                if (temp_r30->x3 == 0x61) {
+                if (temp_r30->x2073 == 0x61) {
                     pl_80038824(temp_r23, 0xC6);
                 }
-                if (temp_r30->x2_b7) {
+                if (temp_r30->count_specials) {
                     pl_80038824(temp_r23, 0x6F);
                 }
-                if (temp_r28 == 2 && temp_r30->x2_b3) {
+                if (temp_r28 == 2 && temp_r30->count_x1A4) {
                     pl_80038824(temp_r23, 0x72);
                 }
                 if (temp_r31->x11_b0) {
@@ -318,7 +319,7 @@ void pl_8003D644(int arg0, int arg1, int arg2, int arg3)
                     pl_80038824(temp_r23, 0x73);
                 }
                 if (temp_r28 == 2) {
-                    if (temp_r30->x3 == 0x62) {
+                    if (temp_r30->x2073 == 0x62) {
                         switch (temp_r29) {
                         case 0:
                         case 3:
@@ -370,7 +371,8 @@ void pl_8003D644(int arg0, int arg1, int arg2, int arg3)
 
 void pl_8003DF44(int arg0, int arg1)
 {
-    int temp_r3 = ftLib_80087300(Player_GetEntityAtIndex(arg0, arg1));
+    int temp_r3 =
+        ftLib_GetLastAttackerSlot(Player_GetEntityAtIndex(arg0, arg1));
     pl_StaleMoveTableExt_t* smte;
 
     bool var_r0_2;
@@ -586,9 +588,10 @@ void pl_8003E70C(Item_GObj* igobj)
 
     HSD_ASSERT(634, It_PKind_Start <= itGetKind(igobj) &&
                         itGetKind(igobj) < It_PKind_Terminate);
-    RETURN_IF(!ftLib_80086960(temp_r30));
+    RETURN_IF(!ftLib_IsFighter(temp_r30));
 
-    temp_r31 = Player_GetStaleMoveTableIndexPtr2(ftLib_80086BE0(temp_r30));
+    temp_r31 =
+        Player_GetStaleMoveTableIndexPtr2(ftLib_GetPlayerIndex(temp_r30));
     temp_r3 = itGetKind(igobj);
     temp_r31->x0_staleMoveTable.x848[temp_r3 - It_PKind_Start] += 1;
 }
@@ -614,10 +617,10 @@ void pl_8003E854(int arg0, int arg1, Item_GObj* arg2)
             pl_80038788(arg0, 0xB6, 1);
         }
 
-        if ((arg1 == 0) && ftLib_80086960(temp_r3) &&
-            (ftLib_800874BC(temp_r3) == 0))
+        if ((arg1 == 0) && ftLib_IsFighter(temp_r3) &&
+            (ftLib_IsSubFighter(temp_r3) == 0))
         {
-            temp_r31_2 = ftLib_80086BE0(temp_r3);
+            temp_r31_2 = ftLib_GetPlayerIndex(temp_r3);
             Player_GetStaleMoveTableIndexPtr2(arg0)->xD6C = (s32) temp_r31_2;
         }
     }
@@ -779,7 +782,7 @@ void fn_8003EE2C(int arg0, int arg1)
     if (temp_r31->xD10 > temp_r31->xD0C) {
         temp_r31->xD0C = temp_r31->xD10;
     }
-    if (ftLib_800865CC(temp_r30) == GA_Air) {
+    if (ftLib_GetGroundAir(temp_r30) == GA_Air) {
         temp_r31->xD20++;
     } else {
         temp_r31->xD24++;
@@ -796,18 +799,18 @@ void fn_8003EE2C(int arg0, int arg1)
     if (temp_r28 == 0x68) {
         temp_r31->xD1C++;
     }
-    if (ftLib_800865CC(temp_r30) == GA_Ground) {
+    if (ftLib_GetGroundAir(temp_r30) == GA_Ground) {
         float var_f1;
-        if (ftLib_8008777C(temp_r30) < 0.0f) {
-            var_f1 = -ftLib_8008777C(temp_r30);
+        if (ftLib_GetGroundSlopeAngle(temp_r30) < 0.0f) {
+            var_f1 = -ftLib_GetGroundSlopeAngle(temp_r30);
         } else {
-            var_f1 = ftLib_8008777C(temp_r30);
+            var_f1 = ftLib_GetGroundSlopeAngle(temp_r30);
         }
         if (var_f1 >= pl_804D6470->x58) {
             temp_r31->xD28++;
         }
     }
-    if (ftLib_800877D4(temp_r30)) {
+    if (ftLib_IsBeingNudged(temp_r30)) {
         temp_r31->xD2C++;
     }
     temp_r3_3 = ifMagnify_802FB6E8(arg0);
@@ -961,7 +964,7 @@ void fn_8003F53C(int arg0, int arg1)
     Fighter_GObj* temp_r30 = Player_GetEntityAtIndex(arg0, arg1);
     unsigned int temp_r3;
 
-    if ((arg1 != 1) && (ftLib_800867D8(temp_r30) == false)) {
+    if ((arg1 != 1) && (ftLib_IsInputDisabled(temp_r30) == false)) {
         if ((ft_800877F8(temp_r30, 0x100) == 0) &&
             (ft_800877F8(temp_r30, 0x200) == 0))
         {
@@ -1005,7 +1008,7 @@ void fn_8003F654(int slot, int index, Vec3* pos, Vec3* prevPos)
 
     if (pl_Verify_gm_8016AEDC() && (index != 1)) {
         prev_pos2 = prevPos;
-        switch (ftLib_8008732C(entity)) {
+        switch (ftLib_IsDead(entity)) {
         case 0:
             break;
         default:
@@ -1017,7 +1020,7 @@ void fn_8003F654(int slot, int index, Vec3* pos, Vec3* prevPos)
         if (b34 == 1) {
             dist = my_sqrtf(((prevPos->x - pos->x) * (prevPos->x - pos->x)) +
                             ((prev_pos2->y - pos->y) * (prevPos->y - pos->y)));
-            teammate_slot = ftLib_80087300(entity);
+            teammate_slot = ftLib_GetLastAttackerSlot(entity);
             table->xD80 += dist;
             if (dist > table->xD84) {
                 table->xD84 = dist;
@@ -1031,7 +1034,7 @@ void fn_8003F654(int slot, int index, Vec3* pos, Vec3* prevPos)
             }
         } else {
             if (b34 == 0) {
-                if (ftLib_800865CC(entity) == 0) {
+                if (ftLib_GetGroundAir(entity) == 0) {
                     abs = pos->x - prevPos->x;
                     if (abs < 0.0f) {
                         abs = -abs;
@@ -1067,7 +1070,7 @@ void fn_8003F654(int slot, int index, Vec3* pos, Vec3* prevPos)
             for (i = 0; 6 > i; i++) {
                 if ((((i != slot) && (!pl_CheckIfSameTeam(slot, i))) &&
                      Player_8003221C(i)) &&
-                    (!ftLib_8008732C(Player_GetEntity(i))))
+                    (!ftLib_IsDead(Player_GetEntity(i))))
                 {
                     Player_LoadPlayerCoords(i, &other_pos);
                     pos_x2 = pos->x;
@@ -1114,7 +1117,7 @@ void pl_8003FAA8(int slot, int index, Vec3* pos, Vec3* prevPos)
     fn_8003F654(slot, index, pos, prevPos);
 
     if (pl_Verify_gm_8016AEDC() && index == 0) {
-        temp_r31 = ftLib_80087120(Player_GetEntityAtIndex(slot, index));
+        temp_r31 = ftLib_GetPercent(Player_GetEntityAtIndex(slot, index));
         temp_f30 =
             temp_r30->x0_staleMoveTable.xC9C * (gm_GetFrameCount() - 1) +
             temp_r31;
@@ -1266,7 +1269,7 @@ void pl_80040048(int arg0, int arg1)
     PAD_STACK(8);
 
     temp_r3 = Player_GetEntityAtIndex(arg0, arg1);
-    temp_r3_2 = ftLib_80087300(temp_r3);
+    temp_r3_2 = ftLib_GetLastAttackerSlot(temp_r3);
     RETURN_IF(arg1);
     RETURN_IF(temp_r3_2 == 6);
     temp_f31 = ft_800898B4(temp_r3)->kb_applied1;
@@ -1448,7 +1451,7 @@ void pl_8004065C(int arg0, int arg1)
 void pl_80040688(int arg0, int arg1, int arg2)
 {
     pl_StaleMoveTableExt_t* temp_r3;
-    UnkPlBonusBits* bits;
+    union Struct2070* bits;
     ft_800898B4_t* xCC0;
     u8 temp_r0_2;
     int temp_r0;
@@ -1465,7 +1468,7 @@ void pl_80040688(int arg0, int arg1, int arg2)
         xCC0 = &temp_r3->x0_staleMoveTable.xCC0;
 
         if (!unk_cond(arg1, temp_r0)) {
-            temp_r0_2 = bits->x3;
+            temp_r0_2 = bits->x2073;
             if (temp_r0_2 >= 0x33 && temp_r0_2 <= 0x3D) {
                 pl_80038788(temp_r0, 0x2A, 1);
             }

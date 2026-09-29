@@ -4,16 +4,18 @@
 #include <melee/ft/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
+#include <melee/gm/gmresultplayer.h>
+
 /* 179854 */ void fn_80179854(void);
 /* 179990 */ void fn_80179990(HSD_GObj*, int, int);
-/* 179D3C */ void fn_80179D3C(HSD_GObj*, int);
-/* 179D60 */ void fn_80179D60(HSD_GObj*, int);
-/* 179D84 */ void fn_80179D84(HSD_GObj*, int);
-/* 179DA8 */ void fn_80179DA8(HSD_GObj*, int);
-/* 179DCC */ void fn_80179DCC(HSD_GObj*, int);
-/* 179E34 */ void fn_80179E34(HSD_GObj*, int);
-/* 179E9C */ void fn_80179E9C(HSD_GObj*, int);
-/* 179F04 */ void fn_80179F04(HSD_GObj*, int);
+/* 179D3C */ void fn_80179D3C(HSD_GObj*, intptr_t);
+/* 179D60 */ void fn_80179D60(HSD_GObj*, intptr_t);
+/* 179D84 */ void fn_80179D84(HSD_GObj*, intptr_t);
+/* 179DA8 */ void fn_80179DA8(HSD_GObj*, intptr_t);
+/* 179DCC */ void fn_80179DCC(HSD_GObj*, intptr_t);
+/* 179E34 */ void fn_80179E34(HSD_GObj*, intptr_t);
+/* 179E9C */ void fn_80179E9C(HSD_GObj*, intptr_t);
+/* 179F04 */ void fn_80179F04(HSD_GObj*, intptr_t);
 /* 179F6C */ void fn_80179F6C(int idx, HSD_GObj* value);
 /* 179F84 */ void fn_80179F84(HSD_JObj*);
 /* 17A004 */ void fn_8017A004(void);
@@ -22,5 +24,7 @@
 /* 17A67C */ Fighter_GObj* fn_8017A67C(CharacterKind c_kind, int, int);
 /* 17A9B4 */ void fn_8017A9B4(int);
 /* 17AA78 */ void fn_8017AA78(const u8*);
+
+extern lbl_8046E3AC_t lbl_8046E3AC;
 
 #endif

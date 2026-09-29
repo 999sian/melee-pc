@@ -43,10 +43,10 @@ void ftCo_CpuTrace(Fighter* fp, enum ftCo_CpuTraceEvent ev, int arg)
     if (!pc_dbg_cpu_trace()) {
         return;
     }
-    if (fp->player_id >= ARRAY_SIZE(ftCo_cpu_trace_state)) {
+    if (fp->player_idx >= ARRAY_SIZE(ftCo_cpu_trace_state)) {
         return;
     }
-    t = &ftCo_cpu_trace_state[fp->player_id];
+    t = &ftCo_cpu_trace_state[fp->player_idx];
 
     switch (ev) {
     case FtCo_Trace_Cmd:
@@ -107,7 +107,7 @@ void ftCo_CpuTrace(Fighter* fp, enum ftCo_CpuTraceEvent ev, int arg)
     OSReport("cputrace p%d lvl=%d tick=%u noscript=%u armed=%u cmds=%u | "
              "think=%u tgt=%u sel=%u notbl=%u | rej lvl=%u dup=%u win=%u "
              "per=%u wt=%u | acc=%u last=0x%X q=%u/%u xA4=%d\n",
-             fp->player_id, fp->cpu.level, t->ticks, t->no_script, t->armed,
+             fp->player_idx, fp->cpu.level, t->ticks, t->no_script, t->armed,
              t->cmds, t->think, t->think_tgt, t->select, t->sel_no_table,
              t->rej_level, t->rej_queue, t->rej_window, t->rej_period,
              t->rej_weight, t->accept, t->last_accept, (u32) t->q_att,
@@ -120,7 +120,7 @@ void ftCo_CpuTrace(Fighter* fp, enum ftCo_CpuTraceEvent ev, int arg)
         for (i = 0; i < t->ops_n; i++) {
             n += sprintf(&line[n], "%02X ", t->ops[i]);
         }
-        OSReport("cputrace p%d ops %s\n", fp->player_id, line);
+        OSReport("cputrace p%d ops %s\n", fp->player_idx, line);
         t->ops_n = 0;
     }
 }

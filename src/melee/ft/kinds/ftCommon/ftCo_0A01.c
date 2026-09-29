@@ -703,7 +703,7 @@ void ftCo_800A101C(Fighter* arg0, int arg1, int arg2, int arg3)
     temp_r30->x40 = 50.0f;
     temp_r30->x44 = NULL;
     temp_r30->x48 = 0;
-    temp_r30->x50 = 0;
+    temp_r30->x50 = NULL;
     temp_r30->x98 = arg0->cur_pos;
     if (ftCo_800A0FB0(&sp50, &sp34, &sp30, &sp44, -1, -1, -1, arg0->cur_pos.x,
                       10.0f + arg0->cur_pos.y, arg0->cur_pos.x,
@@ -929,7 +929,7 @@ bool ftCo_800A1C44(Fighter* fp)
     if (fp->x2168 != 0 && fp->x2338.x == 0) {
         return true;
     }
-    if (fp->x221F_b3) {
+    if (fp->is_sleeping) {
         return true;
     }
     return false;
@@ -1074,7 +1074,7 @@ bool ftCo_800A1F98(int x, float y)
 
 bool ftCo_IsCpuControlled(Fighter* fp)
 {
-    if (Player_8003248C(fp->player_id, fp->is_sub_fighter) != Gm_PKind_Cpu) {
+    if (Player_8003248C(fp->player_idx, fp->is_sub_fighter) != Gm_PKind_Cpu) {
         return false;
     }
     if (fp->cpu.kind == 5) {
@@ -1264,10 +1264,30 @@ block_43:
     return 0;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
+static inline bool checkOnettY(float y)
+{
+    if (stage_info.grkind != Gr_Kind_Onett) {
+        return false;
+    }
+    if (y <= 5.0 && Ground_801C5794()) {
+        return true;
+    }
+    return false;
+}
+
+static inline bool checkZebesIsland(mp_UnkStruct0* island)
+{
+    float y = island->x14.y;
+    if (ftCo_800A1F98(0x5A, y)) {
+        return true;
+    }
+    y = island->x8.y;
+    if (ftCo_800A1F98(0x5A, y)) {
+        return true;
+    }
+    return false;
+}
+
 bool ftCo_800A2718(mp_UnkStruct0* arg0)
 {
     /// @todo Redundant cast and assignment improves match
@@ -1306,41 +1326,10 @@ bool ftCo_800A2718(mp_UnkStruct0* arg0)
         switch (*stage) {
         case Gr_Kind_Story:
             return mpIsland_8005AC8C(island);
-        case Gr_Kind_Zebes: {
-            float y = island->x14.y;
-            if (ftCo_800A1F98(0x5A, y) != 0) {
-                return true;
-            }
-            y = island->x8.y;
-            if (ftCo_800A1F98(0x5A, y) != 0) {
-                return true;
-            }
-            return false;
-        }
+        case Gr_Kind_Zebes:
+            return checkZebesIsland(island);
         case Gr_Kind_Onett: {
-            bool ret;
-            bool ret2;
-            float y = island->x14.y;
-            if (*stage != Gr_Kind_Onett) {
-                ret = false;
-            } else if (y <= 5.0 && Ground_801C5794() != 0) {
-                ret = true;
-            } else {
-                ret = false;
-            }
-            if (ret) {
-                goto ret_true;
-            }
-            y = island->x8.y;
-            if (*stage != Gr_Kind_Onett) {
-                ret2 = false;
-            } else if (y <= 5.0 && Ground_801C5794() != 0) {
-                ret2 = true;
-            } else {
-                ret2 = false;
-            }
-            if (ret2) {
-            ret_true:
+            if (checkOnettY(island->x14.y) || checkOnettY(island->x8.y)) {
                 return true;
             }
             return false;
@@ -1350,21 +1339,11 @@ bool ftCo_800A2718(mp_UnkStruct0* arg0)
         }
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 static inline bool ftCo_800A2718_dontinline(mp_UnkStruct0* arg0)
 {
     return ftCo_800A2718(arg0);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 static inline bool ftCo_800A2718_dontinline2(mp_UnkStruct0* arg0);
 static inline bool ftCo_800A2718_dontinline2(mp_UnkStruct0* arg0)
@@ -1924,7 +1903,7 @@ bool ftCo_IsAlly(Fighter* fp0, Fighter* fp1)
     if (fp1 == NULL) {
         return false;
     }
-    if (fp0->player_id == fp1->player_id) {
+    if (fp0->player_idx == fp1->player_idx) {
         return true;
     }
     if (gm_8016B168()) {
@@ -2414,8 +2393,8 @@ static inline bool inlineD0_it(Fighter* fp, Item* it)
 static inline bool inlineD1(Fighter* fp)
 {
     Fighter_GObj* gobj = fp->gobj;
-    if (fp->x221F_b3 || fp->x2224_b2 || ftCo_800A0F00(gobj) ||
-        ftLib_8008732C(gobj))
+    if (fp->is_sleeping || fp->stamina_dead || ftCo_800A0F00(gobj) ||
+        ftLib_IsDead(gobj))
     {
         return true;
     } else {
@@ -2639,7 +2618,7 @@ Fighter* ftCo_800A5294(Fighter* fp, int player_id)
             if (fp->gobj != cur) {
                 cur_fp = GET_FIGHTER(cur);
                 if (!inlineD0(fp, cur_fp)) {
-                    if (!inlineD1(cur_fp) && cur_fp->player_id == player_id) {
+                    if (!inlineD1(cur_fp) && cur_fp->player_idx == player_id) {
                         return cur_fp;
                     }
                 }
@@ -2774,8 +2753,8 @@ Fighter* ftCo_800A589C(Fighter* fp)
         {
             if (fp->gobj != cur) {
                 Fighter* cur_fp = GET_FIGHTER(cur);
-                if (fp->player_id == cur_fp->player_id) {
-                    if (cur_fp->x221F_b3) {
+                if (fp->player_idx == cur_fp->player_idx) {
+                    if (cur_fp->is_sleeping) {
                         return NULL;
                     }
                     return cur_fp;
@@ -8637,7 +8616,7 @@ bool ftCo_800B395C(Fighter_GObj* gobj, int arg1)
 
     fp = GET_FIGHTER(gobj);
     temp_r30 = &fp->cpu;
-    if (Player_8003248C(fp->player_id, fp->is_sub_fighter) == Gm_PKind_Cpu) {
+    if (Player_8003248C(fp->player_idx, fp->is_sub_fighter) == Gm_PKind_Cpu) {
         switch (temp_r30->x18) {
         case 2:
         case 3:

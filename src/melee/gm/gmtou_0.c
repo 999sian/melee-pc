@@ -1192,10 +1192,6 @@ void fn_80192758(HSD_GObj* gobj)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma inline_depth(0)
-#endif
 void fn_80192938(void)
 {
     struct Lbl804799B8_t* state = &lbl_804799B8;
@@ -1292,9 +1288,6 @@ void fn_80192938(void)
     tm->pad_x34[0] = 0xFF;
     tm->x33 = 0xFF;
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void fn_80192BB0(void)
 {

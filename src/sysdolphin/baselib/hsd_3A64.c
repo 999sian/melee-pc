@@ -252,22 +252,22 @@ s32 HSD_SisLib_803A67EC(u8* data, u8* string)
         for (lut_idx = 0; lut_idx < ARRAY_SIZE(HSD_SisLib_FontAtlas);
              lut_idx++)
         {
-            if ((sjis_hi == lbl_8040C8C0[lut_idx * 2]) &&
-                (sjis_lo == lbl_8040C8C0[lut_idx * 2 + 1]))
+            if ((sjis_hi == lbl_8040C8C0[lut_idx].lead) &&
+                (sjis_lo == lbl_8040C8C0[lut_idx].trail))
             {
 #ifdef TARGET_PC
                 if (pc_region_pal) {
                     /* One byte per glyph on PAL: 0x21 + atlas index, or 0x20
                      * for the blank slot region.c maps fullwidth space to. */
-                    u32 code = ((u32) HSD_SisLib_8040C680[lut_idx * 2] << 8) |
-                               HSD_SisLib_8040C680[lut_idx * 2 + 1];
+                    u32 code = ((u32) HSD_SisLib_8040C680[lut_idx].hi << 8) |
+                               HSD_SisLib_8040C680[lut_idx].lo;
                     u32 idx = code - 0x2000;
                     data[out_idx++] = idx + 0x21 <= 0xFF ? (u8) (idx + 0x21) : 0x20;
                     break;
                 }
 #endif
-                data[out_idx++] = HSD_SisLib_8040C680[lut_idx * 2];
-                data[out_idx++] = HSD_SisLib_8040C680[lut_idx * 2 + 1];
+                data[out_idx++] = HSD_SisLib_8040C680[lut_idx].hi;
+                data[out_idx++] = HSD_SisLib_8040C680[lut_idx].lo;
                 break;
             }
         }

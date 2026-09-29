@@ -423,7 +423,7 @@ void fn_801AA7F8(HSD_GObj* gobj)
 enum {
     Gm_GObj_GXLink_PlyCursor = 9
 };
-void fn_801AA854(HSD_GObj* gobj, int code)
+void fn_801AA854(HSD_GObj* gobj, intptr_t code)
 {
     int i;
     HSD_CObj* cobj = gobj->hsd_obj;
@@ -464,7 +464,7 @@ void fn_801AA854(HSD_GObj* gobj, int code)
 
 static HSD_Text* gm_80480D58[6];
 
-void fn_801AAA28(HSD_GObj* gobj, int code)
+void fn_801AAA28(HSD_GObj* gobj, intptr_t code)
 {
     int i;
     HSD_GObj_803910D8(gobj, code);

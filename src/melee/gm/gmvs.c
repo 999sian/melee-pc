@@ -479,7 +479,7 @@ MatchEnd* gm_8016B774(void)
     return &controller.state.x24C;
 }
 
-void fn_8016B784(void)
+void fn_8016B784(int arg0)
 {
     gmVs_GetSceneController()->state.hud_enabled = 1;
     grStadium_801D4150();
@@ -496,12 +496,12 @@ void fn_8016B7B4(int arg0)
     un_802FD404();
 }
 
-void fn_8016B7F8(void)
+void fn_8016B7F8(int arg0)
 {
     VsSceneController* tmp = gmVs_GetSceneController();
     PAD_STACK(4);
 
-    ftLib_800868A4();
+    ftLib_EnableAllInput();
     Stage_802252E4(tmp->start.stkind, NULL);
     grStadium_801D4040();
     if (!tmp->start.x1_3) {
@@ -575,7 +575,7 @@ void fn_8016B918(void)
         if (!var_r0) {
             continue;
         }
-        temp_r3_2 = Player_GetPlayerId(i);
+        temp_r3_2 = Player_GetPadPort(i);
         if (DbLevel >= DbLKind_DebugRom) {
             temp_r3_3 = &HSD_PadCopyStatus[(u8) temp_r3_2];
             if ((temp_r3_3->trigger & HSD_PAD_DPADUP) &&
@@ -641,7 +641,7 @@ int gm_DefaultVSGetPauser(void)
         (gm_GetCurrentGameMode() == GM_VS &&
          gm_GetCurrentSceneIndex() == 0x81))
     {
-        spPlayerId = Player_GetPlayerId(0);
+        spPlayerId = Player_GetPadPort(0);
         spPadStatus = &HSD_PadCopyStatus[(u8) spPlayerId];
         if (spPadStatus->err == 0) {
             if (DbLevel >= DbLKind_DebugRom) {
@@ -680,7 +680,7 @@ int gm_DefaultVSGetPauser(void)
                                 Gm_PKind_NA &&
                             Player_GetEntity(mpPlayerSlot) != NULL &&
                             Player_8003219C(mpPlayerSlot) == 0 &&
-                            mpPlayerId == Player_GetPlayerId(mpPlayerSlot))
+                            mpPlayerId == Player_GetPadPort(mpPlayerSlot))
                         {
                             return mpPlayerId;
                         }
@@ -719,7 +719,7 @@ int gm_CameraModeVSGetPauser(void)
                     return var_r30;
                 }
                 for (var_r29 = 0; var_r29 < 6; var_r29++) {
-                    if (var_r30 == Player_GetPlayerId(var_r29) &&
+                    if (var_r30 == Player_GetPadPort(var_r29) &&
                         Player_GetPlayerSlotType(var_r29) != Gm_PKind_NA)
                     {
                         return var_r30;
@@ -1005,7 +1005,7 @@ int gm_GetMatchEndPlayerScore(int pl_slot)
 s32 gm_8016C6C0(HSD_GObj* arg0)
 {
     PAD_STACK(0x10);
-    return gm_8016C5C0(ftLib_80086BE0(arg0));
+    return gm_8016C5C0(ftLib_GetPlayerIndex(arg0));
 }
 
 int gm_8016C75C(HSD_GObj* player)
@@ -1018,7 +1018,7 @@ int gm_8016C75C(HSD_GObj* player)
         match_end->x0 = gm_801A4BA8();
         gm_80166378(match_end);
     }
-    return match_end->player_standings[ftLib_80086BE0(player)].x20;
+    return match_end->player_standings[ftLib_GetPlayerIndex(player)].x20;
 }
 
 void fn_8016C7D0(HSD_GObj* gobj)
@@ -1056,7 +1056,7 @@ void fn_8016C7F0(void)
     if (controller.state.match_result == OUTCOME_1P_GAME_OVER &&
         controller.start.x4_3)
     {
-        gm_80167858(Player_GetPlayerId(0), Player_GetNametagSlotID(0), 0xD, 0);
+        gm_80167858(Player_GetPadPort(0), Player_GetNametagSlotID(0), 0xD, 0);
         Camera_RequestQuake(QuakeKind_Large, NULL);
     }
     if (gm_GetCurrentGameMode() == GM_TARGET_TEST ||
@@ -1084,7 +1084,7 @@ void fn_8016C7F0(void)
         if (var_r28 != 0) {
             controller.state.unk_10 = 0x9C41;
             controller.state.unk_14 = 0x145;
-            gm_80167858(Player_GetPlayerId(0), Player_GetNametagSlotID(0), 0xD,
+            gm_80167858(Player_GetPadPort(0), Player_GetNametagSlotID(0), 0xD,
                         0x5A);
         } else if (sp24 > 0) {
             controller.state.unk_14 = 0x149;
@@ -1094,7 +1094,7 @@ void fn_8016C7F0(void)
     if (gm_GetCurrentGameMode() == GM_EVENT &&
         controller.state.unk_10 == 0x9C41)
     {
-        gm_80167858(Player_GetPlayerId(0), Player_GetNametagSlotID(0), 0xD,
+        gm_80167858(Player_GetPadPort(0), Player_GetNametagSlotID(0), 0xD,
                     0x5A);
     }
     switch (gm_GetCurrentGameMode()) {
@@ -1112,7 +1112,7 @@ static inline s8 gm_GetSlotByPlayerId(int pauserId)
 {
     int slot;
     for (slot = 0; slot < 6; slot++) {
-        if (pauserId == Player_GetPlayerId(slot) &&
+        if (pauserId == Player_GetPadPort(slot) &&
             Player_GetPlayerSlotType(slot) == Gm_PKind_Human)
         {
             return slot;
@@ -1591,15 +1591,14 @@ void fn_8016D8AC(int arg0, struct PlayerInitData* arg1)
 
     Player_SetStocks(arg0, arg1->stocks);
     Player_SetCostumeId(arg0, arg1->color);
-    Player_SetControllerIndex(arg0, arg1->sub_color);
+    Player_SetSubColor(arg0, arg1->sub_color);
     if (arg1->slot == 0) {
-        Player_SetPlayerId(arg0, arg0);
+        Player_SetPadPort(arg0, arg0);
     } else {
-        Player_SetPlayerId(arg0, arg1->slot - 1);
+        Player_SetPadPort(arg0, arg1->slot - 1);
     }
     if (arg1->slot_type == Gm_PKind_Human &&
-        (HSD_PadCopyStatus[(u8) Player_GetPlayerId(arg0)].button &
-         HSD_PAD_A) &&
+        (HSD_PadCopyStatus[(u8) Player_GetPadPort(arg0)].button & HSD_PAD_A) &&
         (Player_GetPlayerCharacter(arg0) == CKind_Zelda ||
          Player_GetPlayerCharacter(arg0) == CKind_Seak))
     {
@@ -1783,7 +1782,7 @@ static inline void setPlayerUnk45(int i)
 {
     bool is_teams = controller.start.is_teams == true;
     Player_SetUnk45(
-        i, fn_80160840(gm_80160854(Player_GetPlayerId(i), Player_GetTeam(i),
+        i, fn_80160840(gm_80160854(Player_GetPadPort(i), Player_GetTeam(i),
                                    is_teams, Player_GetPlayerSlotType(i))));
 }
 
@@ -1931,7 +1930,7 @@ void fn_8016E2BC(void)
         Player_80032768(0, &sp24);
         single_is_teams = controller.start.is_teams == true;
         Player_SetUnk45(0, fn_80160840(gm_80160854(
-                               Player_GetPlayerId(0), Player_GetTeam(0),
+                               Player_GetPadPort(0), Player_GetTeam(0),
                                single_is_teams, Player_GetPlayerSlotType(0))));
         Player_80031AD0(0);
         if (controller.state.fighters[0].x4_b4) {
@@ -1960,7 +1959,7 @@ void fn_8016E2BC(void)
                 Player_80032768(i, &sp18);
                 is_teams = controller.start.is_teams == true;
                 Player_SetUnk45(
-                    i, fn_80160840(gm_80160854(Player_GetPlayerId(i),
+                    i, fn_80160840(gm_80160854(Player_GetPadPort(i),
                                                Player_GetTeam(i), is_teams,
                                                Player_GetPlayerSlotType(i))));
                 Player_80031AD0(i);
@@ -2068,9 +2067,9 @@ void gm_Scene_Vs_OnEnter(void* arg0)
     StartMeleeData* tmp = arg0;
     fn_8016E730(tmp);
     if (tmp->rules.x1_2) {
-        ifStatus_802F6EA4(8, -1, -1, 0, (void*) fn_8016B7B4, fn_8016B7F8);
+        ifStatus_802F6EA4(8, -1, -1, 0, fn_8016B7B4, fn_8016B7F8);
     } else {
-        ifStatus_802F6EA4(3, -1, -1, 0, (void*) fn_8016B7B4, fn_8016B7F8);
+        ifStatus_802F6EA4(3, -1, -1, 0, fn_8016B7B4, fn_8016B7F8);
     }
     ifTime_CreateTimers();
     ifStatus_802F665C(tmp->rules.x0_3);
@@ -2154,7 +2153,7 @@ void gm_Scene_SuddenDeath_OnEnter(void* user_data)
     StartMeleeData* data = user_data;
     data->rules.x6 = true;
     fn_8016E730(data);
-    ifStatus_802F6EA4(1, -1, -1, 0, (void*) fn_8016B7B4, fn_8016B7F8);
+    ifStatus_802F6EA4(1, -1, -1, 0, fn_8016B7B4, fn_8016B7F8);
     ifTime_CreateTimers();
     ifStatus_802F665C(data->rules.x0_3);
 }
@@ -2169,7 +2168,7 @@ void gm_Scene_Training_OnEnter(void* user_data)
     grStadium_801D410C();
     un_802FD404();
     tmp2 = &controller;
-    ftLib_800868A4();
+    ftLib_EnableAllInput();
     Stage_802252E4(tmp2->start.stkind, NULL);
     grStadium_801D4040();
     if (!controller.start.x1_3) {

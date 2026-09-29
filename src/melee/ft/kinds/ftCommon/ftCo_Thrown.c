@@ -28,13 +28,13 @@ void ftCo_800DE3FC(Fighter_GObj* gobj, FtMotionId msid, float anim_speed)
     ftCo_800DB368(thrower_fp, fp);
     fp->facing_dir = thrower_fp->facing_dir;
     fp->mv.co.thrown.unk_bool = false;
-    Fighter_ChangeMotionState(gobj, msid, 0, 0.0f, anim_speed, 0.0f,
+    Fighter_ChangeMotionState(gobj, msid, Ft_MF_None, 0.0f, anim_speed, 0.0f,
                               fp->victim_gobj);
     if (thrower_fp->kind == Ft_Kind_Yoshi) {
         ftColl_8007B62C(gobj, 2);
     }
     if (thrower_fp->kind != Ft_Kind_Kirby || msid - ftCo_MS_ThrownF > 1U) {
-        pl_80040614(thrower_fp->player_id, thrower_fp->is_sub_fighter,
+        pl_80040614(thrower_fp->player_idx, thrower_fp->is_sub_fighter,
                     fp->grab_timer);
         fp->grab_timer = 0.0f;
     }

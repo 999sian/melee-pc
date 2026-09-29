@@ -293,7 +293,7 @@ void HSD_SisLib_803A8134(void* cursor, HSD_Text* text, f32* out_width,
 {
     SIS* sis;
     TextGlyphTexture* glyph_tex = NULL;
-    u8* default_kerning = HSD_SisLib_8040CB00;
+    TextGlyphMetrics* default_kerning = HSD_SisLib_8040CB00;
     f32 line_height;
     f32 saved_scale_x;
     f32 saved_scale_y;
@@ -484,7 +484,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
     u8 saved_kerning;
 
     u8 *data = M2C_BITWISE(u8*, HSD_SisLib_FontAtlas);
-    u8 *default_kerning = HSD_SisLib_8040CB00;
+    TextGlyphMetrics* default_kerning = HSD_SisLib_8040CB00;
 
     if (gobj != NULL) {
         if (pass != 2U) {
@@ -850,7 +850,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                                 scale_x = text->font_size.x;
                                 if ( text->kerning != 0) {
                                     if (glyph_idx < 0x4000U) {
-                                        glyph_x = -((scale_x * (text->x80.x * (f32) (default_kerning[(tex_offset * 2) & 0x1FFFE] - 1))) - glyph_x);
+                                        glyph_x = -((scale_x * (text->x80.x * (f32) (default_kerning[(tex_offset * 2) & 0x1FFFE].left - 1))) - glyph_x);
                                     } else {
                                         glyph_x = -((scale_x * (text->x80.x * (f32) (textures->data[(tex_offset * 2) & 0x1FFFE] - 1))) - glyph_x);
                                     }
@@ -928,9 +928,10 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                                     text->current_width = (f32) ((text->x88 * (text->x80.x * (32.0F + text->x78.x))) + text->current_width);
                                     if ( text->kerning != 0) {
                                         if (glyph_idx < 0x4000U) {
-                                            u8 *kern_pair = &default_kerning[(tex_offset * 2) & 0x1FFFE];
-                                            tex_offset = (clear_idx = kern_pair[1] - 2);
-                                            text->current_width = (-((text->x88 * (text->x80.x * (f32) (kern_pair[0] + tex_offset))) - text->current_width));
+                                            TextGlyphMetrics* kern_pair =
+                                                &default_kerning[(tex_offset * 2) & 0x1FFFE];
+                                            tex_offset = (clear_idx = kern_pair->right - 2);
+                                            text->current_width = (-((text->x88 * (text->x80.x * (f32) (kern_pair->left + tex_offset))) - text->current_width));
                                         } else {
                                             u8 *kern_pair = &textures->data[(tex_offset * 2) & 0x1FFFE];
                                             tex_offset = (clear_idx = kern_pair[1] - 2);
@@ -986,7 +987,7 @@ void HSD_SisLib_803A947C(HSD_Archive* archive)
     lbArchive_80016EFC(archive);
 }
 
-u8 HSD_SisLib_8040C680[0x240] = {
+SisGlyphCode HSD_SisLib_8040C680[288] = {
     0x20, 0xE3, 0x20, 0xEC, 0x20, 0xF4, 0x21, 0x04, 0x21, 0x02, 0x21, 0x03,
     0x21, 0x05, 0x20, 0xF3, 0x20, 0xF5, 0x20, 0xF6, 0x21, 0x06, 0x20, 0xFB,
     0x20, 0xE6, 0x20, 0xFC, 0x20, 0xE7, 0x20, 0xF0, 0x20, 0x00, 0x20, 0x01,
@@ -1037,7 +1038,7 @@ u8 HSD_SisLib_8040C680[0x240] = {
     0x21, 0x0E, 0x21, 0x0F, 0x21, 0x1A, 0x21, 0x14, 0x21, 0x0D, 0x00, 0x00,
 };
 
-u8 lbl_8040C8C0[0x240] = {
+SjisChar lbl_8040C8C0[288] = {
     0x81, 0x40, 0x81, 0x49, 0x81, 0x68, 0x81, 0x94, 0x81, 0x90, 0x81, 0x93,
     0x81, 0x95, 0x81, 0x66, 0x81, 0x69, 0x81, 0x6A, 0x81, 0x96, 0x81, 0x7B,
     0x81, 0x43, 0x81, 0x7C, 0x81, 0x44, 0x81, 0x5E, 0x82, 0x4F, 0x82, 0x50,
@@ -1088,7 +1089,7 @@ u8 lbl_8040C8C0[0x240] = {
     0x8E, 0x77, 0x8E, 0xA6, 0x94, 0xAD, 0x90, 0xB6, 0x8D, 0x9E, 0x00, 0x00,
 };
 
-u8 HSD_SisLib_8040CB00[0x240] = {
+TextGlyphMetrics HSD_SisLib_8040CB00[288] = {
     0x09, 0x08, 0x09, 0x0C, 0x09, 0x08, 0x08, 0x08, 0x09, 0x08, 0x09, 0x08,
     0x09, 0x08, 0x09, 0x08, 0x09, 0x08, 0x09, 0x08, 0x04, 0x03, 0x06, 0x05,
     0x04, 0x04, 0x05, 0x03, 0x08, 0x06, 0x08, 0x06, 0x04, 0x03, 0x05, 0x03,

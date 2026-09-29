@@ -54,7 +54,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid, MotionFlags 
 
 static bool nana_present;
 HSD_GObj* Player_GetEntityAtIndex(int slot, int index) {
-    assert(slot == fps[POPO]->player_id);
+    assert(slot == fps[POPO]->player_idx);
     assert(index == 1);
     return nana_present ? &gobjs[NANA] : NULL;
 }
@@ -75,7 +75,7 @@ static void setup(bool on, bool is_teams) {
         gobjs[i].classifier = HSD_GOBJ_CLASS_FIGHTER;
         gobjs[i].user_data = fps[i];
         fps[i]->gobj = &gobjs[i];
-        fps[i]->player_id = i == NANA ? 1 : i;
+        fps[i]->player_idx = i == NANA ? 1 : i;
     }
     memset(item, 0, sizeof(Item));
     memset(&item_gobj, 0, sizeof(item_gobj));

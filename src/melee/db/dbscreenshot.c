@@ -67,21 +67,21 @@ void db_TakeScreenshotIfPending(void)
     int temp_r3;
     int temp_r5;
     int temp_ret;
-    void* var_r30;
+    void* xfb;
 
     if (db_ScreenshotPending != 0) {
         HSD_VIWaitXFBFlush();
         temp_ret = HSD_VIGetXFBLastDrawDone();
         temp_r3 = temp_ret;
         if (temp_r3 != -1) {
-            var_r30 = HSD_VIData.xfb[temp_r3].buffer;
+            xfb = HSD_VIData.xfb[temp_r3].buffer;
         } else {
             HSD_ASSERTREPORT(61, 0, "cant find xfb!\n");
         }
         temp_r5 = db_ScreenshotNumber;
         db_ScreenshotNumber = temp_r5 + 1;
         sprintf(spC, "USB:shot/screenshot%02d.frb", temp_r5);
-        fn_802289F8(spC, var_r30,
+        fn_802289F8(spC, xfb,
                     HSD_VIData.current.vi.rmode.fbWidth *
                         HSD_VIData.current.vi.rmode.xfbHeight * 2);
         db_ScreenshotPending = 0;

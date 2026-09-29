@@ -3,8 +3,6 @@
 #include <melee/sc/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
-#include <placeholder.h>
-
 #include "types.h"
 #include "vi.h"
 #include <dolphin/gx.h>
@@ -52,7 +50,7 @@ void vi0102_8031CB00(int mario_costume, int luigi_costume)
     Player_80036E20(CKind_Mario, un_804D6F38, 4);
     Player_SetPlayerCharacter(0, CKind_Mario);
     Player_SetCostumeId(0, mario_costume);
-    Player_SetPlayerId(0, 0);
+    Player_SetPadPort(0, 0);
     Player_SetSlottype(0, Gm_PKind_Demo);
     Player_SetFacingDirection(0, 1.0f);
     Player_80032768(0, &initial_pos);
@@ -62,7 +60,7 @@ void vi0102_8031CB00(int mario_costume, int luigi_costume)
     Player_80036E20(CKind_Luigi, un_804D6F38, 4);
     Player_SetPlayerCharacter(1, CKind_Luigi);
     Player_SetCostumeId(1, luigi_costume);
-    Player_SetPlayerId(1, 0);
+    Player_SetPadPort(1, 0);
     Player_SetSlottype(1, Gm_PKind_Demo);
     Player_SetFacingDirection(1, 1.0f);
     Player_80032768(1, &initial_pos);
@@ -74,25 +72,33 @@ void vi0102_8031CB00(int mario_costume, int luigi_costume)
     lbAudioAx_80027648();
 }
 
+static void vi0102_RunFrame(HSD_GObj* gobj);
+
 void vi0102_JObjCallback(HSD_GObj* gobj)
 {
     HSD_JObjAnimAll(GET_JOBJ(gobj));
 }
 
-void vi0102_CameraCallback(HSD_GObj* gobj, int unused)
+void vi0102_CameraCallback(HSD_GObj* gobj, intptr_t unused)
 {
-    PAD_STACK(8);
     lbShadow_8000F38C(0);
-    vi_RunCamera(gobj, (u8*) &erase_colors_vi0102, 0x881);
+    vi_RunCamera(gobj, &erase_colors_vi0102, 0x881);
 }
 
-/// Used to force float ordering of file
-#ifdef MUST_MATCH
-static f32 unused(void)
+static void setupCamera(void)
 {
-    return 0.0f;
+    HSD_GObj* cam_gobj;
+    HSD_CObj* cobj;
+
+    cam_gobj = GObj_Create(0x13, 0x14, 0);
+    cobj = lb_80013B14(vi_SceneCamDesc(un_804D6F30));
+    HSD_GObjObject_80390A70(cam_gobj, HSD_GObj_CameraKind, cobj);
+    GObj_SetupGXLinkMax(cam_gobj, vi0102_CameraCallback, 0x8);
+    HSD_CObjAddAnim(cobj, vi_SceneCamAnim(un_804D6F30, 0));
+    HSD_CObjReqAnim(cobj, 0.0F);
+    HSD_CObjAnim(cobj);
+    HSD_GObj_SetupProc(cam_gobj, vi0102_RunFrame, 0);
 }
-#endif
 
 static void vi0102_RunFrame(HSD_GObj* gobj)
 {
@@ -113,9 +119,6 @@ static void vi0102_RunFrame(HSD_GObj* gobj)
 void vi0102_Scene_OnEnter(void* arg)
 {
     int i;
-    HSD_CObj* cobj;
-    HSD_GObj* cam_gobj;
-
     HSD_JObj* tmp;
     HSD_JObj* jobj;
     HSD_GObj* joint_gobj;
@@ -136,14 +139,7 @@ void vi0102_Scene_OnEnter(void* arg)
     un_804D6F38 = lbArchive_LoadSymbols("Vi0102.dat", &un_804D6F30,
                                         "visual0102Scene", NULL);
 
-    cam_gobj = GObj_Create(0x13, 0x14, 0);
-    cobj = lb_80013B14(vi_SceneCamDesc(un_804D6F30));
-    HSD_GObjObject_80390A70(cam_gobj, HSD_GObj_CameraKind, cobj);
-    GObj_SetupGXLinkMax(cam_gobj, vi0102_CameraCallback, 0x8);
-    HSD_CObjAddAnim(cobj, vi_SceneCamAnim(un_804D6F30, 0));
-    HSD_CObjReqAnim(cobj, 0.0F);
-    HSD_CObjAnim(cobj);
-    HSD_GObj_SetupProc(cam_gobj, vi0102_RunFrame, 0);
+    setupCamera();
 
     for (i = 0; vi_SceneModel(un_804D6F30, i) != NULL; i++) {
         DynamicModelDesc* model = vi_SceneModel(un_804D6F30, i);

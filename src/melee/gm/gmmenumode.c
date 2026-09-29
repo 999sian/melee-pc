@@ -18,7 +18,7 @@
 #endif
 
 struct DebugSoundTestData {
-    struct SoundTestData* x0;
+    struct SoundTestMenuData* x0;
     u32 x4;
 };
 
@@ -66,7 +66,7 @@ void onEnterDebug(GameModeState* arg0)
     struct DebugSoundTestData* data;
 
     data = gm_GetGameModeStateEnterData(arg0);
-    data->x0 = (struct SoundTestData*) &un_803F9FA4;
+    data->x0 = &un_803F9FA4;
     data->x4 = 0;
     un_802FF7DC();
     un_802FF884("/audio");

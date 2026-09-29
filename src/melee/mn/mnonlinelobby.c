@@ -161,7 +161,7 @@ void mnOnlineLobby_Create(void)
      * before any text so it renders underneath. */
     HSD_SisLib_803A611C(0, NULL, 9, 0xD, 0, 0xE, 0, 0x13);
     panel = GObj_Create(9, 0xD, 0);
-    GObj_SetupGXLink(panel, drawPanel, 0xE, 0);
+    GObj_SetupGXLink(panel, (GObj_RenderFunc) drawPanel, 0xE, 0);
     lobby_text = HSD_SisLib_803A6754(0, 0);
     lobby_text->default_kerning = 1;
 
