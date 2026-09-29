@@ -16,7 +16,7 @@ cmake -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
-    -DAURORA_SDL3_PROVIDER="${AURORA_SDL3_PROVIDER:-system}" \
+    -DAURORA_SDL3_PROVIDER="${AURORA_SDL3_PROVIDER:-vendor}" \
     -DAURORA_DAWN_PROVIDER="${AURORA_DAWN_PROVIDER:-package}" \
     -DAURORA_NOD_PROVIDER="${AURORA_NOD_PROVIDER:-package}"
 ninja -C "${BUILD_DIR}" melee

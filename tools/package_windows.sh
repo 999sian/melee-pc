@@ -13,7 +13,7 @@ case "${TARGET_ARCH}" in
         STAGE_DIR="${DIST_DIR}/melee-windows-x86_64"
         ZIP_NAME="Melee-Windows-x86_64.zip"
         TOOLCHAIN_FILE="${ROOT_DIR}/cmake/x86_64-w64-mingw32.cmake"
-        SDL3_PROVIDER="package"
+        SDL3_PROVIDER="vendor"
         DAWN_PROVIDER="package"
         NOD_PROVIDER="package"
         CXX_BIN="${CXX:-x86_64-w64-mingw32-g++}"

@@ -241,9 +241,9 @@ jobs:
           xcodebuild -version
           # Apple clang builds the C++; the decomp's C needs GCC for
           # scalar_storage_order, so tools/gcc_launcher.py routes melee_game
-          # through Homebrew's gcc. SDL3 comes from Homebrew and is bundled
-          # into the .app with the other dylibs by package_macos.sh.
-          brew install gcc cmake ninja sdl3 zstd libpng freetype
+          # through Homebrew's gcc. SDL3 is built from AURORA_SDL3_REF and
+          # bundled into the .app with the other dylibs by package_macos.sh.
+          brew install gcc cmake ninja zstd libpng freetype
 
       - name: Verify native rollback snapshot restore
         run: python3 tools/test_snapshot_platforms.py SnapshotPlatforms.test_native_mac_restore

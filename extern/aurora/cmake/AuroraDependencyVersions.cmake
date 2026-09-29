@@ -17,9 +17,10 @@ _aurora_dependency_version(AURORA_DAWN_VERSION "v20260807.225922" "Dawn prebuilt
         "v20260523.201736" "v20260603.191052" "v20260618.032059") # Previous versions
 _aurora_dependency_version(AURORA_DAWN_REF "1155e0ed531126f33a1279afa029349651ca1c93" "Dawn commit ref (https://github.com/encounter/dawn)"
         "9aa45f938d4b36626722bbfdc2f18447179337e6" "13abc3bc8ea2d3c2050f9e77a12d012108ceee24" "266c1cf8de969a364afa4fa49311631fc99a881e") # Previous versions
-# ponytail: prebuilt pinned to encounter/sdl3-build's newest release (no 3.4.16 there yet: 404); bump with it
+# ponytail: prebuilt only serves aurora's `auto` provider on Windows; melee-pc packages every target with provider=vendor so SDL comes from AURORA_SDL3_REF
 _aurora_dependency_version(AURORA_SDL3_VERSION "3.4.10" "SDL3 prebuilt version tag (https://github.com/encounter/sdl3-build/releases)")
-_aurora_dependency_version(AURORA_SDL3_REF "refs/tags/release-3.4.16" "SDL3 commit ref (https://github.com/libsdl-org/SDL)"
-        "refs/tags/release-3.4.10") # Previous version
+# melee-pc: tracks libsdl-org/SDL main (3.5 development head), not a release tag
+_aurora_dependency_version(AURORA_SDL3_REF "1ce4c5bc2916702e8e0f6df1f612dbd8633011da" "SDL3 commit ref (https://github.com/libsdl-org/SDL)"
+        "refs/tags/release-3.4.10" "refs/tags/release-3.4.16") # Previous versions
 _aurora_dependency_version(AURORA_NOD_VERSION "v2.0.0-alpha.12" "nod version tag (https://github.com/encounter/nod/releases)"
         "v2.0.0-alpha.10" "v2.0.0-alpha.11") # Previous versions
