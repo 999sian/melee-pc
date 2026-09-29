@@ -148,8 +148,20 @@ elseif (_aurora_sdl3_provider STREQUAL "vendor")
       COMMAND ${CMAKE_COMMAND}
         -DSDL_SOURCE_DIR=<SOURCE_DIR>
         -P "${CMAKE_CURRENT_LIST_DIR}/patches/apply-sdl3-android-security-exception.cmake"
+      COMMAND ${CMAKE_COMMAND}
+        -DSDL_SOURCE_DIR=<SOURCE_DIR>
+        -P "${CMAKE_CURRENT_LIST_DIR}/patches/apply-sdl3-uikit-vision-idiom.cmake"
       EXCLUDE_FROM_ALL
     )
+    # SDL declares no C++20 modules, but CMake >= 3.28 still scans its one C++
+    # translation unit (hidapi/android/hid.cpp) for them. That scan needs
+    # clang-scan-deps matching the compiler exactly: the Android NDK ships
+    # none, so a host scanner is picked and cannot read the NDK-built PCH
+    # ("PCH file uses an older PCH format"). CMake only consults this when the
+    # consuming directory has not set it already.
+    if (ANDROID OR IOS)
+      set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+    endif ()
     if (EMSCRIPTEN)
       # Source archives have no .git directory. SDL would otherwise describe
       # the enclosing Melee checkout, changing its banner on every fork commit.

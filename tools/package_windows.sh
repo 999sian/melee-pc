@@ -216,6 +216,9 @@ OS_DLLS = {
     # since 2000; it appeared in our import table when LAN discovery landed,
     # which is why the gate started failing on a package that is in fact fine.
     'winhttp.dll', 'iphlpapi.dll',
+    # hid.dll: SDL 3.5's Windows HID API backend links it directly. Present on
+    # a clean Windows install, so it does not need shipping.
+    'hid.dll',
 }
 
 def is_os(name):
