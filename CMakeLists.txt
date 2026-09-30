@@ -201,6 +201,7 @@ set(PC_SOURCES
         src/pc/stb_vorbis.c
         src/pc/thp.c
         src/pc/touch.c
+        src/pc/interp.c
         src/pc/vi.c
         src/pc/widescreen.c
         src/pc/windows_arm64_softfp.c

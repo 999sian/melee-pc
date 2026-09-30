@@ -1,5 +1,6 @@
 #include "cobj.h"
 #ifdef TARGET_PC
+#include "pc/interp.h"
 #include "pc/widescreen.h"
 #endif
 
@@ -529,6 +530,11 @@ bool HSD_CObjSetCurrent(HSD_CObj* cobj)
     render_pass = HSD_GetCurrentRenderPass();
     _HSD_ZListClear();
     current = cobj;
+#ifdef TARGET_PC
+    /* PORT: in-between frames build this camera's projection and view from
+     * a blend with the last exact frame (src/pc/interp.c). */
+    pc_interp_cobj_pre(cobj);
+#endif
     switch (render_pass) {
     case HSD_RP_OFFSCREEN:
         result = setupOffscreenCamera(cobj);
@@ -546,10 +552,16 @@ bool HSD_CObjSetCurrent(HSD_CObj* cobj)
         HSD_Panic(__FILE__, 624, "unkown type of render pass.\n");
         return false;
     }
+#ifdef TARGET_PC
+    pc_interp_cobj_proj_done(cobj);
+#endif
     if (!result) {
         return false;
     } else {
         HSD_CObjSetupViewingMtx(cobj);
+#ifdef TARGET_PC
+        pc_interp_cobj_post(cobj);
+#endif
         return true;
     }
 }
@@ -1397,6 +1409,9 @@ void CObjRelease(HSD_Class* o)
     HSD_WObj* interest;
     HSD_CObj* cobj = HSD_COBJ(o);
 
+#ifdef TARGET_PC
+    pc_interp_cobj_released(cobj);
+#endif
     HSD_AObjRemove(cobj->aobj);
     eyepos = HSD_CObjGetEyePositionWObj(cobj);
     HSD_WObjUnref(eyepos);

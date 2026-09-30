@@ -1,5 +1,6 @@
 #include "gmscene.h"
 #ifdef TARGET_PC
+#include "pc/interp.h"
 #include "pc/net.h"
 #include "pc/pc.h"
 #include "pc/slp.h"
@@ -375,6 +376,60 @@ static bool scene_end_gate(struct gm_80479D58_t* st)
 }
 #endif
 
+#ifdef TARGET_PC
+#include <melee/ft/types.h>
+#include <melee/it/types.h>
+
+/* Fighter and item render procs write simulation state as they draw: the
+ * off-screen flag and screen position that drive the magnifier (and its
+ * damage), among others. The tick's own frame writes them again; an
+ * in-between frame must leave no trace, so src/pc/interp.c puts every
+ * fighter's and item's user data back afterwards. */
+static void interp_keep_link(int link, size_t size)
+{
+    HSD_GObj* gobj;
+    for (gobj = HSD_GObjPLinkHead[link]; gobj != NULL; gobj = gobj->next) {
+        if (gobj->user_data != NULL) {
+            pc_interp_keep(gobj->user_data, size);
+        }
+    }
+}
+
+/* PORT: the frames a high-refresh display shows between two ticks
+ * (src/pc/interp.c). Each is a full redraw of the scene with the joints and
+ * cameras blended part of the way from the last presented tick to this one;
+ * the tick's own exact frame follows as usual. Only after exactly one tick:
+ * a burst of catch-up ticks has nothing sensible to blend across. */
+static void gm_DrawInterpolatedFrames(int ticks)
+{
+    int n = pc_interp_subframes();
+    int k;
+    pc_interp_update_present();
+    if (n <= 1 || ticks != 1 || !pc_interp_ready() || pc_net_active() ||
+        HSD_VIGetNbXFB() < 2)
+    {
+        return;
+    }
+    for (k = 1; k < n; k++) {
+        u64 t0 = pc_monotonic_ns();
+        pc_interp_audit_begin();
+        pc_interp_draw_begin((f32) k / (f32) n);
+        interp_keep_link(HSD_GOBJ_PLINK_FIGHTER, sizeof(Fighter));
+        interp_keep_link(HSD_GOBJ_PLINK_ITEM, sizeof(Item));
+        GXInvalidateVtxCache();
+        GXInvalidateTexAll();
+        HSD_StartRender(HSD_RP_SCREEN);
+        HSD_GObj_80390FC0();
+        HSD_Init_803755A8();
+        pc_interp_draw_end();
+        pc_interp_audit_end();
+        u64 t1 = pc_monotonic_ns();
+        pc_vi_present_subframe(k, n);
+        pc_interp_note_timing(t1 - t0, pc_monotonic_ns() - t1);
+    }
+}
+#endif
+
 void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
 {
     int pad_queue_count;
@@ -391,6 +446,9 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
     gm_80479D58.unk_C = 0;
     HSD_PadFlushQueue(HSD_PAD_FLUSH_QUEUE_LEAVE1);
     lb_8001CF18();
+#ifdef TARGET_PC
+    pc_interp_reset();
+#endif
 
     while (temp_r25->unk_C == 0) {
         hsd_80392E80();
@@ -405,6 +463,9 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
 #endif
         }
         lb_800195D0();
+#ifdef TARGET_PC
+        pc_vi_trace("pad ready");
+#endif
 
         if (HSD_PadGetResetSwitch()) {
             gmMainLib_8046B0F0.resetting = true;
@@ -457,12 +518,20 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
 
 #ifdef TARGET_PC
         pc_net_render_audit(false);
+        pc_vi_trace("logic done");
+        gm_DrawInterpolatedFrames(pad_queue_count);
 #endif
         lb_800195D0();
         GXInvalidateVtxCache();
         GXInvalidateTexAll();
         HSD_StartRender(HSD_RP_SCREEN);
+#ifdef TARGET_PC
+        pc_interp_record_begin();
+#endif
         HSD_GObj_80390FC0();
+#ifdef TARGET_PC
+        pc_interp_record_end();
+#endif
         HSD_Init_803755A8();
         HSD_PerfSetDrawTime();
         HSD_VICopyXFBAsync(HSD_RP_SCREEN);
@@ -476,5 +545,8 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         HSD_PerfSetTotalTime();
         HSD_PerfInitStat();
     }
+#ifdef TARGET_PC
+    pc_interp_reset();
+#endif
     HSD_VIWaitXFBFlush();
 }

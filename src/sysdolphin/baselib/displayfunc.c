@@ -485,7 +485,13 @@ void HSD_JObjDisp(HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask,
     if (jobj != NULL) {
         if (union_type_dobj(jobj)) {
             HSD_JObjDispDObj(jobj, vmtx, trsp_mask, rendermode);
-        } else if (union_type_ptcl(jobj) && sptcl_callback != NULL) {
+        } else if (union_type_ptcl(jobj) && sptcl_callback != NULL
+#ifdef TARGET_PC
+                   /* PORT: spawning is simulation; an in-between frame
+                    * (src/pc/interp.c) leaves it to the tick's own frame. */
+                   && pc_interp_mode != 2
+#endif
+        ) {
             HSD_DiscSList* sp;
             for (sp = jobj->u.ptcl; sp != NULL; sp = DP(HSD_DiscSList, sp->next)) {
                 if ((sp->data & 0x80000000) != 0) {

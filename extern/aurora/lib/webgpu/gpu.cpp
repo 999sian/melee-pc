@@ -269,6 +269,11 @@ uint32_t viewport_extent(float value) noexcept {
 
 bool vsync_enabled() noexcept { return g_vsyncEnabled.load(std::memory_order_acquire); }
 
+/* Tear-free presentation that never blocks: set while the game paces several
+ * frames per tick itself (melee-pc src/pc/interp.c), where FIFO back-pressure
+ * against a timer-driven simulation costs whole refreshes. */
+static std::atomic_bool g_vsyncMailbox{false};
+
 wgpu::PresentMode select_present_mode(const wgpu::SurfaceCapabilities& capabilities) noexcept {
   const auto supports = [&capabilities](const wgpu::PresentMode candidate) {
     for (size_t i = 0; i < capabilities.presentModeCount; ++i) {
@@ -279,6 +284,10 @@ wgpu::PresentMode select_present_mode(const wgpu::SurfaceCapabilities& capabilit
     return false;
   };
   if (vsync_enabled()) {
+    if (g_vsyncMailbox.load(std::memory_order_acquire) && g_backendType != wgpu::BackendType::Metal &&
+        supports(wgpu::PresentMode::Mailbox)) {
+      return wgpu::PresentMode::Mailbox;
+    }
     if (supports(wgpu::PresentMode::FifoRelaxed)) {
       return wgpu::PresentMode::FifoRelaxed;
     }
@@ -1286,4 +1295,18 @@ void aurora_enable_vsync(const bool enabled) {
 
 bool aurora_vsync_enabled(void) {
   return aurora::webgpu::vsync_enabled();
+}
+
+void aurora_set_vsync_mailbox(const bool enabled) {
+  if (aurora::webgpu::g_vsyncMailbox.exchange(enabled, std::memory_order_acq_rel) == enabled) {
+    return;
+  }
+  aurora::webgpu::g_graphicsConfig.surfaceConfiguration.presentMode =
+      aurora::webgpu::select_present_mode(aurora::webgpu::g_surfaceCapabilities);
+  aurora::window::push_custom_event(aurora::window::CustomEvent::RefreshSurface);
+}
+
+bool aurora_present_blocks(void) {
+  const auto mode = aurora::webgpu::g_graphicsConfig.surfaceConfiguration.presentMode;
+  return mode == wgpu::PresentMode::Fifo || mode == wgpu::PresentMode::FifoRelaxed;
 }

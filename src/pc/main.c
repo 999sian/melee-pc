@@ -22,6 +22,7 @@
 #endif
 
 #include "pc/pc.h"
+#include "pc/interp.h"
 #include "pc/android_hooks.h"
 #include "pc/launcher.h"
 
@@ -570,6 +571,7 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
     pc_launcher_configure(&config);
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
+    pc_interp_set_window(info.window);
 
     /* Built-in fallback mappings for common 3rd-party GameCube adapters
      * (DragonRise / Mayflash in PC mode) so they work out-of-the-box even if

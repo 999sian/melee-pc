@@ -68,6 +68,10 @@
               <button id="sync">VSync</button>
             </div>
             <div class="setting">
+              <div class="description"><h3>Frame rate</h3><p>The game still runs at 60 Hz; the extra frames blend characters and camera between ticks.</p></div>
+              <button id="interp">120 fps</button>
+            </div>
+            <div class="setting">
               <div class="description"><h3>Internal resolution</h3><p>Auto follows the window size.</p></div>
               <div class="slider-control">
                 <input type="range" class="range" id="resolution" min="0" max="10" step="1" value="0" />

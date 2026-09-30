@@ -22,6 +22,7 @@ struct Preferences {
     int net_port = 0;        // operating-system allocated
 
     bool vsync = true;
+    int interp_hz = 120;  // presented frame rate: 60 = off, 0 = match the display
     bool fullscreen = false;
     float scale = 1.0f;
 #if defined(__ANDROID__)
