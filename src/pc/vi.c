@@ -48,6 +48,14 @@ static u32 s_subframes; /* in-between frames presented, for MELEE_FPS */
  * The margin follows how long logic plus that first draw really takes. */
 static u64 s_present_margin_ns = 2000000ull;
 static int s_tick_frames; /* frames this tick is split into; 0 = no schedule */
+/* When the tick's logic started: the scene loop waits for the pad alarm,
+ * which has a phase of its own, so the frame boundary's deadline says little
+ * about when a tick really begins. The schedule hangs off this instead. */
+static u64 s_tick_start_ns;
+
+void pc_vi_tick_started(void) {
+    s_tick_start_ns = SDL_GetTicksNS();
+}
 
 static VIRetraceCallback s_pre_cb;
 static VIRetraceCallback s_post_cb;
@@ -70,6 +78,42 @@ void pc_vi_trace(const char* what) {
         return;
     long long rel = (long long)SDL_GetTicksNS() - (long long)(next_sim_ns - pc_sim_period_ns());
     pc_log_line("trace tick %u %-14s %+.2f ms", s_retrace_count, what, rel / 1e6);
+}
+
+/* MELEE_DUMP_FRAMES=<dir>,<first>,<count> (aurora writes the images):
+ * <dir>/presents.txt says what each dumped present was. The index counts
+ * aurora_end_frame calls, which is what aurora counts too. */
+u32 pc_vi_scene_tick; /* the scene loop's own tick count (gmscene.c) */
+
+static void present_label(int k, int n) {
+    static int parsed;
+    static FILE* f;
+    static unsigned long long first, count, index;
+    if (!parsed) {
+        parsed = 1;
+        const char* env = getenv("MELEE_DUMP_FRAMES");
+        const char* c1 = env != NULL ? strchr(env, ',') : NULL;
+        if (c1 != NULL) {
+            char dir[768];
+            size_t len = (size_t)(c1 - env) < sizeof dir - 1 ? (size_t)(c1 - env) : sizeof dir - 1;
+            memcpy(dir, env, len);
+            dir[len] = '\0';
+            first = strtoull(c1 + 1, NULL, 10);
+            const char* c2 = strchr(c1 + 1, ',');
+            count = c2 != NULL ? strtoull(c2 + 1, NULL, 10) : 0;
+            char path[1024];
+            snprintf(path, sizeof path, "%s/presents.txt", dir);
+            f = fopen(path, "w");
+        }
+    }
+    unsigned long long i = index++;
+    if (f != NULL && i >= first && i < first + count) {
+        if (k > 0)
+            fprintf(f, "%llu sub %d/%d tick %u\n", i, k, n, pc_vi_scene_tick);
+        else
+            fprintf(f, "%llu exact tick %u\n", i, pc_vi_scene_tick);
+        fflush(f);
+    }
 }
 
 /* MELEE_FPS: spacing of consecutive presents, tick and in-between frames
@@ -153,14 +197,15 @@ void pc_frame_boundary(void) {
 
     if (timing_debug < 0)
         timing_debug = getenv("MELEE_NET_DEBUG") != NULL;
-    if (s_in_frame && s_tick_frames > 1 && next_sim_ns != 0) {
+    if (s_in_frame && s_tick_frames > 1 && s_tick_start_ns != 0) {
         const u64 period = pc_sim_period_ns();
-        pace_until(next_sim_ns - period + s_present_margin_ns +
+        pace_until(s_tick_start_ns + s_present_margin_ns +
                    period * (u64)(s_tick_frames - 1) / (u64)s_tick_frames);
     }
     s_tick_frames = 0;
     if (s_in_frame) {
         u64 started = timing_debug ? SDL_GetTicksNS() : 0;
+        present_label(0, 1);
         aurora_end_frame();
         present_spacing_note();
         pc_vi_trace("present exact");
@@ -518,10 +563,10 @@ u16 VIPadFrameBufferWidth(u16 width) {
  * tick however many frames reach the screen. */
 void pc_vi_present_subframe(int k, int n) {
     const u64 period = pc_sim_period_ns();
-    const u64 tick_start = next_sim_ns - period;
+    const u64 tick_start = s_tick_start_ns != 0 ? s_tick_start_ns : next_sim_ns - period;
     s_subframes++;
     s_tick_frames = n;
-    if (k == 1 && next_sim_ns != 0) {
+    if (k == 1) {
         /* Grow at once when the first frame is late, shrink slowly. */
         const u64 slot = period / (u64)n;
         u64 ready = SDL_GetTicksNS() - tick_start + 500000ull;
@@ -532,9 +577,9 @@ void pc_vi_present_subframe(int k, int n) {
         if (s_present_margin_ns > slot)
             s_present_margin_ns = slot;
     }
-    if (next_sim_ns != 0)
-        pace_until(tick_start + s_present_margin_ns + period * (u64)(k - 1) / (u64)n);
+    pace_until(tick_start + s_present_margin_ns + period * (u64)(k - 1) / (u64)n);
     if (s_in_frame) {
+        present_label(k, n);
         aurora_end_frame();
         present_spacing_note();
         pc_vi_trace("present sub");

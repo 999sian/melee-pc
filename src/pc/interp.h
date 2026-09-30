@@ -68,6 +68,10 @@ void pc_interp_cobj_released(struct HSD_CObj* cobj);
  * paced to `k` N-ths of the way through the current tick. */
 void pc_vi_present_subframe(int k, int n);
 void pc_vi_trace(const char* what);
+/* The scene loop has its pad sample and is about to run the tick. */
+void pc_vi_tick_started(void);
+/* Scene-relative tick count, for labelling dumped frames. */
+extern unsigned int pc_vi_scene_tick;
 /* MELEE_INTERP_AUDIT (src/pc/net_snapshot.c). */
 void pc_interp_audit_begin(void);
 void pc_interp_audit_end(void);

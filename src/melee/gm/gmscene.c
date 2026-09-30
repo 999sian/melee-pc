@@ -464,6 +464,7 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         }
         lb_800195D0();
 #ifdef TARGET_PC
+        pc_vi_tick_started();
         pc_vi_trace("pad ready");
 #endif
 
@@ -517,6 +518,7 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
         }
 
 #ifdef TARGET_PC
+        pc_vi_scene_tick = temp_r25->unk_0;
         pc_net_render_audit(false);
         pc_vi_trace("logic done");
         gm_DrawInterpolatedFrames(pad_queue_count);

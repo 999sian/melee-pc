@@ -572,6 +572,15 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
     pc_interp_set_window(info.window);
+#if defined(_WIN32)
+    /* A busy normal-priority process (a software-rendering browser was the
+     * case measured) starved the game thread enough to present in-between
+     * frames back to back, which looks exactly like 60 Hz. Above normal is
+     * what games commonly ask for; the audio, input and render threads keep
+     * their own relative priorities inside the class. */
+    if (!SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS))
+        pc_log_line("could not raise process priority (error %lu)", GetLastError());
+#endif
 
     /* Built-in fallback mappings for common 3rd-party GameCube adapters
      * (DragonRise / Mayflash in PC mode) so they work out-of-the-box even if

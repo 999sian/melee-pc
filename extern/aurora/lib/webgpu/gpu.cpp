@@ -1303,6 +1303,13 @@ void aurora_set_vsync_mailbox(const bool enabled) {
   }
   aurora::webgpu::g_graphicsConfig.surfaceConfiguration.presentMode =
       aurora::webgpu::select_present_mode(aurora::webgpu::g_surfaceCapabilities);
+  std::string modes;
+  for (size_t i = 0; i < aurora::webgpu::g_surfaceCapabilities.presentModeCount; ++i) {
+    modes += magic_enum::enum_name(aurora::webgpu::g_surfaceCapabilities.presentModes[i]);
+    modes += ' ';
+  }
+  aurora::webgpu::Log.info("vsync mailbox {}: present mode {} (supported: {})", enabled,
+      magic_enum::enum_name(aurora::webgpu::g_graphicsConfig.surfaceConfiguration.presentMode), modes);
   aurora::window::push_custom_event(aurora::window::CustomEvent::RefreshSurface);
 }
 
