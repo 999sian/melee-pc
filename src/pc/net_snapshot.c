@@ -1040,3 +1040,53 @@ void snaps_free(void) {
     snapshot_free(&s_snap);
     snapshot_free(&s_after1);
 }
+
+/* ---- interpolation audit ------------------------------------------------
+ * MELEE_INTERP_AUDIT=1: the in-between frames of src/pc/interp.c must leave
+ * the simulation exactly as they found it. Snapshot everything a rollback
+ * would before them and log every 64-byte chunk that differs afterwards. */
+static Snapshot s_interp_snap;
+static int s_interp_audit = -1;
+
+void pc_interp_audit_begin(void) {
+    if (s_interp_audit < 0)
+        s_interp_audit = getenv("MELEE_INTERP_AUDIT") != NULL;
+    if (s_interp_audit)
+        snapshot_take(&s_interp_snap, 0);
+}
+
+void pc_interp_audit_end(void) {
+    static unsigned s_logged;
+    if (!s_interp_audit || s_interp_snap.frame < 0 || s_logged > 400)
+        return;
+    Region now[MAX_REGIONS];
+    int nnow = regions_now(now);
+    const uint8_t* p = s_interp_snap.buf;
+    for (int i = 0; i < s_interp_snap.nregions; i++) {
+        const Region* r = &s_interp_snap.regions[i];
+        size_t len = r->len;
+        /* A heap may have grown or moved; compare only what both cover. */
+        for (int j = 0; j < nnow; j++)
+            if (now[j].ptr == r->ptr && now[j].len < len)
+                len = now[j].len;
+        for (size_t off = 0; off < len; off += 64) {
+            size_t n = len - off < 64 ? len - off : 64;
+            if (memcmp((uint8_t*)r->ptr + off, p + off, n) != 0) {
+                size_t first = 0;
+                while (first < n && ((uint8_t*)r->ptr)[off + first] == p[off + first])
+                    first++;
+                size_t at = (off + first) & ~(size_t)3;
+                uint32_t was, is;
+                memcpy(&was, p + at, 4);
+                memcpy(&is, (uint8_t*)r->ptr + at, 4);
+                pc_log_line("interp audit: %s+0x%zx (%p) changed %08x -> %08x", r->name,
+                    off + first, (void*)((uint8_t*)r->ptr + off + first), was, is);
+                if (++s_logged > 400)
+                    return;
+            }
+        }
+        p += r->len;
+    }
+    if (*HSD_RandSeedPtr != s_interp_snap.seed_val)
+        pc_log_line("interp audit: rng seed changed");
+}

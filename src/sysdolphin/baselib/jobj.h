@@ -13,6 +13,11 @@
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/spline.h>
 
+#ifdef TARGET_PC
+extern int pc_interp_mode;
+void pc_interp_jobj_record(struct HSD_JObj* jobj);
+#endif
+
 #define JOBJ_PTCL_ACTIVE 0x7FFFFFFF
 #define JOBJ_PTCL_OFFSET_MASK 0xFFFFFF
 #define JOBJ_PTCL_OFFSET_SHIFT 6
@@ -250,6 +255,13 @@ static
 #endif
     inline void HSD_JObjSetupMatrix(HSD_JObj* jobj)
 {
+#ifdef TARGET_PC
+    /* PORT: the exact frame remembers every joint the renderer asks for, so
+     * the in-between frames can blend it (src/pc/interp.c). */
+    if (pc_interp_mode == 1 && jobj != NULL) {
+        pc_interp_jobj_record(jobj);
+    }
+#endif
     if (!jobj || !HSD_JObjMtxIsDirty(jobj)) {
         return;
     }

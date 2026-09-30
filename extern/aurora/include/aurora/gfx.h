@@ -33,6 +33,11 @@ float aurora_get_fps();
 
 void aurora_enable_vsync(bool enabled);
 bool aurora_vsync_enabled(void);
+/* With VSync on, present through MAILBOX (tear-free, non-blocking) instead of
+ * FIFO, for callers that pace frames themselves. */
+void aurora_set_vsync_mailbox(bool enabled);
+/* True when presenting waits for the display (FIFO). */
+bool aurora_present_blocks(void);
 
 /* Blocks up to max_wait_ms while queued pipelines compile -- without worker
  * threads, compiles them on the calling thread for about that long instead --

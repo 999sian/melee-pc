@@ -94,7 +94,7 @@ table is right and the other one is stale.
 | Discord Rich Presence | planned | Deferred until API credentials are available. |
 | Extended hazardless stages | planned | Whispy, Randall, FoD platforms. Only Pokémon Stadium is implemented. |
 | 2-player keyboard remapping | planned | The keyboard is port 1 on a fixed layout. |
-| High-refresh interpolation | planned | |
+| High-refresh interpolation | done | Frame rate setting (launcher and F1): 120 (default), 180, 240 fps, match display, or off. The simulation stays at 60 Hz; in-between frames blend joint world matrices, cameras and particles from the last tick, and restore every byte of simulation state they touch, so `.slp` replays are identical with it on or off. Off during netplay. Texture/shape animations and sword trails still step at 60 Hz. |
 | Training tools (hitboxes, savestates, frame advance) | planned | |
 | Replay recording (`.slp`) | done | Set `MELEE_SLP_DIR` to record offline or online VS matches; off by default. |
 | Online play (LAN / direct IP) | partial | LAN/direct-IP plus signed internet Direct, Unranked and Ranked implemented. Every datagram is authenticated (protocol 9), so both peers must run the same build, and a connect code is 8 characters after the `#`. Phone VPN to home broadband Direct Connect reached results; broader two-NAT and live ranked acceptance remain pending. See platform matrix below. |
@@ -206,6 +206,7 @@ per-device `.controller` files; everything else shares `launcher.cfg`.
 |---|---|
 | `MELEE_BACKEND=<name>` | Pin the graphics backend (`vulkan`, `d3d12`, `d3d11`, `metal`, ...) instead of the platform's preferred order; an unknown name lists the valid ones. |
 | `MELEE_VSYNC=0\|1` | Override the saved VSync preference. |
+| `MELEE_INTERP=0` / `MELEE_INTERP_HZ=<hz>` | Override the saved frame rate: `0` turns interpolation off, `<hz>` presents that many frames a second (a multiple of 60; capped at the display rate under VSync). |
 | `MELEE_LOG_FILE=<path>` | Write the log to a file (default `melee-pc.log` beside `melee.exe` on Windows; empty disables). |
 | `MELEE_WINDOW_TITLE=<t>` | Window title. |
 | `MELEE_FILES_DIR=<dir>` | Loose-file overlay: files here (or in `./files/`) replace the disc's. |

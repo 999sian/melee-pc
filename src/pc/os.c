@@ -131,6 +131,16 @@ void OSSetAbsAlarm(OSAlarm* alarm, OSTime time, OSAlarmHandler handler) {
 }
 
 void OSSetPeriodicAlarm(OSAlarm* alarm, OSTime start, OSTime period, OSAlarmHandler handler) {
+    /* MELEE_DEBUG_SIM_HZ slows the frame boundary (src/pc/vi.c); the per-frame
+     * pad alarm has to slow with it or every boundary finds a pile of ticks. */
+    const u64 sim_period = pc_sim_period_ns();
+    if (sim_period != 1000000000ull / 60 && period > 0 &&
+        period <= (OSTime)OSSecondsToTicks(1.0f / 60) + 1)
+    {
+        const OSTime scale = (OSTime)(sim_period / (1000000000ull / 60));
+        period *= scale;
+        start *= scale;
+    }
     alarm->period = period;
     alarm->start = start;
     insert_alarm(alarm, OSGetTime() + start, handler);
