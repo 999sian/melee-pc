@@ -84,7 +84,9 @@ int pc_interp_subframes(void) {
      * and asking for more would stretch the tick itself. 119.88 and 143.9 Hz
      * modes round to the rate they are sold as. */
     int limit = aurora_vsync_enabled() ? display_hz() : 1000;
-    if (target <= 0 || target > limit)
+    if (target <= 0)
+        target = display_hz();
+    if (target > limit)
         target = limit;
     int sim_hz = (int)(1000000000ull / pc_sim_period_ns());
     int n = (target + 5) / sim_hz;
@@ -614,39 +616,45 @@ static void kept_restore(void) {
 
 /* Particles are not joints: each is a point integrated as pos += vel once per
  * tick, and the game's own trail code already takes pos - vel as where it was
- * a tick ago. An in-between frame draws each one that much of a step back.
- * Tornado particles orbit their generator with vel as polar parameters, so
- * they are left where they are. */
-extern HSD_Particle* hsd_804D0908[16]; /* particle.c: live particles per link */
-void pc_psdisp_interp(int begin);            /* psdisp.c */
+ * a tick ago. An in-between frame draws each one that much of a step back,
+ * shifted as psDispParticles reaches it -- only the links the game draws are
+ * walked, because a link nothing draws may still hold a stale head. Tornado
+ * particles orbit their generator with vel as polar parameters, so they are
+ * left where they are. */
+void pc_psdisp_interp(int begin); /* psdisp.c */
 #define PTCL_MAX 4096
+#define PTCL_SET 8192
 static HSD_Particle* s_ptcl[PTCL_MAX];
 static Vec3 s_ptcl_pos[PTCL_MAX];
 static uint32_t s_ptcl_count;
+static HSD_Particle* s_ptcl_set[PTCL_SET];
 
-static void particles_rewind(float t) {
-    float back = 1.0f - t;
-    s_ptcl_count = 0;
-    for (int link = 0; link < 16; link++) {
-        for (HSD_Particle* pp = hsd_804D0908[link]; pp != NULL; pp = pp->next) {
-            if (s_ptcl_count >= PTCL_MAX)
-                return;
-            if (pp->kind & Tornado)
-                continue;
-            s_ptcl[s_ptcl_count] = pp;
-            s_ptcl_pos[s_ptcl_count] = pp->pos;
-            s_ptcl_count++;
-            pp->pos.x -= pp->vel.x * back;
-            pp->pos.y -= pp->vel.y * back;
-            pp->pos.z -= pp->vel.z * back;
-        }
+void pc_interp_particle(HSD_Particle* pp) {
+    if (pp->kind & Tornado)
+        return;
+    uint32_t i = jt_hash(pp) & (PTCL_SET - 1);
+    while (s_ptcl_set[i] != NULL) {
+        if (s_ptcl_set[i] == pp)
+            return; /* already shifted this frame (another camera) */
+        i = (i + 1) & (PTCL_SET - 1);
     }
+    if (s_ptcl_count >= PTCL_MAX)
+        return;
+    s_ptcl_set[i] = pp;
+    s_ptcl[s_ptcl_count] = pp;
+    s_ptcl_pos[s_ptcl_count] = pp->pos;
+    s_ptcl_count++;
+    float back = 1.0f - s_t;
+    pp->pos.x -= pp->vel.x * back;
+    pp->pos.y -= pp->vel.y * back;
+    pp->pos.z -= pp->vel.z * back;
 }
 
 static void particles_restore(void) {
     for (uint32_t i = 0; i < s_ptcl_count; i++)
         s_ptcl[i]->pos = s_ptcl_pos[i];
     s_ptcl_count = 0;
+    memset(s_ptcl_set, 0, sizeof s_ptcl_set);
 }
 
 void pc_interp_draw_begin(float t) {
@@ -676,7 +684,6 @@ void pc_interp_draw_begin(float t) {
         s_cam_last[i].swapped = false;
         s_cam_last[i].proj_swapped = false;
     }
-    particles_rewind(t);
     pc_psdisp_interp(1);
     pc_interp_mode = PC_INTERP_DRAW;
 }

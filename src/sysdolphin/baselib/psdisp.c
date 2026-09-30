@@ -1941,6 +1941,13 @@ void psDispParticles(u32 target_link, u32 sw)
                 u32 width;
                 u32 height;
 
+#ifdef TARGET_PC
+                /* PORT: in-between frames draw each particle part of a step
+                 * back along its velocity (src/pc/interp.c). */
+                if (pc_interp_mode == 2) {
+                    pc_interp_particle(pp);
+                }
+#endif
                 if ((sw == 1) && !(pp->kind & TexEdge)) {
                     break;
                 }

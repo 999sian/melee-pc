@@ -86,3 +86,26 @@ only; none of them fixes anything. User-facing knobs (`MELEE_BACKEND`,
 
 `grep -rho 'getenv("\(MELEE\|AURORA\)_[A-Z0-9_]*")' src extern/aurora/lib` is the
 authoritative list; the table lags it.
+
+## Frame interpolation
+
+`src/pc/interp.c` draws extra frames between 60 Hz ticks. Knobs for checking it:
+
+- `MELEE_FPS=1` also logs `presented` (frames per second reaching the screen),
+  per-subframe draw/present cost, and a histogram of the gaps between presents.
+  Even gaps matter as much as the count.
+- `MELEE_DEBUG_SIM_HZ=<hz>` runs the simulation slower (e.g. 2) while presenting
+  at the chosen rate, so each tick is spread over many in-between frames. Screen
+  captures then show whether poses and the camera move smoothly between ticks.
+- `MELEE_INTERP_AUDIT=1` snapshots every region a rollback covers before each
+  batch of in-between frames and logs any 64-byte chunk that differs afterwards.
+  Render caches (light WObj dirty bits, TObj setup, GX state caches) show up
+  there and are harmless; anything in fighter/item data or the RNG is a bug.
+- `MELEE_INTERP_TRACE=<tick>` logs a timeline of ten ticks relative to each
+  tick's scheduled start. Logging itself costs ~2 ms a line, so it perturbs
+  what it measures.
+
+The determinism check: record the same seeded match with interpolation off and
+on (`MELEE_SEED=1234 MELEE_SLP_DIR=... MELEE_BOOT_SCENE=vs MELEE_DEBUG_VS=cpu4`)
+and compare the pre-frame and post-frame records of the two `.slp` files. They
+must be identical.

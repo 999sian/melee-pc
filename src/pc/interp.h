@@ -55,6 +55,8 @@ void pc_interp_note_timing(uint64_t draw_ns, uint64_t present_ns);
 
 /* Hooks from sysdolphin. */
 void pc_interp_jobj_record(struct HSD_JObj* jobj);
+struct HSD_Particle;
+void pc_interp_particle(struct HSD_Particle* pp);
 void pc_interp_jobj_recomputed(struct HSD_JObj* jobj);
 void pc_interp_jobj_released(struct HSD_JObj* jobj);
 void pc_interp_cobj_pre(struct HSD_CObj* cobj);
