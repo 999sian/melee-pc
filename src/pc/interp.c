@@ -182,7 +182,7 @@ static bool decompose(const float m[3][4], RotScale* out) {
 
 /* Slerp a -> b; false when the arc is longer than `limit` radians. */
 static bool slerp(const float a[4], const float b_in[4], float t, float limit, float out[4]) {
-    float b[4] = { b_in[0], b_in[1], b_in[2], b_in[3] };
+    float b[4] = {b_in[0], b_in[1], b_in[2], b_in[3]};
     float d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
     if (d < 0.0f) {
         d = -d;
@@ -217,9 +217,9 @@ static bool slerp(const float a[4], const float b_in[4], float t, float limit, f
 static void compose(const float q[4], const float s[3], const float t[3], float m[3][4]) {
     float x = q[0], y = q[1], z = q[2], w = q[3];
     float r[3][3] = {
-        { 1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w) },
-        { 2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w) },
-        { 2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y) },
+        {1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)},
+        {2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)},
+        {2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)},
     };
     for (int row = 0; row < 3; row++) {
         for (int col = 0; col < 3; col++)

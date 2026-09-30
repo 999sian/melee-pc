@@ -69,10 +69,10 @@ void pc_os_run_alarms(void);
 /* MELEE_INTERP_TRACE=<first tick>: log a timeline of ten ticks, relative
  * to the start each tick was scheduled for. */
 void pc_vi_trace(const char* what) {
-    static long first = -2;
+    static int64_t first = -2;
     if (first == -2) {
         const char* v = getenv("MELEE_INTERP_TRACE");
-        first = v != NULL ? atol(v) : -1;
+        first = v != NULL ? strtoll(v, NULL, 10) : -1;
     }
     if (first < 0 || s_retrace_count < (u32)first || s_retrace_count >= (u32)first + 10)
         return;
@@ -129,7 +129,7 @@ static void present_spacing_note(void) {
         return;
     u64 now = SDL_GetTicksNS();
     if (prev != 0) {
-        static const u64 edge[8] = { 2, 3, 4, 5, 6, 8, 10, 14 };
+        static const u64 edge[8] = {2, 3, 4, 5, 6, 8, 10, 14};
         u64 ms_x = (now - prev) / 1000000ull;
         int bucket = 0;
         while (bucket < 8 && ms_x >= edge[bucket])

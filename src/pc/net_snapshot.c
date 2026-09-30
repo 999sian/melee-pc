@@ -1079,8 +1079,8 @@ void pc_interp_audit_end(void) {
                 uint32_t was, is;
                 memcpy(&was, p + at, 4);
                 memcpy(&is, (uint8_t*)r->ptr + at, 4);
-                pc_log_line("interp audit: %s+0x%zx (%p) changed %08x -> %08x", r->name, off + first,
-                    (void*)((uint8_t*)r->ptr + off + first), was, is);
+                pc_log_line("interp audit: %s+0x%zx (%p) changed %08x -> %08x", r->name,
+                    off + first, (void*)((uint8_t*)r->ptr + off + first), was, is);
                 if (++s_logged > 400)
                     return;
             }

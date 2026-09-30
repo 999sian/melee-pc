@@ -135,7 +135,8 @@ void OSSetPeriodicAlarm(OSAlarm* alarm, OSTime start, OSTime period, OSAlarmHand
      * pad alarm has to slow with it or every boundary finds a pile of ticks. */
     const u64 sim_period = pc_sim_period_ns();
     if (sim_period != 1000000000ull / 60 && period > 0 &&
-        period <= (OSTime)OSSecondsToTicks(1.0f / 60) + 1) {
+        period <= (OSTime)OSSecondsToTicks(1.0f / 60) + 1)
+    {
         const OSTime scale = (OSTime)(sim_period / (1000000000ull / 60));
         period *= scale;
         start *= scale;
