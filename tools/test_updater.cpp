@@ -66,4 +66,26 @@ int main(int argc, char**) {
     assert(pc::is_update_available(pc::get_app_version(), "v99.0.0"));
     assert(!pc::is_update_available(pc::get_app_version(), pc::get_app_version()));
     std::cout << "PASS: asset selection rejects incompatible releases\n";
+#if defined(_WIN32)
+    g_updater_state = {};
+    g_updater_state.status = Status::UpdateAvailable;
+    g_updater_state.latest_release.html_url = "https://example.com/windows-release";
+    g_updater_state.target_asset_name = "Melee-Windows-x86_64.zip";
+    g_updater_state.target_asset_url = "https://example.com/Melee-Windows-x86_64.zip";
+    g_updater_state.download_total_bytes = 50;
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        opened_url.clear();
+        start_download_async();
+        if (g_worker.thread.joinable()) {
+            g_worker.thread.join();
+        }
+        assert(opened_url == "https://example.com/windows-release");
+        const auto state = get_state();
+        assert(state.status == Status::UpdateAvailable);
+        assert(state.downloaded_path.empty());
+        assert(state.download_progress == 0.0f);
+        assert(!state.restart_supported);
+    }
+    std::cout << "PASS: Windows browser handoff never reports a downloaded file\n";
+#endif
 }

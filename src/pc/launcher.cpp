@@ -682,8 +682,6 @@ class Launcher final : public Rml::EventListener {
                 }
             } else {
                 pc::updater::start_download_async();
-                text("update-action", "Downloading...");
-                enabled("update-action", false);
             }
         } else if (id == "update-browser") {
             pc::updater::open_release_in_browser();
@@ -956,11 +954,16 @@ public:
                                                  ustate.latest_release.name);
                         std::string desc = "A newer version of Melee PC is available (" +
                                            ustate.latest_release.tag_name + ").";
+#if defined(_WIN32)
+                        desc += " Download and extract the Windows ZIP from the release page.";
+                        text("update-action", "Open release page");
+#else
                         if (!ustate.target_asset_name.empty()) {
                             desc += " Ready to download: " + ustate.target_asset_name;
                         }
-                        text("update-desc", desc);
                         text("update-action", "Update Now");
+#endif
+                        text("update-desc", desc);
                         enabled("update-action", true);
                         if (auto* prog = element("update-progress-row"))
                             prog->SetProperty("display", "none");
