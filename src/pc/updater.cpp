@@ -714,9 +714,11 @@ void check_for_updates_async(bool include_prereleases) {
 }
 
 void start_download_async() {
+#if !defined(_WIN32)
     std::string download_url;
     std::string asset_name;
     size_t total_bytes = 0;
+#endif
     {
         std::lock_guard lock(g_updater_mutex);
         if (g_updater_state.status != Status::UpdateAvailable &&
@@ -724,6 +726,7 @@ void start_download_async() {
         {
             return;
         }
+#if !defined(_WIN32)
         download_url = g_updater_state.target_asset_url;
         asset_name = g_updater_state.target_asset_name;
         total_bytes = g_updater_state.download_total_bytes;
@@ -734,7 +737,14 @@ void start_download_async() {
             g_updater_state.download_total_bytes = total_bytes;
             g_updater_state.message = "Downloading update...";
         }
+#endif
     }
+#if defined(_WIN32)
+    // Windows updates are installed from the browser. No file has been
+    // downloaded here, so keep the update available instead of offering a
+    // nonexistent download location. OpenURL must run outside the state lock.
+    open_release_in_browser();
+#else
     if (download_url.empty()) {
         open_release_in_browser();
         return;
@@ -751,13 +761,7 @@ void start_download_async() {
         std::string error;
         bool ok = false;
 
-#if defined(_WIN32)
-        // On Windows, fall back to browser or implement WinHTTP file download
-        // WinHTTP streaming download:
-        // Or open in browser if download URL is direct
-        open_release_in_browser();
-        ok = true;
-#elif defined(MELEE_USE_CURL)
+#if defined(MELEE_USE_CURL)
         ok = http_download_file_curl(download_url, dest_path, error);
         if (ok && total_bytes > 0) {
             // The release API told us the asset size: a short file is an
@@ -797,6 +801,7 @@ void start_download_async() {
             g_updater_state.message = "Download failed: " + error;
         }
     });
+#endif
 }
 
 void cancel() {
