@@ -12,6 +12,9 @@ add_compile_definitions(ENABLE_BACKEND_WEBGPU)
 # -fsigned-char: wasm32's default, stated as the top-level CMakeLists.txt does
 # for every native target (it returns before reaching that line for this one).
 add_compile_options(--use-port=emdawnwebgpu -pthread -fsigned-char)
+# Paths baked into the binary (__FILE__ in asserts) relative to the checkout,
+# as the top-level CMakeLists.txt does for native builds.
+add_compile_options(-ffile-prefix-map=${CMAKE_SOURCE_DIR}/=)
 add_link_options(--use-port=emdawnwebgpu -pthread -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY=1)
 add_subdirectory(${CMAKE_SOURCE_DIR}/extern/aurora ${CMAKE_BINARY_DIR}/aurora)
 # Same floating-point contract as the native build (top-level CMakeLists.txt).

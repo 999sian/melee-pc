@@ -25,6 +25,8 @@ PREPROCESS_FLAGS = [
     '-include', 'src/pc/compat.h',
     '-include', 'tools/browser/disc_access.h',
     '-Wno-everything', '-ferror-limit=5',
+    # __FILE__ (assert messages) relative to the checkout, not this machine's path.
+    f'-fmacro-prefix-map={ROOT}/=',
 ]
 
 # Mirrors melee_game's options in the top-level CMakeLists.txt: the simulation

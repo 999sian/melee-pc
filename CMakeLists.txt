@@ -65,9 +65,13 @@ target_compile_options(aurora_gd PRIVATE ${MELEE_FP_FLAGS})
 # melee_game, melee and the test targets created below; aurora's own targets
 # get it by hand, its fetched dependencies keep their defaults.
 add_compile_options(-fsigned-char)
+# __FILE__ (assert and PANIC messages, shown to players and in their logs)
+# relative to the checkout, so a release does not carry the builder's home
+# directory. GCC 8+ and Clang 10+ accept it.
+add_compile_options(-ffile-prefix-map=${CMAKE_SOURCE_DIR}/=)
 get_property(_aurora_targets DIRECTORY extern/aurora PROPERTY BUILDSYSTEM_TARGETS)
 foreach (_target IN LISTS _aurora_targets)
-    target_compile_options(${_target} PRIVATE -fsigned-char)
+    target_compile_options(${_target} PRIVATE -fsigned-char -ffile-prefix-map=${CMAKE_SOURCE_DIR}/=)
 endforeach ()
 
 # Determinism-harness hook, off by default: perturb one routed trig function
