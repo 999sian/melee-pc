@@ -40,7 +40,11 @@ static inline void vLoadSections(HSD_Archive* archive, void** symbol,
 {
     const char* symbol_name;
 
-    for (; symbol != NULL; symbol = va_arg(symbols, void**)) {
+    /* PORT: callers end the list with a literal 0, an int: on LP64 the upper
+     * half of the slot va_arg reads as a pointer is not zero (Apple arm64
+     * passes variadics in 8-byte stack slots and leaves it as garbage), so
+     * test the low 32 bits too, as vLoadSectionsFatal and the loop below do. */
+    for (; symbol != NULL && (uint32_t)(uintptr_t)symbol != 0; symbol = va_arg(symbols, void**)) {
         symbol_name = va_arg(symbols, const char*);
         *symbol = NULL;
         *symbol = HSD_ArchiveGetPublicAddress(archive, symbol_name);
