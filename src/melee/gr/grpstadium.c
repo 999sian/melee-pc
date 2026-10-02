@@ -1937,30 +1937,28 @@ bool grStadium_801D42B8(void)
     if (gp->u.stadium.xC4_b1) {
         result = false;
     } else {
+#ifdef TARGET_PC
+        /* PORT: The parse relocates the archive in place, and the buffer may
+         * be preload-cache memory no rollback snapshot covers. A rollback to
+         * the frame between the load and this parse would then hand the re-run
+         * an already relocated buffer. Copying the pristine file over it first
+         * makes the parse the same whichever timeline reaches it. */
+        if (grStadium_pc_pending != NULL &&
+            pc_net_pure_load(lbFileGetFullName(grStadium_pc_pending)))
+        {
+            size_t size;
+            if (pc_file_cache_get(lbFileGetFullName(grStadium_pc_pending),
+                                  gp->u.stadium.xCC, &size))
+            {
+                gp->u.stadium.xC8 = size;
+            }
+        }
+#endif
         gp->u.stadium.xD0 =
             grDatFiles_801C6478(gp->u.stadium.xCC, gp->u.stadium.xC8);
         result = true;
     }
-#ifdef TARGET_PC
-    /* The parse relocates the archive in place, and the buffer may be
-     * preload-cache memory no rollback snapshot covers. A rollback to the
-     * frame between the load and this parse would then hand the re-run an
-     * already relocated buffer. Copying the pristine file over it first
-     * makes the parse the same whichever timeline reaches it. */
-    if (grStadium_pc_pending != NULL &&
-        pc_net_pure_load(lbFileGetFullName(grStadium_pc_pending)))
-    {
-        size_t size;
-        if (pc_file_cache_get(lbFileGetFullName(grStadium_pc_pending),
-                              gp->u.stadium.xCC, &size))
-        {
-            gp->u.stadium.xC8 = size;
-        }
-    }
-#endif
-    gp->u.stadium.xD0 =
-        grDatFiles_801C6478(gp->u.stadium.xCC, gp->u.stadium.xC8);
-    return true;
+    return result;
 }
 
 Ground* grStadium_801D4354(Ground_GObj* gobj)
@@ -2141,11 +2139,11 @@ void grStadium_801D4548(Ground_GObj* gobj)
                         randi_between_2(yakumono_param->x0, yakumono_param->x4);
                     return;
                 }
-                int sp60[] = { 3, 4, 6, 9 };
-                int idx;
+                int kinds[] = { 3, 4, 6, 9 };
+                int r;
                 do {
-                    kind = HSD_Randi(ARRAY_SIZE(sp60));
-                } while (gp->u.stadium.xE2 == kind);
+                    r = HSD_Randi(ARRAY_SIZE(kinds));
+                } while (gp->u.stadium.xE2 == (kind = kinds[r]));
             } else {
                 kind = 5;
             }
