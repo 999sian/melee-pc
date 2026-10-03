@@ -1,6 +1,9 @@
 #include "fighter.h"
 
 #include <math.h>
+#ifdef TARGET_PC
+#include "pc/mods/mods.h"
+#endif
 #include <placeholder.h>
 
 #include "ft_07C1.h"
@@ -573,7 +576,7 @@ void Fighter_UnkUpdateCostumeJoint_800686E4(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj;
 
-    fp->x108_costume_joint = CostumeListsForeachCharacter[fp->kind]
+    fp->x108_costume_joint = CostumeListsForeachCharacter[FT_ASSET_KIND(fp)]
                                  .costume_list[fp->costume_id]
                                  .joint;
     ftPartsPObjSetDefaultClass();
@@ -695,7 +698,13 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
 {
     Fighter* fp = GET_FIGHTER(gobj);
     s32 costume_id;
+#ifdef TARGET_PC
+    /* plAllocInfo carries the asset kind; behaviour runs as the base. */
+    fp->asset_kind = argdata->internal_id;
+    fp->kind = ftData_BaseKind(argdata->internal_id);
+#else
     fp->kind = argdata->internal_id;
+#endif
     fp->player_idx = argdata->slot;
 
     fp->is_sub_fighter = argdata->b0;
@@ -725,15 +734,18 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
     }
 
     costume_id = Player_GetCostumeId(fp->player_idx);
-    if (costume_id >= CostumeListsForeachCharacter[fp->kind].numCostumes) {
+    if (costume_id >= CostumeListsForeachCharacter[FT_ASSET_KIND(fp)].numCostumes) {
         costume_id = 0;
     }
 
     fp->costume_id = costume_id;
     fp->team = Player_GetTeam(fp->player_idx);
     fp->gobj = gobj;
-    fp->ft_data = gFtDataList[fp->kind];
+    fp->ft_data = gFtDataList[FT_ASSET_KIND(fp)];
     ftCo_800D0FA0(gobj);
+#ifdef TARGET_PC
+    pc_mods_on_fighter_spawn(fp->player_idx);
+#endif
     fp->x2CC = 0;
     fp->x2D0 = 0;
     fp->x18 = 0x155;
@@ -869,8 +881,8 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
     GObj_InitUserData(gobj, 4U, &Fighter_Unload_8006DABC, fp);
     ftData_8008572C(input->internal_id);
     Fighter_UnkInitLoad_80068914(gobj, input);
-    efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
-    ftData_80085820(fp->kind, fp->costume_id);
+    efAsync_LoadSync(ftData_UnkBytePerCharacter[FT_ASSET_KIND(fp)]);
+    ftData_80085820(FT_ASSET_KIND(fp), fp->costume_id);
 
     Fighter_UnkUpdateCostumeJoint_800686E4(gobj);
 

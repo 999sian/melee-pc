@@ -38,6 +38,7 @@
  * yet, so none of it is implemented here. */
 #include "compat.h"
 #include "pc/net_internal.h"
+#include "pc/mods/mods.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wscalar-storage-order" /* disc-struct unions in lb/types.h */
@@ -312,7 +313,11 @@ static uint32_t unlock_hash_now(void) {
     for (int i = 0; i < 8; i++) {
         be[i] = (uint8_t)(s >> (56 - 8 * i));
     }
-    return fnv1a(2166136261u, be, sizeof be);
+    /* Two peers with different gameplay mods would desync, so the active mod
+     * set rides along with the unlock state and a mismatch refuses the
+     * handshake. With no gameplay mods the term is 0 and the hash is unchanged,
+     * so unmodded builds stay compatible. */
+    return fnv1a(2166136261u, be, sizeof be) ^ pc_mods_gameplay_hash();
 }
 
 void rules_restore(void) {
@@ -468,7 +473,7 @@ static void on_rules(const uint8_t* payload, int len) {
     unlock_force();
     uint32_t unlock_mine = unlock_hash_now();
     if (unlock_mine != ru.unlock_hash) {
-        hs_drop(LOG_RULES_UNLOCK, "RULES", "unlock state mismatch");
+        hs_drop(LOG_RULES_UNLOCK, "RULES", "unlock state or gameplay mod mismatch");
         unlock_restore();
         return;
     }
@@ -538,8 +543,10 @@ static void on_ready(const uint8_t* payload, int len) {
      * just authenticated, so a mismatch here is a real disagreement rather
      * than an injection: fail hard instead of waiting out the timeout. */
     if (rd.unlock_hash != unlock_hash_now()) {
-        pc_log_line("net: READY rejected: unlock state mismatch (ours %08x/%016llx, guest %08x)",
-            unlock_hash_now(), (unsigned long long)pc_unlock_state_get(), rd.unlock_hash);
+        pc_log_line("net: READY rejected: unlock state or gameplay mod mismatch (ours "
+                    "%08x/%016llx, mods %08x, guest %08x)",
+            unlock_hash_now(), (unsigned long long)pc_unlock_state_get(), pc_mods_gameplay_hash(),
+            rd.unlock_hash);
         net.hs = HS_FAILED;
         return;
     }

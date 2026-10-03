@@ -14,6 +14,14 @@
 #include <melee/if/if_2FD9.h>
 #include <melee/lb/types.h>
 #include <melee/mn/types.h>
+#ifdef TARGET_PC
+#include <stdio.h>
+#include <dolphin/os.h>
+#include <melee/ft/ftdata.h>
+#include <melee/pl/player.h>
+#include "pc/mods/stages.h"
+#include "pc/mods/items.h"
+#endif
 
 /* 1B13B8 */ static void onEnterDebugVs(GameModeState*);
 /* 1B14A0 */ static void onEnterCss(GameModeState*);
@@ -208,6 +216,68 @@ void onEnterDebugVs(GameModeState* state)
             start->players[i].ckind = kinds[i];
             start->players[i].slot_type = Gm_PKind_Cpu;
         }
+    }
+    /* MELEE_DEBUG_VS_PACK=<port>:<pack>[,<port>:<pack>...]: put mod character
+     * pack <pack> (1-based, the "-> pack N" number in the log) on <port>
+     * (1-4), as its base character. For testing packs without the CSS. */
+    if (getenv("MELEE_DEBUG_VS_PACK") != NULL) {
+        const char* spec = getenv("MELEE_DEBUG_VS_PACK");
+        while (*spec != '\0') {
+            int port = 0, pack = 0, used = 0;
+            if (sscanf(spec, "%d:%d%n", &port, &pack, &used) != 2 || used == 0) {
+                break;
+            }
+            spec += used;
+            if (*spec == ',') {
+                spec++;
+            }
+            if (port >= 1 && port <= 4 && pack >= 1 && pack <= Ft_Kind_PackMax) {
+                FighterKind base = ftData_BaseKind(Ft_Kind_PackFirst + pack - 1);
+                CharacterKind ck = Player_CharacterForFighter(base);
+                if (base != Ft_Kind_PackFirst + pack - 1 && ck != ChKind_None) {
+                    start->players[port - 1].ckind = ck;
+                    start->players[port - 1].pc_pack = (u8) pack;
+                    OSReport("debug vs: port %d plays pack %d (base fighter %d)\n",
+                             port, pack, base);
+                }
+            }
+        }
+    }
+    /* MELEE_DEBUG_VS_STAGE_PACK=<n>: play mod map pack <n> (the "-> map pack
+     * N" number in the log) on its base stage. */
+    if (getenv("MELEE_DEBUG_VS_STAGE_PACK") != NULL) {
+        int pack = atoi(getenv("MELEE_DEBUG_VS_STAGE_PACK"));
+        if (pack >= 1 && pack <= pc_stages_count()) {
+            start->rules.stkind = (StKind) pc_stages_base(pack - 1);
+            start->rules.pc_stage_pack = (u8) pack;
+            OSReport("debug vs: map pack %d on stage %d\n", pack,
+                     start->rules.stkind);
+        }
+    }
+    /* MELEE_DEBUG_VS_ITEMS=<freq>[:<item>]: items at frequency <freq> (0 very
+     * low .. 4 very high), optionally only <item> (a common item name, as
+     * mod.json "base" takes it) -- for watching an item pack spawn. */
+    if (getenv("MELEE_DEBUG_VS_ITEMS") != NULL) {
+        const char* spec = getenv("MELEE_DEBUG_VS_ITEMS");
+        const char* colon = strchr(spec, ':');
+        int freq = atoi(spec);
+        if (freq >= 0 && freq <= 4) {
+            start->rules.item_freq = (s8) freq;
+        }
+        if (colon != NULL) {
+            /* a name, or a raw ItemKind number (0x22 is the Poke Ball) */
+            char* end = NULL;
+            long kind = strtol(colon + 1, &end, 0);
+            if (end == colon + 1 || *end != '\0') {
+                kind = pc_item_from_name(colon + 1);
+            }
+            if (kind >= 0 && kind < 0x23) {
+                start->rules.x20 = 1ULL << kind;
+            }
+        }
+        OSReport("debug vs: items at frequency %d, mask %llx\n",
+                 start->rules.item_freq,
+                 (unsigned long long) start->rules.x20);
     }
     /* MELEE_DEBUG_VS_STOCKS=<n>: a stock match instead of an untimed time
      * one, so a run can end on GAME! with stocks the replay (src/pc/slp.c)

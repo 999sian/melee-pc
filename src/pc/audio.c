@@ -133,6 +133,7 @@ __attribute__((weak)) float pc_get_sfx_volume(void) {
 }
 
 __attribute__((weak)) void pc_music_stream_mix(float* dst_left, float* dst_right, int num_samples);
+__attribute__((weak)) void pc_clip_mix(float* interleaved, int num_samples);
 static u8* s_aram;
 static float s_master = 1.0f;
 
@@ -698,6 +699,9 @@ static void render_frame(float* out) {
     /* 4. Music streaming and SIMD clamping run completely lock-free. */
     if (pc_music_stream_mix) {
         pc_music_stream_mix(out, NULL, AX_FRAME);
+    }
+    if (pc_clip_mix) {
+        pc_clip_mix(out, AX_FRAME); /* character-pack announcer calls */
     }
     /* MELEE_AUDIO_STATS=1: voice census against the output clock, so a
      * silent stretch in MELEE_AUDIO_DUMP can be explained -- were there no

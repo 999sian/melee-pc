@@ -9,6 +9,7 @@
 #include "net_match.h"
 #include "net.h"
 #include "pc.h"
+#include "mods/mods.h"
 #include <RmlUi/Core/Elements/ElementFormControl.h>
 #include <aurora/dvd.h>
 #include <aurora/event.h>
@@ -109,12 +110,15 @@ int backend_next(int mode) {
 }
 
 constexpr const char* tab_ids[] = {
-    "tab-graphics", "tab-audio", "tab-cheats", "tab-controls", "tab-online"};
+    "tab-graphics", "tab-audio", "tab-cheats", "tab-controls", "tab-online", "tab-mods"};
 constexpr const char* page_ids[] = {
-    "page-graphics", "page-audio", "page-cheats", "page-controls", "page-online"};
+    "page-graphics", "page-audio", "page-cheats", "page-controls", "page-online", "page-mods"};
+/* The F1 menu stops before Mods: the mod set is fixed once the game boots. */
 constexpr int tab_count = 5;
+constexpr int launcher_tab_count = 6;
+constexpr int mods_tab = 5;
 int tab_index(const Rml::String& id) {
-    for (int i = 0; i < tab_count; ++i)
+    for (int i = 0; i < launcher_tab_count; ++i)
         if (id == tab_ids[i])
             return i;
     return -1;
@@ -253,9 +257,98 @@ class Launcher final : public Rml::EventListener {
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
+        case mods_tab: {
+            std::vector<std::string> ids = {"mods-folder", "mods-rescan"};
+            for (size_t i = 0; i < pc_mods_count(); ++i) {
+                ids.push_back("mod-" + std::to_string(i));
+                for (size_t k = 0; k < pc_mods_pack_count(i); ++k)
+                    ids.push_back("pack-" + std::to_string(i) + "-" + std::to_string(k));
+            }
+            return ids;
+        }
         default:
             return {};
         }
+    }
+    static std::string rml_escape(const char* s) {
+        std::string out;
+        for (; s && *s; ++s) {
+            switch (*s) {
+            case '&':
+                out += "&amp;";
+                break;
+            case '<':
+                out += "&lt;";
+                break;
+            case '>':
+                out += "&gt;";
+                break;
+            case '"':
+                out += "&quot;";
+                break;
+            default:
+                out += *s;
+            }
+        }
+        return out;
+    }
+    /* One .setting row per mod; the button toggles it. Rebuilt wholesale, so
+     * callers re-focus the row they were on. */
+    void render_mods() {
+        if (auto* e = element("mods-path"))
+            e->SetInnerRML(rml_escape(pc_mods_user_dir() ? pc_mods_user_dir() : "unavailable") +
+                           "<br/>Drop mod folders here, then rescan. Changes apply when the "
+                           "game starts.");
+        const size_t count = pc_mods_count();
+        size_t enabled_count = 0;
+        std::string rml;
+        for (size_t i = 0; i < count; ++i) {
+            const PcModInfo* m = pc_mods_info(i);
+            enabled_count += m->enabled;
+            std::string meta = std::string("v") + m->version;
+            if (m->author[0])
+                meta += std::string(" by ") + m->author;
+            if (m->file_count)
+                meta += " · " + std::to_string(m->file_count) + " file(s)";
+            if (m->tunable_count)
+                meta += " · " + std::to_string(m->tunable_count) + " tunable(s)";
+            if (m->fighter_count)
+                meta += " · " + std::to_string(m->fighter_count) + " character(s)";
+            if (m->stage_count)
+                meta += " · " + std::to_string(m->stage_count) + " stage(s)";
+            if (m->item_count)
+                meta += " · " + std::to_string(m->item_count) + " item(s)";
+            if (m->has_plugin)
+                meta += " · plugin";
+            if (!m->affects_gameplay)
+                meta += " · cosmetic";
+            rml += "<div class=\"setting\"><div class=\"description\"><h3>" + rml_escape(m->name) +
+                   "</h3>";
+            if (m->description[0])
+                rml += "<p>" + rml_escape(m->description) + "</p>";
+            rml += "<p class=\"mod-meta\">" + rml_escape(meta.c_str()) + "</p>";
+            if (m->error)
+                rml += "<p class=\"mod-error\">" + rml_escape(m->error) + "</p>";
+            rml += "</div><button id=\"mod-" + std::to_string(i) + "\">" +
+                   (m->enabled ? "Enabled" : "Disabled") + "</button></div>";
+            /* Its characters, stages and items, each switchable on its own. */
+            for (size_t k = 0; k < pc_mods_pack_count(i); ++k) {
+                PcModPack p;
+                if (!pc_mods_pack_info(i, k, &p))
+                    continue;
+                rml += "<div class=\"setting\" style=\"padding-left: 32dp;\"><div "
+                       "class=\"description\"><h3>" +
+                       rml_escape(p.name) + "</h3><p class=\"mod-meta\">" + p.kind +
+                       (m->enabled ? "" : " · mod disabled") + "</p></div><button id=\"pack-" +
+                       std::to_string(i) + "-" + std::to_string(k) + "\">" +
+                       (p.enabled ? "On" : "Off") + "</button></div>";
+            }
+        }
+        if (auto* e = element("mods-list"))
+            e->SetInnerRML(rml);
+        text("mods-summary", count == 0 ? std::string("No mods found.") :
+                                          std::to_string(count) + " installed, " +
+                                              std::to_string(enabled_count) + " enabled.");
     }
     void controls() {
         enabled("play", supported && !busy());
@@ -284,8 +377,8 @@ class Launcher final : public Rml::EventListener {
         focus_ids.push_back("back");
     }
     void show_tab(int next) {
-        tab = (next + tab_count) % tab_count;
-        for (int i = 0; i < tab_count; ++i) {
+        tab = (next + launcher_tab_count) % launcher_tab_count;
+        for (int i = 0; i < launcher_tab_count; ++i) {
             if (auto* e = element(tab_ids[i]))
                 e->SetClass("selected", i == tab);
             if (auto* e = element(page_ids[i]))
@@ -373,6 +466,7 @@ class Launcher final : public Rml::EventListener {
         slider("scale", prefs.scale * 100.0f);
         text("scale-val", std::to_string(int(prefs.scale * 100 + 0.5f)) + "%");
         text("check-updates", prefs.check_updates ? "On" : "Off");
+        render_mods();
         auto ustate = pc::updater::get_state();
         if (ustate.status == pc::updater::Status::UpdateAvailable) {
             text("check-status", "Update available: " + ustate.latest_release.tag_name);
@@ -478,6 +572,45 @@ class Launcher final : public Rml::EventListener {
         }
         if (tab_index(id) >= 0) {
             show_tab(tab_index(id));
+            return;
+        }
+        if (id == "mods-folder") {
+            if (const char* dir = pc_mods_user_dir()) {
+                std::string url = "file:///" + std::string(dir);
+                if (!SDL_OpenURL(url.c_str()))
+                    status(std::string("Could not open the mod folder: ") + SDL_GetError(), true);
+            }
+            return;
+        }
+        if (id == "mods-rescan") {
+            pc_mods_scan();
+            render_mods();
+            controls();
+            status(std::to_string(pc_mods_count()) + " mod(s) found.");
+            element("mods-rescan")->Focus();
+            return;
+        }
+        if (id.rfind("pack-", 0) == 0) {
+            char* end = nullptr;
+            const size_t index = std::strtoul(id.c_str() + 5, &end, 10);
+            const size_t k = end && *end == '-' ? std::strtoul(end + 1, nullptr, 10) : 0;
+            PcModPack p;
+            if (pc_mods_pack_info(index, k, &p)) {
+                pc_mods_set_pack_enabled(p.id, !p.enabled);
+                render_mods();
+                if (auto* e = element(id.c_str()))
+                    e->Focus();
+            }
+            return;
+        }
+        if (id.rfind("mod-", 0) == 0) {
+            const size_t index = std::strtoul(id.c_str() + 4, nullptr, 10);
+            if (const PcModInfo* m = pc_mods_info(index)) {
+                pc_mods_set_enabled(m->id, !m->enabled);
+                render_mods();
+                if (auto* e = element(id.c_str()))
+                    e->Focus();
+            }
             return;
         }
         if (id == "verify" && verification.valid()) {
@@ -802,6 +935,14 @@ public:
             inspect(prefs.disc);
         if (!initial_error.empty())
             status(initial_error, true);
+        /* MELEE_LAUNCHER_TAB=mods: open on the Mods page (screenshots, tests). */
+        if (const char* want = std::getenv("MELEE_LAUNCHER_TAB")) {
+            if (std::strcmp(want, "mods") == 0) {
+                tab = mods_tab;
+                show_settings(true);
+                render_mods();
+            }
+        }
         while (result == -2) {
             if (pc_exit_requested) { /* SIGINT/SIGTERM, src/pc/main.c */
                 result = 0;
@@ -1157,6 +1298,7 @@ extern "C" int pc_launcher_run(const char* command_line_disc, SDL_Window* window
             error = info.supported ? "Could not load the requested disc. Choose another image." :
                                      info.message;
         }
+        pc_mods_scan(); /* for the Mods page; activation happens after Play */
         auto* context = aurora::rmlui::get_context();
         if (!context) {
             SDL_Log("Launcher: RmlUi context is unavailable.");

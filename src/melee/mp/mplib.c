@@ -76,9 +76,13 @@ struct mpLib_803BF248_t {
 /* 4D64B0 */ static bool didCheckBounding;
 /* 4D64B4 */ static MapCollData* mpLib_804D64B4;
 
-static size_t const groundCollVtx_count = 2048;
-static size_t const groundCollLine_count = 1536;
-static size_t const groundCollJoint_count = 256;
+/* The game's fixed collision capacity. On PC these are minimums: mpLibLoad
+ * sizes the arrays from the stage's own collision data when that is bigger,
+ * so a stage (a mod map pack) is limited only by the on-disc format -- line
+ * links are s16 and vertex indices u16. */
+static size_t groundCollVtx_count = 2048;
+static size_t groundCollLine_count = 1536;
+static size_t groundCollJoint_count = 256;
 
 /* 4D64B8 */ static CollVtx* groundCollVtx;
 /* 4D64BC */ static CollLine* groundCollLine;
@@ -901,6 +905,27 @@ void mpLibLoad(MapCollData* coll_data)
     int i;
 
     joint_prev = NULL;
+    if (coll_data == NULL) {
+        /* DISC_PTR slots cannot be statically initialised. */
+        DP_SET(mpLib_803BF760.verts, mpLib_803BF718);
+        DP_SET(mpLib_803BF760.lines, &mpLib_803BF728);
+        DP_SET(mpLib_803BF760.joints, &mpLib_803BF738);
+        coll_data = &mpLib_803BF760;
+    }
+#ifdef TARGET_PC
+    groundCollVtx_count = 2048;
+    groundCollLine_count = 1536;
+    groundCollJoint_count = 256;
+    if ((size_t) coll_data->vert_count > groundCollVtx_count) {
+        groundCollVtx_count = coll_data->vert_count;
+    }
+    if ((size_t) coll_data->line_count > groundCollLine_count) {
+        groundCollLine_count = coll_data->line_count;
+    }
+    if ((size_t) coll_data->joint_count > groundCollJoint_count) {
+        groundCollJoint_count = coll_data->joint_count;
+    }
+#endif
     groundCollVtx = HSD_MemAlloc(sizeof(*groundCollVtx) * groundCollVtx_count);
     HSD_ASSERT(412, groundCollVtx);
     groundCollLine =
@@ -910,13 +935,6 @@ void mpLibLoad(MapCollData* coll_data)
         HSD_MemAlloc(sizeof(*groundCollJoint) * groundCollJoint_count);
     HSD_ASSERT(414, groundCollJoint);
     grDynamicAttr_801CA0B4();
-    if (coll_data == NULL) {
-        /* DISC_PTR slots cannot be statically initialised. */
-        DP_SET(mpLib_803BF760.verts, mpLib_803BF718);
-        DP_SET(mpLib_803BF760.lines, &mpLib_803BF728);
-        DP_SET(mpLib_803BF760.joints, &mpLib_803BF738);
-        coll_data = &mpLib_803BF760;
-    }
     f31 = Ground_801C0498();
     mpLib_80458868[0].right = F32_MAX;
     mpLib_80458868[0].top = F32_MAX;

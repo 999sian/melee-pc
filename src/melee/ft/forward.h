@@ -126,6 +126,23 @@ typedef enum FighterKind {
     /* 21 */ Ft_Kind_Max = Ft_Kind_None
 } FighterKind;
 
+#ifdef TARGET_PC
+/* PC character packs (src/pc/mods/roster.c, docs/modding.md).
+ *
+ * Every fighter has two identities. Fighter::kind is the gameplay kind: all
+ * behaviour, motion-state tables and the ~400 kind checks in fighter code key
+ * off it, and for a pack fighter it is the pack's base fighter. Fighter::
+ * asset_kind picks the data file, costumes, animations and every per-kind
+ * load cache; it equals kind for disc fighters and is Ft_Kind_PackFirst + n
+ * for pack n. Tables indexed by asset kind are sized Ft_Kind_AssetMax. Keep
+ * Ft_Kind_AssetMax under 128: several loaders carry the kind in an s8. */
+#define Ft_Kind_PackFirst (Ft_Kind_None + 1)
+#define Ft_Kind_PackMax 64
+#define Ft_Kind_AssetMax (Ft_Kind_PackFirst + Ft_Kind_PackMax)
+#else
+#define Ft_Kind_AssetMax Ft_Kind_Max
+#endif
+
 typedef enum CharacterKind {
     /* 00 */ CKind_Captain,   // Captain Falcon (Captain)
     /* 01 */ CKind_Donkey,    // Donkey Kong (Donkey)

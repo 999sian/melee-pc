@@ -3,8 +3,12 @@
 #include <placeholder.h>
 
 #include "fighter.h"
+#include "ftdata.h"
 #include "inlines.h"
 #include <sysdolphin/baselib/debug.h>
+#ifdef TARGET_PC
+#include "pc/mods/mods.h"
+#endif
 
 float ftCo_CalcYScaledKnockback(float arg0, float scale, float arg2)
 {
@@ -148,6 +152,9 @@ void ftCo_800D0FA0(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
 
     fp->co_attrs = *DP(struct ftCo_DatAttrs, fp->ft_data->x0);
+#ifdef TARGET_PC
+    pc_mods_patch_fighter_attrs(FT_ASSET_KIND(fp), &fp->co_attrs);
+#endif
     {
         fp->x294_itPickup = *DP(struct itPickup, fp->ft_data->x40);
         DiscVec2* v = DP(DiscVec2, fp->ft_data->x50);
@@ -171,6 +178,11 @@ void ftCo_800D105C(Fighter_GObj* fgp)
 
     fp = GET_FIGHTER(fgp);
     fp->co_attrs = *DP(struct ftCo_DatAttrs, fp->ft_data->x0);
+#ifdef TARGET_PC
+    /* Mod tunables patch the base values, before scale/metal/bunny-hood
+     * modifiers below derive from them. */
+    pc_mods_patch_fighter_attrs(FT_ASSET_KIND(fp), &fp->co_attrs);
+#endif
     fp->x294_itPickup = *DP(struct itPickup, fp->ft_data->x40);
     {
         DiscVec2* v = DP(DiscVec2, fp->ft_data->x50);

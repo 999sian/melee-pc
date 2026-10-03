@@ -140,9 +140,16 @@ typedef struct ft_8045993C_t {
     /* +6:1-2 */ u16 x6_b1_b2 : 2;
 } ft_8045993C_t;
 
-/* 4598B8 */ ftData* gFtDataList[Ft_Kind_Max];
+/* 4598B8 */ ftData* gFtDataList[Ft_Kind_AssetMax];
 /* 45993C */ ft_8045993C_t ft_8045993C[6];
-/* 45996C */ int ft_8045996C[Ft_Kind_Max];
+/* 45996C */ int ft_8045996C[Ft_Kind_AssetMax];
+
+#ifdef TARGET_PC
+/* Disc fighters are their own base; pack entries are filled at registration
+ * (src/pc/mods/roster.c). */
+s8 ftData_AssetPartner[Ft_Kind_AssetMax] = { [0 ... Ft_Kind_AssetMax - 1] = -1 };
+s8 ftData_AssetBaseKind[Ft_Kind_AssetMax] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 };
+#endif
 
 /// @todo All one struct maybe?
 #ifdef MUST_MATCH
@@ -185,7 +192,7 @@ void ft_800852B0(void)
     int i;
     int new_var = 0;
 
-    for (i = 0; i < Ft_Kind_Max; ++i) {
+    for (i = 0; i < Ft_Kind_AssetMax; ++i) {
         int costume_idx = new_var;
         list = gFtDataList;
         list[i] = NULL;
@@ -212,13 +219,13 @@ void ft_800852B0(void)
 void ft_8008549C(void)
 {
     int i;
-    for (i = 0; i < Ft_Kind_Max; i++) {
+    for (i = 0; i < Ft_Kind_AssetMax; i++) {
         ft_8045996C[i] = 0;
     }
 }
 
 /* 3C0EC0 */ struct UnkCostumeList
-    CostumeListsForeachCharacter[Ft_Kind_Max] = {
+    CostumeListsForeachCharacter[Ft_Kind_AssetMax] = {
         { ftMr_CostumeList, ARRAY_SIZE(ftMr_CostumeList) },
         { ftFx_CostumeList, ARRAY_SIZE(ftFx_CostumeList) },
         { ftCa_CostumeList, ARRAY_SIZE(ftCa_CostumeList) },
@@ -254,7 +261,7 @@ void ft_8008549C(void)
         { ftSb_CostumeList, ARRAY_SIZE(ftSb_CostumeList) }
     };
 
-ftData_UnkCountStruct ftData_Table_Unk0[Ft_Kind_Max] = {
+ftData_UnkCountStruct ftData_Table_Unk0[Ft_Kind_AssetMax] = {
     { 0, 303 }, { 0, 327 }, { 0, 318 }, { 0, 337 }, { 0, 479 }, { 0, 316 },
     { 0, 314 }, { 0, 317 }, { 0, 326 }, { 0, 318 }, { 0, 321 }, { 0, 321 },
     { 0, 320 }, { 0, 313 }, { 0, 314 }, { 0, 327 }, { 0, 314 }, { 0, 312 },
@@ -1180,12 +1187,14 @@ HSD_GObjEvent ftKindCalcIndiviParamTable[Ft_Kind_Max] = {
 };
 
 /// Standard Character .dat File Names
+#ifndef TARGET_PC
 struct StringPair {
     char* a;
     char* b;
 };
+#endif
 
-struct StringPair ftData_803C1F40[Ft_Kind_Max] = {
+struct StringPair ftData_803C1F40[Ft_Kind_AssetMax] = {
     { ftMr_Init_DatFilename, ftMr_Init_DataName },
     { ftFx_Init_DatFilename, ftFx_Init_DataName },
     { ftCa_Init_DatFilename, ftCa_Init_DataName },
@@ -1354,7 +1363,7 @@ struct {
 };
 
 /// Costume and Joint Strings
-Fighter_CostumeStrings* ftData_803C2360[Ft_Kind_Max] = {
+Fighter_CostumeStrings* ftData_803C2360[Ft_Kind_AssetMax] = {
     ftMr_Init_CostumeStrings, ftFx_Init_CostumeStrings,
     ftCa_Init_CostumeStrings, ftDk_Init_CostumeStrings,
     ftKb_Init_CostumeStrings, ftKp_Init_CostumeStrings,
@@ -1375,7 +1384,7 @@ Fighter_CostumeStrings* ftData_803C2360[Ft_Kind_Max] = {
 
 };
 
-char* ftData_803C23E4[Ft_Kind_Max] = {
+char* ftData_803C23E4[Ft_Kind_AssetMax] = {
     ftMr_Init_AnimDatFilename, ftFx_Init_AnimDatFilename,
     ftCa_Init_AnimDatFilename, ftDk_Init_AnimDatFilename,
     ftKb_Init_AnimDatFilename, ftKp_Init_AnimDatFilename,
@@ -1396,7 +1405,7 @@ char* ftData_803C23E4[Ft_Kind_Max] = {
 };
 
 /// Demo Lookup Strings
-Fighter_DemoStrings* ftData_803C2468[Ft_Kind_Max] = {
+Fighter_DemoStrings* ftData_803C2468[Ft_Kind_AssetMax] = {
     &ftMr_Init_DemoMotionFilenames,
     &ftFx_Init_DemoMotionFilenames,
     &ftCa_Init_DemoMotionFilenames,
@@ -1504,7 +1513,7 @@ Fighter_UnkPtrEvent ftData_UnkDemoCallbacks0[Ft_Kind_Max] = {
     NULL,
 };
 
-ftData_UnkCountStruct ftData_UnkIntPairs[Ft_Kind_Max] = {
+ftData_UnkCountStruct ftData_UnkIntPairs[Ft_Kind_AssetMax] = {
     { 0, 16 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 18 }, { 0, 14 },
     { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 },
     { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 14 }, { 0, 16 },
@@ -1513,7 +1522,7 @@ ftData_UnkCountStruct ftData_UnkIntPairs[Ft_Kind_Max] = {
     { 0, 14 }, { 0, 15 }, { 0, 14 },
 };
 
-u8 ftData_UnkBytePerCharacter[Ft_Kind_Max] = {
+u8 ftData_UnkBytePerCharacter[Ft_Kind_AssetMax] = {
     1,  3,  4,  8, 5, 12, 6, 17, 10, 15, 14, 14, 7,  2,  9,  11, 13,
     18, 16, 17, 6, 1, 3,  7, -1, 19, 49, -1, -1, -1, -1, 12, -1,
 };
@@ -1530,11 +1539,32 @@ void ftData_80085560(int idx, int increment)
 char ftData_assert_msg_0[] = "cant get corps model array!\n";
 char ftData_assert_msg_1[] = "HSD_ArchiveParse error!\n";
 
+#ifdef TARGET_PC
+/* Kirby's and Yoshi's item helpers (the copy star, the egg) read their
+ * fighter's disc data through gFtDataList[base] with no fighter at hand, so a
+ * pack built on them also loads the base's small data file. */
+static FighterKind ftData_PackBaseDataNeeded(FighterKind kind)
+{
+    FighterKind base;
+    if (kind < Ft_Kind_PackFirst) {
+        return Ft_Kind_None;
+    }
+    base = ftData_BaseKind(kind);
+    return (base == Ft_Kind_Kirby || base == Ft_Kind_Yoshi) ? base : Ft_Kind_None;
+}
+#endif
+
 void ftData_800855C8(FighterKind kind, u8 color)
 {
     int i;
     int lo;
     int hi;
+#ifdef TARGET_PC
+    if (ftData_PackBaseDataNeeded(kind) != Ft_Kind_None) {
+        lbDvd_800178E8(2, ftData_803C1F40[ftData_PackBaseDataNeeded(kind)].a, 4,
+                       4, 0, 1, 4, 2, 0);
+    }
+#endif
 
     if (color != 0xFF &&
         color >= CostumeListsForeachCharacter[kind].numCostumes)
@@ -1571,6 +1601,16 @@ void ftData_8008572C(FighterKind kind)
         lbArchive_80017040(NULL, ftData_803C1F40[kind].a, &gFtDataList[kind],
                            ftData_803C1F40[kind].b, NULL);
     }
+#ifdef TARGET_PC
+    {
+        FighterKind base = ftData_PackBaseDataNeeded(kind);
+        if (base != Ft_Kind_None && gFtDataList[base] == NULL) {
+            lbArchive_80017040(NULL, ftData_803C1F40[base].a,
+                               &gFtDataList[base], ftData_803C1F40[base].b,
+                               NULL);
+        }
+    }
+#endif
 }
 
 void ftData_8008578C(int arg0, u8 color)
@@ -1586,6 +1626,7 @@ void ftData_8008578C(int arg0, u8 color)
 
 void ftData_800857E0(FighterKind kind)
 {
+    kind = ftData_BaseKind(kind); /* a behaviour table: asset -> base */
     if (ftData_UnkMotionStates5[kind] != NULL) {
         ftData_UnkMotionStates5[kind]();
     }
@@ -1687,7 +1728,7 @@ void ftData_80085A14(FighterKind kind)
 
 void ftData_80085B10(Fighter* fp)
 {
-    FighterKind kind = fp->kind;
+    FighterKind kind = FT_ASSET_KIND(fp);
     fp->x59C = HSD_ObjAlloc(&fighter_x59C_alloc_data);
     fp->x5A0 = HSD_ObjAlloc(&fighter_x59C_alloc_data);
     fp->x5A4 = 0;
@@ -1839,8 +1880,17 @@ struct ftData_80085FD4_ret* ftData_80085FD4(Fighter* fp, int msid)
         Player_GetPlayerSlotType(fp->player_idx) != Gm_PKind_Demo &&
         fp->x24[msid].x14 == 0)
     {
+        /* Nana borrows Popo's animations; a pack Nana borrows her pack's. */
+        ftData* popo = gFtDataList[Ft_Kind_Popo];
+#ifdef TARGET_PC
+        if (FT_ASSET_KIND(fp) >= Ft_Kind_PackFirst &&
+            ftData_AssetPartner[FT_ASSET_KIND(fp)] >= 0)
+        {
+            popo = gFtDataList[ftData_AssetPartner[FT_ASSET_KIND(fp)]];
+        }
+#endif
         return (struct ftData_80085FD4_ret*) &DP(
-            struct Fighter_WaitAnimData, gFtDataList[Ft_Kind_Popo]->xC)[msid];
+            struct Fighter_WaitAnimData, popo->xC)[msid];
     }
     return (struct ftData_80085FD4_ret*) &fp->x24[msid];
 }

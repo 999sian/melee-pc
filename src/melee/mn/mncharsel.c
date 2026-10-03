@@ -1,4 +1,13 @@
 #include "mncharsel.h"
+#ifdef TARGET_PC
+#include <string.h>
+#include "pc/mods/roster.h"
+#include "pc/mods/alias.h"
+#include "pc/net.h"
+#include <melee/ft/ftdata.h>
+#include <melee/pl/player.h>
+#include <sysdolphin/baselib/tobj.h>
+#endif
 
 #include <melee/ft/forward.h>
 #include <sysdolphin/baselib/forward.h>
@@ -1065,6 +1074,483 @@ static inline HSD_JObj* animateJointLeadingPad(HSD_JObj* root, u8 joint,
     return jobj;
 }
 
+#ifdef TARGET_PC
+/* ---- PC: paginated character select (mod character packs) ---------------
+ *
+ * Page 0 is the disc roster. Pages 1.. lay mod character packs out over the
+ * same 25 icon slots, 25 per page; L / R change page. On a pack page each
+ * used slot is rewritten to look and behave like the pack's base character
+ * (char_kind, HUD index, announcer call) except for its portrait, which is
+ * the pack's own icon when it ships one. Picking a slot sets the player's
+ * PlayerInitData::pc_pack; the game then runs the base character with the
+ * pack's files (see Ft_Kind_PackFirst). Everything is restored on page 0.
+ *
+ * A door keeps a snapshot of the icon it picked, so its portrait, name and
+ * costume count stay right after the page changes under it. */
+#define PC_CSS_ICONS 25
+#define PC_CSS_ICON_W 64
+#define PC_CSS_ICON_H 56
+
+typedef struct PcCssSlot {
+    HSD_JObj* jobj;
+    HSD_TObj* face; /* the portrait: the icon's second DObj */
+    HSD_ImageDesc* face_img;
+    struct _HSD_Tlut* face_tlut;
+    HSD_AObj* face_aobj;
+    u32 jobj_flags;
+} PcCssSlot;
+
+static PcCssSlot pc_css_slots[PC_CSS_ICONS];
+static CSSIcon pc_css_orig[PC_CSS_ICONS];
+static HSD_ImageDesc* pc_css_pack_img[Ft_Kind_PackMax];
+/* Door portraits: images made on demand per (pack, costume), and the palette
+ * a door's portrait texture had before a pack image replaced it. */
+static HSD_ImageDesc* pc_css_portrait_img[Ft_Kind_PackMax][16];
+static struct {
+    HSD_TObj* tobj;
+    struct _HSD_Tlut* tlut;
+} pc_css_portrait_saved[4];
+static bool pc_css_ready;
+static int pc_css_page;
+static u32 pc_css_last_turn = (u32) -1;
+static struct {
+    bool valid;
+    u8 page;
+    u8 sel;
+    s16 pack;
+    CSSIcon icon;
+} pc_css_door[4];
+
+static int pc_css_page_count(void)
+{
+    int n = pc_roster_visible_count();
+    /* Online, both peers run this CSS from the same synced inputs, the page
+     * state lives in the rollback snapshot (game globals and heap), and the
+     * gameplay hash makes both peers carry the same packs, so the pages and
+     * picks come out identical on both sides with nothing extra to send. */
+    if (n == 0) {
+        return 1;
+    }
+    return 1 + (n + PC_CSS_ICONS - 1) / PC_CSS_ICONS;
+}
+
+static int pc_css_slot_pack(int page, int slot)
+{
+    int pack;
+    if (page <= 0 || slot < 0 || slot >= PC_CSS_ICONS) {
+        return -1;
+    }
+    pack = (page - 1) * PC_CSS_ICONS + slot;
+    return pack < pc_roster_visible_count() ? pc_roster_visible_pack(pack) : -1;
+}
+
+static bool pc_css_door_snapshot(int door, int sel)
+{
+    return door >= 0 && door < 4 && pc_css_door[door].valid &&
+           pc_css_door[door].sel == sel && pc_css_door[door].page != pc_css_page;
+}
+
+static int pc_css_door_pack(int door, int sel)
+{
+    if (pc_css_door_snapshot(door, sel)) {
+        return pc_css_door[door].pack;
+    }
+    return pc_css_slot_pack(pc_css_page, sel);
+}
+
+static CSSIcon* css_door_icon(int door, int sel)
+{
+    if (pc_css_door_snapshot(door, sel)) {
+        return &pc_css_door[door].icon;
+    }
+    return &icons[sel];
+}
+
+static const char* pc_css_pack_name(int door, int sel)
+{
+    int pack = pc_css_door_pack(door, sel);
+    return pack >= 0 ? pc_roster_fighter_sjis_name(pack) : NULL;
+}
+
+static int pc_css_costume_count(int door)
+{
+    int sel = mnCharSel_803F0DFC.doors[door].sel_icon;
+    int pack = pc_css_door_pack(door, sel);
+    if (pack >= 0) {
+        return pc_roster_fighter_costumes(pack);
+    }
+    return gm_GetNumCostumesForCKind(css_door_icon(door, sel)->char_kind);
+}
+
+/* Portraits come from the base character, which may have fewer costumes. */
+static int pc_css_portrait_color(int door, int sel, int color)
+{
+    int n;
+    if (pc_css_door_pack(door, sel) < 0) {
+        return color;
+    }
+    n = gm_GetNumCostumesForCKind(css_door_icon(door, sel)->char_kind);
+    return (n > 0 && color >= n) ? n - 1 : color;
+}
+
+static u8 pc_css_pick(int door, int sel)
+{
+    int pack = pc_css_slot_pack(pc_css_page, sel);
+    if (door >= 0 && door < 4 && sel < PC_CSS_ICONS) {
+        pc_css_door[door].valid = true;
+        pc_css_door[door].page = (u8) pc_css_page;
+        pc_css_door[door].sel = (u8) sel;
+        pc_css_door[door].pack = (s16) pack;
+        pc_css_door[door].icon = icons[sel];
+    }
+    return pack >= 0 ? (u8) (pack + 1) : 0;
+}
+
+static void pc_css_unpick(int door)
+{
+    if (door >= 0 && door < 4) {
+        pc_css_door[door].valid = false;
+    }
+}
+
+static HSD_ImageDesc* pc_css_make_image(const void* gx, int w, int h)
+{
+    const size_t size = (size_t) w * h * 4;
+    HSD_ImageDesc* desc;
+    void* buf;
+    if (gx == NULL) {
+        return NULL;
+    }
+    desc = HSD_MemAlloc(sizeof(HSD_ImageDesc));
+    buf = HSD_MemAlloc(size);
+    if (desc == NULL || buf == NULL) {
+        return NULL;
+    }
+    memcpy(buf, gx, size);
+    memset(desc, 0, sizeof(*desc));
+    DP_SET(desc->image_ptr, buf);
+    desc->width = (u16) w;
+    desc->height = (u16) h;
+    desc->format = GX_TF_RGBA8;
+    return desc;
+}
+
+static HSD_TObj* pc_css_find_anim_tobj(HSD_JObj* jobj)
+{
+    HSD_DObj* dobj;
+    HSD_TObj* first = NULL;
+    if (jobj == NULL || (jobj->flags & (JOBJ_PTCL | JOBJ_SPLINE))) {
+        return NULL;
+    }
+    for (dobj = jobj->u.dobj; dobj != NULL; dobj = dobj->next) {
+        HSD_TObj* t = dobj->mobj != NULL ? dobj->mobj->tobj : NULL;
+        for (; t != NULL; t = t->next) {
+            if (t->imagetbl != NULL) {
+                return t; /* the texture-swap animated one is the portrait */
+            }
+            if (first == NULL) {
+                first = t;
+            }
+        }
+    }
+    return first;
+}
+
+/* Called right after the door's portrait joint was animated to its frame:
+ * the animation has just put the disc portrait back, so restore its palette,
+ * then show the pack's own portrait if the door holds a pack that has one. */
+static void pc_css_door_portrait(int door, HSD_JObj* jobj, bool hidden)
+{
+    HSD_TObj* t;
+    int sel, pack, costume;
+    if (door < 0 || door >= 4) {
+        return;
+    }
+    if (pc_css_portrait_saved[door].tobj != NULL) {
+        pc_css_portrait_saved[door].tobj->tlut = pc_css_portrait_saved[door].tlut;
+        pc_css_portrait_saved[door].tobj = NULL;
+    }
+    if (hidden || !pc_css_ready) {
+        return;
+    }
+    sel = mnCharSel_803F0DFC.doors[door].sel_icon;
+    pack = pc_css_door_pack(door, sel);
+    costume = mnCharSel_803F0DFC.doors[door].costume;
+    if (pack < 0 || pack >= Ft_Kind_PackMax || costume < 0 || costume >= 16) {
+        return;
+    }
+    t = pc_css_find_anim_tobj(jobj);
+    if (t == NULL || t->imagedesc == NULL) {
+        return;
+    }
+    if (pc_css_portrait_img[pack][costume] == NULL) {
+        int w = t->imagedesc->width, h = t->imagedesc->height;
+        pc_css_portrait_img[pack][costume] = pc_css_make_image(
+            pc_roster_portrait_gx(pack, costume, w, h), w, h);
+    }
+    if (pc_css_portrait_img[pack][costume] != NULL) {
+        pc_css_portrait_saved[door].tobj = t;
+        pc_css_portrait_saved[door].tlut = t->tlut;
+        t->imagedesc = pc_css_portrait_img[pack][costume];
+        t->tlut = NULL;
+    }
+}
+
+static HSD_ImageDesc* pc_css_make_icon(int pack)
+{
+    const size_t size = PC_CSS_ICON_W * PC_CSS_ICON_H * 4;
+    const void* gx = pc_roster_icon_gx(pack, PC_CSS_ICON_W, PC_CSS_ICON_H);
+    HSD_ImageDesc* desc;
+    void* buf;
+    if (gx == NULL) {
+        return NULL;
+    }
+    /* Scene heap: freed with the CSS, and inside the range a DISC_PTR can
+     * hold. */
+    desc = HSD_MemAlloc(sizeof(HSD_ImageDesc));
+    buf = HSD_MemAlloc(size);
+    if (desc == NULL || buf == NULL) {
+        return NULL;
+    }
+    memcpy(buf, gx, size);
+    memset(desc, 0, sizeof(*desc));
+    DP_SET(desc->image_ptr, buf);
+    desc->width = PC_CSS_ICON_W;
+    desc->height = PC_CSS_ICON_H;
+    desc->format = GX_TF_RGBA8;
+    return desc;
+}
+
+static bool pc_css_is_secret_slot(int i)
+{
+    return i == 0 || i == 8 || i == 9 || i == 17 || i == 18 || i == 24;
+}
+
+static void pc_css_apply_page(int page)
+{
+    int i;
+    for (i = 0; i < PC_CSS_ICONS; i++) {
+        PcCssSlot* s = &pc_css_slots[i];
+        int pack, base_slot, j;
+        CharacterKind ck;
+        if (s->jobj == NULL) {
+            continue;
+        }
+        /* Restore the disc slot first; a pack page starts from it. */
+        icons[i].char_kind = pc_css_orig[i].char_kind;
+        icons[i].ft_hudindex = pc_css_orig[i].ft_hudindex;
+        icons[i].sfx = pc_css_orig[i].sfx;
+        icons[i].state = pc_css_orig[i].state;
+        if (s->face != NULL) {
+            s->face->imagedesc = s->face_img;
+            s->face->tlut = s->face_tlut;
+            s->face->aobj = s->face_aobj;
+        }
+        if (s->jobj_flags & JOBJ_HIDDEN) {
+            HSD_JObjSetFlags(s->jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjClearFlags(s->jobj, JOBJ_HIDDEN);
+        }
+        /* A locked disc slot shows its locked frame (frame 30), set at CSS
+         * start; undo that on pack pages and put it back on page 0. A locked
+         * secret slot is instead unrevealed (frame 0 of its parent's appear
+         * animation); reveal it (frame 20) on pack pages. */
+        if (pc_css_orig[i].state == 0) {
+            if (pc_css_is_secret_slot(i)) {
+                HSD_JObj* parent = HSD_JObjGetParent(s->jobj);
+                if (parent != NULL) {
+                    HSD_ForeachAnim(parent, JOBJ_TYPE, ALL_TYPE_MASK,
+                                    HSD_AObjReqAnim, AOBJ_ARG_AF,
+                                    page == 0 ? 0.0 : 20.0);
+                    HSD_JObjAnimAll(parent);
+                }
+            } else {
+                HSD_ForeachAnim(s->jobj, JOBJ_TYPE, ALL_TYPE_MASK,
+                                HSD_AObjReqAnim, AOBJ_ARG_AF,
+                                page == 0 ? 30.0 : 0.0);
+                HSD_JObjAnimAll(s->jobj);
+            }
+        }
+        if (page == 0) {
+            continue;
+        }
+
+        pack = pc_css_slot_pack(page, i);
+        if (pack < 0) {
+            icons[i].state = 0;
+            HSD_JObjSetFlags(s->jobj, JOBJ_HIDDEN);
+            continue;
+        }
+        ck = Player_CharacterForFighter(
+            (FighterKind) pc_roster_fighter_base(pack));
+        base_slot = -1;
+        for (j = 0; j < PC_CSS_ICONS; j++) {
+            if (pc_css_orig[j].char_kind == ck) {
+                base_slot = j;
+                break;
+            }
+        }
+        icons[i].char_kind = (u8) ck;
+        icons[i].state = 2;
+        if (base_slot >= 0) {
+            icons[i].ft_hudindex = pc_css_orig[base_slot].ft_hudindex;
+            icons[i].sfx = pc_css_orig[base_slot].sfx;
+        }
+        HSD_JObjClearFlags(s->jobj, JOBJ_HIDDEN);
+        if (s->face != NULL) {
+            s->face->aobj = NULL; /* no texture-swap animation on packs */
+            if (pc_css_pack_img[pack] != NULL) {
+                s->face->imagedesc = pc_css_pack_img[pack];
+                s->face->tlut = NULL;
+            } else if (base_slot >= 0 && pc_css_slots[base_slot].face != NULL) {
+                s->face->imagedesc = pc_css_slots[base_slot].face_img;
+                s->face->tlut = pc_css_slots[base_slot].face_tlut;
+            }
+        }
+    }
+}
+
+/* The icon table is static: leaving the CSS on a pack page leaves pack
+ * values (base char_kind, hud index, sfx) in it, and the next CSS would
+ * read them as the disc's -- a secret slot would turn into its pack's base.
+ * Put the disc values back before the CSS reads the table. */
+static void pc_css_icons_pristine(void)
+{
+    static CSSIcon pristine[PC_CSS_ICONS];
+    static bool have;
+    int i;
+    if (!have) {
+        memcpy(pristine, icons, sizeof(pristine));
+        have = true;
+        return;
+    }
+    for (i = 0; i < PC_CSS_ICONS; i++) {
+        icons[i].char_kind = pristine[i].char_kind;
+        icons[i].ft_hudindex = pristine[i].ft_hudindex;
+        icons[i].sfx = pristine[i].sfx;
+    }
+}
+
+static void pc_css_pages_init(void)
+{
+    int i, n;
+    pc_css_ready = false;
+    pc_css_page = 0;
+    memset(pc_css_door, 0, sizeof(pc_css_door));
+    memset(pc_css_pack_img, 0, sizeof(pc_css_pack_img));
+    memset(pc_css_portrait_img, 0, sizeof(pc_css_portrait_img));
+    memset(pc_css_portrait_saved, 0, sizeof(pc_css_portrait_saved));
+    for (i = 0; i < PC_CSS_ICONS; i++) {
+        PcCssSlot* s = &pc_css_slots[i];
+        HSD_JObj* jobj = NULL;
+        HSD_DObj* dobj;
+        memset(s, 0, sizeof(*s));
+        pc_css_orig[i] = icons[i];
+        lb_80011E24(mnCharSel_804D6CC0, &jobj,
+                    mnCharSel_804D6CF5 == 1 ? icons[i].joint_id_1p
+                                            : icons[i].joint_id_vs,
+                    -1);
+        if (jobj == NULL) {
+            continue;
+        }
+        s->jobj = jobj;
+        s->jobj_flags = jobj->flags;
+        dobj = jobj->u.dobj;
+        if (dobj != NULL && dobj->next != NULL && dobj->next->mobj != NULL &&
+            dobj->next->mobj->tobj != NULL)
+        {
+            s->face = dobj->next->mobj->tobj;
+            s->face_img = s->face->imagedesc;
+            s->face_tlut = s->face->tlut;
+            s->face_aobj = s->face->aobj;
+        }
+    }
+    n = pc_roster_visible_count();
+    for (i = 0; i < n; i++) {
+        int pack = pc_roster_visible_pack(i);
+        if (pack >= 0 && pack < Ft_Kind_PackMax) {
+            pc_css_pack_img[pack] = pc_css_make_icon(pack);
+        }
+    }
+    pc_css_ready = true;
+    /* Coming back to the CSS (after a match, or from the stage select) the
+     * start data still carries each player's pack, and the game puts the
+     * token back on the first slot of the base character (see the sel_icon
+     * restore below). Rebuild the door snapshot to match, or the door would
+     * read as the base character while the next match still runs the pack. */
+    if (mnCharSel_804D6CF5 != 1) {
+        int door;
+        for (door = 0; door < 4; door++) {
+            PlayerInitData* pl = &mnCharSel_804D6CB0->vs.start.players[door];
+            int pack = (int) pl->pc_pack - 1;
+            int page, sel;
+            if (pack < 0 || pack >= pc_roster_fighter_count()) {
+                continue;
+            }
+            for (sel = 0; sel < PC_CSS_ICONS; sel++) {
+                if (icons[sel].char_kind == pl->ckind) {
+                    break;
+                }
+            }
+            page = -1;
+            for (i = 0; i < n; i++) {
+                if (pc_roster_visible_pack(i) == pack) {
+                    page = 1 + i / PC_CSS_ICONS;
+                    break;
+                }
+            }
+            if (sel >= PC_CSS_ICONS || page < 0) {
+                pl->pc_pack = 0; /* the pack's slot is gone: plain base */
+                continue;
+            }
+            pc_css_door[door].valid = true;
+            pc_css_door[door].page = (u8) page;
+            pc_css_door[door].sel = (u8) sel;
+            pc_css_door[door].pack = (s16) pack;
+            pc_css_door[door].icon = icons[sel];
+        }
+    }
+    if (pc_css_page_count() > 1) {
+        OSReport("css: %d character pack(s) on %d extra page(s); L/R to page\n",
+                 n, pc_css_page_count() - 1);
+    }
+}
+
+static void pc_css_pages_input(u32 trigger)
+{
+    int n, dir;
+    if (!pc_css_ready) {
+        return;
+    }
+    n = pc_css_page_count();
+    dir = (trigger & HSD_PAD_R) ? 1 : (trigger & HSD_PAD_L) ? -1 : 0;
+    if (n <= 1 || dir == 0 || pc_css_last_turn == mnCharSel_804D6CEC) {
+        return;
+    }
+    pc_css_last_turn = mnCharSel_804D6CEC;
+    pc_css_page = (pc_css_page + dir + n) % n;
+    pc_css_apply_page(pc_css_page);
+    sfxMove();
+    OSReport("css: page %d of %d\n", pc_css_page + 1, n);
+}
+
+int pc_css_current_page(void)
+{
+    return pc_css_ready ? pc_css_page : 0;
+}
+
+int pc_css_total_pages(void)
+{
+    return pc_css_ready ? pc_css_page_count() : 1;
+}
+#define CSS_COSTUME_COUNT(door) pc_css_costume_count(door)
+#else
+#define css_door_icon(door, sel) (&icons[sel])
+#define CSS_COSTUME_COUNT(door)                                               \
+    gm_GetNumCostumesForCKind(                                                \
+        icons[mnCharSel_803F0DFC.doors[door].sel_icon].char_kind)
+#endif
+
 void mnCharSel_8025D5AC(int door, int frame, bool hidden)
 {
     HSD_JObj* sp5C;
@@ -1109,6 +1595,9 @@ void mnCharSel_8025D5AC(int door, int frame, bool hidden)
                         mnCharSel_803F0DFC.doors[door].costume_joint,
                         TOBJ_MASK, (float) frame);
     sethidden(sp48, hidden);
+#ifdef TARGET_PC
+    pc_css_door_portrait(door, sp48, hidden);
+#endif
 
     sp44 = animateJoint(mnCharSel_804D6CC0,
                         mnCharSel_803F0DFC.doors[door].emblem_joint, TOBJ_MASK,
@@ -1301,19 +1790,28 @@ void mnCharSel_8025DB34(u8 arg0)
     s32 color;
     f32 door_frame;
     sel_icon = mnCharSel_803F0DFC.doors[arg0].sel_icon;
-    hud_idx = icons[sel_icon].ft_hudindex;
+    hud_idx = css_door_icon(arg0, sel_icon)->ft_hudindex;
     mnCharSel_8025D5AC((int) arg0, 0, 1);
 
     /* Name display */
     if (mnCharSel_803F0E8C[arg0].data->use_tag == 0 && (int) sel_icon < 0x19) {
         mnCharSel_803F0E8C[arg0].data->text->default_kerning = 1;
-        if (lbLang_IsSavedLanguageUS() != 0 && (int) sel_icon == 0x16) {
+#ifdef TARGET_PC
+        const char* pc_name = pc_css_pack_name(arg0, sel_icon);
+        if (pc_name != NULL) {
+            HSD_SisLib_803A70A0(mnCharSel_803F0E8C[arg0].data->text, 0,
+                                (char*) pc_name);
+        } else
+#endif
+        if (lbLang_IsSavedLanguageUS() != 0 && (int) sel_icon == 0x16 &&
+            css_door_icon(arg0, sel_icon)->char_kind == CKind_GameWatch)
+        {
             HSD_SisLib_803A70A0(mnCharSel_803F0E8C[arg0].data->text, 0,
                                 (char*) mnCharSel_803F0A48.gnw_name);
         } else {
             HSD_SisLib_803A70A0(
                 mnCharSel_803F0E8C[arg0].data->text, 0,
-                (char*) gm_80160980(icons[sel_icon].char_kind));
+                (char*) gm_80160980(css_door_icon(arg0, sel_icon)->char_kind));
         }
     }
 
@@ -1631,7 +2129,7 @@ void mnCharSel_8025DB34(u8 arg0)
             {
                 color = mnCharSel_803F0DFC.doors[arg0].costume;
             } else {
-                u8 ckind = icons[final_icon].char_kind;
+                u8 ckind = css_door_icon(arg0, final_icon)->char_kind;
                 switch ((int) mnCharSel_803F0DFC.doors[arg0].team) {
                 default:
                     color = gm_80169264(ckind);
@@ -1657,7 +2155,11 @@ void mnCharSel_8025DB34(u8 arg0)
                 }
                 mnCharSel_804D6CB0->vs.start.players[port].color = color;
             }
+#ifdef TARGET_PC
+            hud_idx += pc_css_portrait_color(arg0, final_icon, color) * 0x1E;
+#else
             hud_idx += color * 0x1E;
+#endif
             mnCharSel_8025D5AC((int) arg0, hud_idx, 0);
         }
     }
@@ -2263,8 +2765,7 @@ void mnCharSel_CostumeChange(int door, u32 input)
         do {
             mnCharSel_803F0DFC.doors[door].costume =
                 (mnCharSel_803F0DFC.doors[door].costume + 1) %
-                gm_GetNumCostumesForCKind(
-                    icons[mnCharSel_803F0DFC.doors[door].sel_icon].char_kind);
+                CSS_COSTUME_COUNT(door);
         } while (isDuplicateCostume(door));
     } else if (input & HSD_PAD_Y) {
         do {
@@ -2272,10 +2773,7 @@ void mnCharSel_CostumeChange(int door, u32 input)
                 mnCharSel_803F0DFC.doors[door].costume--;
             } else {
                 mnCharSel_803F0DFC.doors[door].costume =
-                    gm_GetNumCostumesForCKind(
-                        icons[mnCharSel_803F0DFC.doors[door].sel_icon]
-                            .char_kind) -
-                    1;
+                    CSS_COSTUME_COUNT(door) - 1;
             }
         } while (isDuplicateCostume(door));
     }
@@ -2485,6 +2983,9 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
             trigger = HSD_PadCopyStatus[port].trigger;
             buttons = HSD_PadCopyStatus[port].button;
             getStickDelta(port, &dx, &dy);
+#ifdef TARGET_PC
+            pc_css_pages_input(trigger);
+#endif
             if (buttons & 0x200) {
                 if (mnCharSel_804D6CF3 & mnCharSel_804D50C8[cursor->x4]) {
                     u16 new_timer = cursor->xA + 1;
@@ -2504,6 +3005,9 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
             trigger = HSD_PadCopyStatus[port].trigger;
             buttons = HSD_PadCopyStatus[port].button;
             getStickDelta(port, &dx, &dy);
+#ifdef TARGET_PC
+            pc_css_pages_input(trigger);
+#endif
 
             if (HSD_PadCopyStatus[cursor->x4].err != 0) {
                 if (cursor->x5 != 3) {
@@ -2656,6 +3160,12 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                     mnCharSel_804D6CB0->vs.start
                                         .players[player_idx]
                                         .ckind = ChKind_None;
+#ifdef TARGET_PC
+                                    mnCharSel_804D6CB0->vs.start
+                                        .players[player_idx]
+                                        .pc_pack = 0;
+                                    pc_css_unpick(door);
+#endif
                                 }
                             }
                             mnCharSel_8025DB34(door);
@@ -2682,13 +3192,7 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                         while (true) {
                                             mnCharSel_803F0DFC.doors[door]
                                                 .costume = HSD_Randi(
-                                                (s32)
-                                                    gm_GetNumCostumesForCKind(
-                                                        icons
-                                                            [mnCharSel_803F0DFC
-                                                                 .doors[door]
-                                                                 .sel_icon]
-                                                                .char_kind));
+                                                (s32) CSS_COSTUME_COUNT(door));
                                             if (!isDuplicateCostume(door)) {
                                                 break;
                                             }
@@ -2735,6 +3239,14 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                                                .doors[door]
                                                                .sel_icon]
                                                     .char_kind;
+#ifdef TARGET_PC
+                                            mnCharSel_804D6CB0->vs.start
+                                                .players[player_idx]
+                                                .pc_pack = pc_css_pick(
+                                                door, mnCharSel_803F0DFC
+                                                          .doors[door]
+                                                          .sel_icon);
+#endif
                                             if (mnCharSel_804D6CF5 == 1) {
                                                 lb_80011E24(
                                                     mnCharSel_804D6CC0, &sp98,
@@ -2765,6 +3277,14 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                                 lbAudioAx_80023870(
                                                     icons[sel].sfx, 0x7F, 0x40,
                                                     sel + 0x8A);
+#ifdef TARGET_PC
+                                                {
+                                                    extern int pc_announce_pack;
+                                                    pc_announce_pack =
+                                                        pc_css_slot_pack(
+                                                            pc_css_page, sel);
+                                                }
+#endif
                                                 gm_80168C5C(
                                                     icons[sel].char_kind);
                                             }
@@ -4296,6 +4816,10 @@ s32 mnCharSel_802640A0(void)
     s32 icon;
     u8 match_type = mnCharSel_804D6CB0->match_type;
 
+#ifdef TARGET_PC
+    pc_css_icons_pristine();
+    pc_alias_clear(); /* the last match's pack files are not this menu's */
+#endif
     if (match_type != 0) {
         lbAudioAx_800237A8(mnCharSel_803F0A48.mode_info[match_type].enter_sfx,
                            0x7F, 0x40);
@@ -4490,6 +5014,9 @@ s32 mnCharSel_802640A0(void)
             break;
         }
     }
+#ifdef TARGET_PC
+    pc_css_pages_init();
+#endif
 
     {
         u8 mt = mnCharSel_804D6CB0->match_type;
@@ -5492,6 +6019,11 @@ void mnCharSel_Scene_OnFrame(void)
                 cache->entries[0].color =
                     mnCharSel_804D6CB0->vs.start.players[mnCharSel_804D6CF0]
                         .color;
+#ifdef TARGET_PC
+                cache->entries[0].pc_pack =
+                    mnCharSel_804D6CB0->vs.start.players[mnCharSel_804D6CF0]
+                        .pc_pack;
+#endif
             } else {
                 cache->entries[0].char_id = ChKind_None;
             }
@@ -5507,6 +6039,11 @@ void mnCharSel_Scene_OnFrame(void)
                     cache->entries[1].color = mnCharSel_804D6CB0->vs.start
                                                   .players[mnCharSel_804D6CF1]
                                                   .color;
+#ifdef TARGET_PC
+                    cache->entries[1].pc_pack = mnCharSel_804D6CB0->vs.start
+                                                    .players[mnCharSel_804D6CF1]
+                                                    .pc_pack;
+#endif
                 } else {
                     cache->entries[1].char_id = ChKind_None;
                 }
@@ -5527,6 +6064,10 @@ void mnCharSel_Scene_OnFrame(void)
                         mnCharSel_804D6CB0->vs.start.players[i].ckind;
                     cache->entries[i].color =
                         mnCharSel_804D6CB0->vs.start.players[i].color;
+#ifdef TARGET_PC
+                    cache->entries[i].pc_pack =
+                        mnCharSel_804D6CB0->vs.start.players[i].pc_pack;
+#endif
                 } else {
                     cache->entries[i].char_id = ChKind_None;
                 }

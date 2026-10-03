@@ -204,6 +204,17 @@ set(PC_SOURCES
         src/pc/vi.c
         src/pc/widescreen.c
         src/pc/windows_arm64_softfp.c
+        # Mod loader (docs/modding.md); public plugin ABI in src/pc/mods/melee_mod.h.
+        src/pc/mods/json.c
+        src/pc/mods/mod_game.c
+        src/pc/mods/mods.c
+        src/pc/mods/roster.c
+        src/pc/mods/hud_art.c
+        src/pc/mods/image.c
+        src/pc/mods/stages.c
+        src/pc/mods/alias.c
+        src/pc/mods/items.c
+        src/pc/mods/mod_text.c
         src/pc/android_compat.cpp
         src/pc/file_cache.cpp
         src/pc/launcher.cpp
@@ -400,6 +411,35 @@ add_custom_target(launcher_resources ALL
         "${CMAKE_CURRENT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:melee>/resources")
 add_dependencies(melee launcher_resources)
 
+# ---- Example mods (modding/examples, docs/modding.md) ---------------------
+# Copied next to the binary as bundled mods, disabled by default, so a fresh
+# build lists them on the launcher's Mods page. The plugin example links
+# against nothing but the C runtime: the game hands it the API at init.
+option(MELEE_BUILD_MOD_EXAMPLES "Build the example mods into <bin>/mods" ON)
+if (MELEE_BUILD_MOD_EXAMPLES AND NOT ANDROID AND NOT EMSCRIPTEN
+        AND NOT (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS"))
+    set(MELEE_MOD_EXAMPLES moon-gravity fox-triple-jump training-helper)
+    set(MELEE_MOD_EXAMPLE_COPIES)
+    foreach (example IN LISTS MELEE_MOD_EXAMPLES)
+        list(APPEND MELEE_MOD_EXAMPLE_COPIES
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:melee>/mods/${example}"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_CURRENT_SOURCE_DIR}/modding/examples/${example}/mod.json"
+                "$<TARGET_FILE_DIR:melee>/mods/${example}/mod.json")
+    endforeach ()
+    add_custom_target(melee_mod_examples ALL ${MELEE_MOD_EXAMPLE_COPIES})
+    add_library(training_helper MODULE modding/examples/training-helper/plugin.c)
+    target_include_directories(training_helper PRIVATE src/pc/mods)
+    set_target_properties(training_helper PROPERTIES
+        PREFIX ""
+        C_VISIBILITY_PRESET hidden
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/mods/training-helper")
+    if (WIN32)
+        target_link_options(training_helper PRIVATE -static-libgcc)
+    endif ()
+    add_dependencies(melee melee_mod_examples training_helper)
+endif ()
+
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if (Python3_Interpreter_FOUND)
     set(MELEE_PYTHON "${Python3_EXECUTABLE}")
@@ -471,6 +511,18 @@ if (NOT ANDROID AND NOT IOS AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     add_test(NAME thp COMMAND thp_test)
     set_tests_properties(thp PROPERTIES LABELS melee)
     add_dependencies(unit_tests thp_test)
+
+    # Mod loader pieces with no game dependencies (docs/modding.md).
+    add_executable(mods_test EXCLUDE_FROM_ALL tools/test_mods.c src/pc/mods/json.c
+        src/pc/mods/alias.c src/pc/mods/items.c src/pc/mods/mod_text.c
+        src/pc/mods/stages.c src/pc/mods/image.c)
+    target_include_directories(mods_test PRIVATE src src/sdk_include extern/aurora/include)
+    target_compile_definitions(mods_test PRIVATE TARGET_PC=1 MELEE_PC=1)
+    target_link_libraries(mods_test PRIVATE ${AURORA_SDL3_TARGET})
+    target_compile_options(mods_test PRIVATE -UNDEBUG)
+    add_test(NAME mods COMMAND mods_test)
+    set_tests_properties(mods PROPERTIES LABELS melee)
+    add_dependencies(unit_tests mods_test)
 
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         find_package(Python3 REQUIRED COMPONENTS Interpreter)

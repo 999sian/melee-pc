@@ -70,11 +70,11 @@ Fighter_GObj* ftDemo_CreateFighter(plAllocInfo2* alloc_info)
         fp->x20_actionStateList = ftData_UnkMotionStates0[fp->kind];
         fp->x24 = DP(struct Fighter_WaitAnimData, fp->ft_data->x14);
         fp->x28 = DP(void, fp->ft_data->x18);
-        efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
+        efAsync_LoadSync(ftData_UnkBytePerCharacter[FT_ASSET_KIND(fp)]);
         if (!alloc_info->b0) {
-            ftData_80085820(fp->kind, fp->costume_id);
+            ftData_80085820(FT_ASSET_KIND(fp), fp->costume_id);
         } else {
-            ftData_800858E4(fp->kind, fp->costume_id);
+            ftData_800858E4(FT_ASSET_KIND(fp), fp->costume_id);
         }
         Fighter_UnkUpdateCostumeJoint_800686E4(gobj);
         {

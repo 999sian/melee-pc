@@ -665,6 +665,11 @@ struct Item {
         itZeldaDinFireExplode_ItemVars zeldadinfireexplode;
         u8 _[0xFCC - 0xDD4];
     } xDD4_itemVar;
+#ifdef TARGET_PC
+    /// Mod item pack this item is (index + 1, 0 = none): the base item's
+    /// code with the pack's Article (pc/mods/items.h, it_PcTakePack).
+    u8 pc_item_pack;
+#endif
 };
 ASSERT_SIZE(struct Item, 0xFCC);
 

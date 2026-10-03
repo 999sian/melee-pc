@@ -40,7 +40,13 @@ static inline void vLoadSections(HSD_Archive* archive, void** symbol,
 {
     const char* symbol_name;
 
-    for (; symbol != NULL; symbol = va_arg(symbols, void**)) {
+    /* Callers end the list with a literal 0: an int, so on 64-bit targets
+     * the pointer read for it carries whatever the upper half of its slot
+     * held (seen as 0xFFFFFFFF00000000). Test the low half, as the other
+     * loops below do. */
+    for (; symbol != NULL && (uint32_t) (uintptr_t) symbol != 0;
+         symbol = va_arg(symbols, void**))
+    {
         symbol_name = va_arg(symbols, const char*);
         *symbol = NULL;
         *symbol = HSD_ArchiveGetPublicAddress(archive, symbol_name);

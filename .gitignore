@@ -12,6 +12,7 @@ docs/*
 !docs/architecture.md
 !docs/building.md
 !docs/debugging.md
+!docs/modding.md
 !docs/porting-notes.md
 !docs/testing.md
 !docs/site/
