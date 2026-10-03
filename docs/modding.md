@@ -121,7 +121,11 @@ icon and name.
     "portrait": "csp.png",           // character-select door portrait, every costume
     "stock_icon": "stock.png",       // HUD stock icon (also the results table icon)
     "announcer": "name.ogg",         // name call on picking and on winning (.ogg/.wav)
-    "victory_theme": "fanfare.ogg"   // replaces the base's victory theme, plays once
+    "victory_theme": "fanfare.ogg",  // replaces the base's victory theme, plays once
+    "emblem": "emblem.png",          // series emblem: behind the HUD damage %, results panel
+    "name_image": "name.png",        // results-screen name label (about 5:1)
+    "winner_name_image": "win.png",  // results-screen winner banner (about 9:1)
+    "series": "Ness"                 // whose 3D series emblem the results background shows
   }
 ]
 ```
@@ -153,11 +157,9 @@ use different names. A file or symbol that does not match stops the game with
 `Cannot find symbol ...` when the character loads, exactly like a bad file
 replacement. Animation archives must have the same animations as the base.
 
-What a pack character still takes from its base: the results-screen name
-label, winner banner and background render, the results and trophy poses
-(played by the pack's own model), the hat Kirby gets from copying it, and its
-sound effects and voice (apart from the announcer call above). Records and
-unlocks are counted under the base character, so saves are never touched.
+Records and unlocks are counted under the base character, so saves are
+never touched. See **Everything a pack can replace** below for the complete
+list of a pack's assets.
 
 **Bases.** Every playable character. Packs built on Kirby, Jigglypuff or
 Mr. Game & Watch are limited to the base's number of costumes (their code has
@@ -399,6 +401,65 @@ with a plain file in `files/` instead. The log shows `mods: loading X for Y`
 the first time each swap is used in a match. Swaps are part of the gameplay
 hash.
 
+## Everything a pack can replace
+
+Every asset a new character, stage or item shows or plays, and how a mod
+supplies its own. "Swap" means a `replace_files` entry (above), which applies
+only to matches the pack is in -- and, for a character pack, only when no
+other player is on the same base character (that player would get the
+pack's files too; the base's are used then).
+
+**Character packs**
+
+| Asset | Supplied by |
+|---|---|
+| Stats, attributes, hitboxes, move data, model, materials | `data` (`Pl<xx>.dat` layout) |
+| Animations | `animations` (`Pl<xx>AJ.dat` layout, same animations as the base) |
+| Costumes (model, textures, material animation) | `costumes` |
+| Character-select icon, door portrait, name plate text | `icon`, `portrait` (per costume too), `name` |
+| HUD stock icon, results table icon | `stock_icon` (per costume too) |
+| HUD damage emblem, results panel emblem | `emblem` (PNG); or `series` to use another character's |
+| Results name label, winner banner | `name_image`, `winner_name_image` |
+| Results 3D background emblem | `series` (picks one of the game's emblem models) |
+| Results / in-match model | the pack's costumes |
+| Announcer name call, victory theme | `announcer`, `victory_theme` |
+| Voice and sound effects | swap `audio/us/<base>.ssm` and `audio/<base>.ssm` |
+| Visual effects (move effects, particles) | swap `Ef<Xx>Data.dat` |
+| Results-screen win/lose poses | swap `GmRstM<Xx>.dat` |
+| Attribute tweaks | `tunables` |
+
+Still the base's: the moveset's code (inherent to building on a base), the
+hat Kirby gets from copying the character, intro/ending/trophy poses outside
+VS results, and records. Sounds, effects and poses swapped while the base is
+also in the match fall back to the base's for everyone.
+
+**Map packs**
+
+| Asset | Supplied by |
+|---|---|
+| Collision, spawns, item spawn points, camera, blast zones, models, textures, animations, stage parameters | `file` (the stage file; `tools/modkit/stagebuild.py` builds one) |
+| Stage-select icon, preview, name plate | `icon`, `preview`, `name_image` |
+| Music | `music` (loops) |
+| Stage sound effects | swap `audio/us/<stage>.ssm` / `audio/<stage>.ssm` |
+| Extra files the stage loads (transformations, ...) | swap them by name |
+
+Still the base's: the stage's code (moving parts, hazards), and its
+collision layout when that code moves collision (see **New geometry**).
+
+**Item packs**
+
+| Asset | Supplied by |
+|---|---|
+| Model, textures, attributes, hitboxes, hurtboxes, states (animations), dynamics | `file` / `symbol` (the item's Article) |
+| Spawn weight, where it spawns | `frequency`; `fighter` / `stage` for owned items |
+| Training-mode menu name | `name` |
+
+Still shared: item sound effects and common item effects live in files the
+game keeps loaded all the time (`audio/main.ssm`, `EfCoData.dat`), so a pack
+can point at different existing sounds and effects in its attributes but not
+add new ones; replacing those files with a plain `files/` entry changes them
+for every item. The item's code is its base's.
+
 ## Tunables
 
 Tunables patch a fighter's attributes every time they are loaded from its data
@@ -580,8 +641,10 @@ plugin line prefixed with the mod id.
 
 ## Not yet supported
 
-- Pack characters use their base's results-screen name label, banner and
-  render (their sounds can be swapped with `replace_files`).
+- A character pack's voice, effects and results poses are file swaps, so
+  they fall back to the base's when the base character is also playing;
+  Kirby's copy hat stays the base's; new 3D results emblems can't be added
+  (`series` picks an existing one).
 - Item packs are not in the in-game item switch (switch them in the
   launcher instead). Two things are read from the base item's own entry
   rather than the pack:

@@ -85,6 +85,12 @@ static const void* art_gx(int pack, int kind, int costume, int w, int h) {
     switch (kind) {
     case PC_ART_STOCK:
         return pc_roster_stock_gx(pack, costume, w, h);
+    case PC_ART_EMBLEM:
+        return pc_roster_emblem_gx(pack, w, h);
+    case PC_ART_NAME_IMAGE:
+        return pc_roster_name_image_gx(pack, w, h);
+    case PC_ART_WINNER_NAME:
+        return pc_roster_winner_name_gx(pack, w, h);
     default:
         return NULL;
     }

@@ -1,6 +1,7 @@
 #include "ifstatus.h"
 #ifdef TARGET_PC
 #include "pc/mods/hud_art.h"
+#include "pc/mods/roster.h"
 #endif
 
 #include "if_2F72.h"
@@ -749,11 +750,21 @@ HSD_GObj* ifStatus_802F61FC(IfDamageState* state, s32 player_idx)
     if (chara == CKind_MasterH || (u32) (chara - CKind_GKoops) <= 1) {
         chara = CKind_Boy;
     }
+#ifdef TARGET_PC
+    /* A pack's chosen series emblem ("series" in mod.json). */
+    {
+        int pack = (int) Player_GetPack(player_idx) - 1;
+        if (pack >= 0 && pc_roster_series(pack) >= 0) {
+            chara = Player_CharacterForFighter((FighterKind) pc_roster_series(pack));
+        }
+    }
+#endif
     HSD_TObjReqAnimAll(tobj, 0.5f + gm_80168B34(chara, 0, 0));
     HSD_AObjSetRate(tobj->aobj, 0.1f);
     HSD_TObjAnim(tobj);
 #ifdef TARGET_PC
-    pc_hud_stock_art(tobj, player_idx);
+    /* The damage mark is the series emblem behind the percent. */
+    pc_hud_pack_art(tobj, (int) Player_GetPack(player_idx) - 1, PC_ART_EMBLEM, 0);
 #endif
     ifStatus_SetHUDPosition(jobj, idx);
     HSD_JObjAddTranslationX(jobj, 0.25f);

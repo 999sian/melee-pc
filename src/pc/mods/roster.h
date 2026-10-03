@@ -37,6 +37,10 @@ struct PcRosterFighter {
     const char* icon_path;          /* host path of a CSS icon image (PNG), or NULL */
     const char* announcer_path;     /* host path of the name call clip, or NULL */
     const char* victory_theme_path; /* host path of the victory theme, or NULL */
+    const char* emblem_path;        /* series emblem PNG (HUD damage, results), or NULL */
+    const char* name_image_path;    /* results-screen name label PNG, or NULL */
+    const char* winner_name_path;   /* results-screen winner banner PNG, or NULL */
+    int series_kind; /* FighterKind whose series emblem it shows, or -1: the base's */
     /* The second fighter of an Ice Climbers (Nana) or Zelda/Sheik (the
      * transformation) pack: data, animations and costumes; id, name and
      * base are derived. Required for those bases, ignored otherwise. */
@@ -78,6 +82,13 @@ const void* pc_roster_icon_gx(int pack, int w, int h);
  * resampled to w x h; NULL when the pack ships none for that costume. */
 const void* pc_roster_portrait_gx(int pack, int costume, int w, int h);
 const void* pc_roster_stock_gx(int pack, int costume, int w, int h);
+/* Series emblem, results name label and winner banner, resampled to w x h;
+ * NULL when not shipped. */
+const void* pc_roster_emblem_gx(int pack, int w, int h);
+const void* pc_roster_name_image_gx(int pack, int w, int h);
+const void* pc_roster_winner_name_gx(int pack, int w, int h);
+/* FighterKind whose series emblem @p pack shows, or -1 for its base's. */
+int pc_roster_series(int pack);
 
 /* The display name converted to the game's full-width Shift-JIS text, as the
  * CSS name plate expects. Owned by the registry. */

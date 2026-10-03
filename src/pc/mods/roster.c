@@ -40,6 +40,8 @@ typedef struct Pack {
     RosterImage icon;
     RosterImage portraits[PC_ROSTER_MAX_COSTUMES];
     RosterImage stocks[PC_ROSTER_MAX_COSTUMES];
+    RosterImage emblem, name_image, winner_name;
+    int series;
     char* sjis_name;
 } Pack;
 
@@ -133,6 +135,10 @@ static int add_entry(
     p->data.b = dup(d->data_symbol ? d->data_symbol : ftData_803C1F40[base].b);
     p->anim_file = dup(d->anim_file);
     p->icon.path = dup(d->icon_path);
+    p->emblem.path = dup(d->emblem_path);
+    p->name_image.path = dup(d->name_image_path);
+    p->winner_name.path = dup(d->winner_name_path);
+    p->series = d->series_kind;
     p->announcer = dup(d->announcer_path);
     p->victory_theme = dup(d->victory_theme_path);
     p->costume_count = count;
@@ -332,6 +338,26 @@ const void* pc_roster_stock_gx(int i, int costume, int w, int h) {
     if (p == NULL || costume < 0 || costume >= p->costume_count)
         return NULL;
     return image_gx(p, &p->stocks[costume], w, h);
+}
+
+const void* pc_roster_emblem_gx(int i, int w, int h) {
+    Pack* p = (Pack*)pack_at(i);
+    return p ? image_gx(p, &p->emblem, w, h) : NULL;
+}
+
+const void* pc_roster_name_image_gx(int i, int w, int h) {
+    Pack* p = (Pack*)pack_at(i);
+    return p ? image_gx(p, &p->name_image, w, h) : NULL;
+}
+
+const void* pc_roster_winner_name_gx(int i, int w, int h) {
+    Pack* p = (Pack*)pack_at(i);
+    return p ? image_gx(p, &p->winner_name, w, h) : NULL;
+}
+
+int pc_roster_series(int i) {
+    const Pack* p = pack_at(i);
+    return p ? p->series : -1;
 }
 
 /* ASCII -> the full-width Shift-JIS (CP932) the game's text renderer draws,

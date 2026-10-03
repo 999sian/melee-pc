@@ -1254,10 +1254,31 @@ static void register_fighters(Mod* m) {
         char* announcer_path = announcer ? join_path(m->dir, announcer) : NULL;
         const char* theme = json_string(json_get(f, "victory_theme"), NULL);
         char* theme_path = theme ? join_path(m->dir, theme) : NULL;
+        /* Results-screen and HUD art: series emblem, name label, winner banner. */
+        static const char* const art_keys[3] = {"emblem", "name_image", "winner_name_image"};
+        char* art[3];
+        for (int k = 0; k < 3; ++k) {
+            const char* rel = json_string(json_get(f, art_keys[k]), NULL);
+            art[k] = rel ? join_path(m->dir, rel) : NULL;
+        }
         PcRosterFighter desc = main_half.desc;
         desc.icon_path = icon_path;
         desc.announcer_path = announcer_path;
         desc.victory_theme_path = theme_path;
+        desc.emblem_path = art[0];
+        desc.name_image_path = art[1];
+        desc.winner_name_path = art[2];
+        desc.series_kind = -1;
+        if (json_get(f, "series") != NULL) {
+            int also_series = -1;
+            const char* series = json_string(json_get(f, "series"), "");
+            desc.series_kind = pc_mod_fighter_from_name(series, &also_series);
+            if (desc.series_kind < 0) {
+                pc_log_line("mods: %s: unknown \"series\" character \"%s\"; using the base's",
+                    full_id, series);
+                desc.series_kind = -1;
+            }
+        }
         desc.id = full_id;
         desc.name = json_string(json_get(f, "name"), local);
         desc.base_kind = base;
@@ -1276,6 +1297,8 @@ static void register_fighters(Mod* m) {
         free(icon_path);
         free(announcer_path);
         free(theme_path);
+        for (int k = 0; k < 3; ++k)
+            free(art[k]);
         free_fighter_half(&main_half);
         free_fighter_half(&other_half);
         if (pack < 0)

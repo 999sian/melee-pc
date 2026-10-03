@@ -8,7 +8,10 @@ struct HSD_ImageDesc;
 struct HSD_JObj;
 
 enum PcPackArt {
-    PC_ART_STOCK, /* per costume */
+    PC_ART_STOCK,       /* per costume */
+    PC_ART_EMBLEM,      /* series emblem: HUD damage mark, results */
+    PC_ART_NAME_IMAGE,  /* results name label */
+    PC_ART_WINNER_NAME, /* results winner banner */
 };
 
 /* Draw @p pack's art of @p kind on @p tobj (the texture the game just
