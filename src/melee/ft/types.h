@@ -1992,6 +1992,11 @@ struct Fighter {
         /* fp+2340 */ union ftYoshi_MotionVars ys;
         /* fp+2340 */ union ftZelda_MotionVars zd;
     } mv;
+#ifdef TARGET_PC
+    /// Which fighter's files, costumes and animations this fighter uses.
+    /// Equals #kind except for mod character packs (see Ft_Kind_PackFirst).
+    FighterKind asset_kind;
+#endif
 };
 ASSERT_SIZE(struct Fighter, 0x23EC);
 

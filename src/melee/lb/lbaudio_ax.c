@@ -35,6 +35,9 @@
 #include <sysdolphin/baselib/objalloc.h>
 #include <sysdolphin/baselib/random.h>
 #include <sysdolphin/baselib/synth.h>
+#ifdef TARGET_PC
+#include "pc/mods/alias.h"
+#endif
 
 /// Sound object userdata (0x48 bytes, allocated by HSD_ObjAlloc)
 typedef struct {
@@ -703,7 +706,12 @@ int lbAudioAx_80023B24(int id)
             }
 
             strcpy(&cur_ssm_file[ssm_stem_pos], ssm_files[slot]);
+#ifdef TARGET_PC
+            lbl_80433A64[slot] =
+                HSD_SynthSFXLoad((char*) pc_file_alias(cur_ssm_file), 2, 0, 0);
+#else
             lbl_80433A64[slot] = HSD_SynthSFXLoad(cur_ssm_file, 2, 0, 0);
+#endif
             HSD_SynthSFXWaitForLoadCompletion(lb_800195D0);
             lbl_80433984[slot] = 2;
         }
@@ -2053,8 +2061,15 @@ static void fn_80026C04(int arg0, int unused)
         /* fn_80026C04 identifies the finished slot by this entrynum, and the
          * load can complete before HSD_SynthSFXLoad returns, so publish it
          * first. HSD_SynthSFXLoad returns exactly this value. */
+#ifdef TARGET_PC
+        lbl_80433A64[slot] =
+            DVDConvertPathToEntrynum(pc_file_alias(cur_ssm_file));
+        HSD_SynthSFXLoad((char*) pc_file_alias(cur_ssm_file), 2, fn_80026C04,
+                         0);
+#else
         lbl_80433A64[slot] = DVDConvertPathToEntrynum(cur_ssm_file);
         HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+#endif
     }
 }
 
@@ -2169,10 +2184,45 @@ static inline void lbAudioAx_80027168_inline_2(void)
     int slot = fn_80026650();
     if (slot != -1) {
         strcpy(&cur_ssm_file[ssm_stem_pos], ssm_files[slot]);
+#ifdef TARGET_PC
+        lbl_80433A64[slot] =
+            DVDConvertPathToEntrynum(pc_file_alias(cur_ssm_file));
+        HSD_SynthSFXLoad((char*) pc_file_alias(cur_ssm_file), 2, fn_80026C04,
+                         0);
+#else
         lbl_80433A64[slot] = DVDConvertPathToEntrynum(cur_ssm_file);
         HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+#endif
     }
 }
+
+#ifdef TARGET_PC
+/* A loaded bank whose file a mod alias now resolves elsewhere (a character
+ * pack's own sound bank, pc/mods/alias.h; or back to the game's after such
+ * a match) is dropped, so the load pass below brings in the right one. The
+ * byte budget is recounted from the slot states by fn_800268B4. */
+static void pc_ssm_evict_stale(void)
+{
+    char path[0x40];
+    int i;
+    memcpy(path, cur_ssm_file, ssm_stem_pos);
+    for (i = 0; i < 55; i++) {
+        if (s32_arr_803BB5D0[i][1] == 5 || lbl_80433984[i] == -1 ||
+            lbl_80433A64[i] == -1)
+        {
+            continue;
+        }
+        strcpy(&path[ssm_stem_pos], ssm_files[i]);
+        if (DVDConvertPathToEntrynum(pc_file_alias(path)) != lbl_80433A64[i]) {
+            OSReport("audio: reloading %s, a mod pack changed which file it is\n",
+                     ssm_files[i]);
+            HSD_SynthSFXGroupDataRemove(lbl_80433A64[i]);
+            lbl_80433A64[i] = -1;
+            lbl_80433984[i] = -1;
+        }
+    }
+}
+#endif
 
 void lbAudioAx_80027168(void)
 {
@@ -2193,6 +2243,9 @@ void lbAudioAx_80027168(void)
     }
 
     fn_800269AC();
+#ifdef TARGET_PC
+    pc_ssm_evict_stale();
+#endif
 
     for (i = 0; i < 55; i++) {
         lbl_804338A4[i] = lbl_804337C4[i];

@@ -1040,7 +1040,7 @@ void ftAnim_80070308(Fighter_GObj* fighter_gobj)
 
     HSD_JObjAddAnimAll(
         jobj, NULL,
-        CostumeListsForeachCharacter[fp->kind].costume_list[fp->costume_id].x4,
+        CostumeListsForeachCharacter[FT_ASSET_KIND(fp)].costume_list[fp->costume_id].x4,
         NULL);
     HSD_JObjReqAnimAll(jobj, 0.0F);
     ftAnim_80070200(fp, &DP(struct ftData_x8, fp->ft_data->x8)->x8, &fp->tobj_list, &fp->dobj_list);

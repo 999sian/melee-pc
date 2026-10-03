@@ -1,4 +1,7 @@
 #include "ifstock.h"
+#ifdef TARGET_PC
+#include "pc/mods/hud_art.h"
+#endif
 
 #include <melee/gm/forward.h>
 #include <melee/sc/forward.h>
@@ -184,6 +187,9 @@ void ifStock_802F8298(HSD_GObj* gobj)
                                ifStock_804A157C[user_data->player].anim[i]);
             HSD_TObjReqAnimAll(jobj2->u.dobj->mobj->tobj,
                                ifStock_802F8298_tobj_frame(user_data->player));
+#ifdef TARGET_PC
+            pc_hud_stock_art(jobj2->u.dobj->mobj->tobj, user_data->player);
+#endif
             HSD_AObjSetRate(jobj2->u.dobj->mobj->tobj->aobj, 0.0f);
         }
     } else {
@@ -211,6 +217,9 @@ void ifStock_802F8298(HSD_GObj* gobj)
                                ifStock_804A157C[user_data->player].anim[i]);
             HSD_TObjReqAnimAll(jobj2->u.dobj->mobj->tobj,
                                ifStock_802F8298_tobj_frame(user_data->player));
+#ifdef TARGET_PC
+            pc_hud_stock_art(jobj2->u.dobj->mobj->tobj, user_data->player);
+#endif
             HSD_AObjSetRate(jobj2->u.dobj->mobj->tobj->aobj, 0.0f);
         }
     }
@@ -254,6 +263,9 @@ void ifStock_802F8298(HSD_GObj* gobj)
         }
         HSD_TObjReqAnimAll(steal_jobj->u.dobj->mobj->tobj,
                            ifStock_802F8298_tobj_frame(user_data->player));
+#ifdef TARGET_PC
+        pc_hud_stock_art(steal_jobj->u.dobj->mobj->tobj, user_data->player);
+#endif
         HSD_AObjSetRate(steal_jobj->u.dobj->mobj->tobj->aobj, 0.0f);
     }
     HSD_JObjAnimAll(jobj_anim);
@@ -461,6 +473,9 @@ static inline void fn_802F9410_inline(HSD_GObj* gobj)
     HSD_JObj* jobj2 = ifStock_804A1378.player[p->player].x4[1];
     HSD_JObjReqAnimAll(jobj2, 0.0f);
     HSD_TObjReqAnimAll(jobj2->u.dobj->mobj->tobj, gm_80168BF8(p->player));
+#ifdef TARGET_PC
+    pc_hud_stock_art(jobj2->u.dobj->mobj->tobj, p->player);
+#endif
     HSD_AObjSetRate(jobj2->u.dobj->mobj->tobj->aobj, 0.0f);
     HSD_JObjAnimAll(jobj);
 }

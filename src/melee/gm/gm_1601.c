@@ -1,4 +1,9 @@
 #include "gm_1601.h"
+#ifdef TARGET_PC
+#include "pc/mods/roster.h"
+#include "pc/music_stream.h"
+#include "pc/net.h"
+#endif
 #include <stdlib.h>
 
 #include "pc/pc.h"
@@ -3167,6 +3172,9 @@ void gm_80166378(MatchEnd* arg0_raw)
         arg0->player_standings[i].pkind = Player_GetPlayerSlotType(i);
         if (arg0->player_standings[i].pkind != 3) {
             arg0->player_standings[i].ckind = Player_GetPlayerCharacter(i);
+#ifdef TARGET_PC
+            arg0->player_standings[i].pc_pack = Player_GetPack(i);
+#endif
             arg0->player_standings[i].ftkind = Player_80036394(i);
             arg0->player_standings[i].stocks = Player_GetStocks(i);
             arg0->player_standings[i].x3_b0 = Player_GetCostumeId(i);
@@ -4168,8 +4176,25 @@ float gm_80168BF8(int arg0)
     return gm_80168B34(ckind, Player_80036394(arg0), costume);
 }
 
+#ifdef TARGET_PC
+/* Set right before a name call to the pack the call is for (pack index), so
+ * a character pack's own announcer clip plays instead of its base's. */
+int pc_announce_pack = -1;
+#endif
+
 void gm_80168C5C(u32 arg0)
 {
+#ifdef TARGET_PC
+    {
+        int pack = pc_announce_pack;
+        pc_announce_pack = -1;
+        if (pack >= 0 && !pc_net_resim() &&
+            pc_clip_play(pc_roster_announcer_path(pack)))
+        {
+            return;
+        }
+    }
+#endif
     switch (arg0) {
     case 0:
         lbAudioAx_800243F4(0x7C830);

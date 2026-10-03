@@ -1,4 +1,8 @@
 #include "gmresult.h"
+#ifdef TARGET_PC
+#include "pc/mods/roster.h"
+#include "pc/music_stream.h"
+#endif
 
 #include "types.h"
 #include <melee/lb/lb_013B.h>
@@ -1821,8 +1825,20 @@ void gm_Scene_Results_OnEnter(void* arg0_)
     fn_8017AA78(&arg0->x1);
     fn_8017A004();
     if (!gm_WasMatchCanceled(match_end->outcome)) {
+#ifdef TARGET_PC
+        {
+            /* A pack winner's own victory theme replaces its base's. */
+            int pack = (int) match_end->player_standings[data->x6].pc_pack - 1;
+            const char* theme =
+                pack >= 0 ? pc_roster_victory_theme_path(pack) : NULL;
+            pc_music_stream_override_next(theme);
+        }
+#endif
         lbAudioAx_80023F28(
             fn_80160400(match_end->player_standings[data->x6].ckind));
+#ifdef TARGET_PC
+        pc_music_stream_override_next(NULL);
+#endif
     }
 
     me_iter = match_end;

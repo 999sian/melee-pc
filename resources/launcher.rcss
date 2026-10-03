@@ -350,3 +350,7 @@ input.range sliderarrowdec, input.range sliderarrowinc {
     .setting button, .slider-control { width: 180dp; }
     #back { width: 150dp; }
 }
+
+/* Mods page: one .setting row per mod, rendered by launcher.cpp. */
+.setting p.mod-meta { color: #8f9bb3; }
+.setting p.mod-error { color: #ffc1b6; }

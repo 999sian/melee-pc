@@ -500,6 +500,11 @@ Fighter_GObj* fn_8017A67C(CharacterKind kind, int arg1, int arg2)
 
         Player_80036E20(kind, lbArchive_LoadArchive(gm_80160438(kind)), 0);
         Player_SetPlayerCharacter(arg2, kind);
+#ifdef TARGET_PC
+        /* The winner/loser poses come from the base's results archive; the
+         * pack's model plays them (same skeleton). */
+        Player_SetPack(arg2, match_end->player_standings[arg2].pc_pack);
+#endif
         Player_SetCostumeId(arg2, arg1);
         Player_SetPadPort(arg2, arg2);
         Player_SetSlottype(arg2, Gm_PKind_Demo);

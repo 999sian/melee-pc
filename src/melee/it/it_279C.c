@@ -1,4 +1,5 @@
 #include "it_279C.h"
+#include "itspawn.h"
 
 #include "inlines.h"
 #include "it_2725.h"
@@ -1223,6 +1224,50 @@ s32 it_8027A4D4(Item* item)
         gm_80172BC4();
         return 22;
     }
+#ifdef TARGET_PC
+    /* Mod Pokemon packs (pc/mods/items.h) draw right after their base, the
+     * base keeping its own weight, the same way common item packs join the
+     * item draw. With none loaded this is the loop below, roll for roll. */
+    {
+        s32 extra = 0;
+        int p;
+        for (i = It_PKind_Start; i < It_PKind_Terminate; i++) {
+            if (Item_804A0E24.last_kind != i &&
+                Item_804A0E24.previous_kind != i)
+            {
+                for (p = 0; p < it_PcPackCount(); p++) {
+                    extra += it_PcPackWeight(
+                        p, i, attr->pokemon_spawn_weights[i - It_PKind_Start]);
+                }
+            }
+        }
+        if (extra > 0) {
+            rand_int = HSD_Randi(it_8027A364(item) + extra);
+            var_r3 = 0;
+            for (i = It_PKind_Start; i < It_PKind_Terminate; i++) {
+                ItemKind previous_kind = Item_804A0E24.previous_kind;
+                ItemKind last_kind = Item_804A0E24.last_kind;
+                s32 w;
+                if (last_kind == i || previous_kind == i) {
+                    continue;
+                }
+                w = attr->pokemon_spawn_weights[i - It_PKind_Start];
+                for (p = -1; p < it_PcPackCount(); p++) {
+                    var_r3 += p < 0 ? w : it_PcPackWeight(p, i, w);
+                    if ((p < 0 || it_PcPackWeight(p, i, w) > 0) &&
+                        var_r3 >= rand_int)
+                    {
+                        Item_804A0E24.previous_kind = last_kind;
+                        Item_804A0E24.last_kind = i;
+                        it_PcSetPick(i, (u8) (p + 1));
+                        return i - It_PKind_Start;
+                    }
+                }
+            }
+            return 0;
+        }
+    }
+#endif
     rand_int = HSD_Randi(it_8027A364(item));
     var_r3 = 0;
     for (i = It_PKind_Start; i < It_PKind_Terminate; i++) {

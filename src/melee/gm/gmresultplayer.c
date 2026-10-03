@@ -1,4 +1,7 @@
 #include "gmresultplayer.h"
+#ifdef TARGET_PC
+#include "pc/mods/hud_art.h"
+#endif
 
 #include <placeholder.h>
 
@@ -1131,6 +1134,14 @@ static inline void fn_80178BB4_init_players(ResultsData* data,
                                     HSD_AObjSetCurrentFrame, AOBJ_ARG_AF,
                                     taunt_frame);
                     HSD_JObjAnimAll(taunt_jobj);
+#ifdef TARGET_PC
+                    /* jobjs[7] holds the table's head icon: the player's
+                     * stock icon, so a pack shows its own. */
+                    pc_hud_pack_art(
+                        pc_hud_find_tobj(taunt_jobj),
+                        (int) match_end->player_standings[(*i)].pc_pack - 1,
+                        PC_ART_STOCK, match_end->player_standings[(*i)].x3_b0);
+#endif
                     HSD_AObjSetRate(data->player_data[(*i)].jobjs[7]->aobj,
                                     1.0f);
                     HSD_AObjSetCurrentFrame(
@@ -1282,6 +1293,13 @@ static inline void fn_80179350_update(ResultsData* data, MatchEnd* match_end,
         if (gm_WasMatchCanceled(match_end->outcome) != 0) {
             lbAudioAx_800237A8(0xC350, 0x7F, 0x40);
         } else {
+#ifdef TARGET_PC
+            {
+                extern int pc_announce_pack;
+                pc_announce_pack =
+                    (int) match_end->player_standings[data->x6].pc_pack - 1;
+            }
+#endif
             fn_80168E54(match_end->player_standings[data->x6].ckind,
                         match_end->player_standings[data->x6].ftkind,
                         match_end->player_standings[data->x6].team,

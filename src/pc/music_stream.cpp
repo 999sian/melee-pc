@@ -180,7 +180,18 @@ static std::vector<std::string> generate_candidate_stems(const char* track_stem)
     return candidates;
 }
 
+static std::string s_override_path; /* pc_music_stream_override_next */
+/* Replacement tracks loop like the BGM they stand in for; an override (a
+ * character pack's victory fanfare) plays once and then stops. */
+static bool s_loop = true;
+static bool s_override_loop = false; /* how the pending override plays */
+
 static std::string probe_audio_file(const char* track_stem) {
+    std::error_code path_ec;
+    /* A full path to an existing file is used as is (character packs). */
+    if (std::filesystem::is_regular_file(track_stem, path_ec)) {
+        return track_stem;
+    }
     auto search_dirs = get_search_directories();
     auto candidates = generate_candidate_stems(track_stem);
 
@@ -232,6 +243,10 @@ static void pump_stream_locked() {
     while (SDL_GetAudioStreamAvailable(s_stream) < 64 * 1024) {
         size_t remaining = s_pcm_data.size() - s_pcm_offset;
         if (remaining == 0) {
+            if (!s_loop) {
+                SDL_FlushAudioStream(s_stream); /* let the tail drain */
+                break;
+            }
             s_pcm_offset = 0;
             remaining = s_pcm_data.size();
         }
@@ -246,7 +261,7 @@ static void pump_stream_locked() {
         }
 
         s_pcm_offset += chunk;
-        if (s_pcm_offset >= s_pcm_data.size()) {
+        if (s_pcm_offset >= s_pcm_data.size() && s_loop) {
             s_pcm_offset = 0;
         }
     }
@@ -269,7 +284,19 @@ extern "C" bool pc_music_stream_open(const char* track_stem) {
         return false;
     }
 
-    std::string file_path = probe_audio_file(track_stem);
+    std::string file_path;
+    bool once = false;
+    {
+        std::lock_guard<std::mutex> lock(s_mutex);
+        if (!s_override_path.empty()) {
+            file_path = s_override_path;
+            s_override_path.clear();
+            once = !s_override_loop;
+        }
+    }
+    if (file_path.empty()) {
+        file_path = probe_audio_file(track_stem);
+    }
     if (file_path.empty()) {
         return false;
     }
@@ -326,9 +353,123 @@ extern "C" bool pc_music_stream_open(const char* track_stem) {
     s_pcm_offset = 0;
     s_stream_volume = 1.0f;
     s_playing = true;
+    s_loop = !once;
 
     pump_stream_locked();
     return true;
+}
+
+extern "C" void pc_music_stream_override_next(const char* path) {
+    std::lock_guard<std::mutex> lock(s_mutex);
+    s_override_path = path != nullptr ? path : "";
+    s_override_loop = false;
+}
+
+extern "C" void pc_music_stream_override_next_loop(const char* path) {
+    std::lock_guard<std::mutex> lock(s_mutex);
+    s_override_path = path != nullptr ? path : "";
+    s_override_loop = true;
+}
+
+/* ---- one-shot clips ------------------------------------------------------ */
+
+namespace {
+struct Clip {
+    std::string path;
+    std::vector<float> pcm; /* interleaved stereo F32 at the mixer rate */
+};
+std::vector<Clip> s_clips;
+const Clip* s_clip_playing = nullptr;
+size_t s_clip_pos = 0;
+
+bool decode_clip(const std::string& path, std::vector<float>& out) {
+    SDL_AudioSpec src{};
+    std::vector<uint8_t> raw;
+    std::string ext = to_lower(std::filesystem::path(path).extension().string());
+    if (ext == ".ogg") {
+        int channels = 0, rate = 0;
+        short* decoded = nullptr;
+        int frames = stb_vorbis_decode_filename(path.c_str(), &channels, &rate, &decoded);
+        if (frames <= 0 || decoded == nullptr || channels <= 0 || rate <= 0) {
+            free(decoded);
+            return false;
+        }
+        raw.assign((const uint8_t*)decoded,
+            (const uint8_t*)decoded + (size_t)frames * (size_t)channels * sizeof(short));
+        free(decoded);
+        src.format = SDL_AUDIO_S16;
+        src.channels = channels;
+        src.freq = rate;
+    } else if (ext == ".wav") {
+        Uint8* buf = nullptr;
+        Uint32 len = 0;
+        if (!SDL_LoadWAV(path.c_str(), &src, &buf, &len) || buf == nullptr) {
+            return false;
+        }
+        raw.assign(buf, buf + len);
+        SDL_free(buf);
+    } else {
+        return false;
+    }
+    const SDL_AudioSpec dst = {SDL_AUDIO_F32, 2, 32000};
+    Uint8* conv = nullptr;
+    int conv_len = 0;
+    if (!SDL_ConvertAudioSamples(&src, raw.data(), (int)raw.size(), &dst, &conv, &conv_len) ||
+        conv == nullptr)
+    {
+        return false;
+    }
+    out.assign((const float*)conv, (const float*)conv + conv_len / (int)sizeof(float));
+    SDL_free(conv);
+    return !out.empty();
+}
+}  // namespace
+
+extern "C" bool pc_clip_play(const char* path) {
+    if (path == nullptr || path[0] == '\0') {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(s_mutex);
+    const Clip* clip = nullptr;
+    for (const Clip& c : s_clips) {
+        if (c.path == path) {
+            clip = &c;
+            break;
+        }
+    }
+    if (clip == nullptr) {
+        Clip c;
+        c.path = path;
+        if (!decode_clip(c.path, c.pcm)) {
+            SDL_Log("clip: cannot decode %s", path);
+            return false;
+        }
+        s_clip_playing = nullptr; /* the vector may move */
+        s_clips.push_back(std::move(c));
+        clip = &s_clips.back();
+    }
+    s_clip_playing = clip;
+    s_clip_pos = 0;
+    return true;
+}
+
+extern "C" void pc_clip_mix(float* out, int num_samples) {
+    if (out == nullptr || num_samples <= 0) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(s_mutex);
+    if (s_clip_playing == nullptr) {
+        return;
+    }
+    const float vol = pc_audio_get_sfx_volume();
+    const std::vector<float>& pcm = s_clip_playing->pcm;
+    size_t n = (size_t)num_samples * 2;
+    for (size_t i = 0; i < n && s_clip_pos < pcm.size(); ++i) {
+        out[i] += pcm[s_clip_pos++] * vol;
+    }
+    if (s_clip_pos >= pcm.size()) {
+        s_clip_playing = nullptr;
+    }
 }
 
 extern "C" void pc_music_stream_stop(void) {
@@ -357,6 +498,11 @@ extern "C" void pc_music_stream_mix(float* dst_left, float* dst_right, int num_s
     }
 
     pump_stream_locked();
+    if (!s_loop && s_pcm_offset >= s_pcm_data.size() && SDL_GetAudioStreamAvailable(s_stream) <= 0)
+    {
+        stop_locked(); /* a play-once track has finished */
+        return;
+    }
 
     float mix_volume = s_stream_volume * pc_get_music_volume();
     if (mix_volume < 0.0f) {

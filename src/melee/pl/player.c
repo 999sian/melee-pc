@@ -20,6 +20,10 @@
 #include <melee/if/ifstatus.h>
 #include <melee/lb/lbarchive.h>
 #include <sysdolphin/baselib/debug.h>
+#ifdef TARGET_PC
+static FighterKind Player_PackInternalId(StaticPlayer* player,
+                                         FighterKind internal_id);
+#endif
 #include <sysdolphin/baselib/gobjplink.h>
 #include <sysdolphin/baselib/objalloc.h>
 
@@ -219,6 +223,12 @@ void Player_80031AD0(int slot)
     }
 
     internal_id = ftMapping_list[player->ckind].internal_id;
+#ifdef TARGET_PC
+    /* A pack replaces the slot's fighter with the pack's asset kind;
+     * Fighter_Create runs it as the pack's base (ftData_BaseKind). Ignored
+     * unless the pack really is built on this character. */
+    internal_id = Player_PackInternalId(player, internal_id);
+#endif
     Player_CheckSlot(slot);
 
     first_struct.internal_id = internal_id;
@@ -237,6 +247,9 @@ void Player_80031AD0(int slot)
 
         Player_CheckSlot(slot);
 
+#ifdef TARGET_PC
+        internal_id = Player_PackInternalId(player, internal_id);
+#endif
         second_struct.internal_id = internal_id;
         second_struct.slot = slot;
         second_struct.b0 = true;
@@ -411,6 +424,50 @@ void Player_SetPlayerCharacter(s32 slot, CharacterKind value)
     player = &player_slots[slot];
     player->ckind = value;
 }
+
+#ifdef TARGET_PC
+u8 Player_GetPack(s32 slot)
+{
+    Player_CheckSlot(slot);
+    return player_slots[slot].pc_pack;
+}
+
+void Player_SetPack(s32 slot, u8 pack)
+{
+    Player_CheckSlot(slot);
+    player_slots[slot].pc_pack = pack;
+}
+
+/// The asset kind a fighter the game asks for as @p internal_id should be
+/// created as: the slot's pack, or its partner half (Nana, or Zelda/Sheik
+/// in either order), when built on that fighter; else @p internal_id.
+static FighterKind Player_PackInternalId(StaticPlayer* player,
+                                         FighterKind internal_id)
+{
+    if (player->pc_pack != 0 && player->pc_pack <= Ft_Kind_PackMax) {
+        int asset = Ft_Kind_PackFirst + player->pc_pack - 1;
+        int partner = ftData_AssetPartner[asset];
+        if (ftData_BaseKind(asset) == internal_id) {
+            return (FighterKind) asset;
+        }
+        if (partner >= 0 && ftData_BaseKind(partner) == internal_id) {
+            return (FighterKind) partner;
+        }
+    }
+    return internal_id;
+}
+
+CharacterKind Player_CharacterForFighter(FighterKind kind)
+{
+    CharacterKind ck;
+    for (ck = 0; ck < ChKind_Max; ck++) {
+        if (ftMapping_list[ck].internal_id == kind) {
+            return ck;
+        }
+    }
+    return ChKind_None;
+}
+#endif
 
 Gm_PKind Player_GetPlayerSlotType(s32 slot)
 {
@@ -1892,6 +1949,9 @@ void Player_InitOrResetPlayer(s32 slot)
 
     player->player_state = 0;
     player->ckind = CKind_Mario;
+#ifdef TARGET_PC
+    player->pc_pack = 0;
+#endif
     transformed0 = &player->transformed[0];
     transformed1 = &player->transformed[1];
 
@@ -2063,6 +2123,10 @@ void Player_80036F34(s32 slot, s32 arg1)
     Player_CheckSlot(slot);
     player = &player_slots[slot];
     some_struct.internal_id = ftMapping_list[player->ckind].internal_id;
+#ifdef TARGET_PC
+    some_struct.internal_id =
+        Player_PackInternalId(player, some_struct.internal_id);
+#endif
     some_struct.slot = slot;
     some_struct.has_transformation = 0;
     some_struct.unk8 = arg1;
@@ -2075,6 +2139,10 @@ void Player_80036F34(s32 slot, s32 arg1)
     {
         some_struct.internal_id =
             ftMapping_list[player->ckind].extra_internal_id;
+#ifdef TARGET_PC
+        some_struct.internal_id =
+            Player_PackInternalId(player, some_struct.internal_id);
+#endif
         some_struct.has_transformation = 1;
         player->player_entity[1] = ftDemo_CreateFighter(&some_struct);
     }
@@ -2089,6 +2157,10 @@ void Player_80037054(s32 slot, s32 arg1)
     Player_CheckSlot(slot);
     player = &player_slots[slot];
     some_struct.internal_id = ftMapping_list[player->ckind].internal_id;
+#ifdef TARGET_PC
+    some_struct.internal_id =
+        Player_PackInternalId(player, some_struct.internal_id);
+#endif
     some_struct.slot = slot;
     some_struct.has_transformation = 0;
     some_struct.unk8 = arg1;
@@ -2101,6 +2173,10 @@ void Player_80037054(s32 slot, s32 arg1)
     {
         some_struct.internal_id =
             ftMapping_list[player->ckind].extra_internal_id;
+#ifdef TARGET_PC
+        some_struct.internal_id =
+            Player_PackInternalId(player, some_struct.internal_id);
+#endif
         some_struct.has_transformation = 1;
         player->player_entity[1] = ftDemo_CreateFighter(&some_struct);
     }

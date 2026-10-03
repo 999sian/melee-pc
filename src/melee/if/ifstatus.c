@@ -1,4 +1,7 @@
 #include "ifstatus.h"
+#ifdef TARGET_PC
+#include "pc/mods/hud_art.h"
+#endif
 
 #include "if_2F72.h"
 #include "ifall.h"
@@ -749,6 +752,9 @@ HSD_GObj* ifStatus_802F61FC(IfDamageState* state, s32 player_idx)
     HSD_TObjReqAnimAll(tobj, 0.5f + gm_80168B34(chara, 0, 0));
     HSD_AObjSetRate(tobj->aobj, 0.1f);
     HSD_TObjAnim(tobj);
+#ifdef TARGET_PC
+    pc_hud_stock_art(tobj, player_idx);
+#endif
     ifStatus_SetHUDPosition(jobj, idx);
     HSD_JObjAddTranslationX(jobj, 0.25f);
     color =

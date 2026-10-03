@@ -60,6 +60,8 @@ u8 pc_boot_scene(void)
             scene = GM_TITLE;
         } else if (strcmp(want, "vs") == 0) {
             scene = GM_DEBUG_VS;
+        } else if (strcmp(want, "css") == 0) {
+            scene = GM_VS; /* VS mode opens on the character select */
         } else if (strcmp(want, "classic") == 0) {
             scene = GM_CLASSIC;
         } else if (strcmp(want, "training") == 0) {
