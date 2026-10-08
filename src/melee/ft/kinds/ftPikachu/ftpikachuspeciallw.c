@@ -138,8 +138,12 @@ void ftPk_SpecialLw_Enter(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     fp->cmd_vars[0] = 0;
     fp->throw_flags = 0;
-    fp->mv.pk.specialhi.x4 = 1;
-    fp->mv.pk.specialhi.x0 = 0;
+    /* Retail resets this through the specialhi view, which on GameCube is
+     * the same bytes. On host speciallw.x0 lives at +08 (see types.h), so
+     * it must be cleared through its own view or it keeps the previous
+     * state's gp+08 data and is later dereferenced as the thunder gobj. */
+    fp->mv.pk.speciallw.x4 = 1;
+    fp->mv.pk.speciallw.x0 = NULL;
     Fighter_ChangeMotionState(gobj, 359, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
     ftAnim_8006EBA4(gobj);
 }
@@ -149,8 +153,8 @@ void ftPk_SpecialAirLw_Enter(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     fp->cmd_vars[0] = 0;
     fp->throw_flags = 0;
-    fp->mv.pk.specialhi.x4 = 1;
-    fp->mv.pk.specialhi.x0 = 0;
+    fp->mv.pk.speciallw.x4 = 1;
+    fp->mv.pk.speciallw.x0 = NULL;
     Fighter_ChangeMotionState(gobj, 363, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
     ftAnim_8006EBA4(gobj);
 }
