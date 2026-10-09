@@ -38,14 +38,6 @@ StaticModelDesc MenMainCursorB3_Top;
 StaticModelDesc MenMainConB3_Top;
 StaticModelDesc MenMainConB2_Top;
 
-/// Matching overlay for the separately declared fighter and name order tables.
-typedef struct mnDiagram_Assets {
-    /* 0x00 */ u8 sorted_fighters[SELKIND_COUNT];
-    /* 0x19 */ u8 pad_19[3];
-    /* 0x1C */ u8 sorted_names[GM_NAMETAG_COUNT];
-} mnDiagram_Assets;
-ASSERT_SIZE(mnDiagram_Assets, 0x94);
-
 typedef struct mnDiagram_PopupData {
     /* 0x00 */ HSD_JObj* jobjs[14];
     /* 0x38 */ HSD_Text* text[5];
@@ -688,9 +680,10 @@ void mnDiagram_SortNamesByKOs(void)
     int max_idx;
     u8* dst_iter;
     int i;
-    mnDiagram_Assets* assets =
-        (mnDiagram_Assets*) &mnDiagram_FighterDisplayOrder;
-    u8* dst = assets->sorted_names;
+    /* The DOL reaches the name table through FighterDisplayOrder + 0x1C,
+     * relying on the two arrays being adjacent. The PC linker does not keep
+     * them adjacent, so that overran into the MenMain*_Top descriptors. */
+    u8* dst = mnDiagram_NameDisplayOrder;
     u32* tp;
     u8* candidate;
     int n;
@@ -718,8 +711,8 @@ void mnDiagram_SortNamesByKOs(void)
             }
         }
         if (max_idx != i) {
-            u8* p = &assets->sorted_fighters[max_idx];
-            u8 temp = *(p += sizeof(mnDiagram_FighterDisplayOrder));
+            u8* p = &dst[max_idx];
+            u8 temp = *p;
             while (max_idx > i) {
                 *p = *(p - 1);
                 p--;
