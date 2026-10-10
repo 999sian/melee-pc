@@ -25,6 +25,7 @@ extern void browser_yield(void);
 #include "pc/launcher.h"
 #include "pc/touch.h"
 #include "pc/widescreen.h"
+#include "pc/interp.h"
 #include "pc/net.h"
 #include "pc/net_chat.h"
 #include <melee/if/ifnetchat.h>
@@ -36,6 +37,26 @@ extern void browser_yield(void);
 bool pc_exit_requested;
 
 static u32 s_retrace_count;
+/* When the next tick's frame boundary is due; the tick now running started
+ * one period before it. */
+static u64 next_sim_ns;
+static u32 s_subframes; /* in-between frames presented, for MELEE_FPS */
+/* In-between frames (src/pc/interp.c) are presented on a schedule, not as soon
+ * as they are drawn: frame k of n goes out at tick start + margin + (k-1)/n of
+ * the tick, the tick's exact frame last. Only the first frame waits on the
+ * tick's logic, so presenting on completion alternates short and long gaps.
+ * The margin follows how long logic plus that first draw really takes. */
+static u64 s_present_margin_ns = 2000000ull;
+static int s_tick_frames; /* frames this tick is split into; 0 = no schedule */
+/* When the tick's logic started: the scene loop waits for the pad alarm,
+ * which has a phase of its own, so the frame boundary's deadline says little
+ * about when a tick really begins. The schedule hangs off this instead. */
+static u64 s_tick_start_ns;
+
+void pc_vi_tick_started(void) {
+    s_tick_start_ns = SDL_GetTicksNS();
+}
+
 static VIRetraceCallback s_pre_cb;
 static VIRetraceCallback s_post_cb;
 static void* s_next_fb;
@@ -44,6 +65,88 @@ static BOOL s_black;
 static bool s_in_frame;
 
 void pc_os_run_alarms(void);
+
+/* MELEE_INTERP_TRACE=<first tick>: log a timeline of ten ticks, relative
+ * to the start each tick was scheduled for. */
+void pc_vi_trace(const char* what) {
+    static int64_t first = -2;
+    if (first == -2) {
+        const char* v = getenv("MELEE_INTERP_TRACE");
+        first = v != NULL ? strtoll(v, NULL, 10) : -1;
+    }
+    if (first < 0 || s_retrace_count < (u32)first || s_retrace_count >= (u32)first + 10)
+        return;
+    long long rel = (long long)SDL_GetTicksNS() - (long long)(next_sim_ns - pc_sim_period_ns());
+    pc_log_line("trace tick %u %-14s %+.2f ms", s_retrace_count, what, rel / 1e6);
+}
+
+/* MELEE_DUMP_FRAMES=<dir>,<first>,<count> (aurora writes the images):
+ * <dir>/presents.txt says what each dumped present was. The index counts
+ * aurora_end_frame calls, which is what aurora counts too. */
+u32 pc_vi_scene_tick; /* the scene loop's own tick count (gmscene.c) */
+
+static void present_label(int k, int n) {
+    static int parsed;
+    static FILE* f;
+    static unsigned long long first, count, index;
+    if (!parsed) {
+        parsed = 1;
+        const char* env = getenv("MELEE_DUMP_FRAMES");
+        const char* c1 = env != NULL ? strchr(env, ',') : NULL;
+        if (c1 != NULL) {
+            char dir[768];
+            size_t len = (size_t)(c1 - env) < sizeof dir - 1 ? (size_t)(c1 - env) : sizeof dir - 1;
+            memcpy(dir, env, len);
+            dir[len] = '\0';
+            first = strtoull(c1 + 1, NULL, 10);
+            const char* c2 = strchr(c1 + 1, ',');
+            count = c2 != NULL ? strtoull(c2 + 1, NULL, 10) : 0;
+            char path[1024];
+            snprintf(path, sizeof path, "%s/presents.txt", dir);
+            f = fopen(path, "w");
+        }
+    }
+    unsigned long long i = index++;
+    if (f != NULL && i >= first && i < first + count) {
+        if (k > 0)
+            fprintf(f, "%llu sub %d/%d tick %u\n", i, k, n, pc_vi_scene_tick);
+        else
+            fprintf(f, "%llu exact tick %u\n", i, pc_vi_scene_tick);
+        fflush(f);
+    }
+}
+
+/* MELEE_FPS: spacing of consecutive presents, tick and in-between frames
+ * alike. Even spacing is what makes a high refresh rate look smooth; the
+ * frame count alone cannot show a 4/12 ms alternation. */
+static void present_spacing_note(void) {
+    static int enabled = -1;
+    static u64 prev, t0;
+    static u32 hist[9]; /* <2 <3 <4 <5 <6 <8 <10 <14 >=14 ms */
+    if (enabled < 0)
+        enabled = getenv("MELEE_FPS") != NULL;
+    if (!enabled)
+        return;
+    u64 now = SDL_GetTicksNS();
+    if (prev != 0) {
+        static const u64 edge[8] = {2, 3, 4, 5, 6, 8, 10, 14};
+        u64 ms_x = (now - prev) / 1000000ull;
+        int bucket = 0;
+        while (bucket < 8 && ms_x >= edge[bucket])
+            bucket++;
+        hist[bucket]++;
+    }
+    prev = now;
+    if (t0 == 0)
+        t0 = now;
+    if (now - t0 >= 1000000000ull) {
+        pc_log_line("present spacing ms: <2:%u 2-3:%u 3-4:%u 4-5:%u 5-6:%u 6-8:%u 8-10:%u "
+                    "10-14:%u 14+:%u",
+            hist[0], hist[1], hist[2], hist[3], hist[4], hist[5], hist[6], hist[7], hist[8]);
+        memset(hist, 0, sizeof hist);
+        t0 = now;
+    }
+}
 void aurora_heap_check(void);
 
 uint32_t pc_gfx_prewarm(uint32_t max_wait_ms) {
@@ -71,6 +174,12 @@ static void pc_pace_wait(u64 ns) {
 #define pc_pace_wait SDL_DelayPrecise
 #endif
 
+static void pace_until(u64 due) {
+    u64 now = SDL_GetTicksNS();
+    if (now < due)
+        pc_pace_wait(due - now);
+}
+
 void pc_frame_boundary(void) {
     static int timing_debug = -1;
     static int fps_log = -1;
@@ -88,9 +197,18 @@ void pc_frame_boundary(void) {
 
     if (timing_debug < 0)
         timing_debug = getenv("MELEE_NET_DEBUG") != NULL;
+    if (s_in_frame && s_tick_frames > 1 && s_tick_start_ns != 0) {
+        const u64 period = pc_sim_period_ns();
+        pace_until(s_tick_start_ns + s_present_margin_ns +
+                   period * (u64)(s_tick_frames - 1) / (u64)s_tick_frames);
+    }
+    s_tick_frames = 0;
     if (s_in_frame) {
         u64 started = timing_debug ? SDL_GetTicksNS() : 0;
+        present_label(0, 1);
         aurora_end_frame();
+        present_spacing_note();
+        pc_vi_trace("present exact");
         if (timing_debug) {
             u64 elapsed = SDL_GetTicksNS() - started;
             if (elapsed > 20000000ull)
@@ -174,10 +292,12 @@ void pc_frame_boundary(void) {
             /* Through pc_log_line, not stderr: on Android stderr goes
              * nowhere, so MELEE_FPS printed nothing there. pc_log_line also
              * reaches logcat and MELEE_LOG_FILE. */
-            pc_log_line("fps %.1f worst %.1fms late>20ms %u late>33ms %u "
+            pc_log_line("fps %.1f presented %.1f worst %.1fms late>20ms %u late>33ms %u "
                         "sleep_overshoot %.1fms",
-                fps_n * 1000.0 / (double)(now - fps_t0), frame_worst_ns / 1e6, frame_late_20,
-                frame_late_33, sleep_worst_over_ns / 1e6);
+                fps_n * 1000.0 / (double)(now - fps_t0),
+                (fps_n + s_subframes) * 1000.0 / (double)(now - fps_t0), frame_worst_ns / 1e6,
+                frame_late_20, frame_late_33, sleep_worst_over_ns / 1e6);
+            s_subframes = 0;
             fps_t0 = now;
             fps_n = 0;
             frame_worst_ns = 0;
@@ -242,7 +362,6 @@ void pc_frame_boundary(void) {
      * displays, aurora_begin_frame() unblocks at monitor refresh rate. Without this check,
      * the simulation would run at 2x-4x speed. Pacing strictly to 60.000 Hz ensures physics,
      * hitboxes, and timers remain bit-identical. */
-    static u64 next_sim_ns;
     const u64 sim_period = pc_sim_period_ns();
     u64 now = SDL_GetTicksNS();
     /* How far behind its schedule this boundary is, and how much of that to
@@ -257,8 +376,9 @@ void pc_frame_boundary(void) {
     } else if (now < next_sim_ns) {
         const u64 want = next_sim_ns - now;
         /* On standard 60 Hz VSync, aurora_begin_frame already waited for VBlank. On high-refresh
-         * (120/144/240 Hz) or VSync-off, this throttles simulation to exact 60 Hz. */
-        if (PC_PACE_ALWAYS || !aurora_vsync_enabled() || want > 2000000ull) {
+         * (120/144/240 Hz), VSync-off or MAILBOX presentation (interpolated frames, see
+         * src/pc/interp.c), this throttles simulation to exact 60 Hz. */
+        if (PC_PACE_ALWAYS || !aurora_present_blocks() || want > 2000000ull) {
             u64 started = (fps_log || timing_debug) ? SDL_GetTicksNS() : 0;
             pc_pace_wait(want);
             if (fps_log || timing_debug) {
@@ -317,6 +437,7 @@ void pc_frame_boundary(void) {
 #endif
     }
     s_in_frame = true;
+    pc_vi_trace("tick begun");
 
     /* Presentation-only chat reads the physical local controller, never a
      * rewound/synchronized pad. It cannot change the game simulation. */
@@ -385,7 +506,15 @@ u32 VIGetRetraceCount(void) {
 }
 
 u64 pc_sim_period_ns(void) {
-    return 1000000000ull / 60;
+    /* MELEE_DEBUG_SIM_HZ=<hz>: slow motion for inspecting the in-between
+     * frames of src/pc/interp.c. Never set in normal play. */
+    static u64 period;
+    if (period == 0) {
+        const char* hz = getenv("MELEE_DEBUG_SIM_HZ");
+        int v = hz != NULL ? atoi(hz) : 0;
+        period = 1000000000ull / (u64)(v > 0 && v <= 60 ? v : 60);
+    }
+    return period;
 }
 
 u32 VIGetNextField(void) {
@@ -426,4 +555,62 @@ VIRetraceCallback VISetPostRetraceCallback(VIRetraceCallback cb) {
 
 u16 VIPadFrameBufferWidth(u16 width) {
     return (u16)((width + 15) & ~15);
+}
+
+/* An in-between frame (src/pc/interp.c) is finished: present it and open the
+ * next one. Only the presentation half of a frame boundary runs here -- no
+ * alarms, no pads, no retrace callbacks -- so the game sees one retrace per
+ * tick however many frames reach the screen. */
+void pc_vi_present_subframe(int k, int n) {
+    const u64 period = pc_sim_period_ns();
+    const u64 tick_start = s_tick_start_ns != 0 ? s_tick_start_ns : next_sim_ns - period;
+    s_subframes++;
+    s_tick_frames = n;
+    if (k == 1) {
+        /* Grow at once when the first frame is late, shrink slowly. */
+        const u64 slot = period / (u64)n;
+        u64 ready = SDL_GetTicksNS() - tick_start + 500000ull;
+        if (ready > s_present_margin_ns)
+            s_present_margin_ns = ready;
+        else if (s_present_margin_ns > 20000ull)
+            s_present_margin_ns -= 20000ull;
+        if (s_present_margin_ns > slot)
+            s_present_margin_ns = slot;
+    }
+    pace_until(tick_start + s_present_margin_ns + period * (u64)(k - 1) / (u64)n);
+    if (s_in_frame) {
+        present_label(k, n);
+        aurora_end_frame();
+        present_spacing_note();
+        pc_vi_trace("present sub");
+        s_in_frame = false;
+    }
+    const AuroraEvent* event = aurora_update();
+    while (event != NULL && event->type != AURORA_NONE) {
+        if (event->type == AURORA_EXIT) {
+            pc_exit_requested = true;
+        } else if (event->type == AURORA_SDL_EVENT) {
+            if (event->sdl.type == SDL_EVENT_KEY_DOWN &&
+                event->sdl.key.scancode == SDL_SCANCODE_F1 && !event->sdl.key.repeat)
+                pc_menu_toggle();
+            pc_menu_event(&event->sdl);
+            pc_keyboard_event(&event->sdl);
+            pc_touch_event(&event->sdl);
+        }
+        ++event;
+    }
+    for (;;) {
+        if (aurora_begin_frame())
+            break;
+        if (pc_exit_requested)
+            return;
+        SDL_Delay(16);
+        event = aurora_update();
+        while (event != NULL && event->type != AURORA_NONE) {
+            if (event->type == AURORA_EXIT)
+                pc_exit_requested = true;
+            ++event;
+        }
+    }
+    s_in_frame = true;
 }

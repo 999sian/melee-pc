@@ -9,6 +9,7 @@
 #include "net_match.h"
 #include "net.h"
 #include "pc.h"
+#include "interp.h"
 #include <RmlUi/Core/Elements/ElementFormControl.h>
 #include <aurora/dvd.h>
 #include <aurora/event.h>
@@ -82,6 +83,31 @@ const char* filter_name(int mode) {
     // "off" setting; the bilinear filter it uses is just the scaler.
     static const char* const names[] = {"Off", "Area sampling", "CRT scanlines", "Vibrant"};
     return names[mode & 3];
+}
+
+std::string interp_name(int hz) {
+    if (hz == 60)
+        return "Off (60 fps)";
+    if (hz == 0)
+        return "Match display";
+    return std::to_string(hz) + " fps";
+}
+
+// 120 -> 180 -> 240 -> display -> off. Only multiples of the 60 Hz tick: every
+// tick then gets the same number of frames and motion stays even.
+int next_interp(int hz) {
+    switch (hz) {
+    case 120:
+        return 180;
+    case 180:
+        return 240;
+    case 240:
+        return 0;
+    case 0:
+        return 60;
+    default:
+        return 120;
+    }
 }
 
 const char* backend_name(int mode) {
@@ -346,6 +372,9 @@ class Launcher final : public Rml::EventListener {
         const bool effective_vsync = override ? override[0] != '0' : prefs.vsync;
         text("sync",
             std::string(effective_vsync ? "On" : "Off") + (override ? " (environment)" : ""));
+        text("interp", std::getenv("MELEE_INTERP_HZ") || std::getenv("MELEE_INTERP") ?
+                           "Environment override" :
+                           interp_name(prefs.interp_hz));
         slider("resolution", prefs.render_scale);
         text("resolution-val", resolution_name(prefs.render_scale));
         text("aspect", prefs.widescreen == 0 ? "Original (73:60)" :
@@ -541,6 +570,12 @@ class Launcher final : public Rml::EventListener {
             }
             refresh_settings();
             element("sync")->Focus();
+        } else if (id == "interp") {
+            prefs.interp_hz = next_interp(prefs.interp_hz);
+            pc_interp_set_target_hz(prefs.interp_hz);
+            save();
+            refresh_settings();
+            element("interp")->Focus();
         } else if (id == "resolution") {
             prefs.render_scale = prefs.render_scale >= 10 ? 0 : int(prefs.render_scale) + 1;
             save();
@@ -1342,6 +1377,9 @@ public:
         label("sync", std::getenv("MELEE_VSYNC") ? "Environment override" :
                       prefs.vsync                ? "On" :
                                                    "Off");
+        label("interp", std::getenv("MELEE_INTERP_HZ") || std::getenv("MELEE_INTERP") ?
+                            "Environment override" :
+                            interp_name(prefs.interp_hz));
         slider("resolution", prefs.render_scale);
         label("resolution-val", resolution_name(prefs.render_scale));
         label("aspect", prefs.widescreen == 0 ? "Original (73:60)" :
@@ -1521,6 +1559,9 @@ public:
         } else if (id == "sync" && !std::getenv("MELEE_VSYNC")) {
             prefs.vsync = !prefs.vsync;
             aurora_enable_vsync(prefs.vsync);
+        } else if (id == "interp") {
+            prefs.interp_hz = next_interp(prefs.interp_hz);
+            pc_interp_set_target_hz(prefs.interp_hz);
         } else if (id == "resolution") {
             prefs.render_scale = prefs.render_scale >= 10 ? 0 : int(prefs.render_scale) + 1;
             resize_pending = true;
@@ -1766,6 +1807,7 @@ extern "C" bool pc_menu_is_open(void) {
 }
 extern "C" void pc_menu_init(SDL_Window* window) {
     pc_widescreen_set_mode(prefs.widescreen);
+    pc_interp_set_target_hz(prefs.interp_hz);
     VISetFrameBufferScale(prefs.render_scale);
     pc_audio_set_volume(prefs.mute ? 0 : prefs.volume);
     pc_audio_set_music_volume(prefs.music_volume);

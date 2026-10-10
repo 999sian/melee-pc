@@ -1,6 +1,11 @@
 #include <aurora/aurora.h>
 #include <aurora/time.hpp>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <thread>
+#include <vector>
 
 #ifdef AURORA_ENABLE_GX
 #include "gfx/resources.hpp"
@@ -285,6 +290,109 @@ const AuroraEvent* update() noexcept {
   return window::poll_events();
 }
 
+
+namespace {
+/* MELEE_DUMP_FRAMES=<dir>,<first>,<count>: write presents first..first+count-1
+ * (counted from 0 at the first end_frame) as binary PPM, read back from the
+ * frame buffer that is about to be presented. Diagnostic: the readback waits
+ * on the GPU, so it changes timing, never content. */
+struct FrameDump {
+  bool parsed = false;
+  std::string dir;
+  uint64_t first = 0;
+  uint64_t count = 0;
+  uint64_t index = 0;
+};
+FrameDump g_frameDump;
+
+bool frame_dump_wanted(uint64_t& indexOut) {
+  auto& d = g_frameDump;
+  if (!d.parsed) {
+    d.parsed = true;
+    if (const char* env = std::getenv("MELEE_DUMP_FRAMES")) {
+      std::string v = env;
+      const auto c1 = v.find(',');
+      const auto c2 = c1 == std::string::npos ? std::string::npos : v.find(',', c1 + 1);
+      if (c2 != std::string::npos) {
+        d.dir = v.substr(0, c1);
+        d.first = std::strtoull(v.c_str() + c1 + 1, nullptr, 10);
+        d.count = std::strtoull(v.c_str() + c2 + 1, nullptr, 10);
+      }
+    }
+  }
+  indexOut = d.index++;
+  return !d.dir.empty() && indexOut >= d.first && indexOut < d.first + d.count;
+}
+
+struct PendingDump {
+  wgpu::Buffer buffer;
+  uint32_t width = 0, height = 0, rowBytes = 0;
+  bool bgra = false;
+  uint64_t index = 0;
+};
+
+PendingDump frame_dump_copy(wgpu::CommandEncoder& encoder, uint64_t index) {
+  const auto& src = webgpu::present_source();
+  PendingDump p;
+  p.width = src.size.width;
+  p.height = src.size.height;
+  p.rowBytes = (p.width * 4 + 255) & ~255u;
+  p.bgra = src.format == wgpu::TextureFormat::BGRA8Unorm || src.format == wgpu::TextureFormat::BGRA8UnormSrgb;
+  p.index = index;
+  const wgpu::BufferDescriptor desc{
+      .label = "Frame dump",
+      .usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead,
+      .size = static_cast<uint64_t>(p.rowBytes) * p.height,
+  };
+  p.buffer = webgpu::g_device.CreateBuffer(&desc);
+  const wgpu::TexelCopyTextureInfo from{.texture = src.texture};
+  const wgpu::TexelCopyBufferInfo to{
+      .layout = {.offset = 0, .bytesPerRow = p.rowBytes, .rowsPerImage = p.height},
+      .buffer = p.buffer,
+  };
+  const wgpu::Extent3D extent{.width = p.width, .height = p.height, .depthOrArrayLayers = 1};
+  encoder.CopyTextureToBuffer(&from, &to, &extent);
+  return p;
+}
+
+void frame_dump_write(PendingDump& p) {
+  bool done = false;
+  bool ok = false;
+  p.buffer.MapAsync(wgpu::MapMode::Read, 0, static_cast<uint64_t>(p.rowBytes) * p.height,
+                    wgpu::CallbackMode::AllowProcessEvents,
+                    [&](wgpu::MapAsyncStatus status, wgpu::StringView) {
+                      ok = status == wgpu::MapAsyncStatus::Success;
+                      done = true;
+                    });
+  while (!done) {
+    webgpu::g_instance.ProcessEvents();
+    std::this_thread::yield();
+  }
+  if (!ok) {
+    return;
+  }
+  const auto* data = static_cast<const uint8_t*>(p.buffer.GetConstMappedRange());
+  char path[1024];
+  std::snprintf(path, sizeof path, "%s/frame_%05llu.ppm", g_frameDump.dir.c_str(),
+                static_cast<unsigned long long>(p.index));
+  if (FILE* f = std::fopen(path, "wb")) {
+    std::fprintf(f, "P6\n%u %u\n255\n", p.width, p.height);
+    std::vector<uint8_t> row(p.width * 3);
+    for (uint32_t y = 0; y < p.height; ++y) {
+      const uint8_t* in = data + static_cast<size_t>(y) * p.rowBytes;
+      for (uint32_t x = 0; x < p.width; ++x) {
+        row[x * 3 + 0] = in[x * 4 + (p.bgra ? 2 : 0)];
+        row[x * 3 + 1] = in[x * 4 + 1];
+        row[x * 3 + 2] = in[x * 4 + (p.bgra ? 0 : 2)];
+      }
+      std::fwrite(row.data(), 1, row.size(), f);
+    }
+    std::fclose(f);
+  }
+  p.buffer.Unmap();
+}
+} // namespace
+
 bool begin_frame() noexcept {
   ZoneScoped;
 #ifdef AURORA_ENABLE_GX
@@ -441,12 +549,21 @@ void end_frame() noexcept {
     } else {
       Log.info("Skipping present; no usable surface texture ({})", magic_enum::enum_name(surfaceStatus));
     }
+    uint64_t dumpIndex = 0;
+    PendingDump dump;
+    const bool dumping = frame_dump_wanted(dumpIndex);
+    if (dumping) {
+      dump = frame_dump_copy(encoder, dumpIndex);
+    }
     webgpu::gpu_prof::frame_end(encoder);
     const wgpu::CommandBufferDescriptor cmdBufDescriptor{.label = "Redraw command buffer"};
     const auto buffer = encoder.Finish(&cmdBufDescriptor);
     {
       ZoneScopedN("Queue Submit");
       g_queue.Submit(1, &buffer);
+    }
+    if (dumping) {
+      frame_dump_write(dump);
     }
     webgpu::gpu_prof::after_submit();
     if (canPresent && g_surface) {

@@ -48,7 +48,11 @@ extern HSD_RumbleData HSD_Rumble_804C22E0[GC_SLOTS];
 
 static bool s_enabled;
 static SDL_hid_device* s_dev;
-static int s_retry_ms = 999;
+/* The first look waits two seconds: the poll thread starts while the main
+ * thread is still bringing up SDL's joystick/HID layer and aurora's gamepad
+ * devices, and an SDL_hid_enumerate racing that faulted inside SDL on
+ * Windows (read of NULL in hid_enumerate, roughly one boot in ten). */
+static int s_retry_ms = -1000;
 /* SDL_hid_device_change_count() at the last look for the adapter; 0 = never. */
 static Uint32 s_hid_changes;
 /* Looks left at an adapter that enumerates but will not open yet. */
@@ -223,6 +227,13 @@ static void close_dev(const char* why) {
         clear_slot(i);
     }
     publish_snapshot();
+}
+
+void pc_gcadapter_shutdown(void) {
+    if (s_dev != NULL) {
+        SDL_hid_close(s_dev);
+        s_dev = NULL;
+    }
 }
 
 static s8 rel8(uint8_t v, uint8_t origin) {

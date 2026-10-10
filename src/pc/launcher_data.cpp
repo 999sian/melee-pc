@@ -29,7 +29,7 @@ static inline int mkstemp(char* tmpl) {
 #endif
 
 #if defined(__has_include) && !defined(MELEE_USE_BUILTIN_SHA1)
-#if __has_include(<openssl/evp.h>) && !defined(USE_BCRYPT)
+#if __has_include(<openssl/evp.h>) && !defined(MELEE_USE_BCRYPT)
 #define MELEE_USE_OPENSSL 1
 #include <openssl/evp.h>
 #endif
@@ -336,6 +336,11 @@ Preferences load_preferences(const std::filesystem::path& path) {
             int value;
             if (row >> value && (value == 0 || value == 1))
                 (key == "vsync" ? prefs.vsync : prefs.fullscreen) = value;
+        } else if (key == "interp_hz") {
+            int value;
+            if (row >> value &&
+                (value == 0 || value == 60 || value == 120 || value == 180 || value == 240))
+                prefs.interp_hz = value;
         } else if (key == "widescreen") {
             int value;
             if (row >> value && value >= 0 && value <= 2)
@@ -432,6 +437,7 @@ bool save_preferences(
          << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume
          << "\ninstall_id " << std::hex << prefs.install_id << std::dec << '\n';
     text << "reverb " << prefs.reverb << '\n';
+    text << "interp_hz " << prefs.interp_hz << '\n';
     auto data = text.str();
     size_t done = 0;
     bool ok = true;

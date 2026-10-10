@@ -1,4 +1,7 @@
 #include "jobj.h"
+#ifdef TARGET_PC
+#include "pc/interp.h"
+#endif
 
 #include <math.h>
 #include <string.h>
@@ -1398,6 +1401,11 @@ void HSD_JObjSetupMatrixSub(HSD_JObj* jobj)
     HSD_RObj* robj;
     f32 x_scale;
 
+#ifdef TARGET_PC
+    if (pc_interp_mode == PC_INTERP_DRAW) {
+        pc_interp_jobj_recomputed(jobj);
+    }
+#endif
     HSD_JOBJ_METHOD(jobj)->make_mtx(jobj);
     jobj->flags &= ~JOBJ_MTX_DIRTY;
     if (!(jobj->flags & JOBJ_USER_DEF_MTX)) {
@@ -1518,6 +1526,9 @@ void JObjReleaseChild(HSD_JObj* jobj)
 void JObjRelease(HSD_Class* o)
 {
     HSD_JObj* jobj = (HSD_JObj*) o;
+#ifdef TARGET_PC
+    pc_interp_jobj_released(jobj);
+#endif
     HSD_JOBJ_METHOD(jobj)->release_child(jobj);
 
     if (HSD_IDGetDataFromTable(NULL, jobj->id, NULL) == jobj) {

@@ -85,6 +85,9 @@ void pc_input_poll_shutdown(void) {
     atomic_store_explicit(&s_poll_running, false, memory_order_release);
     SDL_WaitThread(s_poll_thread, NULL);
     s_poll_thread = NULL;
+    /* The adapter is only touched from that thread; close it before
+     * aurora_shutdown takes SDL's HID layer down underneath an open device. */
+    pc_gcadapter_shutdown();
     pc_log_line("1000 Hz input polling thread stopped (total polls: %llu)",
         (unsigned long long)atomic_load_explicit(&s_poll_count, memory_order_relaxed));
 }

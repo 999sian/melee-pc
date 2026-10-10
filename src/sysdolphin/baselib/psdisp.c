@@ -1,4 +1,7 @@
 #include "psdisp.h"
+#ifdef TARGET_PC
+#include "pc/interp.h"
+#endif
 
 #include <string.h>
 #include <stdlib.h>
@@ -1843,6 +1846,30 @@ static inline void psUpdateBillboardAxes(const Mtx inv_view)
 #pragma push
 #pragma inline_depth(3)
 #endif
+#ifdef TARGET_PC
+/* PORT: in-between frames draw with frame number 0, which the counter never
+ * takes (it wraps 255 -> 1). Every link is then sorted afresh -- the sort is
+ * idempotent, so the order is what the tick's own frame would produce -- and
+ * every psAppSRT stamped during it is recomputed by that frame instead of
+ * being reused with blended joint matrices baked in. */
+void pc_psdisp_interp(int begin)
+{
+    static u8 saved;
+    int i;
+    if (begin) {
+        saved = psFrameNum;
+        psFrameNum = 0;
+        for (i = 0; i < 0x10; i++) {
+            if (HSD_PSDisp_8040C360[i] == 0) {
+                HSD_PSDisp_8040C360[i] = 1;
+            }
+        }
+    } else {
+        psFrameNum = saved;
+    }
+}
+#endif
+
 void psDispParticles(u32 target_link, u32 sw)
 {
     s32 sp7B4;
@@ -1872,6 +1899,13 @@ void psDispParticles(u32 target_link, u32 sw)
     sp7A4 = 0xFF;
     needs_setup = 1;
     if (sw == 0) {
+#ifdef TARGET_PC
+        /* PORT: an in-between frame (src/pc/interp.c) is not a new particle
+         * frame; see pc_psdisp_interp. */
+        if (pc_interp_mode == 2) {
+            return;
+        }
+#endif
         if (psFrameNum < 0xFFU) {
             psFrameNum += 1;
             return;
@@ -1907,6 +1941,13 @@ void psDispParticles(u32 target_link, u32 sw)
                 u32 width;
                 u32 height;
 
+#ifdef TARGET_PC
+                /* PORT: in-between frames draw each particle part of a step
+                 * back along its velocity (src/pc/interp.c). */
+                if (pc_interp_mode == 2) {
+                    pc_interp_particle(pp);
+                }
+#endif
                 if ((sw == 1) && !(pp->kind & TexEdge)) {
                     break;
                 }
