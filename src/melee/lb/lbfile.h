@@ -20,6 +20,10 @@ void lbFile_800161C4(int file, uintptr_t src, uintptr_t dest, size_t size,
 
 /// @returns The proper filename + extension of an extensionless "base name".
 char* lbFileGetFullName(const char* basename);
+#ifdef TARGET_PC
+/// lbFileGetFullName without the mod file alias (pc/mods/alias.h)
+char* lbFileGetFullNameRaw(const char* basename);
+#endif
 
 size_t lbFile_8001634C(int fileno);
 

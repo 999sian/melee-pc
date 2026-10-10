@@ -29,6 +29,14 @@
 
 #define MAX_ITER 100000
 #define NUM_STAGES 29
+#ifdef TARGET_PC
+#include <string.h>
+#include "pc/mods/hud_art.h"
+#include "pc/mods/stages.h"
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/tobj.h>
+#endif
 
 static struct StageListInfo {
     /* +00 */ HSD_JObj* x0;
@@ -195,6 +203,11 @@ static void rankStageFrame(void)
 #define NET_MSG_STAGE_PICK 0x20
 static int net_local_pick = -1;
 static int net_remote_pick = -1;
+/* Map packs ride along with the cell (pack + 1, 0 = the disc stage): the two
+ * players page their stage selects independently. */
+static int net_local_pack = -1;
+static int net_remote_pack = -1;
+static int net_resolved_pack = -1;
 
 static bool netStageSel_Active(void)
 {
@@ -204,6 +217,7 @@ static bool netStageSel_Active(void)
 static void netStageSel_Reset(void)
 {
     net_local_pick = net_remote_pick = -1;
+    net_local_pack = net_remote_pack = net_resolved_pack = -1;
 }
 
 static void netStageSel_Poll(void)
@@ -213,16 +227,21 @@ static void netStageSel_Poll(void)
     while (pc_net_recv_reliable(&type, buf, sizeof buf) >= 0) {
         if (type == NET_MSG_STAGE_PICK) {
             net_remote_pick = buf[0];
+            net_remote_pack = (int) buf[1] - 1;
             pc_log_line("sss: opponent picked %d", net_remote_pick);
         }
     }
 }
 
+static int pc_sss_cell_pack(int cell);
 static void netStageSel_SendPick(int idx)
 {
-    u8 b = (u8) idx;
+    u8 b[2];
     net_local_pick = idx;
-    pc_net_send_reliable(NET_MSG_STAGE_PICK, &b, 1);
+    net_local_pack = pc_sss_cell_pack(idx);
+    b[0] = (u8) idx;
+    b[1] = (u8) (net_local_pack + 1);
+    pc_net_send_reliable(NET_MSG_STAGE_PICK, b, 2);
     pc_log_line("sss: we picked %d", idx);
 }
 
@@ -245,7 +264,13 @@ static int netStageSel_Resolve(void)
     int p0 = local == 0 ? net_local_pick : net_remote_pick;
     int p1 = local == 0 ? net_remote_pick : net_local_pick;
     int pick = (netStageSel_Mix() >> 16) & 1 ? p1 : p0;
-    pc_log_line("sss: picks P1=%d P2=%d -> %d", p0, p1, pick);
+    {
+        int k0 = local == 0 ? net_local_pack : net_remote_pack;
+        int k1 = local == 0 ? net_remote_pack : net_local_pack;
+        net_resolved_pack = (netStageSel_Mix() >> 16) & 1 ? k1 : k0;
+    }
+    pc_log_line("sss: picks P1=%d P2=%d -> %d (map pack %d)", p0, p1, pick,
+                net_resolved_pack + 1);
     return pick;
 }
 
@@ -253,26 +278,37 @@ static int netStageSel_Resolve(void)
  * cooldown table, neither of which is in sync at this point (the peer's
  * pick lands on a different frame on each side). Draw from the seed
  * instead, over the stages the synced random-stage switches allow. */
+static struct StageListInfo* pc_sss_disc_table(void);
 static int netStageSel_Random(void)
 {
     int allowed[NUM_STAGES];
     int n = 0;
+    /* The disc's table, not the live one: each player pages their own stage
+     * select, so the live table can hold different pages on the two peers. */
+    struct StageListInfo* table = pc_sss_disc_table();
+    const int packs = pc_stages_count();
     /* NUM_STAGES is 29 and the table holds 30: the last entry is the RANDOM
      * button, not a stage (StageListInfo table above, stkind 0). The bound
      * already excludes it; the stkind test says so out loud, because a
      * stkind of 0 starts a match with no stage that falls straight through
      * to the results screen, in sync, with nothing logged. */
     for (int i = 0; i < NUM_STAGES; i++) {
-        if (mnStageSel_803F06D0[i].stkind != 0 &&
-            (u8) gm_80164330(mnStageSel_803F06D0[i].xA)) {
+        if (table[i].stkind != 0 && (u8) gm_80164330(table[i].xA)) {
             allowed[n++] = i;
         }
     }
-    if (n == 0) {
+    if (n + packs == 0) {
         return 0;
     }
+    /* Map packs are in the draw too, each as likely as a disc stage. */
     u32 r = netStageSel_Mix() * 22695477u + 1u;
-    return allowed[(r >> 8) % (u32) n];
+    u32 k = (r >> 8) % (u32) (n + packs);
+    if ((int) k >= n) {
+        net_resolved_pack = (int) k - n;
+        return n > 0 ? allowed[0] : 0; /* the stage is the pack's base */
+    }
+    net_resolved_pack = -1;
+    return allowed[k];
 }
 #endif
 
@@ -287,6 +323,308 @@ static void order_sdata2(void)
 /// Random stage selection
 /// Returns an internal stage ID - 2 (since first 2 internal stage IDs are
 /// invalid)
+#ifdef TARGET_PC
+/* ---- PC: paginated stage select (mod map packs) -------------------------
+ *
+ * Page 0 is the disc's stage select. Pages 1.. lay map packs over the 29
+ * stage cells (RANDOM stays put); L / R change page. A used cell is rewritten
+ * to its pack's base stage (name/preview index, StKind) and shows the pack's
+ * icon, or the base's; unused cells are hidden. Picking a cell records the
+ * pack in StartMeleeRules::pc_stage_pack. The table is restored on page 0
+ * and when the scene exits, because it outlives the scene. */
+#define PC_SSS_ICON_SIZE 0 /* use the icon texture's own size */
+static void do_anim(HSD_JObj* jobj, int frame);
+
+typedef struct PcSssCell {
+    HSD_TObj* tobj; /* the icon texture */
+    HSD_ImageDesc* img;
+    struct _HSD_Tlut* tlut;
+    u8 tlut_no;     /* icons pick their palette from tluttbl[tlut_no] */
+    struct _HSD_Tlut* eff_tlut; /* the palette the icon actually draws with */
+    /* The stage's real icon image and palette, even when the cell shows a
+     * locked placeholder: what a map pack built on this stage borrows. */
+    HSD_ImageDesc* true_img;
+    struct _HSD_Tlut* true_tlut;
+    HSD_AObj* aobj;
+    u32 flags;
+} PcSssCell;
+
+static PcSssCell pc_sss_cells[NUM_STAGES];
+static struct StageListInfo pc_sss_orig[NUM_STAGES];
+static HSD_ImageDesc* pc_sss_icon_img[128];
+static HSD_ImageDesc* pc_sss_preview_img[128];
+static HSD_ImageDesc* pc_sss_name_img[128];
+static bool pc_sss_ready;
+static int pc_sss_page;
+static u32 pc_sss_frame;
+static u32 pc_sss_last_turn = (u32) -1;
+
+static int pc_sss_page_count(void)
+{
+    int n = pc_stages_count();
+    return n == 0 ? 1 : 1 + (n + NUM_STAGES - 1) / NUM_STAGES;
+}
+
+/* The map pack on @p cell of the current page, or -1 (a disc stage). */
+static int pc_sss_cell_pack(int cell)
+{
+    int pack;
+    if (!pc_sss_ready || pc_sss_page <= 0 || cell < 0 || cell >= NUM_STAGES) {
+        return -1;
+    }
+    pack = (pc_sss_page - 1) * NUM_STAGES + cell;
+    return pack < pc_stages_count() ? pack : -1;
+}
+
+static void pc_sss_restore_table(void);
+static struct StageListInfo* pc_sss_disc_table(void)
+{
+    return pc_sss_ready ? pc_sss_orig : mnStageSel_803F06D0;
+}
+
+/* RANDOM offline: the map pack it landed on, -1 for a disc stage, or -2
+ * when the pick was not RANDOM (the cell's own pack then). */
+static int pc_sss_random_pack = -2;
+
+static void pc_sss_roll_random_pack(void)
+{
+    struct StageListInfo* table = pc_sss_disc_table();
+    const int packs = pc_stages_count();
+    int n = 0, i;
+    /* The disc roll below (mnStageSel_802599EC) reads the live table, which
+     * may hold a pack page: put the disc's back first. */
+    pc_sss_restore_table();
+    pc_sss_random_pack = -1;
+    if (packs == 0) {
+        return;
+    }
+    for (i = 0; i < NUM_STAGES; i++) {
+        if (table[i].stkind != 0 && (u8) gm_80164330(table[i].xA)) {
+            n++;
+        }
+    }
+    i = HSD_Randi(n + packs);
+    if (i < packs) {
+        pc_sss_random_pack = i;
+    }
+}
+
+/* What a pick means: the pack's base for a map pack, else the disc stage
+ * of the cell as the disc lays it out (the table may hold another page). */
+static int pc_sss_pick_stkind(int cell, int pack)
+{
+    if (pack >= 0) {
+        return pc_stages_base(pack);
+    }
+    if (pc_sss_ready && cell >= 0 && cell < NUM_STAGES) {
+        return pc_sss_orig[cell].stkind;
+    }
+    return mnStageSel_803F06D0[cell].stkind;
+}
+
+static HSD_ImageDesc* pc_sss_image(const void* gx, int w, int h)
+{
+    const size_t size = (size_t) w * h * 4;
+    HSD_ImageDesc* desc;
+    void* buf;
+    if (gx == NULL) {
+        return NULL;
+    }
+    desc = HSD_MemAlloc(sizeof(HSD_ImageDesc));
+    buf = HSD_MemAlloc(size);
+    if (desc == NULL || buf == NULL) {
+        return NULL;
+    }
+    memcpy(buf, gx, size);
+    memset(desc, 0, sizeof(*desc));
+    DP_SET(desc->image_ptr, buf);
+    desc->width = (u16) w;
+    desc->height = (u16) h;
+    desc->format = GX_TF_RGBA8;
+    return desc;
+}
+
+static void pc_sss_restore_table(void)
+{
+    int i;
+    if (!pc_sss_ready) {
+        return;
+    }
+    for (i = 0; i < NUM_STAGES; i++) {
+        mnStageSel_803F06D0[i].x8 = pc_sss_orig[i].x8;
+        mnStageSel_803F06D0[i].x9 = pc_sss_orig[i].x9;
+        mnStageSel_803F06D0[i].xA = pc_sss_orig[i].xA;
+        mnStageSel_803F06D0[i].stkind = pc_sss_orig[i].stkind;
+    }
+}
+
+static void pc_sss_apply_page(int page)
+{
+    int i, j;
+    pc_sss_restore_table();
+    for (i = 0; i < NUM_STAGES; i++) {
+        PcSssCell* c = &pc_sss_cells[i];
+        HSD_JObj* jobj = mnStageSel_803F06D0[i].x0;
+        int pack, base_cell = -1;
+        if (jobj == NULL) {
+            continue;
+        }
+        if (c->tobj != NULL) {
+            c->tobj->imagedesc = c->img;
+            c->tobj->tlut = c->tlut;
+            c->tobj->tlut_no = c->tlut_no;
+            c->tobj->aobj = c->aobj;
+        }
+        if (c->flags & JOBJ_HIDDEN) {
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+        } else {
+            HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        }
+        if (page == 0) {
+            continue;
+        }
+        pack = (page - 1) * NUM_STAGES + i;
+        if (pack >= pc_stages_count()) {
+            mnStageSel_803F06D0[i].x8 = 0;
+            HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
+            continue;
+        }
+        for (j = 0; j < NUM_STAGES; j++) {
+            if (pc_sss_orig[j].stkind == pc_stages_base(pack)) {
+                base_cell = j;
+                break;
+            }
+        }
+        mnStageSel_803F06D0[i].x8 = 2;
+        mnStageSel_803F06D0[i].stkind = (u8) pc_stages_base(pack);
+        if (base_cell >= 0) {
+            mnStageSel_803F06D0[i].x9 = pc_sss_orig[base_cell].x9;
+            mnStageSel_803F06D0[i].xA = pc_sss_orig[base_cell].xA;
+        }
+        HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
+        if (c->tobj != NULL) {
+            c->tobj->aobj = NULL; /* keep the swapped image */
+            if (pc_sss_icon_img[pack] == NULL && c->img != NULL && pack < 128) {
+                pc_sss_icon_img[pack] = pc_sss_image(
+                    pc_stages_icon_gx(pack, c->img->width, c->img->height),
+                    c->img->width, c->img->height);
+            }
+            c->tobj->tlut_no = (u8) -1; /* use tlut directly */
+            if (pack < 128 && pc_sss_icon_img[pack] != NULL) {
+                c->tobj->imagedesc = pc_sss_icon_img[pack];
+                c->tobj->tlut = NULL;
+            } else if (base_cell >= 0 && pc_sss_cells[base_cell].tobj != NULL) {
+                c->tobj->imagedesc = pc_sss_cells[base_cell].true_img;
+                c->tobj->tlut = pc_sss_cells[base_cell].true_tlut;
+            }
+        }
+    }
+}
+
+static void pc_sss_init(void)
+{
+    int i;
+    pc_sss_ready = false;
+    pc_sss_page = 0;
+    pc_sss_frame = 0;
+    memset(pc_sss_icon_img, 0, sizeof(pc_sss_icon_img));
+    memset(pc_sss_preview_img, 0, sizeof(pc_sss_preview_img));
+    memset(pc_sss_name_img, 0, sizeof(pc_sss_name_img));
+    for (i = 0; i < NUM_STAGES; i++) {
+        PcSssCell* c = &pc_sss_cells[i];
+        HSD_JObj* jobj = mnStageSel_803F06D0[i].x0;
+        memset(c, 0, sizeof(*c));
+        pc_sss_orig[i] = mnStageSel_803F06D0[i];
+        if (jobj == NULL) {
+            continue;
+        }
+        c->flags = jobj->flags;
+        c->tobj = pc_hud_find_tobj(jobj);
+        if (c->tobj != NULL) {
+            c->img = c->tobj->imagedesc;
+            c->tlut = c->tobj->tlut;
+            c->tlut_no = c->tobj->tlut_no;
+            c->eff_tlut = (c->tlut_no != (u8) -1 && c->tobj->tluttbl != NULL)
+                              ? c->tobj->tluttbl[c->tlut_no]
+                              : c->tlut;
+            c->aobj = c->tobj->aobj;
+            c->true_img = c->img;
+            c->true_tlut = c->eff_tlut;
+            if (pc_sss_orig[i].x8 < 2 && c->aobj != NULL) {
+                /* Locked: the texture still shows the placeholder. Run its
+                 * animation to the frame the game would use once unlocked
+                 * (OnEnter's frame per icon type), note the image, and put
+                 * the cell back exactly as it was. */
+                int x9 = pc_sss_orig[i].x9;
+                if (i < 22) {
+                    HSD_JObjReqAnimAllByFlags(jobj, 0x10, x9 / 2 + 2);
+                    HSD_JObjAnimAll(jobj);
+                    HSD_ForeachAnim(jobj, JOBJ_TYPE, TOBJ_MASK, HSD_AObjStopAnim,
+                                    AOBJ_ARG_AOV, NULL);
+                } else {
+                    do_anim(jobj, i < 24 ? x9 - 0x14 : x9 - 0x16);
+                }
+                c->true_img = c->tobj->imagedesc;
+                c->true_tlut = (c->tobj->tlut_no != (u8) -1 && c->tobj->tluttbl != NULL)
+                                   ? c->tobj->tluttbl[c->tobj->tlut_no]
+                                   : c->tobj->tlut;
+                c->tobj->imagedesc = c->img;
+                c->tobj->tlut = c->tlut;
+                c->tobj->tlut_no = c->tlut_no;
+            }
+        }
+    }
+    pc_sss_ready = true;
+    pc_sss_random_pack = -2;
+    if (pc_sss_page_count() > 1) {
+        OSReport("sss: %d map pack(s) on %d extra page(s); L/R to page\n",
+                 pc_stages_count(), pc_sss_page_count() - 1);
+    }
+}
+
+static void pc_sss_input(u32 trigger)
+{
+    int n = pc_sss_page_count();
+    int dir = (trigger & HSD_PAD_R) ? 1 : (trigger & HSD_PAD_L) ? -1 : 0;
+    ++pc_sss_frame;
+    if (!pc_sss_ready || n <= 1 || dir == 0 || mnStageSel_804D6CAF != 0 ||
+        pc_sss_last_turn == pc_sss_frame)
+    {
+        return;
+    }
+    pc_sss_last_turn = pc_sss_frame;
+    pc_sss_page = (pc_sss_page + dir + n) % n;
+    pc_sss_apply_page(pc_sss_page);
+    /* Force the hover name/preview to re-read the (rewritten) cell. */
+    mnStageSel_804D6CAE = 0x1E;
+    sfxMove();
+    OSReport("sss: page %d of %d\n", pc_sss_page + 1, n);
+}
+
+/* Draw the hovered pack's own preview / name plate, if it ships them. */
+static void pc_sss_hover_art(HSD_JObj* jobj, int cell, bool preview)
+{
+    HSD_TObj* t = pc_hud_find_tobj(jobj);
+    int pack = pc_sss_cell_pack(cell);
+    HSD_ImageDesc* img = NULL;
+    HSD_ImageDesc** cache;
+    if (t == NULL) {
+        return;
+    }
+    if (pack >= 0 && pack < 128 && t->imagedesc != NULL) {
+        int w = t->imagedesc->width, h = t->imagedesc->height;
+        cache = preview ? pc_sss_preview_img : pc_sss_name_img;
+        if (cache[pack] == NULL) {
+            cache[pack] = pc_sss_image(preview ? pc_stages_preview_gx(pack, w, h)
+                                               : pc_stages_name_gx(pack, w, h),
+                                       w, h);
+        }
+        img = cache[pack];
+    }
+    pc_tobj_override(t, img, NULL);
+}
+#endif
+
 int mnStageSel_802599EC(void)
 {
     int var_r0;
@@ -393,6 +731,7 @@ void mnStageSel_80259C28(void)
         netStageSel_SendPick(mnStageSel_804D6CAE);
         goto skip_randomize;
     }
+    pc_sss_roll_random_pack();
 #endif
     mnStageSel_804D6CAE = mnStageSel_802599EC();
 skip_randomize:
@@ -490,6 +829,9 @@ void mnStageSel_80259ED8(int id)
     temp_r3_2->x2 = 0;
     if (id < 0x1E && mnStageSel_803F06D0[id].x8 >= 2) {
         do_anim(jobj, 20.0F * mnStageSel_803F06D0[id].x9);
+#ifdef TARGET_PC
+        pc_sss_hover_art(jobj, id, false);
+#endif
     }
 }
 
@@ -521,6 +863,9 @@ void fn_8025A090(HSD_GObj* gobj)
             HSD_ForeachAnim(jobj, JOBJ_TYPE, ALL_TYPE_MASK, HSD_AObjStopAnim,
                             AOBJ_ARG_AOV, NULL);
             HSD_JObjSetTranslateX(jobj, 0.0F);
+#ifdef TARGET_PC
+            pc_sss_hover_art(jobj, (int) var_r3, true);
+#endif
         } else {
             HSD_JObjSetTranslateX(jobj, 100.0F);
         }
@@ -954,6 +1299,9 @@ void mnStageSel_Scene_OnEnter(void* arg0)
             }
         }
 
+#ifdef TARGET_PC
+        pc_sss_init();
+#endif
         {
             HSD_JObj* jobj;
             HSD_GObj* gobj;
@@ -1145,6 +1493,9 @@ void mnStageSel_Scene_OnFrame(void)
             b_pressed = (mnStageSel_804D6CA0 & 0x200) != 0;
         }
     }
+#ifdef TARGET_PC
+    pc_sss_input(mnStageSel_804D6CA0);
+#endif
     if (mnStageSel_804D6CAC < -0x1E) {
         mnStageSel_804D6CAC += 0x1E;
     } else if (mnStageSel_804D6CAC > 0x1E) {
@@ -1189,8 +1540,29 @@ void mnStageSel_Scene_OnFrame(void)
         if (mnStageSel_804D6CAE < 0 || mnStageSel_804D6CAE >= NUM_STAGES) {
             mnStageSel_804D6CAE = mnStageSel_802599EC();
         }
+#ifdef TARGET_PC
+        {
+            int pack = netStageSel_Active() && !pc_rank_session_active()
+                           ? net_resolved_pack
+                       : pc_sss_random_pack != -2
+                           ? pc_sss_random_pack
+                           : pc_sss_cell_pack(mnStageSel_804D6CAE);
+            if (pack >= pc_stages_count()) {
+                pack = -1; /* not this build's pack list: play the disc stage */
+            }
+            sss_data->vs.start.rules.stkind =
+                pc_sss_pick_stkind(mnStageSel_804D6CAE, pack);
+            sss_data->vs.start.rules.pc_stage_pack = (u8) (pack + 1);
+            if (pack >= 0) {
+                pc_log_line("sss: map pack %d (%s) on stage %d", pack + 1,
+                            pc_stages_name(pack),
+                            sss_data->vs.start.rules.stkind);
+            }
+        }
+#else
         sss_data->vs.start.rules.stkind =
             mnStageSel_803F06D0[mnStageSel_804D6CAE].stkind;
+#endif
 #ifdef TARGET_PC
         if (netStageSel_Active())
             pc_log_line("sss: resolved cell %d stage %d", mnStageSel_804D6CAE,
@@ -1215,8 +1587,15 @@ void mnStageSel_Scene_OnExit(UNUSED void* exit_data)
         if (sss->start_game) {
             PreloadedGameModeState* cache = lbDvd_GetPreloadCacheScene();
             cache->game_cache.stkind = sss->vs.start.rules.stkind;
+#ifdef TARGET_PC
+            cache->game_cache.pc_stage_pack = sss->vs.start.rules.pc_stage_pack;
+#endif
             lbDvd_80018254();
         }
+#ifdef TARGET_PC
+        pc_sss_restore_table();
+        pc_sss_ready = false;
+#endif
     }
 }
 

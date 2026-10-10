@@ -1,0 +1,30 @@
+{
+  // Tunables-only mod: no files, no plugin. Scales every fighter's gravity
+  // and fall speed by a user-configurable factor.
+  "id": "example.moon-gravity",
+  "name": "Moon Gravity",
+  "version": "1.0.0",
+  "author": "melee-pc examples",
+  "description": "Everyone falls slower. The strength is a config value.",
+  "enabled_by_default": false,
+
+  "config": {
+    "gravity_scale": {
+      "type": "number",
+      "default": 0.5,
+      "min": 0.1,
+      "max": 2.0,
+      "label": "Gravity multiplier"
+    }
+  },
+
+  "tunables": {
+    "fighters": {
+      "*": {
+        "gravity": { "mul": "$gravity_scale" },
+        "terminal_velocity": { "mul": "$gravity_scale" },
+        "fast_fall_velocity": { "mul": "$gravity_scale" }
+      }
+    }
+  }
+}

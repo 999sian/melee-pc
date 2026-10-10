@@ -1,4 +1,9 @@
 #include "gmvs.h"
+#ifdef TARGET_PC
+#include "pc/mods/stages.h"
+#include "pc/mods/alias.h"
+#include "pc/music_stream.h"
+#endif
 
 #include <Runtime/platform.h>
 
@@ -1586,6 +1591,9 @@ void fn_8016D8AC(int arg0, struct PlayerInitData* arg1)
 
     Player_SetSlottype(arg0, arg1->slot_type);
     Player_SetPlayerCharacter(arg0, arg1->ckind);
+#ifdef TARGET_PC
+    Player_SetPack(arg0, arg1->pc_pack);
+#endif
 
     tmp->state.fighters[arg0].x0 = arg1->ckind;
 
@@ -2000,6 +2008,28 @@ bool fn_8016E5C0(StartMeleeData* arg0)
     return false;
 }
 
+#ifdef TARGET_PC
+/* The match's file aliases (pc/mods/alias.h), from the start data: on for
+ * every load of the match -- fighters, stage, sound banks -- and decided by
+ * synced data, so both netplay peers resolve the same files. Modes without
+ * packs zero these fields, which turns any previous match's aliases off. */
+static void fn_8016E730_PcAliases(StartMeleeData* start)
+{
+    PcAliasPlayer players[GM_MAX_PLAYERS];
+    int n = 0;
+    int i;
+    for (i = 0; i < GM_MAX_PLAYERS; i++) {
+        if (start->players[i].slot_type == Gm_PKind_NA) {
+            continue;
+        }
+        players[n].ckind = start->players[i].ckind;
+        players[n].pack = (int) start->players[i].pc_pack - 1;
+        n++;
+    }
+    pc_alias_activate((int) start->rules.pc_stage_pack - 1, players, n);
+}
+#endif
+
 void fn_8016E730(StartMeleeData* arg0)
 {
     HSD_GObj* temp_r30;
@@ -2007,6 +2037,7 @@ void fn_8016E730(StartMeleeData* arg0)
 
 #ifdef TARGET_PC
     pc_slp_match_start(arg0); /* Slippi's SendGameInfo hooks here too */
+    fn_8016E730_PcAliases(arg0);
 #endif
     db_Setup();
     gm_SetDbPauseInputHandlers(gm_AnyControllerPressedStart,
@@ -2026,7 +2057,22 @@ void fn_8016E730(StartMeleeData* arg0)
     ftCo_800C06C0();
     mpColl_80041C78();
     Ground_801C0378(0x40);
+#ifdef TARGET_PC
+    /* The map pack is active only for this load, so no other mode that
+     * later loads the same base stage picks it up. */
+    pc_stages_set_active((int) arg0->rules.pc_stage_pack - 1);
+    if (arg0->rules.pc_stage_pack != 0 &&
+        pc_stages_music(arg0->rules.pc_stage_pack - 1) != NULL)
+    {
+        /* The stage's own music stream is the next one the game opens. */
+        pc_music_stream_override_next_loop(
+            pc_stages_music(arg0->rules.pc_stage_pack - 1));
+    }
+#endif
     Stage_802251E8(arg0->rules.stkind, NULL);
+#ifdef TARGET_PC
+    pc_stages_set_active(-1);
+#endif
 
     r30 = &controller;
 

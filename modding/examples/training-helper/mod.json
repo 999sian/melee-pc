@@ -1,0 +1,22 @@
+{
+  // Native plugin example. CMake builds plugin.c into training_helper.dll
+  // (.so / .dylib elsewhere) next to this manifest.
+  "id": "example.training-helper",
+  "name": "Training Helper (plugin)",
+  "version": "1.0.0",
+  "author": "melee-pc examples",
+  "description": "Logs every match and spawn, and optionally heals fighters over time (offline only).",
+  "enabled_by_default": false,
+  "plugin": "training_helper",
+
+  "config": {
+    "heal_per_second": {
+      "type": "number",
+      "default": 0,
+      "min": 0,
+      "max": 20,
+      "label": "Damage healed per second (0 = off)"
+    },
+    "log_spawns": { "type": "bool", "default": true, "label": "Log fighter spawns" }
+  }
+}

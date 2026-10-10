@@ -29,7 +29,7 @@ static inline int mkstemp(char* tmpl) {
 #endif
 
 #if defined(__has_include) && !defined(MELEE_USE_BUILTIN_SHA1)
-#if __has_include(<openssl/evp.h>) && !defined(USE_BCRYPT)
+#if __has_include(<openssl/evp.h>) && !defined(USE_BCRYPT) && !defined(MELEE_USE_BCRYPT)
 #define MELEE_USE_OPENSSL 1
 #include <openssl/evp.h>
 #endif

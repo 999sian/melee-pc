@@ -24,6 +24,7 @@
 #include "pc/pc.h"
 #include "pc/android_hooks.h"
 #include "pc/launcher.h"
+#include "pc/mods/mods.h"
 
 int melee_main(void);
 
@@ -301,6 +302,7 @@ static void pc_shutdown_once(void) {
         return;
     }
     done = true;
+    pc_mods_shutdown();
     pc_net_match_stop();
     pc_net_disconnect();
     pc_lan_stop();
@@ -540,7 +542,11 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
         /* appName doubles as the window title; the save/cache dirs stay
          * pinned so a renamed test window still uses the same memory card. */
         .appName = getenv("MELEE_WINDOW_TITLE") ? getenv("MELEE_WINDOW_TITLE") : "melee-pc",
-        .userPath = SDL_GetPrefPath(NULL, "melee-pc"),
+        /* MELEE_USER_DIR: where saves (the memory card) and per-machine
+         * settings live; two instances on one machine (netplay testing)
+         * need their own, or they write the same memory card. */
+        .userPath =
+            getenv("MELEE_USER_DIR") ? getenv("MELEE_USER_DIR") : SDL_GetPrefPath(NULL, "melee-pc"),
         .resourcesPath = resources_path[0] != '\0' ? resources_path : NULL,
         /* MELEE_CACHE_DIR: two instances on one machine (netplay testing)
          * must not share the pipeline-cache SQLite file. */
@@ -568,6 +574,18 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
      * hidapi hint so SDL's rescaling driver leaves it for our raw path. */
     pc_gcadapter_init();
     pc_launcher_configure(&config);
+    /* MELEE_WINDOW_POS=x,y: where the window opens, e.g. off-screen for
+     * unattended test runs (pair with SDL_WINDOW_ACTIVATE_WHEN_SHOWN=0 so it
+     * does not take focus, and SDL_AUDIO_DRIVER=dummy for silence). Negative
+     * values mean "let the system choose", as in AuroraConfig. */
+    if (getenv("MELEE_WINDOW_POS") != NULL) {
+        int x = -1, y = -1;
+        if (sscanf(getenv("MELEE_WINDOW_POS"), "%d,%d", &x, &y) == 2) {
+            config.windowPosX = x;
+            config.windowPosY = y;
+            config.startFullscreen = false;
+        }
+    }
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
 
@@ -684,6 +702,9 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
     pc_menu_init(info.window);
     pc_platform_init();
     aurora_card_set_present(card);
+    /* The disc is open now and nothing has read game files yet: register the
+     * mod overlay before the file cache's prewarm starts in melee_main. */
+    pc_mods_activate();
     int rc = melee_main();
     pc_shutdown_once();
     return rc;

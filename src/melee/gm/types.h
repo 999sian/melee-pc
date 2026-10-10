@@ -611,6 +611,9 @@ struct MatchPlayerData {
     int x9C;
     int xA0;
     u32 xA4;
+#ifdef TARGET_PC
+    u8 pc_pack; ///< mod character pack the player fought as (StaticPlayer)
+#endif
 };
 ASSERT_SIZE(struct MatchPlayerData, 0xA8);
 

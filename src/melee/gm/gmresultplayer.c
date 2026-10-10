@@ -1,4 +1,9 @@
 #include "gmresultplayer.h"
+#ifdef TARGET_PC
+#include "pc/mods/hud_art.h"
+#include "pc/mods/roster.h"
+#include <melee/pl/player.h>
+#endif
 
 #include <placeholder.h>
 
@@ -468,7 +473,24 @@ void fn_80177748(void)
         if (temp_r3->player_standings[i].pkind != Gm_PKind_NA) {
             ckind = temp_r3->player_standings[i].ckind;
             HSD_JObjClearFlagsAll(data->player_data[i].jobjs[0], JOBJ_HIDDEN);
+#ifdef TARGET_PC
+            /* jobjs[0] is the panel's series emblem: a pack's chosen
+             * series, then its own image when it ships one. */
+            {
+                int pack = (int) temp_r3->player_standings[i].pc_pack - 1;
+                CharacterKind emblem_ck = ckind;
+                if (pack >= 0 && pc_roster_series(pack) >= 0) {
+                    emblem_ck = Player_CharacterForFighter(
+                        (FighterKind) pc_roster_series(pack));
+                }
+                inline0(data->player_data[i].jobjs[0],
+                        gm_80168B34(emblem_ck, 0, 0));
+                pc_hud_pack_art(pc_hud_find_tobj(data->player_data[i].jobjs[0]),
+                                pack, PC_ART_EMBLEM, 0);
+            }
+#else
             inline0(data->player_data[i].jobjs[0], gm_80168B34(ckind, 0, 0));
+#endif
             HSD_JObjClearFlagsAll(data->player_data[i].jobjs[4], JOBJ_HIDDEN);
             if (gm_WasMatchCanceled(temp_r3->outcome) != 0) {
                 var_r24 = 4;
@@ -1089,6 +1111,12 @@ static inline void fn_80178BB4_init_players(ResultsData* data,
                     HSD_AObj* aobj = tobj->aobj;
                     HSD_TObjReqAnim(tobj, (f32) tex_id);
                     HSD_TObjAnim(d2->x30->u.dobj->next->mobj->tobj);
+#ifdef TARGET_PC
+                    /* The winner banner: a pack's own image. */
+                    pc_hud_pack_art(
+                        tobj, (int) match_end->player_standings[(*i)].pc_pack - 1,
+                        PC_ART_WINNER_NAME, 0);
+#endif
                     if (tex_id < 0x19) {
                         HSD_AObjSetCurrentFrame(aobj, 0.0f);
                         HSD_AObjSetEndFrame(aobj, 29.0f);
@@ -1103,6 +1131,12 @@ static inline void fn_80178BB4_init_players(ResultsData* data,
 
                 fn_80174FD0(data->player_data[(*i)].jobjs[5],
                             (s32) gm_80168B34((CharacterKind) ckind, cid, 0));
+#ifdef TARGET_PC
+                /* jobjs[5] is the player's name label: a pack's own image. */
+                pc_hud_pack_art(pc_hud_find_tobj(data->player_data[(*i)].jobjs[5]),
+                                (int) match_end->player_standings[(*i)].pc_pack - 1,
+                                PC_ART_NAME_IMAGE, 0);
+#endif
 
                 {
                     u32 rank_val;
@@ -1131,6 +1165,14 @@ static inline void fn_80178BB4_init_players(ResultsData* data,
                                     HSD_AObjSetCurrentFrame, AOBJ_ARG_AF,
                                     taunt_frame);
                     HSD_JObjAnimAll(taunt_jobj);
+#ifdef TARGET_PC
+                    /* jobjs[7] holds the table's head icon: the player's
+                     * stock icon, so a pack shows its own. */
+                    pc_hud_pack_art(
+                        pc_hud_find_tobj(taunt_jobj),
+                        (int) match_end->player_standings[(*i)].pc_pack - 1,
+                        PC_ART_STOCK, match_end->player_standings[(*i)].x3_b0);
+#endif
                     HSD_AObjSetRate(data->player_data[(*i)].jobjs[7]->aobj,
                                     1.0f);
                     HSD_AObjSetCurrentFrame(
@@ -1282,6 +1324,13 @@ static inline void fn_80179350_update(ResultsData* data, MatchEnd* match_end,
         if (gm_WasMatchCanceled(match_end->outcome) != 0) {
             lbAudioAx_800237A8(0xC350, 0x7F, 0x40);
         } else {
+#ifdef TARGET_PC
+            {
+                extern int pc_announce_pack;
+                pc_announce_pack =
+                    (int) match_end->player_standings[data->x6].pc_pack - 1;
+            }
+#endif
             fn_80168E54(match_end->player_standings[data->x6].ckind,
                         match_end->player_standings[data->x6].ftkind,
                         match_end->player_standings[data->x6].team,

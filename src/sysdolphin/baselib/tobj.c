@@ -1,4 +1,7 @@
 #include <stdlib.h>
+#ifdef TARGET_PC
+#include "pc/mods/hud_art.h"
+#endif
 #include "tobj.h"
 
 #include <placeholder.h>
@@ -1236,6 +1239,15 @@ void HSD_TObjSetup(HSD_TObj* tobj)
         HSD_TexLODDesc* lod;
         HSD_ImageDesc* imagedesc = tobj->imagedesc;
         GXTexFilter min_filter;
+#ifdef TARGET_PC
+        {
+            /* Character-pack HUD art (src/pc/mods/hud_art.c). */
+            HSD_ImageDesc* over = pc_tobj_image_override(tobj);
+            if (over != NULL) {
+                imagedesc = over;
+            }
+        }
+#endif
 
         if (tobj->id == GX_TEXMAP_NULL) {
             continue;
@@ -1259,6 +1271,11 @@ void HSD_TObjSetup(HSD_TObj* tobj)
             } else {
                 tlut = tobj->tlut;
             }
+#ifdef TARGET_PC
+            if (imagedesc != tobj->imagedesc && pc_tobj_tlut_override(tobj) != NULL) {
+                tlut = pc_tobj_tlut_override(tobj); /* palette of the override */
+            }
+#endif
 
             HSD_ASSERT(1595, tlut);
 

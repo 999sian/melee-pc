@@ -16,10 +16,267 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/random.h>
+#ifdef TARGET_PC
+#include "pc/mods/items.h"
+#include "pc/pc.h"
+#include <melee/ft/ftlib.h>
+#include <melee/ft/inlines.h>
+#include "inlines.h"
+#include <melee/ft/types.h>
+#include <melee/gm/gmvs.h>
+#include <melee/gm/types.h>
+#include <melee/mn/types.h>
+#include <melee/pl/player.h>
+#include <melee/lb/lbarchive.h>
+#include <sysdolphin/baselib/archive.h>
+#include <string.h>
+#endif
 
 ItemPickTable it_804A0E60;
 ItemPickTable it_804A0E50;
 RandomItemSpawner it_804A0E30;
+
+#ifdef TARGET_PC
+/* ---- PC: mod item packs (pc/mods/items.h) ---------------------------------
+ *
+ * Each match loads the packs' Articles, then adds a draw entry per pack next
+ * to its base's in the two random tables (ambient spawns, container
+ * contents), weighted relative to the base. The table entry a pick lands on
+ * says which pack it is; the spawn that follows takes it. All of this is
+ * game memory, so rollback snapshots carry it like the tables themselves. */
+#define IT_PC_MAX_PACKS 64
+static Article* it_pc_articles[IT_PC_MAX_PACKS];
+static s8 it_pc_spawner_packs[256];
+static s8 it_pc_drop_packs[256];
+static s32 it_pc_pick_kind = -1;
+static s32 it_pc_pick_pack = -1;
+static u64 it_pc_spawn_logged; /* packs whose first spawn this match was logged */
+
+static s8* it_PcTablePacks(ItemPickTable* table)
+{
+    if (table == &it_804A0E30.x4) {
+        return it_pc_spawner_packs;
+    }
+    if (table == &it_804A0E50) {
+        return it_pc_drop_packs;
+    }
+    return NULL;
+}
+
+u8 it_PcTakePack(ItemKind kind)
+{
+    u8 pack = 0;
+    if (it_pc_pick_kind == (s32) kind && it_pc_pick_pack >= 0) {
+        pack = (u8) (it_pc_pick_pack + 1);
+    }
+    it_pc_pick_kind = it_pc_pick_pack = -1;
+    return pack;
+}
+
+void it_PcSetPick(ItemKind kind, u8 pack)
+{
+    it_pc_pick_kind = kind;
+    it_pc_pick_pack = (s32) pack - 1;
+}
+
+int it_PcPackCount(void)
+{
+    int n = pc_items_count();
+    return n < IT_PC_MAX_PACKS ? n : IT_PC_MAX_PACKS;
+}
+
+s32 it_PcPackWeight(int pack, ItemKind kind, s32 base_weight)
+{
+    if (pack < 0 || pack >= it_PcPackCount() || it_pc_articles[pack] == NULL ||
+        pc_items_base(pack) != (int) kind)
+    {
+        return 0;
+    }
+    return (s32) (base_weight * pc_items_frequency(pack) + 0.5f);
+}
+
+/* The fighter behind a spawn: the parent itself, or the owner of the item
+ * that spawned it (a bomb's explosion, a Pokemon's attack). */
+static HSD_GObj* it_PcSpawnFighter(HSD_GObj* parent)
+{
+    int depth;
+    for (depth = 0; parent != NULL && depth < 4; depth++) {
+        if (ftLib_IsFighter(parent)) {
+            return parent;
+        }
+        if (parent->classifier != HSD_GOBJ_CLASS_ITEM) {
+            return NULL;
+        }
+        parent = GET_ITEM(parent)->owner;
+    }
+    return NULL;
+}
+
+static bool it_PcOwnedMatches(int p, HSD_GObj* fighter)
+{
+    if (pc_items_owner_pack(p) >= 0 || pc_items_owner_kind(p) >= 0) {
+        Fighter* fp;
+        if (fighter == NULL) {
+            return false;
+        }
+        fp = GET_FIGHTER(fighter);
+        if (pc_items_owner_pack(p) >= 0 &&
+            (int) Player_GetPack(fp->player_idx) - 1 != pc_items_owner_pack(p))
+        {
+            return false;
+        }
+        if (pc_items_owner_kind(p) >= 0 &&
+            (int) fp->kind != pc_items_owner_kind(p))
+        {
+            return false;
+        }
+    }
+    if (pc_items_stage_kind(p) >= 0 &&
+        (int) Stage_80225194() != pc_items_stage_kind(p))
+    {
+        return false;
+    }
+    if (pc_items_stage_pack(p) >= 0 &&
+        (int) gm_GetStartMeleeRules()->pc_stage_pack - 1 !=
+            pc_items_stage_pack(p))
+    {
+        return false;
+    }
+    return true;
+}
+
+/* Each matching pack weighs `frequency` against the base's 1: frequency 1 is
+ * half the spawns, 100 nearly all. No candidate, no roll, so a match
+ * without such packs draws exactly what the game would. */
+u8 it_PcOwnedPack(ItemKind kind, HSD_GObj* parent)
+{
+    s32 weights[IT_PC_MAX_PACKS];
+    s32 total = 100;
+    HSD_GObj* fighter = it_PcSpawnFighter(parent);
+    int p;
+    s32 r;
+    for (p = 0; p < it_PcPackCount(); p++) {
+        weights[p] = 0;
+        if (it_pc_articles[p] == NULL || pc_items_base(p) != (int) kind ||
+            pc_item_base_class(kind) != PC_ITEM_OWNED ||
+            !it_PcOwnedMatches(p, fighter))
+        {
+            continue;
+        }
+        weights[p] = (s32) (pc_items_frequency(p) * 100.0f + 0.5f);
+        total += weights[p];
+    }
+    if (total == 100) {
+        return 0;
+    }
+    r = HSD_Randi(total) - 100;
+    for (p = 0; p < it_PcPackCount(); p++) {
+        if (r < weights[p]) {
+            return r < 0 ? 0 : (u8) (p + 1);
+        }
+        r -= weights[p];
+    }
+    return 0;
+}
+
+void it_PcNoteSpawn(u8 pack)
+{
+    if (pack == 0 || pack > IT_PC_MAX_PACKS ||
+        (it_pc_spawn_logged & (1ULL << (pack - 1))))
+    {
+        return;
+    }
+    it_pc_spawn_logged |= 1ULL << (pack - 1);
+    pc_log_line("mods: item %s spawned (first this match)", pc_items_id(pack - 1));
+}
+
+Article* it_PcPackArticle(u8 pack)
+{
+    if (pack == 0 || pack > IT_PC_MAX_PACKS) {
+        return NULL;
+    }
+    return it_pc_articles[pack - 1];
+}
+
+/* The packs' files load into the scene heap with the rest of the match. */
+static void it_PcLoadPacks(void)
+{
+    static bool reported[IT_PC_MAX_PACKS];
+    int n = pc_items_count();
+    int i;
+    memset(it_pc_articles, 0, sizeof(it_pc_articles));
+    memset(it_pc_spawner_packs, 0xFF, sizeof(it_pc_spawner_packs));
+    memset(it_pc_drop_packs, 0xFF, sizeof(it_pc_drop_packs));
+    it_pc_pick_kind = it_pc_pick_pack = -1;
+    it_pc_spawn_logged = 0;
+    for (i = 0; i < n && i < IT_PC_MAX_PACKS; i++) {
+        HSD_Archive* archive = NULL;
+        lbArchive_80016F80(&archive, pc_items_file(i));
+        if (archive != NULL) {
+            it_pc_articles[i] =
+                HSD_ArchiveGetPublicAddress(archive, pc_items_symbol(i));
+        }
+        if (!reported[i]) {
+            reported[i] = true;
+            if (it_pc_articles[i] == NULL) {
+                pc_log_line("mods: item %s: no symbol \"%s\" in %s; it will not spawn",
+                            pc_items_id(i), pc_items_symbol(i), pc_items_file(i));
+            }
+        }
+    }
+}
+
+/* Rebuilds @p table with an entry for every loaded pack right after its
+ * base's (so a Poke Ball entry stays last, which it_8026C75C relies on). */
+static void it_PcAddPacks(ItemPickTable* table, s8* packs)
+{
+    u8 kinds[256];
+    u16 weights[256];
+    s8 owner[256];
+    int n = 0;
+    int i, p;
+    u32 total = 0;
+    int base_count = table->size;
+    if (base_count == 0 || table->x8 == 0) {
+        return;
+    }
+    for (i = 0; i < base_count && n < 255; i++) {
+        u32 end = i + 1 < base_count ? table->xC[i + 1] : table->x8;
+        u32 w = end - table->xC[i];
+        kinds[n] = table->x4[i];
+        weights[n] = (u16) w;
+        owner[n++] = -1;
+        for (p = 0; p < pc_items_count() && p < IT_PC_MAX_PACKS && n < 255;
+             p++)
+        {
+            u32 pw;
+            if (it_pc_articles[p] == NULL || pc_items_base(p) != table->x4[i]) {
+                continue;
+            }
+            pw = (u32) (w * pc_items_frequency(p) + 0.5f);
+            if (pw == 0) {
+                continue;
+            }
+            kinds[n] = table->x4[i];
+            weights[n] = (u16) pw;
+            owner[n++] = (s8) p;
+        }
+    }
+    if (n == base_count) {
+        return; /* no pack on any of this table's items */
+    }
+    table->x4 = HSD_MemAlloc(n * 4);
+    table->xC = HSD_MemAlloc(n * 4);
+    for (i = 0; i < n; i++) {
+        table->x4[i] = kinds[i];
+        table->xC[i] = (u16) total;
+        packs[i] = owner[i];
+        total += weights[i];
+    }
+    table->size = (u8) n;
+    table->x8 = (u16) (total > 0xFFFF ? 0xFFFF : total);
+}
+#endif
 
 /// @todo .sdata2 order hack
 #ifdef MUST_MATCH
@@ -91,7 +348,15 @@ static int bisectValue(int val, ItemPickTable* table, int lo, int hi)
 ItemKind it_8026C65C(ItemPickTable* table)
 {
     int temp_r6 = table->x8;
+#ifdef TARGET_PC
+    int i = bisectValue(HSD_Randi(temp_r6), table, 0, table->size);
+    s8* packs = it_PcTablePacks(table);
+    it_pc_pick_kind = table->x4[i];
+    it_pc_pick_pack = packs != NULL ? packs[i] : -1;
+    return table->x4[i];
+#else
     return table->x4[bisectValue(HSD_Randi(temp_r6), table, 0, table->size)];
+#endif
 }
 
 bool it_8026C704(void)
@@ -415,10 +680,19 @@ static inline void it_8026D018_inline3(f32 randf, const s32* range)
 
 void it_8026D018(void)
 {
+#ifdef TARGET_PC
+    /* Every match, items on or not: Poke Balls and Training's item menu
+     * spawn packs outside the random draw too. */
+    it_PcLoadPacks();
+#endif
     if (!gm_8016B238() && (gm_8016AE80() != -1)) {
         it_804A0E30.x18 = gm_8016AEA4();
         if (it_8026D018_inline()) {
             it_8026D018_inline2();
+#ifdef TARGET_PC
+            it_PcAddPacks(&it_804A0E30.x4, it_pc_spawner_packs);
+            it_PcAddPacks(&it_804A0E50, it_pc_drop_packs);
+#endif
             it_8026CF04();
             HSD_GObj_SetupProc(GObj_Create(5, 7, 0), fn_8026C88C, 0);
             {

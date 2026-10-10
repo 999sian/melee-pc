@@ -7,6 +7,40 @@
 #include <melee/lb/lb_00B0.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/memory.h>
+#ifdef TARGET_PC
+#include <stdlib.h>
+#include <string.h>
+
+/* "Visited" marks per collision line. The game sized these to its fixed
+ * 1536-line capacity on the stack; melee-pc sizes collision from the stage
+ * file (mplib.c), so the marks grow with it. Scratch only: each call clears
+ * them first, so nothing here needs to be in a rollback snapshot. */
+static u8* mpIsland_PcVisited(size_t* size)
+{
+    static u8* buf;
+    static size_t cap;
+    size_t need = 0x600;
+    MapCollData* map = mpLib_8004D164();
+    if (map != NULL && (size_t) map->line_count > need) {
+        need = (size_t) map->line_count;
+    }
+    if (need > cap) {
+        u8* grown = realloc(buf, need);
+        if (grown != NULL) {
+            buf = grown;
+            cap = need;
+        }
+    }
+    *size = cap;
+    memset(buf, 0, cap);
+    return buf;
+}
+#define MPISLAND_VISITED_DECL u8* visited; size_t visited_size
+#define MPISLAND_VISITED_CLEAR() (visited = mpIsland_PcVisited(&visited_size))
+#else
+#define MPISLAND_VISITED_DECL u8 visited[0x600]
+#define MPISLAND_VISITED_CLEAR() memzero(visited, sizeof(visited))
+#endif
 
 /* 3B73E8 */ mpIsland_Palette const mpIsland_TerrainPalette = { {
     { mp_Terrain_Rock, { 0x80, 0x60, 0x60, 0xFF } },
@@ -66,7 +100,7 @@ void mpIsland_8005A728(void)
     int next;
     int hidden;
     mp_UnkStruct0* prev;
-    u8 visited[0x600];
+    MPISLAND_VISITED_DECL;
     PAD_STACK(0x10);
 
     map = mpLib_8004D164();
@@ -74,7 +108,7 @@ void mpIsland_8005A728(void)
     vtx = mpGetGroundCollVtx();
     mpIsland_8005A6F8();
 
-    memzero(visited, sizeof(visited));
+    MPISLAND_VISITED_CLEAR();
 
     /* Process floor segments */
     prev = NULL;
@@ -431,7 +465,7 @@ void mpIsland_8005B004(mp_UnkStruct0** arg0, mp_UnkStruct0** arg1, int arg2,
     UNUSED u8 _q0[8];
     mp_UnkStruct0* cur;
     float z_val;
-    u8 visited[0x600];
+    MPISLAND_VISITED_DECL;
     mp_UnkStruct0* next;
     mp_UnkStruct0* prev;
     mp_UnkStruct0* mpisp;
@@ -468,7 +502,7 @@ void mpIsland_8005B004(mp_UnkStruct0** arg0, mp_UnkStruct0** arg1, int arg2,
     }
     *arg0 = prev;
 
-    memzero(visited, sizeof(visited));
+    MPISLAND_VISITED_CLEAR();
 
     joints = mpGetGroundCollJoint();
     joints = &joints[arg2];

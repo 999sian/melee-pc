@@ -33,6 +33,19 @@ static inline u32 sis_rd_u32(const void* p)
 static inline s32 sis_rd_s32(const void* p) { return (s32) sis_rd_u32(p); }
 
 
+/* Metrics of built-in glyph @p tex_offset (glyph code - 0x2000). The retail
+ * code computed a *byte* offset of tex_offset * 2 into this 2-byte-per-entry
+ * table; the decomp kept the "* 2" but indexed the struct array with it,
+ * doubling the index, so any glyph past entry 143 read beyond the table and
+ * took garbage widths -- multi-word strings ("C. Falcon", the CSS rules
+ * banner) were drawn out of order. */
+static inline TextGlyphMetrics* sis_default_metrics(s32 tex_offset)
+{
+    static TextGlyphMetrics none = { 1, 1 };
+    u32 i = (u32) tex_offset & 0xFFFF;
+    return i < ARRAY_SIZE(HSD_SisLib_8040CB00) ? &HSD_SisLib_8040CB00[i] : &none;
+}
+
 static inline f32 HSD_SisLib_GlyphWidth(HSD_Text* text, f32 scale_x)
 {
     return 32.0F * text->x80.x * scale_x;
@@ -390,9 +403,7 @@ loop_3:
                 glyph_code = sis_glyph(cursor);
                 if (glyph_code < 0x4000U) {
                     kern_data =
-                        (TextKerning*) (default_kerning +
-                                        (((glyph_code - 0x2000) * 2) &
-                                         0x1FFFE));
+                        (TextKerning*) sis_default_metrics(glyph_code - 0x2000);
                     kern_width = kern_data->left + kern_data->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
@@ -850,7 +861,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                                 scale_x = text->font_size.x;
                                 if ( text->kerning != 0) {
                                     if (glyph_idx < 0x4000U) {
-                                        glyph_x = -((scale_x * (text->x80.x * (f32) (default_kerning[(tex_offset * 2) & 0x1FFFE].left - 1))) - glyph_x);
+                                        glyph_x = -((scale_x * (text->x80.x * (f32) (sis_default_metrics(tex_offset)->left - 1))) - glyph_x);
                                     } else {
                                         glyph_x = -((scale_x * (text->x80.x * (f32) (textures->data[(tex_offset * 2) & 0x1FFFE] - 1))) - glyph_x);
                                     }
@@ -929,7 +940,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                                     if ( text->kerning != 0) {
                                         if (glyph_idx < 0x4000U) {
                                             TextGlyphMetrics* kern_pair =
-                                                &default_kerning[(tex_offset * 2) & 0x1FFFE];
+                                                sis_default_metrics(tex_offset);
                                             tex_offset = (clear_idx = kern_pair->right - 2);
                                             text->current_width = (-((text->x88 * (text->x80.x * (f32) (kern_pair->left + tex_offset))) - text->current_width));
                                         } else {

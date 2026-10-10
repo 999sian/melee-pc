@@ -24,6 +24,7 @@ extern void browser_yield(void);
 #include "pc/pc.h"
 #include "pc/launcher.h"
 #include "pc/touch.h"
+#include "pc/mods/mods.h"
 #include "pc/widescreen.h"
 #include "pc/net.h"
 #include "pc/net_chat.h"
@@ -109,6 +110,7 @@ void pc_frame_boundary(void) {
 #endif
     aurora_heap_check();    /* no-op unless MELEE_HEAP_CHECK is set */
     pc_widescreen_update(); /* Auto mode follows window resizes. */
+    pc_mods_on_frame();
     /* MELEE_LAN_TEST=1|host: the LAN lobby without the menu; "host" starts
      * a match with the first peer found. MELEE_LAN_DIRECT=ip:port: the same
      * with a known peer, no discovery (src/pc/net_lan.c). */

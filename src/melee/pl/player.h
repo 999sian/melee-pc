@@ -148,6 +148,12 @@ typedef struct _StaticPlayer {
 
     /*0xDB0*/ u8 xDB0[0xE90 - 0xDB0];
 
+#ifdef TARGET_PC
+    /// Mod character pack this slot plays as: 0 = none, else pack index + 1
+    /// (asset kind Ft_Kind_PackFirst + index). #ckind stays the base
+    /// character, so records, saves and menus see a disc character.
+    u8 pc_pack;
+#endif
 } StaticPlayer;
 
 StaticPlayer* Player_GetPtrForSlot(int slot);
@@ -168,6 +174,12 @@ bool Player_8003221C(int slot);
 s32 Player_GetPlayerState(s32 slot);
 CharacterKind Player_GetPlayerCharacter(int slot);
 void Player_SetPlayerCharacter(s32 slot, CharacterKind value);
+#ifdef TARGET_PC
+u8 Player_GetPack(s32 slot);
+void Player_SetPack(s32 slot, u8 pack);
+/// The CharacterKind whose main fighter is @p kind, or ChKind_None.
+CharacterKind Player_CharacterForFighter(FighterKind kind);
+#endif
 Gm_PKind Player_GetPlayerSlotType(s32 slot);
 Gm_PKind Player_8003248C(s32 slot, bool arg1);
 void Player_SetSlottype(s32 slot, Gm_PKind value);

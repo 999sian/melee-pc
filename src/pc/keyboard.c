@@ -101,7 +101,29 @@ static int fifo_thread(void* path) {
             SDL_Delay(200);
             continue;
         }
+#ifdef _WIN32
+        for (;;) {
+            if (fgets(line, sizeof line, f) == NULL) {
+                /* tail -f: wait for the next appended line; a deleted or
+                 * truncated file is reopened from the start. */
+                long at = ftell(f);
+                FILE* probe = fopen((const char*)path, "r");
+                long size = -1;
+                if (probe != NULL) {
+                    fseek(probe, 0, SEEK_END);
+                    size = ftell(probe);
+                    fclose(probe);
+                }
+                if (size < 0 || size < at) {
+                    break;
+                }
+                clearerr(f);
+                SDL_Delay(20);
+                continue;
+            }
+#else
         while (fgets(line, sizeof line, f) != NULL) {
+#endif
             SDL_Scancode keys[8];
             int n = 0, hold = 120;
             char* sp = strchr(line, ' ');

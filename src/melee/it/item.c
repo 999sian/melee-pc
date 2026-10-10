@@ -17,6 +17,7 @@
 #include "ithitbox.h"
 #include "itmaplib.h"
 #include "itmaterial.h"
+#include "itspawn.h"
 #include "types.h"
 #include <dolphin/mtx.h>
 #include <melee/cm/camera.h>
@@ -539,21 +540,45 @@ void Item_80267978(HSD_GObj* gobj)
         // Common items
         item_data->xC4_article_data =
             DP(Article, it_804D6D24[item_data->kind].v);
+#ifdef TARGET_PC
+        if (it_PcPackArticle(item_data->pc_item_pack) != NULL) {
+            item_data->xC4_article_data =
+                it_PcPackArticle(item_data->pc_item_pack);
+        }
+#endif
         item_data->xB8_itemLogicTable = &it_803F14C4[item_data->kind];
     } else if (item_data->kind < It_PKind_Start) {
         // Character items
         int idx = item_data->kind - It_Kind_Kuriboh;
         item_data->xC4_article_data = DP(Article, it_804D6D38[idx].v);
+#ifdef TARGET_PC
+        if (it_PcPackArticle(item_data->pc_item_pack) != NULL) {
+            item_data->xC4_article_data =
+                it_PcPackArticle(item_data->pc_item_pack);
+        }
+#endif
         item_data->xB8_itemLogicTable = &it_803F3100[idx];
     } else if (item_data->kind < It_Kind_Old_Kuri) {
         // Pokemon
         int idx = item_data->kind - It_PKind_Start;
         item_data->xC4_article_data = DP(Article, it_804D6D30[idx].v);
+#ifdef TARGET_PC
+        if (it_PcPackArticle(item_data->pc_item_pack) != NULL) {
+            item_data->xC4_article_data =
+                it_PcPackArticle(item_data->pc_item_pack);
+        }
+#endif
         item_data->xB8_itemLogicTable = &it_803F23CC[idx];
     } else {
         // Stage items
         int idx = item_data->kind - It_Kind_Old_Kuri;
         item_data->xC4_article_data = it_804A0F60[idx];
+#ifdef TARGET_PC
+        if (it_PcPackArticle(item_data->pc_item_pack) != NULL) {
+            item_data->xC4_article_data =
+                it_PcPackArticle(item_data->pc_item_pack);
+        }
+#endif
         item_data->xB8_itemLogicTable = &it_803F4D20[idx];
         if (item_data->xC4_article_data == NULL) {
             HSD_ASSERTREPORT(
@@ -574,6 +599,14 @@ static void Item_80267AA8(HSD_GObj* gobj, SpawnItem* spawnItem)
     item_data->x18 = spawnItem->x10;
     item_data->x1C = it_804D6D10++;
     item_data->entity = gobj;
+#ifdef TARGET_PC
+    item_data->pc_item_pack = it_PcTakePack(item_data->kind);
+    if (item_data->pc_item_pack == 0) {
+        item_data->pc_item_pack =
+            it_PcOwnedPack(item_data->kind, spawnItem->x0_parent_gobj);
+    }
+    it_PcNoteSpawn(item_data->pc_item_pack);
+#endif
     Item_80267978(gobj);
     item_data->msid = -1;
     if (item_data->xC4_article_data != NULL) {

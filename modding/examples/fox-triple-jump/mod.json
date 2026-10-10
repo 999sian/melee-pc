@@ -1,0 +1,20 @@
+{
+  // Per-character tunables: absolute values, multipliers and offsets.
+  "id": "example.fox-triple-jump",
+  "name": "Fox: Triple Jump",
+  "version": "1.0.0",
+  "author": "melee-pc examples",
+  "description": "Fox gets a third jump, a bigger first jump and is a little heavier.",
+  "enabled_by_default": false,
+  "priority": 10,
+
+  "tunables": {
+    "fighters": {
+      "Fox": {
+        "max_jumps": 3,
+        "jump_v_initial_velocity": { "mul": 1.15 },
+        "weight": { "add": 10 }
+      }
+    }
+  }
+}

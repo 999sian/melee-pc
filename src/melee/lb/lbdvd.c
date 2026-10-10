@@ -11,6 +11,11 @@
 #include "lbheap.h"
 #include "lbmemory.h" // IWYU pragma: keep
 #include "types.h"
+#ifdef TARGET_PC
+#include <melee/ft/ftdata.h>
+#include "pc/mods/stages.h"
+#include "pc/mods/alias.h"
+#endif
 #include <dolphin/dvd.h>
 #include <melee/db/db.h>
 #include <melee/ef/efasync.h>
@@ -219,12 +224,36 @@ void lbDvd_800178E8(int arg0, const char* name, int arg2, int arg3, int arg4,
     lbDvd_80017740(arg0, entry, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 
+#ifdef TARGET_PC
+/* The preload names the next match's files, so it resolves them with that
+ * match's file aliases (pc/mods/alias.h), as the match itself will. */
+static void lbDvd_PcAliasesFor(const struct GameCache* game_cache)
+{
+    PcAliasPlayer players[8];
+    int n = 0;
+    int i;
+    for (i = 0; i < 8; i++) {
+        if (game_cache->entries[i].char_id != ChKind_None) {
+            players[n].ckind = game_cache->entries[i].char_id;
+            players[n].pack = (int) game_cache->entries[i].pc_pack - 1;
+            n++;
+        }
+    }
+    pc_alias_activate((int) game_cache->pc_stage_pack - 1, players, n);
+}
+#endif
+
 void lbDvd_80017960(void)
 {
     int j;
     struct GameCache* game_cache = &preloadCache.new_scene.game_cache;
     int i;
     u8 _[4];
+#ifdef TARGET_PC
+    PcAliasState pc_saved;
+    pc_alias_save(&pc_saved);
+    lbDvd_PcAliasesFor(game_cache);
+#endif
 
     if (preloadCache.new_scene.game_cache.mode_kind != GM_COUNT) {
         switch (preloadCache.new_scene.game_cache.mode_kind) {
@@ -235,11 +264,29 @@ void lbDvd_80017960(void)
     }
 
     if (game_cache->stkind != 0x148) {
+#ifdef TARGET_PC
+        pc_stages_set_active((int) game_cache->pc_stage_pack - 1);
+#endif
         Stage_802251B4(game_cache->stkind);
+#ifdef TARGET_PC
+        pc_stages_set_active(-1);
+#endif
     }
 
     for (i = 0; i < 8; i++) {
         if (game_cache->entries[i].char_id != ChKind_None) {
+#ifdef TARGET_PC
+            if (game_cache->entries[i].pc_pack != 0 &&
+                game_cache->entries[i].pc_pack <= Ft_Kind_PackMax)
+            {
+                int asset = Ft_Kind_PackFirst + game_cache->entries[i].pc_pack - 1;
+                ftData_800855C8(asset, game_cache->entries[i].color);
+                if (ftData_AssetPartner[asset] >= 0) {
+                    ftData_800855C8(ftData_AssetPartner[asset],
+                                    game_cache->entries[i].color);
+                }
+            } else
+#endif
             Player_80031CB0(game_cache->entries[i].char_id,
                             game_cache->entries[i].color);
         }
@@ -268,6 +315,9 @@ void lbDvd_80017960(void)
             }
         }
     }
+#ifdef TARGET_PC
+    pc_alias_restore(&pc_saved);
+#endif
 }
 
 static void lbDvd_80017A80(u32 unused)
@@ -490,6 +540,16 @@ HSD_Archive* lbDvd_8001819C(const char* basename)
     HSD_Archive* archive;
     char* filename = lbFileGetFullName(basename);
     archive = lbDvd_GetPreloadedArchive(DVDConvertPathToEntrynum(filename));
+#ifdef TARGET_PC
+    if (archive == NULL) {
+        /* A file preloaded before a mod alias for it came on (one kept
+         * resident across scenes) is still there under its own name. */
+        char* raw = lbFileGetFullNameRaw(basename);
+        if (raw != filename) {
+            archive = lbDvd_GetPreloadedArchive(DVDConvertPathToEntrynum(raw));
+        }
+    }
+#endif
     if (DbLevel != DbLKind_Master && preloadCache.preloaded && archive == NULL)
     {
         HSD_ASSERTREPORT(948, 0, "[LbDvd] %s is not PRELOADed.\n", filename);

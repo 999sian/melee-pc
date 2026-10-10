@@ -1,4 +1,7 @@
 #include "ground.h"
+#ifdef TARGET_PC
+#include "pc/mods/stages.h"
+#endif
 
 #include <Runtime/platform.h>
 
@@ -444,7 +447,14 @@ void Ground_801C06B8(GrKind arg0)
         return;
     }
     if (stage_datas[arg0]->data1 != NULL) {
-        lbDvd_800178E8(4, stage_datas[arg0]->data1, 4, 4, 0, 1, 7, 16, 0);
+        char* file = stage_datas[arg0]->data1;
+#ifdef TARGET_PC
+        /* A map pack built on this stage preloads its own file. */
+        if (pc_stages_file_for(arg0) != NULL) {
+            file = (char*) pc_stages_file_for(arg0);
+        }
+#endif
+        lbDvd_800178E8(4, file, 4, 4, 0, 1, 7, 16, 0);
     }
     switch (arg0) {
     case Gr_Kind_Izumi:
@@ -466,6 +476,12 @@ void Ground_801C0754(StageIdPair* pair)
     stage_info.grkind = pair->grkind;
     stage = stage_datas[pair->grkind];
     arg3 = (pair->stkind == St_Kind_Heal) ? 0 : 1;
+#ifdef TARGET_PC
+    if (pc_stages_file_for(pair->grkind) != NULL) {
+        /* A map pack: same stage code, its own file. */
+        grDatFiles_801C6038((char*) pc_stages_file_for(pair->grkind), 0, arg3);
+    } else
+#endif
     grDatFiles_801C6038(stage->data1, 0, arg3);
     Ground_801C28CC(stage_info.xA0, pair->stkind);
     stage_info.on_touch_line = stage->on_touch_line;

@@ -7,6 +7,9 @@
 #include "lbdvd.h"
 #include "lbheap.h"
 #include "lblanguage.h"
+#ifdef TARGET_PC
+#include "pc/mods/alias.h"
+#endif
 #include <dolphin/dvd.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/devcom.h>
@@ -63,7 +66,11 @@ const int FILE_EXTENSION_LENGTH = 4; // ".usd" or ".dat"
 const int MAX_BASENAME_LENGTH = MAX_FILENAME_LENGTH - FILE_EXTENSION_LENGTH;
 
 /// append file extension (if needed)
+#ifdef TARGET_PC
+char* lbFileGetFullNameRaw(const char* basename)
+#else
 char* lbFileGetFullName(const char* basename)
+#endif
 {
     static char result[MAX_FILENAME_LENGTH];
     const char* cur = basename;
@@ -98,6 +105,15 @@ char* lbFileGetFullName(const char* basename)
     }
     return result;
 }
+
+#ifdef TARGET_PC
+/* Every load, the file cache and the preload cache name files through here,
+ * so a mod pack's file alias holds for all of them alike. */
+char* lbFileGetFullName(const char* basename)
+{
+    return (char*) pc_file_alias(lbFileGetFullNameRaw(basename));
+}
+#endif
 
 size_t lbFile_8001634C(int fileno)
 {

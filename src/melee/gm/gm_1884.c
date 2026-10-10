@@ -34,6 +34,9 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
+#ifdef TARGET_PC
+#include "pc/mods/items.h"
+#endif
 
 /// @todo .sdata2 order hack
 static inline void gm_1884_sdata2_order(void)
@@ -100,6 +103,61 @@ static inline TrainingItemEntry* TrainingItemTable_Get(void)
 {
     return (TrainingItemEntry*) gmTraining_ItemTable;
 }
+
+/* Last entry of the disc's item menu; menu values past it are mod item
+ * packs. */
+#define GM_TRAINING_LAST_ITEM 0x1D
+
+#ifdef TARGET_PC
+/* Mod item packs (pc/mods/items.h) on common items that loaded for this
+ * match, listed after the disc's items. Pokemon packs come out of Poke
+ * Balls, so they are not listed. */
+static HSD_Text* gm_PcTrainingPackText;
+
+static int gm_PcTrainingPack(int k)
+{
+    int p;
+    for (p = 0; p < it_PcPackCount(); p++) {
+        if (pc_item_base_class(pc_items_base(p)) == PC_ITEM_COMMON &&
+            it_PcPackArticle((u8) (p + 1)) != NULL)
+        {
+            if (k-- == 0) {
+                return p;
+            }
+        }
+    }
+    return -1;
+}
+
+static int gm_PcTrainingItemMax(void)
+{
+    int n = 0;
+    while (gm_PcTrainingPack(n) >= 0) {
+        n++;
+    }
+    return GM_TRAINING_LAST_ITEM + n;
+}
+
+/* Shows the pack's name in place of the disc's item text, or hands the
+ * line back to it; true when a pack is selected. */
+static bool gm_PcTrainingShowPack(HSD_Text* text, u32 value)
+{
+    int pack = value > GM_TRAINING_LAST_ITEM
+                   ? gm_PcTrainingPack(value - GM_TRAINING_LAST_ITEM - 1)
+                   : -1;
+    if (gm_PcTrainingPackText != NULL) {
+        gm_PcTrainingPackText->hidden = pack < 0;
+        if (pack >= 0) {
+            HSD_SisLib_803A70A0(gm_PcTrainingPackText, 0,
+                                (char*) pc_items_sjis_name(pack));
+        }
+    }
+    text->hidden = pack >= 0;
+    return pack >= 0;
+}
+#else
+#define gm_PcTrainingItemMax() GM_TRAINING_LAST_ITEM
+#endif
 
 /* 473700 */ static TrainingModeState lbl_80473700;
 /* 473814 */ CssSubStruct gm_80473814;
@@ -453,6 +511,13 @@ void fn_80188EE8(HSD_GObj* gobj)
         (12.0f * (9.798828f + HSD_JObjGetTranslationX(jobj = sub->jobjs[1]))) +
         50.0f;
     sub->text->pos_y = 150.0f;
+#ifdef TARGET_PC
+    if (gm_PcTrainingPackText != NULL) {
+        /* follows the sliding panel like the disc's item text */
+        gm_PcTrainingPackText->pos_x = sub->text->pos_x;
+        gm_PcTrainingPackText->pos_y = sub->text->pos_y;
+    }
+#endif
 
     fn_80188738(sub->jobjs[9]);
     fn_80188910(sub->jobjs[5]);
@@ -477,6 +542,11 @@ void fn_80188EE8(HSD_GObj* gobj)
 
     val = gm_80473814.menu_values[1];
     text = gm_80473814.text;
+#ifdef TARGET_PC
+    if (gm_PcTrainingShowPack(text, val)) {
+        /* the pack's name is on its own text */
+    } else
+#endif
     if (lbLang_IsSettingUS() != 0 && val == 0x13) {
         HSD_SisLib_803A6368(text, 0x17);
     } else {
@@ -602,11 +672,13 @@ void fn_801891F4(void)
                 if ((u32) sub->menu_values[sub->x00] != 0) {
                     sub->menu_values[sub->x00]--;
                 } else {
-                    sub->menu_values[sub->x00] = 0x1D;
+                    sub->menu_values[sub->x00] = gm_PcTrainingItemMax();
                 }
             } else if (buttons & PAD_ANY_RIGHT) {
                 sfxMove();
-                if ((u32) sub->menu_values[sub->x00] < 0x1D) {
+                if ((u32) sub->menu_values[sub->x00] <
+                    (u32) gm_PcTrainingItemMax())
+                {
                     sub->menu_values[sub->x00]++;
                 } else {
                     sub->menu_values[sub->x00] = 0;
@@ -616,6 +688,22 @@ void fn_801891F4(void)
                 s16 item;
                 HSD_JObj* jobj;
                 lbAudioAx_80024030(8);
+#ifdef TARGET_PC
+                if (gm_80473814.menu_values[1] > GM_TRAINING_LAST_ITEM) {
+                    int pack = gm_PcTrainingPack(gm_80473814.menu_values[1] -
+                                                 GM_TRAINING_LAST_ITEM - 1);
+                    if (pack < 0) {
+                        return;
+                    }
+                    item = (s16) pc_items_base(pack);
+                    jobj = Player_GetEntity(0)->hsd_obj;
+                    HSD_JObjGetTranslation2(jobj, &pos);
+                    pos.y += 10.0f;
+                    it_PcSetPick((ItemKind) item, (u8) (pack + 1));
+                    it_8026D258(&pos, (ItemKind) item);
+                    return;
+                }
+#endif
                 item =
                     gmTraining_ItemTable[gm_80473814.menu_values[1]].item_id;
                 jobj = Player_GetEntity(0)->hsd_obj;
@@ -932,5 +1020,27 @@ HSD_Text* fn_8018A000(void)
     resetText(*text_ptr);
     text = *text_ptr;
     (*text_ptr)->default_alignment = 2;
+#ifdef TARGET_PC
+    /* Same place and style, for mod item pack names (gm_PcTrainingShowPack). */
+    /* 803A6754 sets up the line buffer 803A6B98/803A70A0 write into; the
+     * disc text above is a SIS entry, which has none. */
+    gm_PcTrainingPackText = HSD_SisLib_803A6754(0, 0);
+    if (gm_PcTrainingPackText != NULL) {
+        gm_PcTrainingPackText->pos_x = text->pos_x;
+        gm_PcTrainingPackText->pos_y = text->pos_y;
+        gm_PcTrainingPackText->pos_z = text->pos_z;
+        gm_PcTrainingPackText->box_size_x = text->box_size_x;
+        gm_PcTrainingPackText->box_size_y = text->box_size_y;
+        gm_PcTrainingPackText->default_fitting = 1;
+        gm_PcTrainingPackText->default_kerning = 1;
+        resetText(gm_PcTrainingPackText);
+        gm_PcTrainingPackText->default_alignment = 2;
+        /* Right-aligned (alignment 2) to the line's own x, so the line sits
+         * at the box's right edge, where the disc's item names end. */
+        HSD_SisLib_803A6B98(gm_PcTrainingPackText,
+                            gm_PcTrainingPackText->box_size_x, -14.0f, " ");
+        gm_PcTrainingPackText->hidden = true;
+    }
+#endif
     return text;
 }

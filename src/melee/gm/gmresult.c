@@ -1,4 +1,9 @@
 #include "gmresult.h"
+#ifdef TARGET_PC
+#include "pc/mods/hud_art.h"
+#include "pc/mods/roster.h"
+#include "pc/music_stream.h"
+#endif
 
 #include "types.h"
 #include <melee/lb/lb_013B.h>
@@ -1640,8 +1645,23 @@ void fn_80176F60(void)
     GObj_SetupGXLink(temp_r29, fn_80175038, 0xB, 0);
     lb_8000C0E8(jobj, 0, temp_r27);
     HSD_JObjReqAnimAll(jobj, 0.0F);
+#ifdef TARGET_PC
+    /* The winner's 3D series emblem behind the results: a pack picks the
+     * series it shows ("series" in mod.json; a model, so no image swap). */
+    {
+        int pack = (int) temp_r30->player_standings[data->x6].pc_pack - 1;
+        u8 emblem_ck = temp_r30->player_standings[data->x6].ckind;
+        if (pack >= 0 && pc_roster_series(pack) >= 0) {
+            emblem_ck = (u8) Player_CharacterForFighter(
+                (FighterKind) pc_roster_series(pack));
+        }
+        data->x20 = fn_80176BF0(jobj, emblem_ck,
+                                gm_WasMatchCanceled(temp_r30->outcome));
+    }
+#else
     data->x20 = fn_80176BF0(jobj, temp_r30->player_standings[data->x6].ckind,
                             gm_WasMatchCanceled(temp_r30->outcome));
+#endif
     aobj = data->x20->u.dobj->mobj->aobj;
     tmp = gm_80160854(data->x6, Player_GetTeam(data->x6),
                       temp_r30->is_teams == 1,
@@ -1821,8 +1841,20 @@ void gm_Scene_Results_OnEnter(void* arg0_)
     fn_8017AA78(&arg0->x1);
     fn_8017A004();
     if (!gm_WasMatchCanceled(match_end->outcome)) {
+#ifdef TARGET_PC
+        {
+            /* A pack winner's own victory theme replaces its base's. */
+            int pack = (int) match_end->player_standings[data->x6].pc_pack - 1;
+            const char* theme =
+                pack >= 0 ? pc_roster_victory_theme_path(pack) : NULL;
+            pc_music_stream_override_next(theme);
+        }
+#endif
         lbAudioAx_80023F28(
             fn_80160400(match_end->player_standings[data->x6].ckind));
+#ifdef TARGET_PC
+        pc_music_stream_override_next(NULL);
+#endif
     }
 
     me_iter = match_end;

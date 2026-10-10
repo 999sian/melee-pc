@@ -249,6 +249,9 @@ struct PreloadCacheSceneEntry {
     int char_id;
     u8 color;
     u8 x5;
+#ifdef TARGET_PC
+    u8 pc_pack; ///< as PlayerInitData::pc_pack
+#endif
 };
 
 struct PreloadEntry {
@@ -275,6 +278,9 @@ struct GameCache {
     u8 x3;
     StKind stkind;
     PreloadCacheSceneEntry entries[8];
+#ifdef TARGET_PC
+    u8 pc_stage_pack; ///< as StartMeleeRules::pc_stage_pack
+#endif
 };
 
 struct PreloadedGameModeState {

@@ -76,6 +76,14 @@ only; none of them fixes anything. User-facing knobs (`MELEE_BACKEND`,
 | `MELEE_ZTEX_BIAS=<n>` | Z-texture bias for the sobj tile pass (0 = retail; separates an empty Z capture from a missing draw). |
 | `MELEE_CAM_BONE=1` | Report camera-bone inputs where the value is produced, so the first bad frame is logged. |
 | `MELEE_INSTANT_WIN=1` | End a VS match after 60 frames (test fixture). |
+| `MELEE_BOOT_SCENE=css` | Boot straight into VS mode's character select (alongside the existing `vs`, `classic`, `training`, ... values). |
+| `MELEE_DEBUG_VS_ITEMS=<freq>[:<item>]` | With `MELEE_BOOT_SCENE=vs`: items at frequency `<freq>` (0 very low .. 4 very high), optionally only the item `<item>`: an item pack's base by name (`4:Beam Sword`) or an ItemKind number (`4:0x22` for Poke Balls only, to watch Pokemon packs). The log prints `item pack N spawned` for each pack item. |
+| `MELEE_DEBUG_VS_STAGE_PACK=<n>` | With `MELEE_BOOT_SCENE=vs`: play mod map pack `<n>` (the `-> map pack N` number in the log). |
+| `MELEE_DEBUG_VS_PACK=<port>:<pack>[,...]` | With `MELEE_BOOT_SCENE=vs`: put mod character pack `<pack>` (the `-> pack N` number in the log) on `<port>` (1-4). |
+| `MELEE_KEY_FIFO=<path>` | Scripted keyboard input: each line is `Key[+Key...] <hold ms>` (SDL key names). On Windows the file is followed like `tail -f`, so append one line per press. |
+| `MELEE_LAUNCHER_TAB=mods` | Open the launcher on Settings → Mods. |
+| `MELEE_USER_DIR=<dir>` | Keep the memory card and per-machine settings there instead of the user preference folder (two instances on one machine must not share a card). Mods and launcher settings still come from the preference folder. |
+| `MELEE_WINDOW_POS=<x>,<y>` | Open the window at a position, e.g. off-screen for unattended runs. Pair with `SDL_WINDOW_ACTIVATE_WHEN_SHOWN=0` (no focus steal) and `SDL_AUDIO_DRIVER=dummy` (silent). |
 | `MELEE_CLASSIC_STAGE_OVERRIDE=<1-11>`, `MELEE_CLASSIC_TEAM=kirby\|jiggly` | Force a Classic stage / team fight (test fixture). |
 | `AURORA_LOG_UNTEX=1` | Report draws that bind no texture. |
 | `AURORA_SKIP_UNTEX=1` | Drop every untextured draw. |

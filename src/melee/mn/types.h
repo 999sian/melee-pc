@@ -131,6 +131,11 @@ struct PlayerInitData {
     float attack_ratio;
     float defense_ratio;
     float model_scale;
+#ifdef TARGET_PC
+    /// Mod character pack (0 = none, else pack index + 1). Zero-initialised
+    /// start data therefore stays vanilla. Copied to StaticPlayer::pc_pack.
+    u8 pc_pack;
+#endif
 };
 
 struct lbl_8046B668_t {
@@ -254,6 +259,11 @@ struct StartMeleeRules {
     }* x54;
     struct lbl_8046B668_t* x58;
     u8 pad_x5C[0x60 - 0x5C];
+#ifdef TARGET_PC
+    /// Mod map pack the match is played on (0 = none, else index + 1); the
+    /// stage is #stkind, the pack's base. Zero-initialised rules stay vanilla.
+    u8 pc_stage_pack;
+#endif
 };
 
 struct StartMeleeData {

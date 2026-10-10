@@ -2,8 +2,10 @@
 
 ## Unit tests
 
-Launcher settings, version parsing, endian helpers, THP decoding and the updater
-have unit tests. On Linux the suite also covers netplay recovery, handshakes,
+Launcher settings, version parsing, endian helpers, THP decoding, the updater and
+the mod loader's standalone pieces (`mods_test`: mod.json parsing, per-pack file
+aliases, item and map pack registries and names, PNG-to-GX conversion, the
+menu text encoder) have unit tests. On Linux the suite also covers netplay recovery, handshakes,
 LAN start fencing, reliable messages, controller remapping and adapter snapshot
 publication. The same suite runs in CI:
 

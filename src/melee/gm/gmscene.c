@@ -3,6 +3,7 @@
 #include "pc/net.h"
 #include "pc/pc.h"
 #include "pc/slp.h"
+#include "pc/mods/mods.h"
 #include "pc/widescreen.h"
 #endif
 
@@ -200,6 +201,7 @@ void gm_801A4B88(struct GameSceneInfo* info)
      * cutscenes keep the original aspect. */
     pc_widescreen_set_scene(info && (info->scene_kind == GS_VS ||
         info->scene_kind == GS_SUDDEN_DEATH || info->scene_kind == GS_TRAINING));
+    pc_mods_on_scene(info ? info->scene_kind : -1);
 #endif
 }
 
