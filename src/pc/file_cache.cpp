@@ -176,6 +176,41 @@ std::string resolve_loose_path(const char* filename) {
     return dir + "/" + rel;
 }
 
+// Host allocations can be below 16 MB on Windows; only game pointers may denote ARAM.
+void cache_host_data(const char* filename, const void* data, size_t size, bool from_aram = false) {
+    if (filename == nullptr || data == nullptr || size == 0) {
+        return;
+    }
+
+    const auto* host_src = static_cast<const uint8_t*>(data);
+
+    std::string key = normalize_key(filename);
+
+    std::lock_guard<std::mutex> lock(s_cacheMutex);
+    if (s_fileCache.find(key) != s_fileCache.end()) {
+        return;
+    }
+
+    bool pinned = is_pinned_file(key);
+    if (!pinned) {
+        evict_lru_locked(size);
+    }
+
+    auto& entry = s_fileCache[key];
+    entry.data.assign(host_src, host_src + size);
+    entry.pinned = pinned;
+
+    if (!pinned) {
+        s_lruList.push_front(key);
+        entry.lru_it = s_lruList.begin();
+    }
+    s_totalCacheBytes += size;
+
+    OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)%s\n", key.c_str(), size,
+        pinned ? ", pinned" : "", s_totalCacheBytes / (1024.0 * 1024.0),
+        from_aram ? " [from ARAM]" : "");
+}
+
 bool preload_single_file(const char* name, int entryNum) {
     std::string key = normalize_key(name);
 
@@ -195,7 +230,7 @@ bool preload_single_file(const char* name, int entryNum) {
             if (in.is_open()) {
                 std::vector<uint8_t> buf(st.st_size);
                 in.read(reinterpret_cast<char*>(buf.data()), st.st_size);
-                pc_file_cache_put(key.c_str(), buf.data(), buf.size());
+                cache_host_data(key.c_str(), buf.data(), buf.size());
                 return true;
             }
         }
@@ -224,7 +259,7 @@ bool preload_single_file(const char* name, int entryNum) {
                 (reinterpret_cast<uintptr_t>(raw_mem) + 31) & ~uintptr_t(31));
             s32 bytesRead = DVDReadPrio(&fi, raw_buf, static_cast<s32>(aligned_sz), 0, 1);
             if (bytesRead >= 0) {
-                pc_file_cache_put(key.c_str(), raw_buf, file_len);
+                cache_host_data(key.c_str(), raw_buf, file_len);
                 success = true;
             }
             free(raw_mem);
@@ -325,7 +360,7 @@ bool pc_file_cache_get(const char* filename, void* dst, size_t* size) {
                 in.read(reinterpret_cast<char*>(buf.data()), st.st_size);
                 *size = buf.size();
                 std::memcpy(host_dst, buf.data(), buf.size());
-                pc_file_cache_put(key.c_str(), buf.data(), buf.size());
+                cache_host_data(key.c_str(), buf.data(), buf.size());
                 OSReport("[FileCache] LOOSE HIT: %s from %s (%zu bytes, 0ms)%s\n", key.c_str(),
                     loose_path.c_str(), buf.size(), PC_IS_ARAM_ADDR(dst) ? " [ARAM]" : "");
                 return true;
@@ -365,40 +400,7 @@ bool pc_file_cache_get_size(const char* filename, size_t* size) {
 }
 
 void pc_file_cache_put(const char* filename, const void* data, size_t size) {
-    if (filename == nullptr || data == nullptr || size == 0) {
-        return;
-    }
-
-    const uint8_t* host_src = resolve_host_src(data, size);
-    if (host_src == nullptr) {
-        return;
-    }
-
-    std::string key = normalize_key(filename);
-
-    std::lock_guard<std::mutex> lock(s_cacheMutex);
-    if (s_fileCache.find(key) != s_fileCache.end()) {
-        return;
-    }
-
-    bool pinned = is_pinned_file(key);
-    if (!pinned) {
-        evict_lru_locked(size);
-    }
-
-    auto& entry = s_fileCache[key];
-    entry.data.assign(host_src, host_src + size);
-    entry.pinned = pinned;
-
-    if (!pinned) {
-        s_lruList.push_front(key);
-        entry.lru_it = s_lruList.begin();
-    }
-    s_totalCacheBytes += size;
-
-    OSReport("[FileCache] STORED: %s (%zu bytes%s, total: %.2f MB)%s\n", key.c_str(), size,
-        pinned ? ", pinned" : "", s_totalCacheBytes / (1024.0 * 1024.0),
-        PC_IS_ARAM_ADDR(data) ? " [from ARAM]" : "");
+    cache_host_data(filename, resolve_host_src(data, size), size, PC_IS_ARAM_ADDR(data));
 }
 
 bool pc_file_cache_require(const char* filename) {
