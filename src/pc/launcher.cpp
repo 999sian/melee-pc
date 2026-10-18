@@ -156,6 +156,9 @@ int index_of(const char* const (&ids)[N], const Rml::String& id) {
 std::string resolution_name(float scale) {
     return scale == 0 ? std::string("Auto") : std::to_string(int(scale)) + "x";
 }
+const char* dsu_label() {
+    return pc_dsu_env_override() ? "Environment override" : prefs.dsu ? "On" : "Off";
+}
 
 std::string identity(const std::string& path) {
     if (path.rfind("content://", 0) == 0)
@@ -309,6 +312,8 @@ class Launcher final : public Rml::EventListener {
             return {"volume", "music-volume", "sfx-volume", "mute", "reverb"};
         case 2:
             return {"unlock-all", "frozen-stadium", "free-camera", "ucf"};
+        case 3:
+            return {"dsu"};
         case 4:
             return {"net-name", "net-target", "net-delay"};
         case 5:
@@ -569,6 +574,7 @@ class Launcher final : public Rml::EventListener {
         text("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         text("free-camera", prefs.free_camera ? "Free" : "Normal");
         text("ucf", std::getenv("MELEE_UCF") ? "Environment override" : prefs.ucf ? "On" : "Off");
+        text("dsu", dsu_label());
         text("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         text("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -801,6 +807,12 @@ class Launcher final : public Rml::EventListener {
             save();
             refresh_settings();
             element("ucf")->Focus();
+        } else if (id == "dsu") {
+            prefs.dsu = !prefs.dsu;
+            pc_dsu_set_enabled(prefs.dsu);
+            save();
+            refresh_settings();
+            element("dsu")->Focus();
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
             save();
@@ -1247,6 +1259,7 @@ public:
 extern "C" void pc_launcher_configure(AuroraConfig* config) {
     config_path = std::filesystem::path(config->userPath ? config->userPath : ".") / "launcher.cfg";
     prefs = launcher::load_preferences(config_path);
+    pc_dsu_set_enabled(prefs.dsu);
     pc_net_set_input_delay(prefs.net_delay);
     if (prefs.install_id == 0) {
         prefs.install_id = std::random_device{}() | uint64_t(std::random_device{}()) << 32 | 1;
@@ -1454,7 +1467,7 @@ public:
         case 4:
             return {"net-name", "net-target", "net-delay"};
         default: {
-            std::vector<std::string> ids{"pad-port"};
+            std::vector<std::string> ids{"dsu", "pad-port"};
             for (int i = 0; i < PAD_BUTTON_COUNT; ++i)
                 ids.push_back("bind-" + std::to_string(i));
             for (int i = 0; i < PAD_AXIS_COUNT; ++i)
@@ -1624,6 +1637,7 @@ public:
         label("frozen-stadium", prefs.frozen_stadium ? "Hazardless" : "Normal");
         label("free-camera", prefs.free_camera ? "Free" : "Normal");
         label("ucf", std::getenv("MELEE_UCF") ? "Environment override" : prefs.ucf ? "On" : "Off");
+        label("dsu", dsu_label());
         label("unlock-all", prefs.unlock_all ? "Unlocked" : "Normal");
         label("backend", backend_name(prefs.backend));
         slider("volume", prefs.volume * 100.0f);
@@ -1829,6 +1843,9 @@ public:
             prefs.free_camera = !prefs.free_camera;
         } else if (id == "ucf") {
             prefs.ucf = !prefs.ucf;
+        } else if (id == "dsu") {
+            prefs.dsu = !prefs.dsu;
+            pc_dsu_set_enabled(prefs.dsu);
         } else if (id == "unlock-all") {
             prefs.unlock_all = !prefs.unlock_all;
         } else if (id == "backend") {

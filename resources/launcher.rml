@@ -100,6 +100,7 @@
             <h3>Controller</h3>
             <p>Remap a gamepad from the in-game menu: press BACK on the pad, or F1, then open Controls. Controllers are only detected once the game is running.</p>
           </div>
+          <div class="row" data-desc="Read controllers from a DSU / Cemuhook server such as NSO GC Driver on 127.0.0.1:26760-26764. Server slot N plays as port N. On by default. Once a server answers, the driver's own virtual gamepad is ignored so the controller is not read twice; restart the game if the driver was started after it. MELEE_DSU overrides."><span class="name">DSU client</span><button id="dsu" class="value">Off</button></div>
         </div>
         <div id="page-online" class="page">
           <div class="row" data-desc="1-8 letters or digits. Changes apply to the next search."><span class="name">Player name</span><input type="text" id="net-name" maxlength="8" value="PLAYER" /></div>

@@ -192,6 +192,7 @@ set(PC_SOURCES
         src/pc/audio.c
         src/pc/disc_open.c
         src/pc/discfont.c
+        src/pc/dsu.c
         src/pc/gcadapter.c
         src/pc/gx.c
         src/pc/input_poll.c

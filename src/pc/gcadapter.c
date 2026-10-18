@@ -381,7 +381,8 @@ void pc_gcadapter_poll(void) {
 }
 
 /* Called at the main-thread input boundary before PADRead. Port 1 is merged
- * with keyboard/touch by keyboard.c; this function owns ports 2 through 4. */
+ * with keyboard/touch by keyboard.c; this function owns ports 2 through 4,
+ * where a DSU controller (dsu.c) stands in for an empty adapter slot. */
 void pc_gcadapter_apply(void) {
     PADStatus status[GC_SLOTS];
     bool present[GC_SLOTS];
@@ -393,8 +394,11 @@ void pc_gcadapter_apply(void) {
         atomic_store_explicit(
             &s_motor_request[i], HSD_Rumble_804C22E0[i].last_status, memory_order_relaxed);
         if (i != 0) {
+            PADStatus dsu;
             if (present[i]) {
                 PADSetVirtualStatus((u32)i, &status[i]);
+            } else if (pc_dsu_status(i, &dsu)) {
+                PADSetVirtualStatus((u32)i, &dsu);
             } else {
                 PADClearVirtualStatus((u32)i);
             }

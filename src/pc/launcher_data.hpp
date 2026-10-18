@@ -42,6 +42,7 @@ struct Preferences {
     bool frozen_stadium = false;
     bool free_camera = false;
     bool ucf = false;
+    bool dsu = true;  // DSU (Cemuhook UDP) client, src/pc/dsu.c
     float music_volume = 1.0f;
     float sfx_volume = 1.0f;
     uint64_t install_id = 0;  // random once per install (LAN host election); 0 = not yet

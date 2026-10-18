@@ -209,6 +209,22 @@ static void trace_locked(const PADStatus* st) {
         fifo_held ? 1 : 0);
 }
 
+static void merge_pad(PADStatus* st, const PADStatus* in) {
+    st->button |= in->button;
+    if (i8abs(in->stickX) > i8abs(st->stickX))
+        st->stickX = in->stickX;
+    if (i8abs(in->stickY) > i8abs(st->stickY))
+        st->stickY = in->stickY;
+    if (i8abs(in->substickX) > i8abs(st->substickX))
+        st->substickX = in->substickX;
+    if (i8abs(in->substickY) > i8abs(st->substickY))
+        st->substickY = in->substickY;
+    if (in->triggerLeft > st->triggerLeft)
+        st->triggerLeft = in->triggerLeft;
+    if (in->triggerRight > st->triggerRight)
+        st->triggerRight = in->triggerRight;
+}
+
 /* Merge the three sources - polled SDL keyboard state (focus-gated), fifo keys
  * and the latch - into port 0's virtual pad. Call with s_key_mutex held. */
 static void publish_locked(void) {
@@ -291,25 +307,18 @@ static void publish_locked(void) {
         any_active = true;
     }
 
-    /* Port 1 carries a real GC-adapter controller too (gcadapter.c leaves this
-     * slot to us). Keyboard/touch layer on top: dominant stick, OR buttons,
-     * max triggers -- the same merge aurora does for virtual pads. Clear once
-     * when every source goes quiet so a released button does not stick. */
-    PADStatus gc_st;
-    if (pc_gcadapter_status(0, &gc_st)) {
-        st.button |= gc_st.button;
-        if (i8abs(gc_st.stickX) > i8abs(st.stickX))
-            st.stickX = gc_st.stickX;
-        if (i8abs(gc_st.stickY) > i8abs(st.stickY))
-            st.stickY = gc_st.stickY;
-        if (i8abs(gc_st.substickX) > i8abs(st.substickX))
-            st.substickX = gc_st.substickX;
-        if (i8abs(gc_st.substickY) > i8abs(st.substickY))
-            st.substickY = gc_st.substickY;
-        if (gc_st.triggerLeft > st.triggerLeft)
-            st.triggerLeft = gc_st.triggerLeft;
-        if (gc_st.triggerRight > st.triggerRight)
-            st.triggerRight = gc_st.triggerRight;
+    /* Port 1 carries a real GC-adapter controller and a DSU controller too
+     * (gcadapter.c and dsu.c leave this slot to us). Keyboard/touch layer on
+     * top: dominant stick, OR buttons, max triggers -- the same merge aurora
+     * does for virtual pads. Clear once when every source goes quiet so a
+     * released button does not stick. */
+    PADStatus pad_st;
+    if (pc_gcadapter_status(0, &pad_st)) {
+        merge_pad(&st, &pad_st);
+        any_active = true;
+    }
+    if (pc_dsu_status(0, &pad_st)) {
+        merge_pad(&st, &pad_st);
         any_active = true;
     }
 
@@ -339,6 +348,7 @@ static void publish_locked(void) {
  * shorter than a frame survives to exactly one read and no further. */
 void pc_keyboard_apply(void) {
     pc_gcadapter_apply();
+    pc_dsu_apply();
     const bool focused = SDL_GetKeyboardFocus() != NULL;
     lock_keys();
     if (atomic_exchange_explicit(&s_focused, focused, memory_order_relaxed) && !focused) {
