@@ -197,6 +197,11 @@
             </div>
           </div>
           <div id="page-controls" class="page">
+            <div class="row" data-desc="Read controllers from a DSU / Cemuhook server such as NSO GC Driver. Server slot N plays as port N. On by default. Once a server answers, the driver's own virtual gamepad is ignored so the controller is not read twice; restart the game if the driver was started after it.">
+              <span class="name">DSU client<span class="detail">Read controllers from a DSU / Cemuhook server such as NSO GC Driver. Server slot N plays as port N. On by default. Once a server answers, the driver's own virtual gamepad is ignored so the controller is not read twice; restart the game if the driver was started after it.</span>
+              </span>
+              <button id="dsu" class="value">Off</button>
+            </div>
             <div class="row" data-desc="No controller connected.">
               <span class="name">Controller<span id="pad-name" class="detail">No controller connected.</span>
               </span>

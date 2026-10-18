@@ -52,6 +52,19 @@ bool pc_gcadapter_status(int port, struct PADStatus* out);
 bool pc_gcadapter_raw(int port, uint8_t raw[6], bool* wireless);
 uint64_t pc_gcadapter_report_count(void);
 
+/* DSU (Cemuhook UDP) client, e.g. NSO GC Driver on macOS (src/pc/dsu.c).
+ * set_enabled comes from the launcher preference (MELEE_DSU overrides);
+ * init runs before SDL_Init and asks whether a server is there, which
+ * decides whether NSO GC Driver's own gamepads are hidden from SDL; poll
+ * runs on the 1000 Hz thread; status hands
+ * DSU slot N to PAD port N, after a GC-adapter controller on that port. */
+void pc_dsu_set_enabled(bool on);
+bool pc_dsu_env_override(void);
+void pc_dsu_init(void);
+void pc_dsu_poll(void);
+void pc_dsu_apply(void); /* main-thread rumble request handoff */
+bool pc_dsu_status(int port, struct PADStatus* out);
+
 /* Input latency meter (src/pc/input_poll.c): the 1000 Hz thread stamps each
  * sample; pc_frame_boundary records how old the sample the sim is about to
  * consume is. Stats cover the last 600 frames; any out-param may be NULL. */

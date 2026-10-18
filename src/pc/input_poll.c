@@ -41,6 +41,7 @@ static int SDLCALL input_poll_worker(void* data) {
          * are thread-safe (SDL_joystick.h). Returns early before SDL_Init. */
         SDL_UpdateGamepads();
         pc_gcadapter_poll();
+        pc_dsu_poll();
         /* No pc_keyboard_apply() here on purpose. SDL's keyboard array only
          * changes when the main thread pumps events, and the frame boundary
          * that pumps them is where pc_keyboard_apply now runs, so polling it

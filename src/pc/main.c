@@ -568,6 +568,10 @@ MELEE_EXPORT int main(int argc, char* argv[]) {
      * hidapi hint so SDL's rescaling driver leaves it for our raw path. */
     pc_gcadapter_init();
     pc_launcher_configure(&config);
+    /* After the launcher has read the DSU preference, still before SDL_Init:
+     * if a DSU server answers, NSO GC Driver's own gamepads are hidden from
+     * SDL so the controller is not read twice. */
+    pc_dsu_init();
 
     const AuroraInfo info = aurora_initialize(argc, argv, &config);
 
