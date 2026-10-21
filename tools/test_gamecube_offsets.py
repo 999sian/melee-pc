@@ -12,7 +12,8 @@ entries = json.loads((build_dir(root) / "compile_commands.json").read_text())
 with tempfile.TemporaryDirectory(prefix="melee-offsets-test-") as directory:
     for case, source in (("records", "gm/gm_181A.c"),
                          ("scope", "ft/kinds/ftCommon/ftCo_ItemScopeStart.c"),
-                         ("block", "gr/grkinokoroute.c")):
+                         ("block", "gr/grkinokoroute.c"),
+                         ("attack", "ft/ft_0892.c")):
         entry = next(e for e in entries if e["file"].endswith("/melee/" + source))
         exe = Path(directory) / case
         subprocess.run(standalone_compile_args(entry) + [

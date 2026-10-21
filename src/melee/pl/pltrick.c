@@ -66,7 +66,8 @@ void pl_80037C60(Fighter_GObj* fgp, s32 prev2070_int)
 
     fp = GET_FIGHTER(fgp);
     acp = Player_GetActionStats(fp->player_idx);
-    prev_union = *(union Struct2070*) &prev2070_int;
+    /* PORT: assign, don't pun; see ft_800895E0. */
+    prev_union.x2070_int = prev2070_int;
 
     if ((int) fp->x2070.x0.x2072_b2) {
         acp->x5BC_b0 = 1;
@@ -385,7 +386,8 @@ void pl_800384DC(HSD_GObj* gobj, int arg1, void* arg2)
 
     fp = GET_FIGHTER(gobj);
     ev_data = arg2;
-    ev = *(union Struct2070*) &arg1;
+    /* PORT: assign, don't pun; see ft_800895E0. */
+    ev.x2070_int = arg1;
 
     if (ev.x0.x2073 != 0 && ev.x0.x2073 < 0x64) {
         struct plAttackStats* temp;

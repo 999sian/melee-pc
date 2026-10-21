@@ -129,7 +129,11 @@ void ft_800895E0(Fighter* fp, int arg1)
     union Struct2070 sp14;
     union Struct2070 spC;
 
-    val = *(union Struct2070*) &arg1;
+    /* PORT: upstream puns &arg1 to the union. Struct2070 keeps GameCube byte
+     * order, so on a little-endian host that reads the int byte-reversed and
+     * x2073 (the move ID, the low byte) comes out as the top byte. Assign
+     * through x2070_int instead. */
+    val.x2070_int = arg1;
     if (val.x0.x2073 == 0 || val.x0.x2073 != fp->x2070.x0.x2073) {
         fp->x2074.x2088 = plAttack_80037B08();
     }
