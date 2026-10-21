@@ -217,7 +217,8 @@ std::atomic<uint32_t> offscreenWidth{0};
 std::atomic<uint32_t> offscreenHeight{0};
 } // namespace testing
 
-void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
+void resolve_pass_into(TextureHandle texture, ClipRect rect, ClipRect clearRect, bool clearColor, bool clearAlpha,
+                       bool clearDepth,
                        Vec4<float> clearColorValue, float clearDepthValue, GXTexFmt resolveFormat,
                        GXPixelFmt sourceFormat) {
   testing::resolvePassCount.fetch_add(1, std::memory_order_release);

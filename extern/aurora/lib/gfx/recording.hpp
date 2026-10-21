@@ -109,7 +109,8 @@ DrawData* get_last_draw_command();
 template <typename PipelineConfig>
 PipelineRef pipeline_ref(const PipelineConfig& config);
 
-void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
+void resolve_pass_into(TextureHandle texture, ClipRect rect, ClipRect clearRect, bool clearColor, bool clearAlpha,
+                       bool clearDepth,
                        Vec4<float> clearColorValue, float clearDepthValue, GXTexFmt resolveFormat,
                        GXPixelFmt sourceFormat);
 uint32_t align_uniform(uint32_t value);
