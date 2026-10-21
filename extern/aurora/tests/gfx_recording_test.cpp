@@ -60,8 +60,8 @@ protected:
     const auto& size = pass.colorAttachments[SceneColorAttachmentIndex].size;
     auto target = std::make_shared<TextureRef>(wgpu::Texture{}, wgpu::TextureView{}, wgpu::TextureView{}, size,
                                                ColorFormat, 1, GX_TF_RGBA8);
-    resolve_pass_into(std::move(target), {0, 0, static_cast<int32_t>(size.width), static_cast<int32_t>(size.height)},
-                      false, false, false, {}, 1.f, GX_TF_RGBA8, GX_PF_RGBA6_Z24);
+    const ClipRect rect{0, 0, static_cast<int32_t>(size.width), static_cast<int32_t>(size.height)};
+    resolve_pass_into(std::move(target), rect, rect, false, false, false, {}, 1.f, GX_TF_RGBA8, GX_PF_RGBA6_Z24);
   }
 
   size_t count_efb_passes() const {
