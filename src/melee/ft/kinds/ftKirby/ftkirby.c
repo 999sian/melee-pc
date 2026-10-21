@@ -3617,6 +3617,12 @@ static inline void ftKb_LoadHatParts(Fighter_GObj* gobj, int arg1,
     ftKb_SpecialN_800EF0E4(gobj, arg1, part_dobj_indices);
     ftKb_SpecialN_800EF35C(gobj, arg1, part_dobj_indices);
     ftKb_SpecialN_800EF438(gobj, hat);
+    ftParts_8007487C((FtPartsDesc*) hat, &fp->u.kb.hat.x24, fp->costume_id,
+                     &fp->u.kb.hat.x14, &fp->u.kb.hat.x1C);
+    /* PORT: upstream passes &hat->desc.vis_table, but GCC can't take the
+     * address of a reverse-storage-order disc field; hat+8 is that field. */
+    ftAnim_80070200(fp, (ftData_x8_x8*) ((u8*) hat + 8), &fp->u.kb.x44,
+                    &fp->u.kb.hat.x14);
 }
 
 void ftKb_SpecialN_800F0FC0(Fighter_GObj* gobj)
