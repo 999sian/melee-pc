@@ -651,7 +651,10 @@ Item_GObj* it_8027CC88(Item_GObj* item_gobj_arg)
     Item* var_item;
     u32 pad[20];
     Vec3 sp44;
-    s32 sp1C[10];
+    /* PORT: upstream declares sp1C[10], but the two tyDisplay_8031C354 calls
+     * below can each write 10 entries. On GameCube the overflow lands in
+     * unused stack; with GCC it smashes the stack. */
+    s32 sp1C[20];
     u32 pad2[4];
 
     item_gobj_var = NULL;
