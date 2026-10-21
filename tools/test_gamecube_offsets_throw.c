@@ -12,7 +12,10 @@ void ft_80085004(Fighter_GObj* gobj) {
 }
 int main(void) {
     static void (*const phys[])(Fighter_GObj*) = {
-        ftCo_ThrowF_Phys, ftCo_ThrowB_Phys, ftCo_ThrowHi_Phys, ftCo_ThrowLw_Phys,
+        ftCo_ThrowF_Phys,
+        ftCo_ThrowB_Phys,
+        ftCo_ThrowHi_Phys,
+        ftCo_ThrowLw_Phys,
     };
     HSD_GObj gobj = {0};
     unsigned i;
