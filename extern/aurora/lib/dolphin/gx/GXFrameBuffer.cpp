@@ -71,6 +71,11 @@ aurora::gfx::ClipRect map_copy_src(const aurora::gfx::ClipRect& logicalRect) {
 namespace aurora::gx {
 void copy_tex(const void* dest, GXBool clear) noexcept {
   const auto rect = map_copy_src(g_gxState.texCopySrc);
+  // Clear what draws into the copy source could have touched. Draws are
+  // scissored with outward rounding, so at a fractional render scale a
+  // clear over the inward copy rect leaves the partly covered edge column
+  // behind: the results screen's portrait capture left a grey line there.
+  const auto clearRect = map_logical_scissor(g_gxState.texCopySrc);
   auto [dstWidth, dstHeight] = scale_copy_dst(g_gxState.texCopyDstWidth, g_gxState.texCopyDstHeight);
   if (g_gxState.texCopyDstWidth == g_gxState.texCopySrc.width &&
       g_gxState.texCopyDstHeight == g_gxState.texCopySrc.height) {
@@ -88,7 +93,7 @@ void copy_tex(const void* dest, GXBool clear) noexcept {
   const auto clearColor = clear && g_gxState.colorUpdate;
   const auto clearAlpha = clear && g_gxState.alphaUpdate && efb_has_alpha(g_gxState.pixelFmt);
   const auto clearDepth = clear && g_gxState.depthUpdate;
-  gfx::resolve_pass_into(copy.handle, rect, clearColor, clearAlpha, clearDepth, g_gxState.clearColor,
+  gfx::resolve_pass_into(copy.handle, rect, clearRect, clearColor, clearAlpha, clearDepth, g_gxState.clearColor,
                          clear_depth_value(), texCopyFmt, g_gxState.pixelFmt);
 }
 } // namespace aurora::gx

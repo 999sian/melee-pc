@@ -854,7 +854,8 @@ PipelineRef pipeline_ref(const clear::PipelineConfig& config) {
   return find_pipeline(config, get_render_target_layout());
 }
 
-void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
+void resolve_pass_into(TextureHandle texture, ClipRect rect, ClipRect clearRect, bool clearColor, bool clearAlpha,
+                       bool clearDepth,
                        Vec4<float> clearColorValue, float clearDepthValue, GXTexFmt resolveFormat,
                        GXPixelFmt sourceFormat) {
   // Resolve current render pass
@@ -876,11 +877,13 @@ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bo
   // Populate new render pass from previous
   const auto msaaSamples = prevPass.msaaSamples;
   const auto& targetSize = prevPass.colorAttachments[SceneColorAttachmentIndex].size;
-  const auto left = std::clamp<int32_t>(rect.x, 0, static_cast<int32_t>(targetSize.width));
-  const auto top = std::clamp<int32_t>(rect.y, 0, static_cast<int32_t>(targetSize.height));
-  const auto right = std::clamp<int32_t>(rect.x + rect.width, left, static_cast<int32_t>(targetSize.width));
-  const auto bottom = std::clamp<int32_t>(rect.y + rect.height, top, static_cast<int32_t>(targetSize.height));
-  const ClipRect clearRect{.x = left, .y = top, .width = right - left, .height = bottom - top};
+  const auto left = std::clamp<int32_t>(clearRect.x, 0, static_cast<int32_t>(targetSize.width));
+  const auto top = std::clamp<int32_t>(clearRect.y, 0, static_cast<int32_t>(targetSize.height));
+  const auto right =
+      std::clamp<int32_t>(clearRect.x + clearRect.width, left, static_cast<int32_t>(targetSize.width));
+  const auto bottom =
+      std::clamp<int32_t>(clearRect.y + clearRect.height, top, static_cast<int32_t>(targetSize.height));
+  clearRect = ClipRect{.x = left, .y = top, .width = right - left, .height = bottom - top};
   const bool fullTarget = left == 0 && top == 0 && right == targetSize.width && bottom == targetSize.height;
   RenderPass newPass{
       .label = pass_label(g_recorder.inOffscreen ? "Offscreen" : "EFB"),
