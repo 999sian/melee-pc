@@ -2060,7 +2060,11 @@ void onJointCollision(void* user_data, int joint_id, CollData* coll,
         if (gobj != NULL) {
             gp2 = gobj->user_data;
             if (gp2 != NULL) {
-                ((UnkFlagStruct*) &gp2->u.icemt.x14)->x0.b4 = 1;
+                /* PORT: upstream sets b4 through an UnkFlagStruct cast.
+                 * UnkFlagStruct keeps GameCube bit order (b4 = 0x08), but
+                 * icemt10's bitfields use host order, where 0x08 is x14_b3
+                 * ("Ice Climbers already called"). Set the named field. */
+                gp2->u.icemt10.x14_b4 = true;
             }
         }
     }
