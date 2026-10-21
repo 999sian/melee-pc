@@ -199,7 +199,10 @@ union ftCommon_MotionVars {
         /* fp+2340 */ bool x0; // itemget action is heavy type?
     } itemget;
     struct ftCommon_MotionVars_fighterthrow {
-        /* fp+2340 */ UNK_T x0;
+        /* PORT: upstream has UNK_T (void*) here. On 64-bit hosts that shifts
+         * self_vel_y/x off throw_.xC.y/z, which ftCo_800DD724 stores and
+         * ThrowB/Hi/Lw_Phys read back. x0 is unused, so keep it 4 bytes. */
+        /* fp+2340 */ s32 x0;
         /* fp+2344 */ int x4;
         /* fp+2348 */ int x8;
         /* fp+234C */ u8 pad_xC[4];
