@@ -1497,6 +1497,7 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
     root_jobj[0] = HSD_JObjLoadJoint(DP(HSD_Joint, archive->joint));
     HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, root_jobj[0]);
     GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4U, 0x80U);
+    HSD_GObj_SetupProc(gobj, fn_80239574, 0U);
     HSD_JObjAddAnimAll(root_jobj[0], DP(HSD_AnimJoint, archive->animjoint),
                        DP(HSD_MatAnimJoint, archive->matanim_joint),
                        DP(HSD_ShapeAnimJoint, archive->shapeanim_joint));
