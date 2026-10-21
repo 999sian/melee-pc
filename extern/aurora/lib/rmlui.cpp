@@ -67,7 +67,12 @@ void sync_context_metrics(Rml::Vector2i dimensions) noexcept {
   if (g_context->GetDimensions() != dimensions) {
     g_context->SetDimensions(dimensions);
   }
-  const float ratio = s_uiScale > 0.0f ? s_uiScale : window::get_window_size().scale;
+  // The context is sized in framebuffer pixels, so a dp has to cover the
+  // display's scale (2 on Retina, 1.5 at 150% on Windows) before the user's
+  // UI scale is applied on top. Replacing it with the user scale drew the
+  // launcher at half size on a 2x display.
+  const float userScale = s_uiScale > 0.0f ? s_uiScale : 1.0f;
+  const float ratio = userScale * window::get_window_size().scale;
   if (g_context->GetDensityIndependentPixelRatio() != ratio) {
     g_context->SetDensityIndependentPixelRatio(ratio);
   }

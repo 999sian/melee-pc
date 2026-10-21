@@ -29,6 +29,7 @@ inline constexpr const char* TouchCancelEvent = "touchcancel";
 Rml::Context* get_context() noexcept;
 bool is_initialized() noexcept;
 void set_input_type(InputType type) noexcept;
+// Multiplies the window's display scale; 0 restores the default of 1.
 void set_ui_scale(float scale) noexcept;
 float get_ui_scale() noexcept;
 void set_glass_light_dir(float x, float y) noexcept;
