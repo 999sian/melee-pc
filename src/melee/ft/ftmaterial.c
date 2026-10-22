@@ -158,8 +158,12 @@ HSD_TExp* ftMaterial_800BF534(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp,
     if (overlay->x7C_flag2 && overlay->x7C_light_enable) {
         if (!(rendermode & RENDER_XLU) && !fp->x2223_b2) {
             texp->cnst = ftMaterial_803C6A44;
-            chk = lbGetFreeColorRegister(0, mobj, NULL);
-            reg = chk;
+            /* PORT: upstream routed this through the bool `chk`. MWCC's bool
+             * is an int, but a C99 _Bool collapses every register above 0
+             * to 1 (K1), clobbering whatever the material keeps there, e.g.
+             * the texture blend factor of Kirby's Falcon and Ganondorf hats,
+             * which drew untextured during the punch's glow. */
+            reg = lbGetFreeColorRegister(0, mobj, NULL);
             if (reg == -1) {
                 HSD_ASSERTREPORT(240, 0, "can't find free color register!\n");
             }
