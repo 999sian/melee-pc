@@ -170,18 +170,31 @@ void GXLoadLightObjImm(GXLightObj* light_, GXLightID id) {
   GX_WRITE_F32(light->nz);
 }
 
+// COLORn and ALPHAn share one XF register. As in the SDK, GX_COLORn sets only
+// its RGB and GX_ALPHAn only its alpha; GX_COLORnAn sets all four. HSD sets the
+// two halves separately and skips a half it believes unchanged, so letting
+// GX_COLORn write the alpha leaves a stale alpha behind (e.g. ambient alpha
+// 0xFF, which pins a fighter's light-overlay glow at full strength).
 void GXSetChanAmbColor(GXChannelID id, GXColor color) {
   u32 reg = 0;
   u32 colIdx;
 
   switch (id) {
   case GX_COLOR0:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | (__gx->ambColor[0] & 0xFF);
+    colIdx = 0;
+    break;
   case GX_COLOR0A0:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
           (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 0;
     break;
   case GX_COLOR1:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | (__gx->ambColor[1] & 0xFF);
+    colIdx = 1;
+    break;
   case GX_COLOR1A1:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
           (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
@@ -210,12 +223,20 @@ void GXSetChanMatColor(GXChannelID id, GXColor color) {
 
   switch (id) {
   case GX_COLOR0:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | (__gx->matColor[0] & 0xFF);
+    colIdx = 0;
+    break;
   case GX_COLOR0A0:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
           (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
     colIdx = 0;
     break;
   case GX_COLOR1:
+    reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
+          (static_cast<u32>(color.b) << 8) | (__gx->matColor[1] & 0xFF);
+    colIdx = 1;
+    break;
   case GX_COLOR1A1:
     reg = (static_cast<u32>(color.r) << 24) | (static_cast<u32>(color.g) << 16) |
           (static_cast<u32>(color.b) << 8) | static_cast<u32>(color.a);
