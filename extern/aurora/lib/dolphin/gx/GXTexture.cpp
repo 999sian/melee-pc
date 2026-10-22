@@ -205,6 +205,7 @@ void* GXGetTexObjUserData(const GXTexObj* obj_) {
 
 void GXLoadTexObj(GXTexObj* obj_, GXTexMapID id) {
   auto* obj = reinterpret_cast<GXTexObj_*>(obj_);
+  aurora::gx::retire_overwritten_copy_dest(obj->data);
   SET_REG_FIELD(0, obj->mode0, 8, 24, GXTexMode0Ids[id]);
   SET_REG_FIELD(0, obj->mode1, 8, 24, GXTexMode1Ids[id]);
   SET_REG_FIELD(0, obj->image0, 8, 24, GXTexImage0Ids[id]);

@@ -22,6 +22,7 @@ void GXDestroyTlutObj(GXTlutObj* obj_) {
 }
 
 void GXDestroyCopyTex(void* dest) {
+  aurora::gx::forget_copy_dest(dest);
   if (dest != nullptr) {
     GX_WRITE_AURORA(GX_AURORA_DESTROY_COPY_TEX);
     GX_WRITE_U64(reinterpret_cast<u64>(dest));

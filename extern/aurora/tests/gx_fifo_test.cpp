@@ -13,6 +13,7 @@
 #include <bit>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <thread>
 
 using aurora::gx::g_gxState;
@@ -166,13 +167,15 @@ TEST_F(GXFifoTest, FrameBufferCommandsPublishAfterTheirCompletePayload) {
   EXPECT_EQ(offscreenWidth.load(std::memory_order_relaxed), 320u);
   EXPECT_EQ(offscreenHeight.load(std::memory_order_relaxed), 180u);
 
-  GXCopyTex(reinterpret_cast<void*>(0x1234), GX_FALSE);
+  alignas(32) u8 image[32]{};
+  GXCopyTex(image, GX_FALSE);
   ASSERT_TRUE(wait_for(resolvePassCount, 1));
 
   GXRestoreFrameBuffer();
   ASSERT_TRUE(wait_for(endOffscreenCount, 1));
   aurora::gx::fifo::drain();
   aurora::gx::fifo::end_frame();
+  aurora::gx::forget_copy_dest(image);
 }
 
 TEST_F(GXFifoTest, DrawDoneProcessesPublishedAndUnpublishedTailBeforeCallback) {
@@ -1864,6 +1867,48 @@ TEST_F(GXFifoTest, DestroyCopyTex_RetiresOnlyTheRequestedDestination) {
 
   EXPECT_FALSE(gxState().copyTextures.contains(imageA));
   EXPECT_TRUE(gxState().copyTextures.contains(imageB));
+}
+
+TEST_F(GXFifoTest, LoadTexObj_KeepsCopyWhileItsDestinationIsUntouched) {
+  alignas(32) u8 image[32]{};
+  GXTexObj obj{};
+
+  GXCopyTex(image, GX_FALSE);
+  (void)capture_fifo();
+
+  GXInitTexObj(&obj, image, 8, 8, GX_TF_I4, GX_CLAMP, GX_CLAMP, GX_FALSE);
+  GXLoadTexObj(&obj, GX_TEXMAP0);
+  auto bytes = capture_fifo();
+
+  EXPECT_FALSE(has_aurora_cmd(bytes, GX_AURORA_DESTROY_COPY_TEX));
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_LOAD_TEXOBJ));
+  aurora::gx::forget_copy_dest(image);
+}
+
+TEST_F(GXFifoTest, LoadTexObj_RetiresCopyWhoseDestinationWasOverwritten) {
+  alignas(32) u8 image[32]{};
+  GXTexObj obj{};
+
+  GXCopyTex(image, GX_FALSE);
+  (void)capture_fifo();
+
+  // The game freed the copy buffer and loaded texture data into that memory.
+  std::memset(image, 0x36, sizeof(image));
+  GXInitTexObj(&obj, image, 8, 8, GX_TF_I4, GX_CLAMP, GX_CLAMP, GX_FALSE);
+  GXLoadTexObj(&obj, GX_TEXMAP0);
+  auto bytes = capture_fifo();
+
+  EXPECT_TRUE(has_aurora_cmd(bytes, GX_AURORA_DESTROY_COPY_TEX));
+
+  const aurora::gx::GXState::CopyTextureRef ref{.revision = 1};
+  gxState().copyTextures[image] = ref;
+  decode_fifo(bytes);
+  EXPECT_FALSE(gxState().copyTextures.contains(image));
+  EXPECT_EQ(gxState().loadedTextures[GX_TEXMAP0].data, image);
+
+  // Retired once: later loads of the same data leave the fifo alone.
+  GXLoadTexObj(&obj, GX_TEXMAP0);
+  EXPECT_FALSE(has_aurora_cmd(capture_fifo(), GX_AURORA_DESTROY_COPY_TEX));
 }
 
 // ============================================================================

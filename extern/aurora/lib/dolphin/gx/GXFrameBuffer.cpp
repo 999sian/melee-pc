@@ -8,8 +8,11 @@
 #include "../../gx/texture.hpp"
 #include "../vi/vi_internal.hpp"
 
+#include <absl/container/flat_hash_map.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace {
 aurora::Vec2<uint32_t> scale_copy_dst(u32 logicalWidth, u32 logicalHeight) {
@@ -69,6 +72,42 @@ aurora::gfx::ClipRect map_copy_src(const aurora::gfx::ClipRect& logicalRect) {
 } // namespace
 
 namespace aurora::gx {
+namespace {
+// Copies only exist on the GPU, so the texture cache keys them by destination
+// pointer. Nothing tells it when the game frees that memory, and a model file
+// loaded there later would keep sampling the old copy. On hardware the copy
+// writes its pixels to the destination, so writing a stamp there instead is
+// safe, and a texture load that finds the stamp gone knows the memory was
+// reused. Jigglypuff's eyes on Big Blue were drawn from a freed shadow buffer.
+constexpr u64 CopyStampMagic = 0xA0B0'C0D0'0000'0000ull;
+absl::flat_hash_map<const void*, u64> s_copyStamps;
+u64 s_nextCopyStamp = 0;
+} // namespace
+
+void stamp_copy_dest(void* dest) noexcept {
+  if (dest == nullptr) {
+    return;
+  }
+  const u64 stamp = CopyStampMagic | ++s_nextCopyStamp;
+  std::memcpy(dest, &stamp, sizeof(stamp));
+  s_copyStamps[dest] = stamp;
+}
+
+void retire_overwritten_copy_dest(const void* data) noexcept {
+  if (data == nullptr || s_copyStamps.empty()) {
+    return;
+  }
+  const auto it = s_copyStamps.find(data);
+  if (it == s_copyStamps.end()) {
+    return;
+  }
+  if (std::memcmp(data, &it->second, sizeof(it->second)) != 0) {
+    GXDestroyCopyTex(const_cast<void*>(data));
+  }
+}
+
+void forget_copy_dest(const void* dest) noexcept { s_copyStamps.erase(dest); }
+
 void copy_tex(const void* dest, GXBool clear) noexcept {
   const auto rect = map_copy_src(g_gxState.texCopySrc);
   auto [dstWidth, dstHeight] = scale_copy_dst(g_gxState.texCopyDstWidth, g_gxState.texCopyDstHeight);
@@ -232,6 +271,7 @@ void GXSetDispCopyGamma(GXGamma gamma) {}
 void GXCopyDisp(void* dest, GXBool clear) {}
 
 void GXCopyTex(void* dest, GXBool clear) {
+  aurora::gx::stamp_copy_dest(dest);
   GX_WRITE_AURORA(GX_AURORA_LOAD_COPY_DEST);
   GX_WRITE_U64(reinterpret_cast<u64>(dest));
 
