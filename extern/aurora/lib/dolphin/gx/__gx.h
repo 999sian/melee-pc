@@ -177,3 +177,12 @@ void __GXSetMatrixIndex(GXAttr matIdxAttr);
 void __GXSendFlushPrim();
 void __GXFlushTextureState();
 };
+
+namespace aurora::gx {
+// Game-thread bookkeeping that ties EFB copy destinations to their memory.
+// GXCopyTex stamps the destination; GXLoadTexObj retires the copy once the
+// stamp has been overwritten, i.e. the game reused that memory.
+void stamp_copy_dest(void* dest) noexcept;
+void retire_overwritten_copy_dest(const void* data) noexcept;
+void forget_copy_dest(const void* dest) noexcept;
+} // namespace aurora::gx
