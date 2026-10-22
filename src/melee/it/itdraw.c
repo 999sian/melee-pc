@@ -156,8 +156,8 @@ u32 it_8026ECE0(Item_GObj* gobj, u32 arg1)
 
 /* The two "hide these bones" lists it_8026EECC walks live in the article's
  * special attributes inside the .dat: it_8027CE64 relocates that slot and
- * parks the host pointer in the item-vars union (itGamewatch_ItemVars::attr),
- * and this is the only reader. The old spelling read it back as a native
+ * parks it in the item-vars union (itGamewatch_ItemVars::attr, itself a disc
+ * slot), and this is the only reader. The old spelling read it back as a native
  * `it_266F_ItemVars*`, which assumes the two index pointers sit at +4 and +C
  * with 4-byte pointers and that the counts are host-endian. Both are false
  * here: describe the record as on-disc so the counts get swapped and the
@@ -171,7 +171,7 @@ struct DISC_STRUCT it_8026EECC_BoneLists {
 DISC_ASSERT_SIZE(struct it_8026EECC_BoneLists, 0x10);
 
 #define it_8026EECC_VARS(ip)                                                  \
-    ((struct it_8026EECC_BoneLists*) (ip)->xDD4_itemVar.gamewatch.attr)
+    DP(struct it_8026EECC_BoneLists, (ip)->xDD4_itemVar.gamewatch.attr)
 
 static inline void it_8026EECC_inline_1(HSD_GObj* gobj, s32 arg1, Vec3* pos)
 {

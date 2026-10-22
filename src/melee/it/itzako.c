@@ -711,5 +711,5 @@ void it_8027CE64(Item_GObj* item_gobj, HSD_GObj* fighter_gobj,
     ftLib_GetGameWatchOutlineColor(fighter_gobj, &item->xBC8);
     item->x5C8 = ftLib_GetSubColor(item->owner, &item->xBC4);
     it_80274594(item_gobj);
-    item->xDD4_itemVar.gamewatch.attr = arg_attr_address;
+    DP_SET(item->xDD4_itemVar.gamewatch.attr, arg_attr_address);
 }

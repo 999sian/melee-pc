@@ -1477,7 +1477,11 @@ typedef struct DISC_STRUCT itZako_DatAttrs {
 DISC_ASSERT_SIZE(itZako_DatAttrs, 0x4);
 
 typedef struct itGamewatch_ItemVars {
-    /* ip+DD4 */ void* attr;
+    /* PORT: a 4-byte slot, as on GameCube. A host pointer is 8 bytes and
+     * would overwrite itGamewatchchef_ItemVars::x4 (ip+DD8), the sausage's
+     * index into its attribute table, which it_802C84A0 sets just before
+     * it_8027CE64 stores this. */
+    /* ip+DD4 */ DISC_PTR(void) attr;
 } itGamewatch_ItemVars;
 
 typedef struct itYoshiEggLay_ItemVars {
