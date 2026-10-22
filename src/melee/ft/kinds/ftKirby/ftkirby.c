@@ -2686,18 +2686,32 @@ void ftKb_Init_LoadSpecialAttrs(HSD_GObj* gobj)
     COPY_ATTRS(gobj, ftKb_DatAttrs);
 }
 
-void ftKb_Init_800EEB00(Fighter_GObj* gobj, BoneDynamicsTemplate** arg1)
+/* PORT: For the Mr. Game & Watch copy, hat_dynamics[4] points at the colors
+ * Kirby's G&W items are drawn with, not at an ftDynamics. Upstream read them
+ * as ftDynamics::x0.ftDynamicBones and ::x4 and stored them as a pointer and
+ * an s32. On a little-endian host that reverses the color's bytes (black
+ * sausages came out red), and on a 64-bit host the pointer store writes
+ * 8 bytes into the caller's 4-byte GXColor and smashes its stack. */
+struct DISC_STRUCT ftKb_GwItemColors {
+    /* +0 */ u32 x0;
+    /* +4 */ GXColor color;
+    /* +8 */ GXColor outline;
+};
+
+static inline struct ftKb_GwItemColors* ftKb_Init_GetGwItemColors(void)
 {
-    *arg1 = DP(BoneDynamicsTemplate,
-               DP(ftDynamics, ft_80459B88.copies[Ft_Kind_GameWatch]
-                                      ->hat_dynamics[4])
-                   ->x0.ftDynamicBones);
+    return DP(struct ftKb_GwItemColors,
+              ft_80459B88.copies[Ft_Kind_GameWatch]->hat_dynamics[4]);
 }
 
-void ftKb_Init_800EEB1C(Fighter_GObj* gobj, s32* arg1)
+void ftKb_Init_800EEB00(Fighter_GObj* gobj, GXColor* color)
 {
-    *arg1 = DP(ftDynamics, ft_80459B88.copies[Ft_Kind_GameWatch]->hat_dynamics[4])
-                ->x4;
+    *color = ftKb_Init_GetGwItemColors()->color;
+}
+
+void ftKb_Init_800EEB1C(Fighter_GObj* gobj, GXColor* outline)
+{
+    *outline = ftKb_Init_GetGwItemColors()->outline;
 }
 
 void ftKb_Init_OnKnockbackEnter(HSD_GObj* gobj)
