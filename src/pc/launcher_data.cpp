@@ -387,7 +387,7 @@ Preferences load_preferences(const std::filesystem::path& path) {
                 prefs.scale = value;
         } else if (key == "check_updates" || key == "custom_textures" || key == "unlock_all" ||
                    key == "frozen_stadium" || key == "free_camera" || key == "ucf" ||
-                   key == "reverb")
+                   key == "reverb" || key == "dsu")
         {
             int value;
             if (row >> value && (value == 0 || value == 1)) {
@@ -405,6 +405,8 @@ Preferences load_preferences(const std::filesystem::path& path) {
                     prefs.ucf = value;
                 else if (key == "reverb")
                     prefs.reverb = value;
+                else if (key == "dsu")
+                    prefs.dsu = value;
             }
         } else if (key == "hud_mode") {
             int value;
@@ -451,6 +453,7 @@ bool save_preferences(
     for (int code : prefs.keys)
         text << ' ' << code;
     text << '\n';
+    text << "dsu " << prefs.dsu << '\n';
     auto data = text.str();
     size_t done = 0;
     bool ok = true;

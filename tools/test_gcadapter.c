@@ -9,6 +9,11 @@ HSD_RumbleData HSD_Rumble_804C22E0[GC_SLOTS];
 void pc_log_line(const char* fmt, ...) {
     (void)fmt;
 }
+bool pc_dsu_status(int port, PADStatus* out) {
+    (void)port;
+    (void)out;
+    return false;
+}
 void PADSetVirtualStatus(u32 port, const PADStatus* status) {
     virtual_status[port] = *status;
     virtual_present[port] = true;
