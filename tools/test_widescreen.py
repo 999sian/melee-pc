@@ -9,7 +9,8 @@ import tempfile
 
 root = Path(__file__).resolve().parent.parent
 entries = json.loads((build_dir(root) / "compile_commands.json").read_text())
-entry = next(e for e in entries if e["file"].endswith("/pc/vi.c"))
+entry = next(e for e in entries if e["file"].endswith("/pc/widescreen.c"))
+assert "melee_game.dir" in entry["command"], "widescreen.c needs the disc-aware game compiler"
 args = shlex.split(entry["command"])
 for option in ("-o", "-c"):
     index = args.index(option)

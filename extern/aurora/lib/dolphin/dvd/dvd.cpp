@@ -29,6 +29,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <aurora/performance.h>
 #include <utility>
 #include <vector>
 
@@ -300,6 +301,7 @@ s32 readDelayUs() {
 }
 
 s32 readFromHandle(CommandDataBase* handle, void* out, s32 length, s32 offset, u32* transferredOut) {
+  aurora::AndroidTraceScope trace("Disc read");
   if (const s32 us = readDelayUs(); us > 0) {
     std::this_thread::sleep_for(std::chrono::microseconds(us));
   }

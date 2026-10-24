@@ -78,7 +78,7 @@ table is right and the other one is stale.
 | Direct3D 11 backend (Windows) | partial | Compiled into the shipped Dawn for both architectures, ordered after D3D12 and selectable as `MELEE_BACKEND=d3d11`. The adapter enumerates and the fail-over to D3D12 is proven, but no working D3D11 device has been observed; Wine/Proton cannot create one (`CreateDeviceContextState` returns `E_INVALIDARG`), so it is unverified on real Windows and on the Intel Gen7 hardware it exists for. |
 | Android arm64 | done | Drawn on-screen GameCube overlay with opacity, deadzone and haptics settings; hides itself when a physical gamepad is connected. |
 | iOS arm64 | partial | Sideloadable IPA on Metal, cross-built from Linux. Touch input is fixed invisible screen regions (stick on the left half, face buttons bottom right) with no drawn overlay, no calibration and no gamepad auto-hide -- the Android overlay is Android-only. |
-| macOS Apple Silicon / Intel | partial | Apple Silicon tested; the Intel job is `continue-on-error` in CI, so a release can ship without an Intel build and none has been run on Intel hardware. |
+| macOS Apple Silicon / Intel | partial | Apple Silicon tested; both architectures must build before a release. Intel hardware remains untested. |
 | Browser (WebGPU) | partial | [Play in the browser](https://999sian.github.io/melee-pc/play/) with your own raw GALE01 rev 2 image; tested in Chrome. No online play, no gamepad remapping. Build: `tools/browser/build.py`. |
 | PAL disc (GALP01) | partial | Experimental: USA game code on PAL data, English (UK) text, NTSC 60 Hz. Trophy tables are stubbed out rather than read, and there is no reference hash, so PAL images always verify as unknown. |
 | Widescreen 16:9 / window aspect | partial | VS, Sudden Death and Training only; menus, results and cutscenes stay at the original 73:60. |
@@ -172,6 +172,13 @@ low-power E-cores, using about a third of one core in total.
   is required.
 - Settings, memory cards, `music/` and `textures/` live in the `melee-pc`
   preference directory above.
+- For portable desktop installs, create an empty `portable.txt` beside the
+  executable. Settings, saves, caches, logs, music and textures then use its
+  `user/` directory. Existing preferences are not moved automatically; copy
+  your existing data there if wanted. The install directory must be writable.
+  In a macOS app bundle, the marker and `user/` go in `Contents/Resources/`.
+- Texture packs can also go in `textures/` beside the executable; enable custom
+  textures in Settings and use the F1 reload action after changing a pack.
 
 ## Controls
 
@@ -183,9 +190,10 @@ official GameCube adapter is read directly instead (see the status table).
 |---|---|---|
 | Navigate | Up/Down, Tab | D-pad or left stick |
 | Adjust | Left/Right | D-pad left/right |
-| Change tab | Left/Right on the tab strip | L/R shoulders |
+| Choose category | Up/Down in the sidebar | D-pad up/down |
+| Enter category | Right or Enter | Right or A |
 | Select | Enter | A |
-| Close overlay | Escape, F1 | B, Start, Back |
+| Back / close overlay | Escape goes back, F1 closes | B goes back; Start or menu button closes |
 
 ## Settings overlay
 
@@ -199,13 +207,21 @@ is open.
 - Anti-aliasing and anisotropic filtering apply on the next launch. MSAA offers
   only off and 4x because WebGPU guarantees sample counts 1 and 4.
 - Audio: master volume, mute, FPS counter, all immediate.
-- Controls remaps a gamepad. Pick the port, select a GameCube button, then press
-  the physical button. Escape cancels, Restore resets the port. Back cannot be
-  bound since it opens the menu. Sticks and triggers remap the same way, and a
-  direction accepts either a stick axis or a button.
+- Controls remaps gamepads and the player-one keyboard. Cycle the port selector
+  to Keyboard to edit keys. Select a binding, then press the desired input;
+  Escape cancels, Delete clears, and Restore defaults resets that device.
+  Controller buttons accept stick directions, and stick directions accept
+  either an axis or a button. Menu button changes the gamepad shortcut;
+  F1 and Guide remain available. Keyboard F1 and Escape are reserved.
+- Quit game in the sidebar exits through normal save and shutdown handling.
+- On Android, launcher Settings → Launcher → Diagnostics → Export logs saves
+  device details and recent app logs to a document you choose. Attach it to a
+  crash report after reopening the app. Logs may be lost after reboot or when
+  Android rotates its log buffer.
 
 Melee's own menu sounds play in the overlay. Bindings are stored in aurora's
-per-device `.controller` files; everything else shares `launcher.cfg`.
+per-device `.controller` files; keyboard bindings and the menu shortcut share
+`launcher.cfg` with the other preferences.
 
 ## Environment variables
 
@@ -390,3 +406,7 @@ the property of its copyright holders; the port code in `src/pc`, `tools`,
 bundled third-party components keep their own licenses. Because the game code
 cannot be relicensed, the repository as a whole is not distributable under the
 GPL. No game assets are in this repository.
+
+Builds read their release version from the root `VERSION` file. Release tag
+builds use the tag; `MELEE_VERSION` overrides the default for packaging, and
+`-DMELEE_VERSION=<version>` overrides it in CMake.

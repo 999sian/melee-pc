@@ -473,6 +473,7 @@ input.range sliderarrowdec, input.range sliderarrowinc { width: 0; height: 0; }
 /* ---- Platforms ---------------------------------------------------------- */
 
 .mobile .no-mobile { display: none; }
+#shader-status { font-size: 16dp; color: #b4b8cc; margin: 6dp 0 0; }
 
 /* ---- Small windows ------------------------------------------------------ */
 
@@ -503,3 +504,6 @@ input.range sliderarrowdec, input.range sliderarrowinc { width: 0; height: 0; }
     .row .name { font-size: 16dp; }
     #descbar { width: 92%; }
 }
+
+.android-only { display: none; }
+.android .android-only { display: flex; }

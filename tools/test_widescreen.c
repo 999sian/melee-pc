@@ -51,6 +51,17 @@ static void present(void) {
     }
 }
 
+static u16 copied_x, copied_y, copied_width, copied_height;
+void HSD_ImageDescCopyFromEFB(HSD_ImageDesc* image, u16 x, u16 y, GXBool clear, bool sync) {
+    /* Read the bytes as the GCC-compiled HSD caller does, even under Clang. */
+    const unsigned char* bytes = (const unsigned char*)image;
+    copied_width = (bytes[4] << 8) | bytes[5];
+    copied_height = (bytes[6] << 8) | bytes[7];
+    copied_x = x;
+    copied_y = y;
+    assert(clear && sync);
+}
+
 static float scene(int mode, bool supported, u32 w, u32 h) {
     window_w = w;
     window_h = h;
@@ -149,6 +160,22 @@ int main(void) {
     near(pc_widescreen_hud_player_x(3, 4, 21.0f), 21.0f + hud_off);
     near(pc_widescreen_hud_player_x(0, 2, -10.0f), -10.0f - hud_off);
     near(pc_widescreen_hud_player_x(1, 2, 10.0f), 10.0f + hud_off);
+
+    /* Disc image dimensions are big-endian on every host/compiler. */
+    _Alignas(HSD_ImageDesc) unsigned char image_bytes[sizeof(HSD_ImageDesc)] = {0};
+    image_bytes[5] = 64;
+    image_bytes[7] = 64;
+    HSD_ImageDesc* image = (HSD_ImageDesc*)image_bytes;
+    scene(0, true, 1920, 1080);
+    pc_widescreen_copy_efb(image, 0, 0, 32.0f, true);
+    assert(copied_x == 0 && copied_y == 0);
+    assert(copied_width == 64 && copied_height == 64);
+    scene(1, true, 1920, 1080);
+    pc_widescreen_copy_efb(image, 0, 0, 32.0f, true);
+    assert(copied_x == 10 && copied_y == 0);
+    assert(copied_width == 44 && copied_height == 64);
+    assert(image_bytes[4] == 0 && image_bytes[5] == 64);
+    pc_widescreen_copy_efb(NULL, 0, 0, 32.0f, true);
 
     puts("PASS: widescreen aspect selection, framebuffer fit and scale");
 }

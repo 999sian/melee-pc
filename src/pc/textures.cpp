@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include "paths.h"
 #include "textures.h"
 #include "pc.h"
 
@@ -20,10 +21,10 @@ std::string s_textures_dir_str;
 bool s_initialized = false;
 
 std::filesystem::path resolve_texture_directory() {
-    // 1. On Linux/Windows, user data dir is SDL_GetPrefPath("", "melee-pc").
+    // 1. On Linux/Windows, user data dir is pc_get_pref_path().
     //    Use a "textures" subdirectory there: <prefPath>/textures
     std::filesystem::path user_dir;
-    char* pref = SDL_GetPrefPath("", "melee-pc");
+    char* pref = pc_get_pref_path();
     if (pref != nullptr) {
         user_dir = std::filesystem::path(pref) / "textures";
         SDL_free(pref);

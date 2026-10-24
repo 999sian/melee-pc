@@ -144,6 +144,20 @@ int main(int argc, char** argv) {
     loaded.free_camera = true;
     assert(save_preferences(config, loaded, error));
     assert(load_preferences(config).free_camera);
+    loaded.keys[0] = SDL_SCANCODE_LCTRL;
+    loaded.keys[1] = SDL_SCANCODE_UNKNOWN;
+    loaded.menu_button = SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER;
+    assert(save_preferences(config, loaded, error));
+    auto controls = load_preferences(config);
+    assert(controls.keys[0] == SDL_SCANCODE_LCTRL && controls.keys[1] == SDL_SCANCODE_UNKNOWN);
+    assert(controls.menu_button == SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER);
+    {
+        std::ofstream f(config);
+        f << "keys 9999 1\nmenu_button -1\n";
+    }
+    controls = load_preferences(config);
+    assert(controls.keys == default_keys);
+    assert(controls.menu_button == SDL_GAMEPAD_BUTTON_BACK);
     assert(!save_preferences(dir / "missing" / "config", prefs, error));
     assert(!error.empty());
     std::filesystem::remove_all(dir);

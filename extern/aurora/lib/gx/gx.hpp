@@ -509,7 +509,7 @@ struct ShaderConfig {
    * emitted. Takes the spare pad bit, so sizeof is unchanged and the
    * persisted pipeline cache stays valid. */
   u8 zCompLocBeforeTex : 1 = 0;
-  u8 pad2 = 0;
+  u8 uberTev = 0; // Runtime TEV family; zero preserves existing specialized cache keys.
   std::array<AttrConfig, MaxVtxAttr> attrs;
   std::array<TevSwap, MaxTevSwap> tevSwapTable;
   std::array<TevStage, MaxTevStages> tevStages;
@@ -548,6 +548,7 @@ struct ShaderInfo {
   // TEV stage whose texture sample feeds the Z texture unit, or -1 if the
   // fragment shader emits no frag_depth.
   s8 zTexStage = -1;
+  bool uberTev = false;
   bool usesFog : 1 = false;
   bool lightingEnabled : 1 = false;
   u8 lineMode : 2 = 0;

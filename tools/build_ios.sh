@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build-ios}"
 DIST_DIR="${ROOT_DIR}/dist"
 IOS_DIR="${ROOT_DIR}/platforms/ios"
+export MELEE_VERSION="${MELEE_VERSION:-$(cat "${ROOT_DIR}/VERSION")}"
 
 export IOS_SDK_PATH="${IOS_SDK_PATH:-/home/sian/toolchains/sdks/sdks/iPhoneOS16.5.sdk}"
 export SDKROOT="${IOS_SDK_PATH}"
@@ -59,9 +60,10 @@ fi
 cp "${BINARY_SRC}" "${APP_DIR}/melee"
 chmod +x "${APP_DIR}/melee"
 python3 -c "
-import plistlib
+import os, plistlib
 with open('${IOS_DIR}/Info.plist', 'rb') as f_in, open('${APP_DIR}/Info.plist', 'wb') as f_out:
     data = plistlib.load(f_in)
+    data['CFBundleShortVersionString'] = os.environ['MELEE_VERSION'].lstrip('v').split('-')[0]
     plistlib.dump(data, f_out, fmt=plistlib.FMT_BINARY)
 "
 

@@ -8,6 +8,7 @@
 #include <aurora/aurora.h>
 #include <aurora/event.h>
 #include <aurora/gfx.h>
+#include <aurora/performance.h>
 #include <dolphin/os.h>
 #include <dolphin/vi.h>
 
@@ -42,12 +43,20 @@ static void* s_next_fb;
 static void* s_current_fb;
 static BOOL s_black;
 static bool s_in_frame;
+#ifdef __ANDROID__
+static u64 s_work_start;
+static bool s_work_trace;
+#endif
 
 void pc_os_run_alarms(void);
 void aurora_heap_check(void);
 
 uint32_t pc_gfx_prewarm(uint32_t max_wait_ms) {
     return aurora_wait_pipelines(max_wait_ms);
+}
+
+void pc_gfx_scene(uint64_t key) {
+    aurora_set_pipeline_scene(key, key ? 250 : 0);
 }
 
 uint64_t pc_monotonic_ns(void) {
@@ -72,6 +81,13 @@ static void pc_pace_wait(u64 ns) {
 #endif
 
 void pc_frame_boundary(void) {
+#ifdef __ANDROID__
+    if (s_work_start) {
+        aurora_trace_end(s_work_trace);
+        aurora_report_frame_work(SDL_GetTicksNS() - s_work_start, pc_sim_period_ns());
+        s_work_start = 0;
+    }
+#endif
     static int timing_debug = -1;
     static int fps_log = -1;
     static u64 fps_t0;
@@ -188,6 +204,7 @@ void pc_frame_boundary(void) {
     }
 
     u64 update_started = timing_debug ? SDL_GetTicksNS() : 0;
+    bool update_trace = aurora_trace_begin("Melee update");
     const AuroraEvent* event = aurora_update();
     if (timing_debug) {
         u64 elapsed = SDL_GetTicksNS() - update_started;
@@ -213,6 +230,7 @@ void pc_frame_boundary(void) {
      * frame instead of clearing the EFB to black underneath the menu. */
     aurora_preserve_frame_buffer(pc_menu_is_open());
     pc_keyboard_apply();
+    aurora_trace_end(update_trace);
     /* MELEE_EXIT_AFTER_FRAMES=<n>: bound a scripted run without needing
      * synthetic input, which is unreliable under Xwayland. Setting
      * pc_exit_requested instead of exiting here on purpose: the window-close
@@ -260,7 +278,9 @@ void pc_frame_boundary(void) {
          * (120/144/240 Hz) or VSync-off, this throttles simulation to exact 60 Hz. */
         if (PC_PACE_ALWAYS || !aurora_vsync_enabled() || want > 2000000ull) {
             u64 started = (fps_log || timing_debug) ? SDL_GetTicksNS() : 0;
+            bool pace_trace = aurora_trace_begin("Simulation pacing sleep");
             pc_pace_wait(want);
+            aurora_trace_end(pace_trace);
             if (fps_log || timing_debug) {
                 u64 slept = SDL_GetTicksNS() - started;
                 if (fps_log && slept > want && slept - want > sleep_worst_over_ns) {
@@ -284,7 +304,9 @@ void pc_frame_boundary(void) {
      * core at 100% polling SDL. */
     for (;;) {
         u64 started = timing_debug ? SDL_GetTicksNS() : 0;
+        bool begin_trace = aurora_trace_begin("Melee begin frame / slot wait");
         bool begun = aurora_begin_frame();
+        aurora_trace_end(begin_trace);
         if (timing_debug) {
             u64 elapsed = SDL_GetTicksNS() - started;
             if (elapsed > 20000000ull)
@@ -293,6 +315,7 @@ void pc_frame_boundary(void) {
         }
         if (begun)
             break;
+        aurora_report_frame_work(0, 0);
         update_started = timing_debug ? SDL_GetTicksNS() : 0;
         event = aurora_update();
         if (timing_debug) {
@@ -317,6 +340,10 @@ void pc_frame_boundary(void) {
 #endif
     }
     s_in_frame = true;
+#ifdef __ANDROID__
+    s_work_start = SDL_GetTicksNS();
+    s_work_trace = aurora_trace_begin("Melee game work");
+#endif
 
     /* Presentation-only chat reads the physical local controller, never a
      * rewound/synchronized pad. It cannot change the game simulation. */

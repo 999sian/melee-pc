@@ -63,6 +63,7 @@ void pc_touch_apply(void) {
     }
 }
 
+#if !defined(__ANDROID__)
 static struct {
     SDL_FingerID stick_finger;
     float stick_origin_x;
@@ -148,6 +149,12 @@ void pc_touch_event(const SDL_Event* e) {
         }
     }
 }
+#else
+void pc_touch_event(const SDL_Event* e) {
+    /* The Java overlay owns gameplay touch; launcher taps still pass through SDL. */
+    (void)e;
+}
+#endif
 
 #if defined(__ANDROID__)
 #include "pc/net.h"

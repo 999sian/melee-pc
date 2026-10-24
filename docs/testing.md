@@ -87,7 +87,7 @@ tree over the disc image.
   `atexit(pc_shutdown_once)` still runs), exit 0, and log
   `MELEE_EXIT_AFTER_FRAMES: reached frame <n>, exiting`. This is what makes a
   case bounded: a hang fails on the per-case timeout instead of hanging CI.
-- `MELEE_BOOT_SCENE=<title|vs|classic|training>` — boot straight into one scene
+- `MELEE_BOOT_SCENE=<title|vs|classic|training|credits>` — boot straight into one scene
   with a hard-coded setup, no menu navigation. It starts the state machine in
   that mode instead of routing through `GM_BOOT`, whose memory-card scene burns
   a mode-dependent and wildly variable number of frames (under 300 ahead of
@@ -99,6 +99,8 @@ tree over the disc image.
   While the knob is set, the state machine also logs `boot scene: game mode <n>`
   and `boot scene: state <n> scene <n>` per entry. Both knobs cost one `getenv`
   when unset.
+  `credits` starts at Classic's trophy award and advances into the staff roll,
+  covering initialization and rendering after a Classic completion.
 
 ### What each case proves
 
@@ -117,6 +119,7 @@ tree over the disc image.
 | `vs-match` | `GM_DEBUG_VS` reaches `GS_VS` and runs 1500 frames |
 | `classic-mode` | Classic gets past its intro into the first fight (`state 1 scene 2`) and runs 1800 frames |
 | `training-mode` | Training reaches `GS_TRAINING` and runs 1500 frames |
+| `credits` | Classic's ending reaches `GS_STAFFROLL` and runs 1500 frames |
 | `disc-inspection` | the image parsed, the FST walked, and the region-specific archives on it are the NTSC-U ones |
 | `memcard-create-and-load` | pass 1 creates the card image in the temp pref dir, pass 2 loads it from there |
 | `memcard-no-card` | `--no-card` leaves the game with no save file to open |

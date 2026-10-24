@@ -6,6 +6,9 @@
 int main() {
     using namespace pc;
 
+    // A build must not offer its own current release as an update (#131).
+    assert(!is_update_available(get_app_version(), "v0.3.1-beta"));
+
     auto v1 = SemVer::parse("v0.1.4-beta");
     assert(v1.valid);
     assert(v1.major == 0 && v1.minor == 1 && v1.patch == 4);

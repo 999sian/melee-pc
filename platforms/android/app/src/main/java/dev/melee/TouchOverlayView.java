@@ -140,7 +140,6 @@ public class TouchOverlayView extends View {
         mPaintText.setTextAlign(Paint.Align.CENTER);
         mPaintAccent.setStyle(Paint.Style.STROKE);
 
-        setupControllerListener();
         updateControllerState();
     }
 
@@ -193,15 +192,15 @@ public class TouchOverlayView extends View {
             @Override
             public void run() {
                 if (mPhysicalControllerConnected) {
-                    // Physical gamepad detected: disable and hide touch controls
-                    setVisibility(View.GONE);
+                    // Keep the settings pill available with a controller.
+                    setVisibility(View.VISIBLE);
                     TouchControls.nativeSetTouchActive(false);
                 } else {
                     // No physical gamepad: stay on screen even when the
                     // controls are hidden, so the settings pill that un-hides
                     // them is still reachable.
                     setVisibility(View.VISIBLE);
-                    TouchControls.nativeSetTouchActive(mUserEnabled);
+                    TouchControls.nativeSetTouchActive(mUserEnabled && !mLauncherActive);
                 }
             }
         });
@@ -210,6 +209,7 @@ public class TouchOverlayView extends View {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        setupControllerListener();
         updateControllerState();
     }
 
@@ -311,8 +311,8 @@ public class TouchOverlayView extends View {
         mBtnStart.x = mBtnStart.rect.centerX(); mBtnStart.y = mBtnStart.rect.centerY();
 
         // Quick Settings Button (top-center)
-        float setW = 44.0f * dp * s;
-        float setH = 28.0f * dp * s;
+        float setW = 64.0f * dp;
+        float setH = 48.0f * dp;
         mSettingsRect.set((mViewWidth - setW) / 2.0f, 18.0f * dp, (mViewWidth + setW) / 2.0f, 18.0f * dp + setH);
     }
 
@@ -332,12 +332,12 @@ public class TouchOverlayView extends View {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         // The launcher owns every touch while it is up.
-        if (mLauncherActive || mPhysicalControllerConnected) {
+        if (mLauncherActive) {
             return false;
         }
         // Hidden controls still answer on the settings pill: it is the only
         // way back, since the hide toggle lives in its dialog.
-        if (!mUserEnabled) {
+        if (!mUserEnabled || mPhysicalControllerConnected) {
             if (event.getActionMasked() == MotionEvent.ACTION_DOWN
                     && mSettingsRect.contains(event.getX(), event.getY())) {
                 vibrateTick();
@@ -636,10 +636,10 @@ public class TouchOverlayView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (mLauncherActive || mPhysicalControllerConnected) return;
+        if (mLauncherActive) return;
 
         final int baseAlpha = Math.round(mOpacity * 255.0f);
-        if (!mUserEnabled) {
+        if (!mUserEnabled || mPhysicalControllerConnected) {
             // Controls hidden, but the settings pill stays so the hide can be
             // undone.
             drawSettingsPill(canvas, baseAlpha);
@@ -812,15 +812,16 @@ public class TouchOverlayView extends View {
         mPaintText.setTextSize(mSettingsRect.height() * 0.45f);
         mPaintText.setFakeBoldText(true);
         float textY = mSettingsRect.centerY() - ((mPaintText.descent() + mPaintText.ascent()) / 2.0f);
-        canvas.drawText("⚙", mSettingsRect.centerX(), textY, mPaintText);
+        canvas.drawText("Menu", mSettingsRect.centerX(), textY, mPaintText);
     }
 
     private void showSettingsDialog() {
         Context ctx = getContext();
         AlertDialog.Builder builder = new AlertDialog.Builder(ctx);
-        builder.setTitle("Touch Controls Settings");
+        builder.setTitle("Settings");
 
         String[] options = new String[] {
+            "Game Settings (graphics, audio, fullscreen)",
             "Opacity: " + Math.round(mOpacity * 100) + "%",
             "Button Size: " + (mScale <= 0.85f ? "Small (80%)" : (mScale >= 1.15f ? "Large (120%)" : "Normal (100%)")),
             "Haptic Feedback: " + (mHapticsEnabled ? "ON" : "OFF"),
@@ -830,35 +831,40 @@ public class TouchOverlayView extends View {
 
         builder.setItems(options, (dialog, which) -> {
             switch (which) {
-                case 0: // Cycle Opacity (25% -> 40% -> 60% -> 80% -> 100%)
+                case 0:
+                    resetInputState();
+                    TouchControls.nativeSetTouchActive(false);
+                    TouchControls.nativeOpenSettings();
+                    return;
+                case 1: // Cycle Opacity (25% -> 40% -> 60% -> 80% -> 100%)
                     if (mOpacity < 0.35f) mOpacity = 0.45f;
                     else if (mOpacity < 0.55f) mOpacity = 0.70f;
                     else if (mOpacity < 0.85f) mOpacity = 1.0f;
                     else mOpacity = 0.25f;
                     mPrefs.edit().putFloat(KEY_OPACITY, mOpacity).apply();
                     break;
-                case 1: // Cycle Scale (0.8 -> 1.0 -> 1.2)
+                case 2: // Cycle Scale (0.8 -> 1.0 -> 1.2)
                     if (mScale < 0.9f) mScale = 1.0f;
                     else if (mScale < 1.1f) mScale = 1.2f;
                     else mScale = 0.8f;
                     mPrefs.edit().putFloat(KEY_SCALE, mScale).apply();
                     layoutControls();
                     break;
-                case 2: // Toggle Haptics
+                case 3: // Toggle Haptics
                     mHapticsEnabled = !mHapticsEnabled;
                     mPrefs.edit().putBoolean(KEY_HAPTICS, mHapticsEnabled).apply();
                     break;
-                case 3: // Toggle Floating Stick
+                case 4: // Toggle Floating Stick
                     mFloatingStick = !mFloatingStick;
                     mPrefs.edit().putBoolean(KEY_FLOATING, mFloatingStick).apply();
                     break;
-                case 4: // Hide / show the on-screen controls
+                case 5: // Hide / show the on-screen controls
                     mUserEnabled = !mUserEnabled;
                     mPrefs.edit().putBoolean(KEY_USER_ENABLED, mUserEnabled).apply();
                     if (!mUserEnabled) {
                         resetInputState();
                     }
-                    TouchControls.nativeSetTouchActive(mUserEnabled);
+                    updateControllerState();
                     break;
             }
             invalidate();

@@ -1,9 +1,12 @@
 #include <aurora/aurora.h>
 #include <aurora/time.hpp>
+#include <aurora/performance.h>
+#include "android_performance.hpp"
 #include <cmath>
 
 #ifdef AURORA_ENABLE_GX
 #include "gfx/resources.hpp"
+#include "gfx/pipeline_cache.hpp"
 #include "gfx/frame.hpp"
 #include "gfx/recording.hpp"
 #include "gfx/render_worker.hpp"
@@ -317,6 +320,7 @@ bool begin_frame() noexcept {
 
 void end_frame() noexcept {
   ZoneScoped;
+  AndroidTraceScope trace("Aurora end frame / FIFO drain");
 #ifdef AURORA_ENABLE_GX
   gx::fifo::drain();
   gx::fifo::end_frame();
@@ -353,6 +357,7 @@ void end_frame() noexcept {
       window::SurfaceLock surfaceLock;
       if (window::is_presentable() && g_surface) {
         ZoneScopedN("Acquire texture");
+        AndroidTraceScope trace("Surface acquire");
         wgpu::SurfaceTexture surfaceTexture;
         g_surface.GetCurrentTexture(&surfaceTexture);
         surfaceStatus = surfaceTexture.status;
@@ -446,11 +451,13 @@ void end_frame() noexcept {
     const auto buffer = encoder.Finish(&cmdBufDescriptor);
     {
       ZoneScopedN("Queue Submit");
+      AndroidTraceScope trace("GPU queue submit");
       g_queue.Submit(1, &buffer);
     }
     webgpu::gpu_prof::after_submit();
     if (canPresent && g_surface) {
       ZoneScopedN("Present");
+      AndroidTraceScope trace("Surface present");
       wgpu::ConvertibleStatus status = wgpu::Status::Error;
       {
         window::SurfaceLock surfaceLock;
@@ -536,10 +543,31 @@ void end_frame() noexcept {
 } // namespace aurora
 
 // C API bindings
+uint32_t aurora_set_pipeline_scene(uint64_t scene_id, uint32_t max_wait_ms) {
+#if defined(__ANDROID__) && defined(AURORA_ENABLE_GX)
+  // Finish the previous scene's FIFO draws before changing their history tag.
+  aurora::gx::fifo::drain();
+  return aurora::gfx::set_pipeline_scene(scene_id, max_wait_ms);
+#else
+  (void)scene_id;
+  (void)max_wait_ms;
+  return 0;
+#endif
+}
+
+void aurora_report_frame_work(uint64_t duration_ns, uint64_t target_ns) {
+  thread_local aurora::PerformanceHints hints;
+  if (target_ns == 0) hints.reset();
+  else hints.report(duration_ns, target_ns);
+}
+
 AuroraInfo aurora_initialize(int argc, char* argv[], const AuroraConfig* config) {
   return aurora::initialize(argc, argv, *config);
 }
-void aurora_shutdown() { aurora::shutdown(); }
+void aurora_shutdown() {
+  aurora_report_frame_work(0, 0);
+  aurora::shutdown();
+}
 const AuroraEvent* aurora_update() { return aurora::update(); }
 bool aurora_begin_frame() { return aurora::begin_frame(); }
 void aurora_end_frame() { aurora::end_frame(); }

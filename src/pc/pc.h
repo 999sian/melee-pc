@@ -35,6 +35,7 @@ void pc_log_line(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 typedef union SDL_Event SDL_Event;
 void pc_keyboard_event(const SDL_Event* e);
 void pc_keyboard_apply(void);
+int pc_get_key_binding(int slot);
 void pc_touch_apply(void);
 
 /* GameCube adapter (WUP-028) read directly for raw 8-bit values
@@ -141,6 +142,7 @@ const char* pc_textures_get_path(void);
  * shader-pipeline compiles drain, returns how many are still pending. Call
  * from a load screen; 0 only polls. */
 uint32_t pc_gfx_prewarm(uint32_t max_wait_ms);
+void pc_gfx_scene(uint64_t key);
 
 #ifdef __cplusplus
 }

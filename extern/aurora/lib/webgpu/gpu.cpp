@@ -786,7 +786,13 @@ static wgpu::BackendType to_wgpu_backend(AuroraBackend backend) {
   }
 }
 
-static void release_surface_locked() noexcept { g_surface = {}; }
+static void release_surface_locked() noexcept {
+  // Disconnect the swapchain before reconnecting the Android native window.
+  if (g_surface) {
+    g_surface.Unconfigure();
+  }
+  g_surface = {};
+}
 
 static bool create_surface() {
   SDL_Window* window = window::get_sdl_window();
@@ -1024,6 +1030,12 @@ bool initialize(AuroraBackend auroraBackend, bool allowCpu) {
       if (feature == wgpu::FeatureName::TimestampQuery) {
         requiredFeatures.push_back(feature);
       }
+#elif defined(__ANDROID__)
+      const char* profile = std::getenv("MELEE_GPU_PROFILE");
+      if (profile != nullptr && std::strcmp(profile, "1") == 0 &&
+          feature == wgpu::FeatureName::TimestampQuery) {
+        requiredFeatures.push_back(feature);
+      }
 #endif
     }
     std::string featureList;
@@ -1193,7 +1205,7 @@ void shutdown() {
   g_normalBuffer = {};
   g_graphicsConfig.normalBuffer = false;
   g_queue = {};
-  g_surface = {};
+  release_surface_locked();
   g_device = {};
   g_adapter = {};
   g_instance = {};

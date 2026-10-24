@@ -73,6 +73,7 @@ void pc_input_poll_init(void) {
     atomic_store_explicit(&s_poll_count, 0, memory_order_relaxed);
     s_poll_thread = SDL_CreateThread(input_poll_worker, "Melee-Input-1000Hz", NULL);
     if (s_poll_thread == NULL) {
+        atomic_store_explicit(&s_poll_running, false, memory_order_release);
         pc_log_line("Warning: Failed to create 1000 Hz input polling thread: %s", SDL_GetError());
     } else {
         pc_log_line("1000 Hz input polling thread started (1 ms polling interval)");

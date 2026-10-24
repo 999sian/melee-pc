@@ -40,6 +40,9 @@ bool aurora_vsync_enabled(void);
  * time here so known pipeline configs become compiled PSOs before a match,
  * not during. */
 uint32_t aurora_wait_pipelines(uint32_t max_wait_ms);
+/* Android match history only prioritizes configurations already accepted by
+ * this device. Zero clears the context. Budget may overrun by one compile. */
+uint32_t aurora_set_pipeline_scene(uint64_t scene_id, uint32_t max_wait_ms);
 
 #ifdef __cplusplus
 }

@@ -5,7 +5,7 @@
 
 #include <tracy/Tracy.hpp>
 
-#ifdef TRACY_ENABLE
+#if defined(TRACY_ENABLE) || defined(__ANDROID__)
 
 #include <tracy/TracyC.h>
 
@@ -15,6 +15,7 @@
 #include <bitset>
 #include <chrono>
 #include <cstring>
+#include <cstdlib>
 #include <string>
 #include <utility>
 #include <vector>
@@ -73,6 +74,7 @@ struct TimestampBounds {
 };
 
 bool g_enabled = false;
+bool g_logFrames = false;
 bool g_timestampsEnabled = false;
 wgpu::QuerySet g_querySet;
 wgpu::Buffer g_resolveBuffer;
@@ -126,6 +128,7 @@ uint8_t tracy_context_type(wgpu::BackendType backend) {
   }
 }
 
+#ifdef TRACY_ENABLE
 void emit_context(const Slot& slot, uint64_t frameBegin) {
   // Tracy has no notion of WebGPU's opaque timestamp epoch, so the context
   // anchor pairs a GPU timestamp with "now" at emission. Shift the timestamp
@@ -161,6 +164,7 @@ void emit_zone_end(uint64_t gpuNs) {
   ___tracy_emit_gpu_zone_end_serial({.queryId = queryId, .context = ContextId});
   ___tracy_emit_gpu_time_serial({.gpuTime = int64_t(gpuNs), .queryId = queryId, .context = ContextId});
 }
+#endif
 
 TimestampBounds event_bounds(const Slot& slot, const uint64_t* ts) {
   TimestampBounds bounds;
@@ -199,6 +203,10 @@ void emit_frame(Slot& slot) {
     return;
   }
 
+  if (g_logFrames)
+    Log.info("GPU profile: work {} ns, {} passes", frameEnd - frameBegin, slot.passCount);
+
+#ifdef TRACY_ENABLE
   const uint64_t lastFrameEnd = std::exchange(g_lastFrameEnd, frameEnd);
   if (lastFrameEnd != 0) {
     if (frameBegin < lastFrameEnd) {
@@ -277,6 +285,7 @@ void emit_frame(Slot& slot) {
   TracyPlot("aurora: gpuFrameMs", double(frameEnd - frameBegin) * 1e-6);
   TracyPlot("aurora: gpuIdleMs", double(idleNs) * 1e-6);
   TracyPlot("aurora: gpuPasses", int64_t(slot.passCount));
+#endif
 }
 
 Slot& record_slot() { return g_slots[g_recordSlot]; }
@@ -290,6 +299,11 @@ uint32_t alloc_zone() {
 } // namespace
 
 void initialize() {
+  const char* logFrames = std::getenv("MELEE_GPU_PROFILE");
+  g_logFrames = logFrames != nullptr && logFrames[0] == '1' && logFrames[1] == '\0';
+#ifndef TRACY_ENABLE
+  if (!g_logFrames) return;
+#endif
   g_enabled = g_device.HasFeature(wgpu::FeatureName::TimestampQuery);
   if (!g_enabled) {
     Log.info("Timestamp queries unsupported; GPU profiling disabled");

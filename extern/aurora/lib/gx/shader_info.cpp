@@ -1,4 +1,5 @@
 #include "shader_info.hpp"
+#include "uber_shader.hpp"
 
 #include "../gfx/recording.hpp"
 
@@ -354,6 +355,13 @@ ShaderInfo build_shader_info(const ShaderConfig& config) noexcept {
     }
   }
 
+  if (config.uberTev) {
+    info.uberTev = true;
+    info.loadsTevReg.set();
+    info.writesTevReg.set();
+    info.sampledKColors.set();
+    info.uniformSize += sizeof(UberUniform);
+  }
   info.uniformSize += info.loadsTevReg.count() * sizeof(Vec4<float>);
   for (int i = 0; i < info.sampledColorChannels.size(); ++i) {
     if (info.sampledColorChannels.test(i)) {
@@ -537,6 +545,7 @@ static void fill_uniform(ByteBuffer& buf, const ShaderInfo& info) noexcept {
     }
     buf.append(texture_size_bias(get_texture(static_cast<GXTexMapID>(i))));
   }
+  if (info.uberTev) buf.append(make_uber_uniform(g_gxState.tevStages, g_gxState.alphaCompare));
 }
 
 gfx::Range build_uniform(const ShaderInfo& info) noexcept {

@@ -71,7 +71,8 @@ android_target = next((arg.split('=', 1)[1] for arg in cmd_args
 if android_target.startswith('aarch64'):
     android_triple = 'aarch64-linux-android'
     gcc_bin = os.environ.get('GCC_AARCH64_BIN') or shutil.which('aarch64-linux-gnu-gcc')
-    architecture_flags = ['-march=armv8-a+crc+crypto', '-mtune=cortex-a73']
+    # Android reserves x18 for ShadowCallStack; GNU/Linux GCC does not.
+    architecture_flags = ['-march=armv8-a', '-mtune=cortex-a73', '-ffixed-x18']
 elif android_target.startswith('x86_64'):
     android_triple = 'x86_64-linux-android'
     gcc_bin = os.environ.get('GCC_X86_64_BIN') or shutil.which('x86_64-linux-gnu-gcc')

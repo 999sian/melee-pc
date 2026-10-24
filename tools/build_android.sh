@@ -44,7 +44,7 @@ cmake -B "${BUILD_DIR}" -G Ninja \
     -DANDROID_PLATFORM=android-26 \
     -DAURORA_SDL3_PROVIDER=vendor \
     -DAURORA_SDL3_LINKAGE=static \
-    -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384" \
     -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
 SDL_JAVA_SOURCE_DIR="$(sed -n 's/^AURORA_SDL3_JAVA_SOURCE_DIR:INTERNAL=//p' "${BUILD_DIR}/CMakeCache.txt")"
 SDL_VERSION_PATTERN='private static final int SDL_(MAJOR|MINOR|MICRO)_VERSION ='
@@ -60,12 +60,12 @@ echo "=== Staging assets and native libraries ==="
 mkdir -p "${ANDROID_DIR}/app/src/main/assets/resources"
 cp -r "${ROOT_DIR}/resources/"* "${ANDROID_DIR}/app/src/main/assets/"
 cp -r "${ROOT_DIR}/resources/"* "${ANDROID_DIR}/app/src/main/assets/resources/"
-# No initial_pipeline_cache.db: the seed is recorded on desktop GPUs, and
-# Android builds at boot only pipelines this device has built before
-# (DeviceBuiltRowsOnly, extern/aurora/lib/gfx/pipeline_cache.cpp), so shipping
-# it would only have it merged into pipeline_cache.db and dropped again.
+# Keep the unrestricted desktop inventory out of Android. The separate starter
+# is checked for the current version and structure size again by the native loader before any driver compilation.
 rm -f "${ANDROID_DIR}/app/src/main/assets/initial_pipeline_cache.db" \
     "${ANDROID_DIR}/app/src/main/assets/resources/initial_pipeline_cache.db"
+gzip -dc "${ROOT_DIR}/tools/android_initial_pipeline_cache.db.gz" \
+    > "${ANDROID_DIR}/app/src/main/assets/android_initial_pipeline_cache.db"
 
 mkdir -p "${ANDROID_DIR}/app/src/main/jniLibs/arm64-v8a"
 "${STRIP_TOOL}" --strip-unneeded -o "${ANDROID_DIR}/app/src/main/jniLibs/arm64-v8a/libmelee.so" "${BUILD_DIR}/libmelee.so"
@@ -74,11 +74,11 @@ if [[ -f "${BUILD_DIR}/_deps/png-build/libpng16.so" ]]; then
 fi
 
 echo "=== Preparing release signing key ==="
-KEYSTORE="${ANDROID_DIR}/melee-release.keystore"
+KEYSTORE="${MELEE_KEYSTORE_FILE:-${ANDROID_DIR}/melee-release.keystore}"
 if [[ -n "${MELEE_KEYSTORE_BASE64:-}" ]]; then
     # CI path: the keystore lives in repository secrets, never in the tree.
     base64 -d <<< "${MELEE_KEYSTORE_BASE64}" > "${KEYSTORE}"
-elif [[ -f "${ANDROID_DIR}/release-signing.env" ]]; then
+elif [[ -z "${MELEE_KEYSTORE_FILE:-}" && -f "${ANDROID_DIR}/release-signing.env" ]]; then
     # Local path: passwords sit next to the (gitignored) keystore.
     set -a; source "${ANDROID_DIR}/release-signing.env"; set +a
 fi
@@ -100,6 +100,7 @@ if [[ ! -f "${KEYSTORE}" ]]; then
     echo "error: no signing key; set MELEE_KEYSTORE_BASE64 or create ${KEYSTORE}" >&2
     exit 1
 fi
+export MELEE_KEYSTORE_FILE="$(realpath "${KEYSTORE}")"
 export MELEE_KEYSTORE_PASSWORD MELEE_KEY_ALIAS MELEE_KEY_PASSWORD
 
 echo "=== Building Melee Android APK ==="

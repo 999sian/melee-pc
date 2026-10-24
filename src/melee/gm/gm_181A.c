@@ -570,29 +570,22 @@ bool gm_IsMultimanSmashMode(void)
     return false;
 }
 
-/// @todo Original addresses these fields relative to #lbl_80472ED8 (reference
-/// relocations are lbl_80472ED8+0x6BC..+0x6C8): lbl_80473594 overlays
-/// lbl_80472ED8+0x6BC (0x80472ED8 + 0x6BC == 0x80473594), and gm_80182578
-/// below already reads the same storage via lbl_80473594.
-typedef struct {
-    u8 pad_0[0x6BC];
-    u8 x6BC;
-    u8 pad_6BD;
-    u16 x6BE;
-    int x6C0;
-    int x6C4;
-    int x6C8;
-} regclear_record_state;
-
+/// Original addresses these fields relative to #lbl_80472ED8 (reference
+/// relocations are lbl_80472ED8+0x6BC..+0x6C8), which on GameCube is
+/// lbl_80473594.
 void gm_80182554(int arg0, int arg1)
 {
-    regclear_record_state* s = (regclear_record_state*) &lbl_80472ED8;
+    /* PORT: 64-bit host fix: lbl_80472ED8 is 0x6D8 bytes on 64-bit, so the
+     * GameCube +0x6BC overlay wrote over its x6AC/x6B0/x6B4 spawn-table
+     * pointers and lbl_80473594 was never initialised (Multi-Man records
+     * did not save). Write lbl_80473594 directly. */
+    RegClearRecordState* s = &lbl_80473594;
 
-    s->x6C8 = arg0;
-    s->x6C4 = arg1;
-    s->x6BC = 0;
-    s->x6C0 = 0;
-    s->x6BE = 0;
+    s->xC = arg0;
+    s->x8 = arg1;
+    s->x0 = 0;
+    s->x4 = 0;
+    s->x2 = 0;
 }
 
 static inline u16 gm_80182578_GetTimeFromData(RegClearRecordState* data)

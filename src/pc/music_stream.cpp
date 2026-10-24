@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include "paths.h"
 #include "music_stream.h"
 #include "stb_vorbis.h"
 #include "pc.h"
@@ -34,17 +35,17 @@ static std::vector<std::filesystem::path> get_search_directories() {
     std::error_code ec;
 
     // 1. User preferences directory: ~/.local/share/melee-pc/music/
-    char* pref = SDL_GetPrefPath("", "melee-pc");
+    char* pref = pc_get_pref_path();
     if (pref != nullptr) {
         dirs.push_back(std::filesystem::path(pref) / "music");
         SDL_free(pref);
     }
     const char* home = std::getenv("HOME");
-    if (home != nullptr) {
+    if (home != nullptr && !pc_is_portable()) {
         dirs.push_back(std::filesystem::path(home) / ".local" / "share" / "melee-pc" / "music");
     }
     const char* xdg = std::getenv("XDG_DATA_HOME");
-    if (xdg != nullptr) {
+    if (xdg != nullptr && !pc_is_portable()) {
         dirs.push_back(std::filesystem::path(xdg) / "melee-pc" / "music");
     }
 

@@ -49,6 +49,7 @@
 #include <stdlib.h>
 #ifdef TARGET_PC
 #include "pc/slp.h"
+#include "pc/pc.h"
 #endif
 
 static u32 lbl_803D5620[] = {
@@ -2007,6 +2008,18 @@ void fn_8016E730(StartMeleeData* arg0)
 
 #ifdef TARGET_PC
     pc_slp_match_start(arg0); /* Slippi's SendGameInfo hooks here too */
+    {
+        /* Hash fields, not struct bytes: rules contain pointers and padding. */
+        u64 key = (14695981039346656037ull ^ arg0->rules.stkind) * 1099511628211ull;
+        int i;
+        for (i = 0; i < GM_MAX_PLAYERS; ++i) {
+            const PlayerInitData* player = &arg0->players[i];
+            u32 value = player->slot_type == Gm_PKind_NA ? 0xFFFFFF :
+                ((u8)player->ckind | ((u32)player->color << 8) | ((u32)player->slot_type << 16));
+            key = (key ^ value) * 1099511628211ull;
+        }
+        pc_gfx_scene(key ? key : 1);
+    }
 #endif
     db_Setup();
     gm_SetDbPauseInputHandlers(gm_AnyControllerPressedStart,

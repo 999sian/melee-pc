@@ -9,6 +9,7 @@
 #include "pc.h"
 
 #include <SDL3/SDL_system.h>
+#include <SDL3/SDL_events.h>
 #include <jni.h>
 #include <mutex>
 
@@ -224,6 +225,29 @@ void pc_android_multicast_lock_release(void) {
     }
 }
 
+extern "C" JNIEXPORT void JNICALL Java_dev_melee_TouchControls_nativeOpenSettings(JNIEnv*, jclass) {
+    // Queue onto the SDL/game thread, which owns the menu and RmlUi context.
+    SDL_Event event{};
+    event.type = SDL_EVENT_KEY_DOWN;
+    event.key.scancode = SDL_SCANCODE_F1;
+    event.key.down = true;
+    SDL_PushEvent(&event);
+}
+
+bool pc_android_set_fullscreen(bool fullscreen) {
+    JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
+    if (env == nullptr || env->PushLocalFrame(8) != JNI_OK)
+        return false;
+    jobject activity = (jobject)SDL_GetAndroidActivity();
+    jclass cls = activity != nullptr ? env->GetObjectClass(activity) : nullptr;
+    jmethodID method = cls != nullptr ? env->GetMethodID(cls, "setFullscreen", "(Z)V") : nullptr;
+    if (method != nullptr)
+        env->CallVoidMethod(activity, method, fullscreen ? JNI_TRUE : JNI_FALSE);
+    const bool failed = threw(env, "setFullscreen");
+    env->PopLocalFrame(nullptr);
+    return method != nullptr && !failed;
+}
+
 void pc_android_set_launcher_active(bool active) {
     JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
     jobject activity = env != nullptr ? (jobject)SDL_GetAndroidActivity() : nullptr;
@@ -242,6 +266,19 @@ void pc_android_set_launcher_active(bool active) {
         env->DeleteLocalRef(cls);
     }
     env->DeleteLocalRef(activity);
+}
+
+void pc_android_export_logs(void) {
+    JNIEnv* env = (JNIEnv*)SDL_GetAndroidJNIEnv();
+    if (env == nullptr || env->PushLocalFrame(8) != JNI_OK)
+        return;
+    jobject activity = (jobject)SDL_GetAndroidActivity();
+    jclass cls = activity != nullptr ? env->GetObjectClass(activity) : nullptr;
+    jmethodID method = cls != nullptr ? env->GetMethodID(cls, "exportLogs", "()V") : nullptr;
+    if (method != nullptr)
+        env->CallVoidMethod(activity, method);
+    threw(env, "exportLogs");
+    env->PopLocalFrame(nullptr);
 }
 
 const char* pc_android_device_name(void) {
@@ -269,6 +306,10 @@ const char* pc_android_device_name(void) {
 
 #else
 
+bool pc_android_set_fullscreen(bool) {
+    return false;
+}
+void pc_android_export_logs(void) {}
 void pc_android_multicast_lock_acquire(void) {}
 void pc_android_multicast_lock_release(void) {}
 

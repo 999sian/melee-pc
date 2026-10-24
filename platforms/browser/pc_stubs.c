@@ -12,13 +12,31 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
 
 #include "pc/file_cache.h"
 #include "pc/pc.h"
+#include "pc/paths.h"
 #include "pc/slp.h"
 
 /* Desktop launcher preferences; defaults match launcher_data.hpp. MELEE_UCF is
  * the one the launcher also reads from the environment (launcher.cpp). */
+int pc_get_key_binding(int slot) {
+    static const int keys[] = {SDL_SCANCODE_X, SDL_SCANCODE_Z, SDL_SCANCODE_C,
+        SDL_SCANCODE_V, SDL_SCANCODE_RETURN, SDL_SCANCODE_TAB, SDL_SCANCODE_Q, SDL_SCANCODE_E,
+        SDL_SCANCODE_T, SDL_SCANCODE_G, SDL_SCANCODE_F, SDL_SCANCODE_H, SDL_SCANCODE_RIGHT,
+        SDL_SCANCODE_LEFT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_L, SDL_SCANCODE_J,
+        SDL_SCANCODE_I, SDL_SCANCODE_K, SDL_SCANCODE_Q, SDL_SCANCODE_E};
+    return slot >= 0 && slot < (int)SDL_arraysize(keys) ? keys[slot] : 0;
+}
+bool pc_is_portable(void) {
+    return false;
+}
+char* pc_get_pref_path(void) {
+    /* shell.mjs mounts persistent browser storage here before boot. */
+    return SDL_strdup("/saves/");
+}
 bool pc_is_unlock_all_enabled(void) {
     return false;
 }

@@ -53,9 +53,11 @@ gfx::CompiledPipeline create_pipeline(const PipelineConfig& config, const gfx::R
     }
   }
   pipeline.main = create(options, "main");
+#ifndef __EMSCRIPTEN__
   if (!pipeline.main) {
     return {};
   }
+#endif
   return pipeline;
 }
 
@@ -77,8 +79,10 @@ static bool env_flag(const char* name) {
 }
 
 void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
-gfx::CompiledPipeline pipeline;
-  if (!gfx::get_pipeline(data.pipeline, pipeline)) {
+  gfx::CompiledPipeline pipeline;
+  const bool ready = gfx::get_pipeline(data.pipeline, pipeline);
+  gfx::record_hybrid_draw(data.uberTev, ready);
+  if (!ready) {
     /* AURORA_LOG_SKIPPED=1: report draws dropped because pipeline
      * is still compiling. Pipelines built asynchronously but unready
      * silently skip their draw, so short-lived screens can miss geometry

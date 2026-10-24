@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include "paths.h"
 #include "net_match.h"
 #include "net_dht.h"
 #include "net_dht_item.h"
@@ -228,7 +229,7 @@ static void publication_result(const PcDhtItemResult* r, void* context) {
 static bool load_identity(void) {
     if (identity_loaded)
         return true;
-    char* dir = SDL_GetPrefPath(NULL, "melee-pc");
+    char* dir = pc_get_pref_path();
     const char* name = pc_get_net_name();
     bool ok = dir && pc_identity_load(&identity, dir, name && *name ? name : "PLAYER");
     if (dir && ok)

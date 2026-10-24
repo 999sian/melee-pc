@@ -565,18 +565,17 @@ bool grKinokoRoute_80208480(int arg)
     return 0;
 }
 
-struct grKinokoRoute_802084B4_gp {
-    char pad[0xDD8];
-    HSD_JObj* jobj;
-};
-
 void grKinokoRoute_802084B4(HSD_GObj* gobj)
 {
     HSD_GObj* gobj2;
     Vec3 sp_vec;
-    struct grKinokoRoute_802084B4_gp* gp = gobj->user_data;
+    /* PORT: 64-bit host fix: gobj is the yaku block item (the DmgReceived
+     * callback's first argument). Its jobj is ip+DD8 on GameCube, read through
+     * a pad[0xDD8] overlay; on 64-bit Item is larger and the field is at
+     * +0x1340, so +0xDD8 crashed on every block hit. Read it by field. */
+    HSD_JObj* jobj = GET_ITEM(gobj)->xDD4_itemVar.yaku.x4_u.x4;
 
-    HSD_JObjSetFlagsAll(gp->jobj, JOBJ_HIDDEN);
+    HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
 
     gobj2 = Ground_GetMapGObj(3);
     if (gobj2 != NULL) {
@@ -586,7 +585,7 @@ void grKinokoRoute_802084B4(HSD_GObj* gobj)
         }
     }
 
-    lb_8000B1CC(gp->jobj, NULL, &sp_vec);
+    lb_8000B1CC(jobj, NULL, &sp_vec);
     efSync_Spawn(0x442, gobj, &sp_vec);
     Camera_RequestQuake(QuakeKind_Small, NULL);
     Ground_801C5414(0x136, 0xBA);

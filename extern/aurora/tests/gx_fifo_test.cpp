@@ -127,7 +127,7 @@ TEST_F(GXFifoTest, AutoSizedDrawPublishesAfterLengthPatch) {
   EXPECT_EQ(aurora::gfx::g_testDrawCount, 1u);
 }
 
-TEST_F(GXFifoTest, CommandsAfterFinalDrawRemainPendingUntilDrain) {
+TEST_F(GXFifoTest, CommandsAfterPublishedDrawRemainPendingUntilDrain) {
   aurora::gx::fifo::init();
   aurora::gx::fifo::begin_frame();
   GXClearVtxDesc();
@@ -142,6 +142,7 @@ TEST_F(GXFifoTest, CommandsAfterFinalDrawRemainPendingUntilDrain) {
   GXPosition3u8(6, 7, 8);
   GXEnd();
 
+  aurora::gx::fifo::publish();
   const std::array<u8, 5> trailingBpWrite{GX_LOAD_BP_REG, 0x41, 0x12, 0x34, 0x56};
   aurora::gx::fifo::write_data(trailingBpWrite.data(), trailingBpWrite.size());
   ASSERT_TRUE(wait_for(aurora::gfx::g_testProcessedDrawCount, 1));

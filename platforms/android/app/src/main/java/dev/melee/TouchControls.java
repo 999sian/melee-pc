@@ -24,5 +24,7 @@ public final class TouchControls {
 
     public static native void nativeSetTouchActive(boolean active);
 
+    public static native void nativeOpenSettings();
+
     private TouchControls() {}
 }

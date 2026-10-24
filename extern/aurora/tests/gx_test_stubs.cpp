@@ -151,6 +151,10 @@ RenderTargetLayout get_render_target_layout() noexcept {
 }
 } // namespace aurora::gfx
 
+namespace aurora::gfx {
+void select_hybrid_pipeline(gx::PipelineConfig&, const RenderTargetLayout&) {}
+}
+
 // --- Pipeline/draw command stubs ---
 namespace aurora::gfx {
 template <>

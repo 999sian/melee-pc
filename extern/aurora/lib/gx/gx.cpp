@@ -400,6 +400,10 @@ wgpu::RenderPipeline build_pipeline(const PipelineConfig& config, const gfx::Ren
       .fragment = &fragmentState,
   };
 #ifdef __EMSCRIPTEN__
+  // Complete alpha-only passes before the async RGB pass claims the same cache key.
+  if (!options.colorUpdate && options.alphaUpdate && options.dstAlphaMode == DstAlphaMode::Replace) {
+    return g_device.CreateRenderPipeline(&descriptor);
+  }
   // Same key as the pipeline cache's runtime ref (resolve_pipeline).
   const auto ref = xxh3_hash(layout.key, xxh3_hash(config, static_cast<HashType>(gfx::ShaderType::GX)));
   auto pending = std::make_shared<wgpu::RenderPipeline>();

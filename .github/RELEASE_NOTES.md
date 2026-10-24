@@ -16,42 +16,26 @@ English (UK) text.
 
 ## Highlights
 
-- **Upstream doldecomp/melee sync**: 57 upstream commits ported up to `79b13a324`,
-  incorporating archive data annotations, typed item and stage attributes,
-  and structured control flow improvements.
-- **Renderer & dependency updates**: Vendored Aurora updated to `40cf48fce`, adding
-  reusable `LruCache` texture management, compiled pipeline prepasses, dual-source
-  blending, and an updated gamepad/input layer.
-- **SDL3 tracking**: Pinned to latest development main (`a419debd2`).
-- **Custom SDL on every platform**: Desktop packages bundle the patched SDL
-  shared library; Android, iOS and browser builds link it into the application.
+- Fixed the Adventure mode Mushroom Kingdom crash when blocks are hit (#144).
+- Fixed macOS bundles missing transitive `@rpath` libraries, including
+  `libbrotlicommon.1.dylib`, which could prevent the app from launching (#145).
+- Fixed coloured bars at the top left of widescreen fights when off-screen
+  fighter magnifiers are drawn. Verified on Linux/Vulkan in Kongo Jungle and
+  Onett; Windows/Direct3D hardware verification is still pending.
 
 ## Fixes
 
-- Restored mouse and keyboard input in the launcher and F1 settings menu with
-  Aurora's updated input router.
-- Fixed garbled, overlapping and off-centre original menu text caused by incorrect
-  indexing into the font spacing table.
-- Restored libusb support in the Windows SDL build for GameCube-compatible
-  adapters, including Lossless Adapter console mode. Builds now reject a
-  missing USB backend instead of silently shipping without adapter support.
-- Fixed name-menu animation selection, VS Records popup timing, results-screen
-  capture and distance tracking by removing assumptions that separate static
-  objects are adjacent in memory.
+- Replaced GameCube byte-offset overlays with native field access for
+  Mushroom Kingdom block objects, Multi-Man Melee record initialization, and
+  Super Scope charge resets. This avoids invalid pointers, missing records,
+  and writes into unrelated CPU state on 64-bit hosts (#144).
+- macOS packaging now resolves and bundles transitive `@rpath` dependencies
+  and rejects bundles with missing libraries before publishing (#145).
+- Magnifier capture cameras now copy and clear their whole temporary viewport,
+  preserving fighter proportions and preventing leftover depth from hiding
+  parts of the stage. Added a regression test for original, widescreen and
+  ultrawide framebuffer aspects.
 
-- Fixed `mnDiagram_SortNamesByKOs` indexing beyond its buffer and corrupting adjacent
-  menu descriptors (#123).
-- Replaced indexed stack reads in `ftCo_DeadUpStar_Anim` with direct `ftCommonData`
-  member accesses (#122).
-- Fixed Pikachu Thunder segfault caused by host 64-bit struct padding leaving stale
-  Thunder GObj pointers (#121).
-- Enforced deterministic build paths with `-ffile-prefix-map` in CMake and
-  `-fmacro-prefix-map` (#114).
-- Fixed Pokemon Stadium stage transformation table indexing and guarded async archive
-  parsing loop (#113).
-- Resolved Apple Silicon macOS archive crashes caused by variadic 64-bit zero sentinel
-  promotions (#112).
-- Corrected Windows updater browser redirects from showing false download completions (#108).
 ## Known issues
 
 Open reports are tracked on the [issue tracker](https://github.com/999sian/melee-pc/issues);
@@ -59,12 +43,13 @@ the numbers below link there.
 
 **All platforms**
 
+- Rendering artifacts and Kirby grab/throw behaviour remain under investigation (#130).
 - Online play is a prototype. LAN Play, Direct Connect, Unranked and Ranked are
   implemented and rendezvous through the public DHT, but pairing across two
   NATs in general and live ranked acceptance are unproven, and cross-platform simulation
   determinism is not claimed. Ratings are community-computed and unverified.
   Every datagram is authenticated (protocol 9), and the LAN lobby
-  only pairs identical builds, so both players should update to v0.3.0. A
+  only pairs identical builds, so both players should use the same release. A
   connect code is 8 characters after the `#`.
 - Widescreen applies to fights (VS, Sudden Death, Training); menus, results and
   cutscenes stay at the original aspect. The wide HUD is a separate toggle and
@@ -75,9 +60,8 @@ the numbers below link there.
   launcher waits for that queue when you press Play -- press Play again to skip
   the wait. `MELEE_PIPELINE_SYNC=1` restores the old wait-for-compile
   behaviour, and `MELEE_PIPELINE_JOBS=<n>` sets the compile thread count.
-  On Android, Qualcomm Adreno GPUs still compile shaders inline, because the
-  Adreno 750 driver fails when pipelines are created on a second thread, so
-  expect some first-use stutter there.
+  On Android, shaders compile inline to avoid driver failures seen when
+  pipelines are created on a second thread, so expect first-use stutter.
 - Only Vulkan, Direct3D 12/11 and Metal backends are shipped; OpenGL and
   OpenGL ES-only GPUs and drivers do not run the game (#64, #66).
 - Gamepad buttons, sticks and triggers can be remapped; dash sensitivity,
@@ -95,6 +79,7 @@ the numbers below link there.
 
 **Windows**
 
+- Classic mode startup crashes remain under investigation (#128).
 - v0.1.6-beta and later can close immediately when starting the game from the
   launcher on machines where v0.1.5-beta worked (#62, #63). Attach
   `melee-pc.log` (or run `RUN-AND-LOG.bat`).
@@ -107,6 +92,10 @@ the numbers below link there.
 
 **Android**
 
+- Battle rendering is reported blank unless paused on Pixel 9 Pro (#129).
+  This release does not yet have a verified fix for that device.
+- Startup or Play-button crashes remain reported on Retroid Pocket 6 and
+  AYN Odin 2 (#136, #137); device logs and hardware verification are outstanding.
 - Some devices close the app at launch before the launcher appears, reported
   on an Honor 200 (Snapdragon 7 Gen 3) and an AYN Odin 2 (#59, #23).
 - Android 9 and devices without Vulkan are not supported (#66).
@@ -184,6 +173,7 @@ settings overlay.
 ## Contributors
 
 ### Project Contributors
+- **@forkyfoo** — Mushroom Kingdom, Multi-Man Melee and Super Scope 64-bit fixes (#144), and macOS library bundling fix (#145).
 - **@999sian** — Project Lead, Phase 1 features, multi-core optimizations, file cache, Android & Windows porting, and stability fixes.
 - **@theofficialgman** — Linux aarch64 (ARM64) support, Nod aarch64 prebuilts, 4-core & ARM scheduling optimizations (#44, #47).
 - **@alexscott2718-gif** — Graphics backend selection, command line overrides, and engine logging.

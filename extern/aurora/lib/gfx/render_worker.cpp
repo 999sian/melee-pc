@@ -1,10 +1,12 @@
 #include "render_worker.hpp"
 
 #include "../thread.hpp"
+#include "../android_performance.hpp"
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <aurora/performance.h>
 
 #include <tracy/Tracy.hpp>
 
@@ -33,21 +35,45 @@ void complete_sync(const std::shared_ptr<SyncState>& sync) {
 
 void worker_main(std::stop_token token) {
   g_workerThreadId = std::this_thread::get_id();
+#ifdef __ANDROID__
+  PerformanceHints hints;
+  uint64_t workNs = 0;
+  auto lastWork = std::chrono::steady_clock::now();
+#endif
 
   while (true) {
     bool closed = false;
     auto item = g_queue.pop_for(IdlePumpInterval, closed);
     if (!item) {
+#ifdef __ANDROID__
+      if (std::chrono::steady_clock::now() - lastWork > std::chrono::milliseconds{500})
+        hints.reset();
+#endif
       if (closed || token.stop_requested()) {
         break;
       }
       continue;
     }
 
+#ifdef __ANDROID__
+    if (item->type == ItemType::BeginFrame) workNs = 0;
+#endif
     if (item->work) {
       ZoneScopedN("QueueItem work");
+      AndroidTraceScope trace("Render worker work");
+#ifdef __ANDROID__
+      const auto started = std::chrono::steady_clock::now();
+#endif
       item->work();
+#ifdef __ANDROID__
+      lastWork = std::chrono::steady_clock::now();
+      workNs += std::chrono::duration_cast<std::chrono::nanoseconds>(
+          lastWork - started).count();
+#endif
     }
+#ifdef __ANDROID__
+    if (item->type == ItemType::EndFrame) hints.report(workNs, 16'666'667);
+#endif
     complete_sync(item->sync);
     g_pendingItems.fetch_sub(1, std::memory_order_acq_rel);
     if (item->type == ItemType::Shutdown) {

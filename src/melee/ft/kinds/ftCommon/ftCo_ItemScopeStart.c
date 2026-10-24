@@ -45,11 +45,12 @@ void ft_800D76B8(Fighter_GObj* gobj)
     }
 
     {
-        ItemScopeVars* vars = (ItemScopeVars*) fp;
-
+        /* PORT: 64-bit host fix: ItemScopeVars puts timer/flag at fp+2340,
+         * their GameCube offset. On 64-bit mv.co.itemscope is at fp+2C90 and
+         * fp+2340 is inside fp->cpu, so write the fields by name. */
         ftAnim_8006EBA4(gobj);
-        vars->timer = 0.0F;
-        vars->flag = 0;
+        fp->mv.co.itemscope.timer = 0.0F;
+        fp->mv.co.itemscope.flag = 0;
     }
 
     ftCommon_8007E79C(fp->gobj, 1);
@@ -69,12 +70,11 @@ void ft_800D7770(Fighter_GObj* gobj)
     }
 
     {
-        ItemScopeVars* vars = (ItemScopeVars*) fp;
-
+        /* PORT: 64-bit host fix: see ft_800D76B8. */
         ftAnim_8006EBA4(gobj);
         ftCommon_ClampAirDrift(fp);
-        vars->timer = 0.0F;
-        vars->flag = 0;
+        fp->mv.co.itemscope.timer = 0.0F;
+        fp->mv.co.itemscope.flag = 0;
     }
 
     ftCommon_8007E79C(fp->gobj, 1);

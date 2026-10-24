@@ -194,6 +194,8 @@ if (AURORA_ENABLE_GX)
   add_executable(render_worker_tests
     render_worker_test.cpp
     thread_test.cpp
+    os_test_globals.cpp
+    ../lib/logging.cpp
     ../lib/gfx/render_worker.cpp
     ../lib/thread.cpp
   )
@@ -205,6 +207,7 @@ if (AURORA_ENABLE_GX)
   target_link_libraries(render_worker_tests PRIVATE
     gtest
     gtest_main
+    fmt::fmt
     Tracy::TracyClient
     ${AURORA_SDL3_TARGET}
   )

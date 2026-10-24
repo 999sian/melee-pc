@@ -56,23 +56,9 @@ extern bool pc_menu_is_open(void);
 static atomic_bool s_focused;
 static bool s_trace; /* MELEE_INPUT_TRACE=1: one line per published pad change */
 
-static const struct {
-    SDL_Scancode key;
-    u16 button;
-} s_button_map[] = {
-    {SDL_SCANCODE_X, PAD_BUTTON_A},
-    {SDL_SCANCODE_Z, PAD_BUTTON_B},
-    {SDL_SCANCODE_C, PAD_BUTTON_X},
-    {SDL_SCANCODE_V, PAD_BUTTON_Y},
-    {SDL_SCANCODE_Q, PAD_TRIGGER_L},
-    {SDL_SCANCODE_E, PAD_TRIGGER_R},
-    {SDL_SCANCODE_TAB, PAD_TRIGGER_Z},
-    {SDL_SCANCODE_RETURN, PAD_BUTTON_START},
-    {SDL_SCANCODE_T, PAD_BUTTON_UP},
-    {SDL_SCANCODE_G, PAD_BUTTON_DOWN},
-    {SDL_SCANCODE_F, PAD_BUTTON_LEFT},
-    {SDL_SCANCODE_H, PAD_BUTTON_RIGHT},
-};
+static const u16 s_button_map[] = {PAD_BUTTON_A, PAD_BUTTON_B, PAD_BUTTON_X, PAD_BUTTON_Y,
+    PAD_BUTTON_START, PAD_TRIGGER_Z, PAD_TRIGGER_L, PAD_TRIGGER_R, PAD_BUTTON_UP, PAD_BUTTON_DOWN,
+    PAD_BUTTON_LEFT, PAD_BUTTON_RIGHT};
 
 static s8 axis(SDL_Scancode neg, SDL_Scancode pos) {
     /* A real GameCube stick reads about +-80 at full deflection. */
@@ -266,23 +252,31 @@ static void publish_locked(void) {
                 s_key[i] = false;
         }
         for (i = 0; i < sizeof(s_button_map) / sizeof(s_button_map[0]); i++) {
-            SDL_Scancode key = s_button_map[i].key;
-            if (s_key[key] || s_key_latched[key]) {
-                st.button |= s_button_map[i].button;
+            SDL_Scancode key = (SDL_Scancode)pc_get_key_binding((int)i);
+            if (key != SDL_SCANCODE_UNKNOWN && (s_key[key] || s_key_latched[key])) {
+                st.button |= s_button_map[i];
             }
         }
-        st.stickX = axis(SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT);
-        if (st.stickX == 0) {
+        st.stickX =
+            axis((SDL_Scancode)pc_get_key_binding(13), (SDL_Scancode)pc_get_key_binding(12));
+        if (st.stickX == 0 && pc_get_key_binding(13) == SDL_SCANCODE_LEFT &&
+            pc_get_key_binding(12) == SDL_SCANCODE_RIGHT)
+        {
             st.stickX = axis(SDL_SCANCODE_A, SDL_SCANCODE_D);
         }
-        st.stickY = axis(SDL_SCANCODE_DOWN, SDL_SCANCODE_UP);
-        if (st.stickY == 0) {
+        st.stickY =
+            axis((SDL_Scancode)pc_get_key_binding(15), (SDL_Scancode)pc_get_key_binding(14));
+        if (st.stickY == 0 && pc_get_key_binding(15) == SDL_SCANCODE_DOWN &&
+            pc_get_key_binding(14) == SDL_SCANCODE_UP)
+        {
             st.stickY = axis(SDL_SCANCODE_S, SDL_SCANCODE_W);
         }
-        st.substickX = axis(SDL_SCANCODE_J, SDL_SCANCODE_L);
-        st.substickY = axis(SDL_SCANCODE_K, SDL_SCANCODE_I);
-        st.triggerLeft = (s_key[SDL_SCANCODE_Q] || s_key_latched[SDL_SCANCODE_Q]) ? 255 : 0;
-        st.triggerRight = (s_key[SDL_SCANCODE_E] || s_key_latched[SDL_SCANCODE_E]) ? 255 : 0;
+        st.substickX =
+            axis((SDL_Scancode)pc_get_key_binding(17), (SDL_Scancode)pc_get_key_binding(16));
+        st.substickY =
+            axis((SDL_Scancode)pc_get_key_binding(19), (SDL_Scancode)pc_get_key_binding(18));
+        st.triggerLeft = (st.button & PAD_TRIGGER_L) ? 255 : 0;
+        st.triggerRight = (st.button & PAD_TRIGGER_R) ? 255 : 0;
         memset(s_key_latched, 0, sizeof(s_key_latched));
         any_active = true;
     }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Regenerate tools/initial_pipeline_cache.db.gz, the pipeline seed every
-build ships (tools/package_*.sh, CMake `pipeline_cache` target).
+"""Regenerate tools/initial_pipeline_cache.db.gz, the desktop pipeline seed
+(tools/package_*.sh, CMake `pipeline_cache` target).
 
 The seed is a list of pipeline *configs* (GX register state, blend, depth,
 MSAA...), not compiled blobs, so one recorded on any GPU or backend seeds
@@ -56,21 +56,31 @@ def counts(conn, table="pipeline_cache"):
         f"SELECT type, config_version, COUNT(*) FROM {table} GROUP BY 1, 2 ORDER BY 1, 2")}
 
 
-def record(disc, seeds, secs):
+def coverage_cases():
+    # Akaneia and Icetop are unused stage slots, not playable stages.
+    return [(stage, base) for stage in range(2, 33) if stage not in (21, 26)
+            for base in range(0, 26, 4)]
+
+
+def record(disc, seeds, secs, coverage=False):
     exe = os.path.join(ROOT, "build", "melee")
     env = dict(os.environ, SDL_VIDEO_DRIVER="x11", MELEE_VSYNC="0", MELEE_WINDOW_TITLE="melee-pc-gen")
-    for seed in seeds:
+    cases = ([(seeds[0], stage, base) for stage, base in coverage_cases()]
+             if coverage else [(seed, None, None) for seed in seeds])
+    for seed, stage, base in cases:
+        if coverage:
+            env.update(MELEE_BOOT_SCENE="vs", MELEE_DEBUG_VS="cpu4",
+                       MELEE_DEBUG_VS_STAGE=str(stage), MELEE_DEBUG_VS_FIGHTER_BASE=str(base))
         env["MELEE_SEED"] = str(seed)
-        print(f"recording attract demo, seed {seed}, {secs}s")
+        print(f"recording stage={stage} fighter_base={base} seed={seed}, {secs}s", flush=True)
         proc = subprocess.Popen([exe, disc], env=env, cwd=os.path.join(ROOT, "build"),
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
-            time.sleep(12)
-            # Skip the opening movie; the title screen idles into the demo. Synthetic
-            # keys are best effort (portal-gated on some desktops) -- the movie ends
-            # on its own, it just costs a minute more.
-            subprocess.run([sys.executable, os.path.join(ROOT, "tools", "devctl.py"), "key", "Return"],
-                           env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if not coverage:
+                time.sleep(12)
+                # Attract demos still need the opening movie skipped.
+                subprocess.run([sys.executable, os.path.join(ROOT, "tools", "devctl.py"), "key", "Return"],
+                               env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             deadline = time.time() + secs
             while time.time() < deadline and proc.poll() is None:
                 time.sleep(1)
@@ -132,11 +142,14 @@ def main():
     ap.add_argument("--db", default=local_db(), help="pipeline_cache.db to merge (default: this machine's)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--run", metavar="DISC", help="record attract demos from this disc image first")
+    ap.add_argument("--coverage", action="store_true", help="with --run: record every playable VS stage with every fighter (203 four-CPU runs; effects are not exhaustive)")
     ap.add_argument("--seeds", default="1", help="comma-separated MELEE_SEED values for --run")
     ap.add_argument("--secs", type=int, default=150, help="seconds per seed for --run")
     args = ap.parse_args()
+    if args.coverage and not args.run:
+        ap.error("--coverage requires --run DISC")
     if args.run:
-        record(os.path.abspath(args.run), [int(s) for s in args.seeds.split(",")], args.secs)
+        record(os.path.abspath(args.run), [int(s) for s in args.seeds.split(",")], args.secs, args.coverage)
     merge(args.db, args.dry_run)
 
 

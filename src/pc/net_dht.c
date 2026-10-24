@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include "paths.h"
 #include "net_dht.h"
 #include "net_dht_item.h"
 #include <stdio.h>
@@ -224,7 +225,7 @@ void pc_log_line(const char* fmt, ...);
 
 static void node_cache(bool save) {
 #ifndef PC_DHT_TEST_NO_BOOTSTRAP
-    char* root = SDL_GetPrefPath(NULL, "melee-pc");
+    char* root = pc_get_pref_path();
     if (!root)
         return;
     char path[2048];

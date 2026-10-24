@@ -4,7 +4,8 @@
  * it with the launcher's opaque backdrop. */
 body.port-menu { background-color: #07071a38; decorator: none; }
 .port-menu #settings-content { background-color: #0a0c26b8; }
-#resume { margin-top: 22dp; margin-left: 6%; }
+#resume { margin-top: 14dp; margin-left: 6%; }
+#quit-game { margin-left: 6%; }
 #menu-status {
     font-size: 18dp;
     line-height: 1.3;

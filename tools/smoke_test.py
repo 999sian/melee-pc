@@ -54,6 +54,7 @@ SCENES = {
     "vs": (14, 1, 2, 1500),
     "classic": (3, 1, 2, 1800),
     "training": (28, 2, 4, 1500),
+    "credits": (21, 1, 43, 1500),
 }
 
 
@@ -176,6 +177,7 @@ CASES = [
     scene_case("vs-match", "vs"),
     scene_case("classic-mode", "classic", timeout=360),
     scene_case("training-mode", "training"),
+    scene_case("credits", "credits"),
     {
         # No CLI entry point verifies a disc, and adding a flag only the test
         # uses would be the tail wagging the dog: the SHA-1 path is covered by

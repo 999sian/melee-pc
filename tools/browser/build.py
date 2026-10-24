@@ -22,6 +22,7 @@ def main():
     tools = ROOT / 'tools/browser'
 
     run([sys.executable, ROOT / 'tests/browser/test_execution_charset.py'])
+    run([sys.executable, ROOT / 'tools/test_browser_pipeline.py'])
     run([sys.executable, tools / 'build_lower.py'])
     run([sys.executable, tools / 'test_disc_lower.py'])
     run([sys.executable, tools / 'compile_game.py', '--jobs', args.jobs])

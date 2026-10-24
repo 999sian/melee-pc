@@ -4,7 +4,7 @@
 #include <tuple>
 
 #ifndef MELEE_APP_VERSION
-#define MELEE_APP_VERSION "v0.3.0-beta"
+#error "Build with CMake so MELEE_APP_VERSION matches VERSION or MELEE_VERSION"
 #endif
 
 namespace pc {

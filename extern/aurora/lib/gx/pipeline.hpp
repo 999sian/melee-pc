@@ -22,6 +22,7 @@ struct DrawData {
   // because the FIFO is processed on a worker thread, so reading a global at
   // render time attributes draws to whatever the game thread did last.
   uint32_t tag;
+  bool uberTev = false;
 };
 
 #ifdef __EMSCRIPTEN__

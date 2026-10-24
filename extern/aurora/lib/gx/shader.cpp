@@ -6,6 +6,8 @@
 #include "gx.hpp"
 #include "gx_fmt.hpp"
 #include "shader_info.hpp"
+#include "uber_shader.hpp"
+#include "uber_shader_wgsl.hpp"
 
 #include <dolphin/gx/GXEnum.h>
 
@@ -1090,7 +1092,7 @@ std::string build_shader_source(const ShaderConfig& config, DstAlphaMode dstAlph
   static std::array regName{"prev"sv, "tevreg0"sv, "tevreg1"sv, "tevreg2"sv};
   std::array<bool, MaxTevRegs> colorNormalized{};
   std::array<bool, MaxTevRegs> alphaNormalized{};
-  for (u32 idx = 0; idx < config.tevStageCount; ++idx) {
+  for (u32 idx = 0; !config.uberTev && idx < config.tevStageCount; ++idx) {
     const auto& stage = config.tevStages[idx];
     const auto color_arg = [&](GXTevColorArg arg) {
       auto value = color_arg_reg(arg, idx, config, stage);
@@ -1134,13 +1136,45 @@ std::string build_shader_source(const ShaderConfig& config, DstAlphaMode dstAlph
   }
 
   const auto& lastStage = config.tevStages[config.tevStageCount - 1];
-  const bool prevColorNormalized = colorNormalized[lastStage.colorOp.outReg];
-  const bool prevAlphaNormalized = alphaNormalized[lastStage.alphaOp.outReg];
-  if (lastStage.colorOp.outReg != 0) {
+  const bool prevColorNormalized = !config.uberTev && colorNormalized[lastStage.colorOp.outReg];
+  const bool prevAlphaNormalized = !config.uberTev && alphaNormalized[lastStage.alphaOp.outReg];
+  if (!config.uberTev && lastStage.colorOp.outReg != 0) {
     fragmentFn += fmt::format("\n    prev = vec4f({0}.rgb, prev.a);", regName[lastStage.colorOp.outReg]);
   }
-  if (lastStage.alphaOp.outReg != 0) {
+  if (!config.uberTev && lastStage.alphaOp.outReg != 0) {
     fragmentFn += fmt::format("\n    prev.a = {0}.a;", regName[lastStage.alphaOp.outReg]);
+  }
+
+  if (config.uberTev) {
+    uniformPre += UberShaderFunctions;
+    fragmentFn += "\n    var uber_regs = array<vec4f, 4>(prev, tevreg0, tevreg1, tevreg2);";
+    fragmentFn += "\n    let uber_colors = array<vec4f, 4>(ubuf.kcolor0, ubuf.kcolor1, ubuf.kcolor2, ubuf.kcolor3);";
+    for (u32 i = 0; i < config.tevStageCount; ++i) {
+      const auto& stage = config.tevStages[i];
+      fragmentFn += fmt::format("\n    {{\n    let stage_params = ubuf.uber_stages[{}];", i);
+      fragmentFn += fmt::format("\n    let tex = vec4f({}, {});\n    let ras = vec4f({}, {});",
+          color_arg_reg(GX_CC_TEXC, i, config, stage), alpha_arg_reg(GX_CA_TEXA, i, config, stage),
+          color_arg_reg(GX_CC_RASC, i, config, stage), alpha_arg_reg(GX_CA_RASA, i, config, stage));
+      fragmentFn += "\n    let kc = uber_kcolor(stage_params.konst.x, uber_colors);"
+                    "\n    let ka = uber_kalpha(stage_params.konst.y, uber_colors);";
+      for (const auto* kind : {"color", "alpha"}) {
+        const bool color = std::string_view(kind) == "color";
+        const auto* k = color ? "kc" : "ka";
+        for (u32 arg = 0; arg < 4; ++arg) {
+          fragmentFn += fmt::format("\n    let {0}_{1} = uber_{0}_arg(stage_params.{0}_args[{1}], uber_regs, tex, ras, {2}, {3});",
+                                    kind, arg, k, arg == 3 ? "false" : "true");
+        }
+        fragmentFn += fmt::format("\n    let {0}_result = uber_combine(vec4f({0}_0{1}), vec4f({0}_1{1}), "
+                                  "vec4f({0}_2{1}), vec4f({0}_3{1}), stage_params.{0}_op){2};",
+                                  kind, color ? ", 0.0" : "", color ? ".rgb" : ".x");
+      }
+      fragmentFn += "\n    let ci = stage_params.color_op.w & 3u;"
+                    "\n    let ai = stage_params.alpha_op.w & 3u;"
+                    "\n    uber_regs[ci] = vec4f(color_result, uber_regs[ci].a);"
+                    "\n    uber_regs[ai] = vec4f(uber_regs[ai].rgb, alpha_result);\n    }";
+    }
+    fragmentFn += fmt::format("\n    prev = vec4f(uber_regs[ubuf.uber_stages[{0}].color_op.w & 3u].rgb, "
+                              "uber_regs[ubuf.uber_stages[{0}].alpha_op.w & 3u].a);", config.tevStageCount - 1);
   }
 
   if (info.loadsTevReg.test(0)) {
@@ -1649,6 +1683,10 @@ std::string build_shader_source(const ShaderConfig& config, DstAlphaMode dstAlph
     fragmentFn += "\n    prev = vec4f(tev_overflow_vec3f(prev.rgb), prev.a);";
   } else if (!prevAlphaNormalized) {
     fragmentFn += "\n    prev.a = tev_overflow_f32(prev.a);";
+  }
+  if (config.uberTev) {
+    uniBufAttrs += "\n    uber_stages: array<UberStage, 4>,\n    uber_alpha: array<vec4u, 2>,";
+    fragmentFn += "\n    if (!uber_alpha_test(prev.a, ubuf.uber_alpha[0], ubuf.uber_alpha[1])) { discard; }";
   }
   if (config.alphaCompare) {
     const auto comp0 = alpha_compare(config.alphaCompare.comp0, config.alphaCompare.ref0);

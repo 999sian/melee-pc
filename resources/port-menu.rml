@@ -41,6 +41,9 @@
           <button id="resume" class="plate small back" data-desc="Close settings and return to the game.">
             <span>Resume</span>
           </button>
+          <button id="quit-game" class="plate small back" data-desc="Quit the game and return to the desktop.">
+            <span>Quit game</span>
+          </button>
         </div>
         <div id="settings-content">
           <div id="page-graphics" class="page">
@@ -202,8 +205,8 @@
               </span>
               <button id="dsu" class="value">Off</button>
             </div>
-            <div class="row" data-desc="No controller connected.">
-              <span class="name">Controller<span id="pad-name" class="detail">No controller connected.</span>
+            <div class="row" data-desc="Choose a controller port or Keyboard. Select a row to change its binding.">
+              <span class="name">Input device<span id="pad-name" class="detail">No controller connected.</span>
               </span>
               <button id="pad-port" class="value">Port 1</button>
             </div>
@@ -306,6 +309,10 @@
               <span class="name">Restore defaults<span class="detail">Put this port back on its default mapping.</span>
               </span>
               <button id="bind-reset" class="value action">Restore</button>
+            </div>
+            <div class="row" data-desc="Choose the button that opens settings on all controllers. Guide and F1 always work too.">
+              <span class="name">Menu button</span>
+              <button id="menu-binding" class="value action">Back</button>
             </div>
             <div class="info">
               <h2>Keyboard</h2>

@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import subprocess
 import shlex
+import shutil
 import tempfile
 import time
 from Xlib import X, XK, display, protocol
@@ -86,6 +87,15 @@ def run_case(name, arguments, saved_disc=None, interact=None, saved_preferences=
         return
     with tempfile.TemporaryDirectory(prefix="melee-launcher-") as directory:
         config = Path(directory) / "melee-pc" / "launcher.cfg"
+        portable_binary = None
+        if name == "portable-settings":
+            install = Path(directory) / "portable game"
+            install.mkdir()
+            portable_binary = install / "melee"
+            shutil.copy2(args.binary or root / "build/melee", portable_binary)
+            (install / "resources").symlink_to(root / "resources", target_is_directory=True)
+            (install / "portable.txt").touch()
+            config = install / "user" / "launcher.cfg"
         if saved_disc:
             config.parent.mkdir()
             # C++ std::quoted uses backslash escapes.
@@ -98,12 +108,17 @@ def run_case(name, arguments, saved_disc=None, interact=None, saved_preferences=
         title = f"launcher-test-{name}-{os.getpid()}"
         env = dict(os.environ, SDL_VIDEO_DRIVER="x11", MELEE_WINDOW_TITLE=title,
                    XDG_DATA_HOME=directory, XDG_CACHE_HOME=directory, MELEE_VSYNC="0")
-        if name == "settings-live":
+        if name == "f1-keyboard-bindings":
+            fifo = Path(directory) / "input.fifo"
+            os.mkfifo(fifo)
+            env.update(MELEE_INPUT_TRACE="1", MELEE_LOG_FILE=str(Path(directory) / "input.log"),
+                       MELEE_KEY_FIFO=str(fifo))
+        if name in ("settings-live", "portable-settings"):
             env.pop("MELEE_VSYNC", None)
         with tempfile.TemporaryFile(mode="w+") as log:
             if name == "relative-cli":
                 arguments = [os.path.relpath(args.disc.resolve(), directory)]
-            target_bin = str(args.binary.resolve()) if args.binary else str(root / "build/melee")
+            target_bin = str(portable_binary) if portable_binary else (str(args.binary.resolve()) if args.binary else str(root / "build/melee"))
             proc = subprocess.Popen([target_bin, "--no-card", *arguments], env=env,
                                     cwd=directory, stdout=log, stderr=log)
             try:
@@ -129,6 +144,9 @@ def run_case(name, arguments, saved_disc=None, interact=None, saved_preferences=
                     interact(win, proc, config)
                 else:
                     close(win, proc)
+                if name == "portable-settings":
+                    assert config.exists(), "portable settings were not saved beside the executable"
+                    assert not (Path(directory) / "melee-pc").exists(), "portable mode wrote to the normal user profile"
             except BaseException:
                 if proc.poll() is None:
                     proc.kill()
@@ -225,7 +243,52 @@ try:
     run_case("invalid-cli", ["/nonexistent/disc.iso"])
     run_case("missing-saved", [], saved_disc="/nonexistent/disc with spaces.iso")
     run_case("settings-live", [], interact=settings_live)
+    run_case("portable-settings", [], interact=settings_live)
     if args.disc:
+        def keyboard_bindings(win, proc, config):
+            time.sleep(12)
+            key(win, "F1")
+            key(win, "Down", 3)
+            key(win, "Right")
+            key(win, "Left")  # Port 1 -> Keyboard
+            key(win, "Down")  # A
+            key(win, "Return")
+            key(win, "p")
+            assert "keys 19 " in config.read_text(), "keyboard A binding was not saved"
+            screenshot(win, "f1-keyboard-bound")
+            key(win, "F1")
+            trace = config.parent.parent / "input.log"
+            before = trace.read_text()
+            # Feed the same scancode through the existing test input source;
+            # XSendEvent navigates RmlUi but cannot grant SDL keyboard focus.
+            descriptor = os.open(config.parent.parent / "input.fifo", os.O_WRONLY | os.O_NONBLOCK)
+            try:
+                os.write(descriptor, b"P 200\n")
+            finally:
+                os.close(descriptor)
+            time.sleep(0.5)
+            assert "pad: btn 0100 " in trace.read_text()[len(before):], "remapped key did not publish GameCube A"
+            key(win, "F1")
+            key(win, "Right")
+            key(win, "Down")
+            key(win, "Return")
+            key(win, "Delete")
+            assert "keys 0 " in config.read_text(), "keyboard A could not be unbound"
+            key(win, "Down", 22)  # remaining buttons + axes -> Restore defaults
+            key(win, "Return")
+            assert "keys 27 29 6 25 " in config.read_text(), "keyboard defaults were not restored"
+            close(win, proc)
+        run_case("f1-keyboard-bindings", [str(args.disc.resolve())], interact=keyboard_bindings)
+
+        def quit_menu(win, proc, config):
+            time.sleep(12)
+            key(win, "F1")
+            time.sleep(1)
+            key(win, "Up")  # last sidebar action: Quit game
+            key(win, "Return")
+            assert proc.wait(timeout=12) == 0, "F1 Quit did not shut down cleanly"
+        run_case("f1-quit", [str(args.disc.resolve())], interact=quit_menu)
+
         def category_navigation(win, proc, config):
             time.sleep(12)
             key(win, "F1")
@@ -259,7 +322,7 @@ try:
             time.sleep(12)
             key(win, "F1")
             time.sleep(1)
-            for page in ("audio", "gameplay", "controls", "online", "resume", "graphics"):
+            for page in ("audio", "gameplay", "controls", "online", "resume", "quit-game", "graphics"):
                 key(win, "Down")
                 time.sleep(0.5)
                 screenshot(win, "f1-" + page)
@@ -275,7 +338,7 @@ try:
             key(win, "F1")
             resize(win, 720, 760)
             screenshot(win, "f1-small")
-            key(win, "Up")  # wrap from the category to Resume
+            key(win, "Up", 2)  # wrap through Quit game to Resume
             screenshot(win, "f1-resume")
             key(win, "Return")
             assert proc.poll() is None, "game failed after resuming from F1"

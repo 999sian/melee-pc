@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #pragma once
 #include <atomic>
+#include <array>
+#include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_gamepad.h>
 #include <filesystem>
 #include <string>
 
@@ -14,7 +17,14 @@ struct Verification {
     VerifyState state = VerifyState::Error;
     std::string message;
 };
+inline constexpr std::array<int, 22> default_keys = {SDL_SCANCODE_X, SDL_SCANCODE_Z, SDL_SCANCODE_C,
+    SDL_SCANCODE_V, SDL_SCANCODE_RETURN, SDL_SCANCODE_TAB, SDL_SCANCODE_Q, SDL_SCANCODE_E,
+    SDL_SCANCODE_T, SDL_SCANCODE_G, SDL_SCANCODE_F, SDL_SCANCODE_H, SDL_SCANCODE_RIGHT,
+    SDL_SCANCODE_LEFT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_L, SDL_SCANCODE_J,
+    SDL_SCANCODE_I, SDL_SCANCODE_K, SDL_SCANCODE_Q, SDL_SCANCODE_E};
 struct Preferences {
+    std::array<int, 22> keys = default_keys;
+    int menu_button = SDL_GAMEPAD_BUTTON_BACK;
     std::string disc;
     std::string net_name = "PLAYER";
     std::string net_target;  // empty hosts our own connect code

@@ -328,6 +328,20 @@ Preferences load_preferences(const std::filesystem::path& path) {
             if (row >> value && value >= (key == "net_delay" ? -1 : 0) &&
                 value <= (key == "net_delay" ? 4 : 65535))
                 (key == "net_delay" ? prefs.net_delay : prefs.net_port) = value;
+        } else if (key == "menu_button") {
+            int value;
+            if (row >> value && value >= 0 && value < SDL_GAMEPAD_BUTTON_COUNT)
+                prefs.menu_button = value;
+        } else if (key == "keys") {
+            auto keys = prefs.keys;
+            bool valid = true;
+            for (int& code : keys) {
+                if (!(row >> code) || code < 0 || code >= SDL_SCANCODE_COUNT ||
+                    code == SDL_SCANCODE_F1 || code == SDL_SCANCODE_ESCAPE)
+                    valid = false;
+            }
+            if (valid)
+                prefs.keys = keys;
         } else if (key == "disc") {
             std::string value;
             if (row >> std::quoted(value))
@@ -433,7 +447,12 @@ bool save_preferences(
          << prefs.frozen_stadium << "\nfree_camera " << prefs.free_camera << "\nucf " << prefs.ucf
          << "\nmusic_volume " << prefs.music_volume << "\nsfx_volume " << prefs.sfx_volume
          << "\ninstall_id " << std::hex << prefs.install_id << std::dec << '\n';
-    text << "reverb " << prefs.reverb << '\n';
+    text << "reverb " << prefs.reverb << '\n'
+         << "menu_button " << prefs.menu_button << '\n'
+         << "keys";
+    for (int code : prefs.keys)
+        text << ' ' << code;
+    text << '\n';
     text << "dsu " << prefs.dsu << '\n';
     auto data = text.str();
     size_t done = 0;

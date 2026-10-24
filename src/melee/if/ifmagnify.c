@@ -438,16 +438,7 @@ void ifMagnify_802FBBDC(HSD_GObj* gobj, intptr_t code)
             ftDrawCommon_80080C28(fighter_gobj, 1);
             ftDrawCommon_80080C28(fighter_gobj, 2);
             HSD_GObj_804D7814 = NULL;
-#ifdef TARGET_PC
-            /* The widening keeps the fighter's pixel aspect correct inside a
-             * physically wider viewport, so it is the copy that has to be
-             * narrowed: only the centred 1/s of this viewport holds the image
-             * the bubble's fixed UVs will stretch back over. */
-            pc_widescreen_copy_efb(player->idesc, 0, 0,
-                                   0.5f * player->idesc->width, true);
-#else
             lb_800122C8(player->idesc, 0, 0, true);
-#endif
             HSD_CObjEndCurrent();
             player->state.is_offscreen = 1;
         }
@@ -539,6 +530,10 @@ void ifMagnify_802FC618(void)
     DP_SET(ifMagnify_803F97E8.eyepos, &ifMagnify_803F97C0);
     DP_SET(ifMagnify_803F97E8.interest, &ifMagnify_803F97D4);
     cobj = lb_80013B14((HSD_CameraDescPerspective*) &ifMagnify_803F97E8);
+#ifdef TARGET_PC
+    /* Fill the bubble's UVs and clear the whole scratch viewport after copying. */
+    HSD_CObjSetFlags(cobj, PC_COBJ_FILL_FRAME);
+#endif
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
     GObj_SetupGXLinkMax(gobj, ifMagnify_802FBBDC, 0);
     gobj->gxlink_prios = 0x10;
