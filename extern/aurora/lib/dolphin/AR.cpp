@@ -183,6 +183,9 @@ extern "C" void browser_arq_deliver() {
     ArqJob job=sArqQueue.front();sArqQueue.pop_front();
     arq_transfer(job);
     if(job.callback)job.callback(job.request);
+    // As arq_worker does: aurora_arq_inflight() waits for zero (netplay's
+    // transfer drain and snapshot refusal); without this it only ever grew.
+    sArqInflight.fetch_sub(1, std::memory_order_release);
   }
   delivering=false;
 }
