@@ -248,6 +248,14 @@ int HSD_SynthSFXLoad(const char* filename, int bankID, void (*cb)(int, int),
     entrynum = DVDConvertPathToEntrynum(filename);
 
     while (HSD_Synth_804D772C >= 6) {
+#ifdef __EMSCRIPTEN__
+        /* The queued loads advance in DVD and ARQ callbacks, which the
+         * browser runs only when this thread delivers them. */
+        extern void browser_disc_deliver(void);
+        extern void browser_arq_deliver(void);
+        browser_disc_deliver();
+        browser_arq_deliver();
+#endif
     }
 
     enabled = OSDisableInterrupts();
@@ -468,6 +476,13 @@ void HSD_SynthSFXBankDeflag(int bank_id)
 void HSD_SynthSFXBankDeflagSync(void)
 {
     while (sfxGroupDataReaddressCounter) {
+#ifdef __EMSCRIPTEN__
+        /* The browser has no ARQ thread: the readdress transfers complete,
+         * and their callbacks decrement the counter, only when this thread
+         * delivers them (aurora AR.cpp). Without this the page hangs. */
+        extern void browser_arq_deliver(void);
+        browser_arq_deliver();
+#endif
         continue;
     }
 }

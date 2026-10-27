@@ -222,7 +222,16 @@ void gm_801A4014(GameMode* mode)
             OSResetSystem(1, 0, 0);
         }
         lbMthp_8001F800();
-        while (HSD_DevComIsBusy(1));
+        while (HSD_DevComIsBusy(1)) {
+#ifdef __EMSCRIPTEN__
+            /* The browser completes DevCom's DVD and ARQ work only when
+             * this thread delivers it. */
+            extern void browser_disc_deliver(void);
+            extern void browser_arq_deliver(void);
+            browser_disc_deliver();
+            browser_arq_deliver();
+#endif
+        }
         gmMainLib_8015FBA4();
         gm_GetAllGameModes();
         memzero(&state_machine, sizeof(state_machine));
