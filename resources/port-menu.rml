@@ -120,6 +120,11 @@
               </span>
               <button id="ucf" class="value">Off</button>
             </div>
+            <div class="row" data-desc="Let the C-stick do smash attacks and aerials in single-player modes.">
+              <span class="name">C-stick in 1P modes<span class="detail">Let the C-stick do smash attacks and aerials in single-player modes.</span>
+              </span>
+              <button id="cstick-1p" class="value">Normal</button>
+            </div>
           </div>
           <div id="page-audio" class="page">
             <div class="row" data-desc="Left/right or drag to adjust.">

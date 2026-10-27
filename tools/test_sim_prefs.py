@@ -18,6 +18,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = {
     "pc_is_ucf_enabled": "forced on in launcher.cpp",
     "pc_is_free_camera_enabled": "forced off in launcher.cpp",
+    "pc_is_cstick_1p_enabled": "forced off in launcher.cpp",
     "pc_is_unlock_all_enabled": "RULES (pc_net_rules)",
     "pc_is_frozen_stadium_enabled": "RULES (pc_net_rules)",
 }
@@ -40,7 +41,7 @@ if unknown:
 
 # The pinned getters must actually consult the session.
 launcher = (ROOT / "src/pc/launcher.cpp").read_text()
-for name in ("pc_is_ucf_enabled", "pc_is_free_camera_enabled"):
+for name in ("pc_is_ucf_enabled", "pc_is_free_camera_enabled", "pc_is_cstick_1p_enabled"):
     body = re.search(r'extern "C" bool ' + name + r"\(void\) \{(.*?)\n\}", launcher, re.S)
     if not body or "pc_net_deterministic()" not in body.group(1):
         print(f"FAIL: {name} no longer checks pc_net_deterministic()")

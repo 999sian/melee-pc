@@ -88,6 +88,7 @@ bool pc_is_unlock_all_enabled(void);
 bool pc_is_frozen_stadium_enabled(void);
 bool pc_is_free_camera_enabled(void);
 bool pc_is_ucf_enabled(void);
+bool pc_is_cstick_1p_enabled(void);
 int pc_get_hud_mode(void);
 float pc_get_music_volume(void);
 float pc_get_sfx_volume(void);

@@ -46,6 +46,9 @@ bool pc_is_frozen_stadium_enabled(void) {
 bool pc_is_free_camera_enabled(void) {
     return false;
 }
+bool pc_is_cstick_1p_enabled(void) {
+    return false;
+}
 bool pc_is_ucf_enabled(void) {
     const char* env = getenv("MELEE_UCF");
     return env != NULL && env[0] != '0';

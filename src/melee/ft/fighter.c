@@ -94,6 +94,7 @@
 #include <sysdolphin/baselib/random.h>
 #ifdef TARGET_PC
 #include "pc/slp.h"
+#include <pc/pc.h>
 #endif
 
 extern MotionState* ftData_CharacterStateTables[Ft_Kind_Max];
@@ -1839,8 +1840,11 @@ void Fighter_procInput(Fighter_GObj* gobj)
                 SET_STICKS(fp->input.lstick[0].x, fp->input.lstick[0].y,
                            HSD_PadGameStatus[fp->pad_port].nml_stickX,
                            HSD_PadGameStatus[fp->pad_port].nml_stickY);
+                /* PC: the C-stick 1P option is the 0416B480 60000000
+                 * gecko code, scoped to human players' sticks. */
                 if (DbLevel < DbLKind_DebugRom &&
-                    gm_IsCurrently1PMode_inline() == 0)
+                    (gm_IsCurrently1PMode_inline() == 0 ||
+                     pc_is_cstick_1p_enabled()))
                 {
                     SET_STICKS(fp->input.cstick[0].x, fp->input.cstick[0].y,
                                HSD_PadGameStatus[fp->pad_port].nml_subStickX,

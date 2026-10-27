@@ -96,6 +96,7 @@ int main(int argc, char** argv) {
         assert(saved.find("hud_mode 0\n") != std::string::npos);
         assert(saved.find("frozen_stadium 0\n") != std::string::npos);
         assert(saved.find("free_camera 0\n") != std::string::npos);
+        assert(saved.find("cstick_1p 0\n") != std::string::npos);
         assert(saved.find("music_volume 1\n") != std::string::npos);
         assert(saved.find("sfx_volume 1\n") != std::string::npos);
         assert(saved.find("reverb 1\n") != std::string::npos);
@@ -144,6 +145,9 @@ int main(int argc, char** argv) {
     loaded.free_camera = true;
     assert(save_preferences(config, loaded, error));
     assert(load_preferences(config).free_camera);
+    loaded.cstick_1p = true;
+    assert(save_preferences(config, loaded, error));
+    assert(load_preferences(config).cstick_1p);
     loaded.keys[0] = SDL_SCANCODE_LCTRL;
     loaded.keys[1] = SDL_SCANCODE_UNKNOWN;
     loaded.menu_button = SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER;
