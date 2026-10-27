@@ -112,7 +112,9 @@ keyboard), `vs`, `vs-cpu4`, `classic` and `training`, and fails any case below
 58.5 fps or above a 33.4 ms p99 frame time. Boot-scene cases must also log the
 scene they asked for, so holding 60 fps on the wrong screen cannot pass.
 
-Known limitations: SDL's Emscripten audio backend uses the deprecated
-`ScriptProcessorNode`;
-Safari and mobile browsers are untested here; the first launch on a machine
-compiles shaders for a few seconds behind the loading status.
+Audio plays through an AudioWorklet (`src/pc/audio.c`), at the game's 32 kHz
+where the browser allows it.
+
+Known limitations: Safari and mobile browsers are untested here; the first
+launch on a machine compiles shaders for a few seconds behind the loading
+status.

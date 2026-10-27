@@ -227,6 +227,18 @@ wgpu::TextureFormat best_surface_format() {
   if (g_surfaceCapabilities.formatCount == 0) {
     return wgpu::TextureFormat::Undefined;
   }
+#ifdef __EMSCRIPTEN__
+  // A browser lists its preferred canvas format first (emdawnwebgpu's
+  // wgpuSurfaceGetCapabilities); presenting any other costs a conversion
+  // copy every frame ("canvas configured with a different format than is
+  // preferred"). Render targets follow this format, so nothing else changes.
+  {
+    const auto preferred = to_linear(g_surfaceCapabilities.formats[0]);
+    if (preferred == wgpu::TextureFormat::BGRA8Unorm || preferred == wgpu::TextureFormat::RGBA8Unorm) {
+      return preferred;
+    }
+  }
+#endif
   // Prefer RGBA8Unorm if supported to match decoded texture formats (critical on Android/Adreno
   // where drivers advertise BGRA8Unorm first but texture decoders output RGBA8, causing red/blue swap)
   for (size_t i = 0; i < g_surfaceCapabilities.formatCount; ++i) {

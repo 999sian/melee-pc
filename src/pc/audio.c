@@ -780,17 +780,98 @@ static void SDLCALL audio_pull(void* userdata, SDL_AudioStream* stream, int addi
 }
 
 #ifdef __EMSCRIPTEN__
+/* Browser output. SDL's Emscripten backend plays through a ScriptProcessorNode,
+ * deprecated and run on the page's main thread -- the thread the game runs
+ * on, so a long frame starved it and it stole time from frames. Instead the
+ * mix goes into this ring in (shared) wasm memory, and an AudioWorklet reads
+ * it on the browser's audio thread. The frame counters wrap freely; the
+ * worklet owns s_web_read, pc_audio_pump owns s_web_write. */
+#include <emscripten.h>
+#include <stdatomic.h>
+
+#define WEB_RING_FRAMES 8192            /* 256 ms at 32 kHz, a power of two */
+#define WEB_QUEUE_FRAMES (AX_RATE / 20) /* keep 50 ms queued, as the SDL path did */
+static float s_web_ring[WEB_RING_FRAMES * 2];
+static _Atomic uint32_t s_web_write;
+static _Atomic uint32_t s_web_read;
+static bool s_web_ready;
+
+// clang-format off
+EM_JS(int, web_audio_start, (float* ring, unsigned frames, void* write_idx, void* read_idx, int rate), {
+  const source = `class MeleeOut extends AudioWorkletProcessor {
+    constructor(options) {
+      super();
+      const o = options.processorOptions;
+      this.ring = new Float32Array(o.buffer, o.ring, o.frames * 2);
+      this.w = new Uint32Array(o.buffer, o.write, 1);
+      this.r = new Uint32Array(o.buffer, o.read, 1);
+      this.mask = o.frames - 1;
+      this.step = o.rate / sampleRate; /* game frames per output frame */
+      this.pos = 0;
+    }
+    process(inputs, outputs) {
+      const [left, right] = outputs[0];
+      const ring = this.ring, mask = this.mask;
+      let read = Atomics.load(this.r, 0);
+      const write = Atomics.load(this.w, 0);
+      for (let i = 0; i < left.length; i++) {
+        if (((write - read) >>> 0) < 2) { left[i] = 0; if (right) right[i] = 0; continue; }
+        const a = (read & mask) * 2, b = ((read + 1) & mask) * 2, t = this.pos;
+        left[i] = ring[a] + (ring[b] - ring[a]) * t;
+        if (right) right[i] = ring[a + 1] + (ring[b + 1] - ring[a + 1]) * t;
+        this.pos += this.step;
+        while (this.pos >= 1) { this.pos -= 1; read = (read + 1) >>> 0; }
+      }
+      Atomics.store(this.r, 0, read);
+      return true;
+    }
+  }
+  registerProcessor('melee-out', MeleeOut);`;
+  let ctx;
+  try {
+    ctx = new AudioContext({ sampleRate: rate, latencyHint: 'interactive' });
+  } catch (e) {
+    ctx = new AudioContext({ latencyHint: 'interactive' }); /* the worklet resamples */
+  }
+  const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+  ctx.audioWorklet.addModule(url).then(() => {
+    const node = new AudioWorkletNode(ctx, 'melee-out', {
+      numberOfInputs: 0, outputChannelCount: [2],
+      processorOptions: { buffer: HEAPU8.buffer, ring, frames, write: write_idx, read: read_idx, rate },
+    });
+    node.connect(ctx.destination);
+    Module.meleeAudioNode = node; /* for the page and its tests */
+  }).catch((e) => err('audio: AudioWorklet unavailable: ' + e));
+  /* Autoplay policy: start (again) on the next user gesture. */
+  const resume = () => { if (ctx.state !== 'running') ctx.resume(); };
+  for (const type of ['pointerdown', 'keydown', 'touchend']) window.addEventListener(type, resume, true);
+  resume();
+  Module.meleeAudioContext = ctx;
+  return 1;
+});
+// clang-format on
+
 void pc_audio_pump(void) {
     static int pumping;
-    if (pumping || !s_stream)
+    if (pumping || !s_web_ready)
         return;
     pumping = 1;
     float frame[AX_FRAME * 2];
-    // Keep the browser consumer fed without re-entering game callbacks from JS.
-    while (SDL_GetAudioStreamQueued(s_stream) < AX_RATE * 2 * sizeof(float) / 20) {
+    uint32_t w = atomic_load_explicit(&s_web_write, memory_order_relaxed);
+    while (
+        (uint32_t)(w - atomic_load_explicit(&s_web_read, memory_order_acquire)) < WEB_QUEUE_FRAMES)
+    {
         render_frame(frame);
-        if (!SDL_PutAudioStreamData(s_stream, frame, sizeof(frame)))
-            break;
+        if (s_dump) {
+            fwrite(frame, sizeof(frame), 1, s_dump);
+        }
+        for (int i = 0; i < AX_FRAME; i++) {
+            const uint32_t k = ((w + i) & (WEB_RING_FRAMES - 1)) * 2;
+            s_web_ring[k] = frame[2 * i] * s_master_volume;
+            s_web_ring[k + 1] = frame[2 * i + 1] * s_master_volume;
+        }
+        w += AX_FRAME;
+        atomic_store_explicit(&s_web_write, w, memory_order_release);
     }
     pumping = 0;
 }
@@ -808,6 +889,13 @@ void AXInit(void) {
     if (s_dump == NULL && getenv("MELEE_AUDIO_DUMP") != NULL) {
         s_dump = fopen(getenv("MELEE_AUDIO_DUMP"), "wb");
     }
+#ifdef __EMSCRIPTEN__
+    if (!s_web_ready) {
+        s_web_ready = web_audio_start(s_web_ring, WEB_RING_FRAMES, (void*)&s_web_write,
+                          (void*)&s_web_read, AX_RATE) != 0;
+    }
+    return;
+#endif
     if (s_stream == NULL) {
         const SDL_AudioSpec spec = {SDL_AUDIO_F32, 2, AX_RATE};
         if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
