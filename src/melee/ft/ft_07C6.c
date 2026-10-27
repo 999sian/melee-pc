@@ -101,11 +101,16 @@ void ft_8007C77C(Fighter_GObj* gobj)
             continue;
         }
         var_r29 = 0;
+        /* PORT: read the flags through it_2E5A_ItemVars, which is what the
+         * coin writes. Its x18 is an UnkFlagStruct (a DISC_STRUCT, so b0 is
+         * the top bit, as on GameCube), but itUnk4_ItemVars::xDEC_b0/b1 are
+         * plain host bitfields, i.e. the low bits. Read through the itUnk4
+         * view, the fighter saw only leftover bits the coin never clears. */
         if (ftLib_IsSamePlayer(gobj, ip->owner) != 0) {
-            if (ip->xDD4_itemVar.unk4.xDEC_b1) {
+            if (ip->xDD4_itemVar.it_2E5A.x18.x0.b1) {
                 var_r29 = 1;
             }
-        } else if (ip->xDD4_itemVar.unk4.xDEC_b0) {
+        } else if (ip->xDD4_itemVar.it_2E5A.x18.x0.b0) {
             var_r29 = 1;
         }
         if (!var_r29) {
