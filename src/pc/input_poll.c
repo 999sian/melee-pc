@@ -159,6 +159,10 @@ bool pc_input_latency(float* mean_ms, float* max_ms, float* p99_ms) {
     return true;
 }
 
+void pc_input_note_sample(void) {
+    atomic_store_explicit(&s_sample_ns, SDL_GetTicksNS(), memory_order_relaxed);
+}
+
 void pc_input_latency_record(void) {
     const uint64_t sampled = atomic_load_explicit(&s_sample_ns, memory_order_relaxed);
     if (sampled == 0) {

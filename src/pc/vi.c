@@ -22,6 +22,7 @@ extern void browser_yield(void);
 #include <stdlib.h>
 #include <string.h>
 
+#include "pc/input_poll.h"
 #include "pc/pc.h"
 #include "pc/launcher.h"
 #include "pc/touch.h"
@@ -78,6 +79,48 @@ static void pc_pace_wait(u64 ns) {
 #else
 #define PC_PACE_ALWAYS 0
 #define pc_pace_wait SDL_DelayPrecise
+#endif
+
+/* One pass over the platform's events: quit, the F1 overlay, keyboard and
+ * touch (pc_frame_boundary, pc_refresh_input). */
+static void pc_handle_events(const AuroraEvent* event) {
+    while (event != NULL && event->type != AURORA_NONE) {
+        if (event->type == AURORA_EXIT) {
+            pc_exit_requested = true;
+        } else if (event->type == AURORA_SDL_EVENT) {
+            if (event->sdl.type == SDL_EVENT_KEY_DOWN &&
+                event->sdl.key.scancode == SDL_SCANCODE_F1 && !event->sdl.key.repeat)
+                pc_menu_toggle();
+            pc_menu_event(&event->sdl);
+            pc_keyboard_event(&event->sdl);
+            pc_touch_event(&event->sdl);
+        }
+        ++event;
+    }
+}
+
+#ifdef __EMSCRIPTEN__
+/* Read the controllers again after the pacing sleep, just before the pad
+ * alarm samples them. The pump above runs before the sleep, which is most of
+ * a frame, so the tick consumed input that old, and a key pressed during the
+ * sleep waited for the next frame's pump: the "polling drift" Slippi's lag
+ * reduction removes. Natively the 1000 Hz poll thread (input_poll.c) keeps
+ * gamepads current; the page has no such thread. Pumping twice is safe
+ * (aurora_update only applies pending viewport changes besides polling).
+ * MELEE_INPUT_REFRESH=0 turns it off, to measure the difference. */
+static void pc_refresh_input(void) {
+    static int on = -1;
+    if (on < 0) {
+        const char* env = getenv("MELEE_INPUT_REFRESH");
+        on = env == NULL || env[0] != '0';
+    }
+    if (!on) {
+        return;
+    }
+    pc_handle_events(aurora_update());
+    pc_keyboard_apply();
+    pc_input_note_sample();
+}
 #endif
 
 void pc_frame_boundary(void) {
@@ -212,25 +255,16 @@ void pc_frame_boundary(void) {
             pc_log_line("net timing: aurora_update %.1f ms at retrace %u frame %d", elapsed / 1e6,
                 s_retrace_count, pc_net_frame());
     }
-    while (event != NULL && event->type != AURORA_NONE) {
-        if (event->type == AURORA_EXIT) {
-            pc_exit_requested = true;
-        } else if (event->type == AURORA_SDL_EVENT) {
-            if (event->sdl.type == SDL_EVENT_KEY_DOWN &&
-                event->sdl.key.scancode == SDL_SCANCODE_F1 && !event->sdl.key.repeat)
-                pc_menu_toggle();
-            pc_menu_event(&event->sdl);
-            pc_keyboard_event(&event->sdl);
-            pc_touch_event(&event->sdl);
-        }
-        ++event;
-    }
+    pc_handle_events(event);
     pc_menu_update();
     /* Nothing draws while the overlay pauses the game, so hold the last
      * frame instead of clearing the EFB to black underneath the menu. */
     aurora_preserve_frame_buffer(pc_menu_is_open());
     pc_keyboard_apply();
     aurora_trace_end(update_trace);
+#ifdef __EMSCRIPTEN__
+    pc_input_note_sample();
+#endif
     /* MELEE_EXIT_AFTER_FRAMES=<n>: bound a scripted run without needing
      * synthetic input, which is unreliable under Xwayland. Setting
      * pc_exit_requested instead of exiting here on purpose: the window-close
@@ -297,6 +331,7 @@ void pc_frame_boundary(void) {
 #ifdef __EMSCRIPTEN__
     if (!s_pace_waited)
         browser_yield(); /* every frame returns to the event loop at least once */
+    pc_refresh_input();
 #endif
 
     /* aurora_begin_frame returns false while minimized/paused; keep pumping.

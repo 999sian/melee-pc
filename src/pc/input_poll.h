@@ -26,6 +26,11 @@ uint64_t pc_input_poll_get_count(void);
 /* Smoothed poll-thread rate (Hz) for the diagnostic HUD. */
 float pc_input_poll_hz(void);
 
+/* Where there is no poll thread (the browser), the frame boundary reads the
+ * controllers itself and stamps the read here, so pc_input_latency_record()
+ * measures the same thing: how old the sample the tick consumes is. */
+void pc_input_note_sample(void);
+
 #ifdef __cplusplus
 }
 #endif
